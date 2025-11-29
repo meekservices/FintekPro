@@ -10322,3 +10322,507 @@ export const governmentSchemeAudit = pgTable("government_scheme_audit", {
 
 export type GovernmentSchemeAuditLog = typeof governmentSchemeAudit.$inferSelect;
 export type InsertGovernmentSchemeAuditLog = typeof governmentSchemeAudit.$inferInsert;
+
+// ============================================
+// FIXED INCOME MARKETPLACE COMPREHENSIVE SCHEMA
+// ============================================
+
+// NCD Public Issues - New Issue NCDs from lead managers
+export const ncdPublicIssues = pgTable("ncd_public_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Issue identification
+  issueId: varchar("issue_id").notNull().unique(),
+  issuerName: varchar("issuer_name").notNull(),
+  issueName: text("issue_name").notNull(),
+  isin: varchar("isin"),
+  
+  // Issue details
+  issueType: varchar("issue_type").notNull(), // 'public_issue', 'private_placement'
+  ncdCategory: varchar("ncd_category").notNull(), // 'secured', 'unsecured', 'subordinated'
+  
+  // Dates
+  issueOpenDate: date("issue_open_date").notNull(),
+  issueCloseDate: date("issue_close_date").notNull(),
+  allotmentDate: date("allotment_date"),
+  listingDate: date("listing_date"),
+  maturityDate: date("maturity_date").notNull(),
+  tenorYears: decimal("tenor_years", { precision: 5, scale: 2 }).notNull(),
+  
+  // Pricing and yield
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).default("1000"),
+  issuePrice: decimal("issue_price", { precision: 15, scale: 2 }),
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }).notNull(),
+  couponFrequency: varchar("coupon_frequency").notNull(), // 'annual', 'semi_annual', 'quarterly', 'monthly', 'cumulative'
+  effectiveYield: decimal("effective_yield", { precision: 8, scale: 4 }),
+  
+  // Issue size
+  issueSize: decimal("issue_size", { precision: 15, scale: 2 }), // Total issue size in crores
+  baseSizeTarget: decimal("base_size_target", { precision: 15, scale: 2 }),
+  greenShoeOption: decimal("green_shoe_option", { precision: 15, scale: 2 }),
+  minimumApplication: decimal("minimum_application", { precision: 15, scale: 2 }).default("10000"),
+  lotSize: integer("lot_size").default(10),
+  
+  // Credit ratings
+  creditRating: varchar("credit_rating").notNull(), // 'AAA', 'AA+', 'AA', etc.
+  ratingAgency: varchar("rating_agency").notNull(), // 'CRISIL', 'ICRA', 'CARE', 'India Ratings'
+  outlookStatus: varchar("outlook_status").default("stable"), // 'stable', 'positive', 'negative'
+  
+  // Lead managers and registrar
+  leadManagers: jsonb("lead_managers").default([]), // Array of lead manager names
+  registrar: varchar("registrar"),
+  debentureTrustee: varchar("debenture_trustee"),
+  
+  // Security details
+  secured: boolean("secured").default(true),
+  securityCover: decimal("security_cover", { precision: 5, scale: 2 }), // e.g., 1.25x
+  collateralType: text("collateral_type"),
+  
+  // Tax benefits
+  taxStatus: varchar("tax_status").default("taxable"),
+  taxBenefitSection: varchar("tax_benefit_section"),
+  
+  // Investor categories
+  categoryAllocation: jsonb("category_allocation").default({}), // { retail: 25, hni: 25, institutional: 50 }
+  
+  // Status
+  issueStatus: varchar("issue_status").default("upcoming"), // 'upcoming', 'open', 'closed', 'allotted', 'listed'
+  listingExchange: varchar("listing_exchange").default("bse"), // 'bse', 'nse', 'both'
+  
+  // Documents
+  prospectusUrl: text("prospectus_url"),
+  ratingRationaleUrl: text("rating_rationale_url"),
+  applicationFormUrl: text("application_form_url"),
+  
+  // Subscription details (updated during issue period)
+  totalSubscription: decimal("total_subscription", { precision: 15, scale: 2 }),
+  subscriptionTimes: decimal("subscription_times", { precision: 8, scale: 4 }),
+  retailSubscriptionTimes: decimal("retail_subscription_times", { precision: 8, scale: 4 }),
+  
+  // Metadata
+  sebiFilingDate: date("sebi_filing_date"),
+  dataSource: varchar("data_source").default("manual"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_ncd_issues_status").on(table.issueStatus),
+  index("idx_ncd_issues_open_date").on(table.issueOpenDate),
+  index("idx_ncd_issues_issuer").on(table.issuerName),
+]);
+
+export type NcdPublicIssue = typeof ncdPublicIssues.$inferSelect;
+export type InsertNcdPublicIssue = typeof ncdPublicIssues.$inferInsert;
+
+// Bond Coupon Payments - Track coupon/interest payments for holdings
+export const bondCouponPayments = pgTable("bond_coupon_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User and holding
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  holdingId: varchar("holding_id").references(() => bondHoldings.id),
+  
+  // Bond details
+  isin: varchar("isin").notNull(),
+  bondName: text("bond_name").notNull(),
+  bondType: varchar("bond_type").notNull(), // 'government', 'corporate'
+  
+  // Payment details
+  paymentType: varchar("payment_type").notNull(), // 'coupon', 'interest', 'maturity_principal', 'partial_redemption'
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }).notNull(),
+  faceValueHeld: decimal("face_value_held", { precision: 15, scale: 2 }).notNull(),
+  
+  // Amounts
+  grossAmount: decimal("gross_amount", { precision: 15, scale: 2 }).notNull(),
+  tdsDeducted: decimal("tds_deducted", { precision: 15, scale: 2 }).default("0"),
+  netAmount: decimal("net_amount", { precision: 15, scale: 2 }).notNull(),
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }),
+  
+  // Dates
+  recordDate: date("record_date").notNull(),
+  paymentDate: date("payment_date").notNull(),
+  actualPaymentDate: date("actual_payment_date"),
+  
+  // Status
+  paymentStatus: varchar("payment_status").default("scheduled"), // 'scheduled', 'paid', 'pending', 'delayed', 'defaulted'
+  
+  // Payment tracking
+  paymentReference: varchar("payment_reference"),
+  creditedToAccount: varchar("credited_to_account"),
+  
+  // Form 26AS tracking
+  form26asReflected: boolean("form_26as_reflected").default(false),
+  tanNumber: varchar("tan_number"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_coupons_user").on(table.userId),
+  index("idx_bond_coupons_holding").on(table.holdingId),
+  index("idx_bond_coupons_payment_date").on(table.paymentDate),
+  index("idx_bond_coupons_status").on(table.paymentStatus),
+]);
+
+export type BondCouponPayment = typeof bondCouponPayments.$inferSelect;
+export type InsertBondCouponPayment = typeof bondCouponPayments.$inferInsert;
+
+// Bond Suitability Checks - Risk assessment before bond purchase
+export const bondSuitabilityChecks = pgTable("bond_suitability_checks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Check details
+  checkType: varchar("check_type").notNull(), // 'pre_purchase', 'periodic_review', 'kyc_update'
+  
+  // KYC verification
+  kycLevel: varchar("kyc_level").notNull(), // 'basic', 'full', 'enhanced', 'accredited_investor'
+  kycVerified: boolean("kyc_verified").default(false),
+  ckycNumber: varchar("ckyc_number"),
+  kraStatus: varchar("kra_status"),
+  
+  // Demat verification
+  dematVerified: boolean("demat_verified").default(false),
+  dpId: varchar("dp_id"),
+  clientId: varchar("client_id"),
+  dematAccountNumber: varchar("demat_account_number"),
+  depositoryParticipant: varchar("depository_participant"),
+  
+  // Risk profile
+  investorRiskProfile: varchar("investor_risk_profile"), // 'conservative', 'moderate', 'aggressive'
+  maxCreditRatingAllowed: varchar("max_credit_rating_allowed"), // e.g., 'AA-' means AA- and above
+  
+  // Suitability declarations (SEBI requirements)
+  highRiskDebtAcknowledged: boolean("high_risk_debt_acknowledged").default(false),
+  defaultRiskAcknowledged: boolean("default_risk_acknowledged").default(false),
+  reinvestmentRiskAcknowledged: boolean("reinvestment_risk_acknowledged").default(false),
+  liquidityRiskAcknowledged: boolean("liquidity_risk_acknowledged").default(false),
+  
+  // Accredited investor (for private placement)
+  isAccreditedInvestor: boolean("is_accredited_investor").default(false),
+  accreditedInvestorCertificateId: varchar("accredited_investor_certificate_id"),
+  accreditedInvestorValidUntil: date("accredited_investor_valid_until"),
+  
+  // Investment limits
+  maxSingleBondExposure: decimal("max_single_bond_exposure", { precision: 15, scale: 2 }),
+  maxIssuerExposure: decimal("max_issuer_exposure", { precision: 15, scale: 2 }),
+  maxFixedIncomeAllocation: decimal("max_fixed_income_allocation", { precision: 5, scale: 2 }), // % of portfolio
+  
+  // Result
+  suitabilityResult: varchar("suitability_result").notNull(), // 'approved', 'conditional', 'rejected'
+  restrictionLevel: varchar("restriction_level"), // 'none', 'rating_restricted', 'amount_restricted', 'blocked'
+  restrictionDetails: text("restriction_details"),
+  
+  // IP and device tracking (PMLA compliance)
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprint: varchar("device_fingerprint"),
+  
+  // Validity
+  validFrom: timestamp("valid_from").defaultNow(),
+  validUntil: timestamp("valid_until"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_suitability_user").on(table.userId),
+  index("idx_bond_suitability_result").on(table.suitabilityResult),
+  index("idx_bond_suitability_valid").on(table.validUntil),
+]);
+
+export type BondSuitabilityCheck = typeof bondSuitabilityChecks.$inferSelect;
+export type InsertBondSuitabilityCheck = typeof bondSuitabilityChecks.$inferInsert;
+
+// Fixed Income Compliance Audit Log - 7-year retention (PMLA compliant)
+export const fixedIncomeAuditLog = pgTable("fixed_income_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User and session
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sessionId: varchar("session_id"),
+  
+  // Event details
+  eventType: varchar("event_type").notNull(), 
+  // Events: 'order_placed', 'order_executed', 'order_cancelled', 'payment_initiated', 'payment_completed',
+  // 'demat_credit', 'coupon_received', 'suitability_check', 'kyc_verification', 'risk_acknowledgement',
+  // 'document_download', 'price_enquiry', 'watchlist_add', 'complaint_filed'
+  
+  eventCategory: varchar("event_category").notNull(), // 'trading', 'payment', 'compliance', 'account', 'support'
+  
+  // Entity details
+  entityType: varchar("entity_type"), // 'order', 'bond', 'payment', 'complaint'
+  entityId: varchar("entity_id"),
+  isin: varchar("isin"),
+  bondName: text("bond_name"),
+  
+  // Event data
+  eventData: jsonb("event_data").default({}),
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  
+  // Financial details (if applicable)
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  currency: varchar("currency").default("INR"),
+  
+  // Result
+  eventResult: varchar("event_result").notNull(), // 'success', 'failure', 'pending'
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  
+  // Source tracking
+  eventSource: varchar("event_source").notNull(), // 'web', 'mobile_app', 'api', 'admin', 'system'
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceId: varchar("device_id"),
+  
+  // Exchange/external references
+  exchangeOrderId: varchar("exchange_order_id"),
+  exchangeTransactionId: varchar("exchange_transaction_id"),
+  paymentGatewayRef: varchar("payment_gateway_ref"),
+  
+  // Regulatory compliance
+  regulatoryReportingRequired: boolean("regulatory_reporting_required").default(false),
+  regulatoryReportId: varchar("regulatory_report_id"),
+  
+  // Retention
+  retentionExpiresAt: timestamp("retention_expires_at").notNull(),
+  
+  // Timestamps
+  eventTimestamp: timestamp("event_timestamp").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_fi_audit_user").on(table.userId),
+  index("idx_fi_audit_event_type").on(table.eventType),
+  index("idx_fi_audit_category").on(table.eventCategory),
+  index("idx_fi_audit_timestamp").on(table.eventTimestamp),
+  index("idx_fi_audit_isin").on(table.isin),
+  index("idx_fi_audit_retention").on(table.retentionExpiresAt),
+]);
+
+export type FixedIncomeAuditLog = typeof fixedIncomeAuditLog.$inferSelect;
+export type InsertFixedIncomeAuditLog = typeof fixedIncomeAuditLog.$inferInsert;
+
+// Bond Watchlist - User's bond tracking list
+export const bondWatchlist = pgTable("bond_watchlist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Bond details
+  bondId: varchar("bond_id"),
+  bondType: varchar("bond_type").notNull(), // 'government', 'corporate', 'ncd_issue'
+  isin: varchar("isin"),
+  issueId: varchar("issue_id"), // For NCD public issues
+  bondName: text("bond_name").notNull(),
+  issuer: varchar("issuer").notNull(),
+  
+  // Tracking preferences
+  alertOnPriceChange: boolean("alert_on_price_change").default(true),
+  priceAlertThreshold: decimal("price_alert_threshold", { precision: 5, scale: 2 }), // % change
+  alertOnYieldChange: boolean("alert_on_yield_change").default(false),
+  yieldAlertThreshold: decimal("yield_alert_threshold", { precision: 5, scale: 2 }),
+  alertOnRatingChange: boolean("alert_on_rating_change").default(true),
+  alertOnIssueOpen: boolean("alert_on_issue_open").default(true), // For upcoming NCDs
+  
+  // Target price for buy
+  targetBuyPrice: decimal("target_buy_price", { precision: 15, scale: 4 }),
+  targetBuyYield: decimal("target_buy_yield", { precision: 8, scale: 4 }),
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  // Metadata
+  addedAt: timestamp("added_at").defaultNow(),
+  lastAlertSent: timestamp("last_alert_sent"),
+}, (table) => [
+  index("idx_bond_watchlist_user").on(table.userId),
+  index("idx_bond_watchlist_isin").on(table.isin),
+  index("idx_bond_watchlist_active").on(table.isActive),
+]);
+
+export type BondWatchlistItem = typeof bondWatchlist.$inferSelect;
+export type InsertBondWatchlistItem = typeof bondWatchlist.$inferInsert;
+
+// SGB Primary Issues - Sovereign Gold Bond issue windows
+export const sgbPrimaryIssues = pgTable("sgb_primary_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Issue identification
+  seriesName: varchar("series_name").notNull().unique(), // e.g., "SGB 2024-25 Series I"
+  trancheNumber: varchar("tranche_number").notNull(),
+  fiscalYear: varchar("fiscal_year").notNull(), // e.g., "2024-25"
+  
+  // Dates
+  issueOpenDate: date("issue_open_date").notNull(),
+  issueCloseDate: date("issue_close_date").notNull(),
+  settlementDate: date("settlement_date").notNull(),
+  dateOfIssuance: date("date_of_issuance").notNull(),
+  maturityDate: date("maturity_date").notNull(),
+  
+  // Pricing
+  issuePrice: decimal("issue_price", { precision: 15, scale: 2 }).notNull(), // Per gram of gold
+  discountOnlinePayment: decimal("discount_online_payment", { precision: 15, scale: 2 }).default("50"), // Rs 50 per gram
+  effectivePrice: decimal("effective_price", { precision: 15, scale: 2 }), // After online discount
+  
+  // Gold reference
+  goldReferencePrice: decimal("gold_reference_price", { precision: 15, scale: 2 }), // Simple average of gold price
+  goldReferencePeriodStart: date("gold_reference_period_start"),
+  goldReferencePeriodEnd: date("gold_reference_period_end"),
+  
+  // Interest details
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }).default("2.50"), // Fixed 2.5% per annum
+  interestPaymentFrequency: varchar("interest_payment_frequency").default("semi_annual"),
+  
+  // Investment limits
+  minimumInvestment: integer("minimum_investment").default(1), // In grams
+  maximumIndividualLimit: integer("maximum_individual_limit").default(4000), // 4 kg per fiscal year
+  maximumHufLimit: integer("maximum_huf_limit").default(4000),
+  maximumTrustLimit: integer("maximum_trust_limit").default(20000), // 20 kg
+  
+  // Early redemption
+  earlyRedemptionAllowed: boolean("early_redemption_allowed").default(true),
+  earlyRedemptionFromYear: integer("early_redemption_from_year").default(5), // After 5th year
+  
+  // Tax benefits
+  capitalGainsTaxExempt: boolean("capital_gains_tax_exempt").default(true), // On redemption at maturity
+  interestTaxable: boolean("interest_taxable").default(true),
+  
+  // Application channels
+  applicationChannels: jsonb("application_channels").default(["banks", "post_offices", "stock_exchanges", "agents"]),
+  
+  // Status
+  issueStatus: varchar("issue_status").default("upcoming"), // 'upcoming', 'open', 'closed', 'allotted'
+  
+  // RBI notification
+  rbiNotificationNumber: varchar("rbi_notification_number"),
+  rbiNotificationDate: date("rbi_notification_date"),
+  
+  // Metadata
+  dataSource: varchar("data_source").default("rbi"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_sgb_issues_status").on(table.issueStatus),
+  index("idx_sgb_issues_open_date").on(table.issueOpenDate),
+  index("idx_sgb_issues_fiscal_year").on(table.fiscalYear),
+]);
+
+export type SgbPrimaryIssue = typeof sgbPrimaryIssues.$inferSelect;
+export type InsertSgbPrimaryIssue = typeof sgbPrimaryIssues.$inferInsert;
+
+// RBI Retail Direct Integration - User's RDG account linking
+export const rbiRetailDirectAccounts = pgTable("rbi_retail_direct_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // RDG Account details
+  rdgAccountNumber: varchar("rdg_account_number").unique(),
+  rdgAccountStatus: varchar("rdg_account_status").default("pending"), // 'pending', 'active', 'suspended', 'closed'
+  
+  // Linking details
+  linkingStatus: varchar("linking_status").default("not_linked"), // 'not_linked', 'pending_verification', 'linked', 'failed'
+  linkingRequestId: varchar("linking_request_id"),
+  linkedAt: timestamp("linked_at"),
+  
+  // Bank account for settlement
+  settlementBankName: varchar("settlement_bank_name"),
+  settlementAccountNumber: varchar("settlement_account_number"),
+  settlementIfscCode: varchar("settlement_ifsc_code"),
+  
+  // Holdings sync
+  lastHoldingsSync: timestamp("last_holdings_sync"),
+  holdingsSyncStatus: varchar("holdings_sync_status"), // 'success', 'failed', 'pending'
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_rbi_rdg_user").on(table.userId),
+  index("idx_rbi_rdg_status").on(table.rdgAccountStatus),
+]);
+
+export type RbiRetailDirectAccount = typeof rbiRetailDirectAccounts.$inferSelect;
+export type InsertRbiRetailDirectAccount = typeof rbiRetailDirectAccounts.$inferInsert;
+
+// Bond NCD Applications - User applications for NCD public issues
+export const bondNcdApplications = pgTable("bond_ncd_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Issue details
+  issueId: varchar("issue_id").references(() => ncdPublicIssues.id).notNull(),
+  
+  // Application details
+  applicationNumber: varchar("application_number").notNull().unique(),
+  applicationDate: timestamp("application_date").defaultNow(),
+  
+  // Category
+  investorCategory: varchar("investor_category").notNull(), // 'retail', 'hni', 'institutional'
+  
+  // Series selection (NCDs often have multiple series with different tenors)
+  seriesOptions: jsonb("series_options").default([]), // Array of { seriesId, tenor, couponRate, quantity, amount }
+  
+  // Quantity and amount
+  totalQuantity: integer("total_quantity").notNull(),
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
+  
+  // Payment details
+  paymentStatus: varchar("payment_status").default("pending"), // 'pending', 'paid', 'failed', 'refunded'
+  paymentMethod: varchar("payment_method"), // 'netbanking', 'upi', 'asba'
+  paymentReference: varchar("payment_reference"),
+  paymentDate: timestamp("payment_date"),
+  
+  // ASBA details (if using ASBA)
+  asbaAccountNumber: varchar("asba_account_number"),
+  asbaBankName: varchar("asba_bank_name"),
+  asbaBlockedAmount: decimal("asba_blocked_amount", { precision: 15, scale: 2 }),
+  
+  // Demat details
+  dematAccountNumber: varchar("demat_account_number").notNull(),
+  dpId: varchar("dp_id").notNull(),
+  clientId: varchar("client_id").notNull(),
+  
+  // Allotment details
+  applicationStatus: varchar("application_status").default("submitted"), 
+  // 'submitted', 'under_processing', 'allotted', 'partially_allotted', 'rejected', 'refunded'
+  allottedQuantity: integer("allotted_quantity"),
+  allottedAmount: decimal("allotted_amount", { precision: 15, scale: 2 }),
+  allotmentDate: date("allotment_date"),
+  refundAmount: decimal("refund_amount", { precision: 15, scale: 2 }),
+  refundDate: date("refund_date"),
+  
+  // Registrar reference
+  registrarApplicationId: varchar("registrar_application_id"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ncd_applications_user").on(table.userId),
+  index("idx_ncd_applications_issue").on(table.issueId),
+  index("idx_ncd_applications_status").on(table.applicationStatus),
+]);
+
+export type BondNcdApplication = typeof bondNcdApplications.$inferSelect;
+export type InsertBondNcdApplication = typeof bondNcdApplications.$inferInsert;
+
+// Drizzle Zod schemas for Fixed Income
+export const insertNcdPublicIssueSchema = createInsertSchema(ncdPublicIssues).omit({ id: true, createdAt: true, lastUpdated: true });
+export const insertBondCouponPaymentSchema = createInsertSchema(bondCouponPayments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBondSuitabilityCheckSchema = createInsertSchema(bondSuitabilityChecks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFixedIncomeAuditLogSchema = createInsertSchema(fixedIncomeAuditLog).omit({ id: true, createdAt: true });
+export const insertBondWatchlistItemSchema = createInsertSchema(bondWatchlist).omit({ id: true, addedAt: true });
+export const insertSgbPrimaryIssueSchema = createInsertSchema(sgbPrimaryIssues).omit({ id: true, createdAt: true, lastUpdated: true });
+export const insertRbiRetailDirectAccountSchema = createInsertSchema(rbiRetailDirectAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBondNcdApplicationSchema = createInsertSchema(bondNcdApplications).omit({ id: true, createdAt: true, updatedAt: true });
