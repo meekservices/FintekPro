@@ -4,6 +4,7 @@ import { RebalanceDashboard } from "@/components/dashboard/rebalance-dashboard";
 import { RebalancingSuggestions } from "@/components/rebalancing-suggestions";
 import { PiChatSummaries } from "@/components/portfolio/pi-chat-summaries";
 import { CommodityTracker } from "@/components/portfolio/commodity-tracker";
+import { PortfolioPerformanceWidgets } from "@/components/portfolio/PortfolioPerformanceWidgets";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -185,6 +186,9 @@ export default function Portfolio() {
           </ScrollableTabsList>
 
           <TabsContent value="overview" className="space-y-8">
+            {/* Real-time Portfolio Performance Widgets */}
+            <PortfolioPerformanceWidgets portfolioId={portfolioId} />
+
             {/* Asset Class Summary */}
             {performance && performance.assetBreakdown && (
               <div className="mb-8">

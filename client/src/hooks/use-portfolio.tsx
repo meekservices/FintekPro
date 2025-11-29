@@ -114,10 +114,12 @@ export function useCreatePortfolio() {
   
   return useMutation({
     mutationFn: async (portfolioData: any) => {
-      const response = await apiRequest("POST", "/api/portfolios", portfolioData);
-      return response.json();
+      return await apiRequest("/api/portfolios", {
+        method: "POST",
+        body: JSON.stringify(portfolioData),
+      });
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/portfolios'] });
     },
   });
@@ -128,10 +130,12 @@ export function useAddHolding() {
   
   return useMutation({
     mutationFn: async ({ portfolioId, holdingData }: { portfolioId: string; holdingData: any }) => {
-      const response = await apiRequest("POST", `/api/portfolios/${portfolioId}/holdings`, holdingData);
-      return response.json();
+      return await apiRequest(`/api/portfolios/${portfolioId}/holdings`, {
+        method: "POST",
+        body: JSON.stringify(holdingData),
+      });
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ 
         queryKey: ['/api/portfolios', variables.portfolioId, 'holdings'] 
       });
@@ -147,12 +151,12 @@ export function useRebalancePortfolio() {
   
   return useMutation({
     mutationFn: async ({ portfolioId, targetAllocations }: { portfolioId: string; targetAllocations: any[] }) => {
-      const response = await apiRequest("POST", `/api/portfolios/${portfolioId}/rebalance`, {
-        body: { targetAllocations }
+      return await apiRequest(`/api/portfolios/${portfolioId}/rebalance`, {
+        method: "POST",
+        body: JSON.stringify({ targetAllocations }),
       });
-      return response.json();
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ 
         queryKey: ['/api/portfolios', variables.portfolioId, 'allocation'] 
       });

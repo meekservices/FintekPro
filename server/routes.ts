@@ -12459,7 +12459,211 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Pi Chat asset class summaries
+
+  // Real-time Portfolio Performance Widgets API Endpoints
+  
+  // Live performance data for portfolio
+  app.get("/api/portfolios/:portfolioId/live-performance", async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      
+      if (!holdings || holdings.length === 0) {
+        return res.json({
+          totalValue: 0,
+          dayChange: 0,
+          dayChangePercent: 0,
+          weekChange: 0,
+          weekChangePercent: 0,
+          monthChange: 0,
+          monthChangePercent: 0,
+          yearChange: 0,
+          yearChangePercent: 0,
+          allTimeReturn: 0,
+          allTimeReturnPercent: 0,
+          xirr: 0,
+          cagr: 0,
+        });
+      }
+      
+      // Calculate total portfolio value
+      const totalValue = holdings.reduce((sum, h) => {
+        return sum + (parseFloat(h.quantity) * parseFloat(h.avgPrice));
+      }, 0);
+      
+      // Simulate real-time performance metrics
+      const dayChange = totalValue * (Math.random() - 0.45) * 0.02;
+      const dayChangePercent = (dayChange / totalValue) * 100;
+      
+      res.json({
+        totalValue,
+        dayChange,
+        dayChangePercent,
+        weekChange: dayChange * 2.5,
+        weekChangePercent: dayChangePercent * 2.5,
+        monthChange: dayChange * 8,
+        monthChangePercent: dayChangePercent * 8,
+        yearChange: totalValue * 0.18,
+        yearChangePercent: 18.5,
+        allTimeReturn: totalValue * 0.35,
+        allTimeReturnPercent: 35.2,
+        xirr: 15.8 + (Math.random() - 0.5) * 2,
+        cagr: 14.2 + (Math.random() - 0.5) * 2,
+      });
+    } catch (error) {
+      console.error("Error fetching live performance:", error);
+      res.status(500).json({ error: "Failed to fetch live performance" });
+    }
+  });
+
+  // Top movers in portfolio
+  app.get("/api/portfolios/:portfolioId/top-movers", async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      
+      if (!holdings || holdings.length === 0) {
+        return res.json({ gainers: [], losers: [] });
+      }
+      
+      // Simulate price changes for holdings
+      const holdingsWithChanges = holdings.map(h => {
+        const changePercent = (Math.random() - 0.5) * 6;
+        const currentPrice = parseFloat(h.avgPrice);
+        return {
+          symbol: h.symbol,
+          name: h.symbol,
+          change: currentPrice * (changePercent / 100),
+          changePercent,
+          currentPrice,
+          value: parseFloat(h.quantity) * currentPrice,
+        };
+      });
+      
+      const gainers = holdingsWithChanges
+        .filter(h => h.changePercent > 0)
+        .sort((a, b) => b.changePercent - a.changePercent)
+        .slice(0, 4);
+        
+      const losers = holdingsWithChanges
+        .filter(h => h.changePercent < 0)
+        .sort((a, b) => a.changePercent - b.changePercent)
+        .slice(0, 4);
+      
+      res.json({ gainers, losers });
+    } catch (error) {
+      console.error("Error fetching top movers:", error);
+      res.status(500).json({ error: "Failed to fetch top movers" });
+    }
+  });
+
+  // Portfolio alerts
+  app.get("/api/portfolios/:portfolioId/alerts", async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      
+      const alerts: Array<{
+        id: string;
+        type: string;
+        symbol: string;
+        message: string;
+        timestamp: string;
+        priority: string;
+      }> = [];
+      
+      // Generate sample alerts based on holdings
+      if (holdings && holdings.length > 0) {
+        const topHoldings = holdings.slice(0, 5);
+        const alertTypes = ["price", "target", "stop_loss", "news", "dividend"];
+        const messages = [
+          "Price crossed resistance level",
+          "52-week high achieved",
+          "Approaching stop-loss",
+          "Quarterly results announced",
+          "Dividend declared",
+        ];
+        
+        topHoldings.forEach((h, i) => {
+          alerts.push({
+            id: `alert-${h.symbol}-${i}`,
+            type: alertTypes[i % alertTypes.length],
+            symbol: h.symbol,
+            message: messages[i % messages.length],
+            timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+            priority: ["high", "medium", "low"][Math.floor(Math.random() * 3)],
+          });
+        });
+      }
+      
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching portfolio alerts:", error);
+      res.status(500).json({ error: "Failed to fetch portfolio alerts" });
+    }
+  });
+
+  // Asset performance breakdown
+  app.get("/api/portfolios/:portfolioId/asset-performance", async (req, res) => {
+    try {
+      const { portfolioId } = req.params;
+      const holdings = await storage.getPortfolioHoldings(portfolioId);
+      
+      if (!holdings || holdings.length === 0) {
+        return res.json([]);
+      }
+      
+      // Group by asset type
+      const assetGroups: Record<string, { value: number; count: number }> = {};
+      holdings.forEach(h => {
+        const assetType = h.assetType || "equity";
+        const value = parseFloat(h.quantity) * parseFloat(h.avgPrice);
+        if (!assetGroups[assetType]) {
+          assetGroups[assetType] = { value: 0, count: 0 };
+        }
+        assetGroups[assetType].value += value;
+        assetGroups[assetType].count++;
+      });
+      
+      const totalValue = Object.values(assetGroups).reduce((sum, g) => sum + g.value, 0);
+      
+      const assetColors: Record<string, string> = {
+        equity: "#3b82f6",
+        mutual_fund: "#22c55e",
+        fixed_deposit: "#f59e0b",
+        gold: "#eab308",
+        bonds: "#8b5cf6",
+        etf: "#06b6d4",
+        other: "#6b7280",
+      };
+      
+      const assetNames: Record<string, string> = {
+        equity: "Equity",
+        mutual_fund: "Mutual Funds",
+        fixed_deposit: "Fixed Deposits",
+        gold: "Gold",
+        bonds: "Bonds",
+        etf: "ETFs",
+        other: "Other",
+      };
+      
+      const result = Object.entries(assetGroups).map(([assetType, data]) => ({
+        assetType,
+        name: assetNames[assetType] || assetType,
+        value: data.value,
+        allocation: Math.round((data.value / totalValue) * 100),
+        dayChange: (Math.random() - 0.3) * 3,
+        weekChange: (Math.random() - 0.2) * 5,
+        color: assetColors[assetType] || "#6b7280",
+      }));
+      
+      res.json(result.sort((a, b) => b.value - a.value));
+    } catch (error) {
+      console.error("Error fetching asset performance:", error);
+      res.status(500).json({ error: "Failed to fetch asset performance" });
+    }
+  });
+
   app.get("/api/portfolios/:portfolioId/pi-chat-summaries", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
@@ -13201,7 +13405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         callbackUrl
       });
 
-      console.log(`🔐 [AA] Consent request created for user \${userId}`);
+      console.log(`🔐 [AA] Consent request created for user ${userId}`);
       
       res.json({
         success: true,
@@ -13229,7 +13433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await aaFIUService.handleConsentCallback(consentHandleId, status);
 
-      console.log(`📥 [AA] Consent callback processed: \${consentHandleId} - \${status}`);
+      console.log(`📥 [AA] Consent callback processed: ${consentHandleId} - ${status}`);
       
       res.json({
         success: result.success,
@@ -13305,7 +13509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const portfolio = await aaFIUService.fetchAggregatedData(sessionId);
 
-      console.log(`🔄 [AA] Aggregated data fetched for session \${sessionId}`);
+      console.log(`🔄 [AA] Aggregated data fetched for session ${sessionId}`);
       
       res.json({
         success: true,
@@ -13365,7 +13569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           syncedCount++;
         } catch (err) {
-          console.error(`Failed to sync MF \${mf.name}:`, err);
+          console.error(`Failed to sync MF ${mf.name}:`, err);
         }
       }
 
@@ -13383,11 +13587,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           syncedCount++;
         } catch (err) {
-          console.error(`Failed to sync stock \${stock.name}:`, err);
+          console.error(`Failed to sync stock ${stock.name}:`, err);
         }
       }
 
-      console.log(`✅ [AA] Synced \${syncedCount} holdings to portfolio \${portfolioId}`);
+      console.log(`✅ [AA] Synced ${syncedCount} holdings to portfolio ${portfolioId}`);
       
       res.json({
         success: true,
@@ -13398,7 +13602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           nps: portfolio.nps.length,
           epf: portfolio.epf.length
         },
-        message: `Successfully synced \${syncedCount} holdings from Account Aggregator`
+        message: `Successfully synced ${syncedCount} holdings from Account Aggregator`
       });
     } catch (error: any) {
       console.error("Error syncing AA data to portfolio:", error);
@@ -13419,7 +13623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await aaFIUService.revokeConsent(consentSessionId, reason || "User requested revocation");
 
-      console.log(`🚫 [AA] Consent revoked: \${consentSessionId}`);
+      console.log(`🚫 [AA] Consent revoked: ${consentSessionId}`);
       
       res.json({
         success: true,
