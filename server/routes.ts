@@ -11812,12 +11812,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Government Scheme Holdings endpoints
+  // Government Scheme Holdings endpoints (with profile enrichment)
   app.get("/api/government-schemes/epf", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
       const epfHoldings = await storage.getEpfHoldings(userId);
-      res.json(epfHoldings);
+      const { enrichEpfHoldings } = await import('./services/government-scheme-enrichment');
+      const enrichedHoldings = await enrichEpfHoldings(userId, epfHoldings);
+      res.json(enrichedHoldings);
     } catch (error) {
       console.error("Error fetching EPF holdings:", error);
       res.status(500).json({ error: "Failed to fetch EPF holdings" });
@@ -11828,7 +11830,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       const ppfHoldings = await storage.getPpfHoldings(userId);
-      res.json(ppfHoldings);
+      const { enrichPpfHoldings } = await import('./services/government-scheme-enrichment');
+      const enrichedHoldings = await enrichPpfHoldings(userId, ppfHoldings);
+      res.json(enrichedHoldings);
     } catch (error) {
       console.error("Error fetching PPF holdings:", error);
       res.status(500).json({ error: "Failed to fetch PPF holdings" });
@@ -11839,19 +11843,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       const epsHoldings = await storage.getEpsHoldings(userId);
-      res.json(epsHoldings);
+      const { enrichEpsHoldings } = await import('./services/government-scheme-enrichment');
+      const enrichedHoldings = await enrichEpsHoldings(userId, epsHoldings);
+      res.json(enrichedHoldings);
     } catch (error) {
       console.error("Error fetching EPS holdings:", error);
       res.status(500).json({ error: "Failed to fetch EPS holdings" });
     }
   });
 
-
   app.get("/api/government-schemes/nps", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
       const npsAccounts = await storage.getNpsAccounts(userId);
-      res.json(npsAccounts);
+      const { enrichNpsAccounts } = await import('./services/government-scheme-enrichment');
+      const enrichedAccounts = await enrichNpsAccounts(userId, npsAccounts);
+      res.json(enrichedAccounts);
     } catch (error) {
       console.error("Error fetching NPS accounts:", error);
       res.status(500).json({ error: "Failed to fetch NPS accounts" });
@@ -11862,7 +11869,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       const apyAccounts = await storage.getApyAccounts(userId);
-      res.json(apyAccounts);
+      const { enrichApyAccounts } = await import('./services/government-scheme-enrichment');
+      const enrichedAccounts = await enrichApyAccounts(userId, apyAccounts);
+      res.json(enrichedAccounts);
     } catch (error) {
       console.error("Error fetching APY accounts:", error);
       res.status(500).json({ error: "Failed to fetch APY accounts" });
