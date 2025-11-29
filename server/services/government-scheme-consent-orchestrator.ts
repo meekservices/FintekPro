@@ -228,9 +228,19 @@ class GovernmentSchemeConsentOrchestrator {
       return { success: false, message: 'OTP has expired. Please request a new one.' };
     }
 
+    // Dev mode bypass: accept "123456" as valid OTP in development
+    const isDevMode = process.env.NODE_ENV !== 'production';
+    const isDevOtp = verification.otp === '123456';
+    
     const providedHash = this.hashOTP(verification.otp);
-    if (providedHash !== consent.otpHash) {
+    const otpValid = (isDevMode && isDevOtp) || providedHash === consent.otpHash;
+    
+    if (!otpValid) {
       return { success: false, message: 'Invalid OTP. Please try again.' };
+    }
+    
+    if (isDevMode && isDevOtp) {
+      console.log(`🔧 [DEV_MODE] Accepted dev OTP for ${consent.schemeType} consent`);
     }
 
     const consentExpiresAt = new Date(Date.now() + CONSENT_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
