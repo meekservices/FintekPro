@@ -15,26 +15,31 @@ import { Label } from "@/components/ui/label";
 import { AlertTriangle, Shield, Clock, FileText } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { type SchemeType } from "@/hooks/use-consent";
 
 interface ConsentDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   panNumber: string;
-  schemeType: "epf" | "ppf" | "eps" | "insurance";
+  schemeType: SchemeType;
   onConsentGranted: () => void;
 }
 
-const SCHEME_NAMES = {
+const SCHEME_NAMES: Record<SchemeType, string> = {
   epf: "Employee Provident Fund (EPF)",
   ppf: "Public Provident Fund (PPF)",
   eps: "Employee Pension Scheme (EPS)",
+  nps: "National Pension System (NPS)",
+  apy: "Atal Pension Yojana (APY)",
   insurance: "Insurance Holdings"
 };
 
-const SCHEME_DESCRIPTIONS = {
+const SCHEME_DESCRIPTIONS: Record<SchemeType, string> = {
   epf: "View your EPF account balance, contribution history, and current status from EPFO records.",
   ppf: "Access your PPF account balance, maturity details, and contribution records from bank records.",
   eps: "Check your EPS pension benefits, monthly pension amount, and service history from EPFO.",
+  nps: "View your NPS account balance, fund allocation, and retirement corpus details from CRA.",
+  apy: "Check your APY pension details, contribution status, and guaranteed pension amount.",
   insurance: "Access your insurance policy holdings from NSDL and CDSL depository records."
 };
 
@@ -52,10 +57,16 @@ export function ConsentDialog({
 
   const consentMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/government-schemes/consent", "POST", {
-        panNumber,
-        schemeType,
-        purpose
+      return await apiRequest("/api/government-schemes/consent", {
+        method: "POST",
+        body: JSON.stringify({
+          panNumber,
+          schemeType,
+          purpose
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
       });
     },
     onSuccess: () => {

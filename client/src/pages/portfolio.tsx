@@ -174,6 +174,14 @@ export default function Portfolio() {
               <Shield className="h-4 w-4" />
               <span>EPS Pension</span>
             </TabsTrigger>
+            <TabsTrigger value="nps" className="flex items-center space-x-1">
+              <Target className="h-4 w-4" />
+              <span>NPS</span>
+            </TabsTrigger>
+            <TabsTrigger value="apy" className="flex items-center space-x-1">
+              <PiggyBank className="h-4 w-4" />
+              <span>APY</span>
+            </TabsTrigger>
             <TabsTrigger value="commodities" className="flex items-center space-x-1">
               <Coins className="h-4 w-4" />
               <span>Commodities</span>
@@ -2250,6 +2258,196 @@ export default function Portfolio() {
                 ))}
               </div>
               )}
+            </ConsentAwareSchemeTab>
+          </TabsContent>
+
+          {/* NPS - National Pension System Tab */}
+          <TabsContent value="nps" className="space-y-8">
+            <ConsentAwareSchemeTab 
+              schemeType="nps" 
+              onRequestConsent={handleRequestConsent}
+            >
+              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-sm text-green-700">
+                  NPS data verified with your PAN and PRAN for secure access
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Target className="h-5 w-5 text-blue-600" />
+                      <span>NPS Account Overview</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">PRAN Number</p>
+                          <p className="font-bold text-blue-900">1100XXXXXXXXXX</p>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Account Type</p>
+                          <p className="font-bold text-green-900">Tier I (Mandatory)</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Corpus</p>
+                          <p className="font-bold text-purple-900">₹12,45,678</p>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Returns (CAGR)</p>
+                          <p className="font-bold text-orange-900">10.2%</p>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-700 mb-1">Estimated Monthly Pension at 60</p>
+                        <p className="text-2xl font-bold text-blue-800">₹45,000 - ₹55,000</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Calculator className="h-5 w-5 text-green-600" />
+                      <span>Fund Allocation</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Equity (E)</span>
+                          <span className="font-bold text-green-700">50%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '50%' }}></div>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Corporate Bonds (C)</span>
+                          <span className="font-bold text-blue-700">30%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '30%' }}></div>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Government Securities (G)</span>
+                          <span className="font-bold text-purple-700">20%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: '20%' }}></div>
+                        </div>
+                      </div>
+                      <div className="flex gap-4 mt-4">
+                        <Button variant="outline" size="sm">View Statement</Button>
+                        <Button variant="outline" size="sm">Change Allocation</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </ConsentAwareSchemeTab>
+          </TabsContent>
+
+          {/* APY - Atal Pension Yojana Tab */}
+          <TabsContent value="apy" className="space-y-8">
+            <ConsentAwareSchemeTab 
+              schemeType="apy" 
+              onRequestConsent={handleRequestConsent}
+            >
+              <div className="flex items-center mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-sm text-green-700">
+                  APY data verified with your PAN and Aadhaar for secure access
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <PiggyBank className="h-5 w-5 text-green-600" />
+                      <span>APY Account Overview</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">APY Account</p>
+                          <p className="font-bold text-green-900">APY/SBI/001/789123</p>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Bank Partner</p>
+                          <p className="font-bold text-blue-900">State Bank of India</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Enrollment Date</p>
+                          <p className="font-bold text-purple-900">01-Sep-2018</p>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Current Age</p>
+                          <p className="font-bold text-orange-900">35 Years</p>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-gradient-to-br from-green-100 to-green-200 rounded-lg text-center">
+                        <p className="text-sm text-green-700">Guaranteed Monthly Pension</p>
+                        <p className="text-3xl font-bold text-green-800">₹3,000</p>
+                        <p className="text-xs text-green-600">from age 60</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Calculator className="h-5 w-5 text-blue-600" />
+                      <span>Contribution & Benefits</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Monthly Contribution</p>
+                          <p className="font-bold text-blue-900">₹376</p>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total Contributed</p>
+                          <p className="font-bold text-green-900">₹27,072</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                          <p className="text-sm font-medium text-green-900">Spouse Pension Benefit</p>
+                          <p className="text-xs text-green-700">100% pension continues to spouse</p>
+                        </div>
+                        <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                          <p className="text-sm font-medium text-blue-900">Corpus Return</p>
+                          <p className="text-xs text-blue-700">₹1.7 lakh returned to nominee</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4 mt-4">
+                        <Button variant="outline" size="sm">View Statement</Button>
+                        <Button variant="outline" size="sm">Contribution History</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </ConsentAwareSchemeTab>
           </TabsContent>
 

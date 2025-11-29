@@ -188,41 +188,32 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/user", isAuthenticated, async (req, res) => {
-    // req.user is now always a database user object (from both OAuth and local auth)
     const user = req.user as any;
-    
-    console.log("🔍 /api/user request - isAuthenticated:", req.isAuthenticated());
-    console.log("🔍 Session ID:", req.sessionID);
-    console.log("🔍 Session data:", req.session);
-    console.log("🔍 User:", user ? `${user.email || user.mobile} (roles: ${user.roles})` : 'null');
     
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
     
-    // Get decrypted PAN number if available
+    // Fetch PAN from user_profiles table (where KYC data is stored)
     let panNumber: string | null = null;
     try {
-      if (user.panNumber) {
-        // panNumber in session might already be decrypted or encrypted
-        // Check if it looks like an encrypted value (contains colons)
-        if (user.panNumber.includes(':')) {
-          panNumber = await PANConsentService.decryptPAN(user.panNumber);
+      const userProfile = await storage.getUserProfile(user.id);
+      if (userProfile?.panNumber) {
+        // PAN is stored as plaintext in user_profiles
+        // Check if it looks encrypted (contains colons) - if so, decrypt
+        if (userProfile.panNumber.includes(':')) {
+          try {
+            panNumber = await PANConsentService.decryptPAN(userProfile.panNumber);
+          } catch {
+            // If decryption fails, it might be plaintext stored with a colon (edge case)
+            panNumber = userProfile.panNumber;
+          }
         } else {
-          panNumber = user.panNumber;
-        }
-      } else {
-        // Fetch from database if not in session
-        const dbUser = await storage.getUser(user.id);
-        if (dbUser?.panNumber && dbUser.panNumber.includes(':')) {
-          panNumber = await PANConsentService.decryptPAN(dbUser.panNumber);
-        } else if (dbUser?.panNumber) {
-          panNumber = dbUser.panNumber;
+          panNumber = userProfile.panNumber;
         }
       }
     } catch (err) {
-      console.error("Error decrypting PAN:", err);
-      // Continue without PAN if decryption fails
+      console.error("Error fetching user profile PAN:", err);
     }
     
     res.json({

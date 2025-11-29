@@ -16,6 +16,8 @@ const SCHEME_NAMES: Record<SchemeType, string> = {
   epf: "Employee Provident Fund (EPF)",
   ppf: "Public Provident Fund (PPF)",
   eps: "Employee Pension Scheme (EPS)",
+  nps: "National Pension System (NPS)",
+  apy: "Atal Pension Yojana (APY)",
   insurance: "Insurance Policies"
 };
 
@@ -23,6 +25,8 @@ const SCHEME_DESCRIPTIONS: Record<SchemeType, string> = {
   epf: "Access your EPF account balance, contribution history, and withdrawal options",
   ppf: "View your PPF account details, maturity information, and investment tracking",
   eps: "Check your pension benefits, monthly amounts, and service records",
+  nps: "View your NPS account details, fund allocation, and retirement corpus",
+  apy: "Check your APY pension scheme details and guaranteed pension amount",
   insurance: "View your insurance policies, premium details, and coverage information"
 };
 
