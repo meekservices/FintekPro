@@ -11846,6 +11846,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  app.get("/api/government-schemes/nps", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const npsAccounts = await storage.getNpsAccounts(userId);
+      res.json(npsAccounts);
+    } catch (error) {
+      console.error("Error fetching NPS accounts:", error);
+      res.status(500).json({ error: "Failed to fetch NPS accounts" });
+    }
+  });
+
+  app.get("/api/government-schemes/apy", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const apyAccounts = await storage.getApyAccounts(userId);
+      res.json(apyAccounts);
+    } catch (error) {
+      console.error("Error fetching APY accounts:", error);
+      res.status(500).json({ error: "Failed to fetch APY accounts" });
+    }
+  });
+
   // Government Scheme Consent Management endpoints
   app.get("/api/government-schemes/consent/:panNumber/:schemeType", requireAuth, async (req: any, res) => {
     try {

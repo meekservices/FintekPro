@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { Portfolio, PortfolioHolding, AssetAllocation, EpfHolding, PpfHolding, EpsHolding, InsuranceHolding } from "@shared/schema";
+import type { Portfolio, PortfolioHolding, AssetAllocation, EpfHolding, PpfHolding, EpsHolding, InsuranceHolding, NpsAccount, ApyAccount } from "@shared/schema";
 
 interface EnhancedHolding extends PortfolioHolding {
   currentPrice: string;
@@ -99,6 +99,18 @@ export function usePpfHoldings() {
 export function useEpsHoldings() {
   return useQuery<EpsHolding[]>({
     queryKey: ['/api/government-schemes/eps'],
+  });
+}
+
+export function useNpsAccounts() {
+  return useQuery<NpsAccount[]>({
+    queryKey: ['/api/government-schemes/nps'],
+  });
+}
+
+export function useApyAccounts() {
+  return useQuery<ApyAccount[]>({
+    queryKey: ['/api/government-schemes/apy'],
   });
 }
 

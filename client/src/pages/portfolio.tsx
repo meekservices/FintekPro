@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings, useInsuranceHoldings } from "@/hooks/use-portfolio";
+import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings, useInsuranceHoldings, useNpsAccounts, useApyAccounts } from "@/hooks/use-portfolio";
 import { LoadingState } from "@/components/LoadingState";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield, Target, Calculator, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -59,6 +59,10 @@ export default function Portfolio() {
   
   // Insurance Holdings data from NSDL/CDSL
   const { data: insuranceHoldings, isLoading: insuranceLoading } = useInsuranceHoldings();
+
+  // NPS and APY data
+  const { data: npsAccounts, isLoading: npsLoading } = useNpsAccounts();
+  const { data: apyAccounts, isLoading: apyLoading } = useApyAccounts();
   
   const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
   const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
