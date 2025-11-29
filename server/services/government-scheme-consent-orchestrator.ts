@@ -16,7 +16,7 @@ import { eq, and, desc, sql, gt, lt } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
-export type SchemeType = 'epf' | 'eps' | 'ppf' | 'nps' | 'apy';
+export type SchemeType = 'epf' | 'eps' | 'ppf' | 'nps' | 'apy' | 'insurance';
 export type ConsentStatus = 'pending' | 'verified' | 'expired' | 'revoked';
 export type OTPChannel = 'mobile' | 'aadhaar' | 'email';
 
@@ -30,7 +30,8 @@ const SCHEME_PURPOSES: Record<SchemeType, string> = {
   eps: 'Employee Pension Scheme details and eligibility retrieval from EPFO',
   ppf: 'Public Provident Fund account details retrieval from Post Office/Bank',
   nps: 'National Pension System account balance and holdings retrieval from NSDL CRA',
-  apy: 'Atal Pension Yojana account and contribution details retrieval from PFRDA'
+  apy: 'Atal Pension Yojana account and contribution details retrieval from PFRDA',
+  insurance: 'Insurance policy details retrieval from insurance providers via Turtlefin'
 };
 
 const SCHEME_SCOPES: Record<SchemeType, string[]> = {
@@ -38,7 +39,8 @@ const SCHEME_SCOPES: Record<SchemeType, string[]> = {
   eps: ['account_number', 'employer_history', 'pensionable_service', 'expected_pension', 'nominee_details'],
   ppf: ['account_number', 'bank_details', 'balance', 'deposits', 'interest', 'maturity', 'nominee_details'],
   nps: ['pran', 'tier1_balance', 'tier2_balance', 'asset_allocation', 'fund_manager', 'contributions', 'returns', 'nominee_details'],
-  apy: ['pran', 'pension_amount', 'monthly_contribution', 'bank_details', 'maturity_details', 'government_contribution', 'nominee_details']
+  apy: ['pran', 'pension_amount', 'monthly_contribution', 'bank_details', 'maturity_details', 'government_contribution', 'nominee_details'],
+  insurance: ['policy_number', 'policy_type', 'insurer', 'sum_assured', 'premium', 'maturity_date', 'status', 'nominee_details']
 };
 
 interface OTPRequest {
@@ -79,28 +81,74 @@ class GovernmentSchemeConsentOrchestrator {
     expiresAt: Date;
     message: string;
   }> {
+    const existingConsents = await db.select()
+      .from(schema.schemeConsents)
+      .where(
+        and(
+          eq(schema.schemeConsents.userId, request.userId),
+          eq(schema.schemeConsents.schemeType, request.schemeType)
+        )
+      )
+      .limit(1);
+
+    const existingConsent = existingConsents[0];
+    
+    if (existingConsent && existingConsent.status === 'verified') {
+      const consentExpiry = new Date(existingConsent.consentGrantedAt!);
+      consentExpiry.setFullYear(consentExpiry.getFullYear() + RETENTION_PERIOD_YEARS);
+      
+      if (new Date() < consentExpiry) {
+        return {
+          success: true,
+          challengeId: existingConsent.challengeId,
+          expiresAt: consentExpiry,
+          message: 'Consent already granted for this scheme. Data access authorized.'
+        };
+      }
+    }
+
     const challengeId = uuidv4();
     const otp = this.generateOTP();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     try {
-      await db.insert(schema.schemeConsents).values({
-        id: challengeId,
-        userId: request.userId,
-        schemeType: request.schemeType,
-        purpose: SCHEME_PURPOSES[request.schemeType],
-        scope: SCHEME_SCOPES[request.schemeType],
-        otpChannel: request.channel,
-        challengeId,
-        otpHash: this.hashOTP(otp),
-        status: 'pending',
-        expiresAt,
-        ipAddress: request.ipAddress,
-        userAgent: request.userAgent,
-        retentionPeriodYears: RETENTION_PERIOD_YEARS
-      });
+      if (existingConsent) {
+        await db.update(schema.schemeConsents)
+          .set({
+            challengeId,
+            otpHash: this.hashOTP(otp),
+            otpChannel: request.channel,
+            status: 'pending',
+            expiresAt,
+            ipAddress: request.ipAddress,
+            userAgent: request.userAgent,
+            failedAttempts: 0,
+            updatedAt: new Date()
+          })
+          .where(eq(schema.schemeConsents.id, existingConsent.id));
+        
+        console.log(`[SCHEME_CONSENT] Updated existing consent record for ${request.schemeType}`);
+      } else {
+        await db.insert(schema.schemeConsents).values({
+          id: challengeId,
+          userId: request.userId,
+          schemeType: request.schemeType,
+          purpose: SCHEME_PURPOSES[request.schemeType],
+          scope: SCHEME_SCOPES[request.schemeType],
+          otpChannel: request.channel,
+          challengeId,
+          otpHash: this.hashOTP(otp),
+          status: 'pending',
+          expiresAt,
+          ipAddress: request.ipAddress,
+          userAgent: request.userAgent,
+          retentionPeriodYears: RETENTION_PERIOD_YEARS
+        });
+        
+        console.log(`[SCHEME_CONSENT] Created new consent record for ${request.schemeType}`);
+      }
     } catch (error) {
-      console.error('[SCHEME_CONSENT] Failed to create consent record:', error);
+      console.error('[SCHEME_CONSENT] Failed to create/update consent record:', error);
       throw new Error('Failed to initiate consent');
     }
 
@@ -419,7 +467,7 @@ class GovernmentSchemeConsentOrchestrator {
     expiresAt?: Date;
     lastRefreshAt?: Date;
   }>> {
-    const schemes: SchemeType[] = ['epf', 'eps', 'ppf', 'nps', 'apy'];
+    const schemes: SchemeType[] = ['epf', 'eps', 'ppf', 'nps', 'apy', 'insurance'];
     const status: Record<string, any> = {};
 
     for (const scheme of schemes) {
@@ -437,12 +485,13 @@ class GovernmentSchemeConsentOrchestrator {
   private async sendOTPViaSMS(mobile: string, otp: string): Promise<void> {
     const maskedMobile = `${mobile.slice(0, 2)}XXXXXX${mobile.slice(-2)}`;
     try {
-      const { sendSms } = await import('./sms-service');
-      await sendSms(
-        mobile,
-        `Your FintekPro verification code for government scheme access is: ${otp}. Valid for ${OTP_EXPIRY_MINUTES} minutes. Do not share this code.`
-      );
-      console.log(`📱 [SMS] OTP sent successfully to ${maskedMobile}`);
+      const { smsService } = await import('./sms-service');
+      const sent = await smsService.sendOTP(mobile, otp);
+      if (sent) {
+        console.log(`📱 [SMS] OTP sent successfully to ${maskedMobile}`);
+      } else {
+        console.log(`📱 [SMS] Development mode: OTP logged for ${maskedMobile} (Twilio not configured)`);
+      }
     } catch (error) {
       console.error(`📱 [SMS] Failed to send OTP to ${maskedMobile}:`, error instanceof Error ? error.message : 'Unknown error');
       console.log(`📱 [SMS] Development mode: OTP delivery simulated for ${maskedMobile}`);
@@ -452,8 +501,8 @@ class GovernmentSchemeConsentOrchestrator {
   private async sendOTPViaEmail(email: string, otp: string): Promise<void> {
     const maskedEmail = `${email.slice(0, 3)}***@***`;
     try {
-      const { sendEmail } = await import('./email-service');
-      await sendEmail({
+      const { emailService } = await import('../email-service');
+      const sent = await emailService.sendEmail({
         to: email,
         subject: 'FintekPro - Government Scheme Access Verification',
         html: `
@@ -470,7 +519,11 @@ class GovernmentSchemeConsentOrchestrator {
         `,
         text: `Your FintekPro verification code is: ${otp}. Valid for ${OTP_EXPIRY_MINUTES} minutes.`
       });
-      console.log(`📧 [EMAIL] OTP sent successfully to ${maskedEmail}`);
+      if (sent) {
+        console.log(`📧 [EMAIL] OTP sent successfully to ${maskedEmail}`);
+      } else {
+        console.log(`📧 [EMAIL] Development mode: OTP simulated for ${maskedEmail} (Email not configured)`);
+      }
     } catch (error) {
       console.error(`📧 [EMAIL] Failed to send OTP to ${maskedEmail}:`, error instanceof Error ? error.message : 'Unknown error');
       console.log(`📧 [EMAIL] Development mode: OTP delivery simulated for ${maskedEmail}`);

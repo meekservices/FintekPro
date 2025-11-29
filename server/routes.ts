@@ -11877,6 +11877,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch APY accounts" });
     }
   });
+  // Insurance holdings endpoint
+  app.get("/api/government-schemes/insurance", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const insuranceHoldings = await storage.getInsuranceHoldings(userId);
+      res.json(insuranceHoldings);
+    } catch (error) {
+      console.error("Error fetching insurance holdings:", error);
+      res.status(500).json({ error: "Failed to fetch insurance holdings" });
+    }
+  });
+
 
   // Government Scheme Consent Management endpoints
   app.get("/api/government-schemes/consent/:panNumber/:schemeType", requireAuth, async (req: any, res) => {
@@ -11948,7 +11960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { scheme } = req.params;
       const { channel = 'mobile', mobile, email } = req.body;
       
-      const validSchemes = ['epf', 'eps', 'ppf', 'nps', 'apy'];
+      const validSchemes = ['epf', 'eps', 'ppf', 'nps', 'apy', 'insurance'];
       if (!validSchemes.includes(scheme)) {
         return res.status(400).json({ error: 'Invalid scheme type' });
       }
