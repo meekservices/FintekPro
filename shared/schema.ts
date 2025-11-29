@@ -10194,3 +10194,70 @@ export const insertProbe42SyncLogSchema = createInsertSchema(probe42SyncLog).omi
 export type Probe42SyncLog = typeof probe42SyncLog.$inferSelect;
 export type InsertProbe42SyncLog = z.infer<typeof insertProbe42SyncLogSchema>;
 
+
+// ============================================
+// Financial Obligations Schema
+// ============================================
+
+export const financialObligations = pgTable("financial_obligations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  
+  // Obligation Details
+  name: varchar("name").notNull(),
+  type: varchar("type").notNull(), // loan, emi, rent, insurance, subscription, tax, other
+  amount: numeric("amount").notNull(),
+  frequency: varchar("frequency").notNull(), // monthly, quarterly, annually
+  dueDate: date("due_date").notNull(),
+  priority: varchar("priority").notNull(), // critical, important, optional
+  status: varchar("status").notNull().default("active"), // active, upcoming, completed, cancelled
+  autoDebit: boolean("auto_debit").default(false),
+  
+  // Loan Specific Fields
+  remainingPayments: integer("remaining_payments"),
+  totalPayments: integer("total_payments"),
+  interestRate: numeric("interest_rate"),
+  principalAmount: numeric("principal_amount"),
+  
+  // Credit Card / Credit Facility Fields
+  creditLimit: numeric("credit_limit"),
+  utilizationRate: numeric("utilization_rate"),
+  minimumPayment: numeric("minimum_payment"),
+  
+  // Payment Tracking
+  lastPaymentDate: date("last_payment_date"),
+  lastPaymentAmount: numeric("last_payment_amount"),
+  paymentStatus: varchar("payment_status"), // paid, pending, overdue
+  
+  // Bank / Institution Details
+  bank: varchar("bank"),
+  accountNumber: varchar("account_number"),
+  accountType: varchar("account_type"),
+  
+  // CIBIL / Credit Report Sync
+  fromCibil: boolean("from_cibil").default(false),
+  cibilAccountId: varchar("cibil_account_id"),
+  lastSyncedAt: timestamp("last_synced_at"),
+  
+  // Notes and Tags
+  notes: text("notes"),
+  tags: text("tags").array(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_financial_obligations_user").on(table.userId),
+  index("idx_financial_obligations_type").on(table.type),
+  index("idx_financial_obligations_status").on(table.status),
+  index("idx_financial_obligations_due_date").on(table.dueDate),
+  index("idx_financial_obligations_priority").on(table.priority),
+]);
+
+export const insertFinancialObligationSchema = createInsertSchema(financialObligations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FinancialObligation = typeof financialObligations.$inferSelect;
+export type InsertFinancialObligation = z.infer<typeof insertFinancialObligationSchema>;
