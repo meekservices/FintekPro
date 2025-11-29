@@ -105,6 +105,12 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         scroll: "scroll 30s linear infinite",
       },
+      zIndex: {
+        "popover": "60",
+        "modal-backdrop": "70",
+        "modal": "80",
+        "toast": "100",
+      },
     },
   },
   plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
