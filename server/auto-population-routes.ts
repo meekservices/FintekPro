@@ -11,6 +11,11 @@ import { Router, Request, Response } from 'express';
 import { consentManagementService } from './services/consent-management-service';
 import { autoPopulationOrchestrator } from './services/auto-population-orchestrator';
 import { CibilAPI } from './cibil-api';
+import { db } from './db';
+import { kycVault, users } from '@shared/schema';
+import { eq, sql } from 'drizzle-orm';
+import { encryptionService } from './encryption-service';
+import { tokenizationService } from './services/tokenization-service';
 
 const router = Router();
 
@@ -39,7 +44,165 @@ const requireOwnership = (userIdParam: string) => {
   };
 };
 
-// Apply authentication to all routes
+// ===== ADMIN/SETUP ENDPOINTS (Development Only - No Auth) =====
+
+// Setup KYC vault from verified PAN and trigger auto-population
+// SECURITY: Only available in development mode, no auth required
+router.post("/admin/setup-from-pan", async (req: Request, res: Response) => {
+  try {
+    // Security check: Only allow in development mode
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        success: false,
+        error: 'This endpoint is only available in development mode'
+      });
+    }
+
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: "userId is required"
+      });
+    }
+
+    console.log(`🔧 [Admin] Setting up auto-population for user: ${userId}`);
+
+    // Step 1: Get verified PAN record using raw SQL
+    const panRecords = await db.execute(sql`
+      SELECT id, user_id, pan_number, full_name, date_of_birth, pan_type, verified, verified_at, verification_source
+      FROM pan_verification_records
+      WHERE user_id = ${userId}
+      AND verified = true
+      LIMIT 1
+    `);
+
+    if (!panRecords.rows || panRecords.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No verified PAN record found for this user'
+      });
+    }
+
+    const rawPanRecord = panRecords.rows[0] as {
+      id: string;
+      user_id: string;
+      pan_number: string;
+      full_name: string;
+      date_of_birth: string;
+      pan_type: string;
+      verified: boolean;
+      verified_at: string | Date;
+      verification_source: string;
+    };
+    
+    // Convert verified_at to Date if it's a string (raw SQL returns strings)
+    const panRecord = {
+      ...rawPanRecord,
+      verified_at: rawPanRecord.verified_at instanceof Date 
+        ? rawPanRecord.verified_at 
+        : new Date(rawPanRecord.verified_at)
+    };
+
+    // Step 2: Get user details
+    const userRecords = await db.select().from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (userRecords.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const user = userRecords[0];
+
+    // Step 3: Check if vault already exists
+    const existingVault = await db.select().from(kycVault)
+      .where(eq(kycVault.userId, userId))
+      .limit(1);
+
+    if (existingVault.length > 0) {
+      console.log(`📋 KYC Vault already exists for user ${userId}, skipping vault creation`);
+    } else {
+      // Step 4: Create KYC vault entry with encrypted data
+      console.log(`🔐 Creating KYC Vault for user ${userId}...`);
+      
+      const encryptedFullName = encryptionService.encrypt(panRecord.full_name || '');
+      const encryptedDob = encryptionService.encrypt(panRecord.date_of_birth || '');
+      const encryptedMobile = user.mobile ? encryptionService.encrypt(user.mobile) : null;
+      const encryptedEmail = user.email ? encryptionService.encrypt(user.email) : null;
+      
+      // Tokenize PAN
+      const tokenResult = await tokenizationService.tokenize(
+        panRecord.pan_number,
+        'pan',
+        userId
+      );
+
+      const kycExpiryDate = new Date();
+      kycExpiryDate.setFullYear(kycExpiryDate.getFullYear() + 2);
+
+      await db.insert(kycVault).values({
+        userId,
+        encryptedFullName,
+        encryptedDateOfBirth: encryptedDob,
+        encryptedMobile,
+        encryptedEmail,
+        tokenizedPan: tokenResult.success ? tokenResult.token : null,
+        kycStatus: 'verified',
+        source: 'pan_verification',
+        verificationMethod: 'pan_api',
+        panVerifiedAt: panRecord.verified_at,
+        kycVerifiedAt: new Date(),
+        kycExpiryDate,
+        isExpired: false
+      });
+
+      console.log(`✅ KYC Vault created for user ${userId}`);
+    }
+
+    // Step 5: Grant all consents
+    console.log(`📋 Granting all data source consents for user ${userId}...`);
+    const consents = await consentManagementService.grantAllConsents(
+      userId,
+      req.ip,
+      req.headers['user-agent']
+    );
+    console.log(`✅ Granted ${consents.length} consents`);
+
+    // Step 6: Trigger auto-population
+    console.log(`🚀 Initiating auto-population workflow for user ${userId}...`);
+    const result = await autoPopulationOrchestrator.initiateFromKYC(
+      userId,
+      'kyc_completion'
+    );
+
+    res.json({
+      success: true,
+      message: 'Auto-population setup completed',
+      panVerified: true,
+      panDetails: {
+        pan: panRecord.pan_number.substring(0, 4) + '****' + panRecord.pan_number.slice(-1),
+        name: panRecord.full_name,
+        dob: panRecord.date_of_birth,
+        verifiedAt: panRecord.verified_at
+      },
+      consentsGranted: consents.length,
+      autoPopulationResult: result
+    });
+  } catch (error: any) {
+    console.error('Error in admin setup:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to complete auto-population setup'
+    });
+  }
+});
+
+// Apply authentication to all remaining routes
 router.use(requireAuth);
 
 // ===== CONSENT MANAGEMENT ENDPOINTS =====

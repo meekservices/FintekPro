@@ -239,6 +239,10 @@ app.use((req, res, next) => {
   const { registerStakeholderRoutes } = await import('./stakeholder-routes');
   registerStakeholderRoutes(app);
   
+  // Register Auto-Population routes (Post-KYC data fetching)
+  const { autoPopulationRouter } = await import('./auto-population-routes');
+  app.use('/api/auto-population', autoPopulationRouter);
+  
   // Register Unlisted Marketplace routes
   const unlistedRoutes = await import('./routes/unlisted');
   app.use('/api/unlisted', unlistedRoutes.default);
