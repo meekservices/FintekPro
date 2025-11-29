@@ -15,6 +15,7 @@ import * as schema from '@shared/schema';
 import { eq, and, desc, sql, gt, lt } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import { governmentSchemeDataFetcher } from './government-scheme-data-fetcher';
 
 export type SchemeType = 'epf' | 'eps' | 'ppf' | 'nps' | 'apy' | 'insurance';
 export type ConsentStatus = 'pending' | 'verified' | 'expired' | 'revoked';
@@ -94,7 +95,7 @@ class GovernmentSchemeConsentOrchestrator {
     const existingConsent = existingConsents[0];
     
     if (existingConsent && existingConsent.status === 'verified') {
-      const consentExpiry = new Date(existingConsent.consentGrantedAt!);
+      const consentExpiry = new Date(existingConsent.consentTimestamp || existingConsent.verifiedAt || new Date());
       consentExpiry.setFullYear(consentExpiry.getFullYear() + RETENTION_PERIOD_YEARS);
       
       if (new Date() < consentExpiry) {
@@ -122,7 +123,6 @@ class GovernmentSchemeConsentOrchestrator {
             expiresAt,
             ipAddress: request.ipAddress,
             userAgent: request.userAgent,
-            failedAttempts: 0,
             updatedAt: new Date()
           })
           .where(eq(schema.schemeConsents.id, existingConsent.id));
@@ -197,6 +197,10 @@ class GovernmentSchemeConsentOrchestrator {
     consentId?: string;
     message: string;
     consentExpiresAt?: Date;
+    dataFetched?: {
+      recordsCreated: number;
+      recordsUpdated: number;
+    };
   }> {
     const consents = await db.select()
       .from(schema.schemeConsents)
@@ -266,11 +270,73 @@ class GovernmentSchemeConsentOrchestrator {
       }
     });
 
+    // Fetch user profile data for API calls
+    const userProfiles = await db.select()
+      .from(schema.users)
+      .where(eq(schema.users.id, verification.userId))
+      .limit(1);
+
+    const userProfile = userProfiles[0];
+    
+    let dataFetched = { recordsCreated: 0, recordsUpdated: 0 };
+    
+    if (userProfile?.panNumber) {
+      // Trigger data fetching from government APIs
+      console.log(`🔄 [CONSENT] Triggering ${consent.schemeType} data fetch after OTP verification`);
+      
+      const fullName = [userProfile.firstName, userProfile.middleName, userProfile.lastName]
+        .filter(Boolean)
+        .join(' ');
+      
+      try {
+        const fetchResult = await governmentSchemeDataFetcher.fetchSchemeData({
+          userId: verification.userId,
+          schemeType: consent.schemeType as SchemeType,
+          panNumber: userProfile.panNumber,
+          name: fullName || '',
+          dateOfBirth: userProfile.dateOfBirth || '',
+          mobile: userProfile.mobile || undefined,
+          email: userProfile.email || undefined,
+          consentId: consent.id
+        });
+
+        dataFetched = {
+          recordsCreated: fetchResult.recordsCreated,
+          recordsUpdated: fetchResult.recordsUpdated
+        };
+
+        // Log data fetch audit event
+        await this.logAuditEvent({
+          userId: verification.userId,
+          schemeType: consent.schemeType as SchemeType,
+          eventType: 'data_fetched',
+          requestId: verification.challengeId,
+          ipAddress: verification.ipAddress,
+          details: {
+            success: fetchResult.success,
+            recordsCreated: fetchResult.recordsCreated,
+            recordsUpdated: fetchResult.recordsUpdated,
+            message: fetchResult.message
+          }
+        });
+
+        console.log(`✅ [CONSENT] Data fetch complete: ${fetchResult.recordsCreated} created, ${fetchResult.recordsUpdated} updated`);
+      } catch (fetchError) {
+        console.error(`❌ [CONSENT] Data fetch failed:`, fetchError);
+        // Don't fail the consent - data can be re-fetched later
+      }
+    } else {
+      console.warn(`⚠️ [CONSENT] No KYC profile found for user ${verification.userId} - data fetch skipped`);
+    }
+
     return {
       success: true,
       consentId: consent.id,
-      message: 'Consent granted successfully. Data will be fetched from government sources.',
-      consentExpiresAt
+      message: dataFetched.recordsCreated > 0 || dataFetched.recordsUpdated > 0 
+        ? `Consent granted and ${dataFetched.recordsCreated + dataFetched.recordsUpdated} record(s) fetched from government sources.`
+        : 'Consent granted successfully. Data will be fetched from government sources.',
+      consentExpiresAt,
+      dataFetched
     };
   }
 
