@@ -32730,5 +32730,263 @@ System Security Data:`;
     }
   });
 
+  // ====================================================================================
+  // Fixed Income Report Generator Routes
+  // ====================================================================================
+
+  // Generate bond holding report
+  app.get("/api/fixed-income/reports/holdings", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
+      const result = await fixedIncomeReportGenerator.generateBondHoldingReport(req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating bond holding report:", error);
+      res.status(500).json({ error: "Failed to generate bond holding report" });
+    }
+  });
+
+  // Generate coupon schedule report
+  app.get("/api/fixed-income/reports/coupon-schedule", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
+      const monthsAhead = req.query.months ? parseInt(req.query.months) : 12;
+      const result = await fixedIncomeReportGenerator.generateCouponScheduleReport(req.user.id, monthsAhead);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating coupon schedule report:", error);
+      res.status(500).json({ error: "Failed to generate coupon schedule report" });
+    }
+  });
+
+  // Generate maturity calendar report
+  app.get("/api/fixed-income/reports/maturity-calendar", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
+      const result = await fixedIncomeReportGenerator.generateMaturityCalendarReport(req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating maturity calendar report:", error);
+      res.status(500).json({ error: "Failed to generate maturity calendar report" });
+    }
+  });
+
+  // Get user's saved reports
+  app.get("/api/fixed-income/reports/list", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
+      const reportType = req.query.type as string | undefined;
+      const result = await fixedIncomeReportGenerator.getUserReports(req.user.id, reportType);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching user reports:", error);
+      res.status(500).json({ error: "Failed to fetch reports" });
+    }
+  });
+
+  // Get specific report by ID
+  app.get("/api/fixed-income/reports/detail/:reportId", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
+      const result = await fixedIncomeReportGenerator.getReportById(req.params.reportId, req.user.id);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(404).json({ error: "Report not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching report:", error);
+      res.status(500).json({ error: "Failed to fetch report" });
+    }
+  });
+
+  // Get notification preferences
+  app.get("/api/fixed-income/notifications/preferences", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
+      const result = await fixedIncomeReportGenerator.getNotificationPreferences(req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ error: "Failed to fetch notification preferences" });
+    }
+  });
+
+  // Update notification preferences
+  app.post("/api/fixed-income/notifications/preferences", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
+      const result = await fixedIncomeReportGenerator.setupNotificationPreferences(req.user.id, req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ error: "Failed to update notification preferences" });
+    }
+  });
+
+  // Get pending alerts (coupon and maturity)
+  app.get("/api/fixed-income/alerts/pending", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
+      const result = await fixedIncomeReportGenerator.getPendingAlerts(req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching pending alerts:", error);
+      res.status(500).json({ error: "Failed to fetch pending alerts" });
+    }
+  });
+
+  // ====================================================================================
+  // Unlisted Bond Workflow Routes
+  // ====================================================================================
+
+  // Initiate unlisted bond order
+  app.post("/api/fixed-income/unlisted/orders", requireAuth, async (req: any, res) => {
+    try {
+      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
+      const result = await unlistedBondWorkflow.initiateUnlistedBondOrder({
+        userId: req.user.id,
+        bondName: req.body.bondName,
+        isin: req.body.isin,
+        bondType: req.body.bondType || 'unlisted_corporate',
+        quantity: req.body.quantity,
+        price: req.body.price,
+        sellerDetails: req.body.sellerDetails,
+        partnerId: req.body.partnerId,
+        agentId: req.body.agentId
+      });
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error initiating unlisted bond order:", error);
+      res.status(500).json({ error: "Failed to initiate unlisted bond order" });
+    }
+  });
+
+  // Get unlisted order details
+  app.get("/api/fixed-income/unlisted/orders/:orderId", requireAuth, async (req: any, res) => {
+    try {
+      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
+      const result = await unlistedBondWorkflow.getUnlistedOrderDetails(req.params.orderId, req.user.id);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(404).json({ error: "Order not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching unlisted order details:", error);
+      res.status(500).json({ error: "Failed to fetch order details" });
+    }
+  });
+
+  // Initiate eSign for term sheet
+  app.post("/api/fixed-income/unlisted/esign/initiate", requireAuth, async (req: any, res) => {
+    try {
+      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
+      const result = await unlistedBondWorkflow.initiateESign({
+        orderId: req.body.orderId,
+        documentType: req.body.documentType || 'term_sheet',
+        signerId: req.user.id,
+        signerType: req.body.signerType || 'buyer',
+        documentHash: req.body.documentHash || '',
+        callbackUrl: req.body.callbackUrl || ''
+      });
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error initiating eSign:", error);
+      res.status(500).json({ error: "Failed to initiate eSign" });
+    }
+  });
+
+  // Mock eSign completion endpoint
+  app.get("/api/fixed-income/unlisted/esign/mock", requireAuth, async (req: any, res) => {
+    try {
+      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
+      const transactionId = req.query.transactionId as string;
+      const orderId = req.query.orderId as string;
+      const signerType = req.query.signerType as 'buyer' | 'seller' | 'witness';
+      
+      const result = await unlistedBondWorkflow.processESignCallback(
+        transactionId,
+        orderId,
+        signerType,
+        {
+          signed: true,
+          signedAt: new Date().toISOString(),
+          signatureHash: `SIGN-${Date.now()}`,
+          aadhaarLastFour: '1234'
+        }
+      );
+      
+      res.redirect(`/fixed-income/unlisted/orders/${orderId}?esign=success`);
+    } catch (error) {
+      console.error("Error processing mock eSign:", error);
+      res.redirect("/fixed-income/unlisted?esign=error");
+    }
+  });
+
+  // eSign callback webhook
+  app.post("/api/fixed-income/unlisted/esign/callback", async (req, res) => {
+    try {
+      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
+      const result = await unlistedBondWorkflow.processESignCallback(
+        req.body.transactionId,
+        req.body.orderId,
+        req.body.signerType,
+        {
+          signed: req.body.signed,
+          signedAt: req.body.signedAt,
+          signatureHash: req.body.signatureHash,
+          aadhaarLastFour: req.body.aadhaarLastFour
+        }
+      );
+      
+      res.json({ status: result.success ? "OK" : "FAILED" });
+    } catch (error) {
+      console.error("Error processing eSign callback:", error);
+      res.status(500).json({ status: "ERROR" });
+    }
+  });
+
+  // Process commission payout (admin)
+  app.post("/api/fixed-income/admin/commissions/payout", requireAuth, async (req: any, res) => {
+    try {
+      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
+      const result = await unlistedBondWorkflow.processCommissionPayout(req.body.orderId);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json({ error: "Failed to process commission payout" });
+      }
+    } catch (error) {
+      console.error("Error processing commission payout:", error);
+      res.status(500).json({ error: "Failed to process commission payout" });
+    }
+  });
+
+  // Get partner commission report
+  app.get("/api/fixed-income/partner/commissions", requireAuth, async (req: any, res) => {
+    try {
+      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
+      const result = await unlistedBondWorkflow.getPartnerCommissionReport(req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching partner commission report:", error);
+      res.status(500).json({ error: "Failed to fetch commission report" });
+    }
+  });
+
   return server;
 }
+
