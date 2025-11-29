@@ -10817,6 +10817,514 @@ export const bondNcdApplications = pgTable("bond_ncd_applications", {
 export type BondNcdApplication = typeof bondNcdApplications.$inferSelect;
 export type InsertBondNcdApplication = typeof bondNcdApplications.$inferInsert;
 
+// ============================================
+// PROCESS FLOW B - ADDITIONAL MARKETPLACE TABLES
+// ============================================
+
+// Catalog Source Tracking - Track data feed ingestion from NSE/BSE/RBI
+export const fixedIncomeFeedIngestionLogs = pgTable("fixed_income_feed_ingestion_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Feed source details
+  feedSource: varchar("feed_source").notNull(), // 'nse_ncb', 'bse_bond', 'rbi_retail_direct', 'bse_star_sgb', 'cams_rta', 'kfin_rta', 'goldenpi', 'indiabonds', 'manual'
+  feedType: varchar("feed_type").notNull(), // 'full_refresh', 'incremental', 'price_update', 'new_issue', 'status_update'
+  instrumentType: varchar("instrument_type").notNull(), // 'ncd', 'sgb', 'g_sec', 'corporate_bond', 't_bill', 'sdl', 'tax_free_bond'
+  
+  // Ingestion details
+  ingestionStartTime: timestamp("ingestion_start_time").notNull(),
+  ingestionEndTime: timestamp("ingestion_end_time"),
+  recordsReceived: integer("records_received").default(0),
+  recordsInserted: integer("records_inserted").default(0),
+  recordsUpdated: integer("records_updated").default(0),
+  recordsSkipped: integer("records_skipped").default(0),
+  recordsFailed: integer("records_failed").default(0),
+  
+  // Status
+  ingestionStatus: varchar("ingestion_status").default("in_progress"), // 'in_progress', 'completed', 'failed', 'partial'
+  
+  // Error tracking
+  errorDetails: jsonb("error_details").default([]),
+  failedRecords: jsonb("failed_records").default([]),
+  
+  // Data quality metrics
+  dataQualityScore: decimal("data_quality_score", { precision: 5, scale: 2 }), // 0-100
+  duplicatesFound: integer("duplicates_found").default(0),
+  validationErrors: integer("validation_errors").default(0),
+  
+  // Raw response storage (encrypted for sensitive data)
+  rawResponsePath: text("raw_response_path"), // GCS path for raw response
+  responseChecksum: varchar("response_checksum"),
+  
+  // Metadata
+  triggeredBy: varchar("triggered_by").default("system"), // 'system', 'manual', 'webhook'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_feed_ingestion_source").on(table.feedSource),
+  index("idx_feed_ingestion_type").on(table.feedType),
+  index("idx_feed_ingestion_status").on(table.ingestionStatus),
+  index("idx_feed_ingestion_time").on(table.ingestionStartTime),
+]);
+
+export type FixedIncomeFeedIngestionLog = typeof fixedIncomeFeedIngestionLogs.$inferSelect;
+export type InsertFixedIncomeFeedIngestionLog = typeof fixedIncomeFeedIngestionLogs.$inferInsert;
+
+// UCC Status - Unique Client Code tracking for bond trading eligibility
+export const userUccStatus = pgTable("user_ucc_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // UCC details
+  uccNumber: varchar("ucc_number").unique(), // Unique Client Code
+  uccStatus: varchar("ucc_status").default("not_created"), // 'not_created', 'pending', 'active', 'suspended', 'deactivated'
+  uccCreatedDate: date("ucc_created_date"),
+  uccLastVerified: timestamp("ucc_last_verified"),
+  
+  // Exchange registration
+  nseRegistered: boolean("nse_registered").default(false),
+  bseRegistered: boolean("bse_registered").default(false),
+  mcdxRegistered: boolean("mcdx_registered").default(false),
+  ncdexRegistered: boolean("ncdex_registered").default(false),
+  
+  // Trading member details
+  tradingMemberId: varchar("trading_member_id"),
+  tradingMemberName: varchar("trading_member_name"),
+  clearingMemberId: varchar("clearing_member_id"),
+  
+  // KRA status
+  kraStatus: varchar("kra_status").default("not_verified"), // 'not_verified', 'verified', 'failed', 'pending'
+  kraNumber: varchar("kra_number"),
+  kraVerifiedDate: date("kra_verified_date"),
+  kraAgency: varchar("kra_agency"), // 'cams', 'kfin', 'cvl', 'dotex', 'nsdl'
+  
+  // Demat linkage
+  primaryDematId: varchar("primary_demat_id").references(() => userDematAccounts.id),
+  dematVerified: boolean("demat_verified").default(false),
+  
+  // FATCA/CRS compliance
+  fatcaCompliant: boolean("fatca_compliant").default(false),
+  fatcaDeclarationDate: date("fatca_declaration_date"),
+  
+  // Trading eligibility
+  bondTradingEnabled: boolean("bond_trading_enabled").default(false),
+  ncdApplicationEnabled: boolean("ncd_application_enabled").default(false),
+  sgbApplicationEnabled: boolean("sgb_application_enabled").default(false),
+  gsecTradingEnabled: boolean("gsec_trading_enabled").default(false),
+  
+  // Eligibility restrictions
+  eligibilityRestrictions: jsonb("eligibility_restrictions").default([]),
+  restrictionReasons: text("restriction_reasons"),
+  
+  // Verification audit trail
+  lastModifiedBy: varchar("last_modified_by"),
+  verificationHistory: jsonb("verification_history").default([]),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ucc_status_user").on(table.userId),
+  index("idx_ucc_status_ucc").on(table.uccNumber),
+  index("idx_ucc_status_status").on(table.uccStatus),
+  index("idx_ucc_status_kra").on(table.kraStatus),
+]);
+
+export type UserUccStatus = typeof userUccStatus.$inferSelect;
+export type InsertUserUccStatus = typeof userUccStatus.$inferInsert;
+
+// Order Payments - Detailed payment tracking for fixed income orders with gateway callbacks
+export const fixedIncomeOrderPayments = pgTable("fixed_income_order_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Order reference
+  orderId: varchar("order_id").references(() => bondOrders.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Payment details
+  paymentType: varchar("payment_type").notNull(), // 'full_payment', 'margin', 'asba_block', 'refund'
+  paymentMethod: varchar("payment_method").notNull(), // 'upi', 'netbanking', 'neft', 'rtgs', 'imps', 'asba'
+  
+  // Amounts
+  orderAmount: decimal("order_amount", { precision: 15, scale: 2 }).notNull(),
+  paymentAmount: decimal("payment_amount", { precision: 15, scale: 2 }).notNull(),
+  convenienceFee: decimal("convenience_fee", { precision: 10, scale: 2 }).default("0"),
+  gstOnFee: decimal("gst_on_fee", { precision: 10, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
+  
+  // Payment gateway details
+  paymentGateway: varchar("payment_gateway").notNull(), // 'cashfree', 'phonepe', 'razorpay', 'bse_star'
+  gatewayOrderId: varchar("gateway_order_id").unique(),
+  gatewayPaymentId: varchar("gateway_payment_id"),
+  gatewayTransactionId: varchar("gateway_transaction_id"),
+  
+  // Payment link
+  paymentLinkUrl: text("payment_link_url"),
+  paymentLinkExpiresAt: timestamp("payment_link_expires_at"),
+  
+  // Status tracking
+  paymentStatus: varchar("payment_status").default("pending"), 
+  // 'pending', 'initiated', 'processing', 'completed', 'failed', 'refunded', 'cancelled', 'blocked_asba'
+  paymentInitiatedAt: timestamp("payment_initiated_at"),
+  paymentCompletedAt: timestamp("payment_completed_at"),
+  
+  // Bank details (for verification)
+  payerBankName: varchar("payer_bank_name"),
+  payerAccountNumber: varchar("payer_account_number"), // Last 4 digits only
+  payerVpa: varchar("payer_vpa"), // For UPI payments
+  
+  // Gateway callback data
+  gatewayResponse: jsonb("gateway_response").default({}),
+  gatewaySignature: varchar("gateway_signature"),
+  callbackReceivedAt: timestamp("callback_received_at"),
+  
+  // ASBA specific (for IPO/NCD applications)
+  asbaBankName: varchar("asba_bank_name"),
+  asbaAccountNumber: varchar("asba_account_number"),
+  asbaBlockedAmount: decimal("asba_blocked_amount", { precision: 15, scale: 2 }),
+  asbaReleaseDate: date("asba_release_date"),
+  
+  // Refund details
+  refundStatus: varchar("refund_status"), // 'not_applicable', 'pending', 'initiated', 'completed', 'failed'
+  refundAmount: decimal("refund_amount", { precision: 15, scale: 2 }),
+  refundReason: text("refund_reason"),
+  refundReference: varchar("refund_reference"),
+  refundCompletedAt: timestamp("refund_completed_at"),
+  
+  // Reconciliation
+  reconciliationStatus: varchar("reconciliation_status").default("pending"), // 'pending', 'matched', 'mismatched', 'manual_review'
+  bankReconciliationRef: varchar("bank_reconciliation_ref"),
+  
+  // Retry tracking
+  retryCount: integer("retry_count").default(0),
+  lastRetryAt: timestamp("last_retry_at"),
+  
+  // Error tracking
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  
+  // IP tracking for compliance
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fi_payments_order").on(table.orderId),
+  index("idx_fi_payments_user").on(table.userId),
+  index("idx_fi_payments_status").on(table.paymentStatus),
+  index("idx_fi_payments_gateway").on(table.paymentGateway),
+  index("idx_fi_payments_gateway_order").on(table.gatewayOrderId),
+]);
+
+export type FixedIncomeOrderPayment = typeof fixedIncomeOrderPayments.$inferSelect;
+export type InsertFixedIncomeOrderPayment = typeof fixedIncomeOrderPayments.$inferInsert;
+
+// Settlement Records - Track demat settlement with NSDL/CDSL
+export const fixedIncomeSettlements = pgTable("fixed_income_settlements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Order reference
+  orderId: varchar("order_id").references(() => bondOrders.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Settlement type
+  settlementType: varchar("settlement_type").notNull(), // 'regular', 'trade_date', 'spot', 'auction'
+  settlementCycle: varchar("settlement_cycle").notNull(), // 'T+0', 'T+1', 'T+2'
+  
+  // Security details
+  isin: varchar("isin").notNull(),
+  securityName: text("security_name").notNull(),
+  quantity: integer("quantity").notNull(),
+  settlementValue: decimal("settlement_value", { precision: 15, scale: 2 }).notNull(),
+  
+  // Settlement dates
+  tradeDate: date("trade_date").notNull(),
+  expectedSettlementDate: date("expected_settlement_date").notNull(),
+  actualSettlementDate: date("actual_settlement_date"),
+  
+  // Depository details
+  depository: varchar("depository").notNull(), // 'nsdl', 'cdsl'
+  dpId: varchar("dp_id").notNull(),
+  clientId: varchar("client_id").notNull(),
+  dematAccountNumber: varchar("demat_account_number").notNull(),
+  
+  // Settlement status
+  settlementStatus: varchar("settlement_status").default("pending"),
+  // 'pending', 'in_transit', 'credited', 'debited', 'failed', 'reversed', 'short_delivery'
+  
+  // Depository references
+  depositoryTransactionId: varchar("depository_transaction_id"),
+  depositoryInstructionId: varchar("depository_instruction_id"),
+  depositoryRefNumber: varchar("depository_ref_number"),
+  
+  // Clearing corporation details
+  clearingCorporation: varchar("clearing_corporation"), // 'iccl', 'nsccl'
+  clearingNumber: varchar("clearing_number"),
+  clearingReference: varchar("clearing_reference"),
+  
+  // Pay-in/Pay-out details
+  payinStatus: varchar("payin_status"), // 'pending', 'completed', 'failed'
+  payoutStatus: varchar("payout_status"), // 'pending', 'completed', 'failed'
+  
+  // Obligation details
+  obligationId: varchar("obligation_id"),
+  obligationType: varchar("obligation_type"), // 'delivery', 'receipt'
+  
+  // Counterparty details (for secondary market trades)
+  counterpartyDpId: varchar("counterparty_dp_id"),
+  counterpartyClientId: varchar("counterparty_client_id"),
+  
+  // Corporate actions (if any pending)
+  corporateActionsPending: boolean("corporate_actions_pending").default(false),
+  corporateActionsDetails: jsonb("corporate_actions_details").default([]),
+  
+  // Error handling
+  settlementFailureReason: text("settlement_failure_reason"),
+  retryAttempts: integer("retry_attempts").default(0),
+  lastRetryAt: timestamp("last_retry_at"),
+  
+  // Audit trail
+  statusHistory: jsonb("status_history").default([]),
+  
+  // PAN encryption for compliance (field-level encryption)
+  encryptedPan: varchar("encrypted_pan"), // AES-256 encrypted PAN
+  panEncryptionKeyId: varchar("pan_encryption_key_id"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fi_settlements_order").on(table.orderId),
+  index("idx_fi_settlements_user").on(table.userId),
+  index("idx_fi_settlements_status").on(table.settlementStatus),
+  index("idx_fi_settlements_isin").on(table.isin),
+  index("idx_fi_settlements_date").on(table.expectedSettlementDate),
+  index("idx_fi_settlements_depository").on(table.depository),
+]);
+
+export type FixedIncomeSettlement = typeof fixedIncomeSettlements.$inferSelect;
+export type InsertFixedIncomeSettlement = typeof fixedIncomeSettlements.$inferInsert;
+
+// Notification Subscriptions - User preferences for bond marketplace alerts
+export const fixedIncomeNotificationPrefs = pgTable("fixed_income_notification_prefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Channel preferences
+  emailEnabled: boolean("email_enabled").default(true),
+  smsEnabled: boolean("sms_enabled").default(true),
+  pushEnabled: boolean("push_enabled").default(true),
+  whatsappEnabled: boolean("whatsapp_enabled").default(false),
+  
+  // Order and trading alerts
+  orderConfirmationAlert: boolean("order_confirmation_alert").default(true),
+  orderExecutionAlert: boolean("order_execution_alert").default(true),
+  paymentReminderAlert: boolean("payment_reminder_alert").default(true),
+  settlementAlert: boolean("settlement_alert").default(true),
+  
+  // Coupon and income alerts
+  couponCreditAlert: boolean("coupon_credit_alert").default(true),
+  couponDueReminderDays: integer("coupon_due_reminder_days").default(3),
+  
+  // Maturity alerts
+  maturityAlertEnabled: boolean("maturity_alert_enabled").default(true),
+  maturityReminderDays: jsonb("maturity_reminder_days").default([90, 60, 30, 7]),
+  
+  // Put/Call option alerts
+  putCallOptionAlert: boolean("put_call_option_alert").default(true),
+  putCallReminderDays: integer("put_call_reminder_days").default(30),
+  
+  // Rating change alerts
+  ratingChangeAlert: boolean("rating_change_alert").default(true),
+  ratingDowngradeAlert: boolean("rating_downgrade_alert").default(true),
+  
+  // New issue alerts
+  newNcdIssueAlert: boolean("new_ncd_issue_alert").default(true),
+  newSgbIssueAlert: boolean("new_sgb_issue_alert").default(true),
+  newGsecAuctionAlert: boolean("new_gsec_auction_alert").default(false),
+  
+  // Price alerts
+  priceAlertEnabled: boolean("price_alert_enabled").default(false),
+  defaultPriceThresholdPercent: decimal("default_price_threshold_percent", { precision: 5, scale: 2 }).default("5"),
+  
+  // Yield alerts
+  yieldAlertEnabled: boolean("yield_alert_enabled").default(false),
+  defaultYieldThresholdBps: integer("default_yield_threshold_bps").default(25), // Basis points
+  
+  // Portfolio alerts
+  portfolioValueAlert: boolean("portfolio_value_alert").default(false),
+  portfolioValueThresholdPercent: decimal("portfolio_value_threshold_percent", { precision: 5, scale: 2 }),
+  
+  // Market insights
+  weeklyMarketDigest: boolean("weekly_market_digest").default(true),
+  researchReportsAlert: boolean("research_reports_alert").default(false),
+  
+  // Regulatory alerts
+  regulatoryUpdateAlert: boolean("regulatory_update_alert").default(true),
+  taxDeadlineAlert: boolean("tax_deadline_alert").default(true),
+  
+  // Quiet hours
+  quietHoursEnabled: boolean("quiet_hours_enabled").default(false),
+  quietHoursStart: varchar("quiet_hours_start"), // HH:MM format
+  quietHoursEnd: varchar("quiet_hours_end"),
+  quietHoursTimezone: varchar("quiet_hours_timezone").default("Asia/Kolkata"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fi_notif_prefs_user").on(table.userId),
+]);
+
+export type FixedIncomeNotificationPref = typeof fixedIncomeNotificationPrefs.$inferSelect;
+export type InsertFixedIncomeNotificationPref = typeof fixedIncomeNotificationPrefs.$inferInsert;
+
+// Report Snapshots - Generated reports storage for download
+export const fixedIncomeReports = pgTable("fixed_income_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Report type
+  reportType: varchar("report_type").notNull(),
+  // 'bond_holding', 'coupon_schedule', 'maturity_calendar', 'transaction_ledger', 
+  // 'tax_statement', 'capital_gains', 'portfolio_summary', 'custom'
+  
+  reportName: text("report_name").notNull(),
+  reportDescription: text("report_description"),
+  
+  // Report parameters
+  reportPeriodStart: date("report_period_start"),
+  reportPeriodEnd: date("report_period_end"),
+  instrumentTypes: jsonb("instrument_types").default([]), // Filter by instrument types
+  reportFilters: jsonb("report_filters").default({}), // Additional filters
+  
+  // Report format
+  reportFormat: varchar("report_format").notNull(), // 'pdf', 'xlsx', 'csv', 'json'
+  
+  // File storage (encrypted in GCS)
+  fileUrl: text("file_url"),
+  filePath: text("file_path"), // GCS path
+  fileSize: integer("file_size"), // Bytes
+  fileChecksum: varchar("file_checksum"),
+  encryptionKeyId: varchar("encryption_key_id"),
+  
+  // Generation status
+  generationStatus: varchar("generation_status").default("pending"),
+  // 'pending', 'generating', 'completed', 'failed', 'expired'
+  generationStartedAt: timestamp("generation_started_at"),
+  generationCompletedAt: timestamp("generation_completed_at"),
+  generationError: text("generation_error"),
+  
+  // Download tracking
+  downloadCount: integer("download_count").default(0),
+  lastDownloadedAt: timestamp("last_downloaded_at"),
+  
+  // Expiration
+  expiresAt: timestamp("expires_at"),
+  
+  // Audit
+  requestedBy: varchar("requested_by"), // 'user', 'system', 'admin'
+  requestIpAddress: varchar("request_ip_address"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fi_reports_user").on(table.userId),
+  index("idx_fi_reports_type").on(table.reportType),
+  index("idx_fi_reports_status").on(table.generationStatus),
+  index("idx_fi_reports_expires").on(table.expiresAt),
+]);
+
+export type FixedIncomeReport = typeof fixedIncomeReports.$inferSelect;
+export type InsertFixedIncomeReport = typeof fixedIncomeReports.$inferInsert;
+
+// Partner/Agent Commission for Fixed Income - Commission tracking for bond orders
+export const fixedIncomeAgentCommissions = pgTable("fixed_income_agent_commissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Order and agent reference
+  orderId: varchar("order_id").references(() => bondOrders.id).notNull(),
+  agentId: varchar("agent_id").references(() => agents.id),
+  partnerId: varchar("partner_id").references(() => partners.id),
+  
+  // Client
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Product details
+  productType: varchar("product_type").notNull(), // 'ncd', 'sgb', 'corporate_bond', 'g_sec', 'tax_free_bond'
+  isin: varchar("isin"),
+  productName: text("product_name").notNull(),
+  
+  // Transaction details
+  transactionType: varchar("transaction_type").notNull(), // 'primary_subscription', 'secondary_purchase', 'secondary_sale'
+  transactionAmount: decimal("transaction_amount", { precision: 15, scale: 2 }).notNull(),
+  transactionDate: date("transaction_date").notNull(),
+  
+  // Commission calculation
+  commissionType: varchar("commission_type").notNull(), // 'percentage', 'fixed', 'tiered'
+  commissionRate: decimal("commission_rate", { precision: 8, scale: 4 }),
+  grossCommission: decimal("gross_commission", { precision: 15, scale: 2 }).notNull(),
+  
+  // Deductions
+  tdsDeducted: decimal("tds_deducted", { precision: 15, scale: 2 }).default("0"),
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }).default("5"),
+  gstOnCommission: decimal("gst_on_commission", { precision: 15, scale: 2 }).default("0"),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).default("18"),
+  otherDeductions: decimal("other_deductions", { precision: 15, scale: 2 }).default("0"),
+  
+  // Net commission
+  netCommission: decimal("net_commission", { precision: 15, scale: 2 }).notNull(),
+  
+  // Split between agent and master
+  agentShare: decimal("agent_share", { precision: 15, scale: 2 }),
+  masterAgentShare: decimal("master_agent_share", { precision: 15, scale: 2 }),
+  platformShare: decimal("platform_share", { precision: 15, scale: 2 }),
+  
+  // Settlement
+  settlementStatus: varchar("settlement_status").default("pending"), // 'pending', 'approved', 'settled', 'rejected', 'on_hold'
+  settlementDate: date("settlement_date"),
+  settlementReference: varchar("settlement_reference"),
+  settlementBatchId: varchar("settlement_batch_id"),
+  
+  // Clawback tracking
+  clawbackEligible: boolean("clawback_eligible").default(true),
+  clawbackPeriodDays: integer("clawback_period_days").default(365),
+  clawbackExpiresAt: date("clawback_expires_at"),
+  clawbackTriggered: boolean("clawback_triggered").default(false),
+  clawbackAmount: decimal("clawback_amount", { precision: 15, scale: 2 }),
+  clawbackReason: text("clawback_reason"),
+  
+  // Approval workflow
+  approvalStatus: varchar("approval_status").default("pending"), // 'pending', 'approved', 'rejected'
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Audit
+  calculationDetails: jsonb("calculation_details").default({}),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fi_agent_comm_order").on(table.orderId),
+  index("idx_fi_agent_comm_agent").on(table.agentId),
+  index("idx_fi_agent_comm_partner").on(table.partnerId),
+  index("idx_fi_agent_comm_client").on(table.clientId),
+  index("idx_fi_agent_comm_settlement").on(table.settlementStatus),
+  index("idx_fi_agent_comm_date").on(table.transactionDate),
+]);
+
+export type FixedIncomeAgentCommission = typeof fixedIncomeAgentCommissions.$inferSelect;
+export type InsertFixedIncomeAgentCommission = typeof fixedIncomeAgentCommissions.$inferInsert;
+
 // Drizzle Zod schemas for Fixed Income
 export const insertNcdPublicIssueSchema = createInsertSchema(ncdPublicIssues).omit({ id: true, createdAt: true, lastUpdated: true });
 export const insertBondCouponPaymentSchema = createInsertSchema(bondCouponPayments).omit({ id: true, createdAt: true, updatedAt: true });
@@ -10826,3 +11334,12 @@ export const insertBondWatchlistItemSchema = createInsertSchema(bondWatchlist).o
 export const insertSgbPrimaryIssueSchema = createInsertSchema(sgbPrimaryIssues).omit({ id: true, createdAt: true, lastUpdated: true });
 export const insertRbiRetailDirectAccountSchema = createInsertSchema(rbiRetailDirectAccounts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBondNcdApplicationSchema = createInsertSchema(bondNcdApplications).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Process Flow B additional schemas
+export const insertFixedIncomeFeedIngestionLogSchema = createInsertSchema(fixedIncomeFeedIngestionLogs).omit({ id: true, createdAt: true });
+export const insertUserUccStatusSchema = createInsertSchema(userUccStatus).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFixedIncomeOrderPaymentSchema = createInsertSchema(fixedIncomeOrderPayments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFixedIncomeSettlementSchema = createInsertSchema(fixedIncomeSettlements).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFixedIncomeNotificationPrefSchema = createInsertSchema(fixedIncomeNotificationPrefs).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFixedIncomeReportSchema = createInsertSchema(fixedIncomeReports).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFixedIncomeAgentCommissionSchema = createInsertSchema(fixedIncomeAgentCommissions).omit({ id: true, createdAt: true, updatedAt: true });
