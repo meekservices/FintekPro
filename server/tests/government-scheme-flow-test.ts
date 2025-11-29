@@ -162,25 +162,46 @@ async function runCompleteFlowTest(): Promise<TestResult[]> {
 
     if (epfRecords.length > 0) {
       const record = epfRecords[0];
-      results.push({
-        step: 'EPF Database Verification',
-        success: true,
-        details: `Found ${epfRecords.length} EPF record(s) - Member: ${record.memberName}, Employer: ${record.employerName}`,
-        data: {
-          epfAccountNumber: record.epfAccountNumber,
-          memberName: record.memberName,
-          employerName: record.employerName,
-          totalBalance: record.totalBalance
-        }
-      });
-      console.log(`   ✅ EPF data found: ${record.memberName} @ ${record.employerName}`);
       
-      // Verify expected data
-      if (record.memberName?.includes('Sangram') || record.memberName?.includes('SANGRAM')) {
-        console.log(`   ✅ Name matches expected: ${TEST_EXPECTED_NAME}`);
-      }
-      if (record.employerName?.includes('JM Financial')) {
-        console.log(`   ✅ Employer matches expected: ${TEST_EXPECTED_EMPLOYER}`);
+      // Strict assertions for expected data
+      const nameMatches = record.memberName?.toLowerCase().includes('sangram') && 
+                          record.memberName?.toLowerCase().includes('mohanty');
+      const employerMatches = record.employerName?.toLowerCase().includes('jm financial');
+      
+      const verificationPassed = nameMatches && employerMatches;
+      
+      if (verificationPassed) {
+        results.push({
+          step: 'EPF Database Verification',
+          success: true,
+          details: `✅ Data verified: ${record.memberName} @ ${record.employerName}`,
+          data: {
+            epfAccountNumber: record.epfAccountNumber,
+            memberName: record.memberName,
+            employerName: record.employerName,
+            totalBalance: record.totalBalance,
+            expectedName: TEST_EXPECTED_NAME,
+            expectedEmployer: TEST_EXPECTED_EMPLOYER,
+            nameMatched: nameMatches,
+            employerMatched: employerMatches
+          }
+        });
+        console.log(`   ✅ EPF data verified correctly`);
+        console.log(`      Member: ${record.memberName} (expected: ${TEST_EXPECTED_NAME})`);
+        console.log(`      Employer: ${record.employerName} (expected: ${TEST_EXPECTED_EMPLOYER})`);
+      } else {
+        results.push({
+          step: 'EPF Database Verification',
+          success: false,
+          details: `❌ Data mismatch: Found "${record.memberName}" @ "${record.employerName}" but expected "${TEST_EXPECTED_NAME}" @ "${TEST_EXPECTED_EMPLOYER}"`,
+          data: {
+            actual: { memberName: record.memberName, employerName: record.employerName },
+            expected: { memberName: TEST_EXPECTED_NAME, employerName: TEST_EXPECTED_EMPLOYER }
+          }
+        });
+        console.log(`   ❌ EPF data verification failed`);
+        console.log(`      Expected: ${TEST_EXPECTED_NAME} @ ${TEST_EXPECTED_EMPLOYER}`);
+        console.log(`      Actual: ${record.memberName} @ ${record.employerName}`);
       }
     } else {
       results.push({
