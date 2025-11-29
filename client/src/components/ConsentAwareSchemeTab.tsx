@@ -12,16 +12,18 @@ interface ConsentAwareSchemeTabProps {
   onRequestConsent: (schemeType: SchemeType) => void;
 }
 
-const SCHEME_NAMES = {
+const SCHEME_NAMES: Record<SchemeType, string> = {
   epf: "Employee Provident Fund (EPF)",
   ppf: "Public Provident Fund (PPF)",
-  eps: "Employee Pension Scheme (EPS)"
+  eps: "Employee Pension Scheme (EPS)",
+  insurance: "Insurance Policies"
 };
 
-const SCHEME_DESCRIPTIONS = {
+const SCHEME_DESCRIPTIONS: Record<SchemeType, string> = {
   epf: "Access your EPF account balance, contribution history, and withdrawal options",
   ppf: "View your PPF account details, maturity information, and investment tracking",
-  eps: "Check your pension benefits, monthly amounts, and service records"
+  eps: "Check your pension benefits, monthly amounts, and service records",
+  insurance: "View your insurance policies, premium details, and coverage information"
 };
 
 export function ConsentAwareSchemeTab({ 

@@ -41,10 +41,16 @@ export function useConsent(): ConsentHook {
       schemeType: SchemeType; 
       purpose?: string 
     }) => {
-      return await apiRequest("/api/government-schemes/consent", "POST", {
-        panNumber,
-        schemeType,
-        purpose: purpose || "Access government scheme holdings data for portfolio management"
+      return await apiRequest("/api/government-schemes/consent", {
+        method: "POST",
+        body: JSON.stringify({
+          panNumber,
+          schemeType,
+          purpose: purpose || "Access government scheme holdings data for portfolio management"
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
       });
     },
     onSuccess: () => {

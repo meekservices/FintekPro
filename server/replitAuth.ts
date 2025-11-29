@@ -9,6 +9,7 @@ import connectPg from "connect-pg-simple";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { generateUniqueUserId, hashPassword } from "./auth";
+import { PANConsentService } from "./services/pan-consent-service";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -199,6 +200,31 @@ export async function setupAuth(app: Express) {
       return res.status(404).json({ message: "User not found" });
     }
     
+    // Get decrypted PAN number if available
+    let panNumber: string | null = null;
+    try {
+      if (user.panNumber) {
+        // panNumber in session might already be decrypted or encrypted
+        // Check if it looks like an encrypted value (contains colons)
+        if (user.panNumber.includes(':')) {
+          panNumber = await PANConsentService.decryptPAN(user.panNumber);
+        } else {
+          panNumber = user.panNumber;
+        }
+      } else {
+        // Fetch from database if not in session
+        const dbUser = await storage.getUser(user.id);
+        if (dbUser?.panNumber && dbUser.panNumber.includes(':')) {
+          panNumber = await PANConsentService.decryptPAN(dbUser.panNumber);
+        } else if (dbUser?.panNumber) {
+          panNumber = dbUser.panNumber;
+        }
+      }
+    } catch (err) {
+      console.error("Error decrypting PAN:", err);
+      // Continue without PAN if decryption fails
+    }
+    
     res.json({
       id: user.id,
       userId: user.userId,
@@ -212,6 +238,7 @@ export async function setupAuth(app: Express) {
       isMobileVerified: user.isMobileVerified,
       roles: user.roles,
       lastLoginAt: user.lastLoginAt,
+      panNumber: panNumber,
     });
   });
 }
