@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   CreditCard, 
   Home, 
@@ -21,30 +22,14 @@ import {
   CheckCircle,
   Shield,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  Loader2
 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-
-interface FinancialObligation {
-  id: string;
-  name: string;
-  type: 'loan' | 'emi' | 'rent' | 'insurance' | 'subscription' | 'tax' | 'other';
-  amount: number;
-  frequency: 'monthly' | 'quarterly' | 'annually';
-  dueDate: string;
-  priority: 'critical' | 'important' | 'optional';
-  status: 'active' | 'upcoming' | 'completed';
-  autoDebit: boolean;
-  remainingPayments?: number;
-  creditLimit?: number;
-  utilizationRate?: number;
-  lastPayment?: string;
-  paymentStatus?: string;
-  bank?: string;
-  accountType?: string;
-  fromCibil?: boolean;
-}
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { FinancialObligation } from "@shared/schema";
 
 interface CibilReportData {
   creditScore?: number;
@@ -55,7 +40,7 @@ interface CibilReportData {
   reportId?: string;
 }
 
-const obligationIcons = {
+const obligationIcons: Record<string, any> = {
   loan: Home,
   emi: Car,
   rent: Home,
@@ -66,58 +51,11 @@ const obligationIcons = {
 };
 
 export function ObligationMapping() {
-  const [obligations, setObligations] = useState<FinancialObligation[]>([
-    {
-      id: "1",
-      name: "Home Loan EMI",
-      type: "loan",
-      amount: 45000,
-      frequency: "monthly",
-      dueDate: "2025-09-05",
-      priority: "critical",
-      status: "active",
-      autoDebit: true,
-      remainingPayments: 180,
-      fromCibil: false
-    },
-    {
-      id: "2",
-      name: "Car Loan EMI", 
-      type: "emi",
-      amount: 18000,
-      frequency: "monthly",
-      dueDate: "2025-09-10",
-      priority: "important",
-      status: "active",
-      autoDebit: true,
-      remainingPayments: 36,
-      fromCibil: false
-    },
-    {
-      id: "3",
-      name: "Life Insurance Premium",
-      type: "insurance", 
-      amount: 24000,
-      frequency: "annually",
-      dueDate: "2025-12-15",
-      priority: "important",
-      status: "upcoming",
-      autoDebit: false,
-      fromCibil: false
-    },
-    {
-      id: "4",
-      name: "Income Tax (Q3)",
-      type: "tax",
-      amount: 75000,
-      frequency: "quarterly", 
-      dueDate: "2025-12-15",
-      priority: "critical",
-      status: "upcoming",
-      autoDebit: false,
-      fromCibil: false
-    }
-  ]);
+  const { toast } = useToast();
+
+  const { data: obligations = [], isLoading, refetch } = useQuery<FinancialObligation[]>({
+    queryKey: ['/api/financial-obligations'],
+  });
 
   const [cibilData, setCibilData] = useState<CibilReportData | null>(null);
   const [userInfo, setUserInfo] = useState({
@@ -141,19 +79,74 @@ export function ObligationMapping() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCibilDialogOpen, setIsCibilDialogOpen] = useState(false);
 
-  // CIBIL integration mutations
+  const createObligationMutation = useMutation({
+    mutationFn: async (data: Partial<FinancialObligation>) => {
+      return apiRequest('/api/financial-obligations', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/financial-obligations'] });
+      toast({
+        title: "Obligation added",
+        description: "Your financial obligation has been added successfully.",
+      });
+      setIsDialogOpen(false);
+      setNewObligation({
+        name: "",
+        type: "other",
+        amount: "",
+        frequency: "monthly",
+        dueDate: "",
+        priority: "important",
+        autoDebit: false
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add obligation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteObligationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/financial-obligations/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/financial-obligations'] });
+      toast({
+        title: "Obligation deleted",
+        description: "Your financial obligation has been removed.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete obligation",
+        variant: "destructive",
+      });
+    },
+  });
+
   const { mutate: getCreditScore, isPending: scorePending } = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/cibil/credit-score", data);
+      return apiRequest("/api/cibil/credit-score", {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: (data: any) => {
       if (data.success) {
         setCibilData(data.data);
-        // Save credit score to localStorage
         if (data.data.creditScore) {
           localStorage.setItem('userCreditScore', data.data.creditScore.toString());
         }
-        // Get detailed report automatically
         getDetailedReport({ reportId: data.data.reportId, userConsent: true });
       }
     }
@@ -161,7 +154,10 @@ export function ObligationMapping() {
 
   const { mutate: getDetailedReport, isPending: reportPending } = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/cibil/detailed-report", data);
+      return apiRequest("/api/cibil/detailed-report", {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: (data: any) => {
       if (data.success) {
@@ -171,52 +167,43 @@ export function ObligationMapping() {
     }
   });
 
-  const syncCibilObligations = (reportData: any) => {
-    if (reportData.creditAccounts) {
-      const cibilObligations: FinancialObligation[] = reportData.creditAccounts.map((account: any) => {
-        // Calculate estimated EMI based on account type and balance
-        let estimatedEMI = 0;
-        if (account.accountType === "Personal Loan" || account.accountType === "Home Loan" || account.accountType === "Auto Loan") {
-          // Estimate EMI as 3% of current balance (typical for loans)
-          estimatedEMI = Math.round(account.currentBalance * 0.03);
-        } else if (account.accountType === "Credit Card") {
-          // Minimum payment for credit cards (typically 5% of outstanding)
-          estimatedEMI = Math.round(account.currentBalance * 0.05);
-        }
-
-        const priority = account.paymentStatus === "30 Days Late" ? "critical" : 
-                        account.currentBalance > account.creditLimit * 0.8 ? "important" : "important";
-
-        return {
-          id: account.accountId,
-          name: `${account.accountType} - ${account.bank}`,
-          type: account.accountType.toLowerCase().includes("loan") ? "loan" as const : 
-                account.accountType === "Credit Card" ? "emi" as const : "other" as const,
-          amount: estimatedEMI,
-          frequency: "monthly" as const,
-          dueDate: new Date(Date.now() + Math.floor(Math.random() * 25) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          priority: priority as "critical" | "important" | "optional",
-          status: "active" as const,
-          autoDebit: Math.random() > 0.5,
-          creditLimit: account.creditLimit,
-          utilizationRate: account.creditLimit > 0 ? Math.round((account.currentBalance / account.creditLimit) * 100) : 0,
-          lastPayment: account.lastPayment,
-          paymentStatus: account.paymentStatus,
-          bank: account.bank,
-          accountType: account.accountType,
-          fromCibil: true
-        };
+  const syncCibilMutation = useMutation({
+    mutationFn: async (cibilAccounts: any[]) => {
+      return apiRequest('/api/financial-obligations/sync-cibil', {
+        method: 'POST',
+        body: JSON.stringify({ cibilAccounts }),
       });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/financial-obligations'] });
+      toast({
+        title: "CIBIL synced",
+        description: `Successfully imported ${data.synced || 0} credit obligations from CIBIL.`,
+      });
+    },
+    onError: (error: any) => {
+      console.error("CIBIL sync error:", error);
+      toast({
+        title: "Sync failed",
+        description: error.userMessage || error.message || "Failed to sync CIBIL data. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
-      // Replace CIBIL obligations and keep manual ones
-      const manualObligations = obligations.filter(o => !o.fromCibil);
-      setObligations([...manualObligations, ...cibilObligations]);
+  const syncCibilObligations = (reportData: any) => {
+    if (reportData.creditAccounts && reportData.creditAccounts.length > 0) {
+      syncCibilMutation.mutate(reportData.creditAccounts);
     }
   };
 
   const handleCibilSync = () => {
     if (!userInfo.fullName || !userInfo.mobileNumber || !userInfo.dateOfBirth || !userInfo.panNumber) {
-      alert("Please fill in all required fields to sync with CIBIL");
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields to sync with CIBIL",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -233,7 +220,7 @@ export function ObligationMapping() {
       .filter(o => o.fromCibil && o.status === 'active')
       .reduce((sum, obligation) => {
         return sum + (obligation.creditLimit && obligation.utilizationRate ? 
-          (obligation.creditLimit * obligation.utilizationRate / 100) : 0);
+          (Number(obligation.creditLimit) * Number(obligation.utilizationRate) / 100) : 0);
       }, 0);
   };
 
@@ -259,13 +246,13 @@ export function ObligationMapping() {
     return obligations
       .filter(o => o.status === 'active')
       .reduce((sum, obligation) => {
-        return sum + calculateMonthlyEquivalent(obligation.amount, obligation.frequency);
+        return sum + calculateMonthlyEquivalent(Number(obligation.amount), obligation.frequency);
       }, 0);
   };
 
   const getObligationsByType = () => {
     const types = obligations.reduce((acc, obligation) => {
-      const monthlyAmount = calculateMonthlyEquivalent(obligation.amount, obligation.frequency);
+      const monthlyAmount = calculateMonthlyEquivalent(Number(obligation.amount), obligation.frequency);
       if (obligation.status === 'active') {
         acc[obligation.type] = (acc[obligation.type] || 0) + monthlyAmount;
       }
@@ -279,32 +266,42 @@ export function ObligationMapping() {
   };
 
   const handleAddObligation = () => {
-    if (!newObligation.name || !newObligation.amount || !newObligation.dueDate) return;
+    if (!newObligation.name || !newObligation.amount || !newObligation.dueDate) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const obligation: FinancialObligation = {
-      id: Date.now().toString(),
-      name: newObligation.name,
+    const amountNum = parseFloat(newObligation.amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid positive amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const dueDateFormatted = new Date(newObligation.dueDate).toISOString().split('T')[0];
+
+    createObligationMutation.mutate({
+      name: newObligation.name.trim(),
       type: newObligation.type,
-      amount: parseInt(newObligation.amount),
+      amount: amountNum.toString(),
       frequency: newObligation.frequency,
-      dueDate: newObligation.dueDate,
+      dueDate: dueDateFormatted,
       priority: newObligation.priority,
       status: "active",
       autoDebit: newObligation.autoDebit,
       fromCibil: false
-    };
-
-    setObligations([...obligations, obligation]);
-    setNewObligation({
-      name: "",
-      type: "other",
-      amount: "",
-      frequency: "monthly",
-      dueDate: "",
-      priority: "important",
-      autoDebit: false
     });
-    setIsDialogOpen(false);
+  };
+
+  const handleDeleteObligation = (id: string) => {
+    deleteObligationMutation.mutate(id);
   };
 
   const getUpcomingPayments = () => {
@@ -316,6 +313,29 @@ export function ObligationMapping() {
       return dueDate >= now && dueDate <= thirtyDaysFromNow;
     }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-4 w-32 mb-2" />
+                <Skeleton className="h-8 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -410,7 +430,12 @@ export function ObligationMapping() {
                   className="w-full bg-finance-blue hover:bg-blue-700"
                   data-testid="button-fetch-cibil"
                 >
-                  {scorePending || reportPending ? "Fetching CIBIL Data..." : "Fetch Credit Obligations"}
+                  {scorePending || reportPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Fetching CIBIL Data...
+                    </>
+                  ) : "Fetch Credit Obligations"}
                 </Button>
               </div>
             </DialogContent>
@@ -512,8 +537,18 @@ export function ObligationMapping() {
                   </Select>
                 </div>
 
-                <Button onClick={handleAddObligation} className="w-full" data-testid="button-create-obligation">
-                  Add Obligation
+                <Button 
+                  onClick={handleAddObligation} 
+                  className="w-full" 
+                  data-testid="button-create-obligation"
+                  disabled={createObligationMutation.isPending}
+                >
+                  {createObligationMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : "Add Obligation"}
                 </Button>
               </div>
             </DialogContent>
@@ -621,6 +656,29 @@ export function ObligationMapping() {
         </Card>
       </div>
 
+      {/* Empty State */}
+      {obligations.length === 0 && (
+        <Card className="border-dashed" data-testid="card-empty-state">
+          <CardContent className="p-12 text-center">
+            <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">No obligations yet</h3>
+            <p className="text-muted-foreground mb-4">
+              Start tracking your financial commitments by adding an obligation or syncing with CIBIL.
+            </p>
+            <div className="flex justify-center gap-3">
+              <Button variant="outline" onClick={() => setIsCibilDialogOpen(true)}>
+                <Shield className="w-4 h-4 mr-2" />
+                Sync CIBIL
+              </Button>
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Obligation
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Upcoming Payments */}
       {getUpcomingPayments().length > 0 && (
         <Card data-testid="card-upcoming-payments-list">
@@ -633,7 +691,7 @@ export function ObligationMapping() {
           <CardContent>
             <div className="space-y-3">
               {getUpcomingPayments().map((obligation) => {
-                const Icon = obligationIcons[obligation.type];
+                const Icon = obligationIcons[obligation.type] || AlertTriangle;
                 const daysUntilDue = Math.ceil((new Date(obligation.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
                 
                 return (
@@ -660,7 +718,7 @@ export function ObligationMapping() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold">{formatCurrency(obligation.amount)}</p>
+                      <p className="font-bold">{formatCurrency(Number(obligation.amount))}</p>
                       {obligation.autoDebit && (
                         <Badge variant="outline" className="text-xs">Auto-debit</Badge>
                       )}
@@ -674,166 +732,184 @@ export function ObligationMapping() {
       )}
 
       {/* Obligations by Category */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card data-testid="card-obligations-by-category">
-          <CardHeader>
-            <CardTitle>Obligations by Category</CardTitle>
-            <CardDescription>Monthly breakdown of your financial commitments</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {getObligationsByType().map((category, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="font-medium">{category.type}</span>
-                  <span className="text-lg font-bold">{formatCurrency(category.amount)}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {obligations.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card data-testid="card-obligations-by-category">
+            <CardHeader>
+              <CardTitle>Obligations by Category</CardTitle>
+              <CardDescription>Monthly breakdown of your financial commitments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {getObligationsByType().map((category, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <span className="font-medium">{category.type}</span>
+                    <span className="text-lg font-bold">{formatCurrency(category.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* All Obligations List */}
-        <Card data-testid="card-all-obligations">
-          <CardHeader>
-            <CardTitle>All Obligations</CardTitle>
-            <CardDescription>Complete list of your financial commitments</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {obligations.map((obligation) => {
-                const Icon = obligationIcons[obligation.type];
-                const monthlyAmount = calculateMonthlyEquivalent(obligation.amount, obligation.frequency);
-                
-                return (
-                  <div key={obligation.id} className={`flex items-center justify-between p-3 border rounded-lg ${
-                    obligation.fromCibil ? 'border-blue-200 bg-blue-50' : ''
-                  }`} data-testid={`obligation-${obligation.id}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        obligation.status === 'active' ? 'bg-green-100 text-green-600' :
-                        obligation.status === 'upcoming' ? 'bg-blue-100 text-blue-600' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{obligation.name}</p>
-                          {obligation.fromCibil && (
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                              <Shield className="w-3 h-3 mr-1" />
-                              CIBIL
-                            </Badge>
-                          )}
+          {/* All Obligations List */}
+          <Card data-testid="card-all-obligations">
+            <CardHeader>
+              <CardTitle>All Obligations</CardTitle>
+              <CardDescription>Complete list of your financial commitments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {obligations.map((obligation) => {
+                  const Icon = obligationIcons[obligation.type] || AlertTriangle;
+                  const monthlyAmount = calculateMonthlyEquivalent(Number(obligation.amount), obligation.frequency);
+                  
+                  return (
+                    <div key={obligation.id} className={`flex items-center justify-between p-3 border rounded-lg ${
+                      obligation.fromCibil ? 'border-blue-200 bg-blue-50' : ''
+                    }`} data-testid={`obligation-${obligation.id}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${
+                          obligation.status === 'active' ? 'bg-green-100 text-green-600' :
+                          obligation.status === 'upcoming' ? 'bg-blue-100 text-blue-600' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          <Icon className="w-4 h-4" />
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant={obligation.priority === 'critical' ? 'destructive' : obligation.priority === 'important' ? 'default' : 'secondary'} className="text-xs">
-                            {obligation.priority}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {obligation.frequency}
-                          </Badge>
-                          {obligation.paymentStatus && (
-                            <Badge variant={obligation.paymentStatus === 'Current' ? 'default' : 'destructive'} className="text-xs">
-                              {obligation.paymentStatus}
-                            </Badge>
-                          )}
-                          {obligation.remainingPayments && (
-                            <span className="text-xs text-muted-foreground">
-                              {obligation.remainingPayments} payments left
-                            </span>
-                          )}
-                        </div>
-                        {obligation.fromCibil && obligation.creditLimit && (
-                          <div className="mt-2">
-                            <div className="flex justify-between text-xs text-gray-600 mb-1">
-                              <span>Utilization: {obligation.utilizationRate}%</span>
-                              <span>Limit: ₹{obligation.creditLimit.toLocaleString()}</span>
-                            </div>
-                            <Progress value={obligation.utilizationRate || 0} className="h-1" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{obligation.name}</p>
+                            {obligation.fromCibil && (
+                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                <Shield className="w-3 h-3 mr-1" />
+                                CIBIL
+                              </Badge>
+                            )}
                           </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant={obligation.priority === 'critical' ? 'destructive' : obligation.priority === 'important' ? 'default' : 'secondary'} className="text-xs">
+                              {obligation.priority}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {obligation.frequency}
+                            </Badge>
+                            {obligation.paymentStatus && (
+                              <Badge variant={obligation.paymentStatus === 'Current' ? 'default' : 'destructive'} className="text-xs">
+                                {obligation.paymentStatus}
+                              </Badge>
+                            )}
+                            {obligation.remainingPayments && (
+                              <span className="text-xs text-muted-foreground">
+                                {obligation.remainingPayments} payments left
+                              </span>
+                            )}
+                          </div>
+                          {obligation.fromCibil && obligation.creditLimit && (
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>Utilization: {obligation.utilizationRate}%</span>
+                                <span>Limit: ₹{Number(obligation.creditLimit).toLocaleString()}</span>
+                              </div>
+                              <Progress value={Number(obligation.utilizationRate) || 0} className="h-1" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="font-bold">{formatCurrency(Number(obligation.amount))}</p>
+                          <p className="text-sm text-muted-foreground">
+                            ({formatCurrency(monthlyAmount)}/month)
+                          </p>
+                          {obligation.lastPaymentDate && (
+                            <p className="text-xs text-gray-500">
+                              Last: {new Date(obligation.lastPaymentDate).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                        {!obligation.fromCibil && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleDeleteObligation(obligation.id)}
+                            disabled={deleteObligationMutation.isPending}
+                            data-testid={`button-delete-obligation-${obligation.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold">{formatCurrency(obligation.amount)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        ({formatCurrency(monthlyAmount)}/month)
-                      </p>
-                      {obligation.lastPayment && (
-                        <p className="text-xs text-gray-500">
-                          Last: {new Date(obligation.lastPayment).toLocaleDateString()}
-                        </p>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Cash Flow Impact */}
+      {obligations.length > 0 && (
+        <Card data-testid="card-cash-flow-impact">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingDown className="w-5 h-5 text-red-600" />
+              Monthly Cash Flow Impact
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-4 bg-red-50 rounded-lg">
+                <span className="font-medium">Total Monthly Outflow</span>
+                <span className="text-2xl font-bold text-red-600">{formatCurrency(getTotalMonthlyObligations())}</span>
+              </div>
+              
+              {cibilData && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">CIBIL Insights</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Credit Score:</span>
+                        <span className="font-bold">{cibilData.creditScore}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Credit Grade:</span>
+                        <span className="font-bold">{cibilData.creditGrade}</span>
+                      </div>
+                      {cibilData.creditUtilization && (
+                        <div className="flex justify-between">
+                          <span>Utilization:</span>
+                          <span className="font-bold">{cibilData.creditUtilization.utilizationRatio}%</span>
+                        </div>
                       )}
                     </div>
                   </div>
-                );
-              })}
+                  
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <h4 className="font-medium text-green-900 mb-2">Recommendations</h4>
+                    <div className="text-sm text-green-800 space-y-1">
+                      {getTotalCibilDebt() > 0 && (
+                        <p>• Focus on reducing high-utilization credit cards</p>
+                      )}
+                      <p>• Maintain on-time payments for all obligations</p>
+                      <p>• Consider debt consolidation if beneficial</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>💡 <strong>Recommendation:</strong> Ensure your emergency fund covers at least 6 months of obligations ({formatCurrency(getTotalMonthlyObligations() * 6)})</p>
+                <p>📊 Consider setting up automatic investments after accounting for these fixed obligations</p>
+                {getCibilObligationsCount() > 0 && (
+                  <p>🔗 <strong>CIBIL Integration:</strong> {getCibilObligationsCount()} obligations synced from your credit report</p>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Cash Flow Impact */}
-      <Card data-testid="card-cash-flow-impact">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingDown className="w-5 h-5 text-red-600" />
-            Monthly Cash Flow Impact
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center p-4 bg-red-50 rounded-lg">
-              <span className="font-medium">Total Monthly Outflow</span>
-              <span className="text-2xl font-bold text-red-600">{formatCurrency(getTotalMonthlyObligations())}</span>
-            </div>
-            
-            {cibilData && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">CIBIL Insights</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Credit Score:</span>
-                      <span className="font-bold">{cibilData.creditScore}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Credit Grade:</span>
-                      <span className="font-bold">{cibilData.creditGrade}</span>
-                    </div>
-                    {cibilData.creditUtilization && (
-                      <div className="flex justify-between">
-                        <span>Utilization:</span>
-                        <span className="font-bold">{cibilData.creditUtilization.utilizationRatio}%</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <h4 className="font-medium text-green-900 mb-2">Recommendations</h4>
-                  <div className="text-sm text-green-800 space-y-1">
-                    {getTotalCibilDebt() > 0 && (
-                      <p>• Focus on reducing high-utilization credit cards</p>
-                    )}
-                    <p>• Maintain on-time payments for all obligations</p>
-                    <p>• Consider debt consolidation if beneficial</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p>💡 <strong>Recommendation:</strong> Ensure your emergency fund covers at least 6 months of obligations ({formatCurrency(getTotalMonthlyObligations() * 6)})</p>
-              <p>📊 Consider setting up automatic investments after accounting for these fixed obligations</p>
-              {getCibilObligationsCount() > 0 && (
-                <p>🔗 <strong>CIBIL Integration:</strong> {getCibilObligationsCount()} obligations synced from your credit report</p>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      )}
     </div>
   );
 }
