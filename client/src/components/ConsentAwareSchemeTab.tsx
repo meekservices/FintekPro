@@ -1,10 +1,15 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { type SchemeType } from "@/hooks/use-consent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Lock, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Shield, Lock, CheckCircle, RefreshCw, AlertCircle, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface ConsentAwareSchemeTabProps {
   schemeType: SchemeType;
@@ -30,12 +35,29 @@ const SCHEME_DESCRIPTIONS: Record<SchemeType, string> = {
   insurance: "View your insurance policies, premium details, and coverage information"
 };
 
+const SCHEME_SOURCES: Record<SchemeType, string> = {
+  epf: "EPFO (Employees' Provident Fund Organisation)",
+  ppf: "India Post / Bank",
+  eps: "EPFO (Employees' Provident Fund Organisation)",
+  nps: "NSDL CRA (Central Recordkeeping Agency)",
+  apy: "PFRDA (Pension Fund Regulatory and Development Authority)",
+  insurance: "Insurance Providers"
+};
+
 export function ConsentAwareSchemeTab({ 
   schemeType, 
   children, 
   onRequestConsent 
 }: ConsentAwareSchemeTabProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data: consentStatus, isLoading: isCheckingConsent, error } = useQuery({
     queryKey: ['government-schemes', 'consent', user?.panNumber, schemeType],
@@ -60,6 +82,111 @@ export function ConsentAwareSchemeTab({
     refetchOnMount: false,
     retry: 1
   });
+
+  const initiateRefreshMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/government-schemes/${schemeType}/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          channel: 'mobile'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to initiate refresh');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setChallengeId(data.challengeId);
+        setExpiresAt(new Date(data.expiresAt));
+        setShowOtpDialog(true);
+        toast({
+          title: "OTP Sent",
+          description: data.message || "Please enter the OTP sent to your registered mobile"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to initiate refresh",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate refresh",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: async () => {
+      if (!challengeId || !otp) {
+        throw new Error('Missing challenge ID or OTP');
+      }
+      
+      const response = await fetch(`/api/government-schemes/${schemeType}/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          challengeId,
+          otp
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to verify OTP');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setShowOtpDialog(false);
+        setOtp("");
+        setChallengeId(null);
+        setIsRefreshing(false);
+        
+        queryClient.invalidateQueries({ queryKey: ['government-schemes', schemeType] });
+        queryClient.invalidateQueries({ queryKey: ['government-schemes', 'consent'] });
+        
+        toast({
+          title: "Refresh Complete",
+          description: "Your data has been refreshed from government sources"
+        });
+      } else {
+        toast({
+          title: "Verification Failed",
+          description: data.message || "Invalid OTP. Please try again.",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to verify OTP",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    initiateRefreshMutation.mutate();
+  };
+
+  const handleVerifyOtp = () => {
+    verifyOtpMutation.mutate();
+  };
 
   const hasConsent = consentStatus?.hasConsent ?? false;
 
@@ -155,20 +282,109 @@ export function ConsentAwareSchemeTab({
     );
   }
 
-  // Consent granted - show the actual scheme data
   return (
     <div className="space-y-8">
-      {/* Consent Status Indicator */}
-      <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-        <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
-          <CheckCircle className="h-4 w-4" />
-          <span className="text-sm font-medium">
-            Authorized access to {SCHEME_NAMES[schemeType]} data for PAN {user.panNumber}
-          </span>
+      <div className="flex items-center justify-between">
+        <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 flex-1 mr-4">
+          <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+            <CheckCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              Authorized access to {SCHEME_NAMES[schemeType]} data for PAN {user.panNumber}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-green-700 dark:text-green-300 mt-1">
+            <Clock className="h-3 w-3" />
+            <span className="text-xs">
+              Data source: {SCHEME_SOURCES[schemeType]}
+            </span>
+          </div>
         </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing || initiateRefreshMutation.isPending}
+          data-testid={`button-refresh-${schemeType}`}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing || initiateRefreshMutation.isPending ? 'animate-spin' : ''}`} />
+          Refresh Data
+        </Button>
       </div>
       
       {children}
+
+      <Dialog open={showOtpDialog} onOpenChange={setShowOtpDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              OTP Verification Required
+            </DialogTitle>
+            <DialogDescription>
+              To refresh your {SCHEME_NAMES[schemeType]} data from {SCHEME_SOURCES[schemeType]}, 
+              please enter the OTP sent to your registered mobile number.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <p className="font-medium mb-1">Consent Recording</p>
+                  <p className="text-xs">
+                    This verification will be recorded in our audit log as per RBI/PMLA compliance requirements.
+                    Data retention period: 8 years.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="otp">Enter OTP</Label>
+              <Input
+                id="otp"
+                type="text"
+                maxLength={6}
+                placeholder="Enter 6-digit OTP"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                className="text-center text-2xl tracking-widest"
+                data-testid="input-otp"
+              />
+              {expiresAt && (
+                <p className="text-xs text-gray-500 text-center">
+                  OTP expires at {expiresAt.toLocaleTimeString()}
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowOtpDialog(false);
+                setOtp("");
+                setChallengeId(null);
+                setIsRefreshing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVerifyOtp}
+              disabled={otp.length !== 6 || verifyOtpMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-verify-otp"
+            >
+              {verifyOtpMutation.isPending ? "Verifying..." : "Verify & Refresh"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

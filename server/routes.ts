@@ -11941,6 +11941,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Government Scheme Refresh with OTP-based Consent
+  app.post("/api/government-schemes/:scheme/refresh", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { scheme } = req.params;
+      const { channel = 'mobile', mobile, email } = req.body;
+      
+      const validSchemes = ['epf', 'eps', 'ppf', 'nps', 'apy'];
+      if (!validSchemes.includes(scheme)) {
+        return res.status(400).json({ error: 'Invalid scheme type' });
+      }
+
+      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
+      
+      const result = await governmentSchemeConsentOrchestrator.initiateConsent({
+        userId,
+        schemeType: scheme as any,
+        channel: channel as any,
+        mobile,
+        email,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error initiating government scheme refresh:", error);
+      res.status(500).json({ error: "Failed to initiate refresh" });
+    }
+  });
+
+  app.post("/api/government-schemes/:scheme/otp/verify", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { scheme } = req.params;
+      const { challengeId, otp } = req.body;
+      
+      if (!challengeId || !otp) {
+        return res.status(400).json({ error: 'Challenge ID and OTP are required' });
+      }
+
+      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
+      
+      const result = await governmentSchemeConsentOrchestrator.verifyOTPAndGrantConsent({
+        userId,
+        schemeType: scheme as any,
+        challengeId,
+        otp,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      if (result.success) {
+        // Record that data was fetched (for audit trail)
+        await governmentSchemeConsentOrchestrator.recordDataFetch(
+          userId,
+          scheme as any,
+          { refreshed: true, timestamp: new Date() },
+          undefined,
+          req.ip
+        );
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      res.status(500).json({ error: "Failed to verify OTP" });
+    }
+  });
+
+  app.get("/api/government-schemes/consent-status", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
+      const status = await governmentSchemeConsentOrchestrator.getConsentStatus(userId);
+      
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching consent status:", error);
+      res.status(500).json({ error: "Failed to fetch consent status" });
+    }
+  });
+
+  app.get("/api/government-schemes/audit", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { schemeType, limit } = req.query;
+      
+      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
+      const auditLog = await governmentSchemeConsentOrchestrator.getAuditLog(
+        userId,
+        schemeType as any,
+        parseInt(limit as string) || 50
+      );
+      
+      res.json(auditLog);
+    } catch (error) {
+      console.error("Error fetching audit log:", error);
+      res.status(500).json({ error: "Failed to fetch audit log" });
+    }
+  });
+
+
   // Insurance Holdings Routes
   app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
     try {

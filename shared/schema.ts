@@ -10261,3 +10261,64 @@ export const insertFinancialObligationSchema = createInsertSchema(financialOblig
 });
 export type FinancialObligation = typeof financialObligations.$inferSelect;
 export type InsertFinancialObligation = z.infer<typeof insertFinancialObligationSchema>;
+
+// ============================================
+// Scheme Consents (OTP-based consent for government schemes)
+// ============================================
+
+export const schemeConsents = pgTable("scheme_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  schemeType: varchar("scheme_type").notNull(),
+  purpose: text("purpose").notNull(),
+  scope: text("scope").array().notNull(),
+  otpChannel: varchar("otp_channel").notNull(),
+  challengeId: varchar("challenge_id").notNull().unique(),
+  otpHash: varchar("otp_hash"),
+  status: varchar("status").notNull().default("pending"),
+  expiresAt: timestamp("expires_at").notNull(),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  retentionPeriodYears: integer("retention_period_years").notNull().default(8),
+  consentTimestamp: timestamp("consent_timestamp"),
+  verifiedAt: timestamp("verified_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_scheme_consents_user").on(table.userId),
+  index("idx_scheme_consents_challenge").on(table.challengeId),
+  index("idx_scheme_consents_status").on(table.status),
+]);
+
+export type SchemeConsent = typeof schemeConsents.$inferSelect;
+export type InsertSchemeConsent = typeof schemeConsents.$inferInsert;
+
+// ============================================
+// Government Scheme Audit Log (PMLA/RBI compliant)
+// ============================================
+
+export const governmentSchemeAudit = pgTable("government_scheme_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  schemeType: varchar("scheme_type").notNull(),
+  eventType: varchar("event_type").notNull(),
+  requestId: varchar("request_id").notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  providerTraceId: varchar("provider_trace_id"),
+  dataChecksum: varchar("data_checksum"),
+  details: jsonb("details"),
+  retentionExpiresAt: timestamp("retention_expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_gov_scheme_audit_user").on(table.userId),
+  index("idx_gov_scheme_audit_scheme").on(table.schemeType),
+  index("idx_gov_scheme_audit_event").on(table.eventType),
+  index("idx_gov_scheme_audit_timestamp").on(table.timestamp),
+  index("idx_gov_scheme_audit_retention").on(table.retentionExpiresAt),
+]);
+
+export type GovernmentSchemeAuditLog = typeof governmentSchemeAudit.$inferSelect;
+export type InsertGovernmentSchemeAuditLog = typeof governmentSchemeAudit.$inferInsert;

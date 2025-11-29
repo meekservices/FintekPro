@@ -5,9 +5,6 @@ export interface GovernmentSchemeProfile {
   fullName: string;
   maskedPan: string;
   dateOfBirth: string | null;
-  employerName: string | null;
-  nomineeName: string | null;
-  nomineeRelation: string | null;
   address: string | null;
   email: string | null;
   mobile: string | null;
@@ -16,8 +13,10 @@ export interface GovernmentSchemeProfile {
 export interface EnrichedSchemeData {
   isMock: boolean;
   dataConfidence: 'high' | 'medium' | 'low';
-  dataSource: 'real' | 'profile' | 'derived';
+  dataSource: 'real' | 'government_api' | 'database';
   lastVerified: string | null;
+  lastRefreshed: string | null;
+  consentStatus: 'active' | 'expired' | 'none';
 }
 
 function maskPan(pan: string): string {
@@ -25,37 +24,9 @@ function maskPan(pan: string): string {
   return `${pan.substring(0, 5)}****${pan.substring(9)}`;
 }
 
-function generateDeterministicNominee(pan: string, userFullName: string): { name: string; relation: string } {
-  const hash = pan.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const relations = ['Spouse', 'Mother', 'Father', 'Son', 'Daughter'];
-  const relation = relations[hash % relations.length];
-  
-  const firstNames = ['Priya', 'Amit', 'Sunita', 'Rajesh', 'Anita', 'Vikram', 'Meera', 'Sanjay'];
-  const firstName = firstNames[hash % firstNames.length];
-  
-  const userLastName = userFullName.split(' ').pop() || 'Sharma';
-  
-  return {
-    name: `${firstName} ${userLastName}`,
-    relation
-  };
-}
-
-function generateDeterministicEmployer(pan: string): string {
-  const hash = pan.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const employers = [
-    'Tata Consultancy Services Ltd',
-    'Infosys Limited',
-    'Wipro Technologies',
-    'HCL Technologies',
-    'Tech Mahindra Ltd',
-    'Reliance Industries Ltd',
-    'HDFC Bank Ltd',
-    'ICICI Bank Ltd',
-    'Larsen & Toubro Ltd',
-    'Bharti Airtel Ltd'
-  ];
-  return employers[hash % employers.length];
+function maskAccountNumber(accountNumber: string, visiblePrefix = 8): string {
+  if (!accountNumber || accountNumber.length < visiblePrefix) return accountNumber;
+  return `${accountNumber.substring(0, visiblePrefix)}****`;
 }
 
 export async function getGovernmentSchemeProfile(userId: string): Promise<GovernmentSchemeProfile | null> {
@@ -77,20 +48,6 @@ export async function getGovernmentSchemeProfile(userId: string): Promise<Govern
     const pan = userProfile.panNumber || '';
     const maskedPan = maskPan(pan);
     
-    let nomineeName = null;
-    let nomineeRelation = null;
-    
-    if (pan && fullName !== 'Account Holder') {
-      const nominee = generateDeterministicNominee(pan, fullName);
-      nomineeName = nominee.name;
-      nomineeRelation = nominee.relation;
-    }
-    
-    let employerName = null;
-    if (pan) {
-      employerName = generateDeterministicEmployer(pan);
-    }
-    
     const addressParts = [
       userProfile.address,
       userProfile.city,
@@ -103,9 +60,6 @@ export async function getGovernmentSchemeProfile(userId: string): Promise<Govern
       fullName,
       maskedPan,
       dateOfBirth: userProfile.dateOfBirth || null,
-      employerName,
-      nomineeName,
-      nomineeRelation,
       address: addressParts.length > 0 ? addressParts.join(', ') : null,
       email: null,
       mobile: null
@@ -144,34 +98,36 @@ export async function enrichEpfHoldings(userId: string, holdings: any[]): Promis
   if (!profile) {
     return holdings.map(h => ({
       ...h,
-      maskedAccountNumber: h.epfAccountNumber ? `${h.epfAccountNumber.substring(0, 8)}****` : 'MH/XXX/****',
+      maskedAccountNumber: h.epfAccountNumber ? maskAccountNumber(h.epfAccountNumber) : 'MH/XXX/****',
       enrichment: {
-        isMock: true,
+        isMock: false,
         dataConfidence: 'low' as const,
-        dataSource: 'derived' as const,
-        lastVerified: null
+        dataSource: 'database' as const,
+        lastVerified: null,
+        lastRefreshed: null,
+        consentStatus: 'none' as const
       }
     }));
   }
   
   return holdings.map(holding => {
-    const isProfileEnriched = holding.memberName === 'TechCorp India Pvt Ltd' || 
-                              holding.memberName === 'Test User' ||
-                              holding.employerName === 'TechCorp India Pvt Ltd';
+    const hasRealData = holding.memberName && holding.employerName && holding.memberName !== 'Test User';
     
     return {
       ...holding,
-      memberName: profile.fullName,
-      employerName: profile.employerName || holding.employerName,
-      nomineeName: profile.nomineeName || holding.nomineeName,
-      nomineeRelationship: profile.nomineeRelation || holding.nomineeRelationship,
+      memberName: holding.memberName || profile.fullName,
+      employerName: holding.employerName,
+      nomineeName: holding.nomineeName,
+      nomineeRelationship: holding.nomineeRelationship,
       maskedAccountNumber: holding.epfAccountNumber ? 
-        `${holding.epfAccountNumber.substring(0, 8)}****` : 'MH/XXX/****',
+        maskAccountNumber(holding.epfAccountNumber) : 'MH/XXX/****',
       enrichment: {
         isMock: false,
-        dataConfidence: isProfileEnriched ? 'medium' as const : 'high' as const,
-        dataSource: isProfileEnriched ? 'profile' as const : 'real' as const,
-        lastVerified: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null
+        dataConfidence: hasRealData ? 'high' as const : 'medium' as const,
+        dataSource: 'database' as const,
+        lastVerified: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null,
+        lastRefreshed: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null,
+        consentStatus: 'active' as const
       }
     };
   });
@@ -205,32 +161,35 @@ export async function enrichPpfHoldings(userId: string, holdings: any[]): Promis
   if (!profile) {
     return holdings.map(h => ({
       ...h,
-      maskedAccountNumber: h.ppfAccountNumber ? `${h.ppfAccountNumber.substring(0, 8)}****` : 'PPF/XXX/****',
+      maskedAccountNumber: h.ppfAccountNumber ? maskAccountNumber(h.ppfAccountNumber) : 'PPF/XXX/****',
       enrichment: {
-        isMock: true,
+        isMock: false,
         dataConfidence: 'low' as const,
-        dataSource: 'derived' as const,
-        lastVerified: null
+        dataSource: 'database' as const,
+        lastVerified: null,
+        lastRefreshed: null,
+        consentStatus: 'none' as const
       }
     }));
   }
   
   return holdings.map(holding => {
-    const isProfileEnriched = holding.accountHolderName === 'Test User' ||
-                              holding.accountHolderName === 'Abhishek Mohanty';
+    const hasRealData = holding.accountHolderName && holding.accountHolderName !== 'Test User';
     
     return {
       ...holding,
-      accountHolderName: profile.fullName,
-      nomineeName: profile.nomineeName || holding.nomineeName,
-      nomineeRelation: profile.nomineeRelation || holding.nomineeRelation,
+      accountHolderName: holding.accountHolderName || profile.fullName,
+      nomineeName: holding.nomineeName,
+      nomineeRelation: holding.nomineeRelation,
       maskedAccountNumber: holding.ppfAccountNumber ? 
-        `${holding.ppfAccountNumber.substring(0, 8)}****` : 'PPF/XXX/****',
+        maskAccountNumber(holding.ppfAccountNumber) : 'PPF/XXX/****',
       enrichment: {
         isMock: false,
-        dataConfidence: isProfileEnriched ? 'medium' as const : 'high' as const,
-        dataSource: isProfileEnriched ? 'profile' as const : 'real' as const,
-        lastVerified: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null
+        dataConfidence: hasRealData ? 'high' as const : 'medium' as const,
+        dataSource: 'database' as const,
+        lastVerified: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null,
+        lastRefreshed: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null,
+        consentStatus: 'active' as const
       }
     };
   });
@@ -275,29 +234,32 @@ export async function enrichNpsAccounts(userId: string, accounts: any[]): Promis
       ...a,
       maskedPran: a.pran ? `${a.pran.substring(0, 4)}********` : '****XXXXXXXX',
       enrichment: {
-        isMock: true,
+        isMock: false,
         dataConfidence: 'low' as const,
-        dataSource: 'derived' as const,
-        lastVerified: null
+        dataSource: 'database' as const,
+        lastVerified: null,
+        lastRefreshed: null,
+        consentStatus: 'none' as const
       }
     }));
   }
   
   return accounts.map(account => {
-    const isProfileEnriched = account.accountHolderName === 'Test User' ||
-                              account.nominee === 'Spouse Name';
+    const hasRealData = account.accountHolderName && account.accountHolderName !== 'Test User';
     
     return {
       ...account,
-      accountHolderName: profile.fullName,
+      accountHolderName: account.accountHolderName || profile.fullName,
       maskedPran: account.pran ? `${account.pran.substring(0, 4)}********` : '****XXXXXXXX',
-      nominee: profile.nomineeName || account.nominee,
-      nomineeRelation: profile.nomineeRelation || account.nomineeRelation,
+      nominee: account.nominee,
+      nomineeRelation: account.nomineeRelation,
       enrichment: {
         isMock: false,
-        dataConfidence: isProfileEnriched ? 'medium' as const : 'high' as const,
-        dataSource: isProfileEnriched ? 'profile' as const : 'real' as const,
-        lastVerified: account.lastUpdated ? new Date(account.lastUpdated).toISOString() : null
+        dataConfidence: hasRealData ? 'high' as const : 'medium' as const,
+        dataSource: 'database' as const,
+        lastVerified: account.lastUpdated ? new Date(account.lastUpdated).toISOString() : null,
+        lastRefreshed: account.lastUpdated ? new Date(account.lastUpdated).toISOString() : null,
+        consentStatus: 'active' as const
       }
     };
   });
@@ -343,31 +305,34 @@ export async function enrichApyAccounts(userId: string, accounts: any[]): Promis
       maskedPran: a.pran ? `${a.pran.substring(0, 4)}********` : '****XXXXXXXX',
       maskedBankAccount: a.bankAccountNumber ? `XXXX${a.bankAccountNumber.slice(-4)}` : 'XXXX****',
       enrichment: {
-        isMock: true,
+        isMock: false,
         dataConfidence: 'low' as const,
-        dataSource: 'derived' as const,
-        lastVerified: null
+        dataSource: 'database' as const,
+        lastVerified: null,
+        lastRefreshed: null,
+        consentStatus: 'none' as const
       }
     }));
   }
   
   return accounts.map(account => {
-    const isProfileEnriched = account.accountHolderName === 'Test User' ||
-                              account.nominee === 'Spouse Name';
+    const hasRealData = account.accountHolderName && account.accountHolderName !== 'Test User';
     
     return {
       ...account,
-      accountHolderName: profile.fullName,
+      accountHolderName: account.accountHolderName || profile.fullName,
       maskedPran: account.pran ? `${account.pran.substring(0, 4)}********` : '****XXXXXXXX',
       maskedBankAccount: account.bankAccountNumber ? 
         `XXXX${account.bankAccountNumber.slice(-4)}` : 'XXXX****',
-      nominee: profile.nomineeName || account.nominee,
-      nomineeRelation: profile.nomineeRelation || account.nomineeRelation,
+      nominee: account.nominee,
+      nomineeRelation: account.nomineeRelation,
       enrichment: {
         isMock: false,
-        dataConfidence: isProfileEnriched ? 'medium' as const : 'high' as const,
-        dataSource: isProfileEnriched ? 'profile' as const : 'real' as const,
-        lastVerified: account.lastUpdated ? new Date(account.lastUpdated).toISOString() : null
+        dataConfidence: hasRealData ? 'high' as const : 'medium' as const,
+        dataSource: 'database' as const,
+        lastVerified: account.lastUpdated ? new Date(account.lastUpdated).toISOString() : null,
+        lastRefreshed: account.lastUpdated ? new Date(account.lastUpdated).toISOString() : null,
+        consentStatus: 'active' as const
       }
     };
   });
@@ -399,33 +364,42 @@ export async function enrichEpsHoldings(userId: string, holdings: any[]): Promis
   if (!profile) {
     return holdings.map(h => ({
       ...h,
-      maskedAccountNumber: h.epsAccountNumber ? `${h.epsAccountNumber.substring(0, 8)}****` : 'EPS/XXX/****',
+      epsAccountNumber: h.pensionAccountNumber || h.epfAccountNumber,
+      maskedAccountNumber: (h.pensionAccountNumber || h.epfAccountNumber) ? 
+        maskAccountNumber(h.pensionAccountNumber || h.epfAccountNumber) : 'EPS/XXX/****',
       enrichment: {
-        isMock: true,
+        isMock: false,
         dataConfidence: 'low' as const,
-        dataSource: 'derived' as const,
-        lastVerified: null
+        dataSource: 'database' as const,
+        lastVerified: null,
+        lastRefreshed: null,
+        consentStatus: 'none' as const
       }
     }));
   }
   
   return holdings.map(holding => {
-    const isProfileEnriched = holding.memberName === 'Test User' ||
-                              holding.employerName === 'TechCorp India Pvt Ltd';
+    const hasRealData = holding.currentEmployer && holding.currentEmployer !== 'TechCorp India Pvt Ltd';
     
     return {
       ...holding,
+      epsAccountNumber: holding.pensionAccountNumber || holding.epfAccountNumber,
       memberName: profile.fullName,
-      employerName: profile.employerName || holding.employerName,
-      nomineeName: profile.nomineeName || holding.nomineeName,
-      nomineeRelationship: profile.nomineeRelation || holding.nomineeRelationship,
-      maskedAccountNumber: holding.epsAccountNumber ? 
-        `${holding.epsAccountNumber.substring(0, 8)}****` : 'EPS/XXX/****',
+      employerName: holding.currentEmployer,
+      dateOfJoining: holding.serviceStartDate,
+      totalServiceYears: holding.totalServiceYears,
+      pensionableService: holding.totalServiceYears + (holding.totalServiceMonths || 0) / 12,
+      expectedPension: holding.estimatedMonthlyPension,
+      isEligibleForPension: holding.eligibleForPension,
+      maskedAccountNumber: (holding.pensionAccountNumber || holding.epfAccountNumber) ? 
+        maskAccountNumber(holding.pensionAccountNumber || holding.epfAccountNumber) : 'EPS/XXX/****',
       enrichment: {
         isMock: false,
-        dataConfidence: isProfileEnriched ? 'medium' as const : 'high' as const,
-        dataSource: isProfileEnriched ? 'profile' as const : 'real' as const,
-        lastVerified: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null
+        dataConfidence: hasRealData ? 'high' as const : 'medium' as const,
+        dataSource: 'database' as const,
+        lastVerified: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null,
+        lastRefreshed: holding.lastUpdated ? new Date(holding.lastUpdated).toISOString() : null,
+        consentStatus: 'active' as const
       }
     };
   });
