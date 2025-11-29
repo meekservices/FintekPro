@@ -32467,5 +32467,268 @@ System Security Data:`;
     }
   });
 
+  // ============================================
+  // FIXED INCOME ELIGIBILITY ROUTES
+  // ============================================
+  
+  // Get full eligibility status
+  app.get("/api/fixed-income/eligibility", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
+      const eligibility = await fixedIncomeEligibility.checkFullEligibility(req.user.id);
+      res.json(eligibility);
+    } catch (error) {
+      console.error("Error checking eligibility:", error);
+      res.status(500).json({ error: "Failed to check eligibility" });
+    }
+  });
+  
+  // Get eligibility summary with completion steps
+  app.get("/api/fixed-income/eligibility/summary", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
+      const summary = await fixedIncomeEligibility.getEligibilitySummary(req.user.id);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching eligibility summary:", error);
+      res.status(500).json({ error: "Failed to fetch eligibility summary" });
+    }
+  });
+  
+  // Check product-specific eligibility
+  app.get("/api/fixed-income/eligibility/product/:productType", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
+      const productType = req.params.productType as any;
+      const amount = req.query.amount ? parseFloat(req.query.amount) : undefined;
+      const eligibility = await fixedIncomeEligibility.checkProductEligibility(req.user.id, productType, amount);
+      res.json(eligibility);
+    } catch (error) {
+      console.error("Error checking product eligibility:", error);
+      res.status(500).json({ error: "Failed to check product eligibility" });
+    }
+  });
+  
+  // Get UCC status
+  app.get("/api/fixed-income/ucc-status", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
+      const uccStatus = await fixedIncomeEligibility.verifyUccStatus(req.user.id);
+      res.json(uccStatus);
+    } catch (error) {
+      console.error("Error fetching UCC status:", error);
+      res.status(500).json({ error: "Failed to fetch UCC status" });
+    }
+  });
+  
+  // Initiate UCC creation
+  app.post("/api/fixed-income/ucc/initiate", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
+      const result = await fixedIncomeEligibility.initiateUccCreation(req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error initiating UCC creation:", error);
+      res.status(500).json({ error: "Failed to initiate UCC creation" });
+    }
+  });
+  
+  // Activate UCC (admin or system use)
+  app.post("/api/fixed-income/ucc/activate", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
+      const result = await fixedIncomeEligibility.activateUcc(req.user.id, req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Error activating UCC:", error);
+      res.status(500).json({ error: "Failed to activate UCC" });
+    }
+  });
+  
+  // Get KYC verification status
+  app.get("/api/fixed-income/kyc-status", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
+      const kycStatus = await fixedIncomeEligibility.verifyKycStatus(req.user.id);
+      res.json(kycStatus);
+    } catch (error) {
+      console.error("Error fetching KYC status:", error);
+      res.status(500).json({ error: "Failed to fetch KYC status" });
+    }
+  });
+  
+  // Get demat accounts verification status
+  app.get("/api/fixed-income/demat-status", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
+      const dematStatus = await fixedIncomeEligibility.verifyDematAccounts(req.user.id);
+      res.json(dematStatus);
+    } catch (error) {
+      console.error("Error fetching demat status:", error);
+      res.status(500).json({ error: "Failed to fetch demat status" });
+    }
+  });
+
+
+  // ====================================================================================
+  // Fixed Income Payment Orchestration Routes
+  // ====================================================================================
+
+  // Initiate payment for a bond order
+  app.post("/api/fixed-income/payments/initiate", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
+      const result = await fixedIncomePaymentOrchestrator.initiatePayment({
+        orderId: req.body.orderId,
+        userId: req.user.id,
+        amount: req.body.amount,
+        paymentMethod: req.body.paymentMethod,
+        returnUrl: req.body.returnUrl,
+        notifyUrl: req.body.notifyUrl
+      });
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error initiating payment:", error);
+      res.status(500).json({ error: "Failed to initiate payment" });
+    }
+  });
+
+  // Get payment status for an order
+  app.get("/api/fixed-income/payments/status/:orderId", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
+      const result = await fixedIncomePaymentOrchestrator.getPaymentStatus(req.params.orderId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching payment status:", error);
+      res.status(500).json({ error: "Failed to fetch payment status" });
+    }
+  });
+
+  // Payment gateway webhook callback (no auth required)
+  app.post("/api/fixed-income/payment/webhook", async (req, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
+      const result = await fixedIncomePaymentOrchestrator.handlePaymentCallback({
+        gatewayOrderId: req.body.order_id || req.body.cf_order_id,
+        gatewayPaymentId: req.body.payment_id || req.body.cf_payment_id,
+        gatewayTransactionId: req.body.transaction_id || req.body.cf_txn_id,
+        status: req.body.order_status || req.body.payment_status,
+        amount: parseFloat(req.body.order_amount || req.body.payment_amount || "0"),
+        currency: req.body.order_currency || "INR",
+        payerVpa: req.body.payment_method?.upi?.upi_id,
+        payerBankName: req.body.payment_method?.netbanking?.netbanking_bank_name,
+        signature: req.body.signature || req.headers["x-cashfree-signature"] || "",
+        rawResponse: req.body
+      });
+      
+      if (result.success) {
+        res.json({ status: "OK" });
+      } else {
+        res.status(400).json({ status: "FAILED" });
+      }
+    } catch (error) {
+      console.error("Error processing payment webhook:", error);
+      res.status(500).json({ status: "ERROR" });
+    }
+  });
+
+  // Payment callback redirect (for frontend redirect after payment)
+  app.get("/api/fixed-income/payment/callback", async (req, res) => {
+    try {
+      const orderId = req.query.order_id as string;
+      const status = req.query.order_status as string;
+      
+      const redirectUrl = status === "PAID" 
+        ? `/fixed-income/orders?payment=success&orderId=${orderId}`
+        : `/fixed-income/orders?payment=failed&orderId=${orderId}`;
+      
+      res.redirect(redirectUrl);
+    } catch (error) {
+      console.error("Error handling payment callback:", error);
+      res.redirect("/fixed-income/orders?payment=error");
+    }
+  });
+
+  // Mock payment endpoint for development
+  app.get("/api/fixed-income/payment/mock", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
+      const orderId = req.query.orderId as string;
+      const amount = parseFloat(req.query.amount as string);
+      
+      await fixedIncomePaymentOrchestrator.handlePaymentCallback({
+        gatewayOrderId: orderId,
+        gatewayPaymentId: `MOCK_${Date.now()}`,
+        gatewayTransactionId: `TXN_${Date.now()}`,
+        status: "SUCCESS",
+        amount,
+        currency: "INR",
+        signature: "",
+        rawResponse: { mock: true, simulatedAt: new Date().toISOString() }
+      });
+      
+      res.redirect(`/fixed-income/orders?payment=success&orderId=${orderId}`);
+    } catch (error) {
+      console.error("Error processing mock payment:", error);
+      res.redirect("/fixed-income/orders?payment=error");
+    }
+  });
+
+  // Get settlement status for an order
+  app.get("/api/fixed-income/settlements/status/:orderId", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
+      const result = await fixedIncomePaymentOrchestrator.getSettlementStatus(req.params.orderId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching settlement status:", error);
+      res.status(500).json({ error: "Failed to fetch settlement status" });
+    }
+  });
+
+  // Initiate refund for a payment
+  app.post("/api/fixed-income/payments/refund", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
+      const result = await fixedIncomePaymentOrchestrator.initiateRefund(
+        req.body.paymentId,
+        req.body.reason,
+        req.body.amount
+      );
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error initiating refund:", error);
+      res.status(500).json({ error: "Failed to initiate refund" });
+    }
+  });
+
+  // Process settlement (admin/system use)
+  app.post("/api/fixed-income/admin/settlements/process", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
+      const result = await fixedIncomePaymentOrchestrator.processSettlement(req.body.settlementId);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error processing settlement:", error);
+      res.status(500).json({ error: "Failed to process settlement" });
+    }
+  });
+
   return server;
 }

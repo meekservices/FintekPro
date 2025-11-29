@@ -684,15 +684,15 @@ class FixedIncomeMarketplaceService {
       isin: data.isin,
       securityName: data.securityName,
       issuer: data.issuer,
-      couponRate: parseFloat(data.couponRate),
-      yieldToMaturity: data.yieldToMaturity ? parseFloat(data.yieldToMaturity) : null,
-      faceValue: parseFloat(data.faceValue),
-      currentPrice: data.currentPrice ? parseFloat(data.currentPrice) : null,
-      maturityDate: new Date(data.maturityDate),
+      couponRate: data.couponRate?.toString(),
+      yieldToMaturity: data.yieldToMaturity?.toString() || null,
+      faceValue: data.faceValue?.toString(),
+      currentPrice: data.currentPrice?.toString() || null,
+      maturityDate: data.maturityDate,
       securityType: data.securityType,
       creditRating: data.creditRating || null,
       taxStatus: data.taxStatus || 'taxable',
-      isActive: data.isActive !== false,
+      tradingStatus: data.tradingStatus || 'active',
     }).returning();
     return bond;
   }
@@ -702,13 +702,13 @@ class FixedIncomeMarketplaceService {
       .set({
         securityName: data.securityName,
         issuer: data.issuer,
-        couponRate: parseFloat(data.couponRate),
-        yieldToMaturity: data.yieldToMaturity ? parseFloat(data.yieldToMaturity) : null,
-        currentPrice: data.currentPrice ? parseFloat(data.currentPrice) : null,
+        couponRate: data.couponRate?.toString(),
+        yieldToMaturity: data.yieldToMaturity?.toString() || null,
+        currentPrice: data.currentPrice?.toString() || null,
         creditRating: data.creditRating || null,
         taxStatus: data.taxStatus,
-        isActive: data.isActive,
-        updatedAt: new Date(),
+        tradingStatus: data.tradingStatus,
+        lastUpdated: new Date(),
       })
       .where(eq(governmentSecurities.id, bondId))
       .returning();
@@ -717,20 +717,24 @@ class FixedIncomeMarketplaceService {
 
   async createNcdIssue(data: any) {
     const [issue] = await db.insert(ncdPublicIssues).values({
-      issueCode: data.issueCode,
-      issuer: data.issuer,
-      issueSize: parseFloat(data.issueSize),
-      pricePerNcd: parseFloat(data.pricePerNcd),
-      couponRate: parseFloat(data.couponRate),
-      tenure: parseInt(data.tenure),
-      tenureUnit: data.tenureUnit || 'years',
+      issueId: data.issueId || data.issueCode,
+      issuerName: data.issuerName || data.issuer,
+      issueName: data.issueName || `${data.issuerName || data.issuer} NCD Issue`,
+      issueType: data.issueType || 'public_issue',
+      ncdCategory: data.ncdCategory || 'secured',
+      issueSize: data.issueSize?.toString(),
+      faceValue: data.faceValue?.toString() || '1000',
+      couponRate: data.couponRate?.toString(),
+      couponFrequency: data.couponFrequency || data.interestPaymentFrequency || 'annual',
+      tenorYears: data.tenorYears?.toString() || data.tenure?.toString(),
       creditRating: data.creditRating,
-      issueOpenDate: new Date(data.issueOpenDate),
-      issueCloseDate: new Date(data.issueCloseDate),
-      minApplicationAmount: parseFloat(data.minApplicationAmount) || 10000,
-      interestPaymentFrequency: data.interestPaymentFrequency || 'annual',
-      status: data.status || 'upcoming',
-      listingExchange: data.listingExchange || 'NSE',
+      ratingAgency: data.ratingAgency || 'CRISIL',
+      issueOpenDate: data.issueOpenDate,
+      issueCloseDate: data.issueCloseDate,
+      maturityDate: data.maturityDate,
+      minimumApplication: data.minimumApplication?.toString() || data.minApplicationAmount?.toString() || '10000',
+      issueStatus: data.issueStatus || data.status || 'upcoming',
+      listingExchange: data.listingExchange || 'bse',
     }).returning();
     return issue;
   }
@@ -738,17 +742,16 @@ class FixedIncomeMarketplaceService {
   async updateNcdIssue(issueId: string, data: any) {
     const [issue] = await db.update(ncdPublicIssues)
       .set({
-        issuer: data.issuer,
-        issueSize: parseFloat(data.issueSize),
-        pricePerNcd: parseFloat(data.pricePerNcd),
-        couponRate: parseFloat(data.couponRate),
-        tenure: parseInt(data.tenure),
-        tenureUnit: data.tenureUnit,
+        issuerName: data.issuerName || data.issuer,
+        issueName: data.issueName,
+        issueSize: data.issueSize?.toString(),
+        couponRate: data.couponRate?.toString(),
+        tenorYears: data.tenorYears?.toString() || data.tenure?.toString(),
         creditRating: data.creditRating,
-        issueOpenDate: new Date(data.issueOpenDate),
-        issueCloseDate: new Date(data.issueCloseDate),
-        status: data.status,
-        updatedAt: new Date(),
+        issueOpenDate: data.issueOpenDate,
+        issueCloseDate: data.issueCloseDate,
+        issueStatus: data.issueStatus || data.status,
+        lastUpdated: new Date(),
       })
       .where(eq(ncdPublicIssues.id, issueId))
       .returning();
