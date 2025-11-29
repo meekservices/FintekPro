@@ -1514,21 +1514,126 @@ export class DatabaseStorage implements IStorage {
   }
 
   async checkGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean> {
-    return false;
+    try {
+      const result = await db.select()
+        .from(schema.dataSourceConsents)
+        .where(
+          and(
+            eq(schema.dataSourceConsents.userId, userId),
+            eq(schema.dataSourceConsents.dataSource, schemeType.toLowerCase()),
+            eq(schema.dataSourceConsents.consentGiven, true),
+            eq(schema.dataSourceConsents.isActive, true)
+          )
+        )
+        .limit(1);
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error checking government scheme consent:", error);
+      return false;
+    }
   }
 
   async createGovernmentSchemeConsent(consent: InsertGovernmentSchemeConsent): Promise<GovernmentSchemeConsent> {
-    throw new Error("Method not implemented");
+    try {
+      const consentId = `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const now = new Date();
+      const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      
+      const [result] = await db.insert(schema.dataSourceConsents).values({
+        id: consentId,
+        userId: consent.userId,
+        dataSource: consent.schemeType.toLowerCase(),
+        provider: 'government',
+        consentGiven: true,
+        consentPurpose: consent.purpose || 'Access government scheme holdings data for portfolio management',
+        consentText: `User consented to access ${consent.schemeType} data for PAN ${consent.panNumber}`,
+        ipAddress: consent.ipAddress || null,
+        userAgent: consent.userAgent || null,
+        consentedAt: now,
+        expiresAt: expiryDate,
+        isActive: true,
+        consentVersion: '1.0',
+        regulatoryCompliance: { pmla: true, sebi: true }
+      }).returning();
+      
+      return {
+        id: result.id,
+        userId: result.userId,
+        panNumber: consent.panNumber,
+        schemeType: consent.schemeType,
+        consentGranted: true,
+        purpose: result.consentPurpose || '',
+        consentDate: result.consentedAt || now,
+        consentExpiryDate: result.expiresAt || expiryDate,
+        ipAddress: result.ipAddress || null,
+        userAgent: result.userAgent || null,
+        isActive: result.isActive ?? true
+      };
+    } catch (error) {
+      console.error("Error creating government scheme consent:", error);
+      throw error;
+    }
   }
 
   async getGovernmentSchemeConsents(userId: string, panNumber?: string): Promise<GovernmentSchemeConsent[]> {
-    return [];
+    try {
+      // Query for government scheme consents
+      const schemeTypes = ['epf', 'ppf', 'eps', 'nps', 'apy'];
+      const results = await db.select()
+        .from(schema.dataSourceConsents)
+        .where(
+          and(
+            eq(schema.dataSourceConsents.userId, userId),
+            eq(schema.dataSourceConsents.isActive, true)
+          )
+        );
+      
+      // Filter by scheme types
+      const filteredResults = results.filter(r => schemeTypes.includes(r.dataSource || ''));
+      
+      return filteredResults.map(r => ({
+        id: r.id,
+        userId: r.userId,
+        panNumber: panNumber || '',
+        schemeType: r.dataSource || '',
+        consentGranted: r.consentGiven ?? false,
+        purpose: r.consentPurpose || '',
+        consentDate: r.consentedAt || new Date(),
+        consentExpiryDate: r.expiresAt || new Date(),
+        ipAddress: r.ipAddress || null,
+        userAgent: r.userAgent || null,
+        isActive: r.isActive ?? true
+      }));
+    } catch (error) {
+      console.error("Error getting government scheme consents:", error);
+      return [];
+    }
   }
 
   async revokeGovernmentSchemeConsent(userId: string, panNumber: string, schemeType: string): Promise<boolean> {
-    return false;
+    try {
+      const result = await db.update(schema.dataSourceConsents)
+        .set({ 
+          isActive: false, 
+          revokedAt: new Date(),
+          revokeReason: 'User revoked consent'
+        })
+        .where(
+          and(
+            eq(schema.dataSourceConsents.userId, userId),
+            eq(schema.dataSourceConsents.dataSource, schemeType.toLowerCase()),
+            eq(schema.dataSourceConsents.isActive, true)
+          )
+        )
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error revoking government scheme consent:", error);
+      return false;
+    }
   }
-
   async checkPanVerificationConsent(userId: string): Promise<boolean> {
     return false;
   }
