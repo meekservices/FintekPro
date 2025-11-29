@@ -11623,6 +11623,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // ============================================
+  // Financial Obligations API Endpoints
+  // ============================================
+
+  // Get all obligations for user
+  app.get("/api/financial-obligations", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const obligations = await storage.getFinancialObligations(userId);
+      res.json(obligations);
+    } catch (error) {
+      console.error("Error fetching financial obligations:", error);
+      res.status(500).json({ error: "Failed to fetch financial obligations" });
+    }
+  });
+
+  // Create new obligation
+  app.post("/api/financial-obligations", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const obligationData = {
+        ...req.body,
+        userId,
+        status: req.body.status || "active",
+        fromCibil: req.body.fromCibil || false,
+      };
+      
+      const obligation = await storage.createFinancialObligation(obligationData);
+      res.status(201).json(obligation);
+    } catch (error) {
+      console.error("Error creating financial obligation:", error);
+      res.status(500).json({ error: "Failed to create financial obligation" });
+    }
+  });
+
+  // Update obligation
+  app.put("/api/financial-obligations/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const obligationId = req.params.id;
+      
+      // Verify ownership
+      const existing = await storage.getFinancialObligationById(obligationId);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Obligation not found" });
+      }
+      
+      const updated = await storage.updateFinancialObligation(obligationId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating financial obligation:", error);
+      res.status(500).json({ error: "Failed to update financial obligation" });
+    }
+  });
+
+  // Delete obligation
+  app.delete("/api/financial-obligations/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const obligationId = req.params.id;
+      
+      // Verify ownership
+      const existing = await storage.getFinancialObligationById(obligationId);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Obligation not found" });
+      }
+      
+      await storage.deleteFinancialObligation(obligationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting financial obligation:", error);
+      res.status(500).json({ error: "Failed to delete financial obligation" });
+    }
+  });
+
+  // Sync obligations from CIBIL report
+  app.post("/api/financial-obligations/sync-cibil", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { cibilAccounts } = req.body;
+      
+      if (!cibilAccounts || !Array.isArray(cibilAccounts)) {
+        return res.status(400).json({ error: "Invalid CIBIL accounts data" });
+      }
+      
+      // Delete existing CIBIL-sourced obligations
+      await storage.deleteUserCibilObligations(userId);
+      
+      // Create new obligations from CIBIL data
+      const createdObligations = [];
+      for (const account of cibilAccounts) {
+        let estimatedEMI = 0;
+        if (account.accountType?.includes("Loan")) {
+          estimatedEMI = Math.round((account.currentBalance || 0) * 0.03);
+        } else if (account.accountType === "Credit Card") {
+          estimatedEMI = Math.round((account.currentBalance || 0) * 0.05);
+        }
+        
+        const obligationData = {
+          userId,
+          name: `${account.accountType || "Credit Account"} - ${account.bank || "Unknown"}`,
+          type: account.accountType?.toLowerCase().includes("loan") ? "loan" : "emi",
+          amount: estimatedEMI.toString(),
+          frequency: "monthly",
+          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          priority: account.paymentStatus === "30 Days Late" ? "critical" : "important",
+          status: "active",
+          autoDebit: false,
+          creditLimit: account.creditLimit?.toString(),
+          utilizationRate: account.creditLimit > 0 ? 
+            Math.round((account.currentBalance / account.creditLimit) * 100).toString() : null,
+          bank: account.bank,
+          accountType: account.accountType,
+          paymentStatus: account.paymentStatus,
+          fromCibil: true,
+          cibilAccountId: account.accountId,
+          lastSyncedAt: new Date(),
+        };
+        
+        const created = await storage.createFinancialObligation(obligationData);
+        createdObligations.push(created);
+      }
+      
+      res.json({ 
+        success: true, 
+        synced: createdObligations.length,
+        obligations: createdObligations 
+      });
+    } catch (error) {
+      console.error("Error syncing CIBIL obligations:", error);
+      res.status(500).json({ error: "Failed to sync CIBIL obligations" });
+    }
+  });
+
+  // Get monthly obligations summary
+  app.get("/api/financial-obligations/summary", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const obligations = await storage.getFinancialObligations(userId);
+      
+      const activeObligations = obligations.filter((o: any) => o.status === "active");
+      
+      const calculateMonthlyEquivalent = (amount: number, frequency: string) => {
+        switch (frequency) {
+          case 'monthly': return amount;
+          case 'quarterly': return amount / 3;
+          case 'annually': return amount / 12;
+          default: return amount;
+        }
+      };
+      
+      const totalMonthly = activeObligations.reduce((sum: number, o: any) => {
+        return sum + calculateMonthlyEquivalent(parseFloat(o.amount) || 0, o.frequency);
+      }, 0);
+      
+      const byType = activeObligations.reduce((acc: Record<string, number>, o: any) => {
+        const monthly = calculateMonthlyEquivalent(parseFloat(o.amount) || 0, o.frequency);
+        acc[o.type] = (acc[o.type] || 0) + monthly;
+        return acc;
+      }, {});
+      
+      const upcomingPayments = activeObligations.filter((o: any) => {
+        const dueDate = new Date(o.dueDate);
+        const now = new Date();
+        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        return dueDate >= now && dueDate <= thirtyDaysFromNow;
+      }).sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      
+      res.json({
+        totalMonthlyObligations: totalMonthly,
+        obligationsByType: byType,
+        activeCount: activeObligations.length,
+        upcomingPayments,
+        cibilSyncedCount: activeObligations.filter((o: any) => o.fromCibil).length,
+      });
+    } catch (error) {
+      console.error("Error fetching obligations summary:", error);
+      res.status(500).json({ error: "Failed to fetch obligations summary" });
+    }
+  });
+
   // Government Scheme Holdings endpoints
   app.get("/api/government-schemes/epf", requireAuth, async (req: any, res) => {
     try {
