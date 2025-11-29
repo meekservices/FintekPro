@@ -25,6 +25,7 @@ import {
   sellListings,
   buyRequests,
   unlistedDeals,
+  userProfiles,
   type UnlistedCompany,
   type SellListing,
   type BuyRequest,
@@ -1131,6 +1132,10 @@ router.get('/listings', requireLevel2, async (req: Request, res: Response) => {
 /**
  * POST /api/unlisted/listings
  * Create a new sell listing
+ * Regulatory Requirements:
+ * - Enhanced KYC (Level 2) required
+ * - Accredited investor status for high-value transactions (>₹50 lakhs)
+ * - Compliance logging for audit trail
  */
 router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
   try {
@@ -1145,6 +1150,29 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
     if (!company) {
       return apiResponse.notFound(res, 'Company not found');
     }
+    
+    // Calculate transaction value for accredited investor threshold check
+    const askPriceNum = parseFloat(validatedData.askPrice) || 0;
+    const transactionValue = validatedData.quantity * askPriceNum;
+    const ACCREDITED_INVESTOR_THRESHOLD = 5000000; // ₹50 lakhs
+    
+    // For high-value transactions, verify accredited investor status
+    if (transactionValue >= ACCREDITED_INVESTOR_THRESHOLD) {
+      const profile = await db.query.userProfiles.findFirst({
+        where: eq(userProfiles.userId, req.user.id),
+      });
+      
+      // Check if user has any accredited investor type
+      if (!profile?.accreditedInvestorType) {
+        console.log(`[COMPLIANCE] unlisted_sell_blocked: High-value transaction (₹${transactionValue}) requires accredited investor status | userId: ${req.user.id}`);
+        return apiResponse.forbidden(res, 
+          `Transactions above ₹50 lakhs require Accredited Investor status. Please complete your accredited investor verification in the KYC section.`
+        );
+      }
+    }
+    
+    // Log compliance event
+    console.log(`[COMPLIANCE] unlisted_sell_listing: { userId: '${req.user.id}', companyId: '${validatedData.companyId}', quantity: ${validatedData.quantity}, value: ${transactionValue}, outcome: 'success' }`);
     
     // Create listing
     const listing = await storage.createSellListing({
@@ -1199,6 +1227,10 @@ router.get('/buy-requests', requireLevel2, async (req: Request, res: Response) =
 /**
  * POST /api/unlisted/buy-requests
  * Create a new buy request
+ * Regulatory Requirements:
+ * - Enhanced KYC (Level 2) required
+ * - Accredited investor status for high-value transactions (>₹50 lakhs)
+ * - Compliance logging for audit trail
  */
 router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) => {
   try {
@@ -1213,6 +1245,29 @@ router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) 
     if (!company) {
       return apiResponse.notFound(res, 'Company not found');
     }
+    
+    // Calculate transaction value for accredited investor threshold check
+    const maxPriceNum = parseFloat(validatedData.maxPrice) || 0;
+    const transactionValue = validatedData.quantity * maxPriceNum;
+    const ACCREDITED_INVESTOR_THRESHOLD = 5000000; // ₹50 lakhs
+    
+    // For high-value transactions, verify accredited investor status
+    if (transactionValue >= ACCREDITED_INVESTOR_THRESHOLD) {
+      const profile = await db.query.userProfiles.findFirst({
+        where: eq(userProfiles.userId, req.user.id),
+      });
+      
+      // Check if user has any accredited investor type
+      if (!profile?.accreditedInvestorType) {
+        console.log(`[COMPLIANCE] unlisted_buy_blocked: High-value transaction (₹${transactionValue}) requires accredited investor status | userId: ${req.user.id}`);
+        return apiResponse.forbidden(res, 
+          `Transactions above ₹50 lakhs require Accredited Investor status. Please complete your accredited investor verification in the KYC section.`
+        );
+      }
+    }
+    
+    // Log compliance event
+    console.log(`[COMPLIANCE] unlisted_buy_request: { userId: '${req.user.id}', companyId: '${validatedData.companyId}', quantity: ${validatedData.quantity}, maxValue: ${transactionValue}, outcome: 'success' }`);
     
     // Create buy request
     const request = await storage.createBuyRequest({

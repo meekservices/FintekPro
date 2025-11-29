@@ -2909,7 +2909,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Bond market data API endpoints
-  app.get("/api/bonds/categories", requireLevel2, async (req, res) => {
+  // Bond categories - public access for browsing
+  app.get("/api/bonds/categories", async (req, res) => {
     try {
       // Real-time bond categories with current market rates
       const bondCategories = [
@@ -2970,7 +2971,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/bonds/live-rates", requireLevel2, async (req, res) => {
+  // Bond live rates - public access for viewing
+  app.get("/api/bonds/live-rates", async (req, res) => {
     try {
       // Fetch current bond yields from market data
       const liveRates = {
@@ -5149,7 +5151,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bonds API endpoints
   
   // Get government bonds data
-  app.get("/api/bonds/government", requireLevel2, async (req, res) => {
+  // Government bonds - public access for viewing
+  app.get("/api/bonds/government", async (req, res) => {
     try {
       const governmentBonds = [
         {
@@ -5222,7 +5225,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get corporate bonds data
-  app.get("/api/bonds/corporate", requireLevel2, async (req, res) => {
+  // Corporate bonds - public access for viewing
+  app.get("/api/bonds/corporate", async (req, res) => {
     try {
       const corporateBonds = [
         {
@@ -5295,7 +5299,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tax-free bonds data
-  app.get("/api/bonds/tax-free", requireLevel2, async (req, res) => {
+  // Tax-free bonds - public access for viewing
+  app.get("/api/bonds/tax-free", async (req, res) => {
     try {
       const taxFreeBonds = [
         {
@@ -5352,7 +5357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE listed bonds data
-  app.get("/api/bonds/nse-listed", requireLevel2, async (req, res) => {
+  // NSE listed bonds - public access for viewing
+  app.get("/api/bonds/nse-listed", async (req, res) => {
     try {
       // Real NSE listed bonds with live data
       const nseBonds = [
@@ -5475,7 +5481,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE listed bonds data
-  app.get("/api/bonds/bse-listed", requireLevel2, async (req, res) => {
+  // BSE listed bonds - public access for viewing
+  app.get("/api/bonds/bse-listed", async (req, res) => {
     try {
       // Real BSE listed bonds with live data
       const bseBonds = [
@@ -5599,7 +5606,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get combined NSE & BSE bonds market data
-  app.get("/api/bonds/listed-bonds", requireLevel2, async (req, res) => {
+  // Listed bonds - public access for viewing
+  app.get("/api/bonds/listed-bonds", async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -5859,7 +5867,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Sovereign Gold Bonds data
-  app.get("/api/bonds/sgb", requireLevel2, async (req, res) => {
+  // Sovereign Gold Bonds - public access for viewing
+  app.get("/api/bonds/sgb", async (req, res) => {
     try {
       const sgbs = await nseNcbApi.getSGBData();
 
@@ -5908,7 +5917,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds market overview
-  app.get("/api/bonds/market-overview", requireLevel2, async (req, res) => {
+  // Bond market overview - public access for viewing
+  app.get("/api/bonds/market-overview", async (req, res) => {
     try {
       const marketOverview = {
         totalMarketSize: "₹45,68,450 Cr",
@@ -6826,7 +6836,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive AIF data from all AMCs with complete fund details
-  app.get("/api/aif/comprehensive", requireLevel2, async (req, res) => {
+  // AIF comprehensive - public access for viewing
+  app.get("/api/aif/comprehensive", async (req, res) => {
     try {
       const { amc, category, subCategory, riskRating } = req.query;
       const amcStr = typeof amc === 'string' ? amc : Array.isArray(amc) ? amc[0] : undefined;
@@ -7221,7 +7232,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE AIF funds data
-  app.get("/api/aif/nse-funds", requireLevel2, async (req, res) => {
+  // AIF NSE funds - public access for viewing
+  app.get("/api/aif/nse-funds", async (req, res) => {
     try {
       const nseFunds = [
         {
@@ -7310,7 +7322,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE AIF funds data
-  app.get("/api/aif/bse-funds", requireLevel2, async (req, res) => {
+  // AIF BSE funds - public access for viewing
+  app.get("/api/aif/bse-funds", async (req, res) => {
     try {
       const bseFunds = [
         {
@@ -7675,7 +7688,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive multi-exchange AIF data
-  app.get("/api/aif/all-exchanges", requireLevel2, async (req, res) => {
+  // AIF all exchanges - public access for viewing
+  app.get("/api/aif/all-exchanges", async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
