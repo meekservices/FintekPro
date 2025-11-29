@@ -53,7 +53,10 @@ export function useCart() {
       quantity?: number;
       investmentAmount?: string;
     }) => {
-      return apiRequest("POST", "/api/cart/items", { body: { productId, quantity, investmentAmount } });
+      return apiRequest("/api/cart/items", {
+        method: "POST",
+        body: JSON.stringify({ productId, quantity, investmentAmount }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
@@ -66,7 +69,10 @@ export function useCart() {
       quantity?: number;
       investmentAmount?: string;
     }) => {
-      return apiRequest("PUT", `/api/cart/items/${itemId}`, { body: { quantity, investmentAmount } });
+      return apiRequest(`/api/cart/items/${itemId}`, {
+        method: "PUT",
+        body: JSON.stringify({ quantity, investmentAmount }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
@@ -75,7 +81,9 @@ export function useCart() {
 
   const removeFromCartMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      return apiRequest("DELETE", `/api/cart/items/${itemId}`);
+      return apiRequest(`/api/cart/items/${itemId}`, {
+        method: "DELETE",
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
@@ -84,7 +92,9 @@ export function useCart() {
 
   const clearCartMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("DELETE", "/api/cart");
+      return apiRequest("/api/cart", {
+        method: "DELETE",
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
