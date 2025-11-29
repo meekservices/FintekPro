@@ -32097,5 +32097,277 @@ System Security Data:`;
     }
   });
 
+
+  // ============================================
+  // FIXED INCOME MARKETPLACE ROUTES
+  // ============================================
+  
+  // Get marketplace bonds with filters
+  app.get("/api/fixed-income/bonds", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      
+      const filters = {
+        bondType: req.query.bondType as any,
+        securityType: req.query.securityType,
+        creditRating: req.query.creditRating,
+        minYield: req.query.minYield ? parseFloat(req.query.minYield) : undefined,
+        maxYield: req.query.maxYield ? parseFloat(req.query.maxYield) : undefined,
+        issuer: req.query.issuer,
+        taxStatus: req.query.taxStatus,
+      };
+      
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      
+      const result = await fixedIncomeMarketplace.getMarketplaceBonds(filters, page, limit);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching bonds:", error);
+      res.status(500).json({ error: "Failed to fetch bonds" });
+    }
+  });
+  
+  // Get bond details
+  app.get("/api/fixed-income/bonds/:bondId", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const { bondId } = req.params;
+      const bondType = req.query.type as 'government' | 'corporate' || 'corporate';
+      
+      const bond = await fixedIncomeMarketplace.getBondDetails(bondId, bondType);
+      
+      if (!bond) {
+        return res.status(404).json({ error: "Bond not found" });
+      }
+      
+      res.json(bond);
+    } catch (error) {
+      console.error("Error fetching bond details:", error);
+      res.status(500).json({ error: "Failed to fetch bond details" });
+    }
+  });
+  
+  // Get NCD issues
+  app.get("/api/fixed-income/ncd-issues", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const status = req.query.status || 'open';
+      
+      const issues = status === 'upcoming' 
+        ? await fixedIncomeMarketplace.getUpcomingNcdIssues()
+        : await fixedIncomeMarketplace.getOpenNcdIssues();
+      
+      res.json(issues);
+    } catch (error) {
+      console.error("Error fetching NCD issues:", error);
+      res.status(500).json({ error: "Failed to fetch NCD issues" });
+    }
+  });
+  
+  // Get SGB issues
+  app.get("/api/fixed-income/sgb-issues", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const status = req.query.status || 'open';
+      
+      const issues = status === 'upcoming' 
+        ? await fixedIncomeMarketplace.getUpcomingSgbIssues()
+        : await fixedIncomeMarketplace.getOpenSgbIssues();
+      
+      res.json(issues);
+    } catch (error) {
+      console.error("Error fetching SGB issues:", error);
+      res.status(500).json({ error: "Failed to fetch SGB issues" });
+    }
+  });
+  
+  // Perform suitability check
+  app.post("/api/fixed-income/suitability-check", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const userId = req.user!.id;
+      
+      const check = await fixedIncomeMarketplace.performSuitabilityCheck(userId, req.ip, req.get('user-agent'));
+      res.json(check);
+    } catch (error) {
+      console.error("Error performing suitability check:", error);
+      res.status(500).json({ error: "Failed to perform suitability check" });
+    }
+  });
+  
+  // Get suitability status
+  app.get("/api/fixed-income/suitability-status", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const check = await fixedIncomeMarketplace.getUserLatestSuitability(req.user!.id);
+      
+      res.json({
+        hasSuitability: !!check,
+        suitability: check,
+        canTrade: check?.suitabilityResult === 'approved' || check?.suitabilityResult === 'conditional'
+      });
+    } catch (error) {
+      console.error("Error fetching suitability status:", error);
+      res.status(500).json({ error: "Failed to fetch suitability status" });
+    }
+  });
+  
+  // Place bond order
+  app.post("/api/fixed-income/orders", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const order = await fixedIncomeMarketplace.placeOrder({
+        userId: req.user!.id,
+        ...req.body
+      }, req.ip, req.get('user-agent'));
+      
+      res.json(order);
+    } catch (error: any) {
+      console.error("Error placing order:", error);
+      res.status(400).json({ error: error.message || "Failed to place order" });
+    }
+  });
+  
+  // Get user's orders
+  app.get("/api/fixed-income/orders", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const orders = await fixedIncomeMarketplace.getUserOrders(req.user!.id, req.query.status);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+  
+  // Get user's holdings
+  app.get("/api/fixed-income/holdings", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const holdings = await fixedIncomeMarketplace.getUserHoldings(req.user!.id);
+      res.json(holdings);
+    } catch (error) {
+      console.error("Error fetching holdings:", error);
+      res.status(500).json({ error: "Failed to fetch holdings" });
+    }
+  });
+  
+  // Get portfolio summary
+  app.get("/api/fixed-income/portfolio-summary", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const summary = await fixedIncomeMarketplace.getPortfolioSummary(req.user!.id);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching portfolio summary:", error);
+      res.status(500).json({ error: "Failed to fetch portfolio summary" });
+    }
+  });
+  
+  // Get coupon payments
+  app.get("/api/fixed-income/coupon-payments", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const payments = await fixedIncomeMarketplace.getUserCouponPayments(req.user!.id, req.query.status);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching coupon payments:", error);
+      res.status(500).json({ error: "Failed to fetch coupon payments" });
+    }
+  });
+  
+  // Get watchlist
+  app.get("/api/fixed-income/watchlist", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const watchlist = await fixedIncomeMarketplace.getUserWatchlist(req.user!.id);
+      res.json(watchlist);
+    } catch (error) {
+      console.error("Error fetching watchlist:", error);
+      res.status(500).json({ error: "Failed to fetch watchlist" });
+    }
+  });
+  
+  // Add to watchlist
+  app.post("/api/fixed-income/watchlist", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const item = await fixedIncomeMarketplace.addToWatchlist(req.user!.id, req.body);
+      res.json(item);
+    } catch (error) {
+      console.error("Error adding to watchlist:", error);
+      res.status(500).json({ error: "Failed to add to watchlist" });
+    }
+  });
+  
+  // Remove from watchlist
+  app.delete("/api/fixed-income/watchlist/:watchlistId", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      await fixedIncomeMarketplace.removeFromWatchlist(req.user!.id, req.params.watchlistId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing from watchlist:", error);
+      res.status(500).json({ error: "Failed to remove from watchlist" });
+    }
+  });
+  
+  // Apply for NCD issue
+  app.post("/api/fixed-income/ncd-applications", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const application = await fixedIncomeMarketplace.applyNcdIssue(req.user!.id, req.body);
+      res.json(application);
+    } catch (error) {
+      console.error("Error applying for NCD:", error);
+      res.status(500).json({ error: "Failed to submit NCD application" });
+    }
+  });
+  
+  // Get user's NCD applications
+  app.get("/api/fixed-income/ncd-applications", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const applications = await fixedIncomeMarketplace.getUserNcdApplications(req.user!.id);
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching NCD applications:", error);
+      res.status(500).json({ error: "Failed to fetch NCD applications" });
+    }
+  });
+  
+  // Get audit logs
+  app.get("/api/fixed-income/audit-logs", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const logs = await fixedIncomeMarketplace.getAuditLogs(req.user!.id, {
+        eventType: req.query.eventType,
+        limit: req.query.limit ? parseInt(req.query.limit) : 100,
+      });
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+  
+  // Calculate YTM
+  app.post("/api/fixed-income/calculate-ytm", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const ytm = await fixedIncomeMarketplace.calculateYieldToMaturity(
+        req.body.faceValue,
+        req.body.currentPrice,
+        req.body.couponRate,
+        req.body.yearsToMaturity
+      );
+      res.json({ ytm });
+    } catch (error) {
+      console.error("Error calculating YTM:", error);
+      res.status(500).json({ error: "Failed to calculate YTM" });
+    }
+  });
+
   return server;
 }
