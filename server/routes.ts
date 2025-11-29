@@ -12057,6 +12057,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+
+  // Background Job Status Endpoints
+  app.get("/api/jobs/:jobId", requireAuth, async (req: any, res) => {
+    try {
+      const { jobQueue } = await import("./services/background-job-queue");
+      const job = jobQueue.getJob(req.params.jobId);
+      
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      
+      // Only allow users to see their own jobs
+      if (job.payload.userId !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json({
+        id: job.id,
+        type: job.type,
+        status: job.status,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        result: job.status === "completed" ? job.result : undefined,
+        error: job.status === "failed" ? job.error : undefined
+      });
+    } catch (error) {
+      console.error("Error fetching job status:", error);
+      res.status(500).json({ error: "Failed to fetch job status" });
+    }
+  });
+
+  app.get("/api/jobs", requireAuth, async (req: any, res) => {
+    try {
+      const { jobQueue } = await import("./services/background-job-queue");
+      const jobs = jobQueue.getJobsByUser(req.user!.id);
+      
+      res.json(jobs.map(job => ({
+        id: job.id,
+        type: job.type,
+        status: job.status,
+        createdAt: job.createdAt,
+        completedAt: job.completedAt
+      })));
+    } catch (error) {
+      console.error("Error fetching user jobs:", error);
+      res.status(500).json({ error: "Failed to fetch jobs" });
+    }
+  });
+
+  app.get("/api/jobs/stats", requireAuth, async (req: any, res) => {
+    try {
+      const { jobQueue } = await import("./services/background-job-queue");
+      res.json(jobQueue.getStats());
+    } catch (error) {
+      console.error("Error fetching job stats:", error);
+      res.status(500).json({ error: "Failed to fetch job stats" });
+    }
+  });
+
   // Insurance Holdings Routes
   app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
     try {

@@ -28,7 +28,7 @@ interface FetchRequest {
   dateOfBirth: string;
   mobile?: string;
   email?: string;
-  consentId: string;
+  consentId?: string;
 }
 
 interface FetchResult {

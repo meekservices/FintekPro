@@ -344,6 +344,53 @@ app.use((req, res, next) => {
       console.error('❌ Error importing session cleanup cron:', error);
     }
     
+    // Initialize Retention Cleanup Service (8-year PMLA/RBI compliance)
+    try {
+      import('./services/retention-cleanup-service').then(({ retentionCleanupService }) => {
+        retentionCleanupService.scheduleCleanup();
+        logger.service('Retention Cleanup Service', 'Scheduled daily cleanup at 2:00 AM IST');
+      }).catch(error => {
+        console.error('❌ Failed to initialize retention cleanup service:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing retention cleanup service:', error);
+    }
+    
+    // Initialize Background Job Queue
+    try {
+      import('./services/background-job-queue').then(({ jobQueue }) => {
+        import('./services/government-scheme-data-fetcher').then(({ governmentSchemeDataFetcher }) => {
+          jobQueue.registerHandler('epf_passbook_download', async (payload) => {
+            return governmentSchemeDataFetcher.fetchSchemeData({
+              userId: payload.userId,
+              schemeType: 'epf',
+              panNumber: String(payload.panNumber || ''),
+              name: String(payload.name || ''),
+              dateOfBirth: String(payload.dateOfBirth || ''),
+              consentId: payload.consentId
+            });
+          });
+          
+          jobQueue.registerHandler('nps_statement_fetch', async (payload) => {
+            return governmentSchemeDataFetcher.fetchSchemeData({
+              userId: payload.userId,
+              schemeType: 'nps',
+              panNumber: String(payload.panNumber || ''),
+              name: String(payload.name || ''),
+              dateOfBirth: String(payload.dateOfBirth || ''),
+              consentId: payload.consentId
+            });
+          });
+          
+          logger.service('Background Job Queue', 'Initialized with government scheme handlers');
+        });
+      }).catch(error => {
+        console.error('❌ Failed to initialize background job queue:', error);
+      });
+    } catch (error) {
+      console.error('❌ Error importing background job queue:', error);
+    }
+    
     // Initialize Unlisted Marketplace Cron Jobs
     try {
       initializeCronJobs();
