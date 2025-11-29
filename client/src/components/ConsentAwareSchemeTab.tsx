@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useConsent, type SchemeType } from "@/hooks/use-consent";
+import { type SchemeType } from "@/hooks/use-consent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Lock, CheckCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
 
 interface ConsentAwareSchemeTabProps {
   schemeType: SchemeType;
@@ -36,35 +36,32 @@ export function ConsentAwareSchemeTab({
   onRequestConsent 
 }: ConsentAwareSchemeTabProps) {
   const { user } = useAuth();
-  const { checkConsent } = useConsent();
-  const [hasConsent, setHasConsent] = useState(false);
-  const [isCheckingConsent, setIsCheckingConsent] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const checkConsentStatus = async () => {
+  const { data: consentStatus, isLoading: isCheckingConsent, error } = useQuery({
+    queryKey: ['government-schemes', 'consent', user?.panNumber, schemeType],
+    queryFn: async () => {
       if (!user?.panNumber) {
-        setError("PAN number not available");
-        setIsCheckingConsent(false);
-        return;
+        throw new Error("PAN number not available");
       }
-
-      try {
-        setIsCheckingConsent(true);
-        const consentStatus = await checkConsent(user.panNumber, schemeType);
-        setHasConsent(consentStatus.hasConsent);
-        setError(null);
-      } catch (err) {
-        console.error("Error checking consent:", err);
-        setHasConsent(false);
-        setError("Unable to verify consent status");
-      } finally {
-        setIsCheckingConsent(false);
+      const response = await fetch(`/api/government-schemes/consent/${user.panNumber}/${schemeType}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to check consent: ${response.statusText}`);
       }
-    };
+      
+      return response.json();
+    },
+    enabled: !!user?.panNumber,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 1
+  });
 
-    checkConsentStatus();
-  }, [user?.panNumber, schemeType, checkConsent]);
+  const hasConsent = consentStatus?.hasConsent ?? false;
 
   if (isCheckingConsent) {
     return (
