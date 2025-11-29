@@ -9897,30 +9897,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { symbol: "^FCHI", name: "CAC 40" }
       ];
 
+      const yahooFinance = require('yahoo-finance2').default;
+      
       const promises = globalIndices.map(async (index) => {
         try {
-          // Using mock data for market analysis
-          const data = { c: 100, d: 2.5, dp: 2.5, pc: 97.5, o: 98, h: 102, l: 96 };
+          // Fetch real-time data from Yahoo Finance
+          const quote = await yahooFinance.quote(index.symbol);
           
-          // Check if we got valid data
-          if (data && data.c && data.c > 0) {
+          if (quote && quote.regularMarketPrice && quote.regularMarketPrice > 0) {
             return {
               symbol: index.symbol,
-              price: data.c,
-              change: data.d || 0,
-              changePercent: data.dp || 0,
-              high: data.h || data.c,
-              low: data.l || data.c,
-              open: data.o || data.c,
-              previousClose: data.pc || data.c,
-              timestamp: (data as any).t || Math.floor(Date.now() / 1000)
+              name: quote.shortName || quote.longName || index.name,
+              price: quote.regularMarketPrice,
+              change: quote.regularMarketChange || 0,
+              changePercent: quote.regularMarketChangePercent || 0,
+              high: quote.regularMarketDayHigh || quote.regularMarketPrice,
+              low: quote.regularMarketDayLow || quote.regularMarketPrice,
+              open: quote.regularMarketOpen || quote.regularMarketPrice,
+              previousClose: quote.regularMarketPreviousClose || quote.regularMarketPrice,
+              timestamp: Math.floor(Date.now() / 1000),
+              source: 'yahoo_finance'
             };
           } else {
-            // API returned invalid data, use fallback
-            throw new Error("Invalid API response");
+            throw new Error("Invalid API response from Yahoo Finance");
           }
         } catch (error) {
-          // Don't log every API failure as error - use fallback silently
+          // Fallback to realistic base prices when API fails
           const basePrice = getBasePrice(index.symbol);
           const change = (Math.random() - 0.5) * (basePrice * 0.015); // ±1.5% variation
           const changePercent = (change / basePrice) * 100;
@@ -9941,6 +9943,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const results = await Promise.all(promises);
       
+      // Cache the results
+      marketDataCache.set(cacheKey, {
+        data: results,
+        timestamp: Date.now()
+      });
       // Cache the results
       marketDataCache.set(cacheKey, {
         data: results,
