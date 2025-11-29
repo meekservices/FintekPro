@@ -163,33 +163,42 @@ export async function getUserKYCLevel(userId: string): Promise<{
 
   // Individual verification status checks
   const panVerified = profile.panVerifiedViaSandbox || false;
-  // Address verification: Check if CKYC fetched (includes address) OR complete address fields provided
-  // CKYC data from AuthBridge includes verified address, or address captured during onboarding
-  const addressOvdVerified = profile.ckycFetchedViaAuthBridge || 
-    (profile.address && profile.city && profile.state && profile.pincode && profile.country) || false;
-  const photographCaptured = profile.isProfileCompleted || false; // Photograph is part of profile completion
+  
+  // Address OVD Verification: Must be from authenticated provider (CKYC/Aadhaar)
+  // Per RBI Master Direction, OVD must be verified through authorized channel
+  // Complete address fields alone are NOT sufficient - need verified source
   const ckycVerified = profile.ckycFetchedViaAuthBridge || false;
   const kraVerified = profile.kraVerifiedViaProtean || false;
+  // CKYC contains verified address from KRA, or KRA verification implies address verified
+  const addressOvdVerified = ckycVerified || kraVerified;
+  
+  const photographCaptured = profile.isProfileCompleted || false; // Photograph is part of profile completion
   const videoKycCompleted = profile.videoKycCompleted || false;
   const ipvCompleted = profile.faceToFaceVerificationCompleted || false;
   const bankPennyDropVerified = verifiedBank?.isVerified || false;
 
   // Level 1 Requirements (Standard KYC for Loans/Insurance):
-  // - PAN verification (mandatory)
-  // - Address proof via OVD (Aadhaar preferred, or complete address with documents)
-  // - Photograph captured (as part of profile)
-  // Note: Relaxed for development - address verified via Aadhaar OR complete address fields
+  // Per RBI Master Direction on KYC, Section 16:
+  // - PAN verification (mandatory - primary identity)
+  // - Address proof via OVD (CKYC/KRA verified - not just address fields)
+  // - Photograph captured (as part of profile completion)
+  // Note: For development, we allow CKYC/KRA as OVD source since it contains verified address
   const hasLevel1Requirements = panVerified && addressOvdVerified && photographCaptured;
 
   // Level 2 Requirements (Full KYC for Investment Products):
-  // - All Level 1 requirements
+  // Per SEBI Circular SEBI/HO/MIRSD/MIRSD-PoD-1/P/CIR/2023/37:
+  // ALL of the following are MANDATORY:
+  // - All Level 1 requirements (PAN + verified OVD + photograph)
   // - CKYC registration OR KRA verification (central KYC compliance)
   // - Video KYC (V-CIP) OR In-Person Verification (identity confirmation)
-  // - Bank account penny-drop verification (financial identity)
-  // Note: Relaxed for development - CKYC/KRA alone sufficient if video KYC pending
+  // - Bank account penny-drop verification (financial identity linkage)
   const hasCentralKycVerification = ckycVerified || kraVerified;
-  const hasIdentityVerification = videoKycCompleted || ipvCompleted || hasCentralKycVerification; // CKYC includes IPV at KRA
-  const hasLevel2Requirements = hasLevel1Requirements && hasCentralKycVerification && (hasIdentityVerification || bankPennyDropVerified);
+  const hasIdentityVerification = videoKycCompleted || ipvCompleted;
+  // Level 2 requires ALL: Central KYC + Identity Verification + Bank Verification
+  const hasLevel2Requirements = hasLevel1Requirements && 
+    hasCentralKycVerification && 
+    hasIdentityVerification && 
+    bankPennyDropVerified;
 
   // Build missing requirements list for user guidance
   if (!panVerified) missingRequirements.push('PAN verification');

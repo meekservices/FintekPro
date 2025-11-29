@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { eq } from "drizzle-orm";
-import { userProfiles } from "@shared/schema";
+import { userProfiles, userBankAccounts } from "@shared/schema";
 
 /**
  * Re-KYC Service
@@ -10,7 +10,7 @@ import { userProfiles } from "@shared/schema";
 
 export interface KYCStatus {
   userId: string;
-  currentLevel: "none" | "basic" | "full" | "enhanced";
+  currentLevel: "none" | "basic" | "enhanced";
   isActive: boolean;
   dueDate: Date | null;
   daysUntilExpiry: number | null;
@@ -29,6 +29,15 @@ export interface KYCStatus {
   
   // Pending actions
   pendingActions: string[];
+  
+  // Event-driven triggers (regulatory compliance)
+  eventTriggers?: {
+    riskProfileChanged: boolean;
+    addressChanged: boolean;
+    beneficialOwnershipChanged: boolean;
+    requiresImmediateReview: boolean;
+    lastEventCheck: Date | null;
+  };
 }
 
 /**
@@ -87,23 +96,42 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
   }
 
   // Determine current KYC level based on verified statuses
-  // Aligned with kyc-level-gate middleware for consistency
+  // ALIGNED with kyc-level-gate middleware for consistency
   
-  // Basic: PAN verified (via Sandbox or Cashfree) OR CKYC fetched (minimum KYC requirement)
-  // Corresponds to Level 1 in kyc-level-gate
-  const hasBasicVerification = profile.panVerifiedViaSandbox || profile.ckycFetchedViaAuthBridge || profile.kraVerifiedViaProtean;
+  // Check for verified bank account (must be penny-drop verified, not just exists)
+  const verifiedBank = await db.query.userBankAccounts.findFirst({
+    where: (accounts, { eq, and }) => and(
+      eq(accounts.userId, userId),
+      eq(accounts.isVerified, true)
+    ),
+  });
   
-  // Full/Enhanced: Basic + (CKYC verified OR KRA verified OR bank verified with completed profile)
-  // Corresponds to Level 2 in kyc-level-gate - using "enhanced" for consistency with product access
-  const hasFullVerification = hasBasicVerification && (
-    profile.ckycFetchedViaAuthBridge || 
-    profile.kraVerifiedViaProtean || 
-    (profile.bankAccountNumber && profile.isProfileCompleted)
-  );
+  // Individual verification status checks (same as kyc-level-gate)
+  const panVerified = profile.panVerifiedViaSandbox || false;
+  const ckycVerified = profile.ckycFetchedViaAuthBridge || false;
+  const kraVerified = profile.kraVerifiedViaProtean || false;
+  const addressOvdVerified = ckycVerified || kraVerified; // CKYC/KRA contains verified address
+  const photographCaptured = profile.isProfileCompleted || false;
+  const videoKycCompleted = profile.videoKycCompleted || false;
+  const ipvCompleted = profile.faceToFaceVerificationCompleted || false;
+  const bankPennyDropVerified = verifiedBank?.isVerified || false;
+  
+  // Level 1 (Basic): PAN + Verified OVD + Photograph
+  // Per RBI Master Direction on KYC, Section 16
+  const hasLevel1Requirements = panVerified && addressOvdVerified && photographCaptured;
+  
+  // Level 2 (Enhanced): Level 1 + Central KYC + Identity Verification + Bank Verification
+  // Per SEBI Circular - ALL requirements are MANDATORY
+  const hasCentralKycVerification = ckycVerified || kraVerified;
+  const hasIdentityVerification = videoKycCompleted || ipvCompleted;
+  const hasLevel2Requirements = hasLevel1Requirements && 
+    hasCentralKycVerification && 
+    hasIdentityVerification && 
+    bankPennyDropVerified;
 
-  // Note: Video KYC is optional for enhanced tier but required for international trading
-  const currentLevel: "none" | "basic" | "full" | "enhanced" = 
-    hasFullVerification ? "enhanced" : hasBasicVerification ? "basic" : "none";
+  // Determine level based on regulatory compliance
+  const currentLevel: "none" | "basic" | "enhanced" = 
+    hasLevel2Requirements ? "enhanced" : hasLevel1Requirements ? "basic" : "none";
 
   // Calculate or get due date
   let dueDate = profile.kycUpdateDueDate;
@@ -126,7 +154,7 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
 
   // Determine transaction readiness
   const canTradeMutualFunds = currentLevel !== "none" && !requiresReKYC;
-  const canTradeBroking = (currentLevel === "full" || currentLevel === "enhanced") && !requiresReKYC;
+  const canTradeBroking = currentLevel === "enhanced" && !requiresReKYC;
   
   // International requires enhanced KYC + NRI/OCI/Foreign National status
   const isInternationalEligible = 
