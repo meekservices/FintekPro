@@ -98,6 +98,7 @@ import MLDs from "@/pages/mlds";
 import Insurance from "@/pages/insurance";
 import BankingProducts from "@/pages/banking-products";
 import Bonds from "@/pages/bonds";
+import FixedIncomeMarketplace from "@/pages/fixed-income-marketplace";
 import FamilyList from "@/pages/family-list";
 import FamilyDashboard from "@/pages/family-dashboard";
 import AIChat from "@/pages/ai-chat";
@@ -152,6 +153,7 @@ function UserProtectedRoutes() {
         <Route path="/unlisted/sell" component={CreateSellListing} />
         <Route path="/unlisted/buy" component={CreateBuyRequest} />
         <Route path="/bonds" component={Bonds} />
+        <Route path="/fixed-income" component={FixedIncomeMarketplace} />
         <Route path="/mlds" component={MLDs} />
         <Route path="/insurance" component={Insurance} />
         <Route path="/banking-products" component={BankingProducts} />
