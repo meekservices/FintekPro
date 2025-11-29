@@ -653,6 +653,107 @@ class FixedIncomeMarketplaceService {
       .orderBy(desc(fixedIncomeAuditLog.eventTimestamp))
       .limit(filters?.limit || 100);
   }
+
+  // Admin Methods
+  async getAllOrders(limit: number = 100) {
+    return db.select()
+      .from(bondOrders)
+      .orderBy(desc(bondOrders.createdAt))
+      .limit(limit);
+  }
+
+  async getAllAuditLogs(filters?: {
+    eventType?: string;
+    limit?: number;
+  }) {
+    const conditions: any[] = [];
+    
+    if (filters?.eventType) {
+      conditions.push(eq(fixedIncomeAuditLog.eventType, filters.eventType));
+    }
+    
+    return db.select()
+      .from(fixedIncomeAuditLog)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(fixedIncomeAuditLog.eventTimestamp))
+      .limit(filters?.limit || 100);
+  }
+
+  async createBond(data: any) {
+    const [bond] = await db.insert(governmentSecurities).values({
+      isin: data.isin,
+      securityName: data.securityName,
+      issuer: data.issuer,
+      couponRate: parseFloat(data.couponRate),
+      yieldToMaturity: data.yieldToMaturity ? parseFloat(data.yieldToMaturity) : null,
+      faceValue: parseFloat(data.faceValue),
+      currentPrice: data.currentPrice ? parseFloat(data.currentPrice) : null,
+      maturityDate: new Date(data.maturityDate),
+      securityType: data.securityType,
+      creditRating: data.creditRating || null,
+      taxStatus: data.taxStatus || 'taxable',
+      isActive: data.isActive !== false,
+    }).returning();
+    return bond;
+  }
+
+  async updateBond(bondId: string, data: any) {
+    const [bond] = await db.update(governmentSecurities)
+      .set({
+        securityName: data.securityName,
+        issuer: data.issuer,
+        couponRate: parseFloat(data.couponRate),
+        yieldToMaturity: data.yieldToMaturity ? parseFloat(data.yieldToMaturity) : null,
+        currentPrice: data.currentPrice ? parseFloat(data.currentPrice) : null,
+        creditRating: data.creditRating || null,
+        taxStatus: data.taxStatus,
+        isActive: data.isActive,
+        updatedAt: new Date(),
+      })
+      .where(eq(governmentSecurities.id, bondId))
+      .returning();
+    return bond;
+  }
+
+  async createNcdIssue(data: any) {
+    const [issue] = await db.insert(ncdPublicIssues).values({
+      issueCode: data.issueCode,
+      issuer: data.issuer,
+      issueSize: parseFloat(data.issueSize),
+      pricePerNcd: parseFloat(data.pricePerNcd),
+      couponRate: parseFloat(data.couponRate),
+      tenure: parseInt(data.tenure),
+      tenureUnit: data.tenureUnit || 'years',
+      creditRating: data.creditRating,
+      issueOpenDate: new Date(data.issueOpenDate),
+      issueCloseDate: new Date(data.issueCloseDate),
+      minApplicationAmount: parseFloat(data.minApplicationAmount) || 10000,
+      interestPaymentFrequency: data.interestPaymentFrequency || 'annual',
+      status: data.status || 'upcoming',
+      listingExchange: data.listingExchange || 'NSE',
+    }).returning();
+    return issue;
+  }
+
+  async updateNcdIssue(issueId: string, data: any) {
+    const [issue] = await db.update(ncdPublicIssues)
+      .set({
+        issuer: data.issuer,
+        issueSize: parseFloat(data.issueSize),
+        pricePerNcd: parseFloat(data.pricePerNcd),
+        couponRate: parseFloat(data.couponRate),
+        tenure: parseInt(data.tenure),
+        tenureUnit: data.tenureUnit,
+        creditRating: data.creditRating,
+        issueOpenDate: new Date(data.issueOpenDate),
+        issueCloseDate: new Date(data.issueCloseDate),
+        status: data.status,
+        updatedAt: new Date(),
+      })
+      .where(eq(ncdPublicIssues.id, issueId))
+      .returning();
+    return issue;
+  }
 }
 
 export const fixedIncomeMarketplace = new FixedIncomeMarketplaceService();

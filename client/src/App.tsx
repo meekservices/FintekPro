@@ -123,6 +123,7 @@ import UserManagement from "@/pages/admin/user-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
 import UnlistedNegotiations from "@/pages/admin/UnlistedNegotiations";
+import FixedIncomeAdmin from "@/pages/admin/FixedIncomeAdmin";
 import BrowseUnlisted from "@/pages/unlisted/BrowseUnlisted";
 import CompanyDetails from "@/pages/unlisted/CompanyDetails";
 import CreateSellListing from "@/pages/unlisted/CreateSellListing";
@@ -421,6 +422,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <UnlistedNegotiations />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/fixed-income">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin />
           </AdminLayout>
         )}
       </Route>

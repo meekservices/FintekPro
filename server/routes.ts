@@ -32369,5 +32369,103 @@ System Security Data:`;
     }
   });
 
+
+  // ============================================
+  // FIXED INCOME ADMIN ROUTES
+  // ============================================
+  
+  // Admin: Get all orders
+  app.get("/api/fixed-income/admin/orders", requireAuth, async (req: any, res) => {
+    try {
+      if (!req.user?.roles?.includes('admin')) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const orders = await fixedIncomeMarketplace.getAllOrders(100);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching admin orders:", error);
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+  
+  // Admin: Get all audit logs
+  app.get("/api/fixed-income/admin/audit-logs", requireAuth, async (req: any, res) => {
+    try {
+      if (!req.user?.roles?.includes('admin')) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const logs = await fixedIncomeMarketplace.getAllAuditLogs({
+        eventType: req.query.eventType,
+        limit: req.query.limit ? parseInt(req.query.limit) : 100,
+      });
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching admin audit logs:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+  
+  // Admin: Create bond
+  app.post("/api/fixed-income/admin/bonds", requireAuth, async (req: any, res) => {
+    try {
+      if (!req.user?.roles?.includes('admin')) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const bond = await fixedIncomeMarketplace.createBond(req.body);
+      res.json(bond);
+    } catch (error) {
+      console.error("Error creating bond:", error);
+      res.status(500).json({ error: "Failed to create bond" });
+    }
+  });
+  
+  // Admin: Update bond
+  app.put("/api/fixed-income/admin/bonds/:bondId", requireAuth, async (req: any, res) => {
+    try {
+      if (!req.user?.roles?.includes('admin')) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const bond = await fixedIncomeMarketplace.updateBond(req.params.bondId, req.body);
+      res.json(bond);
+    } catch (error) {
+      console.error("Error updating bond:", error);
+      res.status(500).json({ error: "Failed to update bond" });
+    }
+  });
+  
+  // Admin: Create NCD issue
+  app.post("/api/fixed-income/admin/ncd-issues", requireAuth, async (req: any, res) => {
+    try {
+      if (!req.user?.roles?.includes('admin')) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const issue = await fixedIncomeMarketplace.createNcdIssue(req.body);
+      res.json(issue);
+    } catch (error) {
+      console.error("Error creating NCD issue:", error);
+      res.status(500).json({ error: "Failed to create NCD issue" });
+    }
+  });
+  
+  // Admin: Update NCD issue
+  app.put("/api/fixed-income/admin/ncd-issues/:issueId", requireAuth, async (req: any, res) => {
+    try {
+      if (!req.user?.roles?.includes('admin')) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const issue = await fixedIncomeMarketplace.updateNcdIssue(req.params.issueId, req.body);
+      res.json(issue);
+    } catch (error) {
+      console.error("Error updating NCD issue:", error);
+      res.status(500).json({ error: "Failed to update NCD issue" });
+    }
+  });
+
   return server;
 }
