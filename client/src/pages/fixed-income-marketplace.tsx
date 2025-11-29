@@ -1021,6 +1021,434 @@ function WatchlistTab() {
   );
 }
 
+function ReportsTab() {
+  const [selectedReport, setSelectedReport] = useState<string | null>(null);
+  const [loadingReports, setLoadingReports] = useState<Record<string, boolean>>({});
+
+  const { data: holdingReport, refetch: refetchHolding } = useQuery<{
+    success: boolean;
+    reportId?: string;
+    holdings?: any[];
+    summary?: any;
+    generatedAt?: string;
+  }>({
+    queryKey: ['/api/fixed-income/reports/holdings'],
+    enabled: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: couponReport, refetch: refetchCoupon } = useQuery<{
+    success: boolean;
+    reportId?: string;
+    schedule?: any[];
+    totalExpected?: number;
+    generatedAt?: string;
+  }>({
+    queryKey: ['/api/fixed-income/reports/coupon-schedule'],
+    enabled: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: maturityReport, refetch: refetchMaturity } = useQuery<{
+    success: boolean;
+    reportId?: string;
+    maturities?: any[];
+    totalMaturityValue?: number;
+    generatedAt?: string;
+  }>({
+    queryKey: ['/api/fixed-income/reports/maturity-calendar'],
+    enabled: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: alerts } = useQuery<{
+    success: boolean;
+    couponAlerts?: any[];
+    maturityAlerts?: any[];
+  }>({
+    queryKey: ['/api/fixed-income/alerts/pending'],
+  });
+
+  const selectReport = (type: string) => {
+    setSelectedReport(type);
+  };
+
+  const handleGenerateReport = async (type: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedReport(type);
+    setLoadingReports(prev => ({ ...prev, [type]: true }));
+    try {
+      if (type === 'holdings') await refetchHolding();
+      else if (type === 'coupon') await refetchCoupon();
+      else if (type === 'maturity') await refetchMaturity();
+    } finally {
+      setLoadingReports(prev => ({ ...prev, [type]: false }));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {alerts && ((alerts.couponAlerts?.length ?? 0) > 0 || (alerts.maturityAlerts?.length ?? 0) > 0) && (
+        <Alert className="bg-blue-50 border-blue-200">
+          <Bell className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-blue-800">Upcoming Payments</AlertTitle>
+          <AlertDescription className="text-blue-700">
+            You have {alerts.couponAlerts?.length || 0} upcoming coupon payments and {alerts.maturityAlerts?.length || 0} bonds maturing soon.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${selectedReport === 'holdings' ? 'ring-2 ring-blue-500' : ''}`}
+          onClick={() => selectReport('holdings')}
+          data-testid="card-holding-report"
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Briefcase className="h-5 w-5 text-blue-600" />
+              Bond Holdings Report
+            </CardTitle>
+            <CardDescription>Complete portfolio statement with valuations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">{holdingReport ? 'Cached' : '7-year retention'}</span>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={(e) => handleGenerateReport('holdings', e)}
+                disabled={loadingReports['holdings']}
+                data-testid="btn-generate-holdings"
+              >
+                {loadingReports['holdings'] ? "Generating..." : holdingReport ? "Refresh" : "Generate"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${selectedReport === 'coupon' ? 'ring-2 ring-green-500' : ''}`}
+          onClick={() => selectReport('coupon')}
+          data-testid="card-coupon-report"
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <IndianRupee className="h-5 w-5 text-green-600" />
+              Coupon Schedule
+            </CardTitle>
+            <CardDescription>Upcoming interest payments timeline</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">{couponReport ? 'Cached' : 'Next 12 months'}</span>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={(e) => handleGenerateReport('coupon', e)}
+                disabled={loadingReports['coupon']}
+                data-testid="btn-generate-coupon"
+              >
+                {loadingReports['coupon'] ? "Generating..." : couponReport ? "Refresh" : "Generate"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${selectedReport === 'maturity' ? 'ring-2 ring-purple-500' : ''}`}
+          onClick={() => selectReport('maturity')}
+          data-testid="card-maturity-report"
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Calendar className="h-5 w-5 text-purple-600" />
+              Maturity Calendar
+            </CardTitle>
+            <CardDescription>Bond maturity dates and values</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">{maturityReport ? 'Cached' : 'All holdings'}</span>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={(e) => handleGenerateReport('maturity', e)}
+                disabled={loadingReports['maturity']}
+                data-testid="btn-generate-maturity"
+              >
+                {loadingReports['maturity'] ? "Generating..." : maturityReport ? "Refresh" : "Generate"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {selectedReport === 'holdings' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Bond Holdings Report
+            </CardTitle>
+            {holdingReport?.generatedAt && (
+              <CardDescription>Generated: {new Date(holdingReport.generatedAt).toLocaleString()}</CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>
+            {loadingReports['holdings'] ? (
+              <Skeleton className="h-64 w-full" />
+            ) : !holdingReport ? (
+              <EmptyState icon={FileText} title="Generate Report" description="Click Generate to create your holdings report." />
+            ) : holdingReport?.holdings?.length === 0 ? (
+              <EmptyState icon={Briefcase} title="No Holdings" description="You don't have any bond holdings yet." />
+            ) : (
+              <div className="space-y-4">
+                {holdingReport?.summary && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="text-xs text-gray-500">Total Investment</p>
+                      <p className="text-lg font-bold">₹{((holdingReport.summary.totalInvestment || 0) / 100000).toFixed(2)}L</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Current Value</p>
+                      <p className="text-lg font-bold">₹{((holdingReport.summary.currentValue || 0) / 100000).toFixed(2)}L</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Unrealized P&L</p>
+                      <p className={`text-lg font-bold ${holdingReport.summary.unrealizedGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {holdingReport.summary.unrealizedGain >= 0 ? '+' : ''}₹{((holdingReport.summary.unrealizedGain || 0) / 1000).toFixed(2)}K
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Avg YTM</p>
+                      <p className="text-lg font-bold">{(holdingReport.summary.weightedAvgYTM || 0).toFixed(2)}%</p>
+                    </div>
+                  </div>
+                )}
+                <ScrollArea className="h-64">
+                  <div className="space-y-2">
+                    {holdingReport?.holdings?.map((holding: any) => (
+                      <div key={holding.bondId} className="p-3 border rounded-lg flex justify-between items-center" data-testid={`holding-${holding.isin}`}>
+                        <div>
+                          <p className="font-medium">{holding.bondName}</p>
+                          <p className="text-sm text-gray-500">ISIN: {holding.isin} | Qty: {holding.quantity}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">₹{holding.currentValue.toFixed(2)}</p>
+                          <p className={`text-sm ${holding.unrealizedGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {holding.unrealizedGain >= 0 ? '+' : ''}₹{holding.unrealizedGain.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedReport === 'coupon' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <IndianRupee className="h-5 w-5 text-green-600" />
+              Coupon Payment Schedule
+            </CardTitle>
+            {couponReport?.generatedAt && (
+              <CardDescription>
+                Total Expected: ₹{(couponReport.totalExpected || 0).toFixed(2)}
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>
+            {loadingReports['coupon'] ? (
+              <Skeleton className="h-64 w-full" />
+            ) : !couponReport ? (
+              <EmptyState icon={FileText} title="Generate Report" description="Click Generate to create your coupon schedule report." />
+            ) : couponReport?.schedule?.length === 0 ? (
+              <EmptyState icon={IndianRupee} title="No Upcoming Coupons" description="You don't have any upcoming coupon payments." />
+            ) : (
+              <ScrollArea className="h-64">
+                <div className="space-y-2">
+                  {couponReport?.schedule?.map((payment: any, idx: number) => (
+                    <div key={idx} className="p-3 border rounded-lg flex justify-between items-center" data-testid={`coupon-${payment.bondId}-${idx}`}>
+                      <div>
+                        <p className="font-medium">{payment.bondName}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(payment.couponDate).toLocaleDateString()} | {payment.couponRate}% coupon
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-green-600">₹{payment.expectedAmount.toFixed(2)}</p>
+                        <p className="text-sm text-gray-500">
+                          {payment.daysUntilPayment} days away
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedReport === 'maturity' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-purple-600" />
+              Maturity Calendar
+            </CardTitle>
+            {maturityReport?.generatedAt && (
+              <CardDescription>
+                Total Maturity Value: ₹{((maturityReport.totalMaturityValue || 0) / 100000).toFixed(2)}L
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>
+            {loadingReports['maturity'] ? (
+              <Skeleton className="h-64 w-full" />
+            ) : !maturityReport ? (
+              <EmptyState icon={FileText} title="Generate Report" description="Click Generate to create your maturity calendar report." />
+            ) : maturityReport?.maturities?.length === 0 ? (
+              <EmptyState icon={Calendar} title="No Upcoming Maturities" description="You don't have any bonds maturing." />
+            ) : (
+              <ScrollArea className="h-64">
+                <div className="space-y-2">
+                  {maturityReport?.maturities?.map((maturity: any, idx: number) => (
+                    <div key={idx} className="p-3 border rounded-lg flex justify-between items-center" data-testid={`maturity-${maturity.bondId}`}>
+                      <div>
+                        <p className="font-medium">{maturity.bondName}</p>
+                        <p className="text-sm text-gray-500">
+                          Matures: {new Date(maturity.maturityDate).toLocaleDateString()} | Qty: {maturity.quantity}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold">₹{maturity.maturityValue.toFixed(2)}</p>
+                        <Badge variant={maturity.daysUntilMaturity < 30 ? "destructive" : maturity.daysUntilMaturity < 90 ? "secondary" : "outline"}>
+                          {maturity.daysUntilMaturity} days
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function OrdersTab() {
+  const { data: orders, isLoading } = useQuery<any[]>({
+    queryKey: ['/api/fixed-income/user-orders'],
+  });
+
+  if (isLoading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
+  if (!orders || orders.length === 0) {
+    return (
+      <EmptyState
+        icon={Receipt}
+        title="No Orders"
+        description="You haven't placed any fixed income orders yet. Browse bonds and NCDs to get started."
+      />
+    );
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'executed': return 'bg-green-100 text-green-800';
+      case 'pending': case 'processing': return 'bg-amber-100 text-amber-800';
+      case 'failed': case 'rejected': return 'bg-red-100 text-red-800';
+      case 'pending_payment': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Your Orders</h3>
+        <Badge variant="outline">{orders.length} orders</Badge>
+      </div>
+
+      <div className="space-y-3">
+        {orders.map((order: any) => (
+          <Card key={order.id} data-testid={`order-${order.id}`}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="font-semibold">{order.bondName}</p>
+                  <p className="text-sm text-gray-500">ISIN: {order.isin}</p>
+                </div>
+                <Badge className={getStatusColor(order.orderStatus)}>
+                  {order.orderStatus.replace(/_/g, ' ')}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-500">Quantity</p>
+                  <p className="font-medium">{order.quantity}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Price</p>
+                  <p className="font-medium">₹{parseFloat(order.price || '0').toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Net Amount</p>
+                  <p className="font-medium">₹{parseFloat(order.netAmount || '0').toFixed(2)}</p>
+                </div>
+              </div>
+
+              {order.orderStatus === 'pending_payment' && (
+                <div className="mt-3 pt-3 border-t">
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Clock className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-700 flex items-center justify-between">
+                      <span>Payment pending for this order</span>
+                      <Button size="sm" data-testid={`btn-pay-${order.id}`}>
+                        Complete Payment
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
+              {order.settlementStatus && (
+                <div className="mt-3 pt-3 border-t">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-500">Settlement:</p>
+                    <Badge variant="outline">{order.settlementStatus}</Badge>
+                    {order.settlementDate && (
+                      <span className="text-sm text-gray-500">
+                        Expected: {new Date(order.settlementDate).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2 text-xs text-gray-400">
+                Order Date: {new Date(order.orderDate || order.createdAt).toLocaleDateString()}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function FixedIncomeMarketplace() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -1057,6 +1485,14 @@ export default function FixedIncomeMarketplace() {
             <Briefcase className="h-4 w-4 mr-2" />
             Holdings
           </TabsTrigger>
+          <TabsTrigger value="orders" data-testid="tab-orders">
+            <Clock className="h-4 w-4 mr-2" />
+            Orders
+          </TabsTrigger>
+          <TabsTrigger value="reports" data-testid="tab-reports">
+            <FileText className="h-4 w-4 mr-2" />
+            Reports
+          </TabsTrigger>
           <TabsTrigger value="watchlist" data-testid="tab-watchlist">
             <Star className="h-4 w-4 mr-2" />
             Watchlist
@@ -1075,6 +1511,12 @@ export default function FixedIncomeMarketplace() {
           </TabsContent>
           <TabsContent value="holdings">
             <HoldingsTab />
+          </TabsContent>
+          <TabsContent value="orders">
+            <OrdersTab />
+          </TabsContent>
+          <TabsContent value="reports">
+            <ReportsTab />
           </TabsContent>
           <TabsContent value="watchlist">
             <WatchlistTab />
