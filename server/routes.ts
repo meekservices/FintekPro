@@ -13558,7 +13558,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Mutual Fund API endpoints with MultiSource integration
-  app.get("/api/mutual-funds", requireLevel2, async (req, res) => {
+  // Mutual funds listing - public access for viewing
+  app.get("/api/mutual-funds", async (req, res) => {
     try {
       const { 
         category, 
@@ -13659,7 +13660,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/popular", requireLevel2, async (req, res) => {
+  // Popular mutual funds - public access for viewing
+  app.get("/api/mutual-funds/popular", async (req, res) => {
     try {
       console.log("📈 Fetching best performing mutual funds with MultiSource service...");
       
@@ -13813,7 +13815,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/:schemeCode", requireLevel2, async (req, res) => {
+  // Mutual fund details - public access for viewing
+  app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
     try {
       const { schemeCode } = req.params;
       console.log(`📊 Fetching fund details for scheme: ${schemeCode} with MultiSource service`);
@@ -13993,7 +13996,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/search/:query", requireLevel2, async (req, res) => {
+  // Mutual fund search - public access for viewing
+  app.get("/api/mutual-funds/search/:query", async (req, res) => {
     try {
       const { query } = req.params;
       console.log(`🔍 Searching funds with query: ${query}`);
