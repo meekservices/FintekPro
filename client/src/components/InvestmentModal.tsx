@@ -34,7 +34,10 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
 
   const addToCartMutation = useMutation({
     mutationFn: async (cartItem: any) => {
-      return await apiRequest("POST", "/api/cart/items", { body: cartItem });
+      return await apiRequest("/api/cart/items", {
+        method: "POST",
+        body: JSON.stringify(cartItem),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
