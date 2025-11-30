@@ -14,6 +14,126 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { LoadingState } from "@/components/LoadingState";
+import { useMemo } from "react";
+
+// Fee calculation hook for bond orders
+interface CommissionConfig {
+  bondType: string;
+  brokerageBps: number;
+  platformFeeFixed: number;
+  platformFeePercent: number;
+  gstRate: number;
+  minFee: number;
+  maxFee: number;
+}
+
+interface FeeBreakdown {
+  principal: number;
+  brokerage: number;
+  platformFee: number;
+  gst: number;
+  totalFees: number;
+  grandTotal: number;
+}
+
+function useCommissionConfig() {
+  return useQuery<CommissionConfig[]>({
+    queryKey: ["/api/admin/bond-commission"],
+    staleTime: 300000, // 5 minutes
+  });
+}
+
+function calculateFees(amount: number, config: CommissionConfig | undefined): FeeBreakdown {
+  if (!config || amount <= 0) {
+    return {
+      principal: amount || 0,
+      brokerage: 0,
+      platformFee: 0,
+      gst: 0,
+      totalFees: 0,
+      grandTotal: amount || 0,
+    };
+  }
+
+  // Calculate brokerage (in basis points, 100 bps = 1%)
+  let brokerage = (amount * config.brokerageBps) / 10000;
+  
+  // Apply min/max limits
+  brokerage = Math.max(config.minFee, Math.min(config.maxFee, brokerage));
+  
+  // Calculate platform fee
+  const platformFee = config.platformFeeFixed + (amount * config.platformFeePercent / 100);
+  
+  // Calculate GST on fees
+  const gst = ((brokerage + platformFee) * config.gstRate) / 100;
+  
+  const totalFees = brokerage + platformFee + gst;
+  
+  return {
+    principal: amount,
+    brokerage: Math.round(brokerage * 100) / 100,
+    platformFee: Math.round(platformFee * 100) / 100,
+    gst: Math.round(gst * 100) / 100,
+    totalFees: Math.round(totalFees * 100) / 100,
+    grandTotal: Math.round((amount + totalFees) * 100) / 100,
+  };
+}
+
+// Fee Breakdown Component for order dialogs
+function FeeBreakdownDisplay({ 
+  amount, 
+  bondType,
+  commissionData 
+}: { 
+  amount: number; 
+  bondType: string;
+  commissionData: CommissionConfig[] | undefined;
+}) {
+  const config = useMemo(() => {
+    if (!commissionData) return undefined;
+    return commissionData.find(c => c.bondType === bondType);
+  }, [commissionData, bondType]);
+
+  const fees = useMemo(() => calculateFees(amount, config), [amount, config]);
+
+  if (!config) {
+    return (
+      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-xs text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-700">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-3 w-3" />
+          <span>Fee details will be calculated at checkout</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-4 rounded-lg space-y-2 text-sm border border-blue-200 dark:border-blue-700">
+      <div className="flex justify-between items-center">
+        <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
+          <Calculator className="h-3 w-3" /> Principal Amount
+        </span>
+        <span className="font-semibold">₹{fees.principal.toLocaleString()}</span>
+      </div>
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-500">Brokerage ({config.brokerageBps} bps)</span>
+        <span>₹{fees.brokerage.toLocaleString()}</span>
+      </div>
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-500">Platform Fee</span>
+        <span>₹{fees.platformFee.toLocaleString()}</span>
+      </div>
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-500">GST ({config.gstRate}%)</span>
+        <span>₹{fees.gst.toLocaleString()}</span>
+      </div>
+      <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-semibold">
+        <span>Total Payable</span>
+        <span className="text-finance-blue">₹{fees.grandTotal.toLocaleString()}</span>
+      </div>
+    </div>
+  );
+}
 
 // Bond Categories Component with Real-time Data
 function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categoryId: string) => void }) {
@@ -119,6 +239,8 @@ function GovernmentSecurities() {
   const { data: gsecs, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/gsec/auctions"],
   });
+
+  const { data: commissionData } = useCommissionConfig();
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/gsec/orders", { method: "POST", body: JSON.stringify(orderData) }),
@@ -233,7 +355,7 @@ function GovernmentSecurities() {
                         </p>
                       </div>
 
-                      <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
+                      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Security:</span>
                           <span className="font-medium">{bond.securityName}</span>
@@ -247,6 +369,14 @@ function GovernmentSecurities() {
                           <span className="font-medium">{new Date(bond.maturityDate).toLocaleDateString()}</span>
                         </div>
                       </div>
+
+                      {parseFloat(bidAmount) > 0 && (
+                        <FeeBreakdownDisplay 
+                          amount={parseFloat(bidAmount)} 
+                          bondType={bond.securityType === 'g_sec' ? 'g_sec' : bond.securityType === 't_bill' ? 't_bill' : 'sdl'}
+                          commissionData={commissionData}
+                        />
+                      )}
 
                       <Button
                         className="w-full"
@@ -292,6 +422,8 @@ function CorporateBonds() {
   const { data: corporateBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/corporate"],
   });
+
+  const { data: commissionData } = useCommissionConfig();
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/corporate/orders", { method: "POST", body: JSON.stringify(orderData) }),
@@ -420,7 +552,7 @@ function CorporateBonds() {
                         </p>
                       </div>
 
-                      <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
+                      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Estimated Cost:</span>
                           <span className="font-semibold">
@@ -432,6 +564,14 @@ function CorporateBonds() {
                           <span className="font-medium text-finance-green">{bond.currentYield}%</span>
                         </div>
                       </div>
+
+                      {(parseFloat(quantity) || 0) > 0 && (
+                        <FeeBreakdownDisplay 
+                          amount={(parseFloat(quantity) || 0) * (parseFloat(limitPrice) || bond.lastPrice)}
+                          bondType="corporate"
+                          commissionData={commissionData}
+                        />
+                      )}
 
                       <Button
                         className="w-full"
@@ -481,6 +621,8 @@ function NCDBonds() {
   const { data: ncdBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/ncd"],
   });
+
+  const { data: commissionData } = useCommissionConfig();
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/ncd/orders", { method: "POST", body: JSON.stringify(orderData) }),
@@ -610,7 +752,7 @@ function NCDBonds() {
                         </p>
                       </div>
 
-                      <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
+                      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Estimated Cost:</span>
                           <span className="font-semibold">
@@ -622,6 +764,14 @@ function NCDBonds() {
                           <span className="font-medium text-finance-green">{bond.currentYield}%</span>
                         </div>
                       </div>
+
+                      {(parseFloat(quantity) || 0) > 0 && (
+                        <FeeBreakdownDisplay 
+                          amount={(parseFloat(quantity) || 0) * (parseFloat(limitPrice) || bond.lastPrice)}
+                          bondType="ncd"
+                          commissionData={commissionData}
+                        />
+                      )}
 
                       <Button
                         className="w-full"
@@ -671,6 +821,8 @@ function TaxFreeBonds() {
   const { data: taxFreeBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/tax-free"],
   });
+
+  const { data: commissionData } = useCommissionConfig();
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/tax-free/orders", { method: "POST", body: JSON.stringify(orderData) }),
@@ -800,7 +952,7 @@ function TaxFreeBonds() {
                         </p>
                       </div>
 
-                      <div className="bg-green-50 p-4 rounded-lg space-y-2 text-sm">
+                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Estimated Cost:</span>
                           <span className="font-semibold">
@@ -816,6 +968,14 @@ function TaxFreeBonds() {
                           <span>Interest income is tax-exempt under Section 10(15)</span>
                         </div>
                       </div>
+
+                      {(parseFloat(quantity) || 0) > 0 && (
+                        <FeeBreakdownDisplay 
+                          amount={(parseFloat(quantity) || 0) * (parseFloat(limitPrice) || bond.lastPrice)}
+                          bondType="tax_free"
+                          commissionData={commissionData}
+                        />
+                      )}
 
                       <Button
                         className="w-full"

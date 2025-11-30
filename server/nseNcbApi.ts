@@ -120,7 +120,7 @@ export class NSENCBApiService {
   }
 
   /**
-   * Get demo auction data for testing
+   * Get demo auction data for testing with realistic RBI auction data
    */
   private getDemoAuctions(): GSecurityAuction[] {
     const today = new Date();
@@ -135,63 +135,121 @@ export class NSENCBApiService {
     
     const in364Days = new Date(today);
     in364Days.setDate(in364Days.getDate() + 364);
+    
+    const in182Days = new Date(today);
+    in182Days.setDate(in182Days.getDate() + 182);
+    
+    const in91Days = new Date(today);
+    in91Days.setDate(in91Days.getDate() + 91);
 
     return [
       {
-        isin: 'INE000000001',
+        isin: 'IN0020250111',
         securityName: '7.18% GS 2033',
         securityType: 'g_sec',
         issuer: 'Government of India',
         auctionDate: nextWeek.toISOString().split('T')[0],
         auctionNumber: 'GOI-2025-01',
-        notifiedAmount: 25000000000, // ₹25,000 crore
+        notifiedAmount: 25000000000,
         couponRate: 7.18,
         maturityDate: in10Years.toISOString().split('T')[0],
         tenorYears: 10,
         minimumBid: 10000,
-        cutOffYield: 7.20,
+        cutOffPrice: 99.25,
+        cutOffYield: 7.28,
         status: 'upcoming'
       },
       {
-        isin: 'INE000000002',
+        isin: 'IN0020610225',
         securityName: '6.95% GS 2061',
         securityType: 'g_sec',
         issuer: 'Government of India',
         auctionDate: nextWeek.toISOString().split('T')[0],
         auctionNumber: 'GOI-2025-02',
-        notifiedAmount: 15000000000, // ₹15,000 crore
+        notifiedAmount: 15000000000,
         couponRate: 6.95,
         maturityDate: '2061-02-05',
         tenorYears: 36,
         minimumBid: 10000,
+        cutOffPrice: 94.80,
+        cutOffYield: 7.35,
         status: 'upcoming'
       },
       {
-        isin: 'INE000000003',
+        isin: 'IN002025T364',
         securityName: '364 Days T-Bill',
         securityType: 't_bill',
         issuer: 'Government of India',
         auctionDate: nextWeek.toISOString().split('T')[0],
         auctionNumber: 'TB-2025-03',
-        notifiedAmount: 10000000000, // ₹10,000 crore
+        notifiedAmount: 10000000000,
         maturityDate: in364Days.toISOString().split('T')[0],
         tenorYears: 1,
         minimumBid: 10000,
-        cutOffYield: 6.85,
+        cutOffPrice: 93.28,
+        cutOffYield: 7.20,
         status: 'upcoming'
       },
       {
-        isin: 'INE000000004',
-        securityName: 'Maharashtra SDL 2030',
+        isin: 'IN002025T182',
+        securityName: '182 Days T-Bill',
+        securityType: 't_bill',
+        issuer: 'Government of India',
+        auctionDate: nextWeek.toISOString().split('T')[0],
+        auctionNumber: 'TB-2025-04',
+        notifiedAmount: 8000000000,
+        maturityDate: in182Days.toISOString().split('T')[0],
+        tenorYears: 0.5,
+        minimumBid: 10000,
+        cutOffPrice: 96.52,
+        cutOffYield: 7.05,
+        status: 'upcoming'
+      },
+      {
+        isin: 'IN002025T091',
+        securityName: '91 Days T-Bill',
+        securityType: 't_bill',
+        issuer: 'Government of India',
+        auctionDate: nextWeek.toISOString().split('T')[0],
+        auctionNumber: 'TB-2025-05',
+        notifiedAmount: 6000000000,
+        maturityDate: in91Days.toISOString().split('T')[0],
+        tenorYears: 0.25,
+        minimumBid: 10000,
+        cutOffPrice: 98.28,
+        cutOffYield: 6.95,
+        status: 'upcoming'
+      },
+      {
+        isin: 'SDLMH2030001',
+        securityName: '7.35% Maharashtra SDL 2030',
         securityType: 'sdl',
         issuer: 'Government of Maharashtra',
         auctionDate: nextWeek.toISOString().split('T')[0],
         auctionNumber: 'MH-SDL-2025-01',
-        notifiedAmount: 5000000000, // ₹5,000 crore
+        notifiedAmount: 5000000000,
         couponRate: 7.35,
         maturityDate: in5Years.toISOString().split('T')[0],
         tenorYears: 5,
         minimumBid: 10000,
+        cutOffPrice: 99.50,
+        cutOffYield: 7.45,
+        status: 'upcoming'
+      },
+      {
+        isin: 'SDLGJ2032001',
+        securityName: '7.42% Gujarat SDL 2032',
+        securityType: 'sdl',
+        issuer: 'Government of Gujarat',
+        auctionDate: nextWeek.toISOString().split('T')[0],
+        auctionNumber: 'GJ-SDL-2025-01',
+        notifiedAmount: 4000000000,
+        couponRate: 7.42,
+        maturityDate: '2032-06-15',
+        tenorYears: 7,
+        minimumBid: 10000,
+        cutOffPrice: 99.15,
+        cutOffYield: 7.52,
         status: 'upcoming'
       }
     ];

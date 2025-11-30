@@ -6513,10 +6513,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/bonds/trading/gsec/auctions", async (req, res) => {
     try {
       const auctions = await nseNcbApi.getUpcomingAuctions();
+      
+      // Transform data to match frontend expectations
+      const transformedAuctions = auctions.map((auction: any) => ({
+        ...auction,
+        // Map field names for frontend compatibility
+        indicativeYield: auction.cutOffYield || (auction.couponRate ? auction.couponRate + 0.10 : 7.00),
+        minimumBidAmount: auction.minimumBid || 10000,
+        price: auction.cutOffPrice || 100,
+        // Format security type for display
+        securityTypeLabel: auction.securityType === 'g_sec' ? 'Government Security' : 
+                          auction.securityType === 't_bill' ? 'Treasury Bill' : 
+                          auction.securityType === 'sdl' ? 'State Development Loan' : 'Bond',
+        // Calculate tenor display
+        tenorDisplay: auction.tenorYears >= 1 
+          ? `${auction.tenorYears} Year${auction.tenorYears > 1 ? 's' : ''}`
+          : `${Math.round(auction.tenorYears * 365)} Days`,
+        // Face value
+        faceValue: 100,
+        // Notified amount in crores for display
+        notifiedAmountCr: auction.notifiedAmount ? (auction.notifiedAmount / 10000000).toFixed(0) : 'N/A'
+      }));
+      
       res.json({
         status: "success",
-        data: auctions,
-        count: auctions.length
+        data: transformedAuctions,
+        count: transformedAuctions.length
       });
     } catch (error) {
       console.error("Error fetching NSE NCB auctions:", error);
@@ -6526,7 +6548,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-
   // Get G-Sec details by ISIN
   app.get("/api/bonds/trading/gsec/:isin", async (req, res) => {
     try {
