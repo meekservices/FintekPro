@@ -173,7 +173,7 @@ class AuthBridgeCKYCService {
         kin: `KIN${Date.now()}`, // Generate mock KIN
         full_name: request.full_name,
         pan: request.pan,
-        date_of_birth: request.date_of_birth,
+        date_of_birth: '1985-07-15', // Authoritative mock DOB from CKYC registry
         gender: 'M',
         father_name: 'Mock Father Name',
         mother_name: 'Mock Mother Name',

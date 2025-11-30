@@ -162,7 +162,7 @@ class SandboxPANService {
         last_updated: new Date().toISOString(),
         name_on_card: fullName || 'MOCK USER NAME',
         father_name: 'MOCK FATHER NAME',
-        date_of_birth: '01/01/1990',
+        date_of_birth: undefined, // DOB not returned from PAN verification - CKYC is authoritative source
         masked_aadhaar: 'XXXX-XXXX-1234'
       }
     };
