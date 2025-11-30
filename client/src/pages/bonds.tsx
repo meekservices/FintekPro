@@ -16,7 +16,7 @@ import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { LoadingState } from "@/components/LoadingState";
 
 // Bond Categories Component with Real-time Data
-function BondCategoriesSection() {
+function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categoryId: string) => void }) {
   const { data: bondCategories, isLoading } = useQuery<Array<{
     id: string;
     name: string;
@@ -51,6 +51,18 @@ function BondCategoriesSection() {
     return icons[iconName as keyof typeof icons] || Shield;
   };
 
+  const handleCategoryClick = (categoryId: string) => {
+    if (onCategoryClick) {
+      onCategoryClick(categoryId);
+    } else {
+      const sectionId = `section-${categoryId}`;
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
   return (
     <section>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Bond Categories</h2>
@@ -58,7 +70,12 @@ function BondCategoriesSection() {
         {bondCategories.map((category: any) => {
           const IconComponent = getIcon(category.icon);
           return (
-            <Card key={category.id} className="hover:shadow-md transition-shadow cursor-pointer" data-testid={`${category.id}-bonds`}>
+            <Card 
+              key={category.id} 
+              className="hover:shadow-md transition-shadow cursor-pointer hover:border-finance-blue" 
+              data-testid={`${category.id}-bonds`}
+              onClick={() => handleCategoryClick(category.id)}
+            >
               <CardContent className="p-6">
                 <div className={`w-12 h-12 bg-${category.color}-100 rounded-lg flex items-center justify-center mb-4`}>
                   <IconComponent className={`h-6 w-6 text-${category.color === 'blue' ? 'finance-blue' : category.color === 'green' ? 'finance-green' : category.color}-600`} />
@@ -439,6 +456,390 @@ function CorporateBonds() {
                         }}
                         disabled={placeOrderMutation.isPending}
                         data-testid="confirm-buy-button"
+                      >
+                        {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
+
+// NCD Bonds Display Component
+function NCDBonds() {
+  const [selectedBond, setSelectedBond] = useState<any>(null);
+  const [quantity, setQuantity] = useState("");
+  const [limitPrice, setLimitPrice] = useState("");
+  const { toast } = useToast();
+
+  const { data: ncdBonds, isLoading } = useQuery({
+    queryKey: ["/api/bonds/trading/ncd"],
+  });
+
+  const placeOrderMutation = useMutation({
+    mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/ncd/orders", { method: "POST", body: JSON.stringify(orderData) }),
+    onSuccess: () => {
+      toast({
+        title: "Order Placed Successfully",
+        description: "Your NCD order has been submitted.",
+      });
+      setSelectedBond(null);
+      setQuantity("");
+      setLimitPrice("");
+      queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Order Failed",
+        description: error.message || "Failed to place order. Please ensure you have Full KYC.",
+      });
+    },
+  });
+
+  if (isLoading) {
+    return <LoadingState variant="list" count={2} />;
+  }
+
+  const bonds = (ncdBonds as any)?.data || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Non-Convertible Debentures (NCDs)</h3>
+        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+          {bonds.length} Available
+        </Badge>
+      </div>
+
+      {bonds.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="p-8 text-center">
+            <TrendingUp className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">No NCDs available for trading currently</p>
+            <p className="text-xs text-gray-400 mt-2">Check back during NCD issue periods</p>
+          </CardContent>
+        </Card>
+      ) : (
+        bonds.map((bond: any) => (
+          <Card key={bond.isin} className="hover:shadow-md transition-shadow" data-testid={`ncd-bond-${bond.isin}`}>
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="font-semibold text-gray-900">{bond.issuerName}</h4>
+                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
+                      {bond.rating}
+                    </Badge>
+                    <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                      NCD
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Yield</p>
+                      <p className="font-semibold text-finance-green">{bond.currentYield}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Coupon</p>
+                      <p className="font-semibold">{bond.couponRate}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Maturity</p>
+                      <p className="font-semibold">{new Date(bond.maturityDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Face Value</p>
+                      <p className="font-semibold">₹{bond.faceValue?.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex gap-4 text-xs text-gray-500">
+                    <span>Last Price: ₹{bond.lastPrice?.toLocaleString()}</span>
+                    {bond.accruedInterest && <span>Accrued: ₹{bond.accruedInterest?.toLocaleString()}</span>}
+                  </div>
+                </div>
+
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
+                  <DialogTrigger asChild>
+                    <Button onClick={() => setSelectedBond(bond)} size="sm" data-testid={`buy-ncd-${bond.isin}`}>
+                      Buy
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Place NCD Order</DialogTitle>
+                      <DialogDescription>
+                        Buy {bond.issuerName} NCDs
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <KYCWarningBanner />
+
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <label className="text-sm font-medium">Quantity</label>
+                        <Input
+                          type="number"
+                          placeholder="Number of NCDs"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                          data-testid="ncd-quantity-input"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">Limit Price (₹)</label>
+                        <Input
+                          type="number"
+                          placeholder={`Last: ${bond.lastPrice}`}
+                          value={limitPrice}
+                          onChange={(e) => setLimitPrice(e.target.value)}
+                          data-testid="ncd-limit-price-input"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Last traded price: ₹{bond.lastPrice?.toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Estimated Cost:</span>
+                          <span className="font-semibold">
+                            ₹{((parseFloat(quantity) || 0) * (parseFloat(limitPrice) || bond.lastPrice)).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Expected Yield:</span>
+                          <span className="font-medium text-finance-green">{bond.currentYield}%</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          const qty = parseInt(quantity);
+                          const price = parseFloat(limitPrice);
+                          if (!qty || qty <= 0) {
+                            toast({
+                              variant: "destructive",
+                              title: "Invalid Quantity",
+                              description: "Please enter a valid quantity",
+                            });
+                            return;
+                          }
+                          placeOrderMutation.mutate({
+                            isin: bond.isin,
+                            orderType: "buy",
+                            quantity: qty,
+                            orderCategory: price ? "limit" : "market",
+                            limitPrice: price || bond.lastPrice,
+                          });
+                        }}
+                        disabled={placeOrderMutation.isPending}
+                        data-testid="confirm-ncd-buy-button"
+                      >
+                        {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
+
+// Tax Free Bonds Display Component
+function TaxFreeBonds() {
+  const [selectedBond, setSelectedBond] = useState<any>(null);
+  const [quantity, setQuantity] = useState("");
+  const [limitPrice, setLimitPrice] = useState("");
+  const { toast } = useToast();
+
+  const { data: taxFreeBonds, isLoading } = useQuery({
+    queryKey: ["/api/bonds/trading/tax-free"],
+  });
+
+  const placeOrderMutation = useMutation({
+    mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/tax-free/orders", { method: "POST", body: JSON.stringify(orderData) }),
+    onSuccess: () => {
+      toast({
+        title: "Order Placed Successfully",
+        description: "Your tax-free bond order has been submitted.",
+      });
+      setSelectedBond(null);
+      setQuantity("");
+      setLimitPrice("");
+      queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Order Failed",
+        description: error.message || "Failed to place order. Please ensure you have Full KYC.",
+      });
+    },
+  });
+
+  if (isLoading) {
+    return <LoadingState variant="list" count={2} />;
+  }
+
+  const bonds = (taxFreeBonds as any)?.data || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Tax Free Bonds</h3>
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+          {bonds.length} Available
+        </Badge>
+      </div>
+
+      {bonds.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="p-8 text-center">
+            <IndianRupee className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">No tax-free bonds available in secondary market</p>
+            <p className="text-xs text-gray-400 mt-2">Tax-free bonds are available when PSUs issue them</p>
+          </CardContent>
+        </Card>
+      ) : (
+        bonds.map((bond: any) => (
+          <Card key={bond.isin} className="hover:shadow-md transition-shadow" data-testid={`tax-free-bond-${bond.isin}`}>
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="font-semibold text-gray-900">{bond.issuerName}</h4>
+                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
+                      {bond.rating}
+                    </Badge>
+                    <Badge variant="outline" className="bg-green-50 text-green-700">
+                      Tax Free
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Tax-Free Yield</p>
+                      <p className="font-semibold text-finance-green">{bond.currentYield}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Coupon</p>
+                      <p className="font-semibold">{bond.couponRate}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Maturity</p>
+                      <p className="font-semibold">{new Date(bond.maturityDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Face Value</p>
+                      <p className="font-semibold">₹{bond.faceValue?.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex gap-4 text-xs text-gray-500">
+                    <span>Last Price: ₹{bond.lastPrice?.toLocaleString()}</span>
+                    <span className="text-green-600 font-medium">Interest exempt under Section 10(15)</span>
+                  </div>
+                </div>
+
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
+                  <DialogTrigger asChild>
+                    <Button onClick={() => setSelectedBond(bond)} size="sm" data-testid={`buy-tax-free-${bond.isin}`}>
+                      Buy
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Place Tax-Free Bond Order</DialogTitle>
+                      <DialogDescription>
+                        Buy {bond.issuerName} tax-free bonds - Interest is tax exempt
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <KYCWarningBanner />
+
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <label className="text-sm font-medium">Quantity</label>
+                        <Input
+                          type="number"
+                          placeholder="Number of bonds"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                          data-testid="tax-free-quantity-input"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">Limit Price (₹)</label>
+                        <Input
+                          type="number"
+                          placeholder={`Last: ${bond.lastPrice}`}
+                          value={limitPrice}
+                          onChange={(e) => setLimitPrice(e.target.value)}
+                          data-testid="tax-free-limit-price-input"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Last traded price: ₹{bond.lastPrice?.toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="bg-green-50 p-4 rounded-lg space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Estimated Cost:</span>
+                          <span className="font-semibold">
+                            ₹{((parseFloat(quantity) || 0) * (parseFloat(limitPrice) || bond.lastPrice)).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Tax-Free Yield:</span>
+                          <span className="font-medium text-finance-green">{bond.currentYield}%</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-green-700 text-xs">
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>Interest income is tax-exempt under Section 10(15)</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          const qty = parseInt(quantity);
+                          const price = parseFloat(limitPrice);
+                          if (!qty || qty <= 0) {
+                            toast({
+                              variant: "destructive",
+                              title: "Invalid Quantity",
+                              description: "Please enter a valid quantity",
+                            });
+                            return;
+                          }
+                          placeOrderMutation.mutate({
+                            isin: bond.isin,
+                            orderType: "buy",
+                            quantity: qty,
+                            orderCategory: price ? "limit" : "market",
+                            limitPrice: price || bond.lastPrice,
+                          });
+                        }}
+                        disabled={placeOrderMutation.isPending}
+                        data-testid="confirm-tax-free-buy-button"
                       >
                         {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
                       </Button>
@@ -846,10 +1247,24 @@ export default function Bonds() {
             <KYCWarningBanner />
 
             {/* Government Securities */}
-            <GovernmentSecurities />
+            <div id="section-government">
+              <GovernmentSecurities />
+            </div>
 
             {/* Corporate Bonds */}
-            <CorporateBonds />
+            <div id="section-corporate">
+              <CorporateBonds />
+            </div>
+
+            {/* NCDs */}
+            <div id="section-ncd">
+              <NCDBonds />
+            </div>
+
+            {/* Tax Free Bonds */}
+            <div id="section-tax-free">
+              <TaxFreeBonds />
+            </div>
 
           </TabsContent>
 

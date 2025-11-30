@@ -6586,6 +6586,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // NCD (Non-Convertible Debentures) Trading Routes
+  app.get("/api/bonds/trading/ncd", async (req, res) => {
+    try {
+      const filters = {
+        minRating: req.query.minRating as string,
+        maxTenor: req.query.maxTenor ? parseInt(req.query.maxTenor as string) : undefined,
+        minYield: req.query.minYield ? parseFloat(req.query.minYield as string) : undefined,
+        issuerSector: req.query.issuerSector as string
+      };
+
+      const allBonds = await bseBondApi.getTradableBonds(filters);
+      const ncdBonds = allBonds.filter((bond: any) => 
+        bond.bondType?.toLowerCase().includes('ncd') || 
+        bond.instrumentType?.toLowerCase().includes('ncd') ||
+        bond.bondType?.toLowerCase().includes('debenture')
+      );
+
+      res.json({
+        status: "success",
+        data: ncdBonds,
+        count: ncdBonds.length
+      });
+    } catch (error) {
+      console.error("Error fetching NCDs:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NCDs"
+      });
+    }
+  });
+
+  app.post("/api/bonds/trading/ncd/orders", validateKYC('bond'), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const orderRequest = {
+        userId: userId,
+        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
+        isin: req.body.isin,
+        bondType: 'ncd' as const,
+        orderType: req.body.orderType,
+        quantity: req.body.quantity,
+        orderCategory: req.body.orderCategory,
+        limitPrice: req.body.limitPrice,
+        dematAccountNumber: req.body.dematAccountNumber
+      };
+
+      const response = await bseBondApi.placeBondOrder(orderRequest);
+
+      if (response.success && response.orderId) {
+        const bondDetails = await bseBondApi.getBondDetails(orderRequest.isin);
+        
+        await db.insert(bondOrders).values({
+          clientCode: orderRequest.clientCode,
+          bondType: 'ncd',
+          isin: orderRequest.isin,
+          bondName: bondDetails?.bondName || `NCD ${orderRequest.isin}`,
+          orderType: orderRequest.orderType,
+          orderCategory: orderRequest.orderCategory,
+          quantity: orderRequest.quantity,
+          faceValue: bondDetails?.faceValue?.toString() || '1000',
+          totalFaceValue: ((bondDetails?.faceValue || 1000) * orderRequest.quantity).toString(),
+          orderPrice: response.executionDetails?.executionPrice?.toString(),
+          grossAmount: response.executionDetails?.grossAmount?.toString(),
+          accruedInterest: response.executionDetails?.accruedInterest?.toString(),
+          netAmount: response.executionDetails?.netAmount?.toString(),
+          orderStatus: 'pending',
+          userId: userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any);
+
+        res.json({
+          status: "success",
+          orderId: response.orderId,
+          message: "NCD order placed successfully",
+          executionDetails: response.executionDetails
+        });
+      } else {
+        res.status(400).json({
+          status: "error",
+          error: response.message
+        });
+      }
+    } catch (error) {
+      console.error("Error placing NCD order:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to place NCD order"
+      });
+    }
+  });
+
+  // Tax Free Bonds Trading Routes
+  app.get("/api/bonds/trading/tax-free", async (req, res) => {
+    try {
+      const filters = {
+        minRating: req.query.minRating as string,
+        maxTenor: req.query.maxTenor ? parseInt(req.query.maxTenor as string) : undefined,
+        minYield: req.query.minYield ? parseFloat(req.query.minYield as string) : undefined
+      };
+
+      const allBonds = await bseBondApi.getTradableBonds(filters);
+      const taxFreeBonds = allBonds.filter((bond: any) => 
+        bond.taxFree === true || 
+        bond.bondType?.toLowerCase().includes('tax') ||
+        bond.bondType?.toLowerCase().includes('tax-free') ||
+        bond.issuerName?.toLowerCase().includes('nhai') ||
+        bond.issuerName?.toLowerCase().includes('rec') ||
+        bond.issuerName?.toLowerCase().includes('pfc') ||
+        bond.issuerName?.toLowerCase().includes('irfc') ||
+        bond.issuerName?.toLowerCase().includes('hudco')
+      );
+
+      res.json({
+        status: "success",
+        data: taxFreeBonds,
+        count: taxFreeBonds.length
+      });
+    } catch (error) {
+      console.error("Error fetching tax-free bonds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch tax-free bonds"
+      });
+    }
+  });
+
+  app.post("/api/bonds/trading/tax-free/orders", validateKYC('bond'), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const orderRequest = {
+        userId: userId,
+        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
+        isin: req.body.isin,
+        bondType: 'tax-free' as const,
+        orderType: req.body.orderType,
+        quantity: req.body.quantity,
+        orderCategory: req.body.orderCategory,
+        limitPrice: req.body.limitPrice,
+        dematAccountNumber: req.body.dematAccountNumber
+      };
+
+      const response = await bseBondApi.placeBondOrder(orderRequest);
+
+      if (response.success && response.orderId) {
+        const bondDetails = await bseBondApi.getBondDetails(orderRequest.isin);
+        
+        await db.insert(bondOrders).values({
+          clientCode: orderRequest.clientCode,
+          bondType: 'tax-free',
+          isin: orderRequest.isin,
+          bondName: bondDetails?.bondName || `Tax-Free Bond ${orderRequest.isin}`,
+          orderType: orderRequest.orderType,
+          orderCategory: orderRequest.orderCategory,
+          quantity: orderRequest.quantity,
+          faceValue: bondDetails?.faceValue?.toString() || '1000',
+          totalFaceValue: ((bondDetails?.faceValue || 1000) * orderRequest.quantity).toString(),
+          orderPrice: response.executionDetails?.executionPrice?.toString(),
+          grossAmount: response.executionDetails?.grossAmount?.toString(),
+          accruedInterest: response.executionDetails?.accruedInterest?.toString(),
+          netAmount: response.executionDetails?.netAmount?.toString(),
+          orderStatus: 'pending',
+          userId: userId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any);
+
+        res.json({
+          status: "success",
+          orderId: response.orderId,
+          message: "Tax-free bond order placed successfully",
+          executionDetails: response.executionDetails
+        });
+      } else {
+        res.status(400).json({
+          status: "error",
+          error: response.message
+        });
+      }
+    } catch (error) {
+      console.error("Error placing tax-free bond order:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to place tax-free bond order"
+      });
+    }
+  });
   // BSE Direct API - Direct Market Trading
   
   // Get market quote for any symbol
