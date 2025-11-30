@@ -5666,6 +5666,294 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get NCD (Non-Convertible Debentures) data
+  app.get("/api/bonds/ncd", async (req, res) => {
+    try {
+      const ncdBonds = [
+        {
+          id: "ncd-1",
+          isin: "INE001A08024",
+          name: "HDFC Ltd 9.25% NCD 2028",
+          type: "Non-Convertible Debenture",
+          issuer: "HDFC Ltd",
+          maturityDate: "2028-03-15",
+          couponRate: 9.25,
+          currentYield: 9.12,
+          yieldToMaturity: 9.18,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1045.50,
+          minInvestment: 10000,
+          tradingVolume: "₹245 Cr",
+          duration: "3.2 years",
+          accrued: 18.50,
+          segment: "Finance"
+        },
+        {
+          id: "ncd-2",
+          isin: "INE002A08035",
+          name: "Bajaj Finance 9.50% NCD 2029",
+          type: "Non-Convertible Debenture",
+          issuer: "Bajaj Finance Ltd",
+          maturityDate: "2029-06-20",
+          couponRate: 9.50,
+          currentYield: 9.38,
+          yieldToMaturity: 9.45,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1028.75,
+          minInvestment: 10000,
+          tradingVolume: "₹180 Cr",
+          duration: "4.1 years",
+          accrued: 12.75,
+          segment: "Finance"
+        },
+        {
+          id: "ncd-3",
+          isin: "INE003A08046",
+          name: "Tata Capital 8.75% NCD 2027",
+          type: "Non-Convertible Debenture",
+          issuer: "Tata Capital Ltd",
+          maturityDate: "2027-09-10",
+          couponRate: 8.75,
+          currentYield: 8.62,
+          yieldToMaturity: 8.70,
+          rating: "AA+",
+          faceValue: 1000,
+          currentPrice: 1018.25,
+          minInvestment: 10000,
+          tradingVolume: "₹125 Cr",
+          duration: "2.6 years",
+          accrued: 8.25,
+          segment: "Finance"
+        },
+        {
+          id: "ncd-4",
+          isin: "INE004A08057",
+          name: "Mahindra Finance 9.00% NCD 2030",
+          type: "Non-Convertible Debenture",
+          issuer: "Mahindra & Mahindra Financial",
+          maturityDate: "2030-12-15",
+          couponRate: 9.00,
+          currentYield: 8.88,
+          yieldToMaturity: 8.95,
+          rating: "AA+",
+          faceValue: 1000,
+          currentPrice: 1035.50,
+          minInvestment: 10000,
+          tradingVolume: "₹95 Cr",
+          duration: "5.3 years",
+          accrued: 15.50,
+          segment: "Finance"
+        }
+      ];
+
+      res.json({
+        status: "success",
+        data: ncdBonds
+      });
+    } catch (error) {
+      console.error("Error fetching NCD bonds:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch NCD bonds data"
+      });
+    }
+  });
+
+  // Get single bond details by ISIN
+  app.get("/api/bonds/detail/:isin", async (req, res) => {
+    try {
+      const { isin } = req.params;
+      
+      // Search across all bond sources
+      const allBonds: any[] = [];
+      
+      // Government bonds
+      const govBonds = [
+        {
+          id: "gov-1",
+          isin: "IN0020220035",
+          name: "7.26% Government of India 2033",
+          type: "Government Security",
+          bondType: "g_sec",
+          issuer: "Government of India",
+          maturityDate: "2033-01-14",
+          issueDate: "2022-01-14",
+          couponRate: 7.26,
+          couponType: "Fixed",
+          couponFrequency: "Semi-Annual",
+          currentYield: 7.18,
+          yieldToMaturity: 7.22,
+          rating: "SOV",
+          ratingAgency: "CRISIL",
+          faceValue: 100,
+          currentPrice: 102.50,
+          lastTradedPrice: 102.50,
+          minInvestment: 10000,
+          minimumLotSize: 100,
+          tradingVolume: "₹2,450 Cr",
+          duration: 7.8,
+          modifiedDuration: 7.2,
+          segment: "Government",
+          exchange: "NSE/BSE",
+          tradingStatus: "Active"
+        }
+      ];
+      
+      // Corporate bonds
+      const corpBonds = [
+        {
+          id: "corp-1",
+          isin: "INE001A07001",
+          name: "HDFC Bank 8.25% 2027",
+          type: "Corporate Bond",
+          bondType: "corporate",
+          issuer: "HDFC Bank Ltd",
+          maturityDate: "2027-03-15",
+          issueDate: "2022-03-15",
+          couponRate: 8.25,
+          couponType: "Fixed",
+          couponFrequency: "Semi-Annual",
+          currentYield: 8.12,
+          yieldToMaturity: 8.18,
+          rating: "AAA",
+          ratingAgency: "CRISIL",
+          faceValue: 1000,
+          currentPrice: 1025.50,
+          lastTradedPrice: 1025.50,
+          minInvestment: 100000,
+          minimumLotSize: 100,
+          tradingVolume: "₹945 Cr",
+          duration: 2.8,
+          modifiedDuration: 2.6,
+          accrued: 12.50,
+          segment: "Banking",
+          exchange: "NSE/BSE",
+          tradingStatus: "Active"
+        },
+        {
+          id: "corp-2",
+          isin: "INE002A07002",
+          name: "Reliance Industries 7.95% 2030",
+          type: "Corporate Bond",
+          bondType: "corporate",
+          issuer: "Reliance Industries Ltd",
+          maturityDate: "2030-06-20",
+          issueDate: "2020-06-20",
+          couponRate: 7.95,
+          couponType: "Fixed",
+          couponFrequency: "Semi-Annual",
+          currentYield: 7.88,
+          yieldToMaturity: 7.91,
+          rating: "AAA",
+          ratingAgency: "ICRA",
+          faceValue: 1000,
+          currentPrice: 1018.75,
+          lastTradedPrice: 1018.75,
+          minInvestment: 100000,
+          minimumLotSize: 100,
+          tradingVolume: "₹1,230 Cr",
+          duration: 5.1,
+          modifiedDuration: 4.7,
+          accrued: 8.75,
+          segment: "Energy",
+          exchange: "NSE/BSE",
+          tradingStatus: "Active"
+        }
+      ];
+      
+      // NCDs
+      const ncdBonds = [
+        {
+          id: "ncd-1",
+          isin: "INE001A08024",
+          name: "HDFC Ltd 9.25% NCD 2028",
+          type: "Non-Convertible Debenture",
+          bondType: "ncd",
+          issuer: "HDFC Ltd",
+          maturityDate: "2028-03-15",
+          issueDate: "2023-03-15",
+          couponRate: 9.25,
+          couponType: "Fixed",
+          couponFrequency: "Annual",
+          currentYield: 9.12,
+          yieldToMaturity: 9.18,
+          rating: "AAA",
+          ratingAgency: "CRISIL",
+          faceValue: 1000,
+          currentPrice: 1045.50,
+          lastTradedPrice: 1045.50,
+          minInvestment: 10000,
+          minimumLotSize: 10,
+          tradingVolume: "₹245 Cr",
+          duration: 3.2,
+          modifiedDuration: 2.9,
+          accrued: 18.50,
+          segment: "Finance",
+          exchange: "NSE/BSE",
+          tradingStatus: "Active"
+        }
+      ];
+      
+      // Tax-free bonds
+      const taxFreeBonds = [
+        {
+          id: "tax-1",
+          isin: "INE848E08063",
+          name: "NHAI 7.35% 2035",
+          type: "Tax Free Bond",
+          bondType: "tax_free",
+          issuer: "National Highways Authority of India",
+          maturityDate: "2035-02-15",
+          issueDate: "2015-02-15",
+          couponRate: 7.35,
+          couponType: "Fixed",
+          couponFrequency: "Annual",
+          currentYield: 7.28,
+          yieldToMaturity: 7.30,
+          rating: "AAA",
+          ratingAgency: "CRISIL",
+          faceValue: 1000,
+          currentPrice: 1015.25,
+          lastTradedPrice: 1015.25,
+          minInvestment: 5000,
+          minimumLotSize: 5,
+          tradingVolume: "₹85 Cr",
+          duration: 10.2,
+          modifiedDuration: 9.5,
+          segment: "Infrastructure",
+          exchange: "NSE/BSE",
+          tradingStatus: "Active",
+          taxBenefit: "Interest exempt under Section 10(15)(iv)"
+        }
+      ];
+      
+      allBonds.push(...govBonds, ...corpBonds, ...ncdBonds, ...taxFreeBonds);
+      
+      // Find the bond by ISIN
+      const bond = allBonds.find(b => b.isin === isin || b.id === isin);
+      
+      if (!bond) {
+        return res.status(404).json({
+          status: "error",
+          error: "Bond not found"
+        });
+      }
+      
+      res.json({
+        status: "success",
+        data: bond
+      });
+    } catch (error) {
+      console.error("Error fetching bond details:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to fetch bond details"
+      });
+    }
+  });
+
   // Get NSE listed bonds data
   // NSE listed bonds - public access for viewing
   app.get("/api/bonds/nse-listed", async (req, res) => {
