@@ -21,6 +21,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useOrderGuard } from "@/hooks/use-order-guard";
+import { OrderBlocker } from "@/components/OrderBlocker";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
@@ -492,6 +494,8 @@ function BondOrderDialog({
   const [quantity, setQuantity] = useState(1);
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
   const [limitPrice, setLimitPrice] = useState('');
+  const [orderError, setOrderError] = useState<any>(null);
+  const orderGuard = useOrderGuard();
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest('/api/fixed-income/orders', { method: 'POST', body: JSON.stringify(orderData) }),
@@ -505,11 +509,8 @@ function BondOrderDialog({
       queryClient.invalidateQueries({ queryKey: ['/api/fixed-income/holdings'] });
     },
     onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Order Failed",
-        description: error.message || "Failed to place order.",
-      });
+      const parsedError = orderGuard.handleError(error, false);
+      setOrderError(parsedError);
     }
   });
 
@@ -634,13 +635,21 @@ function BondOrderDialog({
           </Alert>
         </div>
 
+        {orderError && (
+          <OrderBlocker 
+            error={orderError} 
+            onDismiss={() => setOrderError(null)}
+            variant="inline"
+          />
+        )}
+
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose} data-testid="btn-cancel-order">
             Cancel
           </Button>
           <Button 
             onClick={handleSubmit}
-            disabled={placeOrderMutation.isPending || !isLimitPriceValid}
+            disabled={placeOrderMutation.isPending || !isLimitPriceValid || !!orderError}
             data-testid="btn-confirm-order"
           >
             {placeOrderMutation.isPending ? "Placing..." : "Confirm Order"}
@@ -920,6 +929,8 @@ function SellOrderDialog({
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
   const [limitPrice, setLimitPrice] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<any>(null);
+  const orderGuard = useOrderGuard();
 
   const validateSellMutation = useMutation({
     mutationFn: (data: { isin: string; quantity: number }) => 
@@ -938,11 +949,8 @@ function SellOrderDialog({
       queryClient.invalidateQueries({ queryKey: ['/api/fixed-income/holdings'] });
     },
     onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Sell Order Failed",
-        description: error.message || "Failed to place sell order.",
-      });
+      const parsedError = orderGuard.handleError(error, false);
+      setOrderError(parsedError);
     }
   });
 
@@ -1128,6 +1136,14 @@ function SellOrderDialog({
           </Alert>
         </div>
 
+        {orderError && (
+          <OrderBlocker 
+            error={orderError} 
+            onDismiss={() => setOrderError(null)}
+            variant="inline"
+          />
+        )}
+
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose} data-testid="btn-cancel-sell">
             Cancel
@@ -1135,7 +1151,7 @@ function SellOrderDialog({
           <Button 
             variant="destructive"
             onClick={handleSubmit}
-            disabled={placeOrderMutation.isPending || !!validationError || quantity > holding.quantity || !isLimitPriceValid}
+            disabled={placeOrderMutation.isPending || !!validationError || quantity > holding.quantity || !isLimitPriceValid || !!orderError}
             data-testid="btn-confirm-sell"
           >
             {placeOrderMutation.isPending ? "Placing..." : "Confirm Sell"}

@@ -13,6 +13,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useOrderGuard } from "@/hooks/use-order-guard";
+import { OrderBlocker } from "@/components/OrderBlocker";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { LoadingState } from "@/components/LoadingState";
 import { useMemo } from "react";
@@ -290,8 +292,10 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
 function GovernmentSecurities() {
   const [selectedBond, setSelectedBond] = useState<any>(null);
   const [bidAmount, setBidAmount] = useState("");
+  const [orderError, setOrderError] = useState<any>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const orderGuard = useOrderGuard();
 
   const { data: gsecs, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/gsec/auctions"],
@@ -311,11 +315,8 @@ function GovernmentSecurities() {
       queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
     },
     onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Order Failed",
-        description: error.message || "Failed to place order. Please check your KYC status.",
-      });
+      const parsedError = orderGuard.handleError(error, false);
+      setOrderError(parsedError);
     },
   });
 
@@ -480,8 +481,10 @@ function CorporateBonds() {
   const [selectedBond, setSelectedBond] = useState<any>(null);
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
+  const [orderError, setOrderError] = useState<any>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const orderGuard = useOrderGuard();
 
   const { data: corporateBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/corporate"],
@@ -502,11 +505,8 @@ function CorporateBonds() {
       queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
     },
     onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Order Failed",
-        description: error.message || "Failed to place order. Please ensure you have Full KYC.",
-      });
+      const parsedError = orderGuard.handleError(error, false);
+      setOrderError(parsedError);
     },
   });
 
@@ -686,8 +686,10 @@ function NCDBonds() {
   const [selectedBond, setSelectedBond] = useState<any>(null);
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
+  const [orderError, setOrderError] = useState<any>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const orderGuard = useOrderGuard();
 
   const { data: ncdBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/ncd"],
@@ -893,8 +895,10 @@ function TaxFreeBonds() {
   const [selectedBond, setSelectedBond] = useState<any>(null);
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
+  const [orderError, setOrderError] = useState<any>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const orderGuard = useOrderGuard();
 
   const { data: taxFreeBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/tax-free"],
