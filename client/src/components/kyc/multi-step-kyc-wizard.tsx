@@ -63,10 +63,10 @@ function PersonalDetailsStep({ data, onChange, onNext, isFirst, onAutoPopulate, 
     
     setIsVerifying(true);
     try {
-      const response = await apiRequest("POST", "/api/bse-star-kyc/verify-pan", {
-        body: { panNumber: data.pan }
+      const result = await apiRequest("/api/bse-star-kyc/verify-pan", {
+        method: "POST",
+        body: JSON.stringify({ panNumber: data.pan })
       });
-      const result = await response.json();
       
       if (result.success && result.data) {
         const autoData: Record<string, any> = {
@@ -205,10 +205,10 @@ function AddressStep({ data, onChange, onNext, onBack, onAutoPopulate, autoPopul
     setIsVerifying(true);
     try {
       // Try DigiLocker first
-      const response = await apiRequest("POST", "/api/digilocker/fetch-aadhaar", {
-        body: { aadhaarNumber: data.aadhar }
+      const result = await apiRequest("/api/digilocker/fetch-aadhaar", {
+        method: "POST",
+        body: JSON.stringify({ aadhaarNumber: data.aadhar })
       });
-      const result = await response.json();
       
       if (result.success && result.data) {
         const autoData: Record<string, any> = {
@@ -237,10 +237,10 @@ function AddressStep({ data, onChange, onNext, onBack, onAutoPopulate, autoPopul
       console.error("Aadhaar verification failed:", error);
       // Fallback to BSE Star if DigiLocker fails
       try {
-        const fallbackResponse = await apiRequest("POST", "/api/bse-star-kyc/auto-populate", {
-          body: { aadhaarNumber: data.aadhar }
+        const fallbackResult = await apiRequest("/api/bse-star-kyc/auto-populate", {
+          method: "POST",
+          body: JSON.stringify({ aadhaarNumber: data.aadhar })
         });
-        const fallbackResult = await fallbackResponse.json();
         
         if (fallbackResult.success && fallbackResult.data) {
           // Apply fallback data to state
@@ -507,8 +507,9 @@ function ReviewStep({ data, onBack, isLast, autoPopulatedFields }: StepProps) {
     setIsSubmitting(true);
     try {
       // Submit KYC data
-      await apiRequest("POST", "/api/ckyc", {
-        body: {
+      await apiRequest("/api/ckyc", {
+        method: "POST",
+        body: JSON.stringify({
           pan: data.pan,
           aadhar: data.aadhar,
           fullName: data.fullName,
@@ -521,25 +522,27 @@ function ReviewStep({ data, onBack, isLast, autoPopulatedFields }: StepProps) {
           pincode: data.pincode,
           mobile: data.mobile,
           email: data.email
-        }
+        })
       });
 
       // Submit bank details
-      await apiRequest("POST", "/api/user-bank-accounts", {
-        body: {
+      await apiRequest("/api/user-bank-accounts", {
+        method: "POST",
+        body: JSON.stringify({
           bankName: data.bankName,
           accountNumber: data.accountNumber,
           ifscCode: data.ifscCode,
           accountType: data.accountType
-        }
+        })
       });
 
       // Mark progress as completed
-      await apiRequest("PUT", "/api/kyc-progress", {
-        body: {
+      await apiRequest("/api/kyc-progress", {
+        method: "PUT",
+        body: JSON.stringify({
           isCompleted: true,
           completedAt: new Date().toISOString()
-        }
+        })
       });
 
       toast({
@@ -702,7 +705,7 @@ export function MultiStepKYCWizard() {
   // Auto-save mutation
   const saveProgressMutation = useMutation({
     mutationFn: async (data: any) => {
-      await apiRequest("PUT", "/api/kyc-progress", { body: data });
+      await apiRequest("/api/kyc-progress", { method: "PUT", body: JSON.stringify(data) });
     }
   });
 
