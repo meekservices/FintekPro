@@ -367,6 +367,66 @@ export const userDematAccounts = pgTable("user_demat_accounts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// SEBI Registered Depository Participants Registry
+// This table stores the authoritative list of SEBI-registered DPs synced from official sources
+// Data sources: SEBI intermediary database, NSDL DP list, CDSL DP list
+export const sebiDepositoryParticipants = pgTable("sebi_depository_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // DP Identification
+  dpId: varchar("dp_id").unique().notNull(), // Primary lookup key (NSDL: IN + 6 digits, CDSL: 8 digits)
+  dpName: varchar("dp_name").notNull(),
+  sebiRegistrationNumber: varchar("sebi_registration_number").notNull(),
+  
+  // Depository Membership - supports dual membership
+  depository: varchar("depository").notNull(), // 'NSDL', 'CDSL', or 'both'
+  nsdlDpId: varchar("nsdl_dp_id").unique(), // NSDL-specific DP ID (for dual-membership lookup)
+  cdslDpId: varchar("cdsl_dp_id").unique(), // CDSL-specific DP ID (for dual-membership lookup)
+  isPrimaryNsdl: boolean("is_primary_nsdl").default(false), // True if dpId is NSDL format
+  isPrimaryCdsl: boolean("is_primary_cdsl").default(false), // True if dpId is CDSL format
+  
+  // Registration Details
+  registrationDate: timestamp("registration_date", { withTimezone: true }),
+  registrationValidUntil: timestamp("registration_valid_until", { withTimezone: true }),
+  
+  // Contact Information
+  registeredAddress: text("registered_address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  pincode: varchar("pincode"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  website: varchar("website"),
+  
+  // Status - enforced values: active, suspended, cancelled
+  status: varchar("status").notNull().default("active"),
+  statusReason: text("status_reason"),
+  statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }),
+  
+  // Compliance
+  lastSebiVerification: timestamp("last_sebi_verification", { withTimezone: true }),
+  complianceScore: integer("compliance_score"), // 0-100
+  
+  // Data Source Tracking - enforced values: sebi_api, nsdl_api, cdsl_api, manual, seed
+  dataSource: varchar("data_source").notNull(),
+  externalId: varchar("external_id"), // Required when dataSource != manual/seed
+  syncHash: varchar("sync_hash"), // Hash for idempotent sync
+  lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+  
+  // Metadata
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Insert schema for sebiDepositoryParticipants
+export const insertSebiDepositoryParticipantSchema = createInsertSchema(sebiDepositoryParticipants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSebiDepositoryParticipant = z.infer<typeof insertSebiDepositoryParticipantSchema>;
+export type SebiDepositoryParticipant = typeof sebiDepositoryParticipants.$inferSelect;
+
 // Product-specific account preferences - which bank/demat account to use for each product type
 export const productAccountPreferences = pgTable("product_account_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

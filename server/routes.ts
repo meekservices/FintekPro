@@ -45,6 +45,7 @@ import { clientEnrichmentService } from './client-enrichment-service';
 import { aiTransactionTrackerService } from './ai-transaction-tracker';
 import { aiInvestSmartMonitorService } from './ai-investsmart-monitor';
 import amlRoutes from './aml-routes';
+import complianceRoutes from './compliance-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema, insertPartnerApplicationDocumentSchema } from '@shared/schema';
 import BBPSService from './services/bbpsService';
@@ -128,6 +129,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupReplitAuth(app);
   setupLocalAuth(app);
   
+  
+  // SEBI Compliance API routes
+  app.use('/api/compliance', complianceRoutes);
   // Initialize user passwords with proper hashing
   await storage.initializeUserPasswords();
   
