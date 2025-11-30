@@ -89,6 +89,20 @@ export default function BondDetailPage() {
     },
   });
 
+  // Stamp duty rates as per Indian Stamp Act 1899 (amended 2019)
+  const STAMP_DUTY_RATES: Record<string, { rate: number; isExempt: boolean; reason?: string }> = {
+    g_sec: { rate: 0, isExempt: true, reason: 'Government Securities exempt under Section 9' },
+    t_bill: { rate: 0, isExempt: true, reason: 'Treasury Bills exempt as Government Securities' },
+    sdl: { rate: 0, isExempt: true, reason: 'State Development Loans exempt as Government Securities' },
+    sgb: { rate: 0, isExempt: true, reason: 'Sovereign Gold Bonds exempt as RBI-issued securities' },
+    corporate: { rate: 0.01, isExempt: false },
+    corporate_bond: { rate: 0.01, isExempt: false },
+    ncd: { rate: 0.01, isExempt: false },
+    debenture: { rate: 0.01, isExempt: false },
+    tax_free: { rate: 0.01, isExempt: false },
+    infrastructure: { rate: 0.01, isExempt: false },
+  };
+
   const calculateFees = () => {
     if (!bond || !commissionConfig) return null;
     
@@ -103,13 +117,24 @@ export default function BondDetailPage() {
     
     const brokerage = orderAmount * brokerageBps;
     const platformFee = orderAmount * platformFeePercent;
+    
+    // Calculate stamp duty based on bond type
+    const bondType = (bond.bondType || bond.type || 'corporate').toLowerCase().replace(/[- ]/g, '_');
+    const stampDutyInfo = STAMP_DUTY_RATES[bondType] || STAMP_DUTY_RATES.corporate;
+    const stampDutyRate = stampDutyInfo.isExempt ? 0 : stampDutyInfo.rate;
+    const stampDuty = (orderAmount * stampDutyRate) / 100;
+    
+    // GST only on brokerage and platform fee (not on stamp duty)
     const gst = (brokerage + platformFee) * gstRate;
-    const total = orderAmount + brokerage + platformFee + gst;
+    const total = orderAmount + brokerage + platformFee + stampDuty + gst;
     
     return {
       orderAmount,
       brokerage,
       platformFee,
+      stampDuty,
+      stampDutyExempt: stampDutyInfo.isExempt,
+      stampDutyReason: stampDutyInfo.reason,
       gst,
       total
     };
@@ -315,6 +340,24 @@ export default function BondDetailPage() {
                           <span className="text-gray-500">Platform Fee (1%)</span>
                           <span>₹{fees.platformFee.toFixed(2)}</span>
                         </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500 flex items-center gap-1">
+                            Stamp Duty (0.01%)
+                            {fees.stampDutyExempt && (
+                              <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-100 text-green-700">Exempt</Badge>
+                            )}
+                          </span>
+                          {fees.stampDutyExempt ? (
+                            <span className="text-green-600" title={fees.stampDutyReason}>₹0.00</span>
+                          ) : (
+                            <span>₹{fees.stampDuty.toFixed(2)}</span>
+                          )}
+                        </div>
+                        {fees.stampDutyExempt && (
+                          <div className="text-xs text-green-600 italic ml-2">
+                            {fees.stampDutyReason}
+                          </div>
+                        )}
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">GST (18%)</span>
                           <span>₹{fees.gst.toFixed(2)}</span>
