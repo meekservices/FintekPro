@@ -359,7 +359,7 @@ function GovernmentSecurities() {
                     </div>
                     <div>
                       <p className="text-gray-500">Coupon</p>
-                      <p className="font-semibold">{bond.couponRate}%</p>
+                      <p className="font-semibold">{bond.couponRate && parseFloat(bond.couponRate) > 0 ? `${bond.couponRate}%` : 'Zero Coupon'}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Maturity</p>
@@ -546,7 +546,7 @@ function CorporateBonds() {
                     </div>
                     <div>
                       <p className="text-gray-500">Coupon</p>
-                      <p className="font-semibold">{bond.couponRate}%</p>
+                      <p className="font-semibold">{bond.couponRate && parseFloat(bond.couponRate) > 0 ? `${bond.couponRate}%` : 'Zero Coupon'}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Maturity</p>
@@ -746,7 +746,7 @@ function NCDBonds() {
                     </div>
                     <div>
                       <p className="text-gray-500">Coupon</p>
-                      <p className="font-semibold">{bond.couponRate}%</p>
+                      <p className="font-semibold">{bond.couponRate && parseFloat(bond.couponRate) > 0 ? `${bond.couponRate}%` : 'Zero Coupon'}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Maturity</p>
@@ -946,7 +946,7 @@ function TaxFreeBonds() {
                     </div>
                     <div>
                       <p className="text-gray-500">Coupon</p>
-                      <p className="font-semibold">{bond.couponRate}%</p>
+                      <p className="font-semibold">{bond.couponRate && parseFloat(bond.couponRate) > 0 ? `${bond.couponRate}%` : 'Zero Coupon'}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Maturity</p>
