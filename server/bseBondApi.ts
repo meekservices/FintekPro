@@ -296,31 +296,29 @@ export class BSEBondApiService {
     const orderId = `BOND-${randomUUID().substring(0, 8).toUpperCase()}`;
     const orderNumber = `BO${Date.now().toString().substring(5)}`;
     
-    // Get demo bond for pricing
+    // Try to find bond in demo bonds for pricing, but allow any ISIN in demo mode
     const demoBonds = this.getDemoBonds();
     const bond = demoBonds.find(b => b.isin === request.isin);
     
-    if (!bond) {
-      return {
-        success: false,
-        message: 'Bond not found'
-      };
-    }
-
+    // In demo mode, use provided limit price or a default price if bond not in demo list
+    const defaultFaceValue = 1000;
+    const defaultCouponRate = 8.0;
+    const defaultPrice = request.limitPrice || 1000;
+    
     // Calculate execution details
-    const executionPrice = request.orderCategory === 'market' 
-      ? bond.lastTradedPrice 
-      : request.limitPrice || bond.lastTradedPrice;
+    const executionPrice = bond 
+      ? (request.orderCategory === 'market' ? bond.lastTradedPrice : request.limitPrice || bond.lastTradedPrice)
+      : defaultPrice;
     
     const grossAmount = executionPrice * request.quantity;
     
     // Calculate accrued interest (simplified for demo)
     const accruedInterest = calculateAccruedInterest({
-      faceValue: bond.faceValue,
-      couponRate: bond.couponRate,
+      faceValue: bond?.faceValue || defaultFaceValue,
+      couponRate: bond?.couponRate || defaultCouponRate,
       lastCouponDate: new Date(new Date().setMonth(new Date().getMonth() - 6)),
       settlementDate: new Date(),
-      frequency: bond.couponFrequency
+      frequency: bond?.couponFrequency || 'annual'
     }) * request.quantity;
     
     const netAmount = request.orderType === 'buy' 
