@@ -33,7 +33,7 @@ const categoryConfig: Record<string, {
   title: string; 
   description: string; 
   icon: any; 
-  color: string;
+  headerClass: string;
   apiEndpoint: string;
   bondTypeFilter?: string;
 }> = {
@@ -41,42 +41,42 @@ const categoryConfig: Record<string, {
     title: "Government Securities",
     description: "Risk-free investments backed by the Government of India including G-Secs, T-Bills, and SDLs",
     icon: Shield,
-    color: "blue",
+    headerClass: "bg-gradient-to-r from-blue-600 to-blue-700",
     apiEndpoint: "/api/bonds/government"
   },
   corporate: {
     title: "Corporate Bonds",
     description: "Higher yield bonds issued by leading corporations with various credit ratings",
     icon: Building2,
-    color: "green",
+    headerClass: "bg-gradient-to-r from-green-600 to-green-700",
     apiEndpoint: "/api/bonds/corporate"
   },
   ncd: {
     title: "Non-Convertible Debentures (NCDs)",
     description: "Fixed-income instruments issued by corporations that cannot be converted to equity",
     icon: TrendingUp,
-    color: "purple",
+    headerClass: "bg-gradient-to-r from-purple-600 to-purple-700",
     apiEndpoint: "/api/bonds/ncd"
   },
   "tax-free": {
     title: "Tax-Free Bonds",
     description: "Government-backed bonds with tax-exempt interest income under Section 10(15)",
     icon: IndianRupee,
-    color: "orange",
+    headerClass: "bg-gradient-to-r from-orange-600 to-orange-700",
     apiEndpoint: "/api/bonds/tax-free"
   },
   sgb: {
     title: "Sovereign Gold Bonds",
     description: "Government securities denominated in grams of gold with additional interest",
     icon: Star,
-    color: "yellow",
+    headerClass: "bg-gradient-to-r from-yellow-500 to-yellow-600",
     apiEndpoint: "/api/bonds/sgb"
   },
   "t-bill": {
     title: "Treasury Bills",
     description: "Short-term zero-coupon government securities with maturities up to 364 days",
     icon: Clock,
-    color: "cyan",
+    headerClass: "bg-gradient-to-r from-cyan-600 to-cyan-700",
     apiEndpoint: "/api/bonds/government",
     bondTypeFilter: "t_bill"
   }
@@ -154,7 +154,7 @@ export default function BondCategoryPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className={`bg-gradient-to-r from-${config.color}-600 to-${config.color}-700 text-white`}>
+      <div className={`${config.headerClass} text-white`}>
         <div className="max-w-7xl mx-auto px-4 py-8">
           <Button
             variant="ghost"
@@ -167,7 +167,7 @@ export default function BondCategoryPage() {
           </Button>
           
           <div className="flex items-center gap-4">
-            <div className={`p-4 rounded-xl bg-white/20`}>
+            <div className="p-4 rounded-xl bg-white/20">
               <Icon className="h-8 w-8" />
             </div>
             <div>
