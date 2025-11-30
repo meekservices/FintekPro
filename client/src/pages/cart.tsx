@@ -53,6 +53,33 @@ interface InvestmentProposal {
   validUntil?: string;
 }
 
+interface BondOrder {
+  id: string;
+  userId: string;
+  bondType: string;
+  bondId: string;
+  isin: string;
+  bondName: string;
+  orderType: string;
+  quantity: number;
+  orderPrice: string;
+  totalAmount: string;
+  orderStatus: string;
+  paymentStatus: string;
+  paymentMethod?: string;
+  paymentReference?: string;
+  settlementStatus?: string;
+  settlementDate?: string;
+  dematAccount?: string;
+  exchange?: string;
+  rejectionReason?: string;
+  notes?: string;
+  complianceChecked?: boolean;
+  suitabilityPassed?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function Cart() {
   const { cart, isLoading, updateCartItem, removeFromCart, clearCart, isUpdatingCartItem, isRemovingFromCart } = useCart();
   const { toast } = useToast();
@@ -103,6 +130,17 @@ export default function Cart() {
     enabled: true,
     retry: 1
   });
+
+  // Fetch pending bond orders
+  const { data: bondOrdersData, isLoading: bondOrdersLoading } = useQuery<{ status: string; data: BondOrder[]; count: number }>({
+    queryKey: ['/api/bonds/orders'],
+    enabled: true,
+    retry: 1
+  });
+
+  const pendingBondOrders = bondOrdersData?.data?.filter(
+    (order) => order.orderStatus === 'pending' || order.paymentStatus === 'pending'
+  ) || [];
 
   // Cart operations
   const handleQuantityChange = async (itemId: string, newQuantity: number) => {
@@ -175,25 +213,28 @@ export default function Cart() {
   const checkoutMutation = useMutation({
     mutationFn: async (method: "cashfree" | "stripe" | "phonepe") => {
       if (method === "cashfree") {
-        const response: any = await apiRequest("POST", "/api/payments/cashfree/create-order", {
-          body: {
+        const response: any = await apiRequest("/api/payments/cashfree/create-order", {
+          method: "POST",
+          body: JSON.stringify({
             amount: cart?.totalValue || 0,
-          }
+          })
         });
         return { ...response, method: "cashfree" };
       } else if (method === "phonepe") {
-        const response: any = await apiRequest("POST", "/api/payments/phonepe/create-order", {
-          body: {
+        const response: any = await apiRequest("/api/payments/phonepe/create-order", {
+          method: "POST",
+          body: JSON.stringify({
             amount: cart?.totalValue || 0,
-            cartId: cart?.id,
-          }
+            cartId: cart?.cart?.id,
+          })
         });
         return { ...response, method: "phonepe" };
       } else {
-        const response: any = await apiRequest("POST", "/api/stripe/checkout", {
-          body: {
+        const response: any = await apiRequest("/api/stripe/checkout", {
+          method: "POST",
+          body: JSON.stringify({
             amount: cart?.totalValue || 0,
-          }
+          })
         });
         return { ...response, method: "stripe" };
       }
@@ -237,7 +278,7 @@ export default function Cart() {
   // Proposal operations
   const createProposalMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('POST', '/api/proposals', { body: data });
+      return apiRequest('/api/proposals', { method: 'POST', body: JSON.stringify(data) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
@@ -268,7 +309,7 @@ export default function Cart() {
 
   const acceptProposalMutation = useMutation({
     mutationFn: async (proposalId: string) => {
-      return apiRequest('PUT', `/api/proposals/${proposalId}/accept`);
+      return apiRequest(`/api/proposals/${proposalId}/accept`, { method: 'PUT' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
@@ -288,7 +329,7 @@ export default function Cart() {
 
   const addToCartMutation = useMutation({
     mutationFn: async (proposalId: string) => {
-      return apiRequest('POST', `/api/proposals/${proposalId}/add-to-cart`);
+      return apiRequest(`/api/proposals/${proposalId}/add-to-cart`, { method: 'POST' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
@@ -309,7 +350,7 @@ export default function Cart() {
 
   const rejectProposalMutation = useMutation({
     mutationFn: async (proposalId: string) => {
-      return apiRequest('PUT', `/api/proposals/${proposalId}/reject`);
+      return apiRequest(`/api/proposals/${proposalId}/reject`, { method: 'PUT' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
@@ -338,6 +379,40 @@ export default function Cart() {
     
     await createProposalMutation.mutateAsync(proposalData);
   };
+
+  // Bond order payment mutation
+  const bondPaymentMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const order = pendingBondOrders.find(o => o.id === orderId);
+      if (!order) throw new Error('Order not found');
+      
+      return apiRequest("/api/payments/cashfree/create-order", {
+        method: "POST",
+        body: JSON.stringify({
+          amount: parseFloat(order.totalAmount),
+          orderId: orderId,
+          orderType: 'bond'
+        })
+      });
+    },
+    onSuccess: (data: any) => {
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        toast({
+          title: "Payment Initiated",
+          description: "Payment process started. Please complete the payment.",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Payment Failed",
+        description: "Failed to initiate payment. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
 
   // Proposal filtering and counts
   const filteredProposals = proposals?.filter(p => {
@@ -1108,6 +1183,89 @@ export default function Cart() {
                 </TabsContent>
               )}
             </Tabs>
+
+            {/* Pending Bond Orders Section */}
+            {pendingBondOrders.length > 0 && (
+              <div className="mt-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <CreditCard className="w-5 h-5 text-amber-600" />
+                  <h3 className="text-xl font-semibold">Pending Bond Orders</h3>
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                    {pendingBondOrders.length} Awaiting Payment
+                  </Badge>
+                </div>
+                <div className="grid gap-4">
+                  {pendingBondOrders.map((order) => (
+                    <Card key={order.id} className="border-l-4 border-l-amber-500" data-testid={`card-bond-order-${order.id}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <Badge variant="outline" className="font-mono text-xs mb-2" data-testid={`badge-order-id-${order.id}`}>
+                              {order.id.slice(0, 8)}...
+                            </Badge>
+                            <CardTitle className="text-lg" data-testid={`text-bond-name-${order.id}`}>
+                              {order.bondName || order.isin}
+                            </CardTitle>
+                            <CardDescription className="mt-1">
+                              {order.bondType?.toUpperCase()} | ISIN: {order.isin}
+                            </CardDescription>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-muted-foreground">Total Amount</div>
+                            <div className="text-xl font-bold text-primary" data-testid={`text-order-amount-${order.id}`}>
+                              {formatCurrency(parseFloat(order.totalAmount))}
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Order Type</p>
+                            <p className="font-medium capitalize">{order.orderType}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Quantity</p>
+                            <p className="font-medium">{order.quantity} units</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Price</p>
+                            <p className="font-medium">{formatCurrency(parseFloat(order.orderPrice))}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Status</p>
+                            <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+                              {order.orderStatus?.toUpperCase()}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between pt-4 border-t">
+                          <p className="text-sm text-muted-foreground">
+                            Order placed on {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                          <Button
+                            onClick={() => bondPaymentMutation.mutate(order.id)}
+                            disabled={bondPaymentMutation.isPending}
+                            className="bg-finance-blue hover:bg-finance-blue/90"
+                            data-testid={`button-pay-bond-${order.id}`}
+                          >
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            {bondPaymentMutation.isPending ? 'Processing...' : 'Pay Now'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
     </div>
