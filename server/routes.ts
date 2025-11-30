@@ -2746,7 +2746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Bond market data API endpoints
-  app.get("/api/bonds/categories", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/categories", async (req, res) => {
     try {
       // Real-time bond categories with current market rates
       const bondCategories = [
@@ -2807,7 +2807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/bonds/live-rates", requireLevel2, async (req, res) => {
+  app.get("/api/bonds/live-rates", async (req, res) => {
     try {
       // Fetch current bond yields from market data
       const liveRates = {
