@@ -280,67 +280,76 @@ export default function Portfolio() {
                           </div>
                         </>
                       ) : (
-                        <div className="text-4xl font-bold text-green-600 mb-2" data-testid="portfolio-total-original">₹45,67,890</div>
+                        <div className="text-4xl font-bold text-green-600 mb-2" data-testid="portfolio-total-original">
+                          ₹{performance?.totalCurrentValue ? parseFloat(performance.totalCurrentValue).toLocaleString('en-IN') : '0'}
+                        </div>
                       )}
                       <div className="flex items-center space-x-4">
-                        <span className="text-green-600 flex items-center text-lg font-medium">
-                          <TrendingUp className="h-5 w-5 mr-1" />
-                          +12.8% (₹5,18,420)
+                        <span className={`flex items-center text-lg font-medium ${performance?.totalGainLoss && parseFloat(performance.totalGainLoss) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {performance?.totalGainLoss && parseFloat(performance.totalGainLoss) >= 0 ? (
+                            <TrendingUp className="h-5 w-5 mr-1" />
+                          ) : (
+                            <TrendingDown className="h-5 w-5 mr-1" />
+                          )}
+                          {performance?.totalGainLossPercent ? `${parseFloat(performance.totalGainLossPercent) >= 0 ? '+' : ''}${parseFloat(performance.totalGainLossPercent).toFixed(1)}%` : '0%'} 
+                          {performance?.totalGainLoss ? ` (₹${Math.abs(parseFloat(performance.totalGainLoss)).toLocaleString('en-IN')})` : ''}
                         </span>
-                        <Badge className="bg-green-100 text-green-800 border-green-300">YTD Gain</Badge>
+                        <Badge className="bg-green-100 text-green-800 border-green-300">Total Return</Badge>
                       </div>
                     </div>
                     
                     <div className="space-y-2">
                       <p className="text-sm text-muted-foreground font-medium">Investment Breakdown</p>
-                      <div className="text-lg font-semibold text-gray-900">₹40,49,470</div>
+                      <div className="text-lg font-semibold text-gray-900">
+                        ₹{performance?.totalInvestedValue ? parseFloat(performance.totalInvestedValue).toLocaleString('en-IN') : '0'}
+                      </div>
                       <p className="text-xs text-gray-600">Total Invested</p>
                     </div>
                     
                     <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground font-medium">Monthly SIP</p>
-                      <div className="text-lg font-semibold text-blue-600">₹43,500</div>
-                      <p className="text-xs text-gray-600">Recurring Investment</p>
+                      <p className="text-sm text-muted-foreground font-medium">Portfolio Holdings</p>
+                      <div className="text-lg font-semibold text-blue-600">
+                        {enhancedHoldings?.length || 0} Assets
+                      </div>
+                      <p className="text-xs text-gray-600">Across Asset Classes</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Investment Categories Grid */}
+              {/* Investment Categories Grid - Real Data */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {/* Equity Investments */}
+                {/* Equity/ETF Holdings from Real Portfolio */}
                 <Card className="border-l-4 border-blue-500">
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center text-blue-700">
                       <TrendingUp className="h-5 w-5 mr-2" />
-                      Equity Investments
+                      Market Investments
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-blue-600 mb-3">₹18,45,150</div>
-                    <p className="text-sm text-muted-foreground mb-4">40.4% of portfolio</p>
+                    <div className="text-2xl font-bold text-blue-600 mb-3">
+                      ₹{performance?.totalCurrentValue ? parseFloat(performance.totalCurrentValue).toLocaleString('en-IN') : '0'}
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">{enhancedHoldings?.length || 0} holdings</p>
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Direct Stocks</span>
-                        <span className="font-medium">₹8,45,150</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Mutual Funds</span>
-                        <span className="font-medium">₹7,50,000</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">AIF Funds</span>
-                        <span className="font-medium">₹2,50,000</span>
-                      </div>
+                      {performance?.assetBreakdown?.slice(0, 3).map((asset) => (
+                        <div key={asset.assetType} className="flex justify-between text-sm">
+                          <span className="text-gray-600">{asset.name}</span>
+                          <span className="font-medium">₹{asset.value.toLocaleString('en-IN')}</span>
+                        </div>
+                      ))}
                       <div className="pt-2 border-t flex justify-between">
                         <span className="text-sm font-medium text-green-600">Returns</span>
-                        <span className="text-sm font-bold text-green-600">+15.2%</span>
+                        <span className={`text-sm font-bold ${performance?.totalGainLossPercent && parseFloat(performance.totalGainLossPercent) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {performance?.totalGainLossPercent ? `${parseFloat(performance.totalGainLossPercent) >= 0 ? '+' : ''}${parseFloat(performance.totalGainLossPercent).toFixed(1)}%` : '0%'}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Government Schemes */}
+                {/* Government Schemes - Real Data */}
                 <Card className="border-l-4 border-green-500">
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center text-green-700">
@@ -349,56 +358,71 @@ export default function Portfolio() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-green-600 mb-3">₹15,67,340</div>
-                    <p className="text-sm text-muted-foreground mb-4">34.3% of portfolio</p>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">EPF Holdings</span>
-                        <span className="font-medium">₹8,45,230</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">PPF Account</span>
-                        <span className="font-medium">₹5,95,110</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">EPS Contribution</span>
-                        <span className="font-medium">₹1,27,000</span>
-                      </div>
-                      <div className="pt-2 border-t flex justify-between">
-                        <span className="text-sm font-medium text-green-600">Pension Income</span>
-                        <span className="text-sm font-bold text-green-600">₹9,857/mo</span>
-                      </div>
-                    </div>
+                    {(() => {
+                      const ppfTotal = ppfHoldings?.reduce((sum, h) => sum + parseFloat(h.totalBalance || '0'), 0) || 0;
+                      const npsTotal = npsAccounts?.reduce((sum, h) => sum + parseFloat(h.totalBalance || '0'), 0) || 0;
+                      const apyTotal = apyAccounts?.reduce((sum, h) => sum + parseFloat(h.totalBalance || '0'), 0) || 0;
+                      const epsTotal = epsHoldings?.reduce((sum, h) => sum + parseFloat(h.accumulatedPension || '0'), 0) || 0;
+                      const govtTotal = ppfTotal + npsTotal + apyTotal + epsTotal;
+                      const estimatedPension = epsHoldings?.[0]?.estimatedMonthlyPension || '0';
+                      
+                      return (
+                        <>
+                          <div className="text-2xl font-bold text-green-600 mb-3">
+                            ₹{govtTotal.toLocaleString('en-IN')}
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-4">Secured Investments</p>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">PPF Account</span>
+                              <span className="font-medium">₹{ppfTotal.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">NPS Balance</span>
+                              <span className="font-medium">₹{npsTotal.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">APY + EPS</span>
+                              <span className="font-medium">₹{(apyTotal + epsTotal).toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="pt-2 border-t flex justify-between">
+                              <span className="text-sm font-medium text-green-600">Est. Pension</span>
+                              <span className="text-sm font-bold text-green-600">₹{parseFloat(estimatedPension).toLocaleString('en-IN')}/mo</span>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
 
-                {/* Alternative Assets */}
+                {/* Day Performance */}
                 <Card className="border-l-4 border-purple-500">
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center text-purple-700">
                       <Coins className="h-5 w-5 mr-2" />
-                      Alternative Assets
+                      Today's Performance
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-purple-600 mb-3">₹11,55,400</div>
-                    <p className="text-sm text-muted-foreground mb-4">25.3% of portfolio</p>
+                    <div className={`text-2xl font-bold mb-3 ${performance?.dayChange && parseFloat(performance.dayChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {performance?.dayChange && parseFloat(performance.dayChange) >= 0 ? '+' : ''}₹{performance?.dayChange ? Math.abs(parseFloat(performance.dayChange)).toLocaleString('en-IN') : '0'}
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {performance?.dayChangePercent ? `${parseFloat(performance.dayChangePercent) >= 0 ? '+' : ''}${parseFloat(performance.dayChangePercent).toFixed(2)}%` : '0%'} today
+                    </p>
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Bonds & FDs</span>
-                        <span className="font-medium">₹5,50,000</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Commodities</span>
-                        <span className="font-medium">₹3,25,400</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Pre-IPO</span>
-                        <span className="font-medium">₹2,80,000</span>
-                      </div>
+                      {enhancedHoldings?.slice(0, 3).map((holding) => (
+                        <div key={holding.symbol} className="flex justify-between text-sm">
+                          <span className="text-gray-600">{holding.symbol}</span>
+                          <span className={`font-medium ${parseFloat(holding.dayChange || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {parseFloat(holding.dayChange || '0') >= 0 ? '+' : ''}{parseFloat(holding.dayChangePercent || '0').toFixed(1)}%
+                          </span>
+                        </div>
+                      ))}
                       <div className="pt-2 border-t flex justify-between">
-                        <span className="text-sm font-medium text-green-600">Returns</span>
-                        <span className="text-sm font-bold text-green-600">+11.8%</span>
+                        <span className="text-sm font-medium">Holdings</span>
+                        <span className="text-sm font-bold text-blue-600">{enhancedHoldings?.length || 0} assets</span>
                       </div>
                     </div>
                   </CardContent>
@@ -417,80 +441,91 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">
-                      {/* Risk Distribution */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Risk Distribution</h4>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-4 h-4 bg-green-500 rounded"></div>
-                              <span className="text-sm">Low Risk (Govt Schemes)</span>
-                            </div>
-                            <span className="text-sm font-bold">34.3%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-green-500 h-2 rounded-full" style={{ width: '34.3%' }}></div>
-                          </div>
+                      {/* Risk Distribution - Calculated from Real Data */}
+                      {(() => {
+                        const marketValue = performance?.totalCurrentValue ? parseFloat(performance.totalCurrentValue) : 0;
+                        const ppfTotal = ppfHoldings?.reduce((sum, h) => sum + parseFloat(h.totalBalance || '0'), 0) || 0;
+                        const npsTotal = npsAccounts?.reduce((sum, h) => sum + parseFloat(h.totalBalance || '0'), 0) || 0;
+                        const apyTotal = apyAccounts?.reduce((sum, h) => sum + parseFloat(h.totalBalance || '0'), 0) || 0;
+                        const epsTotal = epsHoldings?.reduce((sum, h) => sum + parseFloat(h.accumulatedPension || '0'), 0) || 0;
+                        const govtTotal = ppfTotal + npsTotal + apyTotal + epsTotal;
+                        const totalValue = marketValue + govtTotal;
+                        
+                        const lowRiskPct = totalValue > 0 ? ((govtTotal / totalValue) * 100).toFixed(1) : '0';
+                        const mediumRiskPct = totalValue > 0 ? ((marketValue / totalValue) * 100).toFixed(1) : '0';
+                        
+                        return (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-3">Risk Distribution</h4>
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-4 h-4 bg-green-500 rounded"></div>
+                                  <span className="text-sm">Low Risk (Govt Schemes)</span>
+                                </div>
+                                <span className="text-sm font-bold">{lowRiskPct}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="bg-green-500 h-2 rounded-full" style={{ width: `${lowRiskPct}%` }}></div>
+                              </div>
 
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                              <span className="text-sm">Medium Risk (Equity)</span>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                                  <span className="text-sm">Market Investments</span>
+                                </div>
+                                <span className="text-sm font-bold">{mediumRiskPct}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${mediumRiskPct}%` }}></div>
+                              </div>
                             </div>
-                            <span className="text-sm font-bold">40.4%</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-blue-500 h-2 rounded-full" style={{ width: '40.4%' }}></div>
-                          </div>
+                        );
+                      })()}
 
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-4 h-4 bg-purple-500 rounded"></div>
-                              <span className="text-sm">High Risk (Alternatives)</span>
-                            </div>
-                            <span className="text-sm font-bold">25.3%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-purple-500 h-2 rounded-full" style={{ width: '25.3%' }}></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Investment Goals Progress */}
+                      {/* Portfolio Summary */}
                       <div className="pt-4 border-t">
-                        <h4 className="font-medium text-gray-900 mb-3">Goal Progress</h4>
+                        <h4 className="font-medium text-gray-900 mb-3">Portfolio Summary</h4>
                         <div className="space-y-4">
                           <div>
                             <div className="flex justify-between text-sm mb-2">
-                              <span>Retirement Goal</span>
-                              <span className="font-medium">68% Complete</span>
+                              <span>Market Holdings</span>
+                              <span className="font-medium">{enhancedHoldings?.length || 0} assets</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-3">
-                              <div className="bg-green-500 h-3 rounded-full" style={{ width: '68%' }}></div>
+                              <div className="bg-blue-500 h-3 rounded-full" style={{ width: `${Math.min(100, (enhancedHoldings?.length || 0) * 15)}%` }}></div>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">₹68L of ₹1Cr target</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              ₹{performance?.totalCurrentValue ? parseFloat(performance.totalCurrentValue).toLocaleString('en-IN') : '0'} invested
+                            </p>
                           </div>
 
                           <div>
                             <div className="flex justify-between text-sm mb-2">
-                              <span>Child Education</span>
-                              <span className="font-medium">45% Complete</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-3">
-                              <div className="bg-blue-500 h-3 rounded-full" style={{ width: '45%' }}></div>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">₹22.5L of ₹50L target</p>
-                          </div>
-
-                          <div>
-                            <div className="flex justify-between text-sm mb-2">
-                              <span>Emergency Fund</span>
-                              <span className="font-medium">100% Complete</span>
+                              <span>Govt Schemes</span>
+                              <span className="font-medium">{(ppfHoldings?.length || 0) + (npsAccounts?.length || 0) + (apyAccounts?.length || 0)} accounts</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-3">
                               <div className="bg-green-500 h-3 rounded-full" style={{ width: '100%' }}></div>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">₹5L target achieved ✓</p>
+                            <p className="text-xs text-muted-foreground mt-1">Secured pension benefits</p>
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between text-sm mb-2">
+                              <span>Overall Returns</span>
+                              <span className={`font-medium ${performance?.totalGainLossPercent && parseFloat(performance.totalGainLossPercent) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {performance?.totalGainLossPercent ? `${parseFloat(performance.totalGainLossPercent) >= 0 ? '+' : ''}${parseFloat(performance.totalGainLossPercent).toFixed(1)}%` : '0%'}
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div className={`h-3 rounded-full ${performance?.totalGainLossPercent && parseFloat(performance.totalGainLossPercent) >= 0 ? 'bg-green-500' : 'bg-red-500'}`} 
+                                   style={{ width: `${Math.min(100, Math.abs(parseFloat(performance?.totalGainLossPercent || '0')))}%` }}></div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              ₹{performance?.totalGainLoss ? Math.abs(parseFloat(performance.totalGainLoss)).toLocaleString('en-IN') : '0'} {performance?.totalGainLoss && parseFloat(performance.totalGainLoss) >= 0 ? 'profit' : 'loss'}
+                            </p>
                           </div>
                         </div>
                       </div>
