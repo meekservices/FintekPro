@@ -529,12 +529,12 @@ function CorporateBonds() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{bond.issuerName}</h4>
+                    <h4 className="font-semibold text-gray-900">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
-                      {bond.rating}
+                      {bond.rating || bond.creditRating || 'NR'}
                     </Badge>
                     <Badge variant="outline">
-                      {bond.bondType}
+                      {bond.bondType || bond.type || 'Bond'}
                     </Badge>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
@@ -559,8 +559,8 @@ function CorporateBonds() {
                   </div>
 
                   <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                    <span>Last Price: ₹{bond.lastPrice?.toLocaleString()}</span>
-                    {bond.accruedInterest && <span>Accrued: ₹{bond.accruedInterest?.toLocaleString()}</span>}
+                    <span>Last Price: ₹{(bond.lastPrice || bond.currentPrice || bond.lastTradedPrice || 0).toLocaleString()}</span>
+                    {(bond.accruedInterest || bond.accrued) && <span>Accrued: ₹{(bond.accruedInterest || bond.accrued || 0).toLocaleString()}</span>}
                   </div>
                 </div>
 
@@ -574,7 +574,7 @@ function CorporateBonds() {
                     <DialogHeader>
                       <DialogTitle>Place Corporate Bond Order</DialogTitle>
                       <DialogDescription>
-                        Buy {bond.issuerName} bonds
+                        Buy {bond.name || bond.issuerName || bond.issuer || 'these'} bonds
                       </DialogDescription>
                     </DialogHeader>
                     
@@ -729,7 +729,7 @@ function NCDBonds() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{bond.issuerName}</h4>
+                    <h4 className="font-semibold text-gray-900">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
                       {bond.rating}
                     </Badge>
@@ -759,8 +759,8 @@ function NCDBonds() {
                   </div>
 
                   <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                    <span>Last Price: ₹{bond.lastPrice?.toLocaleString()}</span>
-                    {bond.accruedInterest && <span>Accrued: ₹{bond.accruedInterest?.toLocaleString()}</span>}
+                    <span>Last Price: ₹{(bond.lastPrice || bond.currentPrice || bond.lastTradedPrice || 0).toLocaleString()}</span>
+                    {(bond.accruedInterest || bond.accrued) && <span>Accrued: ₹{(bond.accruedInterest || bond.accrued || 0).toLocaleString()}</span>}
                   </div>
                 </div>
 
@@ -774,7 +774,7 @@ function NCDBonds() {
                     <DialogHeader>
                       <DialogTitle>Place NCD Order</DialogTitle>
                       <DialogDescription>
-                        Buy {bond.issuerName} NCDs
+                        Buy {bond.name || bond.issuerName || bond.issuer || 'these'} NCDs
                       </DialogDescription>
                     </DialogHeader>
                     
@@ -929,7 +929,7 @@ function TaxFreeBonds() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{bond.issuerName}</h4>
+                    <h4 className="font-semibold text-gray-900">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
                       {bond.rating}
                     </Badge>
@@ -959,7 +959,7 @@ function TaxFreeBonds() {
                   </div>
 
                   <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                    <span>Last Price: ₹{bond.lastPrice?.toLocaleString()}</span>
+                    <span>Last Price: ₹{(bond.lastPrice || bond.currentPrice || bond.lastTradedPrice || 0).toLocaleString()}</span>
                     <span className="text-green-600 font-medium">Interest exempt under Section 10(15)</span>
                   </div>
                 </div>
@@ -974,7 +974,7 @@ function TaxFreeBonds() {
                     <DialogHeader>
                       <DialogTitle>Place Tax-Free Bond Order</DialogTitle>
                       <DialogDescription>
-                        Buy {bond.issuerName} tax-free bonds - Interest is tax exempt
+                        Buy {bond.name || bond.issuerName || bond.issuer || 'these'} tax-free bonds - Interest is tax exempt
                       </DialogDescription>
                     </DialogHeader>
                     
