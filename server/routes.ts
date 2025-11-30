@@ -765,10 +765,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!profile) {
         const newProfile = await storage.upsertUserProfile({ userId });
-        return res.json(newProfile);
+        return res.json({ ...newProfile, kycLevel: '0' });
       }
       
-      res.json(profile);
+      // Use dynamically computed KYC level for consistency
+      const { level: computedLevel } = await getUserKYCLevel(userId);
+      
+      res.json({ ...profile, kycLevel: computedLevel });
     } catch (error) {
       console.error("Error fetching user profile:", error);
       res.status(500).json({ error: "Failed to fetch profile" });
