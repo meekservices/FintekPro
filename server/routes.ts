@@ -10,7 +10,7 @@ declare global {
     }
   }
 }
-import { sql, eq, and, or, like, inArray } from "drizzle-orm";
+import { sql, eq, and, or, like } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
@@ -45,7 +45,6 @@ import { clientEnrichmentService } from './client-enrichment-service';
 import { aiTransactionTrackerService } from './ai-transaction-tracker';
 import { aiInvestSmartMonitorService } from './ai-investsmart-monitor';
 import amlRoutes from './aml-routes';
-import complianceRoutes from './compliance-routes';
 import { ZohoCommerceAPI, type ZohoCommerceConfig } from './zoho-commerce-api';
 import { zohoCommerceConfig, zohoProducts, zohoCategories, zohoOrders, zohoCustomers, zohoInventory, zohoWebhooks, zohoSyncLogs, insertZohoCommerceConfigSchema, insertZohoProductSchema, insertZohoCategorySchema, insertZohoOrderSchema, insertCreditProfileSchema, insertLoanRequestSchema, insertLoanApplicationMarketplaceSchema, insertApplicationDocumentSchema, insertPartnerApplicationDocumentSchema } from '@shared/schema';
 import BBPSService from './services/bbpsService';
@@ -81,13 +80,9 @@ import { initReKYCCron } from './rekyc-cron';
 import { seedProducts } from './seed-products';
 import { seedDefaultAgent } from './seed-default-agent';
 import { nseNcbApi } from './nseNcbApi';
-import { stampDutyService, STAMP_DUTY_RATES, type ProductType } from './stamp-duty-service';
 import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
-import { bondKYCGate, checkBondKYCEligibility, getBondKYCProgress } from './bond-kyc-gate';
-import { createBondOrder, updateOrderStatus, confirmPayment, processAllotment, creditToDemat, getOrderLifecycle, processSettlements } from './bond-order-lifecycle';
-import { getBondAlerts, getUpcomingCoupons, getMaturityAlerts, createAlertPreferences, initializeAlertCronJobs, triggerAlertCheck } from './bond-alert-service';
-import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema, bondCommissionConfig, stampDutyConfig, stampDutyAuditLog } from '@shared/schema';
+import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
@@ -129,9 +124,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupReplitAuth(app);
   setupLocalAuth(app);
   
-  
-  // SEBI Compliance API routes
-  app.use('/api/compliance', complianceRoutes);
   // Initialize user passwords with proper hashing
   await storage.initializeUserPasswords();
   
@@ -455,315 +447,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   
-
-  // Bond Commission Configuration Admin Routes
-  app.get("/api/admin/bond-commission-config", requireAdmin, async (req, res) => {
-    try {
-      const configs = await db.select().from(bondCommissionConfig).orderBy(bondCommissionConfig.bondType);
-      res.json(configs);
-    } catch (error) {
-      console.error("Error fetching bond commission config:", error);
-      res.status(500).json({ error: "Failed to fetch commission configuration" });
-    }
-  });
-
-  app.get("/api/admin/bond-commission-config/:bondType", requireAdmin, async (req, res) => {
-    try {
-      const { bondType } = req.params;
-      const [config] = await db.select().from(bondCommissionConfig).where(eq(bondCommissionConfig.bondType, bondType));
-      
-      if (!config) {
-        return res.status(404).json({ error: "Configuration not found for this bond type" });
-      }
-      
-      res.json(config);
-    } catch (error) {
-      console.error("Error fetching bond commission config:", error);
-      res.status(500).json({ error: "Failed to fetch commission configuration" });
-    }
-  });
-
-  app.put("/api/admin/bond-commission-config/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      
-      const [updated] = await db.update(bondCommissionConfig)
-        .set({
-          ...updates,
-          updatedAt: new Date(),
-          lastUpdatedBy: req.user?.id
-        })
-        .where(eq(bondCommissionConfig.id, id))
-        .returning();
-      
-      if (!updated) {
-        return res.status(404).json({ error: "Configuration not found" });
-      }
-      
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating bond commission config:", error);
-      res.status(500).json({ error: "Failed to update commission configuration" });
-    }
-  });
-
-  // Public endpoint to get commission rates for fee calculation in order dialogs
-  app.get("/api/bonds/commission-rates/:bondType", async (req, res) => {
-    try {
-      const { bondType } = req.params;
-      const [config] = await db.select({
-        bondType: bondCommissionConfig.bondType,
-        bondTypeLabel: bondCommissionConfig.bondTypeLabel,
-        brokerageBps: bondCommissionConfig.brokerageBps,
-        brokerageMinAmount: bondCommissionConfig.brokerageMinAmount,
-        brokerageMaxAmount: bondCommissionConfig.brokerageMaxAmount,
-        platformFeeType: bondCommissionConfig.platformFeeType,
-        platformFeeFixed: bondCommissionConfig.platformFeeFixed,
-        platformFeePercent: bondCommissionConfig.platformFeePercent,
-        transactionChargeBps: bondCommissionConfig.transactionChargeBps,
-        stampDutyBps: bondCommissionConfig.stampDutyBps,
-        sebiTurnoverFeeBps: bondCommissionConfig.sebiTurnoverFeeBps,
-        gstRate: bondCommissionConfig.gstRate,
-        isActive: bondCommissionConfig.isActive,
-      }).from(bondCommissionConfig).where(eq(bondCommissionConfig.bondType, bondType));
-      
-      if (!config || !config.isActive) {
-        return res.status(404).json({ error: "Commission configuration not found or inactive" });
-      }
-      
-      res.json(config);
-    } catch (error) {
-      console.error("Error fetching commission rates:", error);
-      res.status(500).json({ error: "Failed to fetch commission rates" });
-    }
-  });
-
-  // Calculate fees for a bond order
-  app.post("/api/bonds/calculate-fees", async (req, res) => {
-    try {
-      const { bondType, amount, orderType = 'buy' } = req.body;
-      
-      if (!bondType || !amount) {
-        return res.status(400).json({ error: "Bond type and amount are required" });
-      }
-      
-      const [config] = await db.select().from(bondCommissionConfig).where(eq(bondCommissionConfig.bondType, bondType));
-      
-      if (!config || !config.isActive) {
-        return res.status(404).json({ error: "Commission configuration not found or inactive" });
-      }
-      
-      const orderAmount = parseFloat(amount);
-      
-      // Calculate brokerage
-      let brokerage = (orderAmount * parseFloat(config.brokerageBps || "0")) / 10000;
-      brokerage = Math.max(brokerage, parseFloat(config.brokerageMinAmount || "0"));
-      brokerage = Math.min(brokerage, parseFloat(config.brokerageMaxAmount || "0"));
-      
-      // Calculate platform fee
-      let platformFee = 0;
-      if (config.platformFeeType === "fixed") {
-        platformFee = parseFloat(config.platformFeeFixed || "0");
-      } else {
-        platformFee = (orderAmount * parseFloat(config.platformFeePercent || "0")) / 100;
-      }
-      
-      // Calculate transaction charges
-      const transactionCharge = (orderAmount * parseFloat(config.transactionChargeBps || "0")) / 10000;
-      
-      // Stamp duty (only for buy orders)
-      const stampDuty = orderType === 'buy' ? (orderAmount * parseFloat(config.stampDutyBps || "0")) / 10000 : 0;
-      
-      // SEBI turnover fee
-      const sebiFee = (orderAmount * parseFloat(config.sebiTurnoverFeeBps || "0")) / 10000;
-      
-      // GST on brokerage and platform fee
-      const gstableAmount = brokerage + platformFee + transactionCharge;
-      const gst = (gstableAmount * parseFloat(config.gstRate || "0")) / 100;
-      
-      const totalFees = brokerage + platformFee + transactionCharge + stampDuty + sebiFee + gst;
-      const totalPayable = orderAmount + totalFees;
-      
-      res.json({
-        orderAmount,
-        fees: {
-          brokerage: parseFloat(brokerage.toFixed(2)),
-          platformFee: parseFloat(platformFee.toFixed(2)),
-          transactionCharge: parseFloat(transactionCharge.toFixed(2)),
-          stampDuty: parseFloat(stampDuty.toFixed(2)),
-          sebiFee: parseFloat(sebiFee.toFixed(4)),
-          gst: parseFloat(gst.toFixed(2)),
-        },
-        totalFees: parseFloat(totalFees.toFixed(2)),
-        totalPayable: parseFloat(totalPayable.toFixed(2)),
-        rateDetails: {
-          brokerageBps: config.brokerageBps,
-          gstRate: config.gstRate,
-        }
-      });
-    } catch (error) {
-      console.error("Error calculating fees:", error);
-      res.status(500).json({ error: "Failed to calculate fees" });
-    }
-  });
-
-  // ===== STAMP DUTY API ROUTES (Indian Stamp Act Compliance) =====
-  
-  // Get all stamp duty rates (public endpoint for display)
-  app.get("/api/stamp-duty/rates", async (req, res) => {
-    try {
-      const rates = stampDutyService.getAllRates();
-      res.json({
-        effectiveDate: '2020-07-01',
-        regulatoryBasis: 'Indian Stamp Act 1899 (amended by Finance Act 2019)',
-        rates
-      });
-    } catch (error) {
-      console.error("Error fetching stamp duty rates:", error);
-      res.status(500).json({ error: "Failed to fetch stamp duty rates" });
-    }
-  });
-
-  // Get stamp duty for a specific product type
-  app.get("/api/stamp-duty/rate/:productType", async (req, res) => {
-    try {
-      const { productType } = req.params;
-      
-      if (!STAMP_DUTY_RATES[productType as ProductType]) {
-        return res.status(404).json({ error: "Unknown product type" });
-      }
-      
-      const breakdown = stampDutyService.getStampDutyBreakdown(
-        productType as ProductType,
-        100000 // Sample amount for rate display
-      );
-      
-      res.json({
-        productType,
-        rate: STAMP_DUTY_RATES[productType as ProductType],
-        sampleBreakdown: breakdown
-      });
-    } catch (error) {
-      console.error("Error fetching stamp duty rate:", error);
-      res.status(500).json({ error: "Failed to fetch stamp duty rate" });
-    }
-  });
-
-  // Calculate stamp duty for a transaction
-  app.post("/api/stamp-duty/calculate", async (req, res) => {
-    try {
-      const { productType, amount, transactionType = 'purchase' } = req.body;
-      
-      if (!productType || !amount) {
-        return res.status(400).json({ error: "Product type and amount are required" });
-      }
-      
-      if (!STAMP_DUTY_RATES[productType as ProductType]) {
-        return res.status(404).json({ error: "Unknown product type" });
-      }
-      
-      const calculation = stampDutyService.calculateStampDuty(
-        productType as ProductType,
-        parseFloat(amount),
-        transactionType
-      );
-      
-      const breakdown = stampDutyService.getStampDutyBreakdown(
-        productType as ProductType,
-        parseFloat(amount)
-      );
-      
-      res.json({
-        calculation,
-        breakdown,
-        disclaimer: 'Stamp duty rates are as per Indian Stamp Act 1899 (amended 2019). Government securities are exempt.'
-      });
-    } catch (error) {
-      console.error("Error calculating stamp duty:", error);
-      res.status(500).json({ error: "Failed to calculate stamp duty" });
-    }
-  });
-
-  // Admin: Get stamp duty configuration from database
-  app.get("/api/admin/stamp-duty-config", requireAdmin, async (req, res) => {
-    try {
-      const configs = await db.select().from(stampDutyConfig).orderBy(stampDutyConfig.productType);
-      res.json(configs);
-    } catch (error) {
-      console.error("Error fetching stamp duty config:", error);
-      res.status(500).json({ error: "Failed to fetch stamp duty configuration" });
-    }
-  });
-
-  // Admin: Update stamp duty configuration
-  app.put("/api/admin/stamp-duty-config/:id", requireAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      
-      const [updated] = await db.update(stampDutyConfig)
-        .set({
-          ...updates,
-          updatedAt: new Date(),
-          lastUpdatedBy: req.user?.id
-        })
-        .where(eq(stampDutyConfig.id, id))
-        .returning();
-      
-      if (!updated) {
-        return res.status(404).json({ error: "Configuration not found" });
-      }
-      
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating stamp duty config:", error);
-      res.status(500).json({ error: "Failed to update stamp duty configuration" });
-    }
-  });
-
-  // Admin: Seed stamp duty configuration
-  app.post("/api/admin/stamp-duty-config/seed", requireAdmin, async (req, res) => {
-    try {
-      await stampDutyService.seedConfiguration();
-      res.json({ success: true, message: "Stamp duty configuration seeded successfully" });
-    } catch (error) {
-      console.error("Error seeding stamp duty config:", error);
-      res.status(500).json({ error: "Failed to seed stamp duty configuration" });
-    }
-  });
-
-  // Get stamp duty audit log (for compliance reporting)
-  app.get("/api/admin/stamp-duty-audit", requireAdmin, async (req, res) => {
-    try {
-      const { startDate, endDate, productType, limit = 100 } = req.query;
-      
-      let query = db.select().from(stampDutyAuditLog);
-      
-      // Apply filters
-      const conditions = [];
-      if (productType) {
-        conditions.push(eq(stampDutyAuditLog.productType, productType as string));
-      }
-      
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions)) as any;
-      }
-      
-      const logs = await query.limit(parseInt(limit as string));
-      
-      res.json({
-        logs,
-        retentionPolicy: '7 years as per Indian Stamp Act regulations',
-        totalRecords: logs.length
-      });
-    } catch (error) {
-      console.error("Error fetching stamp duty audit log:", error);
-      res.status(500).json({ error: "Failed to fetch audit log" });
-    }
-  });
-
-  
   // User Profile API endpoints
   app.get("/api/profile", requireClientOrHigher, async (req, res) => {
     try {
@@ -939,36 +622,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // 1. AGGREGATE ASSETS - Portfolio Holdings with real-time market values
-      // First fetch portfolios, then fetch holdings separately to avoid relational query issues
       const userPortfolios = await db.query.portfolios.findMany({
-        where: targetUserIds.length > 0 ? inArray(portfolios.userId, targetUserIds) : undefined,
+        where: sql`${portfolios.userId} = ANY(${targetUserIds})`,
+        with: {
+          holdings: true
+        }
       });
       
-      // Fetch all holdings for these portfolios
-      const portfolioIds = userPortfolios.map(p => p.id);
-      const allHoldings = portfolioIds.length > 0 
-        ? await db.query.portfolioHoldings.findMany({
-            where: inArray(portfolioHoldings.portfolioId, portfolioIds),
-          })
-        : [];
-      
-      // Map holdings to portfolios
-      const holdingsByPortfolio = new Map();
-      for (const holding of allHoldings) {
-        const existing = holdingsByPortfolio.get(holding.portfolioId) || [];
-        existing.push(holding);
-        holdingsByPortfolio.set(holding.portfolioId, existing);
-      }
-      
-      // Add holdings to portfolios
-      const portfoliosWithHoldings = userPortfolios.map(p => ({
-        ...p,
-        holdings: holdingsByPortfolio.get(p.id) || []
-      }));
-      
       // OPTIMIZATION: Batch fetch all unique symbols for market data (avoid N+1 queries)
-      const allSymbols = new Set();
-      for (const portfolio of portfoliosWithHoldings) {
+      const allSymbols = new Set<string>();
+      for (const portfolio of userPortfolios) {
         for (const holding of portfolio.holdings || []) {
           allSymbols.add(holding.symbol);
         }
@@ -980,7 +643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (symbolArray.length > 0) {
         const marketDataRecords = await db.query.marketData.findMany({
-          where: inArray(marketData.symbol, symbolArray),
+          where: sql`${marketData.symbol} = ANY(${symbolArray})`,
         });
         
         for (const record of marketDataRecords) {
@@ -993,7 +656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let illiquidAssets = [];
       let totalPortfolioValue = 0;
       
-      for (const portfolio of portfoliosWithHoldings) {
+      for (const portfolio of userPortfolios) {
         for (const holding of portfolio.holdings || []) {
           // Get current market price from pre-fetched data
           const marketInfo = marketDataMap.get(holding.symbol);
@@ -1029,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 2. BANK ACCOUNTS - Verified cash balances
       const bankAccounts = await db.query.userBankAccounts.findMany({
-        where: and(targetUserIds.length > 0 ? inArray(userBankAccounts.userId, targetUserIds) : undefined, eq(userBankAccounts.isActive, true)),
+        where: sql`${userBankAccounts.userId} = ANY(${targetUserIds}) AND ${userBankAccounts.isActive} = true`,
       });
       
       // Note: We don't have real-time balance API, so we use cash from portfolios
@@ -1051,10 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 3. PENDING INVESTMENTS - Orders in process
       const pendingOrders = await db.query.unifiedOrders.findMany({
-        where: and(
-          targetUserIds.length > 0 ? inArray(unifiedOrders.userId, targetUserIds) : undefined,
-          sql`${unifiedOrders.status} IN ('initiated', 'payment_pending', 'payment_completed', 'processing')`
-        ),
+        where: sql`${unifiedOrders.userId} = ANY(${targetUserIds}) AND ${unifiedOrders.status} IN ('initiated', 'payment_pending', 'payment_completed', 'processing')`,
       });
       
       const pendingInvestments = pendingOrders.map(order => ({
@@ -1076,10 +736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 5. AGGREGATE LIABILITIES - Loans and Credit
       const loans = await db.query.loanApplications.findMany({
-        where: and(
-          targetUserIds.length > 0 ? inArray(loanApplications.userId, targetUserIds) : undefined,
-          sql`${loanApplications.status} IN ('approved', 'disbursed')`
-        ),
+        where: sql`${loanApplications.userId} = ANY(${targetUserIds}) AND ${loanApplications.status} IN ('approved', 'disbursed')`,
       });
       
       let shortTermLiabilities = [];
@@ -1861,86 +1518,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // Product Eligibility API - Returns detailed product access for KYC dashboard
-  app.get("/api/kyc/product-eligibility", requireClientOrHigher, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { level } = await getUserKYCLevel(userId);
-      
-      // Define product catalog with details
-      const productCatalog = {
-        // Level 0 - Browse Only
-        BROWSE: { productCode: 'BROWSE', productName: 'Browse Products', category: 'General', requiredLevel: '0' },
-        
-        // Level 1 - Loans & Insurance
-        LOANS_PERSONAL: { productCode: 'LOANS_PERSONAL', productName: 'Personal Loans', category: 'Loans', requiredLevel: '1' },
-        LOANS_HOME: { productCode: 'LOANS_HOME', productName: 'Home Loans', category: 'Loans', requiredLevel: '1' },
-        LOANS_VEHICLE: { productCode: 'LOANS_VEHICLE', productName: 'Vehicle Loans', category: 'Loans', requiredLevel: '1' },
-        LOANS_BUSINESS: { productCode: 'LOANS_BUSINESS', productName: 'Business Loans', category: 'Loans', requiredLevel: '1' },
-        INSURANCE_LIFE: { productCode: 'INSURANCE_LIFE', productName: 'Life Insurance', category: 'Insurance', requiredLevel: '1' },
-        INSURANCE_HEALTH: { productCode: 'INSURANCE_HEALTH', productName: 'Health Insurance', category: 'Insurance', requiredLevel: '1' },
-        INSURANCE_GENERAL: { productCode: 'INSURANCE_GENERAL', productName: 'General Insurance', category: 'Insurance', requiredLevel: '1' },
-        
-        // Level 2 - Investments
-        MUTUAL_FUNDS: { productCode: 'MUTUAL_FUNDS', productName: 'Mutual Funds', category: 'Investments', requiredLevel: '2' },
-        PMS: { productCode: 'PMS', productName: 'Portfolio Management', category: 'Investments', requiredLevel: '2' },
-        AIF: { productCode: 'AIF', productName: 'Alternative Investment Funds', category: 'Investments', requiredLevel: '2' },
-        UNLISTED_SECURITIES: { productCode: 'UNLISTED_SECURITIES', productName: 'Unlisted Securities', category: 'Investments', requiredLevel: '2' },
-        EQUITY_TRADING: { productCode: 'EQUITY_TRADING', productName: 'Equity Trading', category: 'Trading', requiredLevel: '2' },
-        DERIVATIVES: { productCode: 'DERIVATIVES', productName: 'Derivatives (F&O)', category: 'Trading', requiredLevel: '2' },
-        COMMODITIES: { productCode: 'COMMODITIES', productName: 'Commodities', category: 'Trading', requiredLevel: '2' },
-        BONDS: { productCode: 'BONDS', productName: 'Bonds & NCDs', category: 'Fixed Income', requiredLevel: '2' },
-        NCDS: { productCode: 'NCDS', productName: 'Non-Convertible Debentures', category: 'Fixed Income', requiredLevel: '2' },
-        GLOBAL_TRADING: { productCode: 'GLOBAL_TRADING', productName: 'Global Trading', category: 'Trading', requiredLevel: '2' },
-        PORTFOLIO_ANALYTICS: { productCode: 'PORTFOLIO_ANALYTICS', productName: 'Portfolio Analytics', category: 'Tools', requiredLevel: '2' }
-      };
-
-      const levelHierarchy = { '0': 0, '1': 1, '2': 2 };
-      const accessibleProducts: any[] = [];
-      const lockedProducts: any[] = [];
-
-      for (const [key, product] of Object.entries(productCatalog)) {
-        const hasAccess = levelHierarchy[level] >= levelHierarchy[product.requiredLevel as '0' | '1' | '2'];
-        if (hasAccess) {
-          accessibleProducts.push({
-            productCode: product.productCode,
-            productName: product.productName,
-            category: product.category
-          });
-        } else {
-          lockedProducts.push({
-            productCode: product.productCode,
-            productName: product.productName,
-            category: product.category,
-            requiredLevel: product.requiredLevel
-          });
-        }
-      }
-
-      // Determine next tier for upgrade prompt
-      const nextTier = level === '0' ? 'standard' : level === '1' ? 'enhanced' : null;
-
-      res.json({
-        success: true,
-        data: {
-          currentLevel: level,
-          currentTier: level === '0' ? 'basic' : level === '1' ? 'standard' : 'enhanced',
-          accessibleProducts,
-          lockedProducts,
-          totalProductsAccessible: accessibleProducts.length,
-          totalProductsLocked: lockedProducts.length,
-          nextTier
-        }
-      });
-    } catch (error) {
-      console.error('Product eligibility error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch product eligibility'
-      });
-    }
-  });
   // Get detailed KYC profile for dashboard
   app.get("/api/kyc/my-profile", requireClientOrHigher, async (req: any, res) => {
     try {
@@ -1957,7 +1534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             mobile: user.mobile,
             fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
             kycLevel: level,
-            kycTier: level === '0' ? 'basic' : level === '1' ? 'standard' : level === '2' ? 'enhanced' : 'accredited_investor',
+            kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
             kycStatus: 'pending',
             panNumber: null,
             panVerified: false,
@@ -1978,26 +1555,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Calculate Re-KYC review date dynamically based on risk category
-      // Low: 10 years, Medium: 8 years, High: 2 years from KYC completion
-      const calculateReKycDate = (riskCat: string, completedAt: Date | null): Date | null => {
-        if (!completedAt && level === '0') return null;
-        const baseDate = completedAt || new Date();
-        const yearsToAdd = riskCat === 'high' ? 2 : riskCat === 'medium' ? 8 : 10;
-        const reviewDate = new Date(baseDate);
-        reviewDate.setFullYear(reviewDate.getFullYear() + yearsToAdd);
-        return reviewDate;
-      };
-
-      const riskCategory = profile.riskCategory || 'low';
-      const kycCompletedAt = profile.kycCompletedAt || (level !== '0' ? new Date() : null);
-      const riskNextReview = profile.riskNextReview || calculateReKycDate(riskCategory, kycCompletedAt);
-
-      // Mask bank account number for security
-      const maskedBankAccount = profile.bankAccountNumber 
-        ? 'XXXX' + profile.bankAccountNumber.slice(-4)
-        : null;
-
       res.json({
         success: true,
         data: {
@@ -2006,7 +1563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mobile: user.mobile,
           fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
           kycLevel: level,
-          kycTier: level === '0' ? 'basic' : level === '1' ? 'standard' : level === '2' ? 'enhanced' : 'accredited_investor',
+          kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
           kycStatus: profile.kycStatus || 'pending',
           panNumber: profile.panNumber || null,
           panVerified: profile.panVerifiedViaSandbox || false,
@@ -2014,17 +1571,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           bankVerified: profile.bankVerified || false,
           videoKycCompleted: profile.videoKycCompleted || false,
           ckycVerified: profile.ckycFetchedViaAuthBridge || false,
-          kraVerified: profile.kraVerifiedViaProtean || false,
-          riskCategory: riskCategory,
-          riskCategoryReason: profile.riskCategoryReason || null,
+          riskCategory: profile.riskCategory || 'low',
           pepStatus: profile.pepStatus || 'N',
           fatcaStatus: profile.fatcaStatus || 'N',
           amlStatus: profile.amlStatus || 'clear',
-          riskNextReview: riskNextReview,
-          kycCompletedAt: kycCompletedAt,
-          bankAccountNumber: maskedBankAccount,
-          bankIfscCode: profile.bankIfscCode || null,
-          bankName: profile.bankName || null,
           kycTierMetadata: {
             description: level === '0' 
               ? 'Basic profile - browse products only' 
@@ -2037,23 +1587,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ? ['loans', 'insurance'] 
                 : ['loans', 'insurance', 'mutual_funds', 'equities', 'derivatives', 'unlisted'],
             maxAnnualInvestment: level === '0' ? 0 : level === '1' ? 1000000 : 10000000
-          },
-          verificationSummary: {
-            panVerified: profile.panVerifiedViaSandbox || false,
-            ckycFetched: profile.ckycFetchedViaAuthBridge || false,
-            kraVerified: profile.kraVerifiedViaProtean || false,
-            aadhaarVerified: profile.aadhaarVerifiedViaCashfree || false,
-            bankVerified: profile.bankVerified || false,
-            videoKycCompleted: profile.videoKycCompleted || false,
-            totalVerifications: 6,
-            completedVerifications: [
-              profile.panVerifiedViaSandbox,
-              profile.ckycFetchedViaAuthBridge,
-              profile.kraVerifiedViaProtean,
-              profile.aadhaarVerifiedViaCashfree,
-              profile.bankVerified,
-              profile.videoKycCompleted
-            ].filter(Boolean).length
           }
         }
       });
@@ -2105,21 +1638,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasCkycData = !!(userProfile?.ckycFetchedViaAuthBridge && userProfile?.ckycAuthBridgeResponse);
       const hasAadhaarVerified = !!(userProfile?.aadharNumber && userProfile?.aadharNumber.length === 12);
       
-      // Determine current step smartly - send to first incomplete step
+      // Determine current step smartly based on existing data
       let currentStep = "pan_verification";
-      if (hasPanVerified) {
-        // PAN done, check Aadhaar next
-        if (hasAadhaarVerified) {
-          // Aadhaar done, check data collection
-          if (hasCkycData) {
-            // Data collection done, go to risk profiling
-            currentStep = "risk_profiling";
-          } else {
-            currentStep = "data_collection";
-          }
-        } else {
-          currentStep = "aadhaar_otp";
-        }
+      if (hasPanVerified && hasCkycData) {
+        currentStep = "completion";
+      } else if (hasPanVerified) {
+        currentStep = "data_collection";
       }
       
       // Build session data object with required fields
@@ -2597,10 +2121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ckycAuthBridgeFetchedAt: new Date(),
           ckycAuthBridgeKin: ckycResult.data.kin,
           ckycAuthBridgeResponse: ckycResult.data,
-          ckycAuthBridgeStatus: 'found',
-          kycLevel: '2',
-          kycLevelUpgradedAt: new Date(),
-          kycTier: 'enhanced'
+          ckycAuthBridgeStatus: 'found'
         };
 
         if (existingProfile && existingProfile.length > 0) {
@@ -2614,7 +2135,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ...ckycUpdateData
             });
         }
-        console.log('✅ Upgraded user to KYC Level 2 (CKYC verified)');
       } else {
         console.log('ℹ️ CKYC record not found via AuthBridge for PAN:', panNumber);
       }
@@ -3226,8 +2746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Bond market data API endpoints
-  // Bond categories - public access for browsing
-  app.get("/api/bonds/categories", async (req, res) => {
+  app.get("/api/bonds/categories", requireLevel2, async (req, res) => {
     try {
       // Real-time bond categories with current market rates
       const bondCategories = [
@@ -3288,8 +2807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Bond live rates - public access for viewing
-  app.get("/api/bonds/live-rates", async (req, res) => {
+  app.get("/api/bonds/live-rates", requireLevel2, async (req, res) => {
     try {
       // Fetch current bond yields from market data
       const liveRates = {
@@ -5468,60 +4986,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bonds API endpoints
   
   // Get government bonds data
-  // Government bonds - public access for viewing
-  app.get("/api/bonds/government", async (req, res) => {
+  app.get("/api/bonds/government", requireLevel2, async (req, res) => {
     try {
       const governmentBonds = [
-        { id: "gsec-1", isin: "IN0020230001", name: "7.17% GS 2028", type: "Government Security", issuer: "Government of India", maturityDate: "2028-01-08", couponRate: 7.17, currentYield: 7.05, ytm: 7.12, rating: "AAA", faceValue: 100, currentPrice: 101.25, minInvestment: 10000, tradingVolume: "₹2,450 Cr", duration: "4.2 years", accrued: 1.25, segment: "G-Sec" },
-        { id: "gsec-2", isin: "IN0020320002", name: "6.54% GS 2032", type: "Government Security", issuer: "Government of India", maturityDate: "2032-01-01", couponRate: 6.54, currentYield: 6.48, ytm: 6.52, rating: "AAA", faceValue: 100, currentPrice: 100.85, minInvestment: 10000, tradingVolume: "₹1,890 Cr", duration: "6.8 years", accrued: 0.85, segment: "G-Sec" },
-        { id: "gsec-3", isin: "IN0020330003", name: "7.26% GS 2033", type: "Government Security", issuer: "Government of India", maturityDate: "2033-06-22", couponRate: 7.26, currentYield: 7.18, ytm: 7.22, rating: "AAA", faceValue: 100, currentPrice: 101.45, minInvestment: 10000, tradingVolume: "₹3,120 Cr", duration: "7.5 years", accrued: 1.82, segment: "G-Sec" },
-        { id: "gsec-4", isin: "IN0020340004", name: "7.30% GS 2034", type: "Government Security", issuer: "Government of India", maturityDate: "2034-06-18", couponRate: 7.30, currentYield: 7.22, ytm: 7.26, rating: "AAA", faceValue: 100, currentPrice: 101.68, minInvestment: 10000, tradingVolume: "₹2,890 Cr", duration: "8.2 years", accrued: 1.95, segment: "G-Sec" },
-        { id: "gsec-5", isin: "IN0020350005", name: "7.37% GS 2035", type: "Government Security", issuer: "Government of India", maturityDate: "2035-04-16", couponRate: 7.37, currentYield: 7.28, ytm: 7.32, rating: "AAA", faceValue: 100, currentPrice: 102.12, minInvestment: 10000, tradingVolume: "₹1,750 Cr", duration: "8.9 years", accrued: 2.15, segment: "G-Sec" },
-        { id: "gsec-6", isin: "IN0020400006", name: "6.79% GS 2040", type: "Government Security", issuer: "Government of India", maturityDate: "2040-05-15", couponRate: 6.79, currentYield: 7.35, ytm: 7.42, rating: "AAA", faceValue: 100, currentPrice: 94.25, minInvestment: 10000, tradingVolume: "₹1,250 Cr", duration: "12.4 years", accrued: 1.45, segment: "G-Sec" },
-        { id: "gsec-7", isin: "IN0020500007", name: "6.99% GS 2050", type: "Government Security", issuer: "Government of India", maturityDate: "2050-12-26", couponRate: 6.99, currentYield: 7.52, ytm: 7.58, rating: "AAA", faceValue: 100, currentPrice: 91.85, minInvestment: 10000, tradingVolume: "₹980 Cr", duration: "18.2 years", accrued: 0.95, segment: "G-Sec" },
-        { id: "gsec-8", isin: "IN0020530008", name: "6.64% GS 2053", type: "Government Security", issuer: "Government of India", maturityDate: "2053-06-13", couponRate: 6.64, currentYield: 7.45, ytm: 7.52, rating: "AAA", faceValue: 100, currentPrice: 89.45, minInvestment: 10000, tradingVolume: "₹720 Cr", duration: "20.5 years", accrued: 1.65, segment: "G-Sec" },
-        { id: "gsec-9", isin: "IN0020600009", name: "6.57% GS 2060", type: "Government Security", issuer: "Government of India", maturityDate: "2060-12-05", couponRate: 6.57, currentYield: 7.48, ytm: 7.55, rating: "AAA", faceValue: 100, currentPrice: 87.92, minInvestment: 10000, tradingVolume: "₹580 Cr", duration: "24.8 years", accrued: 1.78, segment: "G-Sec" },
-        { id: "gsec-10", isin: "IN0020260010", name: "7.02% GS 2026", type: "Government Security", issuer: "Government of India", maturityDate: "2026-06-16", couponRate: 7.02, currentYield: 6.85, ytm: 6.88, rating: "AAA", faceValue: 100, currentPrice: 100.42, minInvestment: 10000, tradingVolume: "₹4,250 Cr", duration: "1.8 years", accrued: 2.35, segment: "G-Sec" },
-        { id: "gsec-11", isin: "IN0020270011", name: "6.89% GS 2027", type: "Government Security", issuer: "Government of India", maturityDate: "2027-04-16", couponRate: 6.89, currentYield: 6.92, ytm: 6.95, rating: "AAA", faceValue: 100, currentPrice: 99.85, minInvestment: 10000, tradingVolume: "₹3,680 Cr", duration: "2.6 years", accrued: 1.92, segment: "G-Sec" },
-        { id: "gsec-12", isin: "IN0020290012", name: "7.40% GS 2029", type: "Government Security", issuer: "Government of India", maturityDate: "2029-09-09", couponRate: 7.40, currentYield: 7.08, ytm: 7.12, rating: "AAA", faceValue: 100, currentPrice: 102.85, minInvestment: 10000, tradingVolume: "₹2,150 Cr", duration: "4.8 years", accrued: 0.85, segment: "G-Sec" },
-        { id: "gsec-13", isin: "IN0020300013", name: "7.10% GS 2030", type: "Government Security", issuer: "Government of India", maturityDate: "2030-04-18", couponRate: 7.10, currentYield: 7.05, ytm: 7.08, rating: "AAA", faceValue: 100, currentPrice: 101.15, minInvestment: 10000, tradingVolume: "₹2,890 Cr", duration: "5.4 years", accrued: 2.45, segment: "G-Sec" },
-        { id: "gsec-14", isin: "IN0020310014", name: "6.95% GS 2031", type: "Government Security", issuer: "Government of India", maturityDate: "2031-09-12", couponRate: 6.95, currentYield: 7.02, ytm: 7.05, rating: "AAA", faceValue: 100, currentPrice: 99.25, minInvestment: 10000, tradingVolume: "₹1,980 Cr", duration: "6.2 years", accrued: 0.72, segment: "G-Sec" },
-        { id: "gsec-15", isin: "IN0020360015", name: "7.54% GS 2036", type: "Government Security", issuer: "Government of India", maturityDate: "2036-05-23", couponRate: 7.54, currentYield: 7.32, ytm: 7.38, rating: "AAA", faceValue: 100, currentPrice: 103.45, minInvestment: 10000, tradingVolume: "₹1,420 Cr", duration: "9.8 years", accrued: 1.55, segment: "G-Sec" },
-        { id: "gsec-16", isin: "IN0020370016", name: "7.18% GS 2037", type: "Government Security", issuer: "Government of India", maturityDate: "2037-08-14", couponRate: 7.18, currentYield: 7.38, ytm: 7.42, rating: "AAA", faceValue: 100, currentPrice: 97.85, minInvestment: 10000, tradingVolume: "₹1,180 Cr", duration: "10.8 years", accrued: 0.92, segment: "G-Sec" },
-        { id: "gsec-17", isin: "IN0020380017", name: "7.72% GS 2038", type: "Government Security", issuer: "Government of India", maturityDate: "2038-04-09", couponRate: 7.72, currentYield: 7.42, ytm: 7.48, rating: "AAA", faceValue: 100, currentPrice: 103.25, minInvestment: 10000, tradingVolume: "₹950 Cr", duration: "11.4 years", accrued: 2.18, segment: "G-Sec" },
-        { id: "gsec-18", isin: "IN0020390018", name: "6.45% GS 2039", type: "Government Security", issuer: "Government of India", maturityDate: "2039-10-07", couponRate: 6.45, currentYield: 7.35, ytm: 7.42, rating: "AAA", faceValue: 100, currentPrice: 91.45, minInvestment: 10000, tradingVolume: "₹820 Cr", duration: "12.8 years", accrued: 0.52, segment: "G-Sec" },
-        { id: "tbill-1", isin: "IN002025T091", name: "91 Day T-Bill", type: "Treasury Bill", issuer: "Government of India", maturityDate: "2026-02-28", couponRate: 0, currentYield: 6.95, ytm: 6.95, rating: "AAA", faceValue: 100, currentPrice: 98.23, minInvestment: 25000, tradingVolume: "₹8,750 Cr", duration: "0.25 years", accrued: 0, segment: "T-Bill" },
-        { id: "tbill-2", isin: "IN002025T182", name: "182 Day T-Bill", type: "Treasury Bill", issuer: "Government of India", maturityDate: "2026-05-30", couponRate: 0, currentYield: 7.02, ytm: 7.02, rating: "AAA", faceValue: 100, currentPrice: 96.58, minInvestment: 25000, tradingVolume: "₹6,520 Cr", duration: "0.5 years", accrued: 0, segment: "T-Bill" },
-        { id: "tbill-3", isin: "IN002025T364", name: "364 Day T-Bill", type: "Treasury Bill", issuer: "Government of India", maturityDate: "2026-11-28", couponRate: 0, currentYield: 7.08, ytm: 7.08, rating: "AAA", faceValue: 100, currentPrice: 93.25, minInvestment: 25000, tradingVolume: "₹5,890 Cr", duration: "1.0 years", accrued: 0, segment: "T-Bill" },
-        { id: "tbill-4", isin: "IN002026T091", name: "91 Day T-Bill (Mar 2026)", type: "Treasury Bill", issuer: "Government of India", maturityDate: "2026-03-14", couponRate: 0, currentYield: 6.92, ytm: 6.92, rating: "AAA", faceValue: 100, currentPrice: 98.28, minInvestment: 25000, tradingVolume: "₹7,250 Cr", duration: "0.25 years", accrued: 0, segment: "T-Bill" },
-        { id: "tbill-5", isin: "IN002026T182", name: "182 Day T-Bill (Jun 2026)", type: "Treasury Bill", issuer: "Government of India", maturityDate: "2026-06-15", couponRate: 0, currentYield: 7.05, ytm: 7.05, rating: "AAA", faceValue: 100, currentPrice: 96.52, minInvestment: 25000, tradingVolume: "₹4,890 Cr", duration: "0.5 years", accrued: 0, segment: "T-Bill" },
-        { id: "sdl-1", isin: "IN25SDL2030A", name: "Maharashtra SDL 7.45% 2030", type: "State Development Loan", issuer: "Government of Maharashtra", maturityDate: "2030-03-18", couponRate: 7.45, currentYield: 7.52, ytm: 7.55, rating: "AAA", faceValue: 100, currentPrice: 99.25, minInvestment: 10000, tradingVolume: "₹1,250 Cr", duration: "5.3 years", accrued: 1.85, segment: "SDL" },
-        { id: "sdl-2", isin: "IN25SDL2030B", name: "Tamil Nadu SDL 7.52% 2030", type: "State Development Loan", issuer: "Government of Tamil Nadu", maturityDate: "2030-06-24", couponRate: 7.52, currentYield: 7.58, ytm: 7.62, rating: "AAA", faceValue: 100, currentPrice: 99.45, minInvestment: 10000, tradingVolume: "₹980 Cr", duration: "5.6 years", accrued: 1.42, segment: "SDL" },
-        { id: "sdl-3", isin: "IN25SDL2031A", name: "Karnataka SDL 7.48% 2031", type: "State Development Loan", issuer: "Government of Karnataka", maturityDate: "2031-09-15", couponRate: 7.48, currentYield: 7.55, ytm: 7.58, rating: "AAA", faceValue: 100, currentPrice: 99.15, minInvestment: 10000, tradingVolume: "₹1,120 Cr", duration: "6.8 years", accrued: 0.95, segment: "SDL" },
-        { id: "sdl-4", isin: "IN25SDL2032A", name: "Gujarat SDL 7.55% 2032", type: "State Development Loan", issuer: "Government of Gujarat", maturityDate: "2032-03-21", couponRate: 7.55, currentYield: 7.62, ytm: 7.65, rating: "AAA", faceValue: 100, currentPrice: 99.35, minInvestment: 10000, tradingVolume: "₹890 Cr", duration: "7.3 years", accrued: 1.68, segment: "SDL" },
-        { id: "sdl-5", isin: "IN25SDL2029A", name: "Uttar Pradesh SDL 7.68% 2029", type: "State Development Loan", issuer: "Government of Uttar Pradesh", maturityDate: "2029-12-10", couponRate: 7.68, currentYield: 7.72, ytm: 7.75, rating: "AA+", faceValue: 100, currentPrice: 99.55, minInvestment: 10000, tradingVolume: "₹750 Cr", duration: "4.9 years", accrued: 2.05, segment: "SDL" },
-        { id: "sdl-6", isin: "IN25SDL2033A", name: "Andhra Pradesh SDL 7.62% 2033", type: "State Development Loan", issuer: "Government of Andhra Pradesh", maturityDate: "2033-06-28", couponRate: 7.62, currentYield: 7.68, ytm: 7.72, rating: "AA+", faceValue: 100, currentPrice: 99.18, minInvestment: 10000, tradingVolume: "₹680 Cr", duration: "8.5 years", accrued: 1.28, segment: "SDL" },
-        { id: "sdl-7", isin: "IN25SDL2028A", name: "Rajasthan SDL 7.42% 2028", type: "State Development Loan", issuer: "Government of Rajasthan", maturityDate: "2028-04-15", couponRate: 7.42, currentYield: 7.48, ytm: 7.52, rating: "AA+", faceValue: 100, currentPrice: 99.68, minInvestment: 10000, tradingVolume: "₹620 Cr", duration: "3.4 years", accrued: 2.25, segment: "SDL" },
-        { id: "sdl-8", isin: "IN25SDL2035A", name: "Kerala SDL 7.58% 2035", type: "State Development Loan", issuer: "Government of Kerala", maturityDate: "2035-09-20", couponRate: 7.58, currentYield: 7.65, ytm: 7.68, rating: "AA", faceValue: 100, currentPrice: 98.85, minInvestment: 10000, tradingVolume: "₹540 Cr", duration: "10.8 years", accrued: 0.75, segment: "SDL" },
-        { id: "sdl-9", isin: "IN25SDL2027A", name: "West Bengal SDL 7.72% 2027", type: "State Development Loan", issuer: "Government of West Bengal", maturityDate: "2027-06-30", couponRate: 7.72, currentYield: 7.78, ytm: 7.82, rating: "AA", faceValue: 100, currentPrice: 99.42, minInvestment: 10000, tradingVolume: "₹480 Cr", duration: "2.6 years", accrued: 1.58, segment: "SDL" },
-        { id: "sdl-10", isin: "IN25SDL2034A", name: "Madhya Pradesh SDL 7.65% 2034", type: "State Development Loan", issuer: "Government of Madhya Pradesh", maturityDate: "2034-12-12", couponRate: 7.65, currentYield: 7.72, ytm: 7.75, rating: "AA+", faceValue: 100, currentPrice: 98.95, minInvestment: 10000, tradingVolume: "₹420 Cr", duration: "10.0 years", accrued: 2.12, segment: "SDL" },
-        { id: "frb-1", isin: "IN0020FRB029", name: "FRB 2029 (NSE MIBOR Linked)", type: "Floating Rate Bond", issuer: "Government of India", maturityDate: "2029-07-22", couponRate: 6.85, currentYield: 6.92, ytm: 6.95, rating: "AAA", faceValue: 100, currentPrice: 100.15, minInvestment: 10000, tradingVolume: "₹450 Cr", duration: "4.6 years", accrued: 0.45, segment: "FRB" },
-        { id: "frb-2", isin: "IN0020FRB031", name: "FRB 2031 (NSE MIBOR Linked)", type: "Floating Rate Bond", issuer: "Government of India", maturityDate: "2031-11-05", couponRate: 6.78, currentYield: 6.85, ytm: 6.88, rating: "AAA", faceValue: 100, currentPrice: 99.85, minInvestment: 10000, tradingVolume: "₹380 Cr", duration: "6.9 years", accrued: 0.28, segment: "FRB" },
-        { id: "frb-3", isin: "IN0020FRB033", name: "FRB 2033 (NSE MIBOR Linked)", type: "Floating Rate Bond", issuer: "Government of India", maturityDate: "2033-06-15", couponRate: 6.72, currentYield: 6.78, ytm: 6.82, rating: "AAA", faceValue: 100, currentPrice: 99.65, minInvestment: 10000, tradingVolume: "₹320 Cr", duration: "8.5 years", accrued: 1.15, segment: "FRB" },
-        { id: "sgb-1", isin: "IN0020SGB033", name: "Sovereign Gold Bond 2033 Series I", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2033-02-28", couponRate: 2.50, currentYield: 2.45, ytm: 2.48, rating: "AAA", faceValue: 6250, currentPrice: 6485, minInvestment: 6250, tradingVolume: "₹125 Cr", duration: "8.2 years", accrued: 52, segment: "SGB" },
-        { id: "sgb-2", isin: "IN0020SGB032", name: "Sovereign Gold Bond 2032 Series IV", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2032-09-15", couponRate: 2.50, currentYield: 2.42, ytm: 2.45, rating: "AAA", faceValue: 5890, currentPrice: 6125, minInvestment: 5890, tradingVolume: "₹98 Cr", duration: "7.8 years", accrued: 45, segment: "SGB" },
-        { id: "sgb-3", isin: "IN0020SGB031", name: "Sovereign Gold Bond 2031 Series II", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2031-03-20", couponRate: 2.50, currentYield: 2.38, ytm: 2.42, rating: "AAA", faceValue: 4852, currentPrice: 5085, minInvestment: 4852, tradingVolume: "₹85 Cr", duration: "6.3 years", accrued: 38, segment: "SGB" },
-        { id: "sgb-4", isin: "IN0020SGB030", name: "Sovereign Gold Bond 2030 Series III", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2030-06-10", couponRate: 2.50, currentYield: 2.35, ytm: 2.38, rating: "AAA", faceValue: 4450, currentPrice: 4685, minInvestment: 4450, tradingVolume: "₹72 Cr", duration: "5.5 years", accrued: 35, segment: "SGB" },
-        { id: "sgb-5", isin: "IN0020SGB029", name: "Sovereign Gold Bond 2029 Series I", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2029-08-25", couponRate: 2.50, currentYield: 2.32, ytm: 2.35, rating: "AAA", faceValue: 4125, currentPrice: 4325, minInvestment: 4125, tradingVolume: "₹65 Cr", duration: "4.7 years", accrued: 28, segment: "SGB" },
-        { id: "oig-1", isin: "IN0020OIG029", name: "7.75% GOI Savings Bond 2029", type: "GOI Savings Bond", issuer: "Government of India", maturityDate: "2029-01-15", couponRate: 7.75, currentYield: 7.75, ytm: 7.75, rating: "AAA", faceValue: 1000, currentPrice: 1000, minInvestment: 1000, tradingVolume: "N/A", duration: "4.1 years", accrued: 32, segment: "Savings" },
-        { id: "oig-2", isin: "IN0020OIG030", name: "7.75% GOI Savings Bond 2030", type: "GOI Savings Bond", issuer: "Government of India", maturityDate: "2030-05-18", couponRate: 7.75, currentYield: 7.75, ytm: 7.75, rating: "AAA", faceValue: 1000, currentPrice: 1000, minInvestment: 1000, tradingVolume: "N/A", duration: "5.5 years", accrued: 18, segment: "Savings" },
-        { id: "oig-3", isin: "IN0020OIG031", name: "7.75% GOI Savings Bond 2031", type: "GOI Savings Bond", issuer: "Government of India", maturityDate: "2031-09-22", couponRate: 7.75, currentYield: 7.75, ytm: 7.75, rating: "AAA", faceValue: 1000, currentPrice: 1000, minInvestment: 1000, tradingVolume: "N/A", duration: "6.8 years", accrued: 8, segment: "Savings" },
-        { id: "gsec-19", isin: "IN0020450019", name: "7.04% GS 2045", type: "Government Security", issuer: "Government of India", maturityDate: "2045-02-21", couponRate: 7.04, currentYield: 7.48, ytm: 7.52, rating: "AAA", faceValue: 100, currentPrice: 93.85, minInvestment: 10000, tradingVolume: "₹680 Cr", duration: "16.2 years", accrued: 1.85, segment: "G-Sec" }
+        {
+          id: "gsec-1",
+          name: "7.17% GS 2028",
+          type: "Government Security",
+          issuer: "Government of India",
+          maturityDate: "2028-01-08",
+          couponRate: 7.17,
+          currentYield: 7.05,
+          ytm: 7.12,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 101.25,
+          minInvestment: 10000,
+          tradingVolume: "₹2,450 Cr",
+          duration: "4.2 years",
+          accrued: 1.25,
+          segment: "Government"
+        },
+        {
+          id: "gsec-2", 
+          name: "6.54% GS 2032",
+          type: "Government Security",
+          issuer: "Government of India",
+          maturityDate: "2032-01-01",
+          couponRate: 6.54,
+          currentYield: 6.48,
+          ytm: 6.52,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 100.85,
+          minInvestment: 10000,
+          tradingVolume: "₹1,890 Cr",
+          duration: "6.8 years",
+          accrued: 0.85,
+          segment: "Government"
+        },
+        {
+          id: "treasury-1",
+          name: "91 Day T-Bill",
+          type: "Treasury Bill",
+          issuer: "Government of India", 
+          maturityDate: "2025-04-15",
+          couponRate: 0,
+          currentYield: 6.95,
+          ytm: 6.95,
+          rating: "AAA",
+          faceValue: 100,
+          currentPrice: 98.23,
+          minInvestment: 25000,
+          tradingVolume: "₹8,750 Cr",
+          duration: "0.25 years",
+          accrued: 0,
+          segment: "Treasury"
+        }
       ];
 
       res.json({
         status: "success",
-        count: governmentBonds.length,
         data: governmentBonds
       });
     } catch (error) {
@@ -5534,50 +5059,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get corporate bonds data
-  // Corporate bonds - public access for viewing
-  app.get("/api/bonds/corporate", async (req, res) => {
+  app.get("/api/bonds/corporate", requireLevel2, async (req, res) => {
     try {
       const corporateBonds = [
-        { id: "corp-1", isin: "INE001A07001", name: "HDFC Bank 8.25% 2027", type: "Corporate Bond", issuer: "HDFC Bank Ltd", maturityDate: "2027-03-15", couponRate: 8.25, currentYield: 8.12, ytm: 8.18, rating: "AAA", faceValue: 1000, currentPrice: 1025.50, minInvestment: 100000, tradingVolume: "₹945 Cr", duration: "2.8 years", accrued: 12.50, segment: "Banking" },
-        { id: "corp-2", isin: "INE002A07002", name: "Reliance Industries 7.95% 2030", type: "Corporate Bond", issuer: "Reliance Industries Ltd", maturityDate: "2030-06-20", couponRate: 7.95, currentYield: 7.88, ytm: 7.91, rating: "AAA", faceValue: 1000, currentPrice: 1018.75, minInvestment: 100000, tradingVolume: "₹1,230 Cr", duration: "5.1 years", accrued: 8.75, segment: "Energy" },
-        { id: "corp-3", isin: "INE003A07003", name: "TCS 7.50% 2029", type: "Corporate Bond", issuer: "Tata Consultancy Services", maturityDate: "2029-09-10", couponRate: 7.50, currentYield: 7.42, ytm: 7.46, rating: "AAA", faceValue: 1000, currentPrice: 1012.25, minInvestment: 100000, tradingVolume: "₹675 Cr", duration: "4.6 years", accrued: 6.25, segment: "IT Services" },
-        { id: "corp-4", isin: "INE004A07004", name: "ICICI Bank 8.10% 2028", type: "Corporate Bond", issuer: "ICICI Bank Ltd", maturityDate: "2028-05-22", couponRate: 8.10, currentYield: 8.02, ytm: 8.06, rating: "AAA", faceValue: 1000, currentPrice: 1022.50, minInvestment: 100000, tradingVolume: "₹825 Cr", duration: "3.5 years", accrued: 9.80, segment: "Banking" },
-        { id: "corp-5", isin: "INE005A07005", name: "L&T Finance 8.45% 2029", type: "Corporate Bond", issuer: "L&T Finance Holdings", maturityDate: "2029-08-15", couponRate: 8.45, currentYield: 8.35, ytm: 8.40, rating: "AA+", faceValue: 1000, currentPrice: 1028.75, minInvestment: 100000, tradingVolume: "₹520 Cr", duration: "4.2 years", accrued: 7.25, segment: "NBFC" },
-        { id: "corp-6", isin: "INE006A07006", name: "Bajaj Finance 8.35% 2028", type: "Corporate Bond", issuer: "Bajaj Finance Ltd", maturityDate: "2028-11-10", couponRate: 8.35, currentYield: 8.22, ytm: 8.28, rating: "AAA", faceValue: 1000, currentPrice: 1030.25, minInvestment: 100000, tradingVolume: "₹980 Cr", duration: "3.9 years", accrued: 5.50, segment: "NBFC" },
-        { id: "corp-7", isin: "INE007A07007", name: "Kotak Mahindra Bank 7.85% 2030", type: "Corporate Bond", issuer: "Kotak Mahindra Bank", maturityDate: "2030-02-28", couponRate: 7.85, currentYield: 7.75, ytm: 7.80, rating: "AAA", faceValue: 1000, currentPrice: 1015.50, minInvestment: 100000, tradingVolume: "₹650 Cr", duration: "5.2 years", accrued: 11.25, segment: "Banking" },
-        { id: "corp-8", isin: "INE008A07008", name: "Tata Steel 8.55% 2029", type: "Corporate Bond", issuer: "Tata Steel Ltd", maturityDate: "2029-04-20", couponRate: 8.55, currentYield: 8.42, ytm: 8.48, rating: "AA", faceValue: 1000, currentPrice: 1035.75, minInvestment: 100000, tradingVolume: "₹485 Cr", duration: "4.4 years", accrued: 6.85, segment: "Steel" },
-        { id: "corp-9", isin: "INE009A07009", name: "Mahindra & Mahindra 7.75% 2028", type: "Corporate Bond", issuer: "Mahindra & Mahindra Ltd", maturityDate: "2028-07-15", couponRate: 7.75, currentYield: 7.65, ytm: 7.70, rating: "AAA", faceValue: 1000, currentPrice: 1018.25, minInvestment: 100000, tradingVolume: "₹420 Cr", duration: "3.6 years", accrued: 8.45, segment: "Auto" },
-        { id: "corp-10", isin: "INE010A07010", name: "Adani Ports 8.75% 2031", type: "Corporate Bond", issuer: "Adani Ports & SEZ Ltd", maturityDate: "2031-09-30", couponRate: 8.75, currentYield: 8.62, ytm: 8.68, rating: "AA", faceValue: 1000, currentPrice: 1042.50, minInvestment: 100000, tradingVolume: "₹380 Cr", duration: "6.8 years", accrued: 4.25, segment: "Infrastructure" },
-        { id: "corp-11", isin: "INE011A07011", name: "Power Grid 7.45% 2032", type: "Corporate Bond", issuer: "Power Grid Corporation", maturityDate: "2032-03-15", couponRate: 7.45, currentYield: 7.38, ytm: 7.42, rating: "AAA", faceValue: 1000, currentPrice: 1008.50, minInvestment: 100000, tradingVolume: "₹750 Cr", duration: "7.3 years", accrued: 10.25, segment: "Power" },
-        { id: "corp-12", isin: "INE012A07012", name: "NTPC 7.55% 2030", type: "Corporate Bond", issuer: "NTPC Limited", maturityDate: "2030-06-28", couponRate: 7.55, currentYield: 7.48, ytm: 7.52, rating: "AAA", faceValue: 1000, currentPrice: 1012.75, minInvestment: 100000, tradingVolume: "₹680 Cr", duration: "5.5 years", accrued: 5.85, segment: "Power" },
-        { id: "corp-13", isin: "INE013A07013", name: "Indian Oil 7.65% 2029", type: "Corporate Bond", issuer: "Indian Oil Corporation", maturityDate: "2029-12-10", couponRate: 7.65, currentYield: 7.55, ytm: 7.60, rating: "AAA", faceValue: 1000, currentPrice: 1015.25, minInvestment: 100000, tradingVolume: "₹545 Cr", duration: "5.0 years", accrued: 8.95, segment: "Energy" },
-        { id: "corp-14", isin: "INE014A07014", name: "SBI 7.90% 2028", type: "Corporate Bond", issuer: "State Bank of India", maturityDate: "2028-09-22", couponRate: 7.90, currentYield: 7.82, ytm: 7.86, rating: "AAA", faceValue: 1000, currentPrice: 1016.50, minInvestment: 100000, tradingVolume: "₹1,150 Cr", duration: "3.8 years", accrued: 6.25, segment: "Banking" },
-        { id: "corp-15", isin: "INE015A07015", name: "Axis Bank 8.05% 2029", type: "Corporate Bond", issuer: "Axis Bank Ltd", maturityDate: "2029-03-18", couponRate: 8.05, currentYield: 7.95, ytm: 8.00, rating: "AAA", faceValue: 1000, currentPrice: 1020.75, minInvestment: 100000, tradingVolume: "₹720 Cr", duration: "4.3 years", accrued: 11.50, segment: "Banking" },
-        { id: "corp-16", isin: "INE016A07016", name: "Hindustan Unilever 7.25% 2028", type: "Corporate Bond", issuer: "Hindustan Unilever Ltd", maturityDate: "2028-04-25", couponRate: 7.25, currentYield: 7.18, ytm: 7.22, rating: "AAA", faceValue: 1000, currentPrice: 1008.25, minInvestment: 100000, tradingVolume: "₹320 Cr", duration: "3.4 years", accrued: 7.85, segment: "FMCG" },
-        { id: "corp-17", isin: "INE017A07017", name: "ITC Limited 7.40% 2030", type: "Corporate Bond", issuer: "ITC Limited", maturityDate: "2030-08-12", couponRate: 7.40, currentYield: 7.32, ytm: 7.36, rating: "AAA", faceValue: 1000, currentPrice: 1010.50, minInvestment: 100000, tradingVolume: "₹285 Cr", duration: "5.7 years", accrued: 4.95, segment: "FMCG" },
-        { id: "corp-18", isin: "INE018A07018", name: "Infosys 7.35% 2029", type: "Corporate Bond", issuer: "Infosys Limited", maturityDate: "2029-05-20", couponRate: 7.35, currentYield: 7.28, ytm: 7.32, rating: "AAA", faceValue: 1000, currentPrice: 1009.75, minInvestment: 100000, tradingVolume: "₹455 Cr", duration: "4.5 years", accrued: 6.15, segment: "IT Services" },
-        { id: "corp-19", isin: "INE019A07019", name: "Wipro 7.45% 2028", type: "Corporate Bond", issuer: "Wipro Limited", maturityDate: "2028-10-08", couponRate: 7.45, currentYield: 7.38, ytm: 7.42, rating: "AAA", faceValue: 1000, currentPrice: 1011.25, minInvestment: 100000, tradingVolume: "₹340 Cr", duration: "3.9 years", accrued: 3.25, segment: "IT Services" },
-        { id: "corp-20", isin: "INE020A07020", name: "HCL Technologies 7.55% 2030", type: "Corporate Bond", issuer: "HCL Technologies Ltd", maturityDate: "2030-01-15", couponRate: 7.55, currentYield: 7.48, ytm: 7.52, rating: "AAA", faceValue: 1000, currentPrice: 1013.50, minInvestment: 100000, tradingVolume: "₹295 Cr", duration: "5.1 years", accrued: 9.75, segment: "IT Services" },
-        { id: "corp-21", isin: "INE021A07021", name: "Bharti Airtel 8.15% 2031", type: "Corporate Bond", issuer: "Bharti Airtel Ltd", maturityDate: "2031-06-25", couponRate: 8.15, currentYield: 8.05, ytm: 8.10, rating: "AA+", faceValue: 1000, currentPrice: 1025.75, minInvestment: 100000, tradingVolume: "₹485 Cr", duration: "6.5 years", accrued: 5.45, segment: "Telecom" },
-        { id: "corp-22", isin: "INE022A07022", name: "JSW Steel 8.65% 2030", type: "Corporate Bond", issuer: "JSW Steel Ltd", maturityDate: "2030-04-18", couponRate: 8.65, currentYield: 8.52, ytm: 8.58, rating: "AA", faceValue: 1000, currentPrice: 1038.25, minInvestment: 100000, tradingVolume: "₹365 Cr", duration: "5.4 years", accrued: 7.65, segment: "Steel" },
-        { id: "corp-23", isin: "INE023A07023", name: "Hindalco 8.40% 2029", type: "Corporate Bond", issuer: "Hindalco Industries", maturityDate: "2029-11-22", couponRate: 8.40, currentYield: 8.28, ytm: 8.34, rating: "AA+", faceValue: 1000, currentPrice: 1032.50, minInvestment: 100000, tradingVolume: "₹310 Cr", duration: "5.0 years", accrued: 2.85, segment: "Metals" },
-        { id: "corp-24", isin: "INE024A07024", name: "Vedanta 9.25% 2028", type: "Corporate Bond", issuer: "Vedanta Limited", maturityDate: "2028-08-30", couponRate: 9.25, currentYield: 9.08, ytm: 9.15, rating: "A+", faceValue: 1000, currentPrice: 1045.75, minInvestment: 100000, tradingVolume: "₹245 Cr", duration: "3.7 years", accrued: 4.55, segment: "Metals" },
-        { id: "corp-25", isin: "INE025A07025", name: "UltraTech Cement 7.70% 2030", type: "Corporate Bond", issuer: "UltraTech Cement Ltd", maturityDate: "2030-07-10", couponRate: 7.70, currentYield: 7.62, ytm: 7.66, rating: "AAA", faceValue: 1000, currentPrice: 1018.50, minInvestment: 100000, tradingVolume: "₹275 Cr", duration: "5.6 years", accrued: 6.95, segment: "Cement" },
-        { id: "corp-26", isin: "INE026A07026", name: "Ambuja Cements 7.60% 2029", type: "Corporate Bond", issuer: "Ambuja Cements Ltd", maturityDate: "2029-02-14", couponRate: 7.60, currentYield: 7.52, ytm: 7.56, rating: "AAA", faceValue: 1000, currentPrice: 1015.25, minInvestment: 100000, tradingVolume: "₹215 Cr", duration: "4.2 years", accrued: 10.85, segment: "Cement" },
-        { id: "corp-27", isin: "INE027A07027", name: "Hero MotoCorp 7.30% 2028", type: "Corporate Bond", issuer: "Hero MotoCorp Ltd", maturityDate: "2028-06-18", couponRate: 7.30, currentYield: 7.22, ytm: 7.26, rating: "AAA", faceValue: 1000, currentPrice: 1010.75, minInvestment: 100000, tradingVolume: "₹185 Cr", duration: "3.5 years", accrued: 5.65, segment: "Auto" },
-        { id: "corp-28", isin: "INE028A07028", name: "Maruti Suzuki 7.20% 2029", type: "Corporate Bond", issuer: "Maruti Suzuki India", maturityDate: "2029-09-25", couponRate: 7.20, currentYield: 7.12, ytm: 7.16, rating: "AAA", faceValue: 1000, currentPrice: 1008.50, minInvestment: 100000, tradingVolume: "₹235 Cr", duration: "4.8 years", accrued: 3.45, segment: "Auto" },
-        { id: "corp-29", isin: "INE029A07029", name: "Tata Motors 8.80% 2030", type: "Corporate Bond", issuer: "Tata Motors Ltd", maturityDate: "2030-03-12", couponRate: 8.80, currentYield: 8.65, ytm: 8.72, rating: "AA-", faceValue: 1000, currentPrice: 1042.25, minInvestment: 100000, tradingVolume: "₹395 Cr", duration: "5.3 years", accrued: 11.25, segment: "Auto" },
-        { id: "corp-30", isin: "INE030A07030", name: "Sun Pharma 7.65% 2029", type: "Corporate Bond", issuer: "Sun Pharmaceutical", maturityDate: "2029-07-08", couponRate: 7.65, currentYield: 7.55, ytm: 7.60, rating: "AA+", faceValue: 1000, currentPrice: 1016.75, minInvestment: 100000, tradingVolume: "₹265 Cr", duration: "4.6 years", accrued: 7.15, segment: "Pharma" },
-        { id: "corp-31", isin: "INE031A07031", name: "Dr Reddy's 7.50% 2028", type: "Corporate Bond", issuer: "Dr Reddy's Laboratories", maturityDate: "2028-12-05", couponRate: 7.50, currentYield: 7.42, ytm: 7.46, rating: "AA+", faceValue: 1000, currentPrice: 1012.50, minInvestment: 100000, tradingVolume: "₹195 Cr", duration: "4.0 years", accrued: 8.85, segment: "Pharma" },
-        { id: "corp-32", isin: "INE032A07032", name: "Cipla 7.55% 2030", type: "Corporate Bond", issuer: "Cipla Limited", maturityDate: "2030-05-22", couponRate: 7.55, currentYield: 7.48, ytm: 7.52, rating: "AA+", faceValue: 1000, currentPrice: 1014.25, minInvestment: 100000, tradingVolume: "₹175 Cr", duration: "5.4 years", accrued: 4.25, segment: "Pharma" },
-        { id: "corp-33", isin: "INE033A07033", name: "Godrej Consumer 7.40% 2029", type: "Corporate Bond", issuer: "Godrej Consumer Products", maturityDate: "2029-04-15", couponRate: 7.40, currentYield: 7.32, ytm: 7.36, rating: "AAA", faceValue: 1000, currentPrice: 1011.50, minInvestment: 100000, tradingVolume: "₹145 Cr", duration: "4.4 years", accrued: 7.55, segment: "FMCG" },
-        { id: "corp-34", isin: "INE034A07034", name: "Dabur India 7.35% 2028", type: "Corporate Bond", issuer: "Dabur India Ltd", maturityDate: "2028-11-28", couponRate: 7.35, currentYield: 7.28, ytm: 7.32, rating: "AAA", faceValue: 1000, currentPrice: 1010.25, minInvestment: 100000, tradingVolume: "₹125 Cr", duration: "3.9 years", accrued: 1.95, segment: "FMCG" },
-        { id: "corp-35", isin: "INE035A07035", name: "Asian Paints 7.25% 2030", type: "Corporate Bond", issuer: "Asian Paints Ltd", maturityDate: "2030-02-10", couponRate: 7.25, currentYield: 7.18, ytm: 7.22, rating: "AAA", faceValue: 1000, currentPrice: 1009.50, minInvestment: 100000, tradingVolume: "₹165 Cr", duration: "5.2 years", accrued: 10.15, segment: "Paints" }
+        {
+          id: "corp-1",
+          name: "HDFC Bank 8.25% 2027",
+          type: "Corporate Bond",
+          issuer: "HDFC Bank Ltd",
+          maturityDate: "2027-03-15",
+          couponRate: 8.25,
+          currentYield: 8.12,
+          ytm: 8.18,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1025.50,
+          minInvestment: 100000,
+          tradingVolume: "₹945 Cr",
+          duration: "2.8 years",
+          accrued: 12.50,
+          segment: "Banking"
+        },
+        {
+          id: "corp-2",
+          name: "Reliance Industries 7.95% 2030",
+          type: "Corporate Bond",
+          issuer: "Reliance Industries Ltd",
+          maturityDate: "2030-06-20",
+          couponRate: 7.95,
+          currentYield: 7.88,
+          ytm: 7.91,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1018.75,
+          minInvestment: 100000,
+          tradingVolume: "₹1,230 Cr",
+          duration: "5.1 years",
+          accrued: 8.75,
+          segment: "Energy"
+        },
+        {
+          id: "corp-3",
+          name: "TCS 7.50% 2029",
+          type: "Corporate Bond",
+          issuer: "Tata Consultancy Services",
+          maturityDate: "2029-09-10",
+          couponRate: 7.50,
+          currentYield: 7.42,
+          ytm: 7.46,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1012.25,
+          minInvestment: 100000,
+          tradingVolume: "₹675 Cr",
+          duration: "4.6 years",
+          accrued: 6.25,
+          segment: "IT Services"
+        }
       ];
 
       res.json({
         status: "success",
-        count: corporateBonds.length,
         data: corporateBonds
       });
     } catch (error) {
@@ -5590,30 +5132,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tax-free bonds data
-  // Tax-free bonds - public access for viewing
-  app.get("/api/bonds/tax-free", async (req, res) => {
+  app.get("/api/bonds/tax-free", requireLevel2, async (req, res) => {
     try {
       const taxFreeBonds = [
-        { id: "tax-1", isin: "INE906B07GQ1", name: "NHAI 7.35% 2035", type: "Tax Free Bond", issuer: "National Highways Authority of India", maturityDate: "2035-02-28", couponRate: 7.35, currentYield: 7.28, ytm: 7.31, rating: "AAA", faceValue: 1000, currentPrice: 1015.25, minInvestment: 10000, tradingVolume: "₹450 Cr", duration: "9.8 years", accrued: 15.25, segment: "Infrastructure", taxBenefit: "Tax-free interest" },
-        { id: "tax-2", isin: "INE053F07AH5", name: "IRFC 7.30% 2034", type: "Tax Free Bond", issuer: "Indian Railway Finance Corporation", maturityDate: "2034-12-15", couponRate: 7.30, currentYield: 7.22, ytm: 7.26, rating: "AAA", faceValue: 1000, currentPrice: 1012.80, minInvestment: 10000, tradingVolume: "₹320 Cr", duration: "9.2 years", accrued: 12.80, segment: "Railways", taxBenefit: "Tax-free interest" },
-        { id: "tax-3", isin: "INE134E07JQ8", name: "PFC 7.40% 2033", type: "Tax Free Bond", issuer: "Power Finance Corporation", maturityDate: "2033-09-22", couponRate: 7.40, currentYield: 7.32, ytm: 7.36, rating: "AAA", faceValue: 1000, currentPrice: 1018.50, minInvestment: 10000, tradingVolume: "₹285 Cr", duration: "8.8 years", accrued: 8.45, segment: "Power", taxBenefit: "Tax-free interest" },
-        { id: "tax-4", isin: "INE020B07HR7", name: "REC 7.38% 2034", type: "Tax Free Bond", issuer: "Rural Electrification Corporation", maturityDate: "2034-06-18", couponRate: 7.38, currentYield: 7.30, ytm: 7.34, rating: "AAA", faceValue: 1000, currentPrice: 1016.25, minInvestment: 10000, tradingVolume: "₹265 Cr", duration: "9.5 years", accrued: 5.65, segment: "Power", taxBenefit: "Tax-free interest" },
-        { id: "tax-5", isin: "INE848E07DU5", name: "HUDCO 7.42% 2033", type: "Tax Free Bond", issuer: "Housing & Urban Development Corp", maturityDate: "2033-03-25", couponRate: 7.42, currentYield: 7.35, ytm: 7.38, rating: "AAA", faceValue: 1000, currentPrice: 1019.75, minInvestment: 10000, tradingVolume: "₹195 Cr", duration: "8.3 years", accrued: 11.25, segment: "Housing", taxBenefit: "Tax-free interest" },
-        { id: "tax-6", isin: "INE261F07CY9", name: "NABARD 7.28% 2035", type: "Tax Free Bond", issuer: "National Bank for Agriculture", maturityDate: "2035-08-10", couponRate: 7.28, currentYield: 7.20, ytm: 7.24, rating: "AAA", faceValue: 1000, currentPrice: 1010.50, minInvestment: 10000, tradingVolume: "₹225 Cr", duration: "10.7 years", accrued: 6.85, segment: "Agriculture", taxBenefit: "Tax-free interest" },
-        { id: "tax-7", isin: "INE557F07AK6", name: "NHB 7.32% 2034", type: "Tax Free Bond", issuer: "National Housing Bank", maturityDate: "2034-04-15", couponRate: 7.32, currentYield: 7.24, ytm: 7.28, rating: "AAA", faceValue: 1000, currentPrice: 1014.25, minInvestment: 10000, tradingVolume: "₹175 Cr", duration: "9.4 years", accrued: 7.95, segment: "Housing", taxBenefit: "Tax-free interest" },
-        { id: "tax-8", isin: "INE906B07GR9", name: "NHAI 7.45% 2032", type: "Tax Free Bond", issuer: "National Highways Authority of India", maturityDate: "2032-11-28", couponRate: 7.45, currentYield: 7.38, ytm: 7.42, rating: "AAA", faceValue: 1000, currentPrice: 1022.50, minInvestment: 10000, tradingVolume: "₹385 Cr", duration: "7.9 years", accrued: 2.45, segment: "Infrastructure", taxBenefit: "Tax-free interest" },
-        { id: "tax-9", isin: "INE053F07AI3", name: "IRFC 7.48% 2033", type: "Tax Free Bond", issuer: "Indian Railway Finance Corporation", maturityDate: "2033-07-20", couponRate: 7.48, currentYield: 7.40, ytm: 7.44, rating: "AAA", faceValue: 1000, currentPrice: 1024.75, minInvestment: 10000, tradingVolume: "₹295 Cr", duration: "8.6 years", accrued: 5.15, segment: "Railways", taxBenefit: "Tax-free interest" },
-        { id: "tax-10", isin: "INE134E07JR6", name: "PFC 7.52% 2032", type: "Tax Free Bond", issuer: "Power Finance Corporation", maturityDate: "2032-05-12", couponRate: 7.52, currentYield: 7.45, ytm: 7.48, rating: "AAA", faceValue: 1000, currentPrice: 1028.25, minInvestment: 10000, tradingVolume: "₹255 Cr", duration: "7.4 years", accrued: 9.85, segment: "Power", taxBenefit: "Tax-free interest" },
-        { id: "tax-11", isin: "INE020B07HS5", name: "REC 7.55% 2031", type: "Tax Free Bond", issuer: "Rural Electrification Corporation", maturityDate: "2031-10-08", couponRate: 7.55, currentYield: 7.48, ytm: 7.52, rating: "AAA", faceValue: 1000, currentPrice: 1030.50, minInvestment: 10000, tradingVolume: "₹215 Cr", duration: "6.8 years", accrued: 3.25, segment: "Power", taxBenefit: "Tax-free interest" },
-        { id: "tax-12", isin: "INE848E07DV3", name: "HUDCO 7.50% 2032", type: "Tax Free Bond", issuer: "Housing & Urban Development Corp", maturityDate: "2032-02-18", couponRate: 7.50, currentYield: 7.42, ytm: 7.46, rating: "AAA", faceValue: 1000, currentPrice: 1026.75, minInvestment: 10000, tradingVolume: "₹165 Cr", duration: "7.2 years", accrued: 10.55, segment: "Housing", taxBenefit: "Tax-free interest" },
-        { id: "tax-13", isin: "INE261F07CZ6", name: "NABARD 7.35% 2033", type: "Tax Free Bond", issuer: "National Bank for Agriculture", maturityDate: "2033-12-05", couponRate: 7.35, currentYield: 7.28, ytm: 7.32, rating: "AAA", faceValue: 1000, currentPrice: 1018.25, minInvestment: 10000, tradingVolume: "₹185 Cr", duration: "9.0 years", accrued: 8.75, segment: "Agriculture", taxBenefit: "Tax-free interest" },
-        { id: "tax-14", isin: "INE557F07AL4", name: "NHB 7.58% 2031", type: "Tax Free Bond", issuer: "National Housing Bank", maturityDate: "2031-06-25", couponRate: 7.58, currentYield: 7.50, ytm: 7.54, rating: "AAA", faceValue: 1000, currentPrice: 1032.50, minInvestment: 10000, tradingVolume: "₹145 Cr", duration: "6.5 years", accrued: 5.95, segment: "Housing", taxBenefit: "Tax-free interest" },
-        { id: "tax-15", isin: "INE906B07GS7", name: "NHAI 7.60% 2030", type: "Tax Free Bond", issuer: "National Highways Authority of India", maturityDate: "2030-09-15", couponRate: 7.60, currentYield: 7.52, ytm: 7.56, rating: "AAA", faceValue: 1000, currentPrice: 1035.25, minInvestment: 10000, tradingVolume: "₹345 Cr", duration: "5.8 years", accrued: 4.15, segment: "Infrastructure", taxBenefit: "Tax-free interest" }
+        {
+          id: "tax-1",
+          name: "NHAI 7.35% 2035",
+          type: "Tax Free Bond",
+          issuer: "National Highways Authority of India",
+          maturityDate: "2035-02-28",
+          couponRate: 7.35,
+          currentYield: 7.28,
+          ytm: 7.31,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1015.25,
+          minInvestment: 100000,
+          tradingVolume: "₹450 Cr",
+          duration: "9.8 years",
+          accrued: 15.25,
+          segment: "Infrastructure",
+          taxBenefit: "Tax-free interest"
+        },
+        {
+          id: "tax-2",
+          name: "IRFC 7.30% 2034",
+          type: "Tax Free Bond",
+          issuer: "Indian Railway Finance Corporation",
+          maturityDate: "2034-12-15",
+          couponRate: 7.30,
+          currentYield: 7.22,
+          ytm: 7.26,
+          rating: "AAA",
+          faceValue: 1000,
+          currentPrice: 1012.80,
+          minInvestment: 100000,
+          tradingVolume: "₹320 Cr",
+          duration: "9.2 years",
+          accrued: 12.80,
+          segment: "Railways",
+          taxBenefit: "Tax-free interest"
+        }
       ];
 
       res.json({
         status: "success",
-        count: taxFreeBonds.length,
         data: taxFreeBonds
       });
     } catch (error) {
@@ -5625,1383 +5188,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get NCD (Non-Convertible Debentures) data
-  app.get("/api/bonds/ncd", async (req, res) => {
-    try {
-      const ncdBonds = [
-        { id: "ncd-1", isin: "INE001A08024", name: "HDFC Ltd 9.25% NCD 2028", type: "Non-Convertible Debenture", issuer: "HDFC Ltd", maturityDate: "2028-03-15", couponRate: 9.25, currentYield: 9.12, yieldToMaturity: 9.18, rating: "AAA", faceValue: 1000, currentPrice: 1045.50, minInvestment: 10000, tradingVolume: "₹245 Cr", duration: "3.2 years", accrued: 18.50, segment: "Finance" },
-        { id: "ncd-2", isin: "INE002A08035", name: "Bajaj Finance 9.50% NCD 2029", type: "Non-Convertible Debenture", issuer: "Bajaj Finance Ltd", maturityDate: "2029-06-20", couponRate: 9.50, currentYield: 9.38, yieldToMaturity: 9.45, rating: "AAA", faceValue: 1000, currentPrice: 1028.75, minInvestment: 10000, tradingVolume: "₹180 Cr", duration: "4.1 years", accrued: 12.75, segment: "Finance" },
-        { id: "ncd-3", isin: "INE003A08046", name: "Tata Capital 8.75% NCD 2027", type: "Non-Convertible Debenture", issuer: "Tata Capital Ltd", maturityDate: "2027-09-10", couponRate: 8.75, currentYield: 8.62, yieldToMaturity: 8.70, rating: "AA+", faceValue: 1000, currentPrice: 1018.25, minInvestment: 10000, tradingVolume: "₹125 Cr", duration: "2.6 years", accrued: 8.25, segment: "Finance" },
-        { id: "ncd-4", isin: "INE004A08057", name: "Mahindra Finance 9.00% NCD 2030", type: "Non-Convertible Debenture", issuer: "Mahindra & Mahindra Financial", maturityDate: "2030-12-15", couponRate: 9.00, currentYield: 8.88, yieldToMaturity: 8.95, rating: "AA+", faceValue: 1000, currentPrice: 1035.50, minInvestment: 10000, tradingVolume: "₹95 Cr", duration: "5.3 years", accrued: 15.50, segment: "Finance" },
-        { id: "ncd-5", isin: "INE005A08068", name: "Shriram Finance 9.75% NCD 2028", type: "Non-Convertible Debenture", issuer: "Shriram Finance Ltd", maturityDate: "2028-08-25", couponRate: 9.75, currentYield: 9.62, yieldToMaturity: 9.68, rating: "AA", faceValue: 1000, currentPrice: 1052.25, minInvestment: 10000, tradingVolume: "₹165 Cr", duration: "3.7 years", accrued: 6.85, segment: "Finance" },
-        { id: "ncd-6", isin: "INE006A08079", name: "Muthoot Finance 9.40% NCD 2029", type: "Non-Convertible Debenture", issuer: "Muthoot Finance Ltd", maturityDate: "2029-04-18", couponRate: 9.40, currentYield: 9.28, yieldToMaturity: 9.34, rating: "AA+", faceValue: 1000, currentPrice: 1042.75, minInvestment: 10000, tradingVolume: "₹142 Cr", duration: "4.4 years", accrued: 7.95, segment: "Gold Loan" },
-        { id: "ncd-7", isin: "INE007A08080", name: "IIFL Finance 9.55% NCD 2028", type: "Non-Convertible Debenture", issuer: "IIFL Finance Ltd", maturityDate: "2028-11-10", couponRate: 9.55, currentYield: 9.42, yieldToMaturity: 9.48, rating: "AA", faceValue: 1000, currentPrice: 1048.50, minInvestment: 10000, tradingVolume: "₹118 Cr", duration: "3.9 years", accrued: 3.45, segment: "Finance" },
-        { id: "ncd-8", isin: "INE008A08091", name: "PNB Housing 9.30% NCD 2029", type: "Non-Convertible Debenture", issuer: "PNB Housing Finance", maturityDate: "2029-07-22", couponRate: 9.30, currentYield: 9.18, yieldToMaturity: 9.24, rating: "AA", faceValue: 1000, currentPrice: 1038.25, minInvestment: 10000, tradingVolume: "₹95 Cr", duration: "4.6 years", accrued: 5.25, segment: "Housing" },
-        { id: "ncd-9", isin: "INE009A08102", name: "L&T Finance 9.15% NCD 2030", type: "Non-Convertible Debenture", issuer: "L&T Finance Holdings", maturityDate: "2030-02-28", couponRate: 9.15, currentYield: 9.02, yieldToMaturity: 9.08, rating: "AA+", faceValue: 1000, currentPrice: 1035.75, minInvestment: 10000, tradingVolume: "₹135 Cr", duration: "5.2 years", accrued: 11.85, segment: "Finance" },
-        { id: "ncd-10", isin: "INE010A08113", name: "Cholamandalam 9.20% NCD 2028", type: "Non-Convertible Debenture", issuer: "Cholamandalam Investment", maturityDate: "2028-05-15", couponRate: 9.20, currentYield: 9.08, yieldToMaturity: 9.14, rating: "AA+", faceValue: 1000, currentPrice: 1032.50, minInvestment: 10000, tradingVolume: "₹112 Cr", duration: "3.4 years", accrued: 9.65, segment: "Finance" },
-        { id: "ncd-11", isin: "INE011A08124", name: "Sundaram Finance 8.90% NCD 2029", type: "Non-Convertible Debenture", issuer: "Sundaram Finance Ltd", maturityDate: "2029-10-08", couponRate: 8.90, currentYield: 8.78, yieldToMaturity: 8.84, rating: "AAA", faceValue: 1000, currentPrice: 1028.75, minInvestment: 10000, tradingVolume: "₹88 Cr", duration: "4.8 years", accrued: 2.85, segment: "Finance" },
-        { id: "ncd-12", isin: "INE012A08135", name: "Aditya Birla Finance 9.10% NCD 2028", type: "Non-Convertible Debenture", issuer: "Aditya Birla Finance", maturityDate: "2028-06-20", couponRate: 9.10, currentYield: 8.98, yieldToMaturity: 9.04, rating: "AAA", faceValue: 1000, currentPrice: 1030.25, minInvestment: 10000, tradingVolume: "₹105 Cr", duration: "3.5 years", accrued: 5.95, segment: "Finance" },
-        { id: "ncd-13", isin: "INE013A08146", name: "Piramal Capital 10.25% NCD 2029", type: "Non-Convertible Debenture", issuer: "Piramal Capital & Housing", maturityDate: "2029-01-25", couponRate: 10.25, currentYield: 10.08, yieldToMaturity: 10.15, rating: "A+", faceValue: 1000, currentPrice: 1058.50, minInvestment: 10000, tradingVolume: "₹72 Cr", duration: "4.1 years", accrued: 10.45, segment: "Housing" },
-        { id: "ncd-14", isin: "INE014A08157", name: "JM Financial 9.65% NCD 2028", type: "Non-Convertible Debenture", issuer: "JM Financial Ltd", maturityDate: "2028-09-12", couponRate: 9.65, currentYield: 9.52, yieldToMaturity: 9.58, rating: "AA", faceValue: 1000, currentPrice: 1048.75, minInvestment: 10000, tradingVolume: "₹65 Cr", duration: "3.8 years", accrued: 4.25, segment: "Finance" },
-        { id: "ncd-15", isin: "INE015A08168", name: "Edelweiss Finance 9.80% NCD 2029", type: "Non-Convertible Debenture", issuer: "Edelweiss Financial", maturityDate: "2029-03-18", couponRate: 9.80, currentYield: 9.65, yieldToMaturity: 9.72, rating: "AA-", faceValue: 1000, currentPrice: 1055.25, minInvestment: 10000, tradingVolume: "₹58 Cr", duration: "4.3 years", accrued: 11.25, segment: "Finance" },
-        { id: "ncd-16", isin: "INE016A08179", name: "Kotak Mahindra Prime 8.85% NCD 2030", type: "Non-Convertible Debenture", issuer: "Kotak Mahindra Prime", maturityDate: "2030-06-15", couponRate: 8.85, currentYield: 8.72, yieldToMaturity: 8.78, rating: "AAA", faceValue: 1000, currentPrice: 1025.50, minInvestment: 10000, tradingVolume: "₹125 Cr", duration: "5.5 years", accrued: 5.65, segment: "Finance" },
-        { id: "ncd-17", isin: "INE017A08180", name: "ICICI Home Finance 9.05% NCD 2029", type: "Non-Convertible Debenture", issuer: "ICICI Home Finance", maturityDate: "2029-08-25", couponRate: 9.05, currentYield: 8.92, yieldToMaturity: 8.98, rating: "AAA", faceValue: 1000, currentPrice: 1028.25, minInvestment: 10000, tradingVolume: "₹98 Cr", duration: "4.7 years", accrued: 1.95, segment: "Housing" },
-        { id: "ncd-18", isin: "INE018A08191", name: "Can Fin Homes 8.95% NCD 2028", type: "Non-Convertible Debenture", issuer: "Can Fin Homes Ltd", maturityDate: "2028-12-10", couponRate: 8.95, currentYield: 8.82, yieldToMaturity: 8.88, rating: "AA+", faceValue: 1000, currentPrice: 1025.75, minInvestment: 10000, tradingVolume: "₹75 Cr", duration: "4.0 years", accrued: 8.75, segment: "Housing" },
-        { id: "ncd-19", isin: "INE019A08202", name: "Indiabulls Housing 10.50% NCD 2028", type: "Non-Convertible Debenture", issuer: "Indiabulls Housing Finance", maturityDate: "2028-04-22", couponRate: 10.50, currentYield: 10.32, yieldToMaturity: 10.40, rating: "A", faceValue: 1000, currentPrice: 1065.50, minInvestment: 10000, tradingVolume: "₹48 Cr", duration: "3.4 years", accrued: 7.85, segment: "Housing" },
-        { id: "ncd-20", isin: "INE020A08213", name: "Hero FinCorp 9.35% NCD 2029", type: "Non-Convertible Debenture", issuer: "Hero FinCorp Ltd", maturityDate: "2029-05-30", couponRate: 9.35, currentYield: 9.22, yieldToMaturity: 9.28, rating: "AA", faceValue: 1000, currentPrice: 1042.25, minInvestment: 10000, tradingVolume: "₹82 Cr", duration: "4.5 years", accrued: 4.55, segment: "Finance" },
-        { id: "ncd-21", isin: "INE021A08224", name: "Manappuram Finance 9.85% NCD 2028", type: "Non-Convertible Debenture", issuer: "Manappuram Finance", maturityDate: "2028-07-15", couponRate: 9.85, currentYield: 9.70, yieldToMaturity: 9.78, rating: "AA-", faceValue: 1000, currentPrice: 1055.75, minInvestment: 10000, tradingVolume: "₹92 Cr", duration: "3.6 years", accrued: 6.45, segment: "Gold Loan" },
-        { id: "ncd-22", isin: "INE022A08235", name: "Tata Housing 9.00% NCD 2030", type: "Non-Convertible Debenture", issuer: "Tata Housing Development", maturityDate: "2030-09-20", couponRate: 9.00, currentYield: 8.88, yieldToMaturity: 8.94, rating: "AA+", faceValue: 1000, currentPrice: 1032.50, minInvestment: 10000, tradingVolume: "₹68 Cr", duration: "5.8 years", accrued: 3.25, segment: "Housing" },
-        { id: "ncd-23", isin: "INE023A08246", name: "Godrej Capital 9.15% NCD 2029", type: "Non-Convertible Debenture", issuer: "Godrej Capital Ltd", maturityDate: "2029-02-12", couponRate: 9.15, currentYield: 9.02, yieldToMaturity: 9.08, rating: "AA+", faceValue: 1000, currentPrice: 1035.25, minInvestment: 10000, tradingVolume: "₹55 Cr", duration: "4.2 years", accrued: 10.85, segment: "Finance" },
-        { id: "ncd-24", isin: "INE024A08257", name: "Fedbank Financial 9.70% NCD 2028", type: "Non-Convertible Debenture", issuer: "Fedbank Financial Services", maturityDate: "2028-10-28", couponRate: 9.70, currentYield: 9.55, yieldToMaturity: 9.62, rating: "AA-", faceValue: 1000, currentPrice: 1052.75, minInvestment: 10000, tradingVolume: "₹45 Cr", duration: "3.9 years", accrued: 2.65, segment: "Finance" },
-        { id: "ncd-25", isin: "INE025A08268", name: "Hinduja Leyland 9.45% NCD 2029", type: "Non-Convertible Debenture", issuer: "Hinduja Leyland Finance", maturityDate: "2029-06-08", couponRate: 9.45, currentYield: 9.32, yieldToMaturity: 9.38, rating: "AA", faceValue: 1000, currentPrice: 1045.50, minInvestment: 10000, tradingVolume: "₹62 Cr", duration: "4.5 years", accrued: 5.75, segment: "Finance" },
-        { id: "ncd-26", isin: "INE026A08279", name: "Aptus Value Housing 9.60% NCD 2028", type: "Non-Convertible Debenture", issuer: "Aptus Value Housing", maturityDate: "2028-03-25", couponRate: 9.60, currentYield: 9.45, yieldToMaturity: 9.52, rating: "AA-", faceValue: 1000, currentPrice: 1048.25, minInvestment: 10000, tradingVolume: "₹38 Cr", duration: "3.3 years", accrued: 11.55, segment: "Housing" },
-        { id: "ncd-27", isin: "INE027A08280", name: "Home First Finance 9.25% NCD 2029", type: "Non-Convertible Debenture", issuer: "Home First Finance Co", maturityDate: "2029-11-15", couponRate: 9.25, currentYield: 9.12, yieldToMaturity: 9.18, rating: "AA-", faceValue: 1000, currentPrice: 1038.75, minInvestment: 10000, tradingVolume: "₹42 Cr", duration: "4.9 years", accrued: 1.45, segment: "Housing" },
-        { id: "ncd-28", isin: "INE028A08291", name: "Five Star Business 10.10% NCD 2028", type: "Non-Convertible Debenture", issuer: "Five Star Business Finance", maturityDate: "2028-08-18", couponRate: 10.10, currentYield: 9.95, yieldToMaturity: 10.02, rating: "A+", faceValue: 1000, currentPrice: 1058.50, minInvestment: 10000, tradingVolume: "₹35 Cr", duration: "3.7 years", accrued: 4.95, segment: "Finance" },
-        { id: "ncd-29", isin: "INE029A08302", name: "Satin Creditcare 10.35% NCD 2029", type: "Non-Convertible Debenture", issuer: "Satin Creditcare Network", maturityDate: "2029-04-05", couponRate: 10.35, currentYield: 10.18, yieldToMaturity: 10.25, rating: "A", faceValue: 1000, currentPrice: 1062.25, minInvestment: 10000, tradingVolume: "₹28 Cr", duration: "4.3 years", accrued: 7.65, segment: "Microfinance" },
-        { id: "ncd-30", isin: "INE030A08313", name: "CreditAccess Grameen 9.95% NCD 2028", type: "Non-Convertible Debenture", issuer: "CreditAccess Grameen", maturityDate: "2028-01-22", couponRate: 9.95, currentYield: 9.80, yieldToMaturity: 9.88, rating: "AA-", faceValue: 1000, currentPrice: 1052.75, minInvestment: 10000, tradingVolume: "₹52 Cr", duration: "3.1 years", accrued: 9.25, segment: "Microfinance" }
-      ];
-
-      res.json({
-        status: "success",
-        count: ncdBonds.length,
-        data: ncdBonds
-      });
-    } catch (error) {
-      console.error("Error fetching NCD bonds:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch NCD bonds data"
-      });
-    }
-  });
-
-  // Get single bond details by ISIN
-  app.get("/api/bonds/detail/:isin", async (req, res) => {
-    try {
-      const { isin } = req.params;
-      
-      // Search across all bond sources
-      const allBonds: any[] = [];
-      
-// Government bonds - including bonds from /api/bonds/government endpoint
-      const govBonds = [
-        {
-          id: "gov-1",
-          isin: "IN0020220035",
-          name: "7.26% Government of India 2033",
-          type: "Government Security",
-          bondType: "g_sec",
-          issuer: "Government of India",
-          maturityDate: "2033-01-14",
-          issueDate: "2022-01-14",
-          couponRate: 7.26,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.18,
-          yieldToMaturity: 7.22,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 102.50,
-          lastTradedPrice: 102.50,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹2,450 Cr",
-          duration: 7.8,
-          modifiedDuration: 7.2,
-          segment: "Government",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "gsec-1",
-          isin: "GSEC-717-2028",
-          name: "7.17% GS 2028",
-          type: "Government Security",
-          bondType: "g_sec",
-          issuer: "Government of India",
-          maturityDate: "2028-01-08",
-          issueDate: "2023-01-08",
-          couponRate: 7.17,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.05,
-          yieldToMaturity: 7.12,
-          ytm: 7.12,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 101.25,
-          lastTradedPrice: 101.25,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹2,450 Cr",
-          duration: 4.2,
-          modifiedDuration: 4.0,
-          accrued: 1.25,
-          segment: "Government",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "gsec-2",
-          isin: "GSEC-654-2032",
-          name: "6.54% GS 2032",
-          type: "Government Security",
-          bondType: "g_sec",
-          issuer: "Government of India",
-          maturityDate: "2032-01-01",
-          issueDate: "2022-01-01",
-          couponRate: 6.54,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 6.48,
-          yieldToMaturity: 6.52,
-          ytm: 6.52,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 100.85,
-          lastTradedPrice: 100.85,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹1,890 Cr",
-          duration: 6.8,
-          modifiedDuration: 6.4,
-          accrued: 0.85,
-          segment: "Government",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "treasury-1",
-          isin: "TBILL-91-2025",
-          name: "91 Day T-Bill",
-          type: "Treasury Bill",
-          bondType: "t_bill",
-          issuer: "Government of India",
-          maturityDate: "2025-04-15",
-          issueDate: "2025-01-15",
-          couponRate: 0,
-          couponType: "Zero Coupon",
-          couponFrequency: "None",
-          currentYield: 6.95,
-          yieldToMaturity: 6.95,
-          ytm: 6.95,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 98.23,
-          lastTradedPrice: 98.23,
-          minInvestment: 25000,
-          minimumLotSize: 250,
-          tradingVolume: "₹8,750 Cr",
-          duration: 0.25,
-          modifiedDuration: 0.24,
-          accrued: 0,
-          segment: "Treasury",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        // G-Sec Auction bonds (from /api/bonds/trading/gsec/auctions)
-        {
-          id: "gsec-auction-1",
-          isin: "IN0020250111",
-          name: "7.18% GS 2033",
-          securityName: "7.18% GS 2033",
-          type: "Government Security",
-          bondType: "g_sec",
-          issuer: "Government of India",
-          maturityDate: "2035-11-30",
-          issueDate: "2025-01-01",
-          couponRate: 7.18,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.28,
-          yieldToMaturity: 7.28,
-          indicativeYield: 7.28,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.25,
-          lastTradedPrice: 99.25,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹2,500 Cr",
-          duration: 10,
-          modifiedDuration: 9.2,
-          segment: "Government",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "gsec-auction-2",
-          isin: "IN0020610225",
-          name: "6.95% GS 2061",
-          securityName: "6.95% GS 2061",
-          type: "Government Security",
-          bondType: "g_sec",
-          issuer: "Government of India",
-          maturityDate: "2061-02-05",
-          issueDate: "2025-01-01",
-          couponRate: 6.95,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.35,
-          yieldToMaturity: 7.35,
-          indicativeYield: 7.35,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 94.8,
-          lastTradedPrice: 94.8,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹1,500 Cr",
-          duration: 36,
-          modifiedDuration: 33.6,
-          segment: "Government",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "tbill-364",
-          isin: "IN002025T364",
-          name: "364 Days T-Bill",
-          securityName: "364 Days T-Bill",
-          type: "Treasury Bill",
-          bondType: "t_bill",
-          issuer: "Government of India",
-          maturityDate: "2026-11-29",
-          issueDate: "2025-11-30",
-          couponRate: 0,
-          couponType: "Zero Coupon",
-          couponFrequency: "None",
-          currentYield: 7.2,
-          yieldToMaturity: 7.2,
-          indicativeYield: 7.2,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 93.28,
-          lastTradedPrice: 93.28,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹1,000 Cr",
-          duration: 1,
-          modifiedDuration: 0.93,
-          segment: "Treasury",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "tbill-182",
-          isin: "IN002025T182",
-          name: "182 Days T-Bill",
-          securityName: "182 Days T-Bill",
-          type: "Treasury Bill",
-          bondType: "t_bill",
-          issuer: "Government of India",
-          maturityDate: "2026-05-31",
-          issueDate: "2025-11-30",
-          couponRate: 0,
-          couponType: "Zero Coupon",
-          couponFrequency: "None",
-          currentYield: 7.05,
-          yieldToMaturity: 7.05,
-          indicativeYield: 7.05,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 96.52,
-          lastTradedPrice: 96.52,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹800 Cr",
-          duration: 0.5,
-          modifiedDuration: 0.48,
-          segment: "Treasury",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "tbill-91",
-          isin: "IN002025T091",
-          name: "91 Days T-Bill",
-          securityName: "91 Days T-Bill",
-          type: "Treasury Bill",
-          bondType: "t_bill",
-          issuer: "Government of India",
-          maturityDate: "2026-03-01",
-          issueDate: "2025-11-30",
-          couponRate: 0,
-          couponType: "Zero Coupon",
-          couponFrequency: "None",
-          currentYield: 6.95,
-          yieldToMaturity: 6.95,
-          indicativeYield: 6.95,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 98.28,
-          lastTradedPrice: 98.28,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹600 Cr",
-          duration: 0.25,
-          modifiedDuration: 0.24,
-          segment: "Treasury",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-mh-2030",
-          isin: "SDLMH2030001",
-          name: "7.35% Maharashtra SDL 2030",
-          securityName: "7.35% Maharashtra SDL 2030",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Maharashtra",
-          maturityDate: "2030-11-30",
-          issueDate: "2025-11-30",
-          couponRate: 7.35,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.45,
-          yieldToMaturity: 7.45,
-          indicativeYield: 7.45,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.5,
-          lastTradedPrice: 99.5,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹500 Cr",
-          duration: 5,
-          modifiedDuration: 4.6,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-gj-2032",
-          isin: "SDLGJ2032001",
-          name: "7.42% Gujarat SDL 2032",
-          securityName: "7.42% Gujarat SDL 2032",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Gujarat",
-          maturityDate: "2032-06-15",
-          issueDate: "2025-06-15",
-          couponRate: 7.42,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.52,
-          yieldToMaturity: 7.52,
-          indicativeYield: 7.52,
-          rating: "SOV",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.15,
-          lastTradedPrice: 99.15,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹400 Cr",
-          duration: 7,
-          modifiedDuration: 6.5,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-wb-2027",
-          isin: "IN25SDL2027A",
-          name: "West Bengal SDL 7.72% 2027",
-          securityName: "West Bengal SDL 7.72% 2027",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of West Bengal",
-          maturityDate: "2027-06-30",
-          issueDate: "2022-06-30",
-          couponRate: 7.72,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.78,
-          yieldToMaturity: 7.82,
-          indicativeYield: 7.82,
-          rating: "AA",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.42,
-          lastTradedPrice: 99.42,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹480 Cr",
-          duration: 2.6,
-          modifiedDuration: 2.4,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-mh-2030-a",
-          isin: "IN25SDL2030A",
-          name: "Maharashtra SDL 7.45% 2030",
-          securityName: "Maharashtra SDL 7.45% 2030",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Maharashtra",
-          maturityDate: "2030-03-18",
-          issueDate: "2025-03-18",
-          couponRate: 7.45,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.52,
-          yieldToMaturity: 7.55,
-          indicativeYield: 7.55,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.25,
-          lastTradedPrice: 99.25,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹1,250 Cr",
-          duration: 5.3,
-          modifiedDuration: 4.9,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-tn-2030",
-          isin: "IN25SDL2030B",
-          name: "Tamil Nadu SDL 7.52% 2030",
-          securityName: "Tamil Nadu SDL 7.52% 2030",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Tamil Nadu",
-          maturityDate: "2030-06-24",
-          issueDate: "2025-06-24",
-          couponRate: 7.52,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.58,
-          yieldToMaturity: 7.62,
-          indicativeYield: 7.62,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.45,
-          lastTradedPrice: 99.45,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹980 Cr",
-          duration: 5.6,
-          modifiedDuration: 5.2,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-ka-2031",
-          isin: "IN25SDL2031A",
-          name: "Karnataka SDL 7.48% 2031",
-          securityName: "Karnataka SDL 7.48% 2031",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Karnataka",
-          maturityDate: "2031-09-15",
-          issueDate: "2021-09-15",
-          couponRate: 7.48,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.55,
-          yieldToMaturity: 7.58,
-          indicativeYield: 7.58,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.15,
-          lastTradedPrice: 99.15,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹1,120 Cr",
-          duration: 6.8,
-          modifiedDuration: 6.3,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-gj-2032-a",
-          isin: "IN25SDL2032A",
-          name: "Gujarat SDL 7.55% 2032",
-          securityName: "Gujarat SDL 7.55% 2032",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Gujarat",
-          maturityDate: "2032-03-21",
-          issueDate: "2022-03-21",
-          couponRate: 7.55,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.62,
-          yieldToMaturity: 7.65,
-          indicativeYield: 7.65,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.35,
-          lastTradedPrice: 99.35,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹890 Cr",
-          duration: 7.3,
-          modifiedDuration: 6.8,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-up-2029",
-          isin: "IN25SDL2029A",
-          name: "Uttar Pradesh SDL 7.68% 2029",
-          securityName: "Uttar Pradesh SDL 7.68% 2029",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Uttar Pradesh",
-          maturityDate: "2029-12-10",
-          issueDate: "2024-12-10",
-          couponRate: 7.68,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.72,
-          yieldToMaturity: 7.75,
-          indicativeYield: 7.75,
-          rating: "AA+",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.55,
-          lastTradedPrice: 99.55,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹750 Cr",
-          duration: 4.9,
-          modifiedDuration: 4.5,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-ap-2033",
-          isin: "IN25SDL2033A",
-          name: "Andhra Pradesh SDL 7.62% 2033",
-          securityName: "Andhra Pradesh SDL 7.62% 2033",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Andhra Pradesh",
-          maturityDate: "2033-06-28",
-          issueDate: "2023-06-28",
-          couponRate: 7.62,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.68,
-          yieldToMaturity: 7.72,
-          indicativeYield: 7.72,
-          rating: "AA+",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.18,
-          lastTradedPrice: 99.18,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹680 Cr",
-          duration: 8.5,
-          modifiedDuration: 7.9,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-rj-2028",
-          isin: "IN25SDL2028A",
-          name: "Rajasthan SDL 7.42% 2028",
-          securityName: "Rajasthan SDL 7.42% 2028",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Rajasthan",
-          maturityDate: "2028-04-15",
-          issueDate: "2023-04-15",
-          couponRate: 7.42,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.48,
-          yieldToMaturity: 7.52,
-          indicativeYield: 7.52,
-          rating: "AA+",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 99.68,
-          lastTradedPrice: 99.68,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹620 Cr",
-          duration: 3.4,
-          modifiedDuration: 3.2,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-kl-2035",
-          isin: "IN25SDL2035A",
-          name: "Kerala SDL 7.58% 2035",
-          securityName: "Kerala SDL 7.58% 2035",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Kerala",
-          maturityDate: "2035-09-20",
-          issueDate: "2025-09-20",
-          couponRate: 7.58,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.65,
-          yieldToMaturity: 7.68,
-          indicativeYield: 7.68,
-          rating: "AA",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 98.85,
-          lastTradedPrice: 98.85,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹540 Cr",
-          duration: 10.8,
-          modifiedDuration: 10.1,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        },
-        {
-          id: "sdl-mp-2034",
-          isin: "IN25SDL2034A",
-          name: "Madhya Pradesh SDL 7.65% 2034",
-          securityName: "Madhya Pradesh SDL 7.65% 2034",
-          type: "State Development Loan",
-          bondType: "sdl",
-          issuer: "Government of Madhya Pradesh",
-          maturityDate: "2034-12-12",
-          issueDate: "2024-12-12",
-          couponRate: 7.65,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.72,
-          yieldToMaturity: 7.75,
-          indicativeYield: 7.75,
-          rating: "AA+",
-          ratingAgency: "CRISIL",
-          faceValue: 100,
-          currentPrice: 98.95,
-          lastTradedPrice: 98.95,
-          minInvestment: 10000,
-          minimumLotSize: 100,
-          tradingVolume: "₹420 Cr",
-          duration: 10.0,
-          modifiedDuration: 9.3,
-          segment: "State Loans",
-          exchange: "RBI",
-          tradingStatus: "Active"
-        }
-      ];
-
-      // Corporate bonds
-      const corpBonds = [
-        {
-          id: "corp-1",
-          isin: "INE001A07001",
-          name: "HDFC Bank 8.25% 2027",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "HDFC Bank Ltd",
-          maturityDate: "2027-03-15",
-          issueDate: "2022-03-15",
-          couponRate: 8.25,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 8.12,
-          yieldToMaturity: 8.18,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1025.50,
-          lastTradedPrice: 1025.50,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹945 Cr",
-          duration: 2.8,
-          modifiedDuration: 2.6,
-          accrued: 12.50,
-          segment: "Banking",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-2",
-          isin: "INE002A07002",
-          name: "Reliance Industries 7.95% 2030",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "Reliance Industries Ltd",
-          maturityDate: "2030-06-20",
-          issueDate: "2020-06-20",
-          couponRate: 7.95,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.88,
-          yieldToMaturity: 7.91,
-          rating: "AAA",
-          ratingAgency: "ICRA",
-          faceValue: 1000,
-          currentPrice: 1018.75,
-          lastTradedPrice: 1018.75,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹1,230 Cr",
-          duration: 5.1,
-          modifiedDuration: 4.7,
-          accrued: 8.75,
-          segment: "Energy",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-3",
-          isin: "INE003A07003",
-          name: "TCS 7.50% 2029",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "Tata Consultancy Services",
-          maturityDate: "2029-09-10",
-          issueDate: "2019-09-10",
-          couponRate: 7.50,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.42,
-          yieldToMaturity: 7.46,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1012.25,
-          lastTradedPrice: 1012.25,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹675 Cr",
-          duration: 4.6,
-          modifiedDuration: 4.3,
-          accrued: 6.25,
-          segment: "IT Services",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-4",
-          isin: "INE004A07004",
-          name: "ICICI Bank 8.10% 2028",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "ICICI Bank Ltd",
-          maturityDate: "2028-05-22",
-          issueDate: "2018-05-22",
-          couponRate: 8.10,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 8.02,
-          yieldToMaturity: 8.06,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1022.50,
-          lastTradedPrice: 1022.50,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹825 Cr",
-          duration: 3.5,
-          modifiedDuration: 3.2,
-          accrued: 9.80,
-          segment: "Banking",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-5",
-          isin: "INE005A07005",
-          name: "L&T Finance 8.45% 2029",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "L&T Finance Holdings",
-          maturityDate: "2029-08-15",
-          issueDate: "2019-08-15",
-          couponRate: 8.45,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 8.35,
-          yieldToMaturity: 8.40,
-          rating: "AA+",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1028.75,
-          lastTradedPrice: 1028.75,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹520 Cr",
-          duration: 4.2,
-          modifiedDuration: 3.9,
-          accrued: 7.25,
-          segment: "NBFC",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-29",
-          isin: "INE029A07029",
-          name: "Tata Motors 8.80% 2030",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "Tata Motors Ltd",
-          maturityDate: "2030-03-12",
-          issueDate: "2020-03-12",
-          couponRate: 8.80,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 8.65,
-          yieldToMaturity: 8.72,
-          rating: "AA-",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1042.25,
-          lastTradedPrice: 1042.25,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹395 Cr",
-          duration: 5.3,
-          modifiedDuration: 4.9,
-          accrued: 11.25,
-          segment: "Auto",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-6",
-          isin: "INE006A07006",
-          name: "Bajaj Finance 8.35% 2028",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "Bajaj Finance Ltd",
-          maturityDate: "2028-11-10",
-          issueDate: "2018-11-10",
-          couponRate: 8.35,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 8.22,
-          yieldToMaturity: 8.28,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1030.25,
-          lastTradedPrice: 1030.25,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹980 Cr",
-          duration: 3.9,
-          modifiedDuration: 3.6,
-          accrued: 5.50,
-          segment: "NBFC",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-7",
-          isin: "INE007A07007",
-          name: "Kotak Mahindra Bank 7.85% 2030",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "Kotak Mahindra Bank",
-          maturityDate: "2030-02-28",
-          issueDate: "2020-02-28",
-          couponRate: 7.85,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.75,
-          yieldToMaturity: 7.80,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1015.50,
-          lastTradedPrice: 1015.50,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹650 Cr",
-          duration: 5.2,
-          modifiedDuration: 4.8,
-          accrued: 11.25,
-          segment: "Banking",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-8",
-          isin: "INE008A07008",
-          name: "Tata Steel 8.55% 2029",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "Tata Steel Ltd",
-          maturityDate: "2029-04-20",
-          issueDate: "2019-04-20",
-          couponRate: 8.55,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 8.42,
-          yieldToMaturity: 8.48,
-          rating: "AA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1035.75,
-          lastTradedPrice: 1035.75,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹485 Cr",
-          duration: 4.4,
-          modifiedDuration: 4.1,
-          accrued: 6.85,
-          segment: "Steel",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-9",
-          isin: "INE009A07009",
-          name: "Mahindra & Mahindra 7.75% 2028",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "Mahindra & Mahindra Ltd",
-          maturityDate: "2028-07-15",
-          issueDate: "2018-07-15",
-          couponRate: 7.75,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 7.65,
-          yieldToMaturity: 7.70,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1018.25,
-          lastTradedPrice: 1018.25,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹420 Cr",
-          duration: 3.6,
-          modifiedDuration: 3.3,
-          accrued: 8.45,
-          segment: "Auto",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "corp-10",
-          isin: "INE010A07010",
-          name: "Adani Ports 8.75% 2031",
-          type: "Corporate Bond",
-          bondType: "corporate",
-          issuer: "Adani Ports & SEZ Ltd",
-          maturityDate: "2031-09-30",
-          issueDate: "2021-09-30",
-          couponRate: 8.75,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 8.62,
-          yieldToMaturity: 8.68,
-          rating: "AA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1042.50,
-          lastTradedPrice: 1042.50,
-          minInvestment: 100000,
-          minimumLotSize: 100,
-          tradingVolume: "₹380 Cr",
-          duration: 6.8,
-          modifiedDuration: 6.3,
-          accrued: 4.25,
-          segment: "Infrastructure",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        }
-      ];
-      
-      // NCDs
-      const ncdBonds = [
-        {
-          id: "ncd-1",
-          isin: "INE001A08024",
-          name: "HDFC Ltd 9.25% NCD 2028",
-          type: "Non-Convertible Debenture",
-          bondType: "ncd",
-          issuer: "HDFC Ltd",
-          maturityDate: "2028-03-15",
-          issueDate: "2023-03-15",
-          couponRate: 9.25,
-          couponType: "Fixed",
-          couponFrequency: "Annual",
-          currentYield: 9.12,
-          yieldToMaturity: 9.18,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1045.50,
-          lastTradedPrice: 1045.50,
-          minInvestment: 10000,
-          minimumLotSize: 10,
-          tradingVolume: "₹245 Cr",
-          duration: 3.2,
-          modifiedDuration: 2.9,
-          accrued: 18.50,
-          segment: "Finance",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        }
-      ];
-      
-      // Tax-free bonds
-      const taxFreeBonds = [
-        {
-          id: "tax-1",
-          isin: "INE848E08063",
-          name: "NHAI 7.35% 2035",
-          type: "Tax Free Bond",
-          bondType: "tax_free",
-          issuer: "National Highways Authority of India",
-          maturityDate: "2035-02-15",
-          issueDate: "2015-02-15",
-          couponRate: 7.35,
-          couponType: "Fixed",
-          couponFrequency: "Annual",
-          currentYield: 7.28,
-          yieldToMaturity: 7.30,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1015.25,
-          lastTradedPrice: 1015.25,
-          minInvestment: 5000,
-          minimumLotSize: 5,
-          tradingVolume: "₹85 Cr",
-          duration: 10.2,
-          modifiedDuration: 9.5,
-          segment: "Infrastructure",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active",
-          taxBenefit: "Interest exempt under Section 10(15)(iv)"
-        }
-      ];
-      
-      // Additional trading corporate bonds
-      const tradingCorpBonds = [
-        // Corporate bonds from /api/bonds/trading/corporate
-        {
-          id: "trading-corp-1",
-          isin: "INE001A07001",
-          name: "HDFC Bank Ltd 8.25% 2030",
-          bondName: "HDFC Bank Ltd 8.25% 2030",
-          type: "Corporate Bond",
-          bondType: "corporate_bond",
-          issuer: "HDFC Bank Limited",
-          maturityDate: "2030-11-30",
-          issueDate: "2025-11-30",
-          couponRate: 8.25,
-          couponType: "Fixed",
-          couponFrequency: "Annual",
-          currentYield: 7.45,
-          yieldToMaturity: 7.45,
-          rating: "AAA",
-          ratingAgency: "CRISIL",
-          faceValue: 1000,
-          currentPrice: 1050,
-          lastTradedPrice: 1050,
-          minInvestment: 10000,
-          minimumLotSize: 10,
-          tradingVolume: "₹500 Cr",
-          duration: 5,
-          modifiedDuration: 4.6,
-          segment: "Corporate",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "trading-corp-2",
-          isin: "INE002A07002",
-          name: "Reliance Industries NCD 7.95% 2032",
-          bondName: "Reliance Industries NCD 7.95% 2032",
-          type: "Non-Convertible Debenture",
-          bondType: "ncd",
-          issuer: "Reliance Industries Limited",
-          maturityDate: "2032-11-30",
-          issueDate: "2025-11-30",
-          couponRate: 7.95,
-          couponType: "Fixed",
-          couponFrequency: "Semi-Annual",
-          currentYield: 8.15,
-          yieldToMaturity: 8.15,
-          rating: "AA+",
-          ratingAgency: "ICRA",
-          faceValue: 1000,
-          currentPrice: 985,
-          lastTradedPrice: 985,
-          minInvestment: 5000,
-          minimumLotSize: 5,
-          tradingVolume: "₹300 Cr",
-          duration: 7,
-          modifiedDuration: 6.5,
-          segment: "Corporate",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "trading-corp-3",
-          isin: "INE003A07003",
-          name: "Tata Motors Debenture 9.10% 2028",
-          bondName: "Tata Motors Debenture 9.10% 2028",
-          type: "Debenture",
-          bondType: "debenture",
-          issuer: "Tata Motors Limited",
-          maturityDate: "2028-11-30",
-          issueDate: "2025-11-30",
-          couponRate: 9.10,
-          couponType: "Fixed",
-          couponFrequency: "Annual",
-          currentYield: 8.35,
-          yieldToMaturity: 8.35,
-          rating: "AA",
-          ratingAgency: "CARE",
-          faceValue: 1000,
-          currentPrice: 1025,
-          lastTradedPrice: 1025,
-          minInvestment: 20000,
-          minimumLotSize: 20,
-          tradingVolume: "₹250 Cr",
-          duration: 3,
-          modifiedDuration: 2.8,
-          segment: "Corporate",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        },
-        {
-          id: "trading-corp-4",
-          isin: "INE004A07004",
-          name: "LIC Housing Finance NCD 8.50% 2029",
-          bondName: "LIC Housing Finance NCD 8.50% 2029",
-          type: "Non-Convertible Debenture",
-          bondType: "ncd",
-          issuer: "LIC Housing Finance Limited",
-          maturityDate: "2030-11-30",
-          issueDate: "2025-11-30",
-          couponRate: 8.50,
-          couponType: "Fixed",
-          couponFrequency: "Annual",
-          currentYield: 8.25,
-          yieldToMaturity: 8.25,
-          rating: "AAA",
-          ratingAgency: "India Ratings",
-          faceValue: 1000,
-          currentPrice: 1010,
-          lastTradedPrice: 1010,
-          minInvestment: 10000,
-          minimumLotSize: 10,
-          tradingVolume: "₹400 Cr",
-          duration: 5,
-          modifiedDuration: 4.6,
-          segment: "Corporate",
-          exchange: "NSE/BSE",
-          tradingStatus: "Active"
-        }
-      ];
-
-      allBonds.push(...govBonds, ...corpBonds, ...ncdBonds, ...taxFreeBonds, ...tradingCorpBonds);
-      
-      // Find the bond by ISIN
-      const bond = allBonds.find(b => b.isin === isin || b.id === isin);
-      
-      if (!bond) {
-        return res.status(404).json({
-          status: "error",
-          error: "Bond not found"
-        });
-      }
-      
-      res.json({
-        status: "success",
-        data: bond
-      });
-    } catch (error) {
-      console.error("Error fetching bond details:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch bond details"
-      });
-    }
-  });
-
   // Get NSE listed bonds data
-
-
-
-  // Bond documents endpoint - returns offering documents, rating rationales, term sheets etc.
-  app.get("/api/bonds/documents/:isin", async (req, res) => {
-    try {
-      const { isin } = req.params;
-      
-      // Generate realistic document URLs based on bond type
-      const isGovSec = isin.startsWith("IN002") || isin.startsWith("GSEC") || isin.startsWith("SDL");
-      const isTBill = isin.includes("T0") || isin.includes("T3") || isin.includes("T1") || isin.includes("T9");
-      
-      let documents = [];
-      
-      if (isGovSec || isTBill) {
-        // Government securities documents
-        documents = [
-          {
-            id: "doc-" + isin + "-1",
-            name: "RBI Auction Notification",
-            type: "notification",
-            description: "Official RBI notification for security issuance",
-            fileType: "pdf",
-            fileSize: "245 KB",
-            uploadDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://rbidocs.rbi.org.in/rdocs/Auctions/" + isin + "_Notification.pdf",
-            category: "Regulatory",
-            isAvailable: true
-          },
-          {
-            id: "doc-" + isin + "-2",
-            name: "Auction Results",
-            type: "results",
-            description: "Auction cutoff price and allotment details",
-            fileType: "pdf",
-            fileSize: "156 KB",
-            uploadDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://rbidocs.rbi.org.in/rdocs/Auctions/" + isin + "_Results.pdf",
-            category: "Regulatory",
-            isAvailable: true
-          },
-          {
-            id: "doc-" + isin + "-3",
-            name: "Security Information",
-            type: "factsheet",
-            description: "Security characteristics and payment schedule",
-            fileType: "pdf",
-            fileSize: "189 KB",
-            uploadDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://www.ccilindia.com/Documents/Securities/" + isin + "_Info.pdf",
-            category: "Product",
-            isAvailable: true
-          }
-        ];
-      } else {
-        // Corporate bonds/NCDs documents
-        documents = [
-          {
-            id: "doc-" + isin + "-1",
-            name: "Information Memorandum",
-            type: "im",
-            description: "Detailed bond offering document with risk factors",
-            fileType: "pdf",
-            fileSize: "2.4 MB",
-            uploadDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://www.bseindia.com/downloads/ipo/information_memorandum/" + isin + "_IM.pdf",
-            category: "Legal",
-            isAvailable: true
-          },
-          {
-            id: "doc-" + isin + "-2",
-            name: "Rating Rationale",
-            type: "rating",
-            description: "Credit rating analysis and rationale from rating agency",
-            fileType: "pdf",
-            fileSize: "456 KB",
-            uploadDate: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://www.crisil.com/ratings/rating-list/" + isin + "_rationale.pdf",
-            category: "Rating",
-            isAvailable: true
-          },
-          {
-            id: "doc-" + isin + "-3",
-            name: "Term Sheet",
-            type: "termsheet",
-            description: "Key terms and conditions of the bond",
-            fileType: "pdf",
-            fileSize: "312 KB",
-            uploadDate: new Date(Date.now() - 55 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://www.bseindia.com/downloads/ipo/term_sheet/" + isin + "_TS.pdf",
-            category: "Product",
-            isAvailable: true
-          },
-          {
-            id: "doc-" + isin + "-4",
-            name: "Debenture Trust Deed",
-            type: "trustdeed",
-            description: "Legal agreement between issuer and debenture trustee",
-            fileType: "pdf",
-            fileSize: "1.8 MB",
-            uploadDate: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://www.bseindia.com/downloads/ipo/trust_deed/" + isin + "_DTD.pdf",
-            category: "Legal",
-            isAvailable: true
-          },
-          {
-            id: "doc-" + isin + "-5",
-            name: "Annual Report (Issuer)",
-            type: "annual_report",
-            description: "Latest annual report of the issuing company",
-            fileType: "pdf",
-            fileSize: "5.2 MB",
-            uploadDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://www.bseindia.com/corporates/annualreports/" + isin + "_AR.pdf",
-            category: "Issuer",
-            isAvailable: true
-          },
-          {
-            id: "doc-" + isin + "-6",
-            name: "Key Information Document",
-            type: "kid",
-            description: "SEBI-mandated simplified disclosure document",
-            fileType: "pdf",
-            fileSize: "234 KB",
-            uploadDate: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
-            url: "https://www.bseindia.com/downloads/ipo/kid/" + isin + "_KID.pdf",
-            category: "Regulatory",
-            isAvailable: true
-          }
-        ];
-      }
-      
-      res.json({
-        status: "success",
-        isin: isin,
-        data: documents,
-        count: documents.length,
-        disclaimer: "Documents are sourced from official exchanges and rating agencies. Click to view on source website."
-      });
-    } catch (error) {
-      console.error("Error fetching bond documents:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch bond documents"
-      });
-    }
-  });
-
-  // NSE listed bonds - public access for viewing
-  app.get("/api/bonds/nse-listed", async (req, res) => {
+  app.get("/api/bonds/nse-listed", requireLevel2, async (req, res) => {
     try {
       // Real NSE listed bonds with live data
       const nseBonds = [
@@ -7124,8 +5312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE listed bonds data
-  // BSE listed bonds - public access for viewing
-  app.get("/api/bonds/bse-listed", async (req, res) => {
+  app.get("/api/bonds/bse-listed", requireLevel2, async (req, res) => {
     try {
       // Real BSE listed bonds with live data
       const bseBonds = [
@@ -7249,8 +5436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get combined NSE & BSE bonds market data
-  // Listed bonds - public access for viewing
-  app.get("/api/bonds/listed-bonds", async (req, res) => {
+  app.get("/api/bonds/listed-bonds", requireLevel2, async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -7510,23 +5696,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Sovereign Gold Bonds data
-  // Sovereign Gold Bonds - public access for viewing
-  app.get("/api/bonds/sgb", async (req, res) => {
+  app.get("/api/bonds/sgb", requireLevel2, async (req, res) => {
     try {
-      // Combine API data with comprehensive SGB listing
-      const sgbBonds = [
-        { id: "sgb-1", isin: "IN0020SGB033", name: "Sovereign Gold Bond 2033 Series I", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2033-02-28", issueDate: "2025-02-28", couponRate: 2.50, currentYield: 2.45, ytm: 2.48, rating: "AAA", faceValue: 6250, currentPrice: 6485, goldWeight: 1, minInvestment: 6250, maxInvestment: 4000, tradingVolume: "₹125 Cr", duration: "8.2 years", accrued: 52, segment: "SGB", earlyRedemption: "After 5 years", taxBenefit: "Tax-exempt on maturity redemption" },
-        { id: "sgb-2", isin: "IN0020SGB032", name: "Sovereign Gold Bond 2032 Series IV", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2032-09-15", issueDate: "2024-09-15", couponRate: 2.50, currentYield: 2.42, ytm: 2.45, rating: "AAA", faceValue: 5890, currentPrice: 6125, goldWeight: 1, minInvestment: 5890, maxInvestment: 4000, tradingVolume: "₹98 Cr", duration: "7.8 years", accrued: 45, segment: "SGB", earlyRedemption: "After 5 years", taxBenefit: "Tax-exempt on maturity redemption" },
-        { id: "sgb-3", isin: "IN0020SGB031", name: "Sovereign Gold Bond 2031 Series II", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2031-03-20", issueDate: "2023-03-20", couponRate: 2.50, currentYield: 2.38, ytm: 2.42, rating: "AAA", faceValue: 4852, currentPrice: 5085, goldWeight: 1, minInvestment: 4852, maxInvestment: 4000, tradingVolume: "₹85 Cr", duration: "6.3 years", accrued: 38, segment: "SGB", earlyRedemption: "After 5 years", taxBenefit: "Tax-exempt on maturity redemption" },
-        { id: "sgb-4", isin: "IN0020SGB030", name: "Sovereign Gold Bond 2030 Series III", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2030-06-10", issueDate: "2022-06-10", couponRate: 2.50, currentYield: 2.35, ytm: 2.38, rating: "AAA", faceValue: 4450, currentPrice: 4685, goldWeight: 1, minInvestment: 4450, maxInvestment: 4000, tradingVolume: "₹72 Cr", duration: "5.5 years", accrued: 35, segment: "SGB", earlyRedemption: "After 5 years", taxBenefit: "Tax-exempt on maturity redemption" },
-        { id: "sgb-5", isin: "IN0020SGB029", name: "Sovereign Gold Bond 2029 Series I", type: "Sovereign Gold Bond", issuer: "Government of India", maturityDate: "2029-08-25", issueDate: "2021-08-25", couponRate: 2.50, currentYield: 2.32, ytm: 2.35, rating: "AAA", faceValue: 4125, currentPrice: 4325, goldWeight: 1, minInvestment: 4125, maxInvestment: 4000, tradingVolume: "₹65 Cr", duration: "4.7 years", accrued: 28, segment: "SGB", earlyRedemption: "After 5 years", taxBenefit: "Tax-exempt on maturity redemption" }
-      ];
+      const sgbs = await nseNcbApi.getSGBData();
 
       res.json({
         status: "success",
-        count: sgbBonds.length,
-        data: sgbBonds,
-        message: "Sovereign Gold Bonds - gold-backed government securities with tax benefits"
+        data: sgbs,
+        count: sgbs.length,
+        message: "Sovereign Gold Bonds - gold-backed government securities"
       });
     } catch (error) {
       console.error("Error fetching SGB data:", error);
@@ -7567,8 +5745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds market overview
-  // Bond market overview - public access for viewing
-  app.get("/api/bonds/market-overview", async (req, res) => {
+  app.get("/api/bonds/market-overview", requireLevel2, async (req, res) => {
     try {
       const marketOverview = {
         totalMarketSize: "₹45,68,450 Cr",
@@ -8010,32 +6187,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/bonds/trading/gsec/auctions", async (req, res) => {
     try {
       const auctions = await nseNcbApi.getUpcomingAuctions();
-      
-      // Transform data to match frontend expectations
-      const transformedAuctions = auctions.map((auction: any) => ({
-        ...auction,
-        // Map field names for frontend compatibility
-        indicativeYield: auction.cutOffYield || (auction.couponRate ? auction.couponRate + 0.10 : 7.00),
-        minimumBidAmount: auction.minimumBid || 10000,
-        price: auction.cutOffPrice || 100,
-        // Format security type for display
-        securityTypeLabel: auction.securityType === 'g_sec' ? 'Government Security' : 
-                          auction.securityType === 't_bill' ? 'Treasury Bill' : 
-                          auction.securityType === 'sdl' ? 'State Development Loan' : 'Bond',
-        // Calculate tenor display
-        tenorDisplay: auction.tenorYears >= 1 
-          ? `${auction.tenorYears} Year${auction.tenorYears > 1 ? 's' : ''}`
-          : `${Math.round(auction.tenorYears * 365)} Days`,
-        // Face value
-        faceValue: 100,
-        // Notified amount in crores for display
-        notifiedAmountCr: auction.notifiedAmount ? (auction.notifiedAmount / 10000000).toFixed(0) : 'N/A'
-      }));
-      
       res.json({
         status: "success",
-        data: transformedAuctions,
-        count: transformedAuctions.length
+        data: auctions,
+        count: auctions.length
       });
     } catch (error) {
       console.error("Error fetching NSE NCB auctions:", error);
@@ -8045,6 +6200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
   // Get G-Sec details by ISIN
   app.get("/api/bonds/trading/gsec/:isin", async (req, res) => {
     try {
@@ -8216,6 +6372,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Store bond order in database
         const bondOrder = await db.insert(bondOrders).values({
+          orderNumber: response.orderId,
+          userId: userId,
           clientCode: orderRequest.clientCode,
           bondType: 'corporate',
           isin: orderRequest.isin,
@@ -8257,202 +6415,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // NCD (Non-Convertible Debentures) Trading Routes
-  app.get("/api/bonds/trading/ncd", async (req, res) => {
-    try {
-      const filters = {
-        minRating: req.query.minRating as string,
-        maxTenor: req.query.maxTenor ? parseInt(req.query.maxTenor as string) : undefined,
-        minYield: req.query.minYield ? parseFloat(req.query.minYield as string) : undefined,
-        issuerSector: req.query.issuerSector as string
-      };
-
-      const allBonds = await bseBondApi.getTradableBonds(filters);
-      const ncdBonds = allBonds.filter((bond: any) => 
-        bond.bondType?.toLowerCase().includes('ncd') || 
-        bond.instrumentType?.toLowerCase().includes('ncd') ||
-        bond.bondType?.toLowerCase().includes('debenture')
-      );
-
-      res.json({
-        status: "success",
-        data: ncdBonds,
-        count: ncdBonds.length
-      });
-    } catch (error) {
-      console.error("Error fetching NCDs:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch NCDs"
-      });
-    }
-  });
-
-  app.post("/api/bonds/trading/ncd/orders", validateKYC('bond'), async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const orderRequest = {
-        userId: userId,
-        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
-        isin: req.body.isin,
-        bondType: 'ncd' as const,
-        orderType: req.body.orderType,
-        quantity: req.body.quantity,
-        orderCategory: req.body.orderCategory,
-        limitPrice: req.body.limitPrice,
-        dematAccountNumber: req.body.dematAccountNumber
-      };
-
-      const response = await bseBondApi.placeBondOrder(orderRequest);
-
-      if (response.success && response.orderId) {
-        const bondDetails = await bseBondApi.getBondDetails(orderRequest.isin);
-        
-        await db.insert(bondOrders).values({
-          clientCode: orderRequest.clientCode,
-          bondType: 'ncd',
-          isin: orderRequest.isin,
-          bondName: bondDetails?.bondName || `NCD ${orderRequest.isin}`,
-          orderType: orderRequest.orderType,
-          orderCategory: orderRequest.orderCategory,
-          quantity: orderRequest.quantity,
-          faceValue: bondDetails?.faceValue?.toString() || '1000',
-          totalFaceValue: ((bondDetails?.faceValue || 1000) * orderRequest.quantity).toString(),
-          orderPrice: response.executionDetails?.executionPrice?.toString(),
-          grossAmount: response.executionDetails?.grossAmount?.toString(),
-          accruedInterest: response.executionDetails?.accruedInterest?.toString(),
-          netAmount: response.executionDetails?.netAmount?.toString(),
-          orderStatus: 'pending',
-          userId: userId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        } as any);
-
-        res.json({
-          status: "success",
-          orderId: response.orderId,
-          message: "NCD order placed successfully",
-          executionDetails: response.executionDetails
-        });
-      } else {
-        res.status(400).json({
-          status: "error",
-          error: response.message
-        });
-      }
-    } catch (error) {
-      console.error("Error placing NCD order:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to place NCD order"
-      });
-    }
-  });
-
-  // Tax Free Bonds Trading Routes
-  app.get("/api/bonds/trading/tax-free", async (req, res) => {
-    try {
-      const filters = {
-        minRating: req.query.minRating as string,
-        maxTenor: req.query.maxTenor ? parseInt(req.query.maxTenor as string) : undefined,
-        minYield: req.query.minYield ? parseFloat(req.query.minYield as string) : undefined
-      };
-
-      const allBonds = await bseBondApi.getTradableBonds(filters);
-      const taxFreeBonds = allBonds.filter((bond: any) => 
-        bond.taxFree === true || 
-        bond.bondType?.toLowerCase().includes('tax') ||
-        bond.bondType?.toLowerCase().includes('tax-free') ||
-        bond.issuerName?.toLowerCase().includes('nhai') ||
-        bond.issuerName?.toLowerCase().includes('rec') ||
-        bond.issuerName?.toLowerCase().includes('pfc') ||
-        bond.issuerName?.toLowerCase().includes('irfc') ||
-        bond.issuerName?.toLowerCase().includes('hudco')
-      );
-
-      res.json({
-        status: "success",
-        data: taxFreeBonds,
-        count: taxFreeBonds.length
-      });
-    } catch (error) {
-      console.error("Error fetching tax-free bonds:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to fetch tax-free bonds"
-      });
-    }
-  });
-
-  app.post("/api/bonds/trading/tax-free/orders", validateKYC('bond'), async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const orderRequest = {
-        userId: userId,
-        clientCode: req.body.clientCode || `CLI-${userId.substring(0, 8)}`,
-        isin: req.body.isin,
-        bondType: 'tax-free' as const,
-        orderType: req.body.orderType,
-        quantity: req.body.quantity,
-        orderCategory: req.body.orderCategory,
-        limitPrice: req.body.limitPrice,
-        dematAccountNumber: req.body.dematAccountNumber
-      };
-
-      const response = await bseBondApi.placeBondOrder(orderRequest);
-
-      if (response.success && response.orderId) {
-        const bondDetails = await bseBondApi.getBondDetails(orderRequest.isin);
-        
-        await db.insert(bondOrders).values({
-          clientCode: orderRequest.clientCode,
-          bondType: 'tax-free',
-          isin: orderRequest.isin,
-          bondName: bondDetails?.bondName || `Tax-Free Bond ${orderRequest.isin}`,
-          orderType: orderRequest.orderType,
-          orderCategory: orderRequest.orderCategory,
-          quantity: orderRequest.quantity,
-          faceValue: bondDetails?.faceValue?.toString() || '1000',
-          totalFaceValue: ((bondDetails?.faceValue || 1000) * orderRequest.quantity).toString(),
-          orderPrice: response.executionDetails?.executionPrice?.toString(),
-          grossAmount: response.executionDetails?.grossAmount?.toString(),
-          accruedInterest: response.executionDetails?.accruedInterest?.toString(),
-          netAmount: response.executionDetails?.netAmount?.toString(),
-          orderStatus: 'pending',
-          userId: userId,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        } as any);
-
-        res.json({
-          status: "success",
-          orderId: response.orderId,
-          message: "Tax-free bond order placed successfully",
-          executionDetails: response.executionDetails
-        });
-      } else {
-        res.status(400).json({
-          status: "error",
-          error: response.message
-        });
-      }
-    } catch (error) {
-      console.error("Error placing tax-free bond order:", error);
-      res.status(500).json({
-        status: "error",
-        error: "Failed to place tax-free bond order"
-      });
-    }
-  });
   // BSE Direct API - Direct Market Trading
   
   // Get market quote for any symbol
@@ -8598,55 +6560,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bondType = req.query.bondType as string;
       const orderStatus = req.query.status as string;
 
-      const result = await db.execute(sql`
-        SELECT id, user_id, security_type, security_id, isin, security_name, order_type,
-               quantity, price_per_unit, total_amount, order_status, payment_status,
-               payment_method, payment_reference, settlement_status, settlement_date,
-               demat_account, exchange, rejection_reason, notes, compliance_checked,
-               suitability_passed, created_at, updated_at
-        FROM bond_orders
-        WHERE user_id = ${userId}
-        ORDER BY created_at DESC
-      `);
+      let query = db.select().from(bondOrders).where(eq(bondOrders.userId, userId));
 
-      let orders = (result.rows || []).map((row: any) => ({
-        id: row.id,
-        userId: row.user_id,
-        bondType: row.security_type,
-        bondId: row.security_id,
-        isin: row.isin,
-        bondName: row.security_name,
-        orderType: row.order_type,
-        quantity: row.quantity,
-        orderPrice: row.price_per_unit,
-        totalAmount: row.total_amount,
-        orderStatus: row.order_status,
-        paymentStatus: row.payment_status,
-        paymentMethod: row.payment_method,
-        paymentReference: row.payment_reference,
-        settlementStatus: row.settlement_status,
-        settlementDate: row.settlement_date,
-        dematAccount: row.demat_account,
-        exchange: row.exchange,
-        rejectionReason: row.rejection_reason,
-        notes: row.notes,
-        complianceChecked: row.compliance_checked,
-        suitabilityPassed: row.suitability_passed,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      }));
+      const orders = await query;
 
+      // Filter by bond type if specified
+      let filteredOrders = orders;
       if (bondType) {
-        orders = orders.filter((o: any) => o.bondType === bondType);
+        filteredOrders = filteredOrders.filter(o => o.bondType === bondType);
       }
       if (orderStatus) {
-        orders = orders.filter((o: any) => o.orderStatus === orderStatus);
+        filteredOrders = filteredOrders.filter(o => o.orderStatus === orderStatus);
       }
 
       res.json({
         status: "success",
-        data: orders,
-        count: orders.length
+        data: filteredOrders,
+        count: filteredOrders.length
       });
     } catch (error) {
       console.error("Error fetching bond orders:", error);
@@ -8657,91 +6587,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  // Get bond order status
   app.get("/api/bonds/orders/:orderId/status", async (req, res) => {
     try {
       const { orderId } = req.params;
       
-      const result = await db.execute(sql`
-        SELECT id, user_id, security_type, security_id, isin, security_name, order_type,
-               quantity, price_per_unit, total_amount, order_status, payment_status,
-               payment_method, payment_reference, settlement_status, settlement_date,
-               demat_account, exchange, rejection_reason, notes, compliance_checked,
-               suitability_passed, created_at, updated_at
-        FROM bond_orders
-        WHERE id = ${orderId}
-      `);
+      // Get order from database
+      const [order] = await db.select().from(bondOrders).where(eq(bondOrders.id, orderId));
       
-      if (!result.rows || result.rows.length === 0) {
+      if (!order) {
         return res.status(404).json({
           status: "error",
           error: "Order not found"
         });
       }
-      
-      const row: any = result.rows[0];
-      const order = {
-        id: row.id,
-        userId: row.user_id,
-        bondType: row.security_type,
-        bondId: row.security_id,
-        isin: row.isin,
-        bondName: row.security_name,
-        orderType: row.order_type,
-        quantity: row.quantity,
-        orderPrice: row.price_per_unit,
-        totalAmount: row.total_amount,
-        orderStatus: row.order_status,
-        paymentStatus: row.payment_status,
-        paymentMethod: row.payment_method,
-        paymentReference: row.payment_reference,
-        settlementStatus: row.settlement_status,
-        settlementDate: row.settlement_date,
-        dematAccount: row.demat_account,
-        exchange: row.exchange,
-        rejectionReason: row.rejection_reason,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      };
+
+      // Get live status from exchange
+      let liveStatus;
+      if (order.exchange === 'nse') {
+        liveStatus = await nseNcbApi.getOrderStatus(order.orderNumber);
+      } else if (order.exchange === 'bse') {
+        liveStatus = await bseBondApi.getOrderStatus(order.orderNumber);
+      }
 
       res.json({
         status: "success",
-        data: order
+        data: {
+          ...order,
+          liveStatus
+        }
       });
     } catch (error) {
       console.error("Error fetching order status:", error);
@@ -8752,44 +6626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  // Get user's bond holdings
   app.get("/api/bonds/holdings", async (req: any, res) => {
     try {
       const userId = req.user?.id;
@@ -8798,47 +6635,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const bondType = req.query.bondType as string;
+      const portfolioId = req.query.portfolioId as string;
 
-      const result = await db.execute(sql`
-        SELECT id, user_id, security_id, security_type, security_name, isin,
-               quantity, purchase_price, purchase_date, current_price, face_value,
-               coupon_rate, maturity_date, demat_account, broker, notes, status,
-               created_at, updated_at
-        FROM bond_holdings
-        WHERE user_id = ${userId}
-        ORDER BY created_at DESC
-      `);
+      let query = db.select().from(bondHoldings).where(eq(bondHoldings.userId, userId));
 
-      let holdings = (result.rows || []).map((row: any) => ({
-        id: row.id,
-        userId: row.user_id,
-        bondId: row.security_id,
-        bondType: row.security_type,
-        bondName: row.security_name,
-        isin: row.isin,
-        quantity: row.quantity,
-        purchasePrice: row.purchase_price,
-        purchaseDate: row.purchase_date,
-        currentPrice: row.current_price,
-        faceValue: row.face_value,
-        couponRate: row.coupon_rate,
-        maturityDate: row.maturity_date,
-        dematAccount: row.demat_account,
-        broker: row.broker,
-        notes: row.notes,
-        status: row.status,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      }));
+      const holdings = await query;
 
+      // Filter by bond type if specified
+      let filteredHoldings = holdings;
       if (bondType) {
-        holdings = holdings.filter((h: any) => h.bondType === bondType);
+        filteredHoldings = filteredHoldings.filter(h => h.bondType === bondType);
+      }
+      if (portfolioId) {
+        filteredHoldings = filteredHoldings.filter(h => h.portfolioId === portfolioId);
       }
 
       res.json({
         status: "success",
-        data: holdings,
-        count: holdings.length
+        data: filteredHoldings,
+        count: filteredHoldings.length
       });
     } catch (error) {
       console.error("Error fetching bond holdings:", error);
@@ -8849,294 +6664,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // ============ BOND TRADING FLOW WITH SEQUENTIAL KYC ============
-  
-  // Check KYC eligibility for bond trading
-  app.get("/api/bonds/kyc-eligibility", async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const eligibility = await checkBondKYCEligibility(userId);
-      res.json({
-        status: "success",
-        data: eligibility
-      });
-    } catch (error) {
-      console.error("Error checking KYC eligibility:", error);
-      res.status(500).json({ error: "Failed to check KYC eligibility" });
-    }
-  });
-
-  // Get KYC progress for bond trading
-  app.get("/api/bonds/kyc-progress", async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const progress = await getBondKYCProgress(userId);
-      res.json({
-        status: "success",
-        data: progress
-      });
-    } catch (error) {
-      console.error("Error fetching KYC progress:", error);
-      res.status(500).json({ error: "Failed to fetch KYC progress" });
-    }
-  });
-
-  // Place bond order with KYC gate
-  app.post("/api/bonds/trading/place-order", bondKYCGate(), async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { isin, bondName, bondType, quantity, faceValue, pricePerUnit, paymentMethod, depository, dpId, clientId, dematAccountNumber } = req.body;
-
-      if (!isin || !bondName || !bondType || !quantity || !pricePerUnit) {
-        return res.status(400).json({ error: "Missing required order details" });
-      }
-
-      const totalAmount = quantity * pricePerUnit;
-
-      const result = await createBondOrder({
-        userId,
-        isin,
-        bondName,
-        bondType,
-        quantity,
-        faceValue: faceValue || 1000,
-        pricePerUnit,
-        totalAmount,
-        paymentMethod: paymentMethod || 'upi',
-        depository,
-        dpId,
-        clientId,
-        dematAccountNumber
-      });
-
-      res.json({
-        status: "success",
-        message: "Order placed successfully",
-        data: {
-          orderId: result.orderId,
-          settlementCycle: result.settlementInfo.settlementCycle,
-          expectedSettlementDate: result.settlementInfo.expectedSettlementDate,
-          depository: result.settlementInfo.depository
-        }
-      });
-    } catch (error: any) {
-      console.error("Error placing bond order:", error);
-      res.status(500).json({ error: error.message || "Failed to place order" });
-    }
-  });
-
-  // Confirm payment for bond order
-  app.post("/api/bonds/orders/:orderId/confirm-payment", async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      const { orderId } = req.params;
-      const { paymentReference } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      if (!paymentReference) {
-        return res.status(400).json({ error: "Payment reference required" });
-      }
-
-      await confirmPayment(orderId, paymentReference);
-
-      res.json({
-        status: "success",
-        message: "Payment confirmed successfully"
-      });
-    } catch (error) {
-      console.error("Error confirming payment:", error);
-      res.status(500).json({ error: "Failed to confirm payment" });
-    }
-  });
-
-  // Get order lifecycle/timeline
-  app.get("/api/bonds/orders/:orderId/lifecycle", async (req: any, res) => {
-    try {
-      const { orderId } = req.params;
-
-      const lifecycle = await getOrderLifecycle(orderId);
-
-      res.json({
-        status: "success",
-        data: lifecycle
-      });
-    } catch (error) {
-      console.error("Error fetching order lifecycle:", error);
-      res.status(500).json({ error: "Failed to fetch order lifecycle" });
-    }
-  });
-
-  // ============ BOND ALERTS AND NOTIFICATIONS ============
-
-  // Get all bond alerts for user
-  app.get("/api/bonds/alerts", async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const alerts = await getBondAlerts(userId);
-
-      res.json({
-        status: "success",
-        data: alerts
-      });
-    } catch (error) {
-      console.error("Error fetching bond alerts:", error);
-      res.status(500).json({ error: "Failed to fetch bond alerts" });
-    }
-  });
-
-  // Get upcoming coupon payments
-  app.get("/api/bonds/alerts/coupons", async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const daysAhead = parseInt(req.query.daysAhead as string) || 30;
-      const coupons = await getUpcomingCoupons(userId, daysAhead);
-
-      res.json({
-        status: "success",
-        data: coupons
-      });
-    } catch (error) {
-      console.error("Error fetching upcoming coupons:", error);
-      res.status(500).json({ error: "Failed to fetch upcoming coupons" });
-    }
-  });
-
-  // Get maturity alerts
-  app.get("/api/bonds/alerts/maturities", async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const daysAhead = parseInt(req.query.daysAhead as string) || 90;
-      const maturities = await getMaturityAlerts(userId, daysAhead);
-
-      res.json({
-        status: "success",
-        data: maturities
-      });
-    } catch (error) {
-      console.error("Error fetching maturity alerts:", error);
-      res.status(500).json({ error: "Failed to fetch maturity alerts" });
-    }
-  });
-
-  // Update alert preferences
-  app.put("/api/bonds/alerts/preferences", async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const { couponAlert, maturityAlert, settlementAlert, alertDaysBefore, alertChannel } = req.body;
-
-      await createAlertPreferences(userId, {
-        couponAlert,
-        maturityAlert,
-        settlementAlert,
-        alertDaysBefore,
-        alertChannel
-      });
-
-      res.json({
-        status: "success",
-        message: "Alert preferences updated"
-      });
-    } catch (error) {
-      console.error("Error updating alert preferences:", error);
-      res.status(500).json({ error: "Failed to update alert preferences" });
-    }
-  });
-
-  // Manual trigger for alert check (admin only)
-  app.post("/api/admin/bonds/trigger-alerts", requireAdmin, async (req, res) => {
-    try {
-      await triggerAlertCheck();
-      res.json({
-        status: "success",
-        message: "Alert check triggered successfully"
-      });
-    } catch (error) {
-      console.error("Error triggering alert check:", error);
-      res.status(500).json({ error: "Failed to trigger alert check" });
-    }
-  });
-
-  // Manual trigger for settlement processing (admin only)
-  app.post("/api/admin/bonds/process-settlements", requireAdmin, async (req, res) => {
-    try {
-      await processSettlements();
-      res.json({
-        status: "success",
-        message: "Settlement processing triggered successfully"
-      });
-    } catch (error) {
-      console.error("Error processing settlements:", error);
-      res.status(500).json({ error: "Failed to process settlements" });
-    }
-  });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   // Get comprehensive AIF data from all AMCs with complete fund details
-  // AIF comprehensive - public access for viewing
-  app.get("/api/aif/comprehensive", async (req, res) => {
+  app.get("/api/aif/comprehensive", requireLevel2, async (req, res) => {
     try {
       const { amc, category, subCategory, riskRating } = req.query;
       const amcStr = typeof amc === 'string' ? amc : Array.isArray(amc) ? amc[0] : undefined;
@@ -9531,8 +7060,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE AIF funds data
-  // AIF NSE funds - public access for viewing
-  app.get("/api/aif/nse-funds", async (req, res) => {
+  app.get("/api/aif/nse-funds", requireLevel2, async (req, res) => {
     try {
       const nseFunds = [
         {
@@ -9621,8 +7149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE AIF funds data
-  // AIF BSE funds - public access for viewing
-  app.get("/api/aif/bse-funds", async (req, res) => {
+  app.get("/api/aif/bse-funds", requireLevel2, async (req, res) => {
     try {
       const bseFunds = [
         {
@@ -9987,8 +7514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive multi-exchange AIF data
-  // AIF all exchanges - public access for viewing
-  app.get("/api/aif/all-exchanges", async (req, res) => {
+  app.get("/api/aif/all-exchanges", requireLevel2, async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -12196,32 +9722,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { symbol: "^FCHI", name: "CAC 40" }
       ];
 
-      const yahooFinance = require('yahoo-finance2').default;
-      
       const promises = globalIndices.map(async (index) => {
         try {
-          // Fetch real-time data from Yahoo Finance
-          const quote = await yahooFinance.quote(index.symbol);
+          // Using mock data for market analysis
+          const data = { c: 100, d: 2.5, dp: 2.5, pc: 97.5, o: 98, h: 102, l: 96 };
           
-          if (quote && quote.regularMarketPrice && quote.regularMarketPrice > 0) {
+          // Check if we got valid data
+          if (data && data.c && data.c > 0) {
             return {
               symbol: index.symbol,
-              name: quote.shortName || quote.longName || index.name,
-              price: quote.regularMarketPrice,
-              change: quote.regularMarketChange || 0,
-              changePercent: quote.regularMarketChangePercent || 0,
-              high: quote.regularMarketDayHigh || quote.regularMarketPrice,
-              low: quote.regularMarketDayLow || quote.regularMarketPrice,
-              open: quote.regularMarketOpen || quote.regularMarketPrice,
-              previousClose: quote.regularMarketPreviousClose || quote.regularMarketPrice,
-              timestamp: Math.floor(Date.now() / 1000),
-              source: 'yahoo_finance'
+              price: data.c,
+              change: data.d || 0,
+              changePercent: data.dp || 0,
+              high: data.h || data.c,
+              low: data.l || data.c,
+              open: data.o || data.c,
+              previousClose: data.pc || data.c,
+              timestamp: (data as any).t || Math.floor(Date.now() / 1000)
             };
           } else {
-            throw new Error("Invalid API response from Yahoo Finance");
+            // API returned invalid data, use fallback
+            throw new Error("Invalid API response");
           }
         } catch (error) {
-          // Fallback to realistic base prices when API fails
+          // Don't log every API failure as error - use fallback silently
           const basePrice = getBasePrice(index.symbol);
           const change = (Math.random() - 0.5) * (basePrice * 0.015); // ±1.5% variation
           const changePercent = (change / basePrice) * 100;
@@ -12242,11 +9766,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const results = await Promise.all(promises);
       
-      // Cache the results
-      marketDataCache.set(cacheKey, {
-        data: results,
-        timestamp: Date.now()
-      });
       // Cache the results
       marketDataCache.set(cacheKey, {
         data: results,
@@ -13929,196 +11448,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // ============================================
-  // Financial Obligations API Endpoints
-  // ============================================
-
-  // Get all obligations for user
-  app.get("/api/financial-obligations", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const obligations = await storage.getFinancialObligations(userId);
-      res.json(obligations);
-    } catch (error) {
-      console.error("Error fetching financial obligations:", error);
-      res.status(500).json({ error: "Failed to fetch financial obligations" });
-    }
-  });
-
-  // Create new obligation
-  app.post("/api/financial-obligations", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const obligationData = {
-        ...req.body,
-        userId,
-        status: req.body.status || "active",
-        fromCibil: req.body.fromCibil || false,
-      };
-      
-      const obligation = await storage.createFinancialObligation(obligationData);
-      res.status(201).json(obligation);
-    } catch (error) {
-      console.error("Error creating financial obligation:", error);
-      res.status(500).json({ error: "Failed to create financial obligation" });
-    }
-  });
-
-  // Update obligation
-  app.put("/api/financial-obligations/:id", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const obligationId = req.params.id;
-      
-      // Verify ownership
-      const existing = await storage.getFinancialObligationById(obligationId);
-      if (!existing || existing.userId !== userId) {
-        return res.status(404).json({ error: "Obligation not found" });
-      }
-      
-      const updated = await storage.updateFinancialObligation(obligationId, req.body);
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating financial obligation:", error);
-      res.status(500).json({ error: "Failed to update financial obligation" });
-    }
-  });
-
-  // Delete obligation
-  app.delete("/api/financial-obligations/:id", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const obligationId = req.params.id;
-      
-      // Verify ownership
-      const existing = await storage.getFinancialObligationById(obligationId);
-      if (!existing || existing.userId !== userId) {
-        return res.status(404).json({ error: "Obligation not found" });
-      }
-      
-      await storage.deleteFinancialObligation(obligationId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting financial obligation:", error);
-      res.status(500).json({ error: "Failed to delete financial obligation" });
-    }
-  });
-
-  // Sync obligations from CIBIL report
-  app.post("/api/financial-obligations/sync-cibil", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { cibilAccounts } = req.body;
-      
-      if (!cibilAccounts || !Array.isArray(cibilAccounts)) {
-        return res.status(400).json({ error: "Invalid CIBIL accounts data" });
-      }
-      
-      // Delete existing CIBIL-sourced obligations
-      await storage.deleteUserCibilObligations(userId);
-      
-      // Create new obligations from CIBIL data
-      const createdObligations = [];
-      for (const account of cibilAccounts) {
-        let estimatedEMI = 0;
-        if (account.accountType?.includes("Loan")) {
-          estimatedEMI = Math.round((account.currentBalance || 0) * 0.03);
-        } else if (account.accountType === "Credit Card") {
-          estimatedEMI = Math.round((account.currentBalance || 0) * 0.05);
-        }
-        
-        const obligationData = {
-          userId,
-          name: `${account.accountType || "Credit Account"} - ${account.bank || "Unknown"}`,
-          type: account.accountType?.toLowerCase().includes("loan") ? "loan" : "emi",
-          amount: estimatedEMI.toString(),
-          frequency: "monthly",
-          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          priority: account.paymentStatus === "30 Days Late" ? "critical" : "important",
-          status: "active",
-          autoDebit: false,
-          creditLimit: account.creditLimit?.toString(),
-          utilizationRate: account.creditLimit > 0 ? 
-            Math.round((account.currentBalance / account.creditLimit) * 100).toString() : null,
-          bank: account.bank,
-          accountType: account.accountType,
-          paymentStatus: account.paymentStatus,
-          fromCibil: true,
-          cibilAccountId: account.accountId,
-          lastSyncedAt: new Date(),
-        };
-        
-        const created = await storage.createFinancialObligation(obligationData);
-        createdObligations.push(created);
-      }
-      
-      res.json({ 
-        success: true, 
-        synced: createdObligations.length,
-        obligations: createdObligations 
-      });
-    } catch (error) {
-      console.error("Error syncing CIBIL obligations:", error);
-      res.status(500).json({ error: "Failed to sync CIBIL obligations" });
-    }
-  });
-
-  // Get monthly obligations summary
-  app.get("/api/financial-obligations/summary", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const obligations = await storage.getFinancialObligations(userId);
-      
-      const activeObligations = obligations.filter((o: any) => o.status === "active");
-      
-      const calculateMonthlyEquivalent = (amount: number, frequency: string) => {
-        switch (frequency) {
-          case 'monthly': return amount;
-          case 'quarterly': return amount / 3;
-          case 'annually': return amount / 12;
-          default: return amount;
-        }
-      };
-      
-      const totalMonthly = activeObligations.reduce((sum: number, o: any) => {
-        return sum + calculateMonthlyEquivalent(parseFloat(o.amount) || 0, o.frequency);
-      }, 0);
-      
-      const byType = activeObligations.reduce((acc: Record<string, number>, o: any) => {
-        const monthly = calculateMonthlyEquivalent(parseFloat(o.amount) || 0, o.frequency);
-        acc[o.type] = (acc[o.type] || 0) + monthly;
-        return acc;
-      }, {});
-      
-      const upcomingPayments = activeObligations.filter((o: any) => {
-        const dueDate = new Date(o.dueDate);
-        const now = new Date();
-        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        return dueDate >= now && dueDate <= thirtyDaysFromNow;
-      }).sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-      
-      res.json({
-        totalMonthlyObligations: totalMonthly,
-        obligationsByType: byType,
-        activeCount: activeObligations.length,
-        upcomingPayments,
-        cibilSyncedCount: activeObligations.filter((o: any) => o.fromCibil).length,
-      });
-    } catch (error) {
-      console.error("Error fetching obligations summary:", error);
-      res.status(500).json({ error: "Failed to fetch obligations summary" });
-    }
-  });
-
-  // Government Scheme Holdings endpoints (with profile enrichment)
+  // Government Scheme Holdings endpoints
   app.get("/api/government-schemes/epf", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
       const epfHoldings = await storage.getEpfHoldings(userId);
-      const { enrichEpfHoldings } = await import('./services/government-scheme-enrichment');
-      const enrichedHoldings = await enrichEpfHoldings(userId, epfHoldings);
-      res.json(enrichedHoldings);
+      res.json(epfHoldings);
     } catch (error) {
       console.error("Error fetching EPF holdings:", error);
       res.status(500).json({ error: "Failed to fetch EPF holdings" });
@@ -14129,9 +11464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       const ppfHoldings = await storage.getPpfHoldings(userId);
-      const { enrichPpfHoldings } = await import('./services/government-scheme-enrichment');
-      const enrichedHoldings = await enrichPpfHoldings(userId, ppfHoldings);
-      res.json(enrichedHoldings);
+      res.json(ppfHoldings);
     } catch (error) {
       console.error("Error fetching PPF holdings:", error);
       res.status(500).json({ error: "Failed to fetch PPF holdings" });
@@ -14142,68 +11475,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       const epsHoldings = await storage.getEpsHoldings(userId);
-      const { enrichEpsHoldings } = await import('./services/government-scheme-enrichment');
-      const enrichedHoldings = await enrichEpsHoldings(userId, epsHoldings);
-      res.json(enrichedHoldings);
+      res.json(epsHoldings);
     } catch (error) {
       console.error("Error fetching EPS holdings:", error);
       res.status(500).json({ error: "Failed to fetch EPS holdings" });
     }
   });
 
-  app.get("/api/government-schemes/nps", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const npsAccounts = await storage.getNpsAccounts(userId);
-      const { enrichNpsAccounts } = await import('./services/government-scheme-enrichment');
-      const enrichedAccounts = await enrichNpsAccounts(userId, npsAccounts);
-      res.json(enrichedAccounts);
-    } catch (error) {
-      console.error("Error fetching NPS accounts:", error);
-      res.status(500).json({ error: "Failed to fetch NPS accounts" });
-    }
-  });
-
-  app.get("/api/government-schemes/apy", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const apyAccounts = await storage.getApyAccounts(userId);
-      const { enrichApyAccounts } = await import('./services/government-scheme-enrichment');
-      const enrichedAccounts = await enrichApyAccounts(userId, apyAccounts);
-      res.json(enrichedAccounts);
-    } catch (error) {
-      console.error("Error fetching APY accounts:", error);
-      res.status(500).json({ error: "Failed to fetch APY accounts" });
-    }
-  });
-  // Insurance holdings endpoint
-  app.get("/api/government-schemes/insurance", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const insuranceHoldings = await storage.getInsuranceHoldings(userId);
-      res.json(insuranceHoldings);
-    } catch (error) {
-      console.error("Error fetching insurance holdings:", error);
-      res.status(500).json({ error: "Failed to fetch insurance holdings" });
-    }
-  });
-
-
-
-
   // Government Scheme Consent Management endpoints
+  app.get("/api/government-schemes/consent/:panNumber/:schemeType", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { panNumber, schemeType } = req.params;
+      const hasConsent = await storage.checkGovernmentSchemeConsent(userId, panNumber, schemeType);
+      res.json({ hasConsent, panNumber, schemeType });
+    } catch (error) {
+      console.error("Error checking consent:", error);
+      res.status(500).json({ error: "Failed to check consent status" });
+    }
+  });
+
   app.post("/api/government-schemes/consent", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const { panNumber, schemeType, channel } = req.body;
+      const { panNumber, schemeType, purpose } = req.body;
       
       const consentData = {
         userId,
         panNumber,
         schemeType,
-        channel: channel || 'mobile',
-        status: 'pending',
-        consentVersion: '1.0',
+        purpose: purpose || "Access government scheme holdings data for portfolio management",
+        consentGranted: true,
+        consentDate: new Date(),
+        consentExpiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
         isActive: true
       };
       
@@ -14214,6 +11520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to create consent" });
     }
   });
+
   app.get("/api/government-schemes/consents", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
@@ -14226,35 +11533,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // Get consent status for a specific PAN and scheme type
-  app.get("/api/government-schemes/consent/:panNumber/:schemeType", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { panNumber, schemeType } = req.params;
-      
-      const consents = await storage.getGovernmentSchemeConsents(userId, panNumber);
-      const consent = consents.find((c: any) => c.schemeType === schemeType);
-      
-      if (consent) {
-        res.json({
-          hasConsent: true,
-          consent: consent,
-          status: consent.status,
-          expiresAt: consent.expiresAt
-        });
-      } else {
-        res.json({
-          hasConsent: false,
-          consent: null,
-          status: 'none'
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching consent status:", error);
-      res.status(500).json({ error: "Failed to fetch consent status" });
-    }
-  });
   app.delete("/api/government-schemes/consent/:panNumber/:schemeType", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
@@ -14264,230 +11542,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error revoking consent:", error);
       res.status(500).json({ error: "Failed to revoke consent" });
-    }
-  });
-
-  // Government Scheme Consent Initiation (OTP-based)
-  app.post("/api/government-schemes/consent/initiate", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { schemeType, channel = 'mobile' } = req.body;
-      
-      const validSchemes = ['epf', 'eps', 'ppf', 'nps', 'apy', 'insurance'];
-      if (!validSchemes.includes(schemeType)) {
-        return res.status(400).json({ error: 'Invalid scheme type' });
-      }
-
-      const user = await storage.getUser(userId);
-      
-      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
-      
-      const result = await governmentSchemeConsentOrchestrator.initiateConsent({
-        userId,
-        schemeType: schemeType as any,
-        channel: channel as any,
-        mobile: user?.mobile,
-        email: user?.email,
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent')
-      });
-
-      res.json(result);
-    } catch (error) {
-      console.error("Error initiating consent:", error);
-      res.status(500).json({ error: "Failed to initiate consent" });
-    }
-  });
-
-  // Government Scheme Consent Verification (OTP)
-  app.post("/api/government-schemes/consent/verify", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { challengeId, otp } = req.body;
-      
-      if (!challengeId || !otp) {
-        return res.status(400).json({ error: 'Challenge ID and OTP are required' });
-      }
-
-      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
-      
-      const result = await governmentSchemeConsentOrchestrator.verifyOTPAndGrantConsent({
-        userId,
-        schemeType: 'epf' as any,
-        challengeId,
-        otp,
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent')
-      });
-
-      res.json(result);
-    } catch (error) {
-      console.error("Error verifying consent:", error);
-      res.status(500).json({ error: "Failed to verify consent" });
-    }
-  });
-
-  // Government Scheme Refresh with OTP-based Consent
-  app.post("/api/government-schemes/:scheme/refresh", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { scheme } = req.params;
-      const { channel = 'mobile', mobile, email } = req.body;
-      
-      const validSchemes = ['epf', 'eps', 'ppf', 'nps', 'apy', 'insurance'];
-      if (!validSchemes.includes(scheme)) {
-        return res.status(400).json({ error: 'Invalid scheme type' });
-      }
-
-      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
-      
-      const result = await governmentSchemeConsentOrchestrator.initiateConsent({
-        userId,
-        schemeType: scheme as any,
-        channel: channel as any,
-        mobile,
-        email,
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent')
-      });
-
-      res.json(result);
-    } catch (error) {
-      console.error("Error initiating government scheme refresh:", error);
-      res.status(500).json({ error: "Failed to initiate refresh" });
-    }
-  });
-
-  app.post("/api/government-schemes/:scheme/otp/verify", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { scheme } = req.params;
-      const { challengeId, otp } = req.body;
-      
-      if (!challengeId || !otp) {
-        return res.status(400).json({ error: 'Challenge ID and OTP are required' });
-      }
-
-      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
-      
-      const result = await governmentSchemeConsentOrchestrator.verifyOTPAndGrantConsent({
-        userId,
-        schemeType: scheme as any,
-        challengeId,
-        otp,
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent')
-      });
-
-      if (result.success) {
-        // Record that data was fetched (for audit trail)
-        await governmentSchemeConsentOrchestrator.recordDataFetch(
-          userId,
-          scheme as any,
-          { refreshed: true, timestamp: new Date() },
-          undefined,
-          req.ip
-        );
-      }
-
-      res.json(result);
-    } catch (error) {
-      console.error("Error verifying OTP:", error);
-      res.status(500).json({ error: "Failed to verify OTP" });
-    }
-  });
-
-  app.get("/api/government-schemes/consent-status", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      
-      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
-      const status = await governmentSchemeConsentOrchestrator.getConsentStatus(userId);
-      
-      res.json(status);
-    } catch (error) {
-      console.error("Error fetching consent status:", error);
-      res.status(500).json({ error: "Failed to fetch consent status" });
-    }
-  });
-
-  app.get("/api/government-schemes/audit", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { schemeType, limit } = req.query;
-      
-      const { governmentSchemeConsentOrchestrator } = await import('./services/government-scheme-consent-orchestrator');
-      const auditLog = await governmentSchemeConsentOrchestrator.getAuditLog(
-        userId,
-        schemeType as any,
-        parseInt(limit as string) || 50
-      );
-      
-      res.json(auditLog);
-    } catch (error) {
-      console.error("Error fetching audit log:", error);
-      res.status(500).json({ error: "Failed to fetch audit log" });
-    }
-  });
-
-
-
-  // Background Job Status Endpoints
-  app.get("/api/jobs/:jobId", requireAuth, async (req: any, res) => {
-    try {
-      const { jobQueue } = await import("./services/background-job-queue");
-      const job = jobQueue.getJob(req.params.jobId);
-      
-      if (!job) {
-        return res.status(404).json({ error: "Job not found" });
-      }
-      
-      // Only allow users to see their own jobs
-      if (job.payload.userId !== req.user!.id) {
-        return res.status(403).json({ error: "Access denied" });
-      }
-      
-      res.json({
-        id: job.id,
-        type: job.type,
-        status: job.status,
-        createdAt: job.createdAt,
-        startedAt: job.startedAt,
-        completedAt: job.completedAt,
-        result: job.status === "completed" ? job.result : undefined,
-        error: job.status === "failed" ? job.error : undefined
-      });
-    } catch (error) {
-      console.error("Error fetching job status:", error);
-      res.status(500).json({ error: "Failed to fetch job status" });
-    }
-  });
-
-  app.get("/api/jobs", requireAuth, async (req: any, res) => {
-    try {
-      const { jobQueue } = await import("./services/background-job-queue");
-      const jobs = jobQueue.getJobsByUser(req.user!.id);
-      
-      res.json(jobs.map(job => ({
-        id: job.id,
-        type: job.type,
-        status: job.status,
-        createdAt: job.createdAt,
-        completedAt: job.completedAt
-      })));
-    } catch (error) {
-      console.error("Error fetching user jobs:", error);
-      res.status(500).json({ error: "Failed to fetch jobs" });
-    }
-  });
-
-  app.get("/api/jobs/stats", requireAuth, async (req: any, res) => {
-    try {
-      const { jobQueue } = await import("./services/background-job-queue");
-      res.json(jobQueue.getStats());
-    } catch (error) {
-      console.error("Error fetching job stats:", error);
-      res.status(500).json({ error: "Failed to fetch job stats" });
     }
   });
 
@@ -15230,211 +12284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // Real-time Portfolio Performance Widgets API Endpoints
-  
-  // Live performance data for portfolio
-  app.get("/api/portfolios/:portfolioId/live-performance", async (req, res) => {
-    try {
-      const { portfolioId } = req.params;
-      const holdings = await storage.getPortfolioHoldings(portfolioId);
-      
-      if (!holdings || holdings.length === 0) {
-        return res.json({
-          totalValue: 0,
-          dayChange: 0,
-          dayChangePercent: 0,
-          weekChange: 0,
-          weekChangePercent: 0,
-          monthChange: 0,
-          monthChangePercent: 0,
-          yearChange: 0,
-          yearChangePercent: 0,
-          allTimeReturn: 0,
-          allTimeReturnPercent: 0,
-          xirr: 0,
-          cagr: 0,
-        });
-      }
-      
-      // Calculate total portfolio value
-      const totalValue = holdings.reduce((sum, h) => {
-        return sum + (parseFloat(h.quantity) * parseFloat(h.avgPrice));
-      }, 0);
-      
-      // Simulate real-time performance metrics
-      const dayChange = totalValue * (Math.random() - 0.45) * 0.02;
-      const dayChangePercent = (dayChange / totalValue) * 100;
-      
-      res.json({
-        totalValue,
-        dayChange,
-        dayChangePercent,
-        weekChange: dayChange * 2.5,
-        weekChangePercent: dayChangePercent * 2.5,
-        monthChange: dayChange * 8,
-        monthChangePercent: dayChangePercent * 8,
-        yearChange: totalValue * 0.18,
-        yearChangePercent: 18.5,
-        allTimeReturn: totalValue * 0.35,
-        allTimeReturnPercent: 35.2,
-        xirr: 15.8 + (Math.random() - 0.5) * 2,
-        cagr: 14.2 + (Math.random() - 0.5) * 2,
-      });
-    } catch (error) {
-      console.error("Error fetching live performance:", error);
-      res.status(500).json({ error: "Failed to fetch live performance" });
-    }
-  });
-
-  // Top movers in portfolio
-  app.get("/api/portfolios/:portfolioId/top-movers", async (req, res) => {
-    try {
-      const { portfolioId } = req.params;
-      const holdings = await storage.getPortfolioHoldings(portfolioId);
-      
-      if (!holdings || holdings.length === 0) {
-        return res.json({ gainers: [], losers: [] });
-      }
-      
-      // Simulate price changes for holdings
-      const holdingsWithChanges = holdings.map(h => {
-        const changePercent = (Math.random() - 0.5) * 6;
-        const currentPrice = parseFloat(h.avgPrice);
-        return {
-          symbol: h.symbol,
-          name: h.symbol,
-          change: currentPrice * (changePercent / 100),
-          changePercent,
-          currentPrice,
-          value: parseFloat(h.quantity) * currentPrice,
-        };
-      });
-      
-      const gainers = holdingsWithChanges
-        .filter(h => h.changePercent > 0)
-        .sort((a, b) => b.changePercent - a.changePercent)
-        .slice(0, 4);
-        
-      const losers = holdingsWithChanges
-        .filter(h => h.changePercent < 0)
-        .sort((a, b) => a.changePercent - b.changePercent)
-        .slice(0, 4);
-      
-      res.json({ gainers, losers });
-    } catch (error) {
-      console.error("Error fetching top movers:", error);
-      res.status(500).json({ error: "Failed to fetch top movers" });
-    }
-  });
-
-  // Portfolio alerts
-  app.get("/api/portfolios/:portfolioId/alerts", async (req, res) => {
-    try {
-      const { portfolioId } = req.params;
-      const holdings = await storage.getPortfolioHoldings(portfolioId);
-      
-      const alerts: Array<{
-        id: string;
-        type: string;
-        symbol: string;
-        message: string;
-        timestamp: string;
-        priority: string;
-      }> = [];
-      
-      // Generate sample alerts based on holdings
-      if (holdings && holdings.length > 0) {
-        const topHoldings = holdings.slice(0, 5);
-        const alertTypes = ["price", "target", "stop_loss", "news", "dividend"];
-        const messages = [
-          "Price crossed resistance level",
-          "52-week high achieved",
-          "Approaching stop-loss",
-          "Quarterly results announced",
-          "Dividend declared",
-        ];
-        
-        topHoldings.forEach((h, i) => {
-          alerts.push({
-            id: `alert-${h.symbol}-${i}`,
-            type: alertTypes[i % alertTypes.length],
-            symbol: h.symbol,
-            message: messages[i % messages.length],
-            timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString(),
-            priority: ["high", "medium", "low"][Math.floor(Math.random() * 3)],
-          });
-        });
-      }
-      
-      res.json(alerts);
-    } catch (error) {
-      console.error("Error fetching portfolio alerts:", error);
-      res.status(500).json({ error: "Failed to fetch portfolio alerts" });
-    }
-  });
-
-  // Asset performance breakdown
-  app.get("/api/portfolios/:portfolioId/asset-performance", async (req, res) => {
-    try {
-      const { portfolioId } = req.params;
-      const holdings = await storage.getPortfolioHoldings(portfolioId);
-      
-      if (!holdings || holdings.length === 0) {
-        return res.json([]);
-      }
-      
-      // Group by asset type
-      const assetGroups: Record<string, { value: number; count: number }> = {};
-      holdings.forEach(h => {
-        const assetType = h.assetType || "equity";
-        const value = parseFloat(h.quantity) * parseFloat(h.avgPrice);
-        if (!assetGroups[assetType]) {
-          assetGroups[assetType] = { value: 0, count: 0 };
-        }
-        assetGroups[assetType].value += value;
-        assetGroups[assetType].count++;
-      });
-      
-      const totalValue = Object.values(assetGroups).reduce((sum, g) => sum + g.value, 0);
-      
-      const assetColors: Record<string, string> = {
-        equity: "#3b82f6",
-        mutual_fund: "#22c55e",
-        fixed_deposit: "#f59e0b",
-        gold: "#eab308",
-        bonds: "#8b5cf6",
-        etf: "#06b6d4",
-        other: "#6b7280",
-      };
-      
-      const assetNames: Record<string, string> = {
-        equity: "Equity",
-        mutual_fund: "Mutual Funds",
-        fixed_deposit: "Fixed Deposits",
-        gold: "Gold",
-        bonds: "Bonds",
-        etf: "ETFs",
-        other: "Other",
-      };
-      
-      const result = Object.entries(assetGroups).map(([assetType, data]) => ({
-        assetType,
-        name: assetNames[assetType] || assetType,
-        value: data.value,
-        allocation: Math.round((data.value / totalValue) * 100),
-        dayChange: (Math.random() - 0.3) * 3,
-        weekChange: (Math.random() - 0.2) * 5,
-        color: assetColors[assetType] || "#6b7280",
-      }));
-      
-      res.json(result.sort((a, b) => b.value - a.value));
-    } catch (error) {
-      console.error("Error fetching asset performance:", error);
-      res.status(500).json({ error: "Failed to fetch asset performance" });
-    }
-  });
-
+  // Pi Chat asset class summaries
   app.get("/api/portfolios/:portfolioId/pi-chat-summaries", requireOwnPortfolio, async (req, res) => {
     try {
       const { portfolioId } = req.params;
@@ -15922,489 +12772,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ============================================
-  // REPORTS HUB API ENDPOINTS
-  // Comprehensive financial reports from multiple sources
-  // ============================================
-
-  // MF Holdings Report - BSE STAR MF
-  app.post("/api/reports/mf-holdings", async (req, res) => {
-    try {
-      const { userId, panNumber } = req.body;
-      
-      if (!userId || !panNumber) {
-        return res.status(400).json({ error: "userId and panNumber are required" });
-      }
-
-      const { reportsHubService } = await import("./services/reports-hub-service");
-      const report = await reportsHubService.fetchMFHoldings({ userId, panNumber });
-      
-      console.log(`📝 [Audit] MF Holdings report generated for user ${userId}`);
-      
-      res.json(report);
-    } catch (error) {
-      console.error("Error fetching MF Holdings:", error);
-      res.status(500).json({ error: "Failed to fetch MF holdings report" });
-    }
-  });
-
-  // MF Transactions Report - BSE STAR MF
-  app.post("/api/reports/mf-transactions", async (req, res) => {
-    try {
-      const { userId, panNumber, financialYear, fromDate, toDate } = req.body;
-      
-      if (!userId || !panNumber) {
-        return res.status(400).json({ error: "userId and panNumber are required" });
-      }
-
-      const { reportsHubService } = await import("./services/reports-hub-service");
-      const report = await reportsHubService.fetchMFTransactions({ 
-        userId, panNumber, financialYear, fromDate, toDate 
-      });
-      
-      console.log(`📝 [Audit] MF Transactions report generated for user ${userId}`);
-      
-      res.json(report);
-    } catch (error) {
-      console.error("Error fetching MF Transactions:", error);
-      res.status(500).json({ error: "Failed to fetch MF transactions report" });
-    }
-  });
-
-  // SIP Summary Report - BSE STAR MF
-  app.post("/api/reports/sip-summary", async (req, res) => {
-    try {
-      const { userId, panNumber } = req.body;
-      
-      if (!userId || !panNumber) {
-        return res.status(400).json({ error: "userId and panNumber are required" });
-      }
-
-      const { reportsHubService } = await import("./services/reports-hub-service");
-      const report = await reportsHubService.fetchSIPSummary({ userId, panNumber });
-      
-      console.log(`📝 [Audit] SIP Summary report generated for user ${userId}`);
-      
-      res.json(report);
-    } catch (error) {
-      console.error("Error fetching SIP Summary:", error);
-      res.status(500).json({ error: "Failed to fetch SIP summary report" });
-    }
-  });
-
-  // Demat Snapshot Report - NSDL/CDSL via Account Aggregator
-  app.post("/api/reports/demat-snapshot", async (req, res) => {
-    try {
-      const { userId, panNumber, depository = "NSDL" } = req.body;
-      
-      if (!userId || !panNumber) {
-        return res.status(400).json({ error: "userId and panNumber are required" });
-      }
-
-      const { reportsHubService } = await import("./services/reports-hub-service");
-      const report = await reportsHubService.fetchDematSnapshot({ userId, panNumber }, depository);
-      
-      console.log(`📝 [Audit] ${depository} Demat Snapshot generated for user ${userId}`);
-      
-      res.json(report);
-    } catch (error) {
-      console.error("Error fetching Demat Snapshot:", error);
-      res.status(500).json({ error: "Failed to fetch demat snapshot report" });
-    }
-  });
-
-  // EPF Passbook Report - EPFO API
-  app.post("/api/reports/epf-passbook", async (req, res) => {
-    try {
-      const { userId, panNumber } = req.body;
-      
-      if (!userId || !panNumber) {
-        return res.status(400).json({ error: "userId and panNumber are required" });
-      }
-
-      const { reportsHubService } = await import("./services/reports-hub-service");
-      const report = await reportsHubService.fetchEPFPassbook({ userId, panNumber });
-      
-      console.log(`📝 [Audit] EPF Passbook report generated for user ${userId}`);
-      
-      res.json(report);
-    } catch (error) {
-      console.error("Error fetching EPF Passbook:", error);
-      res.status(500).json({ error: "Failed to fetch EPF passbook report" });
-    }
-  });
-
-  // NPS Statement Report - Protean CRA API
-  app.post("/api/reports/nps-statement", async (req, res) => {
-    try {
-      const { userId, panNumber } = req.body;
-      
-      if (!userId || !panNumber) {
-        return res.status(400).json({ error: "userId and panNumber are required" });
-      }
-
-      const { reportsHubService } = await import("./services/reports-hub-service");
-      const report = await reportsHubService.fetchNPSStatement({ userId, panNumber });
-      
-      console.log(`📝 [Audit] NPS Statement report generated for user ${userId}`);
-      
-      res.json(report);
-    } catch (error) {
-      console.error("Error fetching NPS Statement:", error);
-      res.status(500).json({ error: "Failed to fetch NPS statement report" });
-    }
-  });
-
-  // Sync MF Holdings to Portfolio
-  app.post("/api/reports/sync-mf-to-portfolio", async (req, res) => {
-    try {
-      const { userId, portfolioId, panNumber } = req.body;
-      
-      if (!userId || !portfolioId || !panNumber) {
-        return res.status(400).json({ error: "userId, portfolioId, and panNumber are required" });
-      }
-
-      const { reportsHubService } = await import("./services/reports-hub-service");
-      const mfReport = await reportsHubService.fetchMFHoldings({ userId, panNumber });
-      
-      if (!mfReport.success || !mfReport.holdings.length) {
-        return res.json({ success: true, syncedCount: 0, message: "No MF holdings found to sync" });
-      }
-
-      for (const holding of mfReport.holdings) {
-        try {
-          await storage.createPortfolioHolding({
-            portfolioId,
-            symbol: holding.schemeCode,
-            quantity: String(holding.units),
-            avgPrice: String(holding.averageNav),
-            currency: "INR",
-            assetType: "mutual_fund",
-            assetClass: holding.schemeOption === "direct" ? "direct" : "regular",
-            sector: holding.schemePlan
-          });
-        } catch (err) {
-          console.error(`Failed to sync holding ${holding.schemeCode}:`, err);
-        }
-      }
-
-      console.log(`🔄 [Sync] Synced ${mfReport.holdings.length} MF holdings to portfolio ${portfolioId}`);
-      
-      res.json({ 
-        success: true, 
-        syncedCount: mfReport.holdings.length,
-        totalValue: mfReport.summary.totalCurrentValue,
-        message: `Successfully synced ${mfReport.holdings.length} mutual fund holdings to your portfolio`
-      });
-    } catch (error) {
-      console.error("Error syncing MF to portfolio:", error);
-      res.status(500).json({ error: "Failed to sync MF holdings to portfolio" });
-    }
-  });
-
-  // Sync Demat Holdings to Portfolio
-  app.post("/api/reports/sync-demat-to-portfolio", async (req, res) => {
-    try {
-      const { userId, portfolioId, panNumber, depository = "NSDL" } = req.body;
-      
-      if (!userId || !portfolioId || !panNumber) {
-        return res.status(400).json({ error: "userId, portfolioId, and panNumber are required" });
-      }
-
-      const { reportsHubService } = await import("./services/reports-hub-service");
-      const dematReport = await reportsHubService.fetchDematSnapshot({ userId, panNumber }, depository);
-      
-      if (!dematReport.success || !dematReport.holdings.length) {
-        return res.json({ success: true, syncedCount: 0, message: "No demat holdings found to sync" });
-      }
-
-      for (const holding of dematReport.holdings) {
-        try {
-          await storage.createPortfolioHolding({
-            portfolioId,
-            symbol: holding.symbol,
-            quantity: String(holding.quantity),
-            avgPrice: String(holding.averagePrice),
-            currency: "INR",
-            assetType: "equity",
-            assetClass: "large_cap",
-            sector: holding.sector || "Other"
-          });
-        } catch (err) {
-          console.error(`Failed to sync holding ${holding.symbol}:`, err);
-        }
-      }
-
-      console.log(`🔄 [Sync] Synced ${dematReport.holdings.length} demat holdings to portfolio ${portfolioId}`);
-      
-      res.json({ 
-        success: true, 
-        syncedCount: dematReport.holdings.length,
-        totalValue: dematReport.summary.totalCurrentValue,
-        message: `Successfully synced ${dematReport.holdings.length} equity holdings to your portfolio`
-      });
-    } catch (error) {
-      console.error("Error syncing demat to portfolio:", error);
-      res.status(500).json({ error: "Failed to sync demat holdings to portfolio" });
-    }
-  });
-
-
-  // =====================================================
-  // Account Aggregator (AA) Endpoints for Portfolio Sync
-  // =====================================================
-
-  // Create AA consent request - Step 1: Initiate consent flow
-  app.post("/api/aa/consent/create", async (req, res) => {
-    try {
-      const { userId, panNumber, assetTypes, validityDays, syncFrequencyDays } = req.body;
-      
-      if (!userId || !panNumber) {
-        return res.status(400).json({ error: "userId and panNumber are required" });
-      }
-
-      const { aaFIUService } = await import("./services/aa-fiu-service");
-      
-      const callbackUrl = `${req.protocol}://${req.get('host')}/api/aa/consent/callback`;
-      
-      const result = await aaFIUService.createConsentRequest({
-        userId,
-        panNumber,
-        assetTypes: assetTypes || ['MF', 'DEMAT', 'NPS', 'EPF', 'PPF'],
-        validityDays: validityDays || 90,
-        syncFrequencyDays: syncFrequencyDays || 30,
-        callbackUrl
-      });
-
-      console.log(`🔐 [AA] Consent request created for user ${userId}`);
-      
-      res.json({
-        success: true,
-        consentHandleId: result.consentHandleId,
-        redirectUrl: result.redirectUrl,
-        expiresAt: result.expiresAt,
-        message: "Redirect user to AA portal for OTP approval"
-      });
-    } catch (error: any) {
-      console.error("Error creating AA consent:", error);
-      res.status(500).json({ error: error.message || "Failed to create AA consent" });
-    }
-  });
-
-  // AA Consent callback - Step 2: Handle approval from AA portal
-  app.post("/api/aa/consent/callback", async (req, res) => {
-    try {
-      const { consentHandleId, status } = req.body;
-      
-      if (!consentHandleId || !status) {
-        return res.status(400).json({ error: "consentHandleId and status are required" });
-      }
-
-      const { aaFIUService } = await import("./services/aa-fiu-service");
-      
-      const result = await aaFIUService.handleConsentCallback(consentHandleId, status);
-
-      console.log(`📥 [AA] Consent callback processed: ${consentHandleId} - ${status}`);
-      
-      res.json({
-        success: result.success,
-        consentId: result.consentId,
-        message: result.success ? "Consent approved, data fetch initiated" : "Consent not approved"
-      });
-    } catch (error: any) {
-      console.error("Error handling AA consent callback:", error);
-      res.status(500).json({ error: error.message || "Failed to process consent callback" });
-    }
-  });
-
-  // Check AA consent status
-  app.get("/api/aa/consent/status/:consentHandleId", async (req, res) => {
-    try {
-      const { consentHandleId } = req.params;
-
-      const { aaFIUService } = await import("./services/aa-fiu-service");
-      
-      const result = await aaFIUService.checkConsentStatus(consentHandleId);
-
-      res.json({
-        success: true,
-        status: result.status,
-        session: result.session
-      });
-    } catch (error: any) {
-      console.error("Error checking AA consent status:", error);
-      res.status(500).json({ error: error.message || "Failed to check consent status" });
-    }
-  });
-
-  // Get active consent session for user
-  app.get("/api/aa/consent/active/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-
-      const { aaFIUService } = await import("./services/aa-fiu-service");
-      
-      const session = await aaFIUService.getActiveConsentSession(userId);
-
-      res.json({
-        success: true,
-        hasActiveConsent: !!session,
-        session: session
-      });
-    } catch (error: any) {
-      console.error("Error getting active consent:", error);
-      res.status(500).json({ error: error.message || "Failed to get active consent" });
-    }
-  });
-
-  // Fetch aggregated data using existing consent - Step 3 & 4
-  app.post("/api/aa/data/fetch", async (req, res) => {
-    try {
-      const { consentSessionId, userId } = req.body;
-      
-      if (!consentSessionId && !userId) {
-        return res.status(400).json({ error: "consentSessionId or userId is required" });
-      }
-
-      const { aaFIUService } = await import("./services/aa-fiu-service");
-      
-      let sessionId = consentSessionId;
-      
-      if (!sessionId && userId) {
-        const session = await aaFIUService.getActiveConsentSession(userId);
-        if (!session) {
-          return res.status(404).json({ error: "No active consent found. Please create a new consent." });
-        }
-        sessionId = session.id;
-      }
-
-      const portfolio = await aaFIUService.fetchAggregatedData(sessionId);
-
-      console.log(`🔄 [AA] Aggregated data fetched for session ${sessionId}`);
-      
-      res.json({
-        success: true,
-        data: portfolio,
-        summary: {
-          mutualFundsCount: portfolio.mutualFunds.length,
-          dematHoldingsCount: portfolio.dematHoldings.length,
-          npsCount: portfolio.nps.length,
-          epfCount: portfolio.epf.length,
-          ppfCount: portfolio.ppf.length,
-          loansCount: portfolio.loans.length,
-          fetchedAt: portfolio.fetchedAt
-        }
-      });
-    } catch (error: any) {
-      console.error("Error fetching AA data:", error);
-      res.status(500).json({ error: error.message || "Failed to fetch aggregated data" });
-    }
-  });
-
-  // Sync AA data to portfolio holdings
-  app.post("/api/aa/sync-to-portfolio", async (req, res) => {
-    try {
-      const { userId, portfolioId, consentSessionId } = req.body;
-      
-      if (!userId || !portfolioId) {
-        return res.status(400).json({ error: "userId and portfolioId are required" });
-      }
-
-      const { aaFIUService } = await import("./services/aa-fiu-service");
-      
-      let sessionId = consentSessionId;
-      
-      if (!sessionId) {
-        const session = await aaFIUService.getActiveConsentSession(userId);
-        if (!session) {
-          return res.status(404).json({ error: "No active consent found. Please create a new consent." });
-        }
-        sessionId = session.id;
-      }
-
-      const portfolio = await aaFIUService.fetchAggregatedData(sessionId);
-
-      let syncedCount = 0;
-
-      for (const mf of portfolio.mutualFunds) {
-        try {
-          await storage.createPortfolioHolding({
-            portfolioId,
-            symbol: mf.isin || mf.name,
-            quantity: String(mf.units || 0),
-            avgPrice: String(mf.nav || 0),
-            currency: "INR",
-            assetType: "mutual_fund",
-            assetClass: "equity",
-            sector: "Mutual Fund"
-          });
-          syncedCount++;
-        } catch (err) {
-          console.error(`Failed to sync MF ${mf.name}:`, err);
-        }
-      }
-
-      for (const stock of portfolio.dematHoldings) {
-        try {
-          await storage.createPortfolioHolding({
-            portfolioId,
-            symbol: stock.isin || stock.name,
-            quantity: String(stock.qty || 0),
-            avgPrice: String(stock.avgPrice || 0),
-            currency: "INR",
-            assetType: "equity",
-            assetClass: "large_cap",
-            sector: stock.sector || "Equity"
-          });
-          syncedCount++;
-        } catch (err) {
-          console.error(`Failed to sync stock ${stock.name}:`, err);
-        }
-      }
-
-      console.log(`✅ [AA] Synced ${syncedCount} holdings to portfolio ${portfolioId}`);
-      
-      res.json({
-        success: true,
-        syncedCount,
-        summary: {
-          mutualFunds: portfolio.mutualFunds.length,
-          dematHoldings: portfolio.dematHoldings.length,
-          nps: portfolio.nps.length,
-          epf: portfolio.epf.length
-        },
-        message: `Successfully synced ${syncedCount} holdings from Account Aggregator`
-      });
-    } catch (error: any) {
-      console.error("Error syncing AA data to portfolio:", error);
-      res.status(500).json({ error: error.message || "Failed to sync AA data to portfolio" });
-    }
-  });
-
-  // Revoke AA consent
-  app.post("/api/aa/consent/revoke", async (req, res) => {
-    try {
-      const { consentSessionId, reason } = req.body;
-      
-      if (!consentSessionId) {
-        return res.status(400).json({ error: "consentSessionId is required" });
-      }
-
-      const { aaFIUService } = await import("./services/aa-fiu-service");
-      
-      await aaFIUService.revokeConsent(consentSessionId, reason || "User requested revocation");
-
-      console.log(`🚫 [AA] Consent revoked: ${consentSessionId}`);
-      
-      res.json({
-        success: true,
-        message: "Consent revoked successfully"
-      });
-    } catch (error: any) {
-      console.error("Error revoking AA consent:", error);
-      res.status(500).json({ error: error.message || "Failed to revoke consent" });
-    }
-  });
   // External API Integration Endpoints for Fetching Reports
   app.post("/api/reports/fetch-from-mf-central", async (req, res) => {
     try {
@@ -16547,8 +12914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Mutual Fund API endpoints with MultiSource integration
-  // Mutual funds listing - public access for viewing
-  app.get("/api/mutual-funds", async (req, res) => {
+  app.get("/api/mutual-funds", requireLevel2, async (req, res) => {
     try {
       const { 
         category, 
@@ -16649,8 +13015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Popular mutual funds - public access for viewing
-  app.get("/api/mutual-funds/popular", async (req, res) => {
+  app.get("/api/mutual-funds/popular", requireLevel2, async (req, res) => {
     try {
       console.log("📈 Fetching best performing mutual funds with MultiSource service...");
       
@@ -16804,8 +13169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Mutual fund details - public access for viewing
-  app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
+  app.get("/api/mutual-funds/:schemeCode", requireLevel2, async (req, res) => {
     try {
       const { schemeCode } = req.params;
       console.log(`📊 Fetching fund details for scheme: ${schemeCode} with MultiSource service`);
@@ -16985,8 +13349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Mutual fund search - public access for viewing
-  app.get("/api/mutual-funds/search/:query", async (req, res) => {
+  app.get("/api/mutual-funds/search/:query", requireLevel2, async (req, res) => {
     try {
       const { query } = req.params;
       console.log(`🔍 Searching funds with query: ${query}`);
@@ -29500,9 +25863,11 @@ System Security Data:`;
         req.params.productType
       );
       
-      // Return null if no preference exists (not an error, just not configured yet)
-      res.json(preference || null);
+      if (!preference) {
+        return res.status(404).json({ error: "Preference not found for this product type" });
+      }
 
+      res.json(preference);
     } catch (error) {
       console.error("Error fetching product account preference:", error);
       res.status(500).json({ error: "Failed to fetch product account preference" });
@@ -34396,952 +30761,5 @@ System Security Data:`;
     }
   });
 
-
-  // ============================================
-  // FIXED INCOME MARKETPLACE ROUTES
-  // ============================================
-  
-  // Get marketplace bonds with filters
-  app.get("/api/fixed-income/bonds", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      
-      const filters = {
-        bondType: req.query.bondType as any,
-        securityType: req.query.securityType,
-        creditRating: req.query.creditRating,
-        minYield: req.query.minYield ? parseFloat(req.query.minYield) : undefined,
-        maxYield: req.query.maxYield ? parseFloat(req.query.maxYield) : undefined,
-        issuer: req.query.issuer,
-        taxStatus: req.query.taxStatus,
-      };
-      
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 20;
-      
-      const result = await fixedIncomeMarketplace.getMarketplaceBonds(filters, page, limit);
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching bonds:", error);
-      res.status(500).json({ error: "Failed to fetch bonds" });
-    }
-  });
-  
-  // Get bond details
-  app.get("/api/fixed-income/bonds/:bondId", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const { bondId } = req.params;
-      const bondType = req.query.type as 'government' | 'corporate' || 'corporate';
-      
-      const bond = await fixedIncomeMarketplace.getBondDetails(bondId, bondType);
-      
-      if (!bond) {
-        return res.status(404).json({ error: "Bond not found" });
-      }
-      
-      res.json(bond);
-    } catch (error) {
-      console.error("Error fetching bond details:", error);
-      res.status(500).json({ error: "Failed to fetch bond details" });
-    }
-  });
-  
-  // Get NCD issues
-  app.get("/api/fixed-income/ncd-issues", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const status = req.query.status || 'open';
-      
-      const issues = status === 'upcoming' 
-        ? await fixedIncomeMarketplace.getUpcomingNcdIssues()
-        : await fixedIncomeMarketplace.getOpenNcdIssues();
-      
-      res.json(issues);
-    } catch (error) {
-      console.error("Error fetching NCD issues:", error);
-      res.status(500).json({ error: "Failed to fetch NCD issues" });
-    }
-  });
-  
-  // Get SGB issues
-  app.get("/api/fixed-income/sgb-issues", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const status = req.query.status || 'open';
-      
-      const issues = status === 'upcoming' 
-        ? await fixedIncomeMarketplace.getUpcomingSgbIssues()
-        : await fixedIncomeMarketplace.getOpenSgbIssues();
-      
-      res.json(issues);
-    } catch (error) {
-      console.error("Error fetching SGB issues:", error);
-      res.status(500).json({ error: "Failed to fetch SGB issues" });
-    }
-  });
-  
-  // Perform suitability check
-  app.post("/api/fixed-income/suitability-check", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const userId = req.user!.id;
-      
-      const check = await fixedIncomeMarketplace.performSuitabilityCheck(userId, req.ip, req.get('user-agent'));
-      res.json(check);
-    } catch (error) {
-      console.error("Error performing suitability check:", error);
-      res.status(500).json({ error: "Failed to perform suitability check" });
-    }
-  });
-  
-  // Get suitability status
-  app.get("/api/fixed-income/suitability-status", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const check = await fixedIncomeMarketplace.getUserLatestSuitability(req.user!.id);
-      
-      res.json({
-        hasSuitability: !!check,
-        suitability: check,
-        canTrade: check?.suitabilityResult === 'approved' || check?.suitabilityResult === 'conditional'
-      });
-    } catch (error) {
-      console.error("Error fetching suitability status:", error);
-      res.status(500).json({ error: "Failed to fetch suitability status" });
-    }
-  });
-  
-  // Place bond order
-  app.post("/api/fixed-income/orders", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const order = await fixedIncomeMarketplace.placeOrder({
-        userId: req.user!.id,
-        ...req.body
-      }, req.ip, req.get('user-agent'));
-      
-      res.json(order);
-    } catch (error: any) {
-      console.error("Error placing order:", error);
-      res.status(400).json({ error: error.message || "Failed to place order" });
-    }
-  });
-  
-  // Get user's orders
-  app.get("/api/fixed-income/orders", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const orders = await fixedIncomeMarketplace.getUserOrders(req.user!.id, req.query.status);
-      res.json(orders);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      res.status(500).json({ error: "Failed to fetch orders" });
-    }
-  });
-
-  // Initiate sell order payout
-  app.post("/api/fixed-income/orders/:orderId/payout", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import('./services/fixed-income-payment-orchestrator');
-      const result = await fixedIncomePaymentOrchestrator.initiateSellOrderPayout(req.params.orderId);
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(400).json(result);
-      }
-    } catch (error) {
-      console.error("Error initiating sell payout:", error);
-      res.status(500).json({ error: "Failed to initiate payout" });
-    }
-  });
-
-  // Get sell order payout status
-  app.get("/api/fixed-income/orders/:orderId/payout-status", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import('./services/fixed-income-payment-orchestrator');
-      const result = await fixedIncomePaymentOrchestrator.getSellOrderPayoutStatus(req.params.orderId);
-      res.json(result);
-    } catch (error) {
-      console.error("Error getting payout status:", error);
-      res.status(500).json({ error: "Failed to get payout status" });
-    }
-  });
-  
-  // Get user's holdings
-  app.get("/api/fixed-income/holdings", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const holdings = await fixedIncomeMarketplace.getUserHoldings(req.user!.id);
-      res.json(holdings);
-    } catch (error) {
-      console.error("Error fetching holdings:", error);
-      res.status(500).json({ error: "Failed to fetch holdings" });
-    }
-  });
-
-  // Get holding by ISIN
-  app.get("/api/fixed-income/holdings/:isin", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const holding = await fixedIncomeMarketplace.getHoldingByIsin(req.user!.id, req.params.isin);
-      if (!holding) {
-        return res.status(404).json({ error: "Holding not found" });
-      }
-      res.json(holding);
-    } catch (error) {
-      console.error("Error fetching holding:", error);
-      res.status(500).json({ error: "Failed to fetch holding" });
-    }
-  });
-
-  // Validate sell order
-  app.post("/api/fixed-income/validate-sell", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const { isin, quantity } = req.body;
-      const validation = await fixedIncomeMarketplace.validateSellOrder(req.user!.id, isin, quantity);
-      res.json(validation);
-    } catch (error) {
-      console.error("Error validating sell order:", error);
-      res.status(500).json({ error: "Failed to validate sell order" });
-    }
-  });
-  
-  // Get portfolio summary
-  app.get("/api/fixed-income/portfolio-summary", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const summary = await fixedIncomeMarketplace.getPortfolioSummary(req.user!.id);
-      res.json(summary);
-    } catch (error) {
-      console.error("Error fetching portfolio summary:", error);
-      res.status(500).json({ error: "Failed to fetch portfolio summary" });
-    }
-  });
-  
-  // Get coupon payments
-  app.get("/api/fixed-income/coupon-payments", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const payments = await fixedIncomeMarketplace.getUserCouponPayments(req.user!.id, req.query.status);
-      res.json(payments);
-    } catch (error) {
-      console.error("Error fetching coupon payments:", error);
-      res.status(500).json({ error: "Failed to fetch coupon payments" });
-    }
-  });
-  
-  // Get watchlist
-  app.get("/api/fixed-income/watchlist", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const watchlist = await fixedIncomeMarketplace.getUserWatchlist(req.user!.id);
-      res.json(watchlist);
-    } catch (error) {
-      console.error("Error fetching watchlist:", error);
-      res.status(500).json({ error: "Failed to fetch watchlist" });
-    }
-  });
-  
-  // Add to watchlist
-  app.post("/api/fixed-income/watchlist", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const item = await fixedIncomeMarketplace.addToWatchlist(req.user!.id, req.body);
-      res.json(item);
-    } catch (error) {
-      console.error("Error adding to watchlist:", error);
-      res.status(500).json({ error: "Failed to add to watchlist" });
-    }
-  });
-  
-  // Remove from watchlist
-  app.delete("/api/fixed-income/watchlist/:watchlistId", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      await fixedIncomeMarketplace.removeFromWatchlist(req.user!.id, req.params.watchlistId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error removing from watchlist:", error);
-      res.status(500).json({ error: "Failed to remove from watchlist" });
-    }
-  });
-  
-  // Apply for NCD issue
-  app.post("/api/fixed-income/ncd-applications", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const application = await fixedIncomeMarketplace.applyNcdIssue(req.user!.id, req.body);
-      res.json(application);
-    } catch (error) {
-      console.error("Error applying for NCD:", error);
-      res.status(500).json({ error: "Failed to submit NCD application" });
-    }
-  });
-  
-  // Get user's NCD applications
-  app.get("/api/fixed-income/ncd-applications", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const applications = await fixedIncomeMarketplace.getUserNcdApplications(req.user!.id);
-      res.json(applications);
-    } catch (error) {
-      console.error("Error fetching NCD applications:", error);
-      res.status(500).json({ error: "Failed to fetch NCD applications" });
-    }
-  });
-  
-  // Get audit logs
-  app.get("/api/fixed-income/audit-logs", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const logs = await fixedIncomeMarketplace.getAuditLogs(req.user!.id, {
-        eventType: req.query.eventType,
-        limit: req.query.limit ? parseInt(req.query.limit) : 100,
-      });
-      res.json(logs);
-    } catch (error) {
-      console.error("Error fetching audit logs:", error);
-      res.status(500).json({ error: "Failed to fetch audit logs" });
-    }
-  });
-  
-  // Calculate YTM
-  app.post("/api/fixed-income/calculate-ytm", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const ytm = await fixedIncomeMarketplace.calculateYieldToMaturity(
-        req.body.faceValue,
-        req.body.currentPrice,
-        req.body.couponRate,
-        req.body.yearsToMaturity
-      );
-      res.json({ ytm });
-    } catch (error) {
-      console.error("Error calculating YTM:", error);
-      res.status(500).json({ error: "Failed to calculate YTM" });
-    }
-  });
-
-
-  // ============================================
-  // FIXED INCOME ADMIN ROUTES
-  // ============================================
-  
-  // Admin: Get all orders
-  app.get("/api/fixed-income/admin/orders", requireAuth, async (req: any, res) => {
-    try {
-      if (!req.user?.roles?.includes('admin')) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const orders = await fixedIncomeMarketplace.getAllOrders(100);
-      res.json(orders);
-    } catch (error) {
-      console.error("Error fetching admin orders:", error);
-      res.status(500).json({ error: "Failed to fetch orders" });
-    }
-  });
-  
-  // Admin: Get all audit logs
-  app.get("/api/fixed-income/admin/audit-logs", requireAuth, async (req: any, res) => {
-    try {
-      if (!req.user?.roles?.includes('admin')) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const logs = await fixedIncomeMarketplace.getAllAuditLogs({
-        eventType: req.query.eventType,
-        limit: req.query.limit ? parseInt(req.query.limit) : 100,
-      });
-      res.json(logs);
-    } catch (error) {
-      console.error("Error fetching admin audit logs:", error);
-      res.status(500).json({ error: "Failed to fetch audit logs" });
-    }
-  });
-  
-  // Admin: Create bond
-  app.post("/api/fixed-income/admin/bonds", requireAuth, async (req: any, res) => {
-    try {
-      if (!req.user?.roles?.includes('admin')) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const bond = await fixedIncomeMarketplace.createBond(req.body);
-      res.json(bond);
-    } catch (error) {
-      console.error("Error creating bond:", error);
-      res.status(500).json({ error: "Failed to create bond" });
-    }
-  });
-  
-  // Admin: Update bond
-  app.put("/api/fixed-income/admin/bonds/:bondId", requireAuth, async (req: any, res) => {
-    try {
-      if (!req.user?.roles?.includes('admin')) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const bond = await fixedIncomeMarketplace.updateBond(req.params.bondId, req.body);
-      res.json(bond);
-    } catch (error) {
-      console.error("Error updating bond:", error);
-      res.status(500).json({ error: "Failed to update bond" });
-    }
-  });
-  
-  // Admin: Create NCD issue
-  app.post("/api/fixed-income/admin/ncd-issues", requireAuth, async (req: any, res) => {
-    try {
-      if (!req.user?.roles?.includes('admin')) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const issue = await fixedIncomeMarketplace.createNcdIssue(req.body);
-      res.json(issue);
-    } catch (error) {
-      console.error("Error creating NCD issue:", error);
-      res.status(500).json({ error: "Failed to create NCD issue" });
-    }
-  });
-  
-  // Admin: Update NCD issue
-  app.put("/api/fixed-income/admin/ncd-issues/:issueId", requireAuth, async (req: any, res) => {
-    try {
-      if (!req.user?.roles?.includes('admin')) {
-        return res.status(403).json({ error: "Admin access required" });
-      }
-      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
-      const issue = await fixedIncomeMarketplace.updateNcdIssue(req.params.issueId, req.body);
-      res.json(issue);
-    } catch (error) {
-      console.error("Error updating NCD issue:", error);
-      res.status(500).json({ error: "Failed to update NCD issue" });
-    }
-  });
-
-  // ============================================
-  // FIXED INCOME ELIGIBILITY ROUTES
-  // ============================================
-  
-  // Get full eligibility status
-  app.get("/api/fixed-income/eligibility", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
-      const eligibility = await fixedIncomeEligibility.checkFullEligibility(req.user.id);
-      res.json(eligibility);
-    } catch (error) {
-      console.error("Error checking eligibility:", error);
-      res.status(500).json({ error: "Failed to check eligibility" });
-    }
-  });
-  
-  // Get eligibility summary with completion steps
-  app.get("/api/fixed-income/eligibility/summary", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
-      const summary = await fixedIncomeEligibility.getEligibilitySummary(req.user.id);
-      res.json(summary);
-    } catch (error) {
-      console.error("Error fetching eligibility summary:", error);
-      res.status(500).json({ error: "Failed to fetch eligibility summary" });
-    }
-  });
-  
-  // Check product-specific eligibility
-  app.get("/api/fixed-income/eligibility/product/:productType", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
-      const productType = req.params.productType as any;
-      const amount = req.query.amount ? parseFloat(req.query.amount) : undefined;
-      const eligibility = await fixedIncomeEligibility.checkProductEligibility(req.user.id, productType, amount);
-      res.json(eligibility);
-    } catch (error) {
-      console.error("Error checking product eligibility:", error);
-      res.status(500).json({ error: "Failed to check product eligibility" });
-    }
-  });
-  
-  // Get UCC status
-  app.get("/api/fixed-income/ucc-status", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
-      const uccStatus = await fixedIncomeEligibility.verifyUccStatus(req.user.id);
-      res.json(uccStatus);
-    } catch (error) {
-      console.error("Error fetching UCC status:", error);
-      res.status(500).json({ error: "Failed to fetch UCC status" });
-    }
-  });
-  
-  // Initiate UCC creation
-  app.post("/api/fixed-income/ucc/initiate", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
-      const result = await fixedIncomeEligibility.initiateUccCreation(req.user.id);
-      res.json(result);
-    } catch (error) {
-      console.error("Error initiating UCC creation:", error);
-      res.status(500).json({ error: "Failed to initiate UCC creation" });
-    }
-  });
-  
-  // Activate UCC (admin or system use)
-  app.post("/api/fixed-income/ucc/activate", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
-      const result = await fixedIncomeEligibility.activateUcc(req.user.id, req.body);
-      res.json(result);
-    } catch (error) {
-      console.error("Error activating UCC:", error);
-      res.status(500).json({ error: "Failed to activate UCC" });
-    }
-  });
-  
-  // Get KYC verification status
-  app.get("/api/fixed-income/kyc-status", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
-      const kycStatus = await fixedIncomeEligibility.verifyKycStatus(req.user.id);
-      res.json(kycStatus);
-    } catch (error) {
-      console.error("Error fetching KYC status:", error);
-      res.status(500).json({ error: "Failed to fetch KYC status" });
-    }
-  });
-  
-  // Get demat accounts verification status
-  app.get("/api/fixed-income/demat-status", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeEligibility } = await import("./services/fixed-income-eligibility");
-      const dematStatus = await fixedIncomeEligibility.verifyDematAccounts(req.user.id);
-      res.json(dematStatus);
-    } catch (error) {
-      console.error("Error fetching demat status:", error);
-      res.status(500).json({ error: "Failed to fetch demat status" });
-    }
-  });
-
-
-  // ====================================================================================
-  // Fixed Income Payment Orchestration Routes
-  // ====================================================================================
-
-  // Initiate payment for a bond order
-  app.post("/api/fixed-income/payments/initiate", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
-      const result = await fixedIncomePaymentOrchestrator.initiatePayment({
-        orderId: req.body.orderId,
-        userId: req.user.id,
-        amount: req.body.amount,
-        paymentMethod: req.body.paymentMethod,
-        returnUrl: req.body.returnUrl,
-        notifyUrl: req.body.notifyUrl
-      });
-      
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(400).json(result);
-      }
-    } catch (error) {
-      console.error("Error initiating payment:", error);
-      res.status(500).json({ error: "Failed to initiate payment" });
-    }
-  });
-
-  // Get payment status for an order
-  app.get("/api/fixed-income/payments/status/:orderId", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
-      const result = await fixedIncomePaymentOrchestrator.getPaymentStatus(req.params.orderId);
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching payment status:", error);
-      res.status(500).json({ error: "Failed to fetch payment status" });
-    }
-  });
-
-  // Payment gateway webhook callback (no auth required)
-  app.post("/api/fixed-income/payment/webhook", async (req, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
-      const result = await fixedIncomePaymentOrchestrator.handlePaymentCallback({
-        gatewayOrderId: req.body.order_id || req.body.cf_order_id,
-        gatewayPaymentId: req.body.payment_id || req.body.cf_payment_id,
-        gatewayTransactionId: req.body.transaction_id || req.body.cf_txn_id,
-        status: req.body.order_status || req.body.payment_status,
-        amount: parseFloat(req.body.order_amount || req.body.payment_amount || "0"),
-        currency: req.body.order_currency || "INR",
-        payerVpa: req.body.payment_method?.upi?.upi_id,
-        payerBankName: req.body.payment_method?.netbanking?.netbanking_bank_name,
-        signature: req.body.signature || req.headers["x-cashfree-signature"] || "",
-        rawResponse: req.body
-      });
-      
-      if (result.success) {
-        res.json({ status: "OK" });
-      } else {
-        res.status(400).json({ status: "FAILED" });
-      }
-    } catch (error) {
-      console.error("Error processing payment webhook:", error);
-      res.status(500).json({ status: "ERROR" });
-    }
-  });
-
-  // Payment callback redirect (for frontend redirect after payment)
-  app.get("/api/fixed-income/payment/callback", async (req, res) => {
-    try {
-      const orderId = req.query.order_id as string;
-      const status = req.query.order_status as string;
-      
-      const redirectUrl = status === "PAID" 
-        ? `/fixed-income/orders?payment=success&orderId=${orderId}`
-        : `/fixed-income/orders?payment=failed&orderId=${orderId}`;
-      
-      res.redirect(redirectUrl);
-    } catch (error) {
-      console.error("Error handling payment callback:", error);
-      res.redirect("/fixed-income/orders?payment=error");
-    }
-  });
-
-  // Mock payment endpoint for development
-  app.get("/api/fixed-income/payment/mock", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
-      const orderId = req.query.orderId as string;
-      const amount = parseFloat(req.query.amount as string);
-      
-      await fixedIncomePaymentOrchestrator.handlePaymentCallback({
-        gatewayOrderId: orderId,
-        gatewayPaymentId: `MOCK_${Date.now()}`,
-        gatewayTransactionId: `TXN_${Date.now()}`,
-        status: "SUCCESS",
-        amount,
-        currency: "INR",
-        signature: "",
-        rawResponse: { mock: true, simulatedAt: new Date().toISOString() }
-      });
-      
-      res.redirect(`/fixed-income/orders?payment=success&orderId=${orderId}`);
-    } catch (error) {
-      console.error("Error processing mock payment:", error);
-      res.redirect("/fixed-income/orders?payment=error");
-    }
-  });
-
-  // Get settlement status for an order
-  app.get("/api/fixed-income/settlements/status/:orderId", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
-      const result = await fixedIncomePaymentOrchestrator.getSettlementStatus(req.params.orderId);
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching settlement status:", error);
-      res.status(500).json({ error: "Failed to fetch settlement status" });
-    }
-  });
-
-  // Initiate refund for a payment
-  app.post("/api/fixed-income/payments/refund", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
-      const result = await fixedIncomePaymentOrchestrator.initiateRefund(
-        req.body.paymentId,
-        req.body.reason,
-        req.body.amount
-      );
-      
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(400).json(result);
-      }
-    } catch (error) {
-      console.error("Error initiating refund:", error);
-      res.status(500).json({ error: "Failed to initiate refund" });
-    }
-  });
-
-  // Process settlement (admin/system use)
-  app.post("/api/fixed-income/admin/settlements/process", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomePaymentOrchestrator } = await import("./services/fixed-income-payment-orchestrator");
-      const result = await fixedIncomePaymentOrchestrator.processSettlement(req.body.settlementId);
-      
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(400).json(result);
-      }
-    } catch (error) {
-      console.error("Error processing settlement:", error);
-      res.status(500).json({ error: "Failed to process settlement" });
-    }
-  });
-
-  // ====================================================================================
-  // Fixed Income Report Generator Routes
-  // ====================================================================================
-
-  // Generate bond holding report
-  app.get("/api/fixed-income/reports/holdings", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
-      const result = await fixedIncomeReportGenerator.generateBondHoldingReport(req.user.id);
-      res.json(result);
-    } catch (error) {
-      console.error("Error generating bond holding report:", error);
-      res.status(500).json({ error: "Failed to generate bond holding report" });
-    }
-  });
-
-  // Generate coupon schedule report
-  app.get("/api/fixed-income/reports/coupon-schedule", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
-      const monthsAhead = req.query.months ? parseInt(req.query.months) : 12;
-      const result = await fixedIncomeReportGenerator.generateCouponScheduleReport(req.user.id, monthsAhead);
-      res.json(result);
-    } catch (error) {
-      console.error("Error generating coupon schedule report:", error);
-      res.status(500).json({ error: "Failed to generate coupon schedule report" });
-    }
-  });
-
-  // Generate maturity calendar report
-  app.get("/api/fixed-income/reports/maturity-calendar", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
-      const result = await fixedIncomeReportGenerator.generateMaturityCalendarReport(req.user.id);
-      res.json(result);
-    } catch (error) {
-      console.error("Error generating maturity calendar report:", error);
-      res.status(500).json({ error: "Failed to generate maturity calendar report" });
-    }
-  });
-
-  // Get user's saved reports
-  app.get("/api/fixed-income/reports/list", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
-      const reportType = req.query.type as string | undefined;
-      const result = await fixedIncomeReportGenerator.getUserReports(req.user.id, reportType);
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching user reports:", error);
-      res.status(500).json({ error: "Failed to fetch reports" });
-    }
-  });
-
-  // Get specific report by ID
-  app.get("/api/fixed-income/reports/detail/:reportId", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
-      const result = await fixedIncomeReportGenerator.getReportById(req.params.reportId, req.user.id);
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(404).json({ error: "Report not found" });
-      }
-    } catch (error) {
-      console.error("Error fetching report:", error);
-      res.status(500).json({ error: "Failed to fetch report" });
-    }
-  });
-
-  // Get notification preferences
-  app.get("/api/fixed-income/notifications/preferences", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
-      const result = await fixedIncomeReportGenerator.getNotificationPreferences(req.user.id);
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching notification preferences:", error);
-      res.status(500).json({ error: "Failed to fetch notification preferences" });
-    }
-  });
-
-  // Update notification preferences
-  app.post("/api/fixed-income/notifications/preferences", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
-      const result = await fixedIncomeReportGenerator.setupNotificationPreferences(req.user.id, req.body);
-      res.json(result);
-    } catch (error) {
-      console.error("Error updating notification preferences:", error);
-      res.status(500).json({ error: "Failed to update notification preferences" });
-    }
-  });
-
-  // Get pending alerts (coupon and maturity)
-  app.get("/api/fixed-income/alerts/pending", requireAuth, async (req: any, res) => {
-    try {
-      const { fixedIncomeReportGenerator } = await import("./services/fixed-income-report-generator");
-      const result = await fixedIncomeReportGenerator.getPendingAlerts(req.user.id);
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching pending alerts:", error);
-      res.status(500).json({ error: "Failed to fetch pending alerts" });
-    }
-  });
-
-  // ====================================================================================
-  // Unlisted Bond Workflow Routes
-  // ====================================================================================
-
-  // Initiate unlisted bond order
-  app.post("/api/fixed-income/unlisted/orders", requireAuth, async (req: any, res) => {
-    try {
-      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
-      const result = await unlistedBondWorkflow.initiateUnlistedBondOrder({
-        userId: req.user.id,
-        bondName: req.body.bondName,
-        isin: req.body.isin,
-        bondType: req.body.bondType || 'unlisted_corporate',
-        quantity: req.body.quantity,
-        price: req.body.price,
-        sellerDetails: req.body.sellerDetails,
-        partnerId: req.body.partnerId,
-        agentId: req.body.agentId
-      });
-      
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(400).json(result);
-      }
-    } catch (error) {
-      console.error("Error initiating unlisted bond order:", error);
-      res.status(500).json({ error: "Failed to initiate unlisted bond order" });
-    }
-  });
-
-  // Get unlisted order details
-  app.get("/api/fixed-income/unlisted/orders/:orderId", requireAuth, async (req: any, res) => {
-    try {
-      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
-      const result = await unlistedBondWorkflow.getUnlistedOrderDetails(req.params.orderId, req.user.id);
-      
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(404).json({ error: "Order not found" });
-      }
-    } catch (error) {
-      console.error("Error fetching unlisted order details:", error);
-      res.status(500).json({ error: "Failed to fetch order details" });
-    }
-  });
-
-  // Initiate eSign for term sheet
-  app.post("/api/fixed-income/unlisted/esign/initiate", requireAuth, async (req: any, res) => {
-    try {
-      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
-      const result = await unlistedBondWorkflow.initiateESign({
-        orderId: req.body.orderId,
-        documentType: req.body.documentType || 'term_sheet',
-        signerId: req.user.id,
-        signerType: req.body.signerType || 'buyer',
-        documentHash: req.body.documentHash || '',
-        callbackUrl: req.body.callbackUrl || ''
-      });
-      
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(400).json(result);
-      }
-    } catch (error) {
-      console.error("Error initiating eSign:", error);
-      res.status(500).json({ error: "Failed to initiate eSign" });
-    }
-  });
-
-  // Mock eSign completion endpoint
-  app.get("/api/fixed-income/unlisted/esign/mock", requireAuth, async (req: any, res) => {
-    try {
-      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
-      const transactionId = req.query.transactionId as string;
-      const orderId = req.query.orderId as string;
-      const signerType = req.query.signerType as 'buyer' | 'seller' | 'witness';
-      
-      const result = await unlistedBondWorkflow.processESignCallback(
-        transactionId,
-        orderId,
-        signerType,
-        {
-          signed: true,
-          signedAt: new Date().toISOString(),
-          signatureHash: `SIGN-${Date.now()}`,
-          aadhaarLastFour: '1234'
-        }
-      );
-      
-      res.redirect(`/fixed-income/unlisted/orders/${orderId}?esign=success`);
-    } catch (error) {
-      console.error("Error processing mock eSign:", error);
-      res.redirect("/fixed-income/unlisted?esign=error");
-    }
-  });
-
-  // eSign callback webhook
-  app.post("/api/fixed-income/unlisted/esign/callback", async (req, res) => {
-    try {
-      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
-      const result = await unlistedBondWorkflow.processESignCallback(
-        req.body.transactionId,
-        req.body.orderId,
-        req.body.signerType,
-        {
-          signed: req.body.signed,
-          signedAt: req.body.signedAt,
-          signatureHash: req.body.signatureHash,
-          aadhaarLastFour: req.body.aadhaarLastFour
-        }
-      );
-      
-      res.json({ status: result.success ? "OK" : "FAILED" });
-    } catch (error) {
-      console.error("Error processing eSign callback:", error);
-      res.status(500).json({ status: "ERROR" });
-    }
-  });
-
-  // Process commission payout (admin)
-  app.post("/api/fixed-income/admin/commissions/payout", requireAuth, async (req: any, res) => {
-    try {
-      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
-      const result = await unlistedBondWorkflow.processCommissionPayout(req.body.orderId);
-      
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(400).json({ error: "Failed to process commission payout" });
-      }
-    } catch (error) {
-      console.error("Error processing commission payout:", error);
-      res.status(500).json({ error: "Failed to process commission payout" });
-    }
-  });
-
-  // Get partner commission report
-  app.get("/api/fixed-income/partner/commissions", requireAuth, async (req: any, res) => {
-    try {
-      const { unlistedBondWorkflow } = await import("./services/unlisted-bond-workflow");
-      const result = await unlistedBondWorkflow.getPartnerCommissionReport(req.user.id);
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching partner commission report:", error);
-      res.status(500).json({ error: "Failed to fetch commission report" });
-    }
-  });
-
   return server;
 }
-
