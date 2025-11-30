@@ -6731,23 +6731,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bondType = req.query.bondType as string;
       const orderStatus = req.query.status as string;
 
-      let query = db.select().from(bondOrders).where(eq(bondOrders.userId, userId));
+      const result = await db.execute(sql`
+        SELECT id, user_id, security_type, security_id, isin, security_name, order_type,
+               quantity, price_per_unit, total_amount, order_status, payment_status,
+               payment_method, payment_reference, settlement_status, settlement_date,
+               demat_account, exchange, rejection_reason, notes, compliance_checked,
+               suitability_passed, created_at, updated_at
+        FROM bond_orders
+        WHERE user_id = ${userId}
+        ORDER BY created_at DESC
+      `);
 
-      const orders = await query;
+      let orders = (result.rows || []).map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        bondType: row.security_type,
+        bondId: row.security_id,
+        isin: row.isin,
+        bondName: row.security_name,
+        orderType: row.order_type,
+        quantity: row.quantity,
+        orderPrice: row.price_per_unit,
+        totalAmount: row.total_amount,
+        orderStatus: row.order_status,
+        paymentStatus: row.payment_status,
+        paymentMethod: row.payment_method,
+        paymentReference: row.payment_reference,
+        settlementStatus: row.settlement_status,
+        settlementDate: row.settlement_date,
+        dematAccount: row.demat_account,
+        exchange: row.exchange,
+        rejectionReason: row.rejection_reason,
+        notes: row.notes,
+        complianceChecked: row.compliance_checked,
+        suitabilityPassed: row.suitability_passed,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
 
-      // Filter by bond type if specified
-      let filteredOrders = orders;
       if (bondType) {
-        filteredOrders = filteredOrders.filter(o => o.bondType === bondType);
+        orders = orders.filter((o: any) => o.bondType === bondType);
       }
       if (orderStatus) {
-        filteredOrders = filteredOrders.filter(o => o.orderStatus === orderStatus);
+        orders = orders.filter((o: any) => o.orderStatus === orderStatus);
       }
 
       res.json({
         status: "success",
-        data: filteredOrders,
-        count: filteredOrders.length
+        data: orders,
+        count: orders.length
       });
     } catch (error) {
       console.error("Error fetching bond orders:", error);
@@ -6758,35 +6790,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get bond order status
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   app.get("/api/bonds/orders/:orderId/status", async (req, res) => {
     try {
       const { orderId } = req.params;
       
-      // Get order from database
-      const [order] = await db.select().from(bondOrders).where(eq(bondOrders.id, orderId));
+      const result = await db.execute(sql`
+        SELECT id, user_id, security_type, security_id, isin, security_name, order_type,
+               quantity, price_per_unit, total_amount, order_status, payment_status,
+               payment_method, payment_reference, settlement_status, settlement_date,
+               demat_account, exchange, rejection_reason, notes, compliance_checked,
+               suitability_passed, created_at, updated_at
+        FROM bond_orders
+        WHERE id = ${orderId}
+      `);
       
-      if (!order) {
+      if (!result.rows || result.rows.length === 0) {
         return res.status(404).json({
           status: "error",
           error: "Order not found"
         });
       }
-
-      // Get live status from exchange
-      let liveStatus;
-      if (order.exchange === 'nse') {
-        liveStatus = await nseNcbApi.getOrderStatus(order.orderNumber);
-      } else if (order.exchange === 'bse') {
-        liveStatus = await bseBondApi.getOrderStatus(order.orderNumber);
-      }
+      
+      const row: any = result.rows[0];
+      const order = {
+        id: row.id,
+        userId: row.user_id,
+        bondType: row.security_type,
+        bondId: row.security_id,
+        isin: row.isin,
+        bondName: row.security_name,
+        orderType: row.order_type,
+        quantity: row.quantity,
+        orderPrice: row.price_per_unit,
+        totalAmount: row.total_amount,
+        orderStatus: row.order_status,
+        paymentStatus: row.payment_status,
+        paymentMethod: row.payment_method,
+        paymentReference: row.payment_reference,
+        settlementStatus: row.settlement_status,
+        settlementDate: row.settlement_date,
+        dematAccount: row.demat_account,
+        exchange: row.exchange,
+        rejectionReason: row.rejection_reason,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
 
       res.json({
         status: "success",
-        data: {
-          ...order,
-          liveStatus
-        }
+        data: order
       });
     } catch (error) {
       console.error("Error fetching order status:", error);
@@ -6797,7 +6885,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user's bond holdings
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   app.get("/api/bonds/holdings", async (req: any, res) => {
     try {
       const userId = req.user?.id;
@@ -6806,25 +6931,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const bondType = req.query.bondType as string;
-      const portfolioId = req.query.portfolioId as string;
 
-      let query = db.select().from(bondHoldings).where(eq(bondHoldings.userId, userId));
+      const result = await db.execute(sql`
+        SELECT id, user_id, security_id, security_type, security_name, isin,
+               quantity, purchase_price, purchase_date, current_price, face_value,
+               coupon_rate, maturity_date, demat_account, broker, notes, status,
+               created_at, updated_at
+        FROM bond_holdings
+        WHERE user_id = ${userId}
+        ORDER BY created_at DESC
+      `);
 
-      const holdings = await query;
+      let holdings = (result.rows || []).map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        bondId: row.security_id,
+        bondType: row.security_type,
+        bondName: row.security_name,
+        isin: row.isin,
+        quantity: row.quantity,
+        purchasePrice: row.purchase_price,
+        purchaseDate: row.purchase_date,
+        currentPrice: row.current_price,
+        faceValue: row.face_value,
+        couponRate: row.coupon_rate,
+        maturityDate: row.maturity_date,
+        dematAccount: row.demat_account,
+        broker: row.broker,
+        notes: row.notes,
+        status: row.status,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
 
-      // Filter by bond type if specified
-      let filteredHoldings = holdings;
       if (bondType) {
-        filteredHoldings = filteredHoldings.filter(h => h.bondType === bondType);
-      }
-      if (portfolioId) {
-        filteredHoldings = filteredHoldings.filter(h => h.portfolioId === portfolioId);
+        holdings = holdings.filter((h: any) => h.bondType === bondType);
       }
 
       res.json({
         status: "success",
-        data: filteredHoldings,
-        count: filteredHoldings.length
+        data: holdings,
+        count: holdings.length
       });
     } catch (error) {
       console.error("Error fetching bond holdings:", error);
@@ -6834,6 +6981,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // Get comprehensive AIF data from all AMCs with complete fund details
   // AIF comprehensive - public access for viewing
