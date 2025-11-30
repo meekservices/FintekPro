@@ -25,16 +25,33 @@ interface CommissionConfig {
   gstRate: number;
   minFee: number;
   maxFee: number;
+  stampDutyBps?: number;
 }
 
 interface FeeBreakdown {
   principal: number;
   brokerage: number;
   platformFee: number;
+  stampDuty: number;
+  stampDutyExempt: boolean;
+  stampDutyReason?: string;
   gst: number;
   totalFees: number;
   grandTotal: number;
 }
+
+// Stamp duty rates as per Indian Stamp Act 1899 (amended 2019)
+const STAMP_DUTY_RATES: Record<string, { rate: number; isExempt: boolean; reason?: string; payerSide: string }> = {
+  g_sec: { rate: 0, isExempt: true, reason: 'Government Securities exempt under Section 9', payerSide: 'buyer' },
+  t_bill: { rate: 0, isExempt: true, reason: 'Treasury Bills exempt as Government Securities', payerSide: 'buyer' },
+  sdl: { rate: 0, isExempt: true, reason: 'State Development Loans exempt as Government Securities', payerSide: 'buyer' },
+  sgb: { rate: 0, isExempt: true, reason: 'Sovereign Gold Bonds exempt as RBI-issued securities', payerSide: 'buyer' },
+  corporate: { rate: 0.01, isExempt: false, payerSide: 'transferor' }, // 0.0001%
+  ncd: { rate: 0.01, isExempt: false, payerSide: 'transferor' }, // 0.0001%
+  tax_free: { rate: 0.01, isExempt: false, payerSide: 'transferor' }, // 0.0001%
+  infrastructure: { rate: 0.01, isExempt: false, payerSide: 'transferor' }, // 0.0001%
+  unlisted_shares: { rate: 1.5, isExempt: false, payerSide: 'seller' }, // 0.015%
+};
 
 function useCommissionConfig() {
   return useQuery<CommissionConfig[]>({
@@ -43,12 +60,14 @@ function useCommissionConfig() {
   });
 }
 
-function calculateFees(amount: number, config: CommissionConfig | undefined): FeeBreakdown {
+function calculateFees(amount: number, config: CommissionConfig | undefined, bondType?: string): FeeBreakdown {
   if (!config || amount <= 0) {
     return {
       principal: amount || 0,
       brokerage: 0,
       platformFee: 0,
+      stampDuty: 0,
+      stampDutyExempt: false,
       gst: 0,
       totalFees: 0,
       grandTotal: amount || 0,
@@ -64,15 +83,24 @@ function calculateFees(amount: number, config: CommissionConfig | undefined): Fe
   // Calculate platform fee
   const platformFee = config.platformFeeFixed + (amount * config.platformFeePercent / 100);
   
-  // Calculate GST on fees
+  // Calculate stamp duty based on product type (regulatory rates)
+  const stampDutyInfo = bondType ? STAMP_DUTY_RATES[bondType] : undefined;
+  const isExempt = stampDutyInfo?.isExempt ?? false;
+  const stampDutyRate = isExempt ? 0 : (stampDutyInfo?.rate ?? 0);
+  const stampDuty = (amount * stampDutyRate) / 10000; // Rate is in basis points
+  
+  // Calculate GST on fees (stamp duty is not subject to GST)
   const gst = ((brokerage + platformFee) * config.gstRate) / 100;
   
-  const totalFees = brokerage + platformFee + gst;
+  const totalFees = brokerage + platformFee + gst + stampDuty;
   
   return {
     principal: amount,
     brokerage: Math.round(brokerage * 100) / 100,
     platformFee: Math.round(platformFee * 100) / 100,
+    stampDuty: Math.round(stampDuty * 100) / 100,
+    stampDutyExempt: isExempt,
+    stampDutyReason: isExempt ? stampDutyInfo?.reason : undefined,
     gst: Math.round(gst * 100) / 100,
     totalFees: Math.round(totalFees * 100) / 100,
     grandTotal: Math.round((amount + totalFees) * 100) / 100,
@@ -94,7 +122,8 @@ function FeeBreakdownDisplay({
     return commissionData.find(c => c.bondType === bondType);
   }, [commissionData, bondType]);
 
-  const fees = useMemo(() => calculateFees(amount, config), [amount, config]);
+  const fees = useMemo(() => calculateFees(amount, config, bondType), [amount, config, bondType]);
+  const stampDutyInfo = STAMP_DUTY_RATES[bondType];
 
   if (!config) {
     return (
@@ -123,6 +152,31 @@ function FeeBreakdownDisplay({
         <span className="text-gray-500">Platform Fee</span>
         <span>₹{fees.platformFee.toLocaleString()}</span>
       </div>
+      
+      {/* Stamp Duty Section */}
+      <div className="flex justify-between text-xs items-center">
+        <span className="text-gray-500 flex items-center gap-1">
+          Stamp Duty
+          {fees.stampDutyExempt && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+              <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+              Exempt
+            </span>
+          )}
+          {!fees.stampDutyExempt && stampDutyInfo && (
+            <span className="text-gray-400">({stampDutyInfo.rate} bps)</span>
+          )}
+        </span>
+        <span className={fees.stampDutyExempt ? "text-green-600 dark:text-green-400" : ""}>
+          {fees.stampDutyExempt ? "₹0.00" : `₹${fees.stampDuty.toLocaleString()}`}
+        </span>
+      </div>
+      {fees.stampDutyExempt && fees.stampDutyReason && (
+        <div className="text-[10px] text-green-600 dark:text-green-400 italic pl-2">
+          {fees.stampDutyReason}
+        </div>
+      )}
+      
       <div className="flex justify-between text-xs">
         <span className="text-gray-500">GST ({config.gstRate}%)</span>
         <span>₹{fees.gst.toLocaleString()}</span>
