@@ -33,9 +33,18 @@ export interface ComplianceError {
   details?: string;
   remediation: ComplianceRemediation;
   severity: "warning" | "error" | "info";
+  requiredKycTier?: string;
+  currentKycTier?: string;
+  missingSteps?: string[];
+  productRequirements?: Record<string, any>;
+  backendMessage?: string;
+  backendRemediation?: {
+    targetRoute?: string;
+    ctaLabel?: string;
+  };
 }
 
-const ERROR_MAPPING: Record<ComplianceErrorCode, Omit<ComplianceError, "code" | "details">> = {
+const ERROR_MAPPING: Record<ComplianceErrorCode, Omit<ComplianceError, "code" | "details" | "requiredKycTier" | "currentKycTier" | "missingSteps" | "productRequirements" | "backendMessage" | "backendRemediation">> = {
   KYC_LEVEL_INSUFFICIENT: {
     message: "Your KYC level is insufficient for this product",
     severity: "warning",
@@ -198,33 +207,68 @@ export function parseComplianceError(error: any): ComplianceError {
   let errorCode: ComplianceErrorCode = "GENERIC_ERROR";
   let errorDetails: string | undefined;
   let errorMessage: string | undefined;
+  let requiredKycTier: string | undefined;
+  let currentKycTier: string | undefined;
+  let missingSteps: string[] | undefined;
+  let productRequirements: Record<string, any> | undefined;
+  let backendMessage: string | undefined;
+  let backendRemediation: { targetRoute?: string; ctaLabel?: string } | undefined;
 
   if (error?.response?.data) {
     const data = error.response.data;
     errorCode = data.code || data.errorCode || "GENERIC_ERROR";
     errorDetails = data.details || data.reason || data.message;
     errorMessage = data.message;
+    backendMessage = data.message;
+    
+    requiredKycTier = data.requiredKycTier || data.required_kyc_tier || data.requiredTier;
+    currentKycTier = data.currentKycTier || data.current_kyc_tier || data.currentTier;
+    missingSteps = data.missingSteps || data.missing_steps || data.pendingSteps;
+    productRequirements = data.productRequirements || data.requirements;
+    
+    if (data.remediation) {
+      backendRemediation = {
+        targetRoute: data.remediation.targetRoute || data.remediation.route || data.remediation.path,
+        ctaLabel: data.remediation.ctaLabel || data.remediation.cta || data.remediation.label
+      };
+    }
+    
+    if (data.compliance) {
+      requiredKycTier = requiredKycTier || data.compliance.requiredTier;
+      currentKycTier = currentKycTier || data.compliance.currentTier;
+      missingSteps = missingSteps || data.compliance.missingSteps;
+    }
   } else if (error?.message) {
     errorMessage = error.message;
     errorDetails = error.message;
+    backendMessage = error.message;
     
     const message = error.message.toLowerCase();
-    if (message.includes("kyc") && (message.includes("level") || message.includes("insufficient"))) {
+    if (message.includes("kyc") && (message.includes("level") || message.includes("insufficient") || message.includes("tier"))) {
       errorCode = "KYC_LEVEL_INSUFFICIENT";
+      const tierMatch = error.message.match(/requires?\s+(\w+)\s+(?:tier|kyc|level)/i);
+      if (tierMatch) requiredKycTier = tierMatch[1];
+      const currentMatch = error.message.match(/current(?:ly)?\s+(?:at\s+)?(\w+)\s+(?:tier|kyc|level)/i);
+      if (currentMatch) currentKycTier = currentMatch[1];
     } else if (message.includes("kyc") && (message.includes("verify") || message.includes("complete"))) {
       errorCode = "KYC_NOT_VERIFIED";
     } else if (message.includes("demat") && (message.includes("link") || message.includes("required") || message.includes("missing"))) {
       errorCode = "DEMAT_NOT_LINKED";
+      missingSteps = missingSteps || ["Demat Account"];
     } else if (message.includes("demat") && (message.includes("invalid") || message.includes("verify"))) {
       errorCode = "DEMAT_INVALID";
     } else if (message.includes("risk") && (message.includes("profile") || message.includes("assessment"))) {
       errorCode = message.includes("mismatch") ? "RISK_PROFILE_MISMATCH" : "RISK_PROFILE_MISSING";
+      missingSteps = missingSteps || ["Risk Profile"];
     } else if (message.includes("pan") && (message.includes("verify") || message.includes("required"))) {
       errorCode = "PAN_NOT_VERIFIED";
+      missingSteps = missingSteps || ["PAN Verification"];
     } else if (message.includes("bank") && (message.includes("link") || message.includes("required"))) {
       errorCode = "BANK_NOT_LINKED";
+      missingSteps = missingSteps || ["Bank Account"];
     } else if (message.includes("accredited") || message.includes("qualified investor")) {
       errorCode = "ACCREDITED_INVESTOR_REQUIRED";
+      requiredKycTier = requiredKycTier || "Accredited";
     } else if (message.includes("eligible") || message.includes("eligibility")) {
       errorCode = "PRODUCT_NOT_ELIGIBLE";
     } else if (message.includes("balance") || message.includes("funds")) {
@@ -239,13 +283,27 @@ export function parseComplianceError(error: any): ComplianceError {
   }
 
   const mapping = ERROR_MAPPING[errorCode] || ERROR_MAPPING.GENERIC_ERROR;
+  
+  const finalRemediation = { ...mapping.remediation };
+  if (backendRemediation?.targetRoute) {
+    finalRemediation.targetRoute = backendRemediation.targetRoute;
+  }
+  if (backendRemediation?.ctaLabel) {
+    finalRemediation.ctaLabel = backendRemediation.ctaLabel;
+  }
 
   return {
     code: errorCode,
-    message: errorMessage || mapping.message,
+    message: backendMessage || errorMessage || mapping.message,
     details: errorDetails,
     severity: mapping.severity,
-    remediation: mapping.remediation
+    remediation: finalRemediation,
+    requiredKycTier,
+    currentKycTier,
+    missingSteps,
+    productRequirements,
+    backendMessage,
+    backendRemediation
   };
 }
 
@@ -284,6 +342,7 @@ export function useOrderGuard(): UseOrderGuardReturn {
 
   const navigateToRemediation = useCallback(() => {
     if (error?.remediation.type === "navigate" && error.remediation.targetRoute) {
+      setError(null);
       navigate(error.remediation.targetRoute);
     }
   }, [error, navigate]);

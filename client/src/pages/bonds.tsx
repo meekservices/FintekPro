@@ -388,9 +388,9 @@ function GovernmentSecurities() {
                   )}
                 </div>
 
-                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); } }}>
                   <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setSelectedBond(bond); }} size="sm" data-testid={`invest-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setSelectedBond(bond); }} size="sm" data-testid={`invest-${bond.isin}`}>
                       Place Bid
                     </Button>
                   </DialogTrigger>
@@ -442,9 +442,18 @@ function GovernmentSecurities() {
                         />
                       )}
 
+                      {orderError && (
+                        <OrderBlocker 
+                          error={orderError} 
+                          onDismiss={() => setOrderError(null)}
+                          variant="inline"
+                        />
+                      )}
+
                       <Button
                         className="w-full"
                         onClick={() => {
+                          setOrderError(null);
                           const amount = parseFloat(bidAmount);
                           if (!amount || amount < bond.minimumBidAmount) {
                             toast({
@@ -459,7 +468,7 @@ function GovernmentSecurities() {
                             bidAmount: amount,
                           });
                         }}
-                        disabled={placeOrderMutation.isPending}
+                        disabled={placeOrderMutation.isPending || !!orderError}
                         data-testid="confirm-bid-button"
                       >
                         {placeOrderMutation.isPending ? "Placing Bid..." : "Confirm Bid"}
@@ -582,7 +591,7 @@ function CorporateBonds() {
 
                 <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
                   <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setSelectedBond(bond); }} size="sm" data-testid={`buy-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setSelectedBond(bond); }} size="sm" data-testid={`buy-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
@@ -643,9 +652,18 @@ function CorporateBonds() {
                         />
                       )}
 
+                      {orderError && (
+                        <OrderBlocker 
+                          error={orderError} 
+                          onDismiss={() => setOrderError(null)}
+                          variant="inline"
+                        />
+                      )}
+
                       <Button
                         className="w-full"
                         onClick={() => {
+                          setOrderError(null);
                           const qty = parseInt(quantity);
                           const price = parseFloat(limitPrice);
                           if (!qty || qty <= 0) {
@@ -664,7 +682,7 @@ function CorporateBonds() {
                             limitPrice: price || bond.lastPrice,
                           });
                         }}
-                        disabled={placeOrderMutation.isPending}
+                        disabled={placeOrderMutation.isPending || !!orderError}
                         data-testid="confirm-buy-button"
                       >
                         {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
@@ -710,11 +728,8 @@ function NCDBonds() {
       queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
     },
     onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Order Failed",
-        description: error.message || "Failed to place order. Please ensure you have Full KYC.",
-      });
+      const parsedError = orderGuard.handleError(error, false);
+      setOrderError(parsedError);
     },
   });
 
@@ -789,9 +804,9 @@ function NCDBonds() {
                   </div>
                 </div>
 
-                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); } }}>
                   <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setSelectedBond(bond); }} size="sm" data-testid={`buy-ncd-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setSelectedBond(bond); }} size="sm" data-testid={`buy-ncd-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
@@ -852,9 +867,18 @@ function NCDBonds() {
                         />
                       )}
 
+                      {orderError && (
+                        <OrderBlocker 
+                          error={orderError} 
+                          onDismiss={() => setOrderError(null)}
+                          variant="inline"
+                        />
+                      )}
+
                       <Button
                         className="w-full"
                         onClick={() => {
+                          setOrderError(null);
                           const qty = parseInt(quantity);
                           const price = parseFloat(limitPrice);
                           if (!qty || qty <= 0) {
@@ -873,7 +897,7 @@ function NCDBonds() {
                             limitPrice: price || bond.lastPrice,
                           });
                         }}
-                        disabled={placeOrderMutation.isPending}
+                        disabled={placeOrderMutation.isPending || !!orderError}
                         data-testid="confirm-ncd-buy-button"
                       >
                         {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
@@ -919,11 +943,8 @@ function TaxFreeBonds() {
       queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
     },
     onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Order Failed",
-        description: error.message || "Failed to place order. Please ensure you have Full KYC.",
-      });
+      const parsedError = orderGuard.handleError(error, false);
+      setOrderError(parsedError);
     },
   });
 
@@ -998,9 +1019,9 @@ function TaxFreeBonds() {
                   </div>
                 </div>
 
-                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); } }}>
                   <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setSelectedBond(bond); }} size="sm" data-testid={`buy-tax-free-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setSelectedBond(bond); }} size="sm" data-testid={`buy-tax-free-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
@@ -1065,9 +1086,18 @@ function TaxFreeBonds() {
                         />
                       )}
 
+                      {orderError && (
+                        <OrderBlocker 
+                          error={orderError} 
+                          onDismiss={() => setOrderError(null)}
+                          variant="inline"
+                        />
+                      )}
+
                       <Button
                         className="w-full"
                         onClick={() => {
+                          setOrderError(null);
                           const qty = parseInt(quantity);
                           const price = parseFloat(limitPrice);
                           if (!qty || qty <= 0) {
@@ -1086,7 +1116,7 @@ function TaxFreeBonds() {
                             limitPrice: price || bond.lastPrice,
                           });
                         }}
-                        disabled={placeOrderMutation.isPending}
+                        disabled={placeOrderMutation.isPending || !!orderError}
                         data-testid="confirm-tax-free-buy-button"
                       >
                         {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}

@@ -2,7 +2,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertCircle, AlertTriangle, Info, ShieldAlert, ArrowRight, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle, AlertTriangle, Info, ShieldAlert, ArrowRight, RefreshCw, CheckCircle2, Circle } from "lucide-react";
 import { useLocation } from "wouter";
 import { ComplianceError } from "@/hooks/use-order-guard";
 
@@ -32,6 +33,49 @@ const severityBg = {
   info: "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
 };
 
+function KycTierBadge({ tier, variant }: { tier: string; variant: "current" | "required" }) {
+  const bgColor = variant === "current" 
+    ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300";
+  return (
+    <Badge variant="outline" className={bgColor}>
+      {tier}
+    </Badge>
+  );
+}
+
+function MissingStepsChecklist({ steps }: { steps: string[] }) {
+  return (
+    <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Missing Requirements:</p>
+      <ul className="space-y-1.5">
+        {steps.map((step, idx) => (
+          <li key={idx} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+            <Circle className="h-3.5 w-3.5 text-amber-500" />
+            <span>{step}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function KycTierComparison({ current, required }: { current: string; required: string }) {
+  return (
+    <div className="flex items-center gap-2 mt-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+      <div className="flex-1 text-center">
+        <p className="text-xs text-slate-500 mb-1">Current</p>
+        <KycTierBadge tier={current} variant="current" />
+      </div>
+      <ArrowRight className="h-4 w-4 text-slate-400" />
+      <div className="flex-1 text-center">
+        <p className="text-xs text-slate-500 mb-1">Required</p>
+        <KycTierBadge tier={required} variant="required" />
+      </div>
+    </div>
+  );
+}
+
 export function OrderBlocker({ 
   error, 
   onDismiss, 
@@ -49,11 +93,16 @@ export function OrderBlocker({
 
   const handleCTA = () => {
     if (error.remediation.type === "navigate" && error.remediation.targetRoute) {
+      onDismiss?.();
       navigate(error.remediation.targetRoute);
     } else if (onRetry) {
+      onDismiss?.();
       onRetry();
     }
   };
+
+  const hasKycTierInfo = error.requiredKycTier && error.currentKycTier;
+  const hasMissingSteps = error.missingSteps && error.missingSteps.length > 0;
 
   if (variant === "modal") {
     return (
@@ -69,11 +118,19 @@ export function OrderBlocker({
               </DialogTitle>
             </div>
             <DialogDescription className="pt-4 text-base">
-              {error.message}
+              {error.backendMessage || error.message}
             </DialogDescription>
           </DialogHeader>
           
-          {showDetails && error.details && (
+          {hasKycTierInfo && (
+            <KycTierComparison current={error.currentKycTier!} required={error.requiredKycTier!} />
+          )}
+
+          {hasMissingSteps && (
+            <MissingStepsChecklist steps={error.missingSteps!} />
+          )}
+
+          {showDetails && error.details && !hasKycTierInfo && !hasMissingSteps && (
             <div className={`p-3 rounded-lg ${bgClass} border`}>
               <p className="text-sm text-muted-foreground">{error.details}</p>
             </div>
@@ -111,15 +168,23 @@ export function OrderBlocker({
             </CardTitle>
           </div>
           <CardDescription className="text-base pt-1">
-            {error.message}
+            {error.backendMessage || error.message}
           </CardDescription>
         </CardHeader>
         
-        {showDetails && error.details && (
-          <CardContent className="pb-2">
+        <CardContent className="pb-2">
+          {hasKycTierInfo && (
+            <KycTierComparison current={error.currentKycTier!} required={error.requiredKycTier!} />
+          )}
+
+          {hasMissingSteps && (
+            <MissingStepsChecklist steps={error.missingSteps!} />
+          )}
+
+          {showDetails && error.details && !hasKycTierInfo && !hasMissingSteps && (
             <p className="text-sm text-muted-foreground">{error.details}</p>
-          </CardContent>
-        )}
+          )}
+        </CardContent>
 
         <CardFooter className="gap-2 pt-2">
           {onRetry && error.remediation.type !== "navigate" && (
@@ -150,10 +215,20 @@ export function OrderBlocker({
         <span>{error.severity === "error" ? "Order Failed" : "Action Required"}</span>
       </AlertTitle>
       <AlertDescription className="mt-2">
-        <p className="mb-3">{error.message}</p>
-        {showDetails && error.details && (
+        <p className="mb-2">{error.backendMessage || error.message}</p>
+        
+        {hasKycTierInfo && (
+          <KycTierComparison current={error.currentKycTier!} required={error.requiredKycTier!} />
+        )}
+
+        {hasMissingSteps && (
+          <MissingStepsChecklist steps={error.missingSteps!} />
+        )}
+
+        {showDetails && error.details && !hasKycTierInfo && !hasMissingSteps && (
           <p className="text-sm text-muted-foreground mb-3">{error.details}</p>
         )}
+
         <div className="flex items-center gap-2 mt-3">
           {onRetry && error.remediation.type !== "navigate" && (
             <Button variant="outline" size="sm" onClick={onRetry} className="gap-2" data-testid="btn-retry">
@@ -212,13 +287,9 @@ export function ComplianceRequirementCard({
           {requirements.map((req, idx) => (
             <li key={idx} className="flex items-center gap-2 text-sm">
               {req.completed ? (
-                <div className="h-5 w-5 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                  <span className="text-green-600 dark:text-green-400 text-xs">✓</span>
-                </div>
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
               ) : (
-                <div className="h-5 w-5 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
-                  <span className="text-amber-600 dark:text-amber-400 text-xs">○</span>
-                </div>
+                <Circle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               )}
               <span className={req.completed ? "text-muted-foreground" : ""}>{req.label}</span>
             </li>
