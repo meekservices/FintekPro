@@ -83,6 +83,9 @@ import { nseNcbApi } from './nseNcbApi';
 import { stampDutyService, STAMP_DUTY_RATES, type ProductType } from './stamp-duty-service';
 import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
+import { bondKYCGate, checkBondKYCEligibility, getBondKYCProgress } from './bond-kyc-gate';
+import { createBondOrder, updateOrderStatus, confirmPayment, processAllotment, creditToDemat, getOrderLifecycle, processSettlements } from './bond-order-lifecycle';
+import { getBondAlerts, getUpcomingCoupons, getMaturityAlerts, createAlertPreferences, initializeAlertCronJobs, triggerAlertCheck } from './bond-alert-service';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema, bondCommissionConfig, stampDutyConfig, stampDutyAuditLog } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
@@ -8842,6 +8845,254 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // ============ BOND TRADING FLOW WITH SEQUENTIAL KYC ============
+  
+  // Check KYC eligibility for bond trading
+  app.get("/api/bonds/kyc-eligibility", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const eligibility = await checkBondKYCEligibility(userId);
+      res.json({
+        status: "success",
+        data: eligibility
+      });
+    } catch (error) {
+      console.error("Error checking KYC eligibility:", error);
+      res.status(500).json({ error: "Failed to check KYC eligibility" });
+    }
+  });
+
+  // Get KYC progress for bond trading
+  app.get("/api/bonds/kyc-progress", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const progress = await getBondKYCProgress(userId);
+      res.json({
+        status: "success",
+        data: progress
+      });
+    } catch (error) {
+      console.error("Error fetching KYC progress:", error);
+      res.status(500).json({ error: "Failed to fetch KYC progress" });
+    }
+  });
+
+  // Place bond order with KYC gate
+  app.post("/api/bonds/trading/place-order", bondKYCGate(), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { isin, bondName, bondType, quantity, faceValue, pricePerUnit, paymentMethod, depository, dpId, clientId, dematAccountNumber } = req.body;
+
+      if (!isin || !bondName || !bondType || !quantity || !pricePerUnit) {
+        return res.status(400).json({ error: "Missing required order details" });
+      }
+
+      const totalAmount = quantity * pricePerUnit;
+
+      const result = await createBondOrder({
+        userId,
+        isin,
+        bondName,
+        bondType,
+        quantity,
+        faceValue: faceValue || 1000,
+        pricePerUnit,
+        totalAmount,
+        paymentMethod: paymentMethod || 'upi',
+        depository,
+        dpId,
+        clientId,
+        dematAccountNumber
+      });
+
+      res.json({
+        status: "success",
+        message: "Order placed successfully",
+        data: {
+          orderId: result.orderId,
+          settlementCycle: result.settlementInfo.settlementCycle,
+          expectedSettlementDate: result.settlementInfo.expectedSettlementDate,
+          depository: result.settlementInfo.depository
+        }
+      });
+    } catch (error: any) {
+      console.error("Error placing bond order:", error);
+      res.status(500).json({ error: error.message || "Failed to place order" });
+    }
+  });
+
+  // Confirm payment for bond order
+  app.post("/api/bonds/orders/:orderId/confirm-payment", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { orderId } = req.params;
+      const { paymentReference } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      if (!paymentReference) {
+        return res.status(400).json({ error: "Payment reference required" });
+      }
+
+      await confirmPayment(orderId, paymentReference);
+
+      res.json({
+        status: "success",
+        message: "Payment confirmed successfully"
+      });
+    } catch (error) {
+      console.error("Error confirming payment:", error);
+      res.status(500).json({ error: "Failed to confirm payment" });
+    }
+  });
+
+  // Get order lifecycle/timeline
+  app.get("/api/bonds/orders/:orderId/lifecycle", async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+
+      const lifecycle = await getOrderLifecycle(orderId);
+
+      res.json({
+        status: "success",
+        data: lifecycle
+      });
+    } catch (error) {
+      console.error("Error fetching order lifecycle:", error);
+      res.status(500).json({ error: "Failed to fetch order lifecycle" });
+    }
+  });
+
+  // ============ BOND ALERTS AND NOTIFICATIONS ============
+
+  // Get all bond alerts for user
+  app.get("/api/bonds/alerts", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const alerts = await getBondAlerts(userId);
+
+      res.json({
+        status: "success",
+        data: alerts
+      });
+    } catch (error) {
+      console.error("Error fetching bond alerts:", error);
+      res.status(500).json({ error: "Failed to fetch bond alerts" });
+    }
+  });
+
+  // Get upcoming coupon payments
+  app.get("/api/bonds/alerts/coupons", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const daysAhead = parseInt(req.query.daysAhead as string) || 30;
+      const coupons = await getUpcomingCoupons(userId, daysAhead);
+
+      res.json({
+        status: "success",
+        data: coupons
+      });
+    } catch (error) {
+      console.error("Error fetching upcoming coupons:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming coupons" });
+    }
+  });
+
+  // Get maturity alerts
+  app.get("/api/bonds/alerts/maturities", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const daysAhead = parseInt(req.query.daysAhead as string) || 90;
+      const maturities = await getMaturityAlerts(userId, daysAhead);
+
+      res.json({
+        status: "success",
+        data: maturities
+      });
+    } catch (error) {
+      console.error("Error fetching maturity alerts:", error);
+      res.status(500).json({ error: "Failed to fetch maturity alerts" });
+    }
+  });
+
+  // Update alert preferences
+  app.put("/api/bonds/alerts/preferences", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { couponAlert, maturityAlert, settlementAlert, alertDaysBefore, alertChannel } = req.body;
+
+      await createAlertPreferences(userId, {
+        couponAlert,
+        maturityAlert,
+        settlementAlert,
+        alertDaysBefore,
+        alertChannel
+      });
+
+      res.json({
+        status: "success",
+        message: "Alert preferences updated"
+      });
+    } catch (error) {
+      console.error("Error updating alert preferences:", error);
+      res.status(500).json({ error: "Failed to update alert preferences" });
+    }
+  });
+
+  // Manual trigger for alert check (admin only)
+  app.post("/api/admin/bonds/trigger-alerts", requireAdmin, async (req, res) => {
+    try {
+      await triggerAlertCheck();
+      res.json({
+        status: "success",
+        message: "Alert check triggered successfully"
+      });
+    } catch (error) {
+      console.error("Error triggering alert check:", error);
+      res.status(500).json({ error: "Failed to trigger alert check" });
+    }
+  });
+
+  // Manual trigger for settlement processing (admin only)
+  app.post("/api/admin/bonds/process-settlements", requireAdmin, async (req, res) => {
+    try {
+      await processSettlements();
+      res.json({
+        status: "success",
+        message: "Settlement processing triggered successfully"
+      });
+    } catch (error) {
+      console.error("Error processing settlements:", error);
+      res.status(500).json({ error: "Failed to process settlements" });
+    }
+  });
 
 
 
