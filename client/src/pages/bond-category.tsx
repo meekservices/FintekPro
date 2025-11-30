@@ -96,7 +96,7 @@ export default function BondCategoryPage() {
   const Icon = config.icon;
 
   const { data: bondsResponse, isLoading, error } = useQuery({
-    queryKey: [config.apiEndpoint, category],
+    queryKey: [config.apiEndpoint],
     refetchInterval: 60000,
   });
 
