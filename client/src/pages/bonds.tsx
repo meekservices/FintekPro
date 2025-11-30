@@ -7,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, AlertCircle, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
@@ -191,6 +192,7 @@ function FeeBreakdownDisplay({
 
 // Bond Categories Component with Real-time Data
 function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categoryId: string) => void }) {
+  const [, navigate] = useLocation();
   const { data: bondCategories, isLoading } = useQuery<Array<{
     id: string;
     name: string;
@@ -229,11 +231,8 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
     if (onCategoryClick) {
       onCategoryClick(categoryId);
     } else {
-      const sectionId = `section-${categoryId}`;
-      const element = document.getElementById(sectionId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      // Navigate to dedicated category page
+      navigate(`/bonds/category/${categoryId}`);
     }
   };
 
@@ -246,13 +245,16 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
           return (
             <Card 
               key={category.id} 
-              className="hover:shadow-md transition-shadow cursor-pointer hover:border-finance-blue" 
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-finance-blue group" 
               data-testid={`${category.id}-bonds`}
               onClick={() => handleCategoryClick(category.id)}
             >
               <CardContent className="p-6">
-                <div className={`w-12 h-12 bg-${category.color}-100 rounded-lg flex items-center justify-center mb-4`}>
-                  <IconComponent className={`h-6 w-6 text-${category.color === 'blue' ? 'finance-blue' : category.color === 'green' ? 'finance-green' : category.color}-600`} />
+                <div className="flex items-start justify-between">
+                  <div className={`w-12 h-12 bg-${category.color}-100 rounded-lg flex items-center justify-center mb-4`}>
+                    <IconComponent className={`h-6 w-6 text-${category.color === 'blue' ? 'finance-blue' : category.color === 'green' ? 'finance-green' : category.color}-600`} />
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-finance-blue transition-colors" />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-2">{category.name}</h3>
                 <p className="text-gray-600 text-sm mb-4">
@@ -289,6 +291,7 @@ function GovernmentSecurities() {
   const [selectedBond, setSelectedBond] = useState<any>(null);
   const [bidAmount, setBidAmount] = useState("");
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: gsecs, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/gsec/auctions"],
@@ -340,15 +343,21 @@ function GovernmentSecurities() {
         </Card>
       ) : (
         bonds.map((bond: any) => (
-          <Card key={bond.isin} className="hover:shadow-md transition-shadow" data-testid={`gsec-${bond.isin}`}>
+          <Card 
+            key={bond.isin} 
+            className="hover:shadow-md transition-shadow cursor-pointer group" 
+            data-testid={`gsec-${bond.isin}`}
+            onClick={() => navigate(`/bonds/detail/${bond.isin}`)}
+          >
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{bond.securityName}</h4>
+                    <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.securityName}</h4>
                     <Badge variant="outline" className="bg-green-50 text-green-700">
                       {bond.securityType}
                     </Badge>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-finance-blue transition-colors ml-auto" />
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
                   
@@ -380,7 +389,7 @@ function GovernmentSecurities() {
 
                 <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setSelectedBond(bond)} size="sm" data-testid={`invest-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setSelectedBond(bond); }} size="sm" data-testid={`invest-${bond.isin}`}>
                       Place Bid
                     </Button>
                   </DialogTrigger>
@@ -472,6 +481,7 @@ function CorporateBonds() {
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: corporateBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/corporate"],
@@ -524,18 +534,24 @@ function CorporateBonds() {
         </Card>
       ) : (
         bonds.map((bond: any) => (
-          <Card key={bond.isin} className="hover:shadow-md transition-shadow" data-testid={`corp-bond-${bond.isin}`}>
+          <Card 
+            key={bond.isin} 
+            className="hover:shadow-md transition-shadow cursor-pointer group" 
+            data-testid={`corp-bond-${bond.isin}`}
+            onClick={() => navigate(`/bonds/detail/${bond.isin}`)}
+          >
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
+                    <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
                       {bond.rating || bond.creditRating || 'NR'}
                     </Badge>
                     <Badge variant="outline">
                       {bond.bondType || bond.type || 'Bond'}
                     </Badge>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-finance-blue transition-colors ml-auto" />
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
                   
@@ -566,7 +582,7 @@ function CorporateBonds() {
 
                 <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setSelectedBond(bond)} size="sm" data-testid={`buy-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setSelectedBond(bond); }} size="sm" data-testid={`buy-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
@@ -671,6 +687,7 @@ function NCDBonds() {
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: ncdBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/ncd"],
@@ -724,18 +741,24 @@ function NCDBonds() {
         </Card>
       ) : (
         bonds.map((bond: any) => (
-          <Card key={bond.isin} className="hover:shadow-md transition-shadow" data-testid={`ncd-bond-${bond.isin}`}>
+          <Card 
+            key={bond.isin} 
+            className="hover:shadow-md transition-shadow cursor-pointer group" 
+            data-testid={`ncd-bond-${bond.isin}`}
+            onClick={() => navigate(`/bonds/detail/${bond.isin}`)}
+          >
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
+                    <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
                       {bond.rating}
                     </Badge>
                     <Badge variant="outline" className="bg-orange-50 text-orange-700">
                       NCD
                     </Badge>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-finance-blue transition-colors ml-auto" />
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
                   
@@ -766,7 +789,7 @@ function NCDBonds() {
 
                 <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setSelectedBond(bond)} size="sm" data-testid={`buy-ncd-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setSelectedBond(bond); }} size="sm" data-testid={`buy-ncd-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
@@ -871,6 +894,7 @@ function TaxFreeBonds() {
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: taxFreeBonds, isLoading } = useQuery({
     queryKey: ["/api/bonds/trading/tax-free"],
@@ -924,18 +948,24 @@ function TaxFreeBonds() {
         </Card>
       ) : (
         bonds.map((bond: any) => (
-          <Card key={bond.isin} className="hover:shadow-md transition-shadow" data-testid={`tax-free-bond-${bond.isin}`}>
+          <Card 
+            key={bond.isin} 
+            className="hover:shadow-md transition-shadow cursor-pointer group" 
+            data-testid={`tax-free-bond-${bond.isin}`}
+            onClick={() => navigate(`/bonds/detail/${bond.isin}`)}
+          >
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
+                    <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
                       {bond.rating}
                     </Badge>
                     <Badge variant="outline" className="bg-green-50 text-green-700">
                       Tax Free
                     </Badge>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-finance-blue transition-colors ml-auto" />
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
                   
@@ -966,7 +996,7 @@ function TaxFreeBonds() {
 
                 <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setSelectedBond(bond)} size="sm" data-testid={`buy-tax-free-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setSelectedBond(bond); }} size="sm" data-testid={`buy-tax-free-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
