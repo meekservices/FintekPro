@@ -20,41 +20,55 @@ export function PortfolioSummary({ userId }: PortfolioSummaryProps) {
 
   const isLoading = portfoliosLoading || holdingsLoading;
 
-  // Calculate portfolio summary
+  // Calculate portfolio summary from real holdings data
   const getPortfolioSummary = () => {
     if (!holdings || holdings.length === 0) {
       return {
         totalValue: 0,
         todayPnL: 0,
         todayPnLPercent: 0,
-        assetAllocation: []
+        assetAllocation: [],
+        isEmpty: true
       };
     }
 
-    // Group holdings by asset type
+    // Group holdings by asset type and calculate real values
     const assetGroups = holdings.reduce((acc, holding) => {
-      const value = parseFloat(holding.quantity) * parseFloat(holding.avgPrice);
+      const quantity = parseFloat(holding.quantity || "0");
+      const avgPrice = parseFloat(holding.avgPrice || "0");
+      // Use avgPrice as current price since live prices require real-time market data feeds
+      const currentPrice = avgPrice;
+      const value = quantity * currentPrice;
+      const costBasis = quantity * avgPrice;
+      
       if (!acc[holding.assetType]) {
-        acc[holding.assetType] = 0;
+        acc[holding.assetType] = { value: 0, costBasis: 0 };
       }
-      acc[holding.assetType] += value;
+      acc[holding.assetType].value += value;
+      acc[holding.assetType].costBasis += costBasis;
       return acc;
-    }, {} as Record<string, number>);
+    }, {} as Record<string, { value: number; costBasis: number }>);
 
-    const totalValue = Object.values(assetGroups).reduce((sum, value) => sum + value, 0);
+    const totalValue = Object.values(assetGroups).reduce((sum, group) => sum + group.value, 0);
+    const totalCostBasis = Object.values(assetGroups).reduce((sum, group) => sum + group.costBasis, 0);
+    
+    // Calculate actual P&L from holdings (difference between current value and cost basis)
+    const totalPnL = totalValue - totalCostBasis;
+    const pnlPercent = totalCostBasis > 0 ? (totalPnL / totalCostBasis) * 100 : 0;
 
-    const assetAllocation = Object.entries(assetGroups).map(([assetType, value]) => ({
+    const assetAllocation = Object.entries(assetGroups).map(([assetType, group]) => ({
       name: ASSET_TYPE_LABELS[assetType as keyof typeof ASSET_TYPE_LABELS] || assetType,
-      value,
-      percentage: ((value / totalValue) * 100).toFixed(1),
+      value: group.value,
+      percentage: ((group.value / totalValue) * 100).toFixed(1),
       color: ASSET_COLORS[assetType as keyof typeof ASSET_COLORS] || '#8b5cf6'
     }));
 
     return {
       totalValue,
-      todayPnL: totalValue * 0.0044, // Mock 0.44% gain
-      todayPnLPercent: 0.44,
-      assetAllocation
+      todayPnL: totalPnL,
+      todayPnLPercent: pnlPercent,
+      assetAllocation,
+      isEmpty: false
     };
   };
 

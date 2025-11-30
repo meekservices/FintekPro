@@ -16,27 +16,19 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
   const { data: allocation, isLoading, error } = useAssetAllocation(portfolioId);
   const [isRebalanceOpen, setIsRebalanceOpen] = useState(false);
 
-  // Mock data for demonstration - would come from real allocation API
-  const mockAllocationData = [
-    { assetType: "equity", current: 68, target: 65, currentValue: 847000, targetValue: 812500 },
-    { assetType: "debt", current: 22, target: 25, currentValue: 275000, targetValue: 312500 },
-    { assetType: "gold", current: 7, target: 5, currentValue: 87500, targetValue: 62500 },
-    { assetType: "alternative", current: 3, target: 5, currentValue: 37500, targetValue: 62500 },
-  ];
+  // Use real allocation data only - no mock data
+  const hasAllocation = allocation && allocation.length > 0;
 
-  const allocationData = allocation?.length ? allocation : mockAllocationData;
-
-  // Process data for charts
-  const chartData = allocationData.map(item => ({
+  // Process data for charts from real allocation data
+  const chartData = hasAllocation ? allocation.map(item => ({
     name: ASSET_TYPE_LABELS[item.assetType as keyof typeof ASSET_TYPE_LABELS] || item.assetType,
-    current: item.current || parseFloat(item.currentPercentage || "0"),
-    target: item.target || parseFloat(item.targetPercentage || "0"),
-    currentValue: item.currentValue || parseFloat(item.currentValue || "0"),
-    targetValue: item.targetValue || parseFloat(item.targetValue || "0"),
-    rebalanceAmount: item.currentValue && item.targetValue ? 
-      parseFloat(item.targetValue.toString()) - parseFloat(item.currentValue.toString()) : 0,
+    current: parseFloat(item.currentPercentage || "0"),
+    target: parseFloat(item.targetPercentage || "0"),
+    currentValue: parseFloat(item.currentValue || "0"),
+    targetValue: parseFloat(item.targetValue || "0"),
+    rebalanceAmount: parseFloat(item.rebalanceAmount || "0"),
     color: ASSET_COLORS[item.assetType as keyof typeof ASSET_COLORS] || '#8b5cf6'
-  }));
+  })) : [];
 
   const pieData = chartData.map(item => ({
     name: item.name,
@@ -89,6 +81,31 @@ export function AssetAllocation({ portfolioId }: AssetAllocationProps) {
           <div className="text-center py-8">
             <p className="text-red-500 mb-2">Error loading asset allocation</p>
             <p className="text-gray-500 text-sm">Please try again later</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Empty state when no allocation data exists
+  if (!hasAllocation) {
+    return (
+      <Card className="mb-8" data-testid="asset-allocation-empty">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-gray-900">Asset Allocation Dashboard</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Asset Allocation Data</h3>
+            <p className="text-gray-500 text-sm max-w-md mx-auto">
+              Add investments to your portfolio to see your asset allocation breakdown and receive rebalancing suggestions.
+            </p>
           </div>
         </CardContent>
       </Card>
