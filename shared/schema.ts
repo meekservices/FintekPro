@@ -7852,6 +7852,53 @@ export const insertBondHoldingSchema = createInsertSchema(bondHoldings).omit({
   createdAt: true,
 });
 
+// Bond Commission Configuration - Admin-controlled margin settings
+export const bondCommissionConfig = pgTable("bond_commission_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Bond type identification
+  bondType: varchar("bond_type").notNull().unique(), // 'g_sec', 'corporate', 'ncd', 'tax_free', 'sgb', 'sdl', 't_bill', 'infrastructure'
+  bondTypeLabel: varchar("bond_type_label").notNull(), // Display name: 'Government Securities', 'Corporate Bonds', etc.
+  
+  // Brokerage settings (basis points - 1 bp = 0.01%)
+  brokerageBps: decimal("brokerage_bps", { precision: 8, scale: 4 }).default("5"), // e.g., 5 = 0.05%
+  brokerageMinAmount: decimal("brokerage_min_amount", { precision: 15, scale: 2 }).default("10"), // Minimum brokerage in INR
+  brokerageMaxAmount: decimal("brokerage_max_amount", { precision: 15, scale: 2 }).default("1000"), // Maximum brokerage cap in INR
+  
+  // Platform fee settings
+  platformFeeType: varchar("platform_fee_type").default("fixed"), // 'fixed', 'percentage', 'tiered'
+  platformFeeFixed: decimal("platform_fee_fixed", { precision: 15, scale: 2 }).default("25"), // Fixed fee in INR
+  platformFeePercent: decimal("platform_fee_percent", { precision: 8, scale: 4 }).default("0"), // Percentage fee
+  
+  // Transaction charges
+  transactionChargeBps: decimal("transaction_charge_bps", { precision: 8, scale: 4 }).default("0.5"), // Exchange transaction charge
+  stampDutyBps: decimal("stamp_duty_bps", { precision: 8, scale: 4 }).default("1"), // Stamp duty (buy only)
+  sebiTurnoverFeeBps: decimal("sebi_turnover_fee_bps", { precision: 8, scale: 4 }).default("0.0001"), // SEBI turnover fee
+  
+  // GST settings
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).default("18"), // GST on brokerage and fees
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  // Tier-based pricing (JSON for tiered structure)
+  tieredPricing: jsonb("tiered_pricing").default([]), // [{minAmount, maxAmount, brokerageBps}]
+  
+  // Audit
+  lastUpdatedBy: varchar("last_updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBondCommissionConfigSchema = createInsertSchema(bondCommissionConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BondCommissionConfig = typeof bondCommissionConfig.$inferSelect;
+export type InsertBondCommissionConfig = z.infer<typeof insertBondCommissionConfigSchema>;
+
 // Types for bonds
 export type GovernmentSecurity = typeof governmentSecurities.$inferSelect;
 export type InsertGovernmentSecurity = z.infer<typeof insertGovernmentSecuritySchema>;

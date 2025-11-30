@@ -82,7 +82,7 @@ import { seedDefaultAgent } from './seed-default-agent';
 import { nseNcbApi } from './nseNcbApi';
 import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
-import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
+import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema, bondCommissionConfig } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
@@ -446,6 +446,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  
+
+  // Bond Commission Configuration Admin Routes
+  app.get("/api/admin/bond-commission-config", requireAdmin, async (req, res) => {
+    try {
+      const configs = await db.select().from(bondCommissionConfig).orderBy(bondCommissionConfig.bondType);
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching bond commission config:", error);
+      res.status(500).json({ error: "Failed to fetch commission configuration" });
+    }
+  });
+
+  app.get("/api/admin/bond-commission-config/:bondType", requireAdmin, async (req, res) => {
+    try {
+      const { bondType } = req.params;
+      const [config] = await db.select().from(bondCommissionConfig).where(eq(bondCommissionConfig.bondType, bondType));
+      
+      if (!config) {
+        return res.status(404).json({ error: "Configuration not found for this bond type" });
+      }
+      
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching bond commission config:", error);
+      res.status(500).json({ error: "Failed to fetch commission configuration" });
+    }
+  });
+
+  app.put("/api/admin/bond-commission-config/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const [updated] = await db.update(bondCommissionConfig)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+          lastUpdatedBy: req.user?.id
+        })
+        .where(eq(bondCommissionConfig.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating bond commission config:", error);
+      res.status(500).json({ error: "Failed to update commission configuration" });
+    }
+  });
+
+  // Public endpoint to get commission rates for fee calculation in order dialogs
+  app.get("/api/bonds/commission-rates/:bondType", async (req, res) => {
+    try {
+      const { bondType } = req.params;
+      const [config] = await db.select({
+        bondType: bondCommissionConfig.bondType,
+        bondTypeLabel: bondCommissionConfig.bondTypeLabel,
+        brokerageBps: bondCommissionConfig.brokerageBps,
+        brokerageMinAmount: bondCommissionConfig.brokerageMinAmount,
+        brokerageMaxAmount: bondCommissionConfig.brokerageMaxAmount,
+        platformFeeType: bondCommissionConfig.platformFeeType,
+        platformFeeFixed: bondCommissionConfig.platformFeeFixed,
+        platformFeePercent: bondCommissionConfig.platformFeePercent,
+        transactionChargeBps: bondCommissionConfig.transactionChargeBps,
+        stampDutyBps: bondCommissionConfig.stampDutyBps,
+        sebiTurnoverFeeBps: bondCommissionConfig.sebiTurnoverFeeBps,
+        gstRate: bondCommissionConfig.gstRate,
+        isActive: bondCommissionConfig.isActive,
+      }).from(bondCommissionConfig).where(eq(bondCommissionConfig.bondType, bondType));
+      
+      if (!config || !config.isActive) {
+        return res.status(404).json({ error: "Commission configuration not found or inactive" });
+      }
+      
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching commission rates:", error);
+      res.status(500).json({ error: "Failed to fetch commission rates" });
+    }
+  });
+
+  // Calculate fees for a bond order
+  app.post("/api/bonds/calculate-fees", async (req, res) => {
+    try {
+      const { bondType, amount, orderType = 'buy' } = req.body;
+      
+      if (!bondType || !amount) {
+        return res.status(400).json({ error: "Bond type and amount are required" });
+      }
+      
+      const [config] = await db.select().from(bondCommissionConfig).where(eq(bondCommissionConfig.bondType, bondType));
+      
+      if (!config || !config.isActive) {
+        return res.status(404).json({ error: "Commission configuration not found or inactive" });
+      }
+      
+      const orderAmount = parseFloat(amount);
+      
+      // Calculate brokerage
+      let brokerage = (orderAmount * parseFloat(config.brokerageBps || "0")) / 10000;
+      brokerage = Math.max(brokerage, parseFloat(config.brokerageMinAmount || "0"));
+      brokerage = Math.min(brokerage, parseFloat(config.brokerageMaxAmount || "0"));
+      
+      // Calculate platform fee
+      let platformFee = 0;
+      if (config.platformFeeType === "fixed") {
+        platformFee = parseFloat(config.platformFeeFixed || "0");
+      } else {
+        platformFee = (orderAmount * parseFloat(config.platformFeePercent || "0")) / 100;
+      }
+      
+      // Calculate transaction charges
+      const transactionCharge = (orderAmount * parseFloat(config.transactionChargeBps || "0")) / 10000;
+      
+      // Stamp duty (only for buy orders)
+      const stampDuty = orderType === 'buy' ? (orderAmount * parseFloat(config.stampDutyBps || "0")) / 10000 : 0;
+      
+      // SEBI turnover fee
+      const sebiFee = (orderAmount * parseFloat(config.sebiTurnoverFeeBps || "0")) / 10000;
+      
+      // GST on brokerage and platform fee
+      const gstableAmount = brokerage + platformFee + transactionCharge;
+      const gst = (gstableAmount * parseFloat(config.gstRate || "0")) / 100;
+      
+      const totalFees = brokerage + platformFee + transactionCharge + stampDuty + sebiFee + gst;
+      const totalPayable = orderAmount + totalFees;
+      
+      res.json({
+        orderAmount,
+        fees: {
+          brokerage: parseFloat(brokerage.toFixed(2)),
+          platformFee: parseFloat(platformFee.toFixed(2)),
+          transactionCharge: parseFloat(transactionCharge.toFixed(2)),
+          stampDuty: parseFloat(stampDuty.toFixed(2)),
+          sebiFee: parseFloat(sebiFee.toFixed(4)),
+          gst: parseFloat(gst.toFixed(2)),
+        },
+        totalFees: parseFloat(totalFees.toFixed(2)),
+        totalPayable: parseFloat(totalPayable.toFixed(2)),
+        rateDetails: {
+          brokerageBps: config.brokerageBps,
+          gstRate: config.gstRate,
+        }
+      });
+    } catch (error) {
+      console.error("Error calculating fees:", error);
+      res.status(500).json({ error: "Failed to calculate fees" });
+    }
+  });
   
   // User Profile API endpoints
   app.get("/api/profile", requireClientOrHigher, async (req, res) => {
