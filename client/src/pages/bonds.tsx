@@ -542,7 +542,7 @@ function CorporateBonds() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-gray-500">Yield</p>
-                      <p className="font-semibold text-finance-green">{bond.currentYield}%</p>
+                      <p className="font-semibold text-finance-green">{bond.yieldToMaturity || bond.currentYield || 'N/A'}%</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Coupon</p>
@@ -615,7 +615,7 @@ function CorporateBonds() {
                         </div>
                         <div className="flex justify-between">
                           <span>Expected Yield:</span>
-                          <span className="font-medium text-finance-green">{bond.currentYield}%</span>
+                          <span className="font-medium text-finance-green">{bond.yieldToMaturity || bond.currentYield || 'N/A'}%</span>
                         </div>
                       </div>
 
@@ -742,7 +742,7 @@ function NCDBonds() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-gray-500">Yield</p>
-                      <p className="font-semibold text-finance-green">{bond.currentYield}%</p>
+                      <p className="font-semibold text-finance-green">{bond.yieldToMaturity || bond.currentYield || 'N/A'}%</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Coupon</p>
@@ -815,7 +815,7 @@ function NCDBonds() {
                         </div>
                         <div className="flex justify-between">
                           <span>Expected Yield:</span>
-                          <span className="font-medium text-finance-green">{bond.currentYield}%</span>
+                          <span className="font-medium text-finance-green">{bond.yieldToMaturity || bond.currentYield || 'N/A'}%</span>
                         </div>
                       </div>
 
@@ -942,7 +942,7 @@ function TaxFreeBonds() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-gray-500">Tax-Free Yield</p>
-                      <p className="font-semibold text-finance-green">{bond.currentYield}%</p>
+                      <p className="font-semibold text-finance-green">{bond.yieldToMaturity || bond.currentYield || 'N/A'}%</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Coupon</p>
@@ -1015,7 +1015,7 @@ function TaxFreeBonds() {
                         </div>
                         <div className="flex justify-between">
                           <span>Tax-Free Yield:</span>
-                          <span className="font-medium text-finance-green">{bond.currentYield}%</span>
+                          <span className="font-medium text-finance-green">{bond.yieldToMaturity || bond.currentYield || 'N/A'}%</span>
                         </div>
                         <div className="flex items-center gap-1 text-green-700 text-xs">
                           <CheckCircle2 className="h-3 w-3" />
@@ -1151,7 +1151,7 @@ function BondHoldings() {
                   </div>
                   <div>
                     <p className="text-gray-500">Current Yield</p>
-                    <p className="font-semibold text-finance-green">{holding.currentYield}%</p>
+                    <p className="font-semibold text-finance-green">{holding.yieldToMaturity || holding.currentYield || 'N/A'}%</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Maturity</p>
