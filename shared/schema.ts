@@ -7899,6 +7899,120 @@ export const insertBondCommissionConfigSchema = createInsertSchema(bondCommissio
 export type BondCommissionConfig = typeof bondCommissionConfig.$inferSelect;
 export type InsertBondCommissionConfig = z.infer<typeof insertBondCommissionConfigSchema>;
 
+// ===== STAMP DUTY CONFIGURATION (Indian Stamp Act, amended July 2020) =====
+// Regulatory-compliant stamp duty rates for securities transactions
+export const stampDutyConfig = pgTable("stamp_duty_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Product type identification
+  productType: varchar("product_type").notNull().unique(), // 'unlisted_shares', 'corporate_bond', 'ncd', 'tax_free_bond', 'g_sec', 'sgb', 'sdl', 't_bill', 'infrastructure_bond'
+  productTypeLabel: varchar("product_type_label").notNull(), // Display name
+  
+  // Stamp duty rate (basis points - 1 bp = 0.01%)
+  stampDutyBps: decimal("stamp_duty_bps", { precision: 8, scale: 4 }).notNull(), // e.g., 1.5 = 0.015%
+  
+  // Exemption handling
+  isExempt: boolean("is_exempt").default(false), // G-Sec and SGB are exempt
+  exemptionReason: text("exemption_reason"), // Regulatory reason for exemption
+  
+  // Transaction side (who pays)
+  payerSide: varchar("payer_side").notNull().default("buyer"), // 'buyer', 'seller', 'transferor'
+  
+  // Transaction type applicability
+  applicableTransactionTypes: text("applicable_transaction_types").array().default([]), // ['purchase', 'sale', 'transfer', 'issue']
+  
+  // Regulatory reference
+  regulatorReference: varchar("regulator_reference"), // 'Indian Stamp Act 1899 (amended 2019)', 'SEBI Circular', etc.
+  statuteSection: varchar("statute_section"), // Section 9A, Schedule IA, etc.
+  
+  // Effective dates for audit trail
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"), // null = currently active
+  
+  // Collection mechanism
+  collectingAgent: varchar("collecting_agent").default("platform"), // 'depository', 'exchange', 'platform'
+  remittanceFrequency: varchar("remittance_frequency").default("monthly"), // 'daily', 'weekly', 'monthly'
+  
+  // State-wise override (if needed)
+  stateCode: varchar("state_code"), // null = national rate
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  // Audit
+  lastUpdatedBy: varchar("last_updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertStampDutyConfigSchema = createInsertSchema(stampDutyConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type StampDutyConfig = typeof stampDutyConfig.$inferSelect;
+export type InsertStampDutyConfig = z.infer<typeof insertStampDutyConfigSchema>;
+
+// ===== STAMP DUTY AUDIT LOG (7-year retention for regulatory compliance) =====
+export const stampDutyAuditLog = pgTable("stamp_duty_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Transaction reference
+  transactionId: varchar("transaction_id").notNull(), // Bond order ID or Deal ID
+  transactionType: varchar("transaction_type").notNull(), // 'bond_order', 'unlisted_deal'
+  
+  // Product details
+  productType: varchar("product_type").notNull(),
+  isin: varchar("isin"),
+  productName: text("product_name"),
+  
+  // Stamp duty calculation
+  transactionAmount: decimal("transaction_amount", { precision: 20, scale: 2 }).notNull(),
+  stampDutyRate: decimal("stamp_duty_rate", { precision: 8, scale: 4 }).notNull(), // Rate applied (in bps)
+  stampDutyAmount: decimal("stamp_duty_amount", { precision: 15, scale: 2 }).notNull(),
+  isExempt: boolean("is_exempt").default(false),
+  exemptionReason: text("exemption_reason"),
+  
+  // Payer details
+  payerUserId: varchar("payer_user_id").references(() => users.id),
+  payerSide: varchar("payer_side").notNull(), // 'buyer', 'seller'
+  payerState: varchar("payer_state"), // State for remittance
+  
+  // Regulatory reference (snapshot at time of transaction)
+  configSnapshotId: varchar("config_snapshot_id").references(() => stampDutyConfig.id),
+  regulatorReference: varchar("regulator_reference"),
+  statuteSection: varchar("statute_section"),
+  effectiveRateDate: date("effective_rate_date"),
+  
+  // Collection status
+  collectionStatus: varchar("collection_status").default("collected"), // 'pending', 'collected', 'remitted', 'failed'
+  remittanceDate: date("remittance_date"),
+  remittanceBatchId: varchar("remittance_batch_id"),
+  
+  // Audit metadata
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  calculatedBy: varchar("calculated_by").default("system"),
+  
+  // Retention policy (7 years as per regulations)
+  retentionExpiresAt: timestamp("retention_expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_stamp_duty_audit_transaction").on(table.transactionId),
+  index("idx_stamp_duty_audit_product").on(table.productType),
+  index("idx_stamp_duty_audit_date").on(table.calculatedAt),
+]);
+
+export const insertStampDutyAuditLogSchema = createInsertSchema(stampDutyAuditLog).omit({
+  id: true,
+  calculatedAt: true,
+  createdAt: true,
+});
+
+export type StampDutyAuditLog = typeof stampDutyAuditLog.$inferSelect;
+export type InsertStampDutyAuditLog = z.infer<typeof insertStampDutyAuditLogSchema>;
+
 // Types for bonds
 export type GovernmentSecurity = typeof governmentSecurities.$inferSelect;
 export type InsertGovernmentSecurity = z.infer<typeof insertGovernmentSecuritySchema>;

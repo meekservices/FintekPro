@@ -80,9 +80,10 @@ import { initReKYCCron } from './rekyc-cron';
 import { seedProducts } from './seed-products';
 import { seedDefaultAgent } from './seed-default-agent';
 import { nseNcbApi } from './nseNcbApi';
+import { stampDutyService, STAMP_DUTY_RATES, type ProductType } from './stamp-duty-service';
 import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
-import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema, bondCommissionConfig } from '@shared/schema';
+import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema, bondCommissionConfig, stampDutyConfig, stampDutyAuditLog } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
@@ -599,6 +600,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to calculate fees" });
     }
   });
+
+  // ===== STAMP DUTY API ROUTES (Indian Stamp Act Compliance) =====
+  
+  // Get all stamp duty rates (public endpoint for display)
+  app.get("/api/stamp-duty/rates", async (req, res) => {
+    try {
+      const rates = stampDutyService.getAllRates();
+      res.json({
+        effectiveDate: '2020-07-01',
+        regulatoryBasis: 'Indian Stamp Act 1899 (amended by Finance Act 2019)',
+        rates
+      });
+    } catch (error) {
+      console.error("Error fetching stamp duty rates:", error);
+      res.status(500).json({ error: "Failed to fetch stamp duty rates" });
+    }
+  });
+
+  // Get stamp duty for a specific product type
+  app.get("/api/stamp-duty/rate/:productType", async (req, res) => {
+    try {
+      const { productType } = req.params;
+      
+      if (!STAMP_DUTY_RATES[productType as ProductType]) {
+        return res.status(404).json({ error: "Unknown product type" });
+      }
+      
+      const breakdown = stampDutyService.getStampDutyBreakdown(
+        productType as ProductType,
+        100000 // Sample amount for rate display
+      );
+      
+      res.json({
+        productType,
+        rate: STAMP_DUTY_RATES[productType as ProductType],
+        sampleBreakdown: breakdown
+      });
+    } catch (error) {
+      console.error("Error fetching stamp duty rate:", error);
+      res.status(500).json({ error: "Failed to fetch stamp duty rate" });
+    }
+  });
+
+  // Calculate stamp duty for a transaction
+  app.post("/api/stamp-duty/calculate", async (req, res) => {
+    try {
+      const { productType, amount, transactionType = 'purchase' } = req.body;
+      
+      if (!productType || !amount) {
+        return res.status(400).json({ error: "Product type and amount are required" });
+      }
+      
+      if (!STAMP_DUTY_RATES[productType as ProductType]) {
+        return res.status(404).json({ error: "Unknown product type" });
+      }
+      
+      const calculation = stampDutyService.calculateStampDuty(
+        productType as ProductType,
+        parseFloat(amount),
+        transactionType
+      );
+      
+      const breakdown = stampDutyService.getStampDutyBreakdown(
+        productType as ProductType,
+        parseFloat(amount)
+      );
+      
+      res.json({
+        calculation,
+        breakdown,
+        disclaimer: 'Stamp duty rates are as per Indian Stamp Act 1899 (amended 2019). Government securities are exempt.'
+      });
+    } catch (error) {
+      console.error("Error calculating stamp duty:", error);
+      res.status(500).json({ error: "Failed to calculate stamp duty" });
+    }
+  });
+
+  // Admin: Get stamp duty configuration from database
+  app.get("/api/admin/stamp-duty-config", requireAdmin, async (req, res) => {
+    try {
+      const configs = await db.select().from(stampDutyConfig).orderBy(stampDutyConfig.productType);
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching stamp duty config:", error);
+      res.status(500).json({ error: "Failed to fetch stamp duty configuration" });
+    }
+  });
+
+  // Admin: Update stamp duty configuration
+  app.put("/api/admin/stamp-duty-config/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const [updated] = await db.update(stampDutyConfig)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+          lastUpdatedBy: req.user?.id
+        })
+        .where(eq(stampDutyConfig.id, id))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating stamp duty config:", error);
+      res.status(500).json({ error: "Failed to update stamp duty configuration" });
+    }
+  });
+
+  // Admin: Seed stamp duty configuration
+  app.post("/api/admin/stamp-duty-config/seed", requireAdmin, async (req, res) => {
+    try {
+      await stampDutyService.seedConfiguration();
+      res.json({ success: true, message: "Stamp duty configuration seeded successfully" });
+    } catch (error) {
+      console.error("Error seeding stamp duty config:", error);
+      res.status(500).json({ error: "Failed to seed stamp duty configuration" });
+    }
+  });
+
+  // Get stamp duty audit log (for compliance reporting)
+  app.get("/api/admin/stamp-duty-audit", requireAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate, productType, limit = 100 } = req.query;
+      
+      let query = db.select().from(stampDutyAuditLog);
+      
+      // Apply filters
+      const conditions = [];
+      if (productType) {
+        conditions.push(eq(stampDutyAuditLog.productType, productType as string));
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+      
+      const logs = await query.limit(parseInt(limit as string));
+      
+      res.json({
+        logs,
+        retentionPolicy: '7 years as per Indian Stamp Act regulations',
+        totalRecords: logs.length
+      });
+    } catch (error) {
+      console.error("Error fetching stamp duty audit log:", error);
+      res.status(500).json({ error: "Failed to fetch audit log" });
+    }
+  });
+
   
   // User Profile API endpoints
   app.get("/api/profile", requireClientOrHigher, async (req, res) => {
