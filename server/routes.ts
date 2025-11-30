@@ -32240,6 +32240,34 @@ System Security Data:`;
       res.status(500).json({ error: "Failed to fetch orders" });
     }
   });
+
+  // Initiate sell order payout
+  app.post("/api/fixed-income/orders/:orderId/payout", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import('./services/fixed-income-payment-orchestrator');
+      const result = await fixedIncomePaymentOrchestrator.initiateSellOrderPayout(req.params.orderId);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error initiating sell payout:", error);
+      res.status(500).json({ error: "Failed to initiate payout" });
+    }
+  });
+
+  // Get sell order payout status
+  app.get("/api/fixed-income/orders/:orderId/payout-status", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomePaymentOrchestrator } = await import('./services/fixed-income-payment-orchestrator');
+      const result = await fixedIncomePaymentOrchestrator.getSellOrderPayoutStatus(req.params.orderId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting payout status:", error);
+      res.status(500).json({ error: "Failed to get payout status" });
+    }
+  });
   
   // Get user's holdings
   app.get("/api/fixed-income/holdings", requireAuth, async (req: any, res) => {
@@ -32250,6 +32278,34 @@ System Security Data:`;
     } catch (error) {
       console.error("Error fetching holdings:", error);
       res.status(500).json({ error: "Failed to fetch holdings" });
+    }
+  });
+
+  // Get holding by ISIN
+  app.get("/api/fixed-income/holdings/:isin", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const holding = await fixedIncomeMarketplace.getHoldingByIsin(req.user!.id, req.params.isin);
+      if (!holding) {
+        return res.status(404).json({ error: "Holding not found" });
+      }
+      res.json(holding);
+    } catch (error) {
+      console.error("Error fetching holding:", error);
+      res.status(500).json({ error: "Failed to fetch holding" });
+    }
+  });
+
+  // Validate sell order
+  app.post("/api/fixed-income/validate-sell", requireAuth, async (req: any, res) => {
+    try {
+      const { fixedIncomeMarketplace } = await import('./services/fixed-income-marketplace');
+      const { isin, quantity } = req.body;
+      const validation = await fixedIncomeMarketplace.validateSellOrder(req.user!.id, isin, quantity);
+      res.json(validation);
+    } catch (error) {
+      console.error("Error validating sell order:", error);
+      res.status(500).json({ error: "Failed to validate sell order" });
     }
   });
   

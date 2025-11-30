@@ -17,7 +17,7 @@ import {
   Briefcase, Wallet, Bell, FileText, TrendingDown, ArrowRight,
   Landmark, Coins, Receipt, ShieldCheck, Info, ChevronRight, PlusCircle
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -519,6 +519,14 @@ function BondOrderDialog({
   const totalAmount = quantity * unitPrice;
 
   const handleSubmit = () => {
+    if (orderType === 'limit') {
+      const parsedLimitPrice = parseFloat(limitPrice);
+      if (!limitPrice || isNaN(parsedLimitPrice) || parsedLimitPrice <= 0) {
+        toast({ variant: "destructive", title: "Invalid Price", description: "Please enter a valid limit price" });
+        return;
+      }
+    }
+    
     placeOrderMutation.mutate({
       bondId: bond.id,
       bondType: bond.bondType,
@@ -529,6 +537,8 @@ function BondOrderDialog({
       settlementType: 'T+1',
     });
   };
+
+  const isLimitPriceValid = orderType !== 'limit' || (limitPrice && !isNaN(parseFloat(limitPrice)) && parseFloat(limitPrice) > 0);
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -630,7 +640,7 @@ function BondOrderDialog({
           </Button>
           <Button 
             onClick={handleSubmit}
-            disabled={placeOrderMutation.isPending}
+            disabled={placeOrderMutation.isPending || !isLimitPriceValid}
             data-testid="btn-confirm-order"
           >
             {placeOrderMutation.isPending ? "Placing..." : "Confirm Order"}
@@ -881,21 +891,265 @@ function SgbTab() {
   );
 }
 
+interface HoldingData {
+  id: string;
+  bondId: string;
+  bondType: string;
+  isin: string;
+  securityName: string;
+  quantity: number;
+  averagePrice: number;
+  currentValue: number;
+  unrealizedPnL: number;
+  couponRate: number;
+  nextCouponDate: string | null;
+  maturityDate: string;
+}
+
+function SellOrderDialog({ 
+  holding, 
+  open, 
+  onClose 
+}: { 
+  holding: HoldingData | null; 
+  open: boolean; 
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [quantity, setQuantity] = useState(1);
+  const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
+  const [limitPrice, setLimitPrice] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const validateSellMutation = useMutation({
+    mutationFn: (data: { isin: string; quantity: number }) => 
+      apiRequest('/api/fixed-income/validate-sell', { method: 'POST', body: JSON.stringify(data) }),
+  });
+
+  const placeOrderMutation = useMutation({
+    mutationFn: (orderData: any) => apiRequest('/api/fixed-income/orders', { method: 'POST', body: JSON.stringify(orderData) }),
+    onSuccess: () => {
+      toast({
+        title: "Sell Order Placed",
+        description: "Your sell order has been submitted successfully.",
+      });
+      onClose();
+      queryClient.invalidateQueries({ queryKey: ['/api/fixed-income/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fixed-income/holdings'] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Sell Order Failed",
+        description: error.message || "Failed to place sell order.",
+      });
+    }
+  });
+
+  useEffect(() => {
+    if (holding && open) {
+      setQuantity(1);
+      setValidationError(null);
+    }
+  }, [holding, open]);
+
+  useEffect(() => {
+    if (holding && quantity > 0) {
+      const timer = setTimeout(async () => {
+        try {
+          const result = await validateSellMutation.mutateAsync({ isin: holding.isin, quantity });
+          if (!(result as any).valid) {
+            setValidationError((result as any).error);
+          } else {
+            setValidationError(null);
+          }
+        } catch (err) {
+          setValidationError('Failed to validate order');
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [holding, quantity]);
+
+  if (!holding) return null;
+
+  const currentPrice = holding.currentValue / holding.quantity;
+  const totalAmount = quantity * currentPrice;
+
+  const handleSubmit = () => {
+    if (validationError) {
+      toast({ variant: "destructive", title: "Invalid Order", description: validationError });
+      return;
+    }
+    
+    if (orderType === 'limit') {
+      const parsedLimitPrice = parseFloat(limitPrice);
+      if (!limitPrice || isNaN(parsedLimitPrice) || parsedLimitPrice <= 0) {
+        toast({ variant: "destructive", title: "Invalid Price", description: "Please enter a valid limit price" });
+        return;
+      }
+    }
+    
+    placeOrderMutation.mutate({
+      bondId: holding.bondId,
+      bondType: holding.bondType,
+      isin: holding.isin,
+      bondName: holding.securityName,
+      orderType: 'sell',
+      priceType: orderType,
+      quantity,
+      faceValue: 1000,
+      orderPrice: orderType === 'limit' ? parseFloat(limitPrice) : currentPrice,
+    });
+  };
+
+  const isLimitPriceValid = orderType !== 'limit' || (limitPrice && !isNaN(parseFloat(limitPrice)) && parseFloat(limitPrice) > 0);
+
+  return (
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <TrendingDown className="h-5 w-5 text-red-600" />
+            Sell Order
+          </DialogTitle>
+          <DialogDescription>{holding.securityName}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 p-4 bg-red-50 rounded-lg text-sm">
+            <div>
+              <p className="text-gray-500">ISIN</p>
+              <p className="font-semibold">{holding.isin}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Available Qty</p>
+              <p className="font-semibold">{holding.quantity}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Avg Buy Price</p>
+              <p className="font-semibold">₹{holding.averagePrice.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Current Price</p>
+              <p className="font-semibold">₹{currentPrice.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {validationError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{validationError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-2">
+            <Label>Order Type</Label>
+            <Select value={orderType} onValueChange={(v) => setOrderType(v as any)}>
+              <SelectTrigger data-testid="select-sell-order-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="market">Market Order</SelectItem>
+                <SelectItem value="limit">Limit Order</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {orderType === 'limit' && (
+            <div className="space-y-2">
+              <Label>Limit Price (₹)</Label>
+              <Input 
+                type="number"
+                value={limitPrice}
+                onChange={(e) => setLimitPrice(e.target.value)}
+                placeholder="Enter limit price"
+                data-testid="input-sell-limit-price"
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label>Quantity to Sell</Label>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                data-testid="btn-sell-qty-decrease"
+              >-</Button>
+              <Input 
+                type="number" 
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, Math.min(holding.quantity, parseInt(e.target.value) || 1)))}
+                className="text-center"
+                data-testid="input-sell-quantity"
+              />
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => setQuantity(Math.min(holding.quantity, quantity + 1))}
+                data-testid="btn-sell-qty-increase"
+              >+</Button>
+            </div>
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="px-0 text-red-600"
+              onClick={() => setQuantity(holding.quantity)}
+              data-testid="btn-sell-all"
+            >
+              Sell All ({holding.quantity})
+            </Button>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-500">Estimated Proceeds</span>
+              <span className="font-semibold">₹{totalAmount.toLocaleString()}</span>
+            </div>
+            {holding.unrealizedPnL !== 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Estimated {holding.unrealizedPnL >= 0 ? 'Gain' : 'Loss'}</span>
+                <span className={`font-semibold ${holding.unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {holding.unrealizedPnL >= 0 ? '+' : ''}₹{((quantity / holding.quantity) * holding.unrealizedPnL).toFixed(0)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <Alert className="bg-amber-50 border-amber-200">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-xs text-amber-700">
+              Settlement: T+1. Proceeds will be credited to your bank account post settlement.
+            </AlertDescription>
+          </Alert>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} data-testid="btn-cancel-sell">
+            Cancel
+          </Button>
+          <Button 
+            variant="destructive"
+            onClick={handleSubmit}
+            disabled={placeOrderMutation.isPending || !!validationError || quantity > holding.quantity || !isLimitPriceValid}
+            data-testid="btn-confirm-sell"
+          >
+            {placeOrderMutation.isPending ? "Placing..." : "Confirm Sell"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function HoldingsTab() {
-  const { data: holdings, isLoading } = useQuery<Array<{
-    id: string;
-    bondId: string;
-    bondType: string;
-    isin: string;
-    securityName: string;
-    quantity: number;
-    averagePrice: number;
-    currentValue: number;
-    unrealizedPnL: number;
-    couponRate: number;
-    nextCouponDate: string | null;
-    maturityDate: string;
-  }>>({
+  const [selectedHolding, setSelectedHolding] = useState<HoldingData | null>(null);
+  
+  const { data: holdings, isLoading } = useQuery<HoldingData[]>({
     queryKey: ['/api/fixed-income/holdings'],
   });
 
@@ -951,16 +1205,36 @@ function HoldingsTab() {
                   <p className="font-semibold text-emerald-600">{holding.couponRate}%</p>
                 </div>
               </div>
-              {holding.nextCouponDate && (
-                <div className="mt-3 pt-3 border-t flex items-center text-sm text-gray-600">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Next Coupon: {new Date(holding.nextCouponDate).toLocaleDateString('en-IN')}
-                </div>
-              )}
+              <div className="mt-3 pt-3 border-t flex items-center justify-between">
+                {holding.nextCouponDate ? (
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Next Coupon: {new Date(holding.nextCouponDate).toLocaleDateString('en-IN')}
+                  </div>
+                ) : (
+                  <div />
+                )}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                  onClick={() => setSelectedHolding(holding)}
+                  data-testid={`btn-sell-${holding.isin}`}
+                >
+                  <TrendingDown className="h-4 w-4 mr-1" />
+                  Sell
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <SellOrderDialog
+        holding={selectedHolding}
+        open={!!selectedHolding}
+        onClose={() => setSelectedHolding(null)}
+      />
     </div>
   );
 }
@@ -1346,8 +1620,9 @@ function ReportsTab() {
 }
 
 function OrdersTab() {
+  const [orderTypeFilter, setOrderTypeFilter] = useState<'all' | 'buy' | 'sell'>('all');
   const { data: orders, isLoading } = useQuery<any[]>({
-    queryKey: ['/api/fixed-income/user-orders'],
+    queryKey: ['/api/fixed-income/orders'],
   });
 
   if (isLoading) {
@@ -1364,86 +1639,163 @@ function OrdersTab() {
     );
   }
 
+  const filteredOrders = orderTypeFilter === 'all' 
+    ? orders 
+    : orders.filter(o => o.orderType === orderTypeFilter);
+
+  const buyOrders = orders.filter(o => o.orderType === 'buy');
+  const sellOrders = orders.filter(o => o.orderType === 'sell');
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'executed': return 'bg-green-100 text-green-800';
-      case 'pending': case 'processing': return 'bg-amber-100 text-amber-800';
-      case 'failed': case 'rejected': return 'bg-red-100 text-red-800';
+      case 'executed': case 'completed': return 'bg-green-100 text-green-800';
+      case 'pending': case 'processing': case 'awaiting_settlement': return 'bg-amber-100 text-amber-800';
+      case 'failed': case 'rejected': case 'cancelled': return 'bg-red-100 text-red-800';
       case 'pending_payment': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
+  const getOrderTypeStyles = (orderType: string) => {
+    return orderType === 'buy' 
+      ? { bg: 'bg-emerald-50', border: 'border-emerald-200', icon: TrendingUp, iconColor: 'text-emerald-600', label: 'BUY' }
+      : { bg: 'bg-red-50', border: 'border-red-200', icon: TrendingDown, iconColor: 'text-red-600', label: 'SELL' };
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold">Your Orders</h3>
-        <Badge variant="outline">{orders.length} orders</Badge>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant={orderTypeFilter === 'all' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setOrderTypeFilter('all')}
+            data-testid="btn-filter-all"
+          >
+            All ({orders.length})
+          </Button>
+          <Button 
+            variant={orderTypeFilter === 'buy' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setOrderTypeFilter('buy')}
+            className={orderTypeFilter !== 'buy' ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-50' : ''}
+            data-testid="btn-filter-buy"
+          >
+            <TrendingUp className="h-3 w-3 mr-1" />
+            Buy ({buyOrders.length})
+          </Button>
+          <Button 
+            variant={orderTypeFilter === 'sell' ? 'destructive' : 'outline'} 
+            size="sm"
+            onClick={() => setOrderTypeFilter('sell')}
+            className={orderTypeFilter !== 'sell' ? 'border-red-300 text-red-700 hover:bg-red-50' : ''}
+            data-testid="btn-filter-sell"
+          >
+            <TrendingDown className="h-3 w-3 mr-1" />
+            Sell ({sellOrders.length})
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-3">
-        {orders.map((order: any) => (
-          <Card key={order.id} data-testid={`order-${order.id}`}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-semibold">{order.bondName}</p>
-                  <p className="text-sm text-gray-500">ISIN: {order.isin}</p>
+        {filteredOrders.map((order: any) => {
+          const typeStyles = getOrderTypeStyles(order.orderType);
+          const OrderIcon = typeStyles.icon;
+          
+          return (
+            <Card key={order.id} className={`${typeStyles.bg} ${typeStyles.border}`} data-testid={`order-${order.id}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${order.orderType === 'buy' ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                      <OrderIcon className={`h-4 w-4 ${typeStyles.iconColor}`} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{order.bondName}</p>
+                        <Badge variant="outline" className={order.orderType === 'buy' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-red-100 text-red-700 border-red-300'}>
+                          {typeStyles.label}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-500">ISIN: {order.isin}</p>
+                    </div>
+                  </div>
+                  <Badge className={getStatusColor(order.orderStatus)}>
+                    {order.orderStatus.replace(/_/g, ' ')}
+                  </Badge>
                 </div>
-                <Badge className={getStatusColor(order.orderStatus)}>
-                  {order.orderStatus.replace(/_/g, ' ')}
-                </Badge>
-              </div>
 
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Quantity</p>
-                  <p className="font-medium">{order.quantity}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Price</p>
-                  <p className="font-medium">₹{parseFloat(order.price || '0').toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Net Amount</p>
-                  <p className="font-medium">₹{parseFloat(order.netAmount || '0').toFixed(2)}</p>
-                </div>
-              </div>
-
-              {order.orderStatus === 'pending_payment' && (
-                <div className="mt-3 pt-3 border-t">
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <Clock className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-blue-700 flex items-center justify-between">
-                      <span>Payment pending for this order</span>
-                      <Button size="sm" data-testid={`btn-pay-${order.id}`}>
-                        Complete Payment
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              )}
-
-              {order.settlementStatus && (
-                <div className="mt-3 pt-3 border-t">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm text-gray-500">Settlement:</p>
-                    <Badge variant="outline">{order.settlementStatus}</Badge>
-                    {order.settlementDate && (
-                      <span className="text-sm text-gray-500">
-                        Expected: {new Date(order.settlementDate).toLocaleDateString()}
-                      </span>
-                    )}
+                <div className="grid grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">Type</p>
+                    <p className={`font-medium ${order.orderType === 'buy' ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {order.orderType === 'buy' ? 'Purchase' : 'Redemption'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Quantity</p>
+                    <p className="font-medium">{order.quantity}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Price</p>
+                    <p className="font-medium">₹{parseFloat(order.orderPrice || order.price || '0').toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">{order.orderType === 'buy' ? 'Amount Paid' : 'Proceeds'}</p>
+                    <p className={`font-medium ${order.orderType === 'sell' ? 'text-emerald-600' : ''}`}>
+                      ₹{parseFloat(order.netAmount || '0').toLocaleString()}
+                    </p>
                   </div>
                 </div>
-              )}
 
-              <div className="mt-2 text-xs text-gray-400">
-                Order Date: {new Date(order.orderDate || order.createdAt).toLocaleDateString()}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                {order.orderStatus === 'pending_payment' && order.orderType === 'buy' && (
+                  <div className="mt-3 pt-3 border-t border-emerald-200">
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <Clock className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-700 flex items-center justify-between">
+                        <span>Payment pending for this order</span>
+                        <Button size="sm" data-testid={`btn-pay-${order.id}`}>
+                          Complete Payment
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+
+                {order.orderType === 'sell' && order.orderStatus === 'awaiting_settlement' && (
+                  <div className="mt-3 pt-3 border-t border-red-200">
+                    <Alert className="bg-amber-50 border-amber-200">
+                      <Clock className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-amber-700">
+                        Sell order awaiting settlement. Proceeds will be credited to your bank account.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+
+                {(order.settlementStatus || order.settlementDate) && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-gray-500">Settlement:</p>
+                      {order.settlementStatus && <Badge variant="outline">{order.settlementStatus}</Badge>}
+                      {order.settlementDate && (
+                        <span className="text-sm text-gray-500">
+                          {order.orderStatus === 'completed' ? 'Completed' : 'Expected'}: {new Date(order.settlementDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-2 text-xs text-gray-400 flex items-center justify-between">
+                  <span>Order #{order.orderNumber}</span>
+                  <span>Order Date: {new Date(order.orderDate || order.createdAt).toLocaleDateString()}</span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

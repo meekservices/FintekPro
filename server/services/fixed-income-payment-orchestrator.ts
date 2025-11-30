@@ -842,6 +842,144 @@ class FixedIncomePaymentOrchestrator {
       console.error('Failed to log audit event:', error);
     }
   }
+
+  async initiateSellOrderPayout(orderId: string): Promise<{
+    success: boolean;
+    payoutId?: string;
+    message: string;
+    estimatedCreditDate?: string;
+  }> {
+    try {
+      const order = await db.select()
+        .from(bondOrders)
+        .where(eq(bondOrders.id, orderId))
+        .limit(1);
+
+      if (!order[0]) {
+        return { success: false, message: 'Order not found' };
+      }
+
+      const bondOrder = order[0];
+      if (bondOrder.orderType !== 'sell') {
+        return { success: false, message: 'Not a sell order' };
+      }
+
+      if (bondOrder.orderStatus !== 'awaiting_settlement' && bondOrder.orderStatus !== 'executed') {
+        return { success: false, message: 'Order not ready for payout' };
+      }
+
+      const user = await db.select()
+        .from(users)
+        .where(eq(users.id, bondOrder.userId))
+        .limit(1);
+
+      if (!user[0]) {
+        return { success: false, message: 'User not found' };
+      }
+
+      const payoutAmount = parseFloat(bondOrder.netAmount);
+      const payoutReference = `SELL_PAY_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+
+      const estimatedCreditDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await db.update(bondOrders)
+        .set({
+          orderStatus: 'payout_initiated',
+          paymentReference: payoutReference,
+          lastUpdated: new Date()
+        })
+        .where(eq(bondOrders.id, orderId));
+
+      await this.logAuditEvent(bondOrder.userId, 'sell_payout_initiated', 'payment', {
+        orderId,
+        orderNumber: bondOrder.orderNumber,
+        isin: bondOrder.isin,
+        quantity: bondOrder.quantity,
+        payoutAmount,
+        payoutReference,
+        estimatedCreditDate: estimatedCreditDate.toISOString()
+      });
+
+      // In production, this would call Cashfree Payouts API
+      // For now, simulate successful payout initiation
+      setTimeout(async () => {
+        try {
+          await db.update(bondOrders)
+            .set({
+              orderStatus: 'completed',
+              paymentStatus: 'paid',
+              executionDate: new Date(),
+              settlementDate: new Date().toISOString().split('T')[0],
+              lastUpdated: new Date()
+            })
+            .where(eq(bondOrders.id, orderId));
+
+          await this.logAuditEvent(bondOrder.userId, 'sell_payout_completed', 'payment', {
+            orderId,
+            payoutReference,
+            payoutAmount,
+            creditedAt: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error('Error completing payout:', error);
+        }
+      }, 5000);
+
+      return {
+        success: true,
+        payoutId: payoutReference,
+        message: 'Payout initiated successfully. Funds will be credited to your bank account.',
+        estimatedCreditDate: estimatedCreditDate.toISOString().split('T')[0]
+      };
+    } catch (error) {
+      console.error('Error initiating sell payout:', error);
+      return { success: false, message: 'Failed to initiate payout' };
+    }
+  }
+
+  async getSellOrderPayoutStatus(orderId: string): Promise<{
+    success: boolean;
+    status?: string;
+    payoutReference?: string;
+    amount?: number;
+    message: string;
+  }> {
+    try {
+      const order = await db.select()
+        .from(bondOrders)
+        .where(eq(bondOrders.id, orderId))
+        .limit(1);
+
+      if (!order[0]) {
+        return { success: false, message: 'Order not found' };
+      }
+
+      const bondOrder = order[0];
+      if (bondOrder.orderType !== 'sell') {
+        return { success: false, message: 'Not a sell order' };
+      }
+
+      const statusMap: Record<string, string> = {
+        'pending': 'Order pending',
+        'awaiting_settlement': 'Settlement in progress',
+        'payout_initiated': 'Payout initiated, awaiting bank credit',
+        'completed': 'Payout completed'
+      };
+
+      const orderStatus = bondOrder.orderStatus || 'pending';
+
+      return {
+        success: true,
+        status: orderStatus,
+        payoutReference: bondOrder.paymentReference ?? undefined,
+        amount: parseFloat(bondOrder.netAmount),
+        message: statusMap[orderStatus] || 'Processing'
+      };
+    } catch (error) {
+      console.error('Error getting payout status:', error);
+      return { success: false, message: 'Failed to get payout status' };
+    }
+  }
 }
 
 export const fixedIncomePaymentOrchestrator = new FixedIncomePaymentOrchestrator();

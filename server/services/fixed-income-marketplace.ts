@@ -285,6 +285,13 @@ class FixedIncomeMarketplaceService {
       throw new Error('Please complete suitability check before placing order');
     }
     
+    if (request.orderType === 'sell') {
+      const holdingValidation = await this.validateSellOrder(request.userId, request.isin, request.quantity);
+      if (!holdingValidation.valid) {
+        throw new Error(holdingValidation.error || 'Insufficient holdings for sell order');
+      }
+    }
+    
     const orderNumber = `BO${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
     const grossAmount = request.quantity * request.orderPrice;
     const accruedInterest = 0;
@@ -361,6 +368,145 @@ class FixedIncomeMarketplaceService {
       .from(bondHoldings)
       .where(eq(bondHoldings.userId, userId))
       .orderBy(desc(bondHoldings.purchaseDate));
+  }
+
+  async validateSellOrder(userId: string, isin: string, quantity: number): Promise<{ valid: boolean; error?: string; holding?: any }> {
+    const holdings = await db.select()
+      .from(bondHoldings)
+      .where(
+        and(
+          eq(bondHoldings.userId, userId),
+          eq(bondHoldings.isin, isin)
+        )
+      );
+    
+    if (!holdings || holdings.length === 0) {
+      return { valid: false, error: 'You do not hold any bonds with this ISIN' };
+    }
+    
+    const totalHoldingQuantity = holdings.reduce((sum, h) => sum + h.quantity, 0);
+    
+    const pendingSellOrders = await db.select()
+      .from(bondOrders)
+      .where(
+        and(
+          eq(bondOrders.userId, userId),
+          eq(bondOrders.isin, isin),
+          eq(bondOrders.orderType, 'sell'),
+          or(
+            eq(bondOrders.orderStatus, 'pending'),
+            eq(bondOrders.orderStatus, 'processing'),
+            eq(bondOrders.orderStatus, 'awaiting_settlement')
+          )
+        )
+      );
+    
+    const reservedQuantity = pendingSellOrders.reduce((sum, o) => sum + o.quantity, 0);
+    const availableQuantity = totalHoldingQuantity - reservedQuantity;
+    
+    if (quantity > availableQuantity) {
+      return { 
+        valid: false, 
+        error: `Insufficient holdings. You have ${availableQuantity} units available (${totalHoldingQuantity} held, ${reservedQuantity} reserved for pending orders)`
+      };
+    }
+    
+    return { valid: true, holding: holdings[0] };
+  }
+
+  async getHoldingByIsin(userId: string, isin: string) {
+    const holdings = await db.select()
+      .from(bondHoldings)
+      .where(
+        and(
+          eq(bondHoldings.userId, userId),
+          eq(bondHoldings.isin, isin)
+        )
+      );
+    
+    if (!holdings || holdings.length === 0) return null;
+    
+    const totalQuantity = holdings.reduce((sum, h) => sum + h.quantity, 0);
+    const totalValue = holdings.reduce((sum, h) => sum + parseFloat(h.currentValue || h.totalInvestedAmount), 0);
+    
+    return {
+      ...holdings[0],
+      totalQuantity,
+      totalValue,
+      holdings
+    };
+  }
+
+  async processSellSettlement(orderId: string, ipAddress?: string, userAgent?: string) {
+    const [order] = await db.select().from(bondOrders).where(eq(bondOrders.id, orderId));
+    
+    if (!order) throw new Error('Order not found');
+    if (order.orderType !== 'sell') throw new Error('Not a sell order');
+    if (order.orderStatus !== 'awaiting_settlement') throw new Error('Order not ready for settlement');
+    
+    let remainingQuantity = order.quantity;
+    const holdings = await db.select()
+      .from(bondHoldings)
+      .where(
+        and(
+          eq(bondHoldings.userId, order.userId),
+          eq(bondHoldings.isin, order.isin)
+        )
+      )
+      .orderBy(asc(bondHoldings.purchaseDate));
+    
+    for (const holding of holdings) {
+      if (remainingQuantity <= 0) break;
+      
+      const deductQuantity = Math.min(holding.quantity, remainingQuantity);
+      const newQuantity = holding.quantity - deductQuantity;
+      
+      if (newQuantity === 0) {
+        await db.delete(bondHoldings).where(eq(bondHoldings.id, holding.id));
+      } else {
+        const newTotalFaceValue = parseFloat(holding.faceValue) * newQuantity;
+        const pricePerUnit = parseFloat(holding.totalInvestedAmount) / holding.quantity;
+        const newTotalInvested = pricePerUnit * newQuantity;
+        
+        await db.update(bondHoldings)
+          .set({
+            quantity: newQuantity,
+            totalFaceValue: newTotalFaceValue.toString(),
+            totalInvestedAmount: newTotalInvested.toString(),
+            currentValue: (parseFloat(holding.currentPrice || holding.purchasePrice) * newQuantity).toString()
+          })
+          .where(eq(bondHoldings.id, holding.id));
+      }
+      
+      remainingQuantity -= deductQuantity;
+    }
+    
+    const now = new Date();
+    await db.update(bondOrders)
+      .set({
+        orderStatus: 'completed',
+        executionDate: now,
+        settlementDate: now.toISOString().split('T')[0],
+      })
+      .where(eq(bondOrders.id, orderId));
+    
+    await this.logAuditEvent({
+      userId: order.userId,
+      eventType: 'sell_settlement_completed',
+      eventCategory: 'trading',
+      entityType: 'order',
+      entityId: orderId,
+      isin: order.isin,
+      bondName: order.bondName,
+      eventData: { orderNumber: order.orderNumber, quantity: order.quantity, amount: order.netAmount },
+      amount: order.netAmount,
+      eventResult: 'success',
+      eventSource: 'system',
+      ipAddress,
+      userAgent
+    });
+    
+    return { success: true, orderId, message: 'Sell order settled successfully' };
   }
   
   async getUserCouponPayments(userId: string, status?: string) {
