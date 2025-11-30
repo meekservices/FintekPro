@@ -765,13 +765,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!profile) {
         const newProfile = await storage.upsertUserProfile({ userId });
-        return res.json({ ...newProfile, kycLevel: '0' });
+        return res.json(newProfile);
       }
       
-      // Use dynamically computed KYC level for consistency
-      const { level: computedLevel } = await getUserKYCLevel(userId);
-      
-      res.json({ ...profile, kycLevel: computedLevel });
+      res.json(profile);
     } catch (error) {
       console.error("Error fetching user profile:", error);
       res.status(500).json({ error: "Failed to fetch profile" });
@@ -2588,20 +2585,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ckycFound = true;
         ckycKin = ckycResult.data.kin;
 
-        // Extract profile data from CKYC (authoritative source)
-        const ckycData = ckycResult.data;
-        const nameParts = (ckycData.full_name || '').trim().split(/\s+/);
-        const ckycFirstName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1).toLowerCase() : null;
-        const ckycLastName = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0).toUpperCase() + nameParts[nameParts.length - 1].slice(1).toLowerCase() : null;
-        const ckycMiddleName = nameParts.length > 2 ? nameParts.slice(1, -1).map((n: string) => n.charAt(0).toUpperCase() + n.slice(1).toLowerCase()).join(' ') : null;
-        
-        // CKYC date format may be YYYY-MM-DD or DD/MM/YYYY - normalize to YYYY-MM-DD
-        let ckycDateOfBirth = ckycData.date_of_birth;
-        if (ckycDateOfBirth && ckycDateOfBirth.includes('/')) {
-          const [day, month, year] = ckycDateOfBirth.split('/');
-          ckycDateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        }
-
         const ckycUpdateData = {
           ckycFetchedViaAuthBridge: true,
           ckycAuthBridgeFetchedAt: new Date(),
@@ -2610,20 +2593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ckycAuthBridgeStatus: 'found',
           kycLevel: '2',
           kycLevelUpgradedAt: new Date(),
-          kycTier: 'enhanced',
-          // Sync profile fields from CKYC (authoritative source)
-          firstName: ckycFirstName,
-          middleName: ckycMiddleName,
-          lastName: ckycLastName,
-          dateOfBirth: ckycDateOfBirth,
-          fatherName: ckycData.father_name,
-          motherName: ckycData.mother_name,
-          gender: ckycData.gender === 'M' ? 'male' : ckycData.gender === 'F' ? 'female' : ckycData.gender,
-          address: ckycData.address ? (ckycData.address.line1 + (ckycData.address.line2 ? ', ' + ckycData.address.line2 : '')) : undefined,
-          city: ckycData.address?.city,
-          state: ckycData.address?.state,
-          pincode: ckycData.address?.pincode,
-          country: ckycData.address?.country || 'India',
+          kycTier: 'enhanced'
         };
 
         if (existingProfile && existingProfile.length > 0) {
