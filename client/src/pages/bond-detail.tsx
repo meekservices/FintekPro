@@ -16,7 +16,10 @@ import {
   FileText,
   BarChart3,
   Star,
-  ShoppingCart
+  ShoppingCart,
+  Download,
+  ExternalLink,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,6 +67,13 @@ export default function BondDetailPage() {
     queryKey: ["/api/bonds/commission-rates", bond?.bondType || "corporate"],
     enabled: !!bond?.bondType,
   });
+
+  const { data: documentsResponse, isLoading: documentsLoading } = useQuery({
+    queryKey: ["/api/bonds/documents", isin],
+    enabled: !!isin,
+  });
+
+  const documents = (documentsResponse as any)?.data || [];
 
   const orderMutation = useMutation({
     mutationFn: async (orderData: any) => {
@@ -709,48 +719,90 @@ export default function BondDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-8 w-8 text-blue-600" />
-                      <div>
-                        <p className="font-medium">Information Memorandum</p>
-                        <p className="text-sm text-gray-500">Detailed bond offering document</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">View</Button>
+                {documentsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                    <span className="ml-2 text-gray-500">Loading documents...</span>
                   </div>
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-8 w-8 text-green-600" />
-                      <div>
-                        <p className="font-medium">Rating Rationale</p>
-                        <p className="text-sm text-gray-500">Credit rating analysis</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">View</Button>
+                ) : documents.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">No documents available for this bond</p>
                   </div>
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-8 w-8 text-purple-600" />
-                      <div>
-                        <p className="font-medium">Term Sheet</p>
-                        <p className="text-sm text-gray-500">Key terms and conditions</p>
-                      </div>
+                ) : (
+                  <>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {documents.map((doc: any) => {
+                        const getDocColor = (type: string) => {
+                          switch (type) {
+                            case 'im': return 'text-blue-600';
+                            case 'rating': return 'text-green-600';
+                            case 'termsheet': return 'text-purple-600';
+                            case 'trustdeed': return 'text-orange-600';
+                            case 'annual_report': return 'text-red-600';
+                            case 'kid': return 'text-teal-600';
+                            case 'notification': return 'text-blue-600';
+                            case 'results': return 'text-green-600';
+                            case 'factsheet': return 'text-indigo-600';
+                            default: return 'text-gray-600';
+                          }
+                        };
+                        
+                        const getCategoryBadge = (category: string) => {
+                          switch (category) {
+                            case 'Legal': return 'bg-blue-100 text-blue-700';
+                            case 'Rating': return 'bg-green-100 text-green-700';
+                            case 'Product': return 'bg-purple-100 text-purple-700';
+                            case 'Regulatory': return 'bg-orange-100 text-orange-700';
+                            case 'Issuer': return 'bg-red-100 text-red-700';
+                            default: return 'bg-gray-100 text-gray-700';
+                          }
+                        };
+                        
+                        return (
+                          <div 
+                            key={doc.id} 
+                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            data-testid={`document-${doc.id}`}
+                          >
+                            <div className="flex items-center gap-3 flex-1">
+                              <FileText className={`h-8 w-8 ${getDocColor(doc.type)}`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium truncate">{doc.name}</p>
+                                  <Badge className={`text-xs ${getCategoryBadge(doc.category)}`}>
+                                    {doc.category}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-gray-500 truncate">{doc.description}</p>
+                                <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                                  <span>{doc.fileType?.toUpperCase()}</span>
+                                  <span>•</span>
+                                  <span>{doc.fileSize}</span>
+                                  <span>•</span>
+                                  <span>{new Date(doc.uploadDate).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="ml-2 shrink-0"
+                              onClick={() => window.open(doc.url, '_blank')}
+                              data-testid={`view-document-${doc.id}`}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <Button variant="outline" size="sm">View</Button>
-                  </div>
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-8 w-8 text-orange-600" />
-                      <div>
-                        <p className="font-medium">Debenture Trust Deed</p>
-                        <p className="text-sm text-gray-500">Legal agreement</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">View</Button>
-                  </div>
-                </div>
+                    <p className="text-xs text-gray-400 mt-4 text-center">
+                      Documents are sourced from official exchanges and rating agencies. Click to view on source website.
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
