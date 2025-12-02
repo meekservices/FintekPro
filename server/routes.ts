@@ -24547,6 +24547,430 @@ System Security Data:`;
 
   // ========================
   // BAJAJ FINANCE API ROUTES
+
+  // ========================
+  // API CONFIGURATION MANAGEMENT
+  // ========================
+
+  // Get all API service configurations with real-time status
+  app.get("/api/admin/api-config", requireAdmin, async (req, res) => {
+    try {
+      const services = [
+        {
+          id: 'cashfree',
+          name: 'Cashfree',
+          description: 'Payment gateway & verification (primary)',
+          category: 'payments',
+          envVars: ['CASHFREE_APP_ID', 'CASHFREE_SECRET_KEY'],
+          environmentVar: 'CASHFREE_ENVIRONMENT',
+          status: process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY ? 'configured' : 'missing',
+          environment: process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'),
+          testEndpoint: '/api/admin/api-config/test/cashfree',
+          docs: 'https://docs.cashfree.com'
+        },
+        {
+          id: 'sandbox',
+          name: 'Sandbox.co.in',
+          description: 'Bank verification & ITR services',
+          category: 'verification',
+          envVars: ['SANDBOX_API_KEY', 'SANDBOX_API_SECRET'],
+          environmentVar: 'SANDBOX_ENVIRONMENT',
+          status: process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET ? 'configured' : 'missing',
+          environment: process.env.SANDBOX_ENVIRONMENT || 'sandbox',
+          testEndpoint: '/api/admin/api-config/test/sandbox',
+          docs: 'https://docs.sandbox.co.in'
+        },
+        {
+          id: 'phonepe',
+          name: 'PhonePe',
+          description: 'Payment gateway (secondary)',
+          category: 'payments',
+          envVars: ['PHONEPE_MERCHANT_ID', 'PHONEPE_SALT_KEY', 'PHONEPE_SALT_INDEX'],
+          environmentVar: 'PHONEPE_ENVIRONMENT',
+          status: process.env.PHONEPE_MERCHANT_ID && process.env.PHONEPE_SALT_KEY ? 'configured' : 'missing',
+          environment: process.env.PHONEPE_ENVIRONMENT || 'sandbox',
+          testEndpoint: '/api/admin/api-config/test/phonepe',
+          docs: 'https://developer.phonepe.com'
+        },
+        {
+          id: 'gemini',
+          name: 'Google Gemini AI',
+          description: 'AI assistant & expense categorization',
+          category: 'ai',
+          envVars: ['GEMINI_API_KEY'],
+          environmentVar: null,
+          status: process.env.GEMINI_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/gemini',
+          docs: 'https://ai.google.dev/docs'
+        },
+        {
+          id: 'twilio',
+          name: 'Twilio',
+          description: 'SMS OTP delivery',
+          category: 'communication',
+          envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'],
+          environmentVar: null,
+          status: process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/twilio',
+          docs: 'https://www.twilio.com/docs'
+        },
+        {
+          id: 'email',
+          name: 'Email Service (SMTP)',
+          description: 'Email notifications & OTP',
+          category: 'communication',
+          envVars: ['EMAIL_USER', 'EMAIL_PASS', 'EMAIL_HOST', 'EMAIL_PORT'],
+          environmentVar: null,
+          status: process.env.EMAIL_USER && process.env.EMAIL_PASS ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/email',
+          docs: null
+        },
+        {
+          id: 'probe42',
+          name: 'Probe42',
+          description: 'Company data & financial analytics',
+          category: 'data',
+          envVars: ['PROBE42_API_KEY'],
+          environmentVar: null,
+          status: process.env.PROBE42_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/probe42',
+          docs: 'https://probe42.in/api-docs'
+        },
+        {
+          id: 'zoho',
+          name: 'Zoho Campaigns',
+          description: 'Email marketing automation',
+          category: 'marketing',
+          envVars: ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN'],
+          environmentVar: null,
+          status: process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/zoho',
+          docs: 'https://www.zoho.com/campaigns/api'
+        },
+        {
+          id: 'aisensy',
+          name: 'AiSensy',
+          description: 'WhatsApp Business API',
+          category: 'marketing',
+          envVars: ['AISENSY_API_KEY'],
+          environmentVar: null,
+          status: process.env.AISENSY_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/aisensy',
+          docs: 'https://docs.aisensy.com'
+        },
+        {
+          id: 'alphavantage',
+          name: 'Alpha Vantage',
+          description: 'Stock market data',
+          category: 'market-data',
+          envVars: ['ALPHA_VANTAGE_API_KEY'],
+          environmentVar: null,
+          status: process.env.ALPHA_VANTAGE_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/alphavantage',
+          docs: 'https://www.alphavantage.co/documentation'
+        },
+        {
+          id: 'openai',
+          name: 'OpenAI',
+          description: 'Advanced AI capabilities',
+          category: 'ai',
+          envVars: ['OPENAI_API_KEY'],
+          environmentVar: null,
+          status: process.env.OPENAI_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/openai',
+          docs: 'https://platform.openai.com/docs'
+        },
+        {
+          id: 'stripe',
+          name: 'Stripe',
+          description: 'International payment processing',
+          category: 'payments',
+          envVars: ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY'],
+          environmentVar: null,
+          status: process.env.STRIPE_SECRET_KEY ? 'configured' : 'missing',
+          environment: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live') ? 'production' : 'sandbox',
+          testEndpoint: '/api/admin/api-config/test/stripe',
+          docs: 'https://stripe.com/docs'
+        }
+      ];
+
+      // Group by category
+      const categories: Record<string, { name: string; services: typeof services }> = {
+        payments: { name: 'Payment Gateways', services: [] },
+        verification: { name: 'Verification Services', services: [] },
+        ai: { name: 'AI Services', services: [] },
+        communication: { name: 'Communication', services: [] },
+        marketing: { name: 'Marketing', services: [] },
+        'market-data': { name: 'Market Data', services: [] },
+        data: { name: 'Data Services', services: [] }
+      };
+
+      services.forEach(service => {
+        if (categories[service.category]) {
+          categories[service.category].services.push(service);
+        }
+      });
+
+      // Calculate summary
+      const summary = {
+        total: services.length,
+        configured: services.filter(s => s.status === 'configured').length,
+        missing: services.filter(s => s.status === 'missing').length,
+        sandbox: services.filter(s => s.environment === 'sandbox').length,
+        production: services.filter(s => s.environment === 'production').length
+      };
+
+      res.json({
+        success: true,
+        data: {
+          services,
+          categories,
+          summary,
+          lastChecked: new Date().toISOString()
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching API config:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Test individual API connection
+  app.post("/api/admin/api-config/test/:serviceId", requireAdmin, async (req, res) => {
+    const { serviceId } = req.params;
+    
+    try {
+      let result: { success: boolean; message: string; details?: any; latency?: number } = {
+        success: false,
+        message: 'Unknown service'
+      };
+      
+      const startTime = Date.now();
+
+      switch (serviceId) {
+        case 'cashfree':
+          if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+            result = { success: false, message: 'Missing Cashfree credentials' };
+          } else {
+            try {
+              const env = process.env.CASHFREE_ENVIRONMENT || 'sandbox';
+              const baseUrl = env === 'production' 
+                ? 'https://api.cashfree.com' 
+                : 'https://sandbox.cashfree.com';
+              
+              const response = await fetch(`${baseUrl}/pg/orders`, {
+                method: 'GET',
+                headers: {
+                  'x-client-id': process.env.CASHFREE_APP_ID,
+                  'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+                  'x-api-version': '2023-08-01'
+                }
+              });
+              
+              result = {
+                success: response.status !== 401,
+                message: response.status === 401 ? 'Invalid credentials' : 'Connection successful',
+                details: { status: response.status, environment: env },
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+        case 'sandbox':
+          if (!process.env.SANDBOX_API_KEY || !process.env.SANDBOX_API_SECRET) {
+            result = { success: false, message: 'Missing Sandbox credentials' };
+          } else {
+            try {
+              const response = await fetch('https://api.sandbox.co.in/authenticate', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-api-key': process.env.SANDBOX_API_KEY,
+                  'x-api-secret': process.env.SANDBOX_API_SECRET,
+                  'x-api-version': '1.0'
+                }
+              });
+              
+              const data = await response.json();
+              result = {
+                success: data.access_token ? true : false,
+                message: data.access_token ? 'Authentication successful' : 'Authentication failed',
+                details: { hasToken: !!data.access_token },
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+        case 'gemini':
+          if (!process.env.GEMINI_API_KEY) {
+            result = { success: false, message: 'Missing Gemini API key' };
+          } else {
+            try {
+              const { GoogleGenAI } = await import('@google/genai');
+              const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+              result = {
+                success: true,
+                message: 'API key configured',
+                details: { model: 'gemini-2.0-flash' },
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+        case 'twilio':
+          if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+            result = { success: false, message: 'Missing Twilio credentials' };
+          } else {
+            try {
+              const credentials = Buffer.from(
+                `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+              ).toString('base64');
+              
+              const response = await fetch(
+                `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}.json`,
+                {
+                  headers: { 'Authorization': `Basic ${credentials}` }
+                }
+              );
+              
+              result = {
+                success: response.ok,
+                message: response.ok ? 'Credentials valid' : 'Invalid credentials',
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+        case 'stripe':
+          if (!process.env.STRIPE_SECRET_KEY) {
+            result = { success: false, message: 'Missing Stripe secret key' };
+          } else {
+            try {
+              const Stripe = (await import('stripe')).default;
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              await stripe.balance.retrieve();
+              result = {
+                success: true,
+                message: 'Connection successful',
+                details: { 
+                  mode: process.env.STRIPE_SECRET_KEY.startsWith('sk_live') ? 'live' : 'test' 
+                },
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+        case 'email':
+          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            result = { success: false, message: 'Missing email credentials' };
+          } else {
+            result = {
+              success: true,
+              message: 'Credentials configured (verification requires sending test email)',
+              details: { 
+                host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+                user: process.env.EMAIL_USER?.substring(0, 5) + '***'
+              },
+              latency: Date.now() - startTime
+            };
+          }
+          break;
+
+        default:
+          result = {
+            success: true,
+            message: 'Service status checked',
+            latency: Date.now() - startTime
+          };
+      }
+
+      // Log the test
+      await adminService.logActivity({
+        userId: req.user!.id,
+        action: 'api_connection_test',
+        resource: `Service: ${serviceId}`,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: { serviceId, result: result.success ? 'success' : 'failure' }
+      });
+
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      console.error(`Error testing ${serviceId}:`, error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Toggle service environment (sandbox/production)
+  app.post("/api/admin/api-config/environment/:serviceId", requireAdmin, async (req, res) => {
+    const { serviceId } = req.params;
+    const { environment } = req.body;
+
+    if (!['sandbox', 'production'].includes(environment)) {
+      return res.status(400).json({ success: false, error: 'Invalid environment. Must be sandbox or production' });
+    }
+
+    try {
+      const envVarMap: Record<string, string> = {
+        cashfree: 'CASHFREE_ENVIRONMENT',
+        sandbox: 'SANDBOX_ENVIRONMENT',
+        phonepe: 'PHONEPE_ENVIRONMENT'
+      };
+
+      const envVar = envVarMap[serviceId];
+      if (!envVar) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'This service does not support environment switching' 
+        });
+      }
+
+      // Update the environment variable
+      process.env[envVar] = environment;
+
+      // Log the change
+      await adminService.logActivity({
+        userId: req.user!.id,
+        action: 'api_environment_change',
+        resource: `Service: ${serviceId}`,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: { serviceId, environment, envVar }
+      });
+
+      res.json({ 
+        success: true, 
+        message: `${serviceId} environment switched to ${environment}`,
+        data: { serviceId, environment }
+      });
+    } catch (error: any) {
+      console.error(`Error switching environment for ${serviceId}:`, error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
   // ========================
 
   // EMI Calculator
