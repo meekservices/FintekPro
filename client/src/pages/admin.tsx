@@ -43,7 +43,8 @@ function ApiStatusPanel() {
 
   const updateApiKeyMutation = useMutation({
     mutationFn: async ({ keyName, keyValue }: { keyName: string; keyValue: string }) => {
-      return await apiRequest('POST', '/api/admin/api-keys', {
+      return await apiRequest('/api/admin/api-keys', {
+        method: 'POST',
         body: JSON.stringify({ keyName, keyValue }),
         headers: { 'Content-Type': 'application/json' }
       });
@@ -550,7 +551,7 @@ function AIBusinessIntelligenceDashboard() {
 
   const generateInsights = useMutation({
     mutationFn: async () => {
-      return await apiRequest('GET', '/api/admin/business-intelligence/insights');
+      return await apiRequest('/api/admin/business-intelligence/insights', { method: 'GET' });
     },
     onSuccess: () => {
       toast({

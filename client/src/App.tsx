@@ -73,6 +73,8 @@ import LoanDashboard from "@/pages/loan-dashboard";
 import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
+import DistributionPartnerPortal from "@/pages/distribution-partner-portal";
+import FieldAgentPortal from "@/pages/field-agent-portal";
 import OnboardingPage from "@/pages/onboarding";
 import ManualKYCPage from "@/pages/manual-kyc";
 import NetWorthPage from "@/pages/net-worth";
@@ -483,8 +485,9 @@ function PartnerRoutes() {
   return (
     <AppLayout>
       <Switch>
-        <Route path="/" component={AgentPortal} />
-        <Route path="/partner-portal" component={AgentPortal} />
+        <Route path="/" component={DistributionPartnerPortal} />
+        <Route path="/partner-portal" component={DistributionPartnerPortal} />
+        <Route path="/agents" component={AgentPortal} />
         <Route path="/auth" component={AuthPage} />
         <Route component={NotFound} />
       </Switch>
@@ -496,8 +499,9 @@ function AgentRoutes() {
   return (
     <AppLayout>
       <Switch>
-        <Route path="/" component={AgentPortal} />
-        <Route path="/agent-portal" component={AgentPortal} />
+        <Route path="/" component={FieldAgentPortal} />
+        <Route path="/agent-portal" component={FieldAgentPortal} />
+        <Route path="/clients" component={AgentPortal} />
         <Route path="/auth" component={AuthPage} />
         <Route component={NotFound} />
       </Switch>

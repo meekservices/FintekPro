@@ -3,6 +3,9 @@ import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, inte
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Re-export role hierarchy system
+export * from "./roles";
+
 // Session storage table for Replit Auth
 export const sessions = pgTable(
   "sessions",
@@ -593,8 +596,9 @@ export const users = pgTable("users", {
   aadhaarVerificationDate: timestamp("aadhaar_verification_date"),
   smartKycCompletedAt: timestamp("smart_kyc_completed_at"),
   
-  // Admin and system fields - supports multiple roles
-  roles: varchar("roles").array().default(sql`ARRAY['user']`), // Array of roles: 'user', 'admin', 'superadmin', 'business_client', etc.
+  // Admin and system fields - supports multiple roles from FintekPro role hierarchy
+  // See shared/roles.ts for complete hierarchy: superadmin > master_agent > admin > partner > agent > sub_agent > associate > client
+  roles: varchar("roles").array().default(sql`ARRAY['user']`),
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
   previousLoginAt: timestamp("previous_login_at"),

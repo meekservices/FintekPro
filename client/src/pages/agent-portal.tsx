@@ -138,7 +138,7 @@ function ClientProfileCompletion() {
 
   // Update profile mutation using apiRequest
   const updateProfileMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('PUT', '/api/user/profile', { body: data }),
+    mutationFn: (data: any) => apiRequest('/api/user/profile', { method: 'PUT', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }),
     onSuccess: () => {
       toast({ title: "Success", description: "Profile updated successfully" });
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });

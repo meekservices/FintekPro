@@ -5,6 +5,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { validationResult } from "express-validator";
 import { registerRoutes } from "./routes";
+import { registerRoleRoutes } from "./role-routes";
 import { setupVite, serveStatic, log as viteLog } from "./vite";
 import { logger } from "./logger";
 import { complianceMiddleware } from "./compliance-monitor";
@@ -257,6 +258,7 @@ app.use((req, res, next) => {
     app.use('/api', testErrorRoutes.default);
   }
   
+  registerRoleRoutes(app);
   const server = await registerRoutes(app);
 
   // Setup Vite BEFORE error handlers so it can serve the frontend
