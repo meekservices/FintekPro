@@ -4433,6 +4433,16 @@ export const storeProducts = pgTable("store_products", {
   subcategoryId: varchar("subcategory_id"), // Link to subcategory for hierarchical structure
   productType: varchar("product_type").notNull(), // 'mutual_fund', 'etf', 'bond', 'insurance', 'loan', 'advisory'
   productKey: varchar("product_key"), // unique product identifier key
+  // Mutual Fund Plan Type (SEBI-compliant: Direct vs Regular)
+  planType: varchar("plan_type"), // 'direct' or 'regular' - for mutual funds only
+  expenseRatio: decimal("expense_ratio", { precision: 5, scale: 4 }), // TER percentage (e.g., 0.0050 = 0.50%)
+  trailCommission: decimal("trail_commission", { precision: 5, scale: 4 }), // Distributor trail commission % (Regular plans only)
+  exitLoad: decimal("exit_load", { precision: 5, scale: 2 }), // Exit load percentage
+  exitLoadPeriod: integer("exit_load_period"), // Exit load applicable period in days
+  // Scheme identifiers for mutual funds
+  amfiCode: varchar("amfi_code"), // AMFI scheme code
+  isinCode: varchar("isin_code"), // ISIN for the scheme
+  schemeCode: varchar("scheme_code"), // AMC-specific scheme code
   price: decimal("price", { precision: 15, scale: 2 }),
   currency: varchar("currency").default("INR"),
   minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),

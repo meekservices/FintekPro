@@ -47,6 +47,11 @@ interface Product {
   shortDescription?: string;
   description?: string;
   productType?: string;
+  planType?: 'direct' | 'regular';
+  expenseRatio?: string;
+  trailCommission?: string;
+  amfiCode?: string;
+  isinCode?: string;
   icon?: string;
   displayOrder?: number;
   isActive: boolean;
@@ -481,6 +486,27 @@ export default function StoreManagement() {
                                               {product.productType}
                                             </Badge>
                                           )}
+                                          {product.planType && (
+                                            <Badge 
+                                              className={`text-xs ${
+                                                product.planType === 'direct' 
+                                                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' 
+                                                  : 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                                              }`}
+                                            >
+                                              {product.planType === 'direct' ? 'Direct' : 'Regular'}
+                                            </Badge>
+                                          )}
+                                          {product.expenseRatio && (
+                                            <span className="text-xs text-gray-500">
+                                              TER: {(parseFloat(product.expenseRatio) * 100).toFixed(2)}%
+                                            </span>
+                                          )}
+                                          {product.trailCommission && (
+                                            <span className="text-xs text-yellow-500">
+                                              Trail: {(parseFloat(product.trailCommission) * 100).toFixed(2)}%
+                                            </span>
+                                          )}
                                         </div>
                                         <div className="flex items-center gap-2">
                                           {(!category.isActive || !subcategory.isActive) && (
@@ -589,6 +615,7 @@ export default function StoreManagement() {
                       <TableRow className="border-gray-800">
                         <TableHead className="text-gray-400">Product</TableHead>
                         <TableHead className="text-gray-400">Type</TableHead>
+                        <TableHead className="text-gray-400">Plan</TableHead>
                         <TableHead className="text-gray-400">Category</TableHead>
                         <TableHead className="text-gray-400">Status</TableHead>
                         <TableHead className="text-gray-400 text-right">Toggle</TableHead>
@@ -616,6 +643,33 @@ export default function StoreManagement() {
                               <Badge variant="outline" className="text-xs">
                                 {product.productType || 'N/A'}
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {product.planType ? (
+                                <div className="flex flex-col gap-1">
+                                  <Badge 
+                                    className={`text-xs ${
+                                      product.planType === 'direct' 
+                                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' 
+                                        : 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                                    }`}
+                                  >
+                                    {product.planType === 'direct' ? 'Direct' : 'Regular'}
+                                  </Badge>
+                                  {product.expenseRatio && (
+                                    <span className="text-xs text-gray-500">
+                                      TER: {(parseFloat(product.expenseRatio) * 100).toFixed(2)}%
+                                    </span>
+                                  )}
+                                  {product.trailCommission && (
+                                    <span className="text-xs text-yellow-500">
+                                      Trail: {(parseFloat(product.trailCommission) * 100).toFixed(2)}%
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-500">-</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-gray-400">
                               <div className="flex flex-col">
