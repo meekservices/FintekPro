@@ -24689,16 +24689,6 @@ System Security Data:`;
           docs: 'https://platform.openai.com/docs'
         },
         {
-          id: 'stripe',
-          name: 'Stripe',
-          description: 'International payment processing',
-          category: 'payments',
-          envVars: ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY'],
-          environmentVar: null,
-          status: process.env.STRIPE_SECRET_KEY ? 'configured' : 'missing',
-          environment: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live') ? 'production' : 'sandbox',
-          testEndpoint: '/api/admin/api-config/test/stripe',
-          docs: 'https://stripe.com/docs'
         }
       ];
 
@@ -24861,27 +24851,6 @@ System Security Data:`;
           }
           break;
 
-        case 'stripe':
-          if (!process.env.STRIPE_SECRET_KEY) {
-            result = { success: false, message: 'Missing Stripe secret key' };
-          } else {
-            try {
-              const Stripe = (await import('stripe')).default;
-              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-              await stripe.balance.retrieve();
-              result = {
-                success: true,
-                message: 'Connection successful',
-                details: { 
-                  mode: process.env.STRIPE_SECRET_KEY.startsWith('sk_live') ? 'live' : 'test' 
-                },
-                latency: Date.now() - startTime
-              };
-            } catch (e: any) {
-              result = { success: false, message: e.message };
-            }
-          }
-          break;
 
         case 'email':
           if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {

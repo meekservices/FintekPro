@@ -85,7 +85,7 @@ export default function Cart() {
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
-  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "stripe" | "phonepe">("cashfree");
+  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "phonepe">("cashfree");
   
   // Proposals tab state
   const [selectedProposalTab, setSelectedProposalTab] = useState<string>("all");
@@ -211,7 +211,7 @@ export default function Cart() {
   };
 
   const checkoutMutation = useMutation({
-    mutationFn: async (method: "cashfree" | "stripe" | "phonepe") => {
+    mutationFn: async (method: "cashfree" | "phonepe") => {
       if (method === "cashfree") {
         const response: any = await apiRequest("/api/payments/cashfree/create-order", {
           method: "POST",
@@ -220,7 +220,7 @@ export default function Cart() {
           })
         });
         return { ...response, method: "cashfree" };
-      } else if (method === "phonepe") {
+      } else {
         const response: any = await apiRequest("/api/payments/phonepe/create-order", {
           method: "POST",
           body: JSON.stringify({
@@ -229,14 +229,6 @@ export default function Cart() {
           })
         });
         return { ...response, method: "phonepe" };
-      } else {
-        const response: any = await apiRequest("/api/stripe/checkout", {
-          method: "POST",
-          body: JSON.stringify({
-            amount: cart?.totalValue || 0,
-          })
-        });
-        return { ...response, method: "stripe" };
       }
     },
     onSuccess: (data: any) => {
@@ -244,8 +236,6 @@ export default function Cart() {
         window.location.href = data.paymentUrl;
       } else if (data.method === "phonepe" && data.paymentUrl) {
         window.location.href = data.paymentUrl;
-      } else if (data.method === "stripe" && data.url) {
-        window.location.href = data.url;
       } else {
         toast({
           title: "Checkout Error",
@@ -843,7 +833,7 @@ export default function Cart() {
                     {/* Payment Method Selection */}
                     <div className="mt-6 space-y-3">
                       <Label className="text-base font-semibold">Select Payment Method</Label>
-                      <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "stripe" | "phonepe")}>
+                      <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "phonepe")}>
                         <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                           <RadioGroupItem value="cashfree" id="cashfree" data-testid="radio-cashfree" />
                           <Label htmlFor="cashfree" className="flex-1 cursor-pointer">
@@ -852,13 +842,6 @@ export default function Cart() {
                               <Badge variant="secondary">Primary</Badge>
                             </div>
                             <div className="text-xs text-gray-500">UPI, Cards & more payment options</div>
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
-                          <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
-                          <Label htmlFor="stripe" className="flex-1 cursor-pointer">
-                            <div className="font-medium">Credit/Debit Card</div>
-                            <div className="text-xs text-gray-500">Pay with Stripe (International)</div>
                           </Label>
                         </div>
                         <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">

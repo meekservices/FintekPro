@@ -131,7 +131,7 @@ export default function TaxReminderSubscription() {
   const [location, setLocation] = useLocation();
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "stripe" | "phonepe">("cashfree");
+  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "phonepe">("cashfree");
 
   const { data: subscription, isLoading: subscriptionLoading } = useQuery<UserSubscription>({
     queryKey: ['/api/tax/reminder-subscription', user?.id],
@@ -175,7 +175,7 @@ export default function TaxReminderSubscription() {
 
   const subscriptionMutation = useMutation({
     mutationFn: (data: { itrFormType: string; pricingTier: string; annualPrice: number; isFree: boolean }) =>
-      apiRequest('POST', '/api/tax/reminder-subscription', { body: data }),
+      apiRequest('/api/tax/reminder-subscription', { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tax/reminder-subscription'] });
       toast({
@@ -226,28 +226,24 @@ export default function TaxReminderSubscription() {
       let response: any;
       
       if (paymentMethod === "cashfree") {
-        response = await apiRequest('POST', '/api/payments/cashfree/create-order', {
-          body: {
+        response = await apiRequest('/api/payments/cashfree/create-order', {
+          method: 'POST',
+          body: JSON.stringify({
             amount: selectedTier.price,
             itemType: 'tax_reminder',
             itemId: selectedTier.formType
-          }
-        });
-      } else if (paymentMethod === "phonepe") {
-        response = await apiRequest('POST', '/api/payments/phonepe/create-order', {
-          body: {
-            amount: selectedTier.price,
-            itemType: 'tax_reminder',
-            itemId: selectedTier.formType
-          }
+          }),
+          headers: { 'Content-Type': 'application/json' }
         });
       } else {
-        response = await apiRequest('POST', '/api/stripe/checkout', {
-          body: {
+        response = await apiRequest('/api/payments/phonepe/create-order', {
+          method: 'POST',
+          body: JSON.stringify({
             amount: selectedTier.price,
             itemType: 'tax_reminder',
             itemId: selectedTier.formType
-          }
+          }),
+          headers: { 'Content-Type': 'application/json' }
         });
       }
 
@@ -530,7 +526,7 @@ export default function TaxReminderSubscription() {
               {/* Payment Method Selection */}
               <div className="space-y-3">
                 <Label className="text-sm font-semibold">Select Payment Method</Label>
-                <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "stripe" | "phonepe")}>
+                <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "phonepe")}>
                   <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                     <RadioGroupItem value="cashfree" id="cashfree-tax" data-testid="radio-cashfree-tax" />
                     <Label htmlFor="cashfree-tax" className="flex-1 cursor-pointer">
@@ -539,13 +535,6 @@ export default function TaxReminderSubscription() {
                         <Badge variant="secondary">Primary</Badge>
                       </div>
                       <div className="text-xs text-gray-500">UPI, Cards & more payment options</div>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
-                    <RadioGroupItem value="stripe" id="stripe-tax" data-testid="radio-stripe-tax" />
-                    <Label htmlFor="stripe-tax" className="flex-1 cursor-pointer">
-                      <div className="font-medium">Credit/Debit Card</div>
-                      <div className="text-xs text-gray-500">Pay with Stripe (International)</div>
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
