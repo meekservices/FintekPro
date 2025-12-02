@@ -24688,8 +24688,6 @@ System Security Data:`;
           testEndpoint: '/api/admin/api-config/test/openai',
           docs: 'https://platform.openai.com/docs'
         },
-        {
-        }
       ];
 
       // Group by category
