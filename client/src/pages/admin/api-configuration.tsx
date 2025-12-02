@@ -8,7 +8,8 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { 
   Key, Check, X, AlertCircle, Settings, RefreshCw, Loader2, 
   ExternalLink, Play, Zap, Shield, Cloud, Database, 
-  MessageSquare, BarChart, CreditCard, Bot, Mail, Phone
+  MessageSquare, BarChart, CreditCard, Bot, Mail, Phone,
+  Info, Clock, Activity, Link2, FileText, CheckCircle2, XCircle
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 interface ServiceConfig {
   id: string;
@@ -74,6 +76,8 @@ export default function APIConfiguration() {
   const [switchingEnv, setSwitchingEnv] = useState<string | null>(null);
   const [showEnvDialog, setShowEnvDialog] = useState(false);
   const [envDialogService, setEnvDialogService] = useState<ServiceConfig | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [selectedService, setSelectedService] = useState<ServiceConfig | null>(null);
 
   const { data: configData, isLoading, error, refetch } = useQuery<{ success: boolean; data: ApiConfigData }>({
     queryKey: ['/api/admin/api-config'],
@@ -170,6 +174,45 @@ export default function APIConfiguration() {
       serviceId: envDialogService.id, 
       environment: newEnv 
     });
+  };
+
+  const handleViewDetails = (service: ServiceConfig) => {
+    setSelectedService(service);
+    setShowDetailsDialog(true);
+  };
+
+  const getServiceFeatures = (serviceId: string): string[] => {
+    const features: Record<string, string[]> = {
+      cashfree: ['Payment Collection', 'Payouts', 'Verification Suite', 'PAN Verification', 'Bank Account Verification', 'Virtual Accounts'],
+      sandbox: ['PAN Verification', 'ITR Filing', 'Bank Statement Analysis', 'GST Verification', 'EPFO Verification'],
+      phonepe: ['UPI Payments', 'QR Payments', 'Subscriptions', 'Refunds'],
+      gemini: ['AI Chat Assistant', 'Expense Categorization', 'Financial Insights', 'Document Analysis'],
+      twilio: ['SMS OTP', 'Bulk SMS', 'Two-Factor Authentication', 'Notification Delivery'],
+      email: ['Email OTP', 'Transaction Alerts', 'Marketing Emails', 'Report Delivery'],
+      probe42: ['Company Search', 'Financial Data', 'Director Information', 'Compliance Check'],
+      zoho: ['Email Campaigns', 'Lead Nurturing', 'Automation Workflows', 'Analytics'],
+      aisensy: ['WhatsApp Business API', 'Template Messages', 'Broadcast Campaigns', 'Chatbot Integration'],
+      alphavantage: ['Stock Prices', 'Historical Data', 'Technical Indicators', 'Forex Rates'],
+      openai: ['GPT-4 Chat', 'Text Generation', 'Code Assistance', 'Analysis']
+    };
+    return features[serviceId] || ['API Integration', 'Data Processing'];
+  };
+
+  const getServiceUseCases = (serviceId: string): string[] => {
+    const useCases: Record<string, string[]> = {
+      cashfree: ['Collect payments from customers', 'Verify PAN for KYC compliance', 'Process refunds and payouts'],
+      sandbox: ['Verify user PAN details', 'Fetch ITR data for loan eligibility', 'Verify bank account ownership'],
+      phonepe: ['Accept UPI payments', 'Generate dynamic QR codes', 'Process recurring payments'],
+      gemini: ['Power AI chat assistant', 'Auto-categorize expenses', 'Generate financial insights'],
+      twilio: ['Send OTP for authentication', 'Deliver transaction notifications', 'Enable 2FA for security'],
+      email: ['Send verification emails', 'Deliver statements and reports', 'Password reset flows'],
+      probe42: ['Verify company existence', 'Fetch financial statements', 'Director due diligence'],
+      zoho: ['Run email marketing campaigns', 'Nurture leads automatically', 'Track campaign performance'],
+      aisensy: ['Send WhatsApp notifications', 'Customer support via WhatsApp', 'Broadcast promotions'],
+      alphavantage: ['Display real-time stock prices', 'Show historical charts', 'Calculate technical indicators'],
+      openai: ['Advanced AI conversations', 'Code generation help', 'Document summarization']
+    };
+    return useCases[serviceId] || ['Data integration', 'API connectivity'];
   };
 
   const getStatusIcon = (status: ServiceConfig['status']) => {
@@ -513,6 +556,16 @@ export default function APIConfiguration() {
                       </Button>
                     )}
 
+                    <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => handleViewDetails(service)}
+                        data-testid={`button-details-${service.id}`}
+                      >
+                        <Info className="h-4 w-4" />
+                      </Button>
+
                     {service.docs && (
                       <Button 
                         size="sm" 
@@ -597,6 +650,203 @@ export default function APIConfiguration() {
               ) : null}
               Confirm Switch
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Service Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-lg ${
+                selectedService?.status === 'configured' 
+                  ? 'bg-green-500/20' 
+                  : 'bg-red-500/20'
+              }`}>
+                {selectedService && getCategoryIcon(selectedService.category)}
+              </div>
+              <div>
+                <DialogTitle className="text-white text-xl flex items-center gap-2">
+                  {selectedService?.name}
+                  {selectedService?.status === 'configured' ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                </DialogTitle>
+                <DialogDescription className="text-gray-400">
+                  {selectedService?.description}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {selectedService && (
+            <div className="space-y-6 py-4">
+              {/* Status Overview */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                    <Activity className="h-4 w-4" />
+                    Status
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(selectedService.status)}
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                    <Cloud className="h-4 w-4" />
+                    Environment
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getEnvironmentBadge(selectedService.environment)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Test Results */}
+              {testResults[selectedService.id] && (
+                <div className="p-4 bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-gray-400 text-sm">
+                      <Clock className="h-4 w-4" />
+                      Last Connection Test
+                    </div>
+                    {testResults[selectedService.id].latency && (
+                      <Badge variant="outline" className="text-xs bg-gray-700">
+                        {testResults[selectedService.id].latency}ms
+                      </Badge>
+                    )}
+                  </div>
+                  <div className={`flex items-center gap-2 ${
+                    testResults[selectedService.id].success ? 'text-green-400' : 'text-yellow-400'
+                  }`}>
+                    {testResults[selectedService.id].success ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4" />
+                    )}
+                    <span>{testResults[selectedService.id].message}</span>
+                  </div>
+                </div>
+              )}
+
+              <Separator className="bg-gray-700" />
+
+              {/* Required Environment Variables */}
+              <div>
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Key className="h-4 w-4 text-gray-400" />
+                  Required Environment Variables
+                </h4>
+                <div className="space-y-2">
+                  {(selectedService.envVars || []).map((envVar) => (
+                    <div key={envVar} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                      <code className="text-sm font-mono text-blue-400">{envVar}</code>
+                      <Badge 
+                        variant="outline" 
+                        className={selectedService.status === 'configured' 
+                          ? 'text-green-400 border-green-400/50' 
+                          : 'text-red-400 border-red-400/50'
+                        }
+                      >
+                        {selectedService.status === 'configured' ? 'Set' : 'Missing'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator className="bg-gray-700" />
+
+              {/* Features */}
+              <div>
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-gray-400" />
+                  Available Features
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {getServiceFeatures(selectedService.id).map((feature, idx) => (
+                    <Badge 
+                      key={idx} 
+                      variant="secondary" 
+                      className="bg-gray-800 text-gray-300 border-gray-700"
+                    >
+                      {feature}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <Separator className="bg-gray-700" />
+
+              {/* Use Cases */}
+              <div>
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-400" />
+                  Use Cases in FintekPro
+                </h4>
+                <ul className="space-y-2">
+                  {getServiceUseCases(selectedService.id).map((useCase, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-gray-300 text-sm">
+                      <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      {useCase}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Documentation Link */}
+              {selectedService.docs && (
+                <>
+                  <Separator className="bg-gray-700" />
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Link2 className="h-4 w-4" />
+                      <span>Official Documentation</span>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="border-gray-600"
+                      onClick={() => window.open(selectedService.docs!, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      View Docs
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDetailsDialog(false)}
+              className="border-gray-700"
+            >
+              Close
+            </Button>
+            {selectedService && (
+              <Button 
+                onClick={() => {
+                  setShowDetailsDialog(false);
+                  handleTestConnection(selectedService.id);
+                }}
+                disabled={testingService === selectedService.id || selectedService.status === 'missing'}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {testingService === selectedService.id ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
+                Test Connection
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
