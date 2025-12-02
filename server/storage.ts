@@ -1066,6 +1066,42 @@ export interface IStorage {
   updateStoreProductStatus(productId: string, isActive: boolean): Promise<any | undefined>;
   updateStoreCategoryStatus(categoryId: string, isActive: boolean): Promise<any | undefined>;
   
+  // Enhanced Store Management Methods
+  getStoreCategoryById(categoryId: string): Promise<any | undefined>;
+  createStoreCategory(data: any): Promise<any>;
+  updateStoreCategory(id: string, data: any): Promise<any | undefined>;
+  deleteStoreCategory(id: string): Promise<boolean>;
+  
+  // Subcategory Methods
+  getAllStoreSubcategories(): Promise<any[]>;
+  getStoreSubcategoriesByCategory(categoryId: string): Promise<any[]>;
+  getStoreSubcategoryById(id: string): Promise<any | undefined>;
+  createStoreSubcategory(data: any): Promise<any>;
+  updateStoreSubcategory(id: string, data: any): Promise<any | undefined>;
+  updateStoreSubcategoryStatus(id: string, isActive: boolean): Promise<any | undefined>;
+  deleteStoreSubcategory(id: string): Promise<boolean>;
+  
+  // Enhanced Product Methods
+  getStoreProductById(id: string): Promise<any | undefined>;
+  getStoreProductsByCategory(categoryId: string): Promise<any[]>;
+  getStoreProductsBySubcategory(subcategoryId: string): Promise<any[]>;
+  createStoreProduct(data: any): Promise<any>;
+  updateStoreProduct(id: string, data: any): Promise<any | undefined>;
+  deleteStoreProduct(id: string): Promise<boolean>;
+  
+  // Store Audit Log Methods
+  createStoreAuditLog(data: any): Promise<any>;
+  getStoreAuditLogs(filters?: { targetType?: string; targetId?: string; adminId?: string; limit?: number }): Promise<any[]>;
+  
+  // Store Product Inquiry Methods
+  createStoreProductInquiry(data: any): Promise<any>;
+  getStoreProductInquiries(filters?: { status?: string; productId?: string; categoryId?: string }): Promise<any[]>;
+  updateStoreProductInquiry(id: string, data: any): Promise<any | undefined>;
+  
+  // Cascading Toggle Methods
+  toggleCategoryWithCascade(categoryId: string, isActive: boolean, adminId: string, adminEmail: string): Promise<{ category: any; subcategories: any[]; products: any[] }>;
+  toggleSubcategoryWithCascade(subcategoryId: string, isActive: boolean, adminId: string, adminEmail: string): Promise<{ subcategory: any; products: any[] }>;
+  
   // Predictive Analytics Methods
   getPortfolioPredictions(userId: string, portfolioId?: string): Promise<any[]>;
   getAssetForecasts(userId: string, holdingId?: string): Promise<any[]>;
@@ -7637,6 +7673,347 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updated || undefined;
+  }
+
+  // Enhanced Store Category Methods
+  async getStoreCategoryById(categoryId: string): Promise<any | undefined> {
+    const [category] = await db.select()
+      .from(schema.storeCategories)
+      .where(eq(schema.storeCategories.id, categoryId));
+    return category || undefined;
+  }
+
+  async createStoreCategory(data: any): Promise<any> {
+    const [category] = await db.insert(schema.storeCategories)
+      .values({
+        ...data,
+        id: randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return category;
+  }
+
+  async updateStoreCategory(id: string, data: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeCategories)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.storeCategories.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteStoreCategory(id: string): Promise<boolean> {
+    const result = await db.delete(schema.storeCategories)
+      .where(eq(schema.storeCategories.id, id));
+    return true;
+  }
+
+  // Subcategory Methods
+  async getAllStoreSubcategories(): Promise<any[]> {
+    const subcategories = await db.select()
+      .from(schema.storeSubcategories)
+      .orderBy(asc(schema.storeSubcategories.displayOrder), asc(schema.storeSubcategories.name));
+    return subcategories;
+  }
+
+  async getStoreSubcategoriesByCategory(categoryId: string): Promise<any[]> {
+    const subcategories = await db.select()
+      .from(schema.storeSubcategories)
+      .where(eq(schema.storeSubcategories.categoryId, categoryId))
+      .orderBy(asc(schema.storeSubcategories.displayOrder), asc(schema.storeSubcategories.name));
+    return subcategories;
+  }
+
+  async getStoreSubcategoryById(id: string): Promise<any | undefined> {
+    const [subcategory] = await db.select()
+      .from(schema.storeSubcategories)
+      .where(eq(schema.storeSubcategories.id, id));
+    return subcategory || undefined;
+  }
+
+  async createStoreSubcategory(data: any): Promise<any> {
+    const [subcategory] = await db.insert(schema.storeSubcategories)
+      .values({
+        ...data,
+        id: randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return subcategory;
+  }
+
+  async updateStoreSubcategory(id: string, data: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeSubcategories)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.storeSubcategories.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async updateStoreSubcategoryStatus(id: string, isActive: boolean): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeSubcategories)
+      .set({ 
+        isActive, 
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.storeSubcategories.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteStoreSubcategory(id: string): Promise<boolean> {
+    await db.delete(schema.storeSubcategories)
+      .where(eq(schema.storeSubcategories.id, id));
+    return true;
+  }
+
+  // Enhanced Product Methods
+  async getStoreProductById(id: string): Promise<any | undefined> {
+    const [product] = await db.select()
+      .from(schema.storeProducts)
+      .where(eq(schema.storeProducts.id, id));
+    return product || undefined;
+  }
+
+  async getStoreProductsByCategory(categoryId: string): Promise<any[]> {
+    const products = await db.select()
+      .from(schema.storeProducts)
+      .where(eq(schema.storeProducts.categoryId, categoryId))
+      .orderBy(asc(schema.storeProducts.displayOrder), asc(schema.storeProducts.name));
+    return products;
+  }
+
+  async getStoreProductsBySubcategory(subcategoryId: string): Promise<any[]> {
+    const products = await db.select()
+      .from(schema.storeProducts)
+      .where(eq(schema.storeProducts.subcategoryId, subcategoryId))
+      .orderBy(asc(schema.storeProducts.displayOrder), asc(schema.storeProducts.name));
+    return products;
+  }
+
+  async createStoreProduct(data: any): Promise<any> {
+    const [product] = await db.insert(schema.storeProducts)
+      .values({
+        ...data,
+        id: randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return product;
+  }
+
+  async updateStoreProduct(id: string, data: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeProducts)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.storeProducts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteStoreProduct(id: string): Promise<boolean> {
+    await db.delete(schema.storeProducts)
+      .where(eq(schema.storeProducts.id, id));
+    return true;
+  }
+
+  // Store Audit Log Methods
+  async createStoreAuditLog(data: any): Promise<any> {
+    const [log] = await db.insert(schema.storeAuditLogs)
+      .values({
+        ...data,
+        id: randomUUID(),
+        timestamp: new Date(),
+      })
+      .returning();
+    return log;
+  }
+
+  async getStoreAuditLogs(filters?: { targetType?: string; targetId?: string; adminId?: string; limit?: number }): Promise<any[]> {
+    let query = db.select().from(schema.storeAuditLogs);
+    
+    const conditions: any[] = [];
+    if (filters?.targetType) {
+      conditions.push(eq(schema.storeAuditLogs.targetType, filters.targetType));
+    }
+    if (filters?.targetId) {
+      conditions.push(eq(schema.storeAuditLogs.targetId, filters.targetId));
+    }
+    if (filters?.adminId) {
+      conditions.push(eq(schema.storeAuditLogs.adminId, filters.adminId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const logs = await query.orderBy(desc(schema.storeAuditLogs.timestamp)).limit(filters?.limit || 100);
+    return logs;
+  }
+
+  // Store Product Inquiry Methods
+  async createStoreProductInquiry(data: any): Promise<any> {
+    const [inquiry] = await db.insert(schema.storeProductInquiries)
+      .values({
+        ...data,
+        id: randomUUID(),
+        createdAt: new Date(),
+      })
+      .returning();
+    return inquiry;
+  }
+
+  async getStoreProductInquiries(filters?: { status?: string; productId?: string; categoryId?: string }): Promise<any[]> {
+    let query = db.select().from(schema.storeProductInquiries);
+    
+    const conditions: any[] = [];
+    if (filters?.status) {
+      conditions.push(eq(schema.storeProductInquiries.status, filters.status));
+    }
+    if (filters?.productId) {
+      conditions.push(eq(schema.storeProductInquiries.productId, filters.productId));
+    }
+    if (filters?.categoryId) {
+      conditions.push(eq(schema.storeProductInquiries.categoryId, filters.categoryId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const inquiries = await query.orderBy(desc(schema.storeProductInquiries.createdAt));
+    return inquiries;
+  }
+
+  async updateStoreProductInquiry(id: string, data: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeProductInquiries)
+      .set(data)
+      .where(eq(schema.storeProductInquiries.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Cascading Toggle Methods
+  async toggleCategoryWithCascade(categoryId: string, isActive: boolean, adminId: string, adminEmail: string): Promise<{ category: any; subcategories: any[]; products: any[] }> {
+    // Get the category first
+    const category = await this.getStoreCategoryById(categoryId);
+    if (!category) {
+      throw new Error('Category not found');
+    }
+
+    // Log the category toggle
+    await this.createStoreAuditLog({
+      adminId,
+      adminEmail,
+      action: 'toggle',
+      targetType: 'category',
+      targetId: categoryId,
+      targetName: category.name,
+      beforeValue: { isActive: category.isActive },
+      afterValue: { isActive },
+    });
+
+    // Update category
+    const updatedCategory = await this.updateStoreCategoryStatus(categoryId, isActive);
+
+    // Get and update all subcategories
+    const subcategories = await this.getStoreSubcategoriesByCategory(categoryId);
+    const updatedSubcategories: any[] = [];
+    for (const subcat of subcategories) {
+      await this.createStoreAuditLog({
+        adminId,
+        adminEmail,
+        action: 'cascade_toggle',
+        targetType: 'subcategory',
+        targetId: subcat.id,
+        targetName: subcat.name,
+        beforeValue: { isActive: subcat.isActive },
+        afterValue: { isActive },
+      });
+      const updated = await this.updateStoreSubcategoryStatus(subcat.id, isActive);
+      if (updated) updatedSubcategories.push(updated);
+    }
+
+    // Get and update all products in this category
+    const products = await this.getStoreProductsByCategory(categoryId);
+    const updatedProducts: any[] = [];
+    for (const product of products) {
+      await this.createStoreAuditLog({
+        adminId,
+        adminEmail,
+        action: 'cascade_toggle',
+        targetType: 'product',
+        targetId: product.id,
+        targetName: product.name,
+        beforeValue: { isActive: product.isActive },
+        afterValue: { isActive },
+      });
+      const updated = await this.updateStoreProductStatus(product.id, isActive);
+      if (updated) updatedProducts.push(updated);
+    }
+
+    return {
+      category: updatedCategory,
+      subcategories: updatedSubcategories,
+      products: updatedProducts,
+    };
+  }
+
+  async toggleSubcategoryWithCascade(subcategoryId: string, isActive: boolean, adminId: string, adminEmail: string): Promise<{ subcategory: any; products: any[] }> {
+    // Get the subcategory first
+    const subcategory = await this.getStoreSubcategoryById(subcategoryId);
+    if (!subcategory) {
+      throw new Error('Subcategory not found');
+    }
+
+    // Log the subcategory toggle
+    await this.createStoreAuditLog({
+      adminId,
+      adminEmail,
+      action: 'toggle',
+      targetType: 'subcategory',
+      targetId: subcategoryId,
+      targetName: subcategory.name,
+      beforeValue: { isActive: subcategory.isActive },
+      afterValue: { isActive },
+    });
+
+    // Update subcategory
+    const updatedSubcategory = await this.updateStoreSubcategoryStatus(subcategoryId, isActive);
+
+    // Get and update all products in this subcategory
+    const products = await this.getStoreProductsBySubcategory(subcategoryId);
+    const updatedProducts: any[] = [];
+    for (const product of products) {
+      await this.createStoreAuditLog({
+        adminId,
+        adminEmail,
+        action: 'cascade_toggle',
+        targetType: 'product',
+        targetId: product.id,
+        targetName: product.name,
+        beforeValue: { isActive: product.isActive },
+        afterValue: { isActive },
+      });
+      const updated = await this.updateStoreProductStatus(product.id, isActive);
+      if (updated) updatedProducts.push(updated);
+    }
+
+    return {
+      subcategory: updatedSubcategory,
+      products: updatedProducts,
+    };
   }
   
   // Predictive Analytics Methods Implementation

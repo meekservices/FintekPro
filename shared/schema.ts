@@ -4416,6 +4416,7 @@ export const storeCategories: any = pgTable("store_categories", {
   name: varchar("name").notNull(),
   description: text("description"),
   slug: varchar("slug").notNull().unique(),
+  icon: varchar("icon"), // lucide icon name for UI display
   parentCategoryId: varchar("parent_category_id"),
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
@@ -4429,7 +4430,9 @@ export const storeProducts = pgTable("store_products", {
   shortDescription: text("short_description"),
   fullDescription: text("full_description"),
   categoryId: varchar("category_id").references(() => storeCategories.id).notNull(),
+  subcategoryId: varchar("subcategory_id"), // Link to subcategory for hierarchical structure
   productType: varchar("product_type").notNull(), // 'mutual_fund', 'etf', 'bond', 'insurance', 'loan', 'advisory'
+  productKey: varchar("product_key"), // unique product identifier key
   price: decimal("price", { precision: 15, scale: 2 }),
   currency: varchar("currency").default("INR"),
   minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
@@ -4446,6 +4449,14 @@ export const storeProducts = pgTable("store_products", {
   isFeatured: boolean("is_featured").default(false),
   displayOrder: integer("display_order").default(0),
   launchDate: date("launch_date"),
+  // Visibility controls for different user roles
+  visibleToClients: boolean("visible_to_clients").default(true),
+  visibleToPartners: boolean("visible_to_partners").default(true),
+  visibleToAgents: boolean("visible_to_agents").default(true),
+  visibleToGuests: boolean("visible_to_guests").default(true),
+  // Inquiry settings when product is disabled
+  showInquiryForm: boolean("show_inquiry_form").default(true),
+  inquiryMessage: text("inquiry_message"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -11568,3 +11579,69 @@ export const insertFixedIncomeSettlementSchema = createInsertSchema(fixedIncomeS
 export const insertFixedIncomeNotificationPrefSchema = createInsertSchema(fixedIncomeNotificationPrefs).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertFixedIncomeReportSchema = createInsertSchema(fixedIncomeReports).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertFixedIncomeAgentCommissionSchema = createInsertSchema(fixedIncomeAgentCommissions).omit({ id: true, createdAt: true, updatedAt: true });
+
+// ==========================================
+// STORE MANAGEMENT SYSTEM - Enhanced Tables
+// Admin control for Categories, Subcategories, Products
+// ==========================================
+
+// Store Subcategories Table (new table for hierarchical structure)
+export const storeSubcategories = pgTable("store_subcategories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").references(() => storeCategories.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name").notNull(),
+  slug: varchar("slug").notNull(),
+  description: text("description"),
+  icon: varchar("icon"),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type StoreSubcategory = typeof storeSubcategories.$inferSelect;
+export type InsertStoreSubcategory = typeof storeSubcategories.$inferInsert;
+export const insertStoreSubcategorySchema = createInsertSchema(storeSubcategories).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Store Audit Logs Table (7-year retention for regulatory compliance)
+export const storeAuditLogs = pgTable("store_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId: varchar("admin_id").references(() => users.id).notNull(),
+  adminEmail: varchar("admin_email"), // Store email for audit trail
+  action: varchar("action").notNull(), // 'toggle', 'create', 'update', 'delete'
+  targetType: varchar("target_type").notNull(), // 'category', 'subcategory', 'product'
+  targetId: varchar("target_id").notNull(),
+  targetName: varchar("target_name"), // Store name for readability
+  beforeValue: jsonb("before_value"), // State before change
+  afterValue: jsonb("after_value"), // State after change
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export type StoreAuditLog = typeof storeAuditLogs.$inferSelect;
+export type InsertStoreAuditLog = typeof storeAuditLogs.$inferInsert;
+export const insertStoreAuditLogSchema = createInsertSchema(storeAuditLogs).omit({ id: true, timestamp: true });
+
+// Product Inquiries Table (for tracking inquiries when products are disabled)
+export const storeProductInquiries = pgTable("store_product_inquiries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => storeProducts.id),
+  subcategoryId: varchar("subcategory_id").references(() => storeSubcategories.id),
+  categoryId: varchar("category_id").references(() => storeCategories.id),
+  userId: varchar("user_id").references(() => users.id),
+  name: varchar("name"),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  message: text("message"),
+  inquiryType: varchar("inquiry_type").default("callback"), // 'callback', 'information', 'availability'
+  status: varchar("status").default("pending"), // 'pending', 'contacted', 'resolved', 'closed'
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export type StoreProductInquiry = typeof storeProductInquiries.$inferSelect;
+export type InsertStoreProductInquiry = typeof storeProductInquiries.$inferInsert;
+export const insertStoreProductInquirySchema = createInsertSchema(storeProductInquiries).omit({ id: true, createdAt: true });
