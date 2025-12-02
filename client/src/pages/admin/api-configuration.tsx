@@ -465,7 +465,7 @@ export default function APIConfiguration() {
                   <div className="space-y-2">
                     <span className="text-sm text-gray-400">Required Keys</span>
                     <div className="flex flex-wrap gap-1">
-                      {service.envVars.map((envVar) => (
+                      {(service.envVars || []).map((envVar) => (
                         <Badge 
                           key={envVar} 
                           variant="outline" 
