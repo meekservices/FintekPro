@@ -503,9 +503,14 @@ export default function StoreManagement() {
                                             </span>
                                           )}
                                           {product.trailCommission && (
-                                            <span className="text-xs text-yellow-500">
+                                            <span className="text-xs text-yellow-500" title="SEBI Disclosure: This Regular plan includes distributor commission">
                                               Trail: {(parseFloat(product.trailCommission) * 100).toFixed(2)}%
                                             </span>
+                                          )}
+                                          {product.planType === 'regular' && (
+                                            <Badge variant="outline" className="text-xs text-amber-400 border-amber-500/30" title="SEBI Regulation: Commission is paid by AMC to distributor">
+                                              SEBI Disclosed
+                                            </Badge>
                                           )}
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -662,9 +667,14 @@ export default function StoreManagement() {
                                     </span>
                                   )}
                                   {product.trailCommission && (
-                                    <span className="text-xs text-yellow-500">
+                                    <span className="text-xs text-yellow-500" title="SEBI Disclosure: Distributor commission included">
                                       Trail: {(parseFloat(product.trailCommission) * 100).toFixed(2)}%
                                     </span>
+                                  )}
+                                  {product.planType === 'regular' && (
+                                    <Badge variant="outline" className="text-xs text-amber-400 border-amber-500/30" title="Commission paid by AMC to distributor as per SEBI regulations">
+                                      SEBI Disclosed
+                                    </Badge>
                                   )}
                                 </div>
                               ) : (
