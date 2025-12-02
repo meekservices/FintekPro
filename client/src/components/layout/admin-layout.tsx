@@ -23,7 +23,8 @@ import {
   MessageSquare,
   Building2,
   Target,
-  PieChart
+  PieChart,
+  Store
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,12 @@ const adminNavItems = [
     href: "/admin/api-config",
     icon: Key,
     description: "Manage API keys & services"
+  },
+  {
+    title: "Store Management",
+    href: "/admin/store-management",
+    icon: Store,
+    description: "Control categories, products & visibility"
   },
   {
     title: "Zoho Integration",
