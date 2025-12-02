@@ -52,7 +52,9 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   }
   
   // Development-only override - NEVER allow in production
-  if (process.env.NODE_ENV === 'development') {
+  // Allow override when NOT in production (covers development, test, or unset NODE_ENV)
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (!isProduction) {
     if (req.query.admin === 'true') {
       subdomain = 'admin';
     } else if (req.query.partner === 'true') {

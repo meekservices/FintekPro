@@ -13,15 +13,19 @@ export function useSubdomain() {
         return 'admin';
       } else if (urlParams.get('partner') === 'true') {
         return 'partner';
+      } else if (urlParams.get('agent') === 'true') {
+        return 'agent';
       }
     }
     
-    // For localhost development (admin.localhost, partner.localhost, or just localhost)
+    // For localhost development (admin.localhost, partner.localhost, agent.localhost, or just localhost)
     if (hostname.includes('localhost')) {
       if (parts[0] === 'admin') {
         return 'admin';
       } else if (parts[0] === 'partner') {
         return 'partner';
+      } else if (parts[0] === 'agent') {
+        return 'agent';
       }
       return '';
     }
@@ -39,11 +43,13 @@ export function useSubdomain() {
   
   const isAdminPortal = subdomain === 'admin';
   const isPartnerPortal = subdomain === 'partner';
+  const isAgentPortal = subdomain === 'agent';
   
   return {
     subdomain,
     isAdminPortal,
     isPartnerPortal,
-    isClientPortal: !isAdminPortal && !isPartnerPortal
+    isAgentPortal,
+    isClientPortal: !isAdminPortal && !isPartnerPortal && !isAgentPortal
   };
 }

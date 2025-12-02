@@ -492,8 +492,21 @@ function PartnerRoutes() {
   );
 }
 
+function AgentRoutes() {
+  return (
+    <AppLayout>
+      <Switch>
+        <Route path="/" component={AgentPortal} />
+        <Route path="/agent-portal" component={AgentPortal} />
+        <Route path="/auth" component={AuthPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </AppLayout>
+  );
+}
+
 function Router() {
-  const { isAdminPortal, isPartnerPortal } = useSubdomain();
+  const { isAdminPortal, isPartnerPortal, isAgentPortal } = useSubdomain();
 
   // Render admin portal on admin subdomain
   if (isAdminPortal) {
@@ -503,6 +516,11 @@ function Router() {
   // Render partner portal on partner subdomain
   if (isPartnerPortal) {
     return <PartnerRoutes />;
+  }
+
+  // Render agent portal on agent subdomain
+  if (isAgentPortal) {
+    return <AgentRoutes />;
   }
 
   // Render client portal on main domain
