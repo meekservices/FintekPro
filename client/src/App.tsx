@@ -418,6 +418,13 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/store-management">
+        {() => (
+          <AdminLayout>
+            <StoreManagement />
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/unlisted/companies">
         {() => (
           <AdminLayout>
