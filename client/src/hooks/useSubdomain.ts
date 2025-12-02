@@ -1,12 +1,16 @@
 import { useMemo } from 'react';
 
 export function useSubdomain() {
+  // Get current URL search params - read on each render to ensure fresh value
+  const currentSearch = window.location.search;
+  const currentHostname = window.location.hostname;
+  
   const subdomain = useMemo(() => {
-    const hostname = window.location.hostname;
+    const hostname = currentHostname;
     const parts = hostname.split('.');
     
     // Development-only override - NEVER allow in production
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(currentSearch);
     const isDev = import.meta.env.DEV;
     if (isDev) {
       if (urlParams.get('admin') === 'true') {
@@ -39,7 +43,7 @@ export function useSubdomain() {
     }
     
     return '';
-  }, []);
+  }, [currentSearch, currentHostname]);
   
   const isAdminPortal = subdomain === 'admin';
   const isPartnerPortal = subdomain === 'partner';
