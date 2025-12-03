@@ -31154,6 +31154,141 @@ System Security Data:`;
 
 
   // ===================================================================
+  // PUBLIC STORE ROUTES (Client-facing - No Auth Required)
+  // ===================================================================
+
+  // Get active store categories for client store page
+  app.get('/api/store/categories', async (req, res) => {
+    try {
+      const allCategories = await storage.getAllStoreCategories();
+      const allSubcategories = await storage.getAllStoreSubcategories();
+      
+      // Filter to only active categories
+      const activeCategories = allCategories.filter(cat => cat.isActive);
+      
+      // Group active subcategories by category
+      const categoriesWithSubs = activeCategories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        icon: cat.icon,
+        displayOrder: cat.displayOrder,
+        subcategories: allSubcategories
+          .filter(sub => sub.categoryId === cat.id && sub.isActive)
+          .map(sub => ({
+            id: sub.id,
+            name: sub.name,
+            description: sub.description,
+            icon: sub.icon,
+            displayOrder: sub.displayOrder,
+          })),
+      }));
+
+      // Sort by display order
+      categoriesWithSubs.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+      res.json({ 
+        success: true,
+        categories: categoriesWithSubs 
+      });
+    } catch (error) {
+      console.error('Error fetching public store categories:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch categories' });
+    }
+  });
+
+  // Get active store products for client store page
+  app.get('/api/store/products', async (req, res) => {
+    try {
+      const { category, subcategory } = req.query;
+      
+      const allProducts = await storage.getAllStoreProducts();
+      const allCategories = await storage.getAllStoreCategories();
+      const allSubcategories = await storage.getAllStoreSubcategories();
+      
+      // Build lookup maps for active status
+      const activeCategoryIds = new Set(allCategories.filter(c => c.isActive).map(c => c.id));
+      const activeSubcategoryIds = new Set(allSubcategories.filter(s => s.isActive).map(s => s.id));
+      
+      // Filter to only active products with active parents
+      let activeProducts = allProducts.filter(product => {
+        if (!product.isActive) return false;
+        if (!activeCategoryIds.has(product.categoryId)) return false;
+        if (product.subcategoryId && !activeSubcategoryIds.has(product.subcategoryId)) return false;
+        return true;
+      });
+      
+      // Apply optional filters
+      if (category) {
+        activeProducts = activeProducts.filter(p => p.categoryId === category);
+      }
+      if (subcategory) {
+        activeProducts = activeProducts.filter(p => p.subcategoryId === subcategory);
+      }
+      
+      // Get category and subcategory names for each product
+      const categoryMap = Object.fromEntries(allCategories.map(c => [c.id, c.name]));
+      const subcategoryMap = Object.fromEntries(allSubcategories.map(s => [s.id, s.name]));
+      
+      const productsWithNames = activeProducts.map(product => ({
+        ...product,
+        categoryName: categoryMap[product.categoryId] || product.categoryId,
+        subcategoryName: product.subcategoryId ? (subcategoryMap[product.subcategoryId] || product.subcategoryId) : null,
+      }));
+
+      res.json({ 
+        success: true,
+        products: productsWithNames,
+        count: productsWithNames.length
+      });
+    } catch (error) {
+      console.error('Error fetching public store products:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch products' });
+    }
+  });
+
+  // Get featured/popular products for store homepage
+  app.get('/api/store/featured', async (req, res) => {
+    try {
+      const allProducts = await storage.getAllStoreProducts();
+      const allCategories = await storage.getAllStoreCategories();
+      const allSubcategories = await storage.getAllStoreSubcategories();
+      
+      const activeCategoryIds = new Set(allCategories.filter(c => c.isActive).map(c => c.id));
+      const activeSubcategoryIds = new Set(allSubcategories.filter(s => s.isActive).map(s => s.id));
+      
+      // Get active products from active parents
+      const activeProducts = allProducts.filter(product => {
+        if (!product.isActive) return false;
+        if (!activeCategoryIds.has(product.categoryId)) return false;
+        if (product.subcategoryId && !activeSubcategoryIds.has(product.subcategoryId)) return false;
+        return true;
+      });
+      
+      // Get category names
+      const categoryMap = Object.fromEntries(allCategories.map(c => [c.id, c.name]));
+      const subcategoryMap = Object.fromEntries(allSubcategories.map(s => [s.id, s.name]));
+      
+      const productsWithNames = activeProducts.map(product => ({
+        ...product,
+        categoryName: categoryMap[product.categoryId] || product.categoryId,
+        subcategoryName: product.subcategoryId ? (subcategoryMap[product.subcategoryId] || product.subcategoryId) : null,
+      }));
+
+      res.json({ 
+        success: true,
+        featured: productsWithNames.slice(0, 6),
+        popular: productsWithNames.slice(0, 10),
+        count: productsWithNames.length
+      });
+    } catch (error) {
+      console.error('Error fetching featured products:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch featured products' });
+    }
+  });
+
+
+  // ===================================================================
   // STORE MANAGEMENT ROUTES (ADMIN)
   // ===================================================================
 
