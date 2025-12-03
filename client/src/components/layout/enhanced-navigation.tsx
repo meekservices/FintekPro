@@ -361,15 +361,9 @@ export function EnhancedNavigation() {
       items: [
         {
           name: "Settings",
+          href: "/settings",
           icon: Settings2,
-          description: "Account and application settings",
-          badge: "NEW",
-          subItems: [
-            { name: "Account Settings", href: "/settings?tab=account", description: "Personal information and preferences" },
-            { name: "Notification Preferences", href: "/settings?tab=notifications", description: "Email, SMS, push settings" },
-            { name: "Security & Privacy", href: "/settings?tab=security", description: "Password, 2FA, privacy controls" },
-            { name: "Connected Accounts", href: "/settings?tab=connections", description: "Bank accounts and integrations" }
-          ]
+          description: "Account and application settings"
         }
       ]
     }
