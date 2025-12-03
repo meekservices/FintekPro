@@ -2333,6 +2333,70 @@ export const ticketMessages = pgTable("ticket_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+
+// Support templates for pre-defined CA service workflows
+export const supportTemplates = pgTable("support_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  category: varchar("category").notNull(), // 'itr_filing', 'kyc_assistance', 'tax_planning', 'investment_advisory', 'gst_filing', 'audit_support'
+  serviceType: varchar("service_type").notNull(), // 'ca_service', 'financial_advisory', 'compliance'
+  estimatedDuration: integer("estimated_duration"), // In hours
+  // Steps definition as JSON array
+  steps: jsonb("steps").default([]).notNull(), // [{stepNumber, title, description, requiredDocuments, estimatedTime}]
+  // Documents required
+  requiredDocuments: jsonb("required_documents").default([]),
+  // Checklist items
+  checklist: jsonb("checklist").default([]),
+  // Pricing
+  baseFee: numeric("base_fee", { precision: 10, scale: 2 }),
+  // Status
+  isActive: boolean("is_active").default(true),
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Support steps for tracking step-by-step progress on tickets
+export const supportSteps = pgTable("support_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").references(() => supportTickets.id).notNull(),
+  templateId: varchar("template_id").references(() => supportTemplates.id),
+  stepNumber: integer("step_number").notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  // Step status
+  status: varchar("status").default("pending"), // 'pending', 'in_progress', 'completed', 'skipped'
+  // Completion details
+  completedBy: varchar("completed_by").references(() => partners.id),
+  completedAt: timestamp("completed_at"),
+  // Notes and documents
+  notes: text("notes"),
+  documents: jsonb("documents").default([]), // [{name, url, uploadedAt}]
+  // Checklist items for this step
+  checklistItems: jsonb("checklist_items").default([]), // [{item, completed, completedAt}]
+  // Time tracking
+  startedAt: timestamp("started_at"),
+  estimatedTime: integer("estimated_time"), // In minutes
+  actualTime: integer("actual_time"), // In minutes
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Support step comments for detailed step-level communication
+export const supportStepComments = pgTable("support_step_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stepId: varchar("step_id").references(() => supportSteps.id).notNull(),
+  senderId: varchar("sender_id").notNull(),
+  senderType: varchar("sender_type").notNull(), // 'partner', 'client', 'admin'
+  senderName: varchar("sender_name").notNull(),
+  comment: text("comment").notNull(),
+  attachments: jsonb("attachments").default([]),
+  isInternal: boolean("is_internal").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 // Product applications for tracking user applications
 export const productApplications = pgTable("product_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3062,6 +3126,32 @@ export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit
 export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
 export type TicketMessage = typeof ticketMessages.$inferSelect;
 
+
+// Support Templates Schema
+export const insertSupportTemplateSchema = createInsertSchema(supportTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSupportTemplate = z.infer<typeof insertSupportTemplateSchema>;
+export type SupportTemplate = typeof supportTemplates.$inferSelect;
+
+// Support Steps Schema
+export const insertSupportStepSchema = createInsertSchema(supportSteps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSupportStep = z.infer<typeof insertSupportStepSchema>;
+export type SupportStep = typeof supportSteps.$inferSelect;
+
+// Support Step Comments Schema
+export const insertSupportStepCommentSchema = createInsertSchema(supportStepComments).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSupportStepComment = z.infer<typeof insertSupportStepCommentSchema>;
+export type SupportStepComment = typeof supportStepComments.$inferSelect;
 export const insertProductApplicationSchema = createInsertSchema(productApplications).omit({
   id: true,
   createdAt: true,
