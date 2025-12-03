@@ -100,7 +100,7 @@ export default function ExpensesBudgetsPage() {
 
   // Create expense mutation
   const createExpenseMutation = useMutation({
-    mutationFn: async (data: any) => apiRequest('POST', '/api/expenses', { body: data }),
+    mutationFn: async (data: any) => apiRequest('/api/expenses', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/budgets'] });
@@ -115,7 +115,7 @@ export default function ExpensesBudgetsPage() {
 
   // Create budget mutation
   const createBudgetMutation = useMutation({
-    mutationFn: async (data: any) => apiRequest('POST', '/api/budgets', { body: data }),
+    mutationFn: async (data: any) => apiRequest('/api/budgets', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/budgets'] });
       toast({ title: 'Success', description: 'Budget created successfully' });
@@ -128,7 +128,7 @@ export default function ExpensesBudgetsPage() {
 
   // Generate insights mutation
   const generateInsightsMutation = useMutation({
-    mutationFn: async () => apiRequest('POST', '/api/insights/generate'),
+    mutationFn: async () => apiRequest('/api/insights/generate', { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/insights'] });
       toast({ title: 'Success', description: 'AI insights generated successfully' });
