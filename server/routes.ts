@@ -17184,26 +17184,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get suitable ITR form recommendation
+  // Get suitable ITR form recommendation (enhanced with entity type)
   app.post("/api/sandbox-itr/suggest-form", async (req, res) => {
     try {
-      const { incomeDetails } = req.body;
+      const { incomeDetails, entityType } = req.body;
       if (!incomeDetails) {
         return res.status(400).json({ 
           success: false, 
           message: "Income details are required" 
         });
       }
-      const suggestedForm = sandboxITRService.getSuitableITRForm(incomeDetails);
+      const suggestion = sandboxITRService.getSuitableITRForm(incomeDetails, entityType || 'individual');
       res.json({ 
         success: true, 
-        suggestedForm,
-        message: `Based on your income sources, ${suggestedForm} is recommended`
+        suggestedForm: suggestion.form,
+        reason: suggestion.reason,
+        applicableForms: suggestion.applicableForms,
+        entityType: entityType || 'individual',
+        message: `Based on your income sources and entity type, ${suggestion.form} is recommended`
       });
     } catch (error) {
       console.error("ITR form suggestion error:", error);
       res.status(500).json({ 
         success: false, 
         message: error instanceof Error ? error.message : "Form suggestion failed" 
+      });
+    }
+  });
+
+  // Get detailed information about all ITR forms
+  app.get("/api/sandbox-itr/forms", async (req, res) => {
+    try {
+      const formDetails = sandboxITRService.getITRFormDetails();
+      res.json({ 
+        success: true, 
+        forms: formDetails,
+        totalForms: Object.keys(formDetails).length,
+        message: "ITR form details retrieved successfully"
+      });
+    } catch (error) {
+      console.error("ITR form details error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Failed to retrieve form details" 
+      });
+    }
+  });
+
+  // Get entity types supported for ITR filing
+  app.get("/api/sandbox-itr/entity-types", async (req, res) => {
+    try {
+      const entityTypes = {
+        individual: {
+          name: 'Individual',
+          description: 'Natural person filing personal income tax return',
+          applicableForms: ['ITR-1', 'ITR-2', 'ITR-3', 'ITR-4']
+        },
+        huf: {
+          name: 'Hindu Undivided Family (HUF)',
+          description: 'Family unit recognized as a separate taxable entity',
+          applicableForms: ['ITR-2', 'ITR-3']
+        },
+        partnership_firm: {
+          name: 'Partnership Firm',
+          description: 'Business entity formed by two or more partners',
+          applicableForms: ['ITR-5']
+        },
+        llp: {
+          name: 'Limited Liability Partnership (LLP)',
+          description: 'Corporate business structure with limited liability protection',
+          applicableForms: ['ITR-5']
+        },
+        aop: {
+          name: 'Association of Persons (AOP)',
+          description: 'Group of individuals with common purpose or interest',
+          applicableForms: ['ITR-5']
+        },
+        boi: {
+          name: 'Body of Individuals (BOI)',
+          description: 'Group of individuals not forming a partnership or company',
+          applicableForms: ['ITR-5']
+        },
+        cooperative_society: {
+          name: 'Cooperative Society',
+          description: 'Voluntary association for mutual benefit',
+          applicableForms: ['ITR-5']
+        },
+        local_authority: {
+          name: 'Local Authority',
+          description: 'Municipal corporation, gram panchayat, or similar body',
+          applicableForms: ['ITR-5']
+        },
+        company: {
+          name: 'Company',
+          description: 'Private Limited, Public Limited, One Person Company, or Section 8 Company',
+          applicableForms: ['ITR-6', 'ITR-7']
+        },
+        trust: {
+          name: 'Charitable/Religious Trust',
+          description: 'Trust claiming exemption under Section 11 or 12',
+          applicableForms: ['ITR-7']
+        },
+        political_party: {
+          name: 'Political Party',
+          description: 'Registered political party under Section 139(4B)',
+          applicableForms: ['ITR-7']
+        },
+        institution: {
+          name: 'Educational/Medical Institution',
+          description: 'University, college, or medical institution',
+          applicableForms: ['ITR-7']
+        },
+        research_association: {
+          name: 'Scientific Research Association',
+          description: 'Association engaged in scientific research',
+          applicableForms: ['ITR-7']
+        },
+        news_agency: {
+          name: 'News Agency',
+          description: 'Press Trust of India, United News of India, etc.',
+          applicableForms: ['ITR-7']
+        }
+      };
+      
+      res.json({ 
+        success: true, 
+        entityTypes,
+        totalTypes: Object.keys(entityTypes).length,
+        message: "Entity types retrieved successfully"
+      });
+    } catch (error) {
+      console.error("Entity types error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to retrieve entity types" 
       });
     }
   });

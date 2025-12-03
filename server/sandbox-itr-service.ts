@@ -70,6 +70,24 @@ export const ITRFormDataSchema = z.object({
     isDefective: z.boolean().default(false),
     acknowledgmentNumber: z.string().optional(),
   }),
+  
+  // Entity Type (required for ITR-5, 6, 7 determination)
+  entityType: z.enum([
+    'individual',           // Person - uses ITR-1, 2, 3, 4
+    'huf',                  // Hindu Undivided Family - uses ITR-2, 3
+    'partnership_firm',     // Partnership Firm - uses ITR-5
+    'llp',                  // Limited Liability Partnership - uses ITR-5
+    'aop',                  // Association of Persons - uses ITR-5
+    'boi',                  // Body of Individuals - uses ITR-5
+    'cooperative_society',  // Cooperative Society - uses ITR-5
+    'local_authority',      // Local Authority - uses ITR-5
+    'company',              // Private/Public Company - uses ITR-6
+    'trust',                // Charitable Trust - uses ITR-7
+    'political_party',      // Political Party - uses ITR-7
+    'institution',          // Educational/Medical Institution - uses ITR-7
+    'research_association', // Scientific Research Association - uses ITR-7
+    'news_agency',          // News Agency - uses ITR-7
+  ]).default('individual'),
 });
 
 export type ITRFormData = z.infer<typeof ITRFormDataSchema>;
@@ -456,31 +474,302 @@ class SandboxITRService {
     }
   }
 
-  getSuitableITRForm(incomeDetails: ITRFormData['incomeDetails']): string {
+  getSuitableITRForm(incomeDetails: ITRFormData['incomeDetails'], entityType: string = 'individual'): {
+    form: string;
+    reason: string;
+    applicableForms: string[];
+  } {
     const { salaryIncome, businessIncome, capitalGains, rentalIncome } = incomeDetails;
     
-    // ITR-1 (Sahaj) - For salary income up to 50 lakhs with no business/capital gains
-    if (salaryIncome <= 5000000 && businessIncome === 0 && capitalGains === 0 && rentalIncome === 0) {
-      return 'ITR-1';
+    // ========== ITR-7: Trusts, Political Parties, Institutions ==========
+    // Section 139(4A) - Charitable/Religious Trusts
+    // Section 139(4B) - Political Parties
+    // Section 139(4C) - Scientific Research Associations, News Agencies
+    // Section 139(4D) - Universities, Educational Institutions
+    // Section 139(4E) - Business Trusts (InvITs, REITs)
+    // Section 139(4F) - Investment Funds
+    if (['trust', 'political_party', 'institution', 'research_association', 'news_agency'].includes(entityType)) {
+      return {
+        form: 'ITR-7',
+        reason: `ITR-7 is mandatory for ${entityType.replace('_', ' ')} entities claiming exemption under Sections 139(4A) to 139(4F)`,
+        applicableForms: ['ITR-7']
+      };
     }
     
-    // ITR-4 (Sugam) - For presumptive business income up to 2 crores
-    if (businessIncome > 0 && businessIncome <= 20000000) {
-      return 'ITR-4';
+    // ========== ITR-6: Companies (except those claiming Section 11 exemption) ==========
+    if (entityType === 'company') {
+      return {
+        form: 'ITR-6',
+        reason: 'ITR-6 is mandatory for all companies except those claiming exemption under Section 11 (Charitable/Religious purposes)',
+        applicableForms: ['ITR-6', 'ITR-7']
+      };
     }
     
-    // ITR-3 - For individuals with business/professional income above presumptive limit
-    if (businessIncome > 20000000) {
-      return 'ITR-3';
+    // ========== ITR-5: Firms, LLPs, AOPs, BOIs, Cooperative Societies, Local Authorities ==========
+    if (['partnership_firm', 'llp', 'aop', 'boi', 'cooperative_society', 'local_authority'].includes(entityType)) {
+      return {
+        form: 'ITR-5',
+        reason: `ITR-5 is applicable for ${entityType.replace('_', ' ')} for filing income tax returns`,
+        applicableForms: ['ITR-5']
+      };
     }
     
-    // ITR-2 - For individuals with capital gains or rental income
-    if (businessIncome === 0 && (capitalGains > 0 || rentalIncome > 0)) {
-      return 'ITR-2';
+    // ========== Individual and HUF Forms (ITR-1 to ITR-4) ==========
+    
+    // HUF cannot file ITR-1 or ITR-4
+    if (entityType === 'huf') {
+      if (businessIncome > 0) {
+        return {
+          form: 'ITR-3',
+          reason: 'ITR-3 is required for HUF with business or professional income',
+          applicableForms: ['ITR-2', 'ITR-3']
+        };
+      }
+      return {
+        form: 'ITR-2',
+        reason: 'ITR-2 is applicable for HUF with income from salary, house property, capital gains, or other sources',
+        applicableForms: ['ITR-2', 'ITR-3']
+      };
+    }
+    
+    // Individual taxpayers
+    const totalIncome = salaryIncome + businessIncome + capitalGains + rentalIncome + 
+                       (incomeDetails.otherIncome || 0) + (incomeDetails.interestIncome || 0) + 
+                       (incomeDetails.dividendIncome || 0);
+    
+    // ITR-1 (Sahaj) - Resident Individual with:
+    // - Total income up to Rs. 50 lakhs
+    // - Income from salary/pension
+    // - Income from one house property (not loss brought forward)
+    // - Income from other sources (excluding lottery, racehorses, legal gambling)
+    // - Agricultural income up to Rs. 5,000
+    // NOT applicable if: Foreign assets, foreign income, director of company, capital gains, 
+    //                   more than one house property, business income
+    if (entityType === 'individual' && 
+        totalIncome <= 5000000 && 
+        businessIncome === 0 && 
+        capitalGains === 0 && 
+        (rentalIncome === 0 || rentalIncome > 0)) { // Only one house property allowed
+      return {
+        form: 'ITR-1',
+        reason: 'ITR-1 (Sahaj) is the simplest form for salaried individuals with total income up to Rs. 50 lakhs, no capital gains, and no business income',
+        applicableForms: ['ITR-1', 'ITR-2', 'ITR-3', 'ITR-4']
+      };
+    }
+    
+    // ITR-4 (Sugam) - For presumptive taxation scheme
+    // Section 44AD: Business income up to Rs. 2 crores (Rs. 3 crores if 95% digital receipts)
+    // Section 44ADA: Professional income up to Rs. 50 lakhs (Rs. 75 lakhs if 95% digital receipts)
+    // Section 44AE: Goods carriage business
+    if (entityType === 'individual' && 
+        businessIncome > 0 && 
+        businessIncome <= 30000000 && // Up to Rs. 3 crores with digital receipts
+        capitalGains === 0 &&
+        totalIncome <= 5000000) {
+      return {
+        form: 'ITR-4',
+        reason: 'ITR-4 (Sugam) is applicable for presumptive taxation under Section 44AD/44ADA/44AE with business income up to Rs. 2-3 crores',
+        applicableForms: ['ITR-3', 'ITR-4']
+      };
+    }
+    
+    // ITR-3 - For individuals/HUF with business/professional income 
+    // (not under presumptive scheme or above presumptive limits)
+    if (businessIncome > 0) {
+      return {
+        form: 'ITR-3',
+        reason: 'ITR-3 is required for individuals with business or professional income not opting for presumptive taxation, or income exceeding presumptive limits',
+        applicableForms: ['ITR-3']
+      };
+    }
+    
+    // ITR-2 - For individuals/HUF with:
+    // - Income from salary/pension
+    // - Income from house property (including multiple properties)
+    // - Capital gains (short-term or long-term)
+    // - Income from other sources (including lottery, legal gambling)
+    // - Foreign assets or foreign income
+    // - Director of a company
+    // - Unlisted equity shares
+    if (capitalGains > 0 || totalIncome > 5000000) {
+      return {
+        form: 'ITR-2',
+        reason: 'ITR-2 is required for individuals with capital gains, income exceeding Rs. 50 lakhs, foreign assets/income, or multiple house properties',
+        applicableForms: ['ITR-2', 'ITR-3']
+      };
     }
     
     // Default to ITR-2 for other cases
-    return 'ITR-2';
+    return {
+      form: 'ITR-2',
+      reason: 'ITR-2 is the appropriate form based on your income sources and entity type',
+      applicableForms: ['ITR-2', 'ITR-3']
+    };
+  }
+
+  // Helper method for backwards compatibility
+  getSuitableITRFormSimple(incomeDetails: ITRFormData['incomeDetails']): string {
+    return this.getSuitableITRForm(incomeDetails, 'individual').form;
+  }
+
+  // Get detailed ITR form information
+  getITRFormDetails(): Record<string, {
+    fullName: string;
+    applicableTo: string[];
+    keyFeatures: string[];
+    notApplicableIf: string[];
+  }> {
+    return {
+      'ITR-1': {
+        fullName: 'ITR-1 (Sahaj)',
+        applicableTo: [
+          'Resident individuals',
+          'Total income up to Rs. 50 lakhs',
+          'Salary/pension income',
+          'One house property income',
+          'Other sources (interest, dividends up to Rs. 5,000)',
+          'Agricultural income up to Rs. 5,000'
+        ],
+        keyFeatures: [
+          'Simplest ITR form',
+          'Pre-filled data from Form 26AS, AIS',
+          'Can be filed online easily'
+        ],
+        notApplicableIf: [
+          'Income exceeds Rs. 50 lakhs',
+          'Has capital gains',
+          'Has business/professional income',
+          'Director of a company',
+          'Foreign assets or income',
+          'Multiple house properties'
+        ]
+      },
+      'ITR-2': {
+        fullName: 'ITR-2',
+        applicableTo: [
+          'Individuals and HUFs',
+          'No business/professional income',
+          'Income from salary, house property, capital gains',
+          'Income from other sources',
+          'Foreign assets or income',
+          'Director of a company'
+        ],
+        keyFeatures: [
+          'Comprehensive form for non-business income',
+          'Schedule for capital gains computation',
+          'Schedule for foreign assets (FA)',
+          'Schedule for foreign source income (FSI)'
+        ],
+        notApplicableIf: [
+          'Has business or professional income'
+        ]
+      },
+      'ITR-3': {
+        fullName: 'ITR-3',
+        applicableTo: [
+          'Individuals and HUFs',
+          'Business or professional income',
+          'Partner in a firm',
+          'Income from any source'
+        ],
+        keyFeatures: [
+          'Most comprehensive form for individuals',
+          'Balance sheet and P&L schedules',
+          'All income heads covered',
+          'Audit information if applicable'
+        ],
+        notApplicableIf: [
+          'Firms, companies, or other entities'
+        ]
+      },
+      'ITR-4': {
+        fullName: 'ITR-4 (Sugam)',
+        applicableTo: [
+          'Individuals, HUFs, Partnership Firms (not LLPs)',
+          'Presumptive taxation under Section 44AD (business)',
+          'Presumptive taxation under Section 44ADA (professionals)',
+          'Presumptive taxation under Section 44AE (transporters)',
+          'Total income up to Rs. 50 lakhs'
+        ],
+        keyFeatures: [
+          'Simplified form for presumptive income',
+          'No requirement to maintain books of accounts',
+          'Turnover limits: Business Rs. 2-3 crores, Profession Rs. 50-75 lakhs'
+        ],
+        notApplicableIf: [
+          'Income exceeds Rs. 50 lakhs',
+          'Has capital gains',
+          'Income from more than one house property',
+          'Foreign assets or income',
+          'Not eligible for presumptive taxation'
+        ]
+      },
+      'ITR-5': {
+        fullName: 'ITR-5',
+        applicableTo: [
+          'Partnership Firms',
+          'Limited Liability Partnerships (LLPs)',
+          'Association of Persons (AOPs)',
+          'Body of Individuals (BOIs)',
+          'Cooperative Societies',
+          'Local Authorities',
+          'Artificial Juridical Persons'
+        ],
+        keyFeatures: [
+          'Comprehensive form for non-corporate entities',
+          'Balance sheet and P&L requirements',
+          'Partner/member details',
+          'Audit information if applicable'
+        ],
+        notApplicableIf: [
+          'Individuals or HUFs',
+          'Companies',
+          'Trusts claiming exemption under Section 11'
+        ]
+      },
+      'ITR-6': {
+        fullName: 'ITR-6',
+        applicableTo: [
+          'All companies except those claiming exemption under Section 11',
+          'Private Limited Companies',
+          'Public Limited Companies',
+          'One Person Companies',
+          'Section 8 Companies (non-profit)'
+        ],
+        keyFeatures: [
+          'Mandatory for all companies',
+          'Comprehensive financial schedules',
+          'MAT (Minimum Alternate Tax) computation',
+          'Transfer pricing schedules if applicable',
+          'XBRL filing for specified companies'
+        ],
+        notApplicableIf: [
+          'Companies claiming exemption under Section 11 (use ITR-7)'
+        ]
+      },
+      'ITR-7': {
+        fullName: 'ITR-7',
+        applicableTo: [
+          'Charitable or Religious Trusts (Section 139(4A))',
+          'Political Parties (Section 139(4B))',
+          'Scientific Research Associations (Section 139(4C))',
+          'News Agencies (Section 139(4C))',
+          'Universities and Educational Institutions (Section 139(4D))',
+          'Business Trusts - InvITs, REITs (Section 139(4E))',
+          'Investment Funds (Section 139(4F))'
+        ],
+        keyFeatures: [
+          'For entities claiming tax exemptions',
+          'Detailed exemption schedules',
+          'Application of income details',
+          'Corpus fund management',
+          'Anonymous donation details'
+        ],
+        notApplicableIf: [
+          'Entities not claiming exemption under specified sections'
+        ]
+      }
+    };
   }
 
   validatePAN(pan: string): boolean {
