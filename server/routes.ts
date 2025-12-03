@@ -65,6 +65,7 @@ import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
+import { sandboxITRService } from './sandbox-itr-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
@@ -17077,6 +17078,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============ END ITR PRE-FILLED API ROUTES ============
+
+  // ============ SANDBOX.CO.IN ITR API ROUTES ============
+  
+  // Calculate tax using Sandbox.co.in API
+  app.post("/api/sandbox-itr/calculate-tax", async (req, res) => {
+    try {
+      const result = await sandboxITRService.calculateTax(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Tax calculation error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Tax calculation failed" 
+      });
+    }
+  });
+
+  // Prepare ITR using Sandbox.co.in API
+  app.post("/api/sandbox-itr/prepare", async (req, res) => {
+    try {
+      const result = await sandboxITRService.prepareITR(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR preparation error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "ITR preparation failed" 
+      });
+    }
+  });
+
+  // File ITR using Sandbox.co.in API
+  app.post("/api/sandbox-itr/file", async (req, res) => {
+    try {
+      const result = await sandboxITRService.fileITR(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR filing error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "ITR filing failed" 
+      });
+    }
+  });
+
+  // Get ITR status using Sandbox.co.in API
+  app.get("/api/sandbox-itr/status/:acknowledgmentNumber", async (req, res) => {
+    try {
+      const { acknowledgmentNumber } = req.params;
+      const result = await sandboxITRService.getITRStatus(acknowledgmentNumber);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR status error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Status check failed" 
+      });
+    }
+  });
+
+  // Get Form 26AS using Sandbox.co.in API
+  app.get("/api/sandbox-itr/form-26as/:pan/:assessmentYear", async (req, res) => {
+    try {
+      const { pan, assessmentYear } = req.params;
+      const result = await sandboxITRService.getForm26AS(pan, assessmentYear);
+      res.json(result);
+    } catch (error) {
+      console.error("Form 26AS error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Form 26AS fetch failed" 
+      });
+    }
+  });
+
+  // Get AIS (Annual Information Statement) using Sandbox.co.in API
+  app.get("/api/sandbox-itr/ais/:pan/:assessmentYear", async (req, res) => {
+    try {
+      const { pan, assessmentYear } = req.params;
+      const result = await sandboxITRService.getAIS(pan, assessmentYear);
+      res.json(result);
+    } catch (error) {
+      console.error("AIS error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "AIS fetch failed" 
+      });
+    }
+  });
+
+  // Download ITR-V using Sandbox.co.in API
+  app.get("/api/sandbox-itr/itr-v/:acknowledgmentNumber", async (req, res) => {
+    try {
+      const { acknowledgmentNumber } = req.params;
+      const result = await sandboxITRService.downloadITRV(acknowledgmentNumber);
+      res.json(result);
+    } catch (error) {
+      console.error("ITR-V download error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "ITR-V download failed" 
+      });
+    }
+  });
+
+  // Get suitable ITR form recommendation
+  app.post("/api/sandbox-itr/suggest-form", async (req, res) => {
+    try {
+      const { incomeDetails } = req.body;
+      if (!incomeDetails) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Income details are required" 
+        });
+      }
+      const suggestedForm = sandboxITRService.getSuitableITRForm(incomeDetails);
+      res.json({ 
+        success: true, 
+        suggestedForm,
+        message: `Based on your income sources, ${suggestedForm} is recommended`
+      });
+    } catch (error) {
+      console.error("ITR form suggestion error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : "Form suggestion failed" 
+      });
+    }
+  });
+
+  // Check if Sandbox.co.in ITR service is configured
+  app.get("/api/sandbox-itr/status", async (req, res) => {
+    try {
+      res.json({ 
+        success: true, 
+        configured: sandboxITRService.isConfigured(),
+        message: sandboxITRService.isConfigured() 
+          ? "Sandbox.co.in ITR service is configured and ready"
+          : "Sandbox.co.in ITR service is using mock data (API credentials not configured)"
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: "Status check failed" 
+      });
+    }
+  });
+
+  // ============ END SANDBOX.CO.IN ITR API ROUTES ============
 
   // ============ TAX DATA CENTER API ROUTES ============
   
