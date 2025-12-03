@@ -61,7 +61,7 @@ export default function Portfolio() {
   const [selectedCurrency, setSelectedCurrency] = useState(defaultCurrency);
 
   const { data: enhancedHoldings, isLoading: holdingsLoading, refetch: refetchHoldings } = useEnhancedPortfolioHoldings(portfolioId || "");
-  const { data: performance, isLoading: performanceLoading } = usePortfolioPerformance(portfolioId || "");
+  const { data: performance, isLoading: performanceLoading, refetch: refetchPerformance } = usePortfolioPerformance(portfolioId || "");
 
   // Portfolio conversion query
   const { data: convertedPortfolio, isLoading: conversionLoading } = useQuery({
@@ -247,7 +247,7 @@ export default function Portfolio() {
               totalGainPercent={performance?.totalGainLossPercent ? parseFloat(performance.totalGainLossPercent) : 0}
               holdingsCount={enhancedHoldings?.length || 0}
               isLoading={isLoading}
-              onRefresh={() => refetchHoldings()}
+              onRefresh={() => { refetchHoldings(); refetchPerformance(); }}
               panVerified={true}
             />
 
