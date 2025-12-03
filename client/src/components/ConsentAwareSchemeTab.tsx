@@ -155,8 +155,9 @@ export function ConsentAwareSchemeTab({
         setChallengeId(null);
         setIsRefreshing(false);
         
-        queryClient.invalidateQueries({ queryKey: ['government-schemes', schemeType] });
+        queryClient.invalidateQueries({ queryKey: [`/api/government-schemes/${schemeType}`] });
         queryClient.invalidateQueries({ queryKey: ['government-schemes', 'consent'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/insurance-holdings'] });
         
         toast({
           title: "Refresh Complete",
