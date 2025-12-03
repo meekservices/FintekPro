@@ -11612,11 +11612,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const schemeName = schemeType.toUpperCase();
       const formattedMobile = user.mobile.startsWith('+') ? user.mobile : `+91${user.mobile}`;
       
+      let smsSent = false;
       if (smsService.isAvailable()) {
         try {
           // Send OTP via Twilio
           const sent = await smsService.sendOTP(user.mobile, otp);
           if (sent) {
+            smsSent = true;
             console.log(`[Government Schemes Refresh] OTP sent via SMS for ${schemeType}, user: ${userId}`);
           } else {
             console.log(`[Government Schemes Refresh] SMS service unavailable, OTP: ${otp}`);
@@ -11635,7 +11637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         challengeId,
         expiresAt: expiresAt.toISOString(),
-        message: `OTP sent to ${maskedMobile}`
+        message: smsSent ? `OTP sent to ${maskedMobile}` : `OTP for testing: ${otp} (SMS delivery failed - Twilio trial account)`
       });
     } catch (error) {
       console.error("Error initiating government scheme refresh:", error);
