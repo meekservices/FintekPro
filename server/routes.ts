@@ -624,15 +624,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 1. AGGREGATE ASSETS - Portfolio Holdings with real-time market values
       const userPortfolios = await db.query.portfolios.findMany({
         where: sql`${portfolios.userId} = ANY(${targetUserIds})`,
-        with: {
-          holdings: true
-        }
       });
       
+      // Fetch holdings separately (no Drizzle relations defined)
+      const portfolioIds = userPortfolios.map(p => p.id);
+      const allHoldings = portfolioIds.length > 0 
+        ? await db.query.portfolioHoldings.findMany({
+            where: sql`${portfolioHoldings.portfolioId} = ANY(${portfolioIds})`,
+          })
+        : [];
+      
+      // Group holdings by portfolio ID
+      const holdingsByPortfolio = new Map<string, typeof allHoldings>();
+      for (const holding of allHoldings) {
+        const existing = holdingsByPortfolio.get(holding.portfolioId) || [];
+        existing.push(holding);
+        holdingsByPortfolio.set(holding.portfolioId, existing);
+      }
       // OPTIMIZATION: Batch fetch all unique symbols for market data (avoid N+1 queries)
       const allSymbols = new Set<string>();
       for (const portfolio of userPortfolios) {
-        for (const holding of portfolio.holdings || []) {
+        for (const holding of (holdingsByPortfolio.get(portfolio.id) || [])) {
           allSymbols.add(holding.symbol);
         }
       }
@@ -657,7 +669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalPortfolioValue = 0;
       
       for (const portfolio of userPortfolios) {
-        for (const holding of portfolio.holdings || []) {
+        for (const holding of (holdingsByPortfolio.get(portfolio.id) || [])) {
           // Get current market price from pre-fetched data
           const marketInfo = marketDataMap.get(holding.symbol);
           
