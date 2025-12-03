@@ -5,14 +5,16 @@ import { RebalancingSuggestions } from "@/components/rebalancing-suggestions";
 import { PiChatSummaries } from "@/components/portfolio/pi-chat-summaries";
 import { CommodityTracker } from "@/components/portfolio/commodity-tracker";
 import { PortfolioPerformanceWidgets } from "@/components/portfolio/PortfolioPerformanceWidgets";
+import { ExternalPortfolioSync } from "@/components/portfolio-sync/ExternalPortfolioSync";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings, useInsuranceHoldings, useNpsAccounts, useApyAccounts } from "@/hooks/use-portfolio";
 import { LoadingState } from "@/components/LoadingState";
-import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield, Target, Calculator, AlertTriangle } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield, Target, Calculator, AlertTriangle, Building2, ExternalLink, Briefcase, History, FileText, CheckCircle2, Clock, XCircle, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { useConsent, type SchemeType } from "@/hooks/use-consent";
@@ -21,6 +23,21 @@ import { ConsentAwareSchemeTab } from "@/components/ConsentAwareSchemeTab";
 import { useAuth } from "@/hooks/useAuth";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+
+interface UnifiedOrder {
+  id: string;
+  orderNumber: string;
+  productType: string;
+  productName: string;
+  orderType: string;
+  amount: string;
+  quantity?: string;
+  status: string;
+  paymentStatus: string;
+  executionStatus: string;
+  createdAt: string;
+  completedAt?: string;
+}
 
 export default function Portfolio() {
 
@@ -63,6 +80,12 @@ export default function Portfolio() {
   // NPS and APY data
   const { data: npsAccounts, isLoading: npsLoading } = useNpsAccounts();
   const { data: apyAccounts, isLoading: apyLoading } = useApyAccounts();
+
+  // FintekPro Orders - Internal transactions done through platform
+  const { data: fintekproOrders, isLoading: ordersLoading } = useQuery<UnifiedOrder[]>({
+    queryKey: ["/api/unified-orders"],
+    enabled: isAuthenticated,
+  });
   
   const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
   const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
@@ -161,7 +184,18 @@ export default function Portfolio() {
         {/* Enhanced Portfolio with Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
           <ScrollableTabsList>
-            <TabsTrigger value="overview">Portfolio Overview</TabsTrigger>
+            <TabsTrigger value="overview" className="flex items-center space-x-1">
+              <TrendingUp className="h-4 w-4" />
+              <span>Portfolio Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="fintekpro" className="flex items-center space-x-1">
+              <Building2 className="h-4 w-4" />
+              <span>FintekPro Portfolio</span>
+            </TabsTrigger>
+            <TabsTrigger value="external" className="flex items-center space-x-1">
+              <ExternalLink className="h-4 w-4" />
+              <span>External Portfolio</span>
+            </TabsTrigger>
             <TabsTrigger value="insurance" className="flex items-center space-x-1">
               <Shield className="h-4 w-4" />
               <span>Insurance</span>
@@ -840,6 +874,204 @@ export default function Portfolio() {
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          {/* FintekPro Portfolio Tab - Internal transactions done through platform */}
+          <TabsContent value="fintekpro" className="space-y-8">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Building2 className="h-5 w-5 text-blue-600" />
+                      <span>FintekPro Portfolio</span>
+                    </CardTitle>
+                    <CardDescription>
+                      All transactions and investments made through FintekPro platform
+                    </CardDescription>
+                  </div>
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                    <Shield className="h-3 w-3 mr-1" />
+                    PAN Verified
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {ordersLoading ? (
+                  <LoadingState variant="table" count={5} />
+                ) : fintekproOrders && fintekproOrders.length > 0 ? (
+                  <div className="space-y-6">
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="p-4 bg-blue-50 rounded-lg" data-testid="stat-total-orders">
+                        <div className="text-sm text-muted-foreground">Total Orders</div>
+                        <div className="text-2xl font-bold text-blue-600">{fintekproOrders.length}</div>
+                      </div>
+                      <div className="p-4 bg-green-50 rounded-lg" data-testid="stat-completed-orders">
+                        <div className="text-sm text-muted-foreground">Completed</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {fintekproOrders.filter(o => o.status === 'completed').length}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-yellow-50 rounded-lg" data-testid="stat-pending-orders">
+                        <div className="text-sm text-muted-foreground">Pending</div>
+                        <div className="text-2xl font-bold text-yellow-600">
+                          {fintekproOrders.filter(o => o.status === 'processing' || o.status === 'initiated').length}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-purple-50 rounded-lg" data-testid="stat-total-invested">
+                        <div className="text-sm text-muted-foreground">Total Invested</div>
+                        <div className="text-2xl font-bold text-purple-600">
+                          ₹{fintekproOrders.reduce((sum, o) => sum + parseFloat(o.amount || '0'), 0).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Orders Table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Order #</TableHead>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Date</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {fintekproOrders.map((order) => (
+                            <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                              <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{order.productName}</div>
+                                  <div className="text-xs text-muted-foreground capitalize">{order.productType?.replace('_', ' ')}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize">
+                                  {order.orderType}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                ₹{parseFloat(order.amount || '0').toLocaleString()}
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  className={
+                                    order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                    order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                    order.status === 'cancelled' || order.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                    'bg-yellow-100 text-yellow-800'
+                                  }
+                                >
+                                  {order.status === 'completed' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                                  {order.status === 'processing' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                                  {(order.status === 'initiated' || order.status === 'pending') && <Clock className="h-3 w-3 mr-1" />}
+                                  {(order.status === 'cancelled' || order.status === 'failed') && <XCircle className="h-3 w-3 mr-1" />}
+                                  {order.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12" data-testid="empty-orders">
+                    <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No FintekPro Orders Yet</h3>
+                    <p className="text-gray-600 mb-4">
+                      Start investing through FintekPro to see your transactions here
+                    </p>
+                    <Button 
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={() => window.location.href = '/store'}
+                      data-testid="button-browse-products"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Browse Products
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* FintekPro Holdings Summary */}
+            {enhancedHoldings && enhancedHoldings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <History className="h-5 w-5 text-green-600" />
+                    <span>FintekPro Holdings</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Current holdings from investments made through FintekPro
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {enhancedHoldings.slice(0, 10).map((holding: any) => (
+                      <div 
+                        key={holding.id} 
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                        data-testid={`holding-${holding.id}`}
+                      >
+                        <div>
+                          <div className="font-medium">{holding.symbol || holding.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {holding.quantity} units @ ₹{parseFloat(holding.averageCost || '0').toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold">₹{parseFloat(holding.currentValue || '0').toLocaleString()}</div>
+                          <div className={`text-sm ${parseFloat(holding.unrealizedGain || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {parseFloat(holding.unrealizedGain || '0') >= 0 ? '+' : ''}
+                            {parseFloat(holding.unrealizedGainPercent || '0').toFixed(2)}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* External Portfolio Tab - Synced from external brokers */}
+          <TabsContent value="external" className="space-y-8">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center space-x-2">
+                      <ExternalLink className="h-5 w-5 text-purple-600" />
+                      <span>External Portfolio</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Holdings synced from external brokers like Zerodha, Groww, and other platforms via Account Aggregator
+                    </CardDescription>
+                  </div>
+                  <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                    <Shield className="h-3 w-3 mr-1" />
+                    AA Consent Protected
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ExternalPortfolioSync />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="insurance" className="space-y-8">

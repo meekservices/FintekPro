@@ -38,7 +38,6 @@ import { RetirementPlanning } from "@/components/wealth/retirement-planning";
 import { RiskAssessment } from "@/components/wealth/risk-assessment";
 import { InvestmentRecommendations } from "@/components/wealth/investment-recommendations";
 import { Proposals } from "@/components/wealth/proposals";
-import { ExternalPortfolioSync } from "@/components/portfolio-sync/ExternalPortfolioSync";
 
 interface FinancialAnalysis {
   monthlyIncome: number;

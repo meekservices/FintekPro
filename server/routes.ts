@@ -21340,6 +21340,22 @@ System Security Data:`;
     }
   });
 
+  // Get user's unified orders (FintekPro transactions)
+  app.get('/api/unified-orders', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Get all orders for this user from unified_orders table
+      const orders = await storage.getUnifiedOrdersByUser(userId);
+      
+      res.json(orders);
+    } catch (error) {
+      console.error('Failed to fetch unified orders:', error);
+      res.status(500).json({ error: 'Failed to fetch orders' });
+    }
+  });
+
+
   // Load proposal items to cart
   app.post("/api/proposals/:proposalId/load-to-cart", requireAuth, async (req, res) => {
     try {

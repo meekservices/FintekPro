@@ -949,6 +949,7 @@ export interface IStorage {
   }): Promise<{ orders: any[]; total: number }>;
   
   getUnifiedOrderDetails(orderId: string): Promise<any | undefined>;
+  getUnifiedOrdersByUser(userId: string): Promise<any[]>;
   
   // Payment Tracking
   getCashfreeTransactions(filters?: {
@@ -6944,6 +6945,15 @@ export class DatabaseStorage implements IStorage {
         mobile: user.mobile
       } : null
     };
+  }
+
+  async getUnifiedOrdersByUser(userId: string) {
+    const orders = await db.select()
+      .from(schema.unifiedOrders)
+      .where(eq(schema.unifiedOrders.userId, userId))
+      .orderBy(desc(schema.unifiedOrders.createdAt));
+    
+    return orders;
   }
   
   async getCashfreeTransactions(filters?: {
