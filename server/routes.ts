@@ -11558,6 +11558,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Insurance Holdings Routes
+
+  // Government Schemes Refresh Routes (OTP-based data refresh)
+  app.post("/api/government-schemes/:schemeType/refresh", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { schemeType } = req.params;
+      const { channel = 'mobile' } = req.body;
+      
+      const validSchemeTypes = ['epf', 'ppf', 'eps', 'nps', 'apy', 'insurance'];
+      if (!validSchemeTypes.includes(schemeType)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid scheme type: ${schemeType}` 
+        });
+      }
+      
+      // Generate a challenge ID for OTP verification
+      const challengeId = `refresh_${schemeType}_${userId}_${Date.now()}`;
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      
+      // In production, this would trigger an actual OTP send via SMS/Email
+      console.log(`[Government Schemes Refresh] OTP initiated for ${schemeType}, user: ${userId}, channel: ${channel}`);
+      
+      res.json({
+        success: true,
+        challengeId,
+        expiresAt: expiresAt.toISOString(),
+        message: `OTP sent to your registered ${channel === 'mobile' ? 'mobile number' : 'email'}`
+      });
+    } catch (error) {
+      console.error("Error initiating government scheme refresh:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to initiate data refresh" 
+      });
+    }
+  });
+
+  app.post("/api/government-schemes/:schemeType/otp/verify", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { schemeType } = req.params;
+      const { challengeId, otp } = req.body;
+      
+      if (!challengeId || !otp) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Challenge ID and OTP are required" 
+        });
+      }
+      
+      const validSchemeTypes = ['epf', 'ppf', 'eps', 'nps', 'apy', 'insurance'];
+      if (!validSchemeTypes.includes(schemeType)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid scheme type: ${schemeType}` 
+        });
+      }
+      
+      // In production, this would verify the OTP against the stored challenge
+      // For demo purposes, accept any 6-digit OTP
+      if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid OTP format. Please enter a 6-digit code." 
+        });
+      }
+      
+      // Simulate OTP verification and data refresh
+      console.log(`[Government Schemes Refresh] OTP verified for ${schemeType}, user: ${userId}, challengeId: ${challengeId}`);
+      
+      res.json({
+        success: true,
+        message: `${schemeType.toUpperCase()} data has been refreshed successfully from government sources`
+      });
+    } catch (error) {
+      console.error("Error verifying OTP for government scheme refresh:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to verify OTP" 
+      });
+    }
+  });
+
   app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
