@@ -1,6 +1,6 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Partner, type InsertPartner, type Agent, type InsertAgent, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight, type FinancialObligation, type InsertFinancialObligation, type NpsAccount, type ApyAccount } from "@shared/schema";
 import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog } from "@shared/schema";
-import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument, type UnlistedCompany, type InsertUnlistedCompany, type CompanyFinancials, type InsertCompanyFinancials, type CompanyRatios, type InsertCompanyRatios, type UnlistedPriceHistory, type InsertUnlistedPriceHistory, type SellListing, type InsertSellListing, type BuyRequest, type InsertBuyRequest, type UnlistedDeal, type InsertUnlistedDeal, type Probe42SyncLog, type InsertProbe42SyncLog } from "@shared/schema";
+import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument, type UnlistedCompany, type InsertUnlistedCompany, type CompanyFinancials, type InsertCompanyFinancials, type CompanyRatios, type InsertCompanyRatios, type UnlistedPriceHistory, type InsertUnlistedPriceHistory, type SellListing, type InsertSellListing, type BuyRequest, type InsertBuyRequest, type UnlistedDeal, type InsertUnlistedDeal, type Probe42SyncLog, type InsertProbe42SyncLog, type SupportTemplate, type InsertSupportTemplate, type SupportStep, type InsertSupportStep, type SupportStepComment, type InsertSupportStepComment } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, or, desc, asc, gte, lte, like, ilike, sql } from "drizzle-orm";
@@ -1165,6 +1165,26 @@ export interface IStorage {
   // Probe42 Sync Log
   createProbe42SyncLog(data: InsertProbe42SyncLog): Promise<Probe42SyncLog>;
   getLatestSyncLog(companyId: string): Promise<Probe42SyncLog | null>;
+  
+  // CA Support System - Templates
+  createSupportTemplate(data: InsertSupportTemplate): Promise<SupportTemplate>;
+  getSupportTemplates(category?: string): Promise<SupportTemplate[]>;
+  getSupportTemplateById(id: string): Promise<SupportTemplate | null>;
+  updateSupportTemplate(id: string, data: Partial<InsertSupportTemplate>): Promise<SupportTemplate | null>;
+  deleteSupportTemplate(id: string): Promise<boolean>;
+  
+  // CA Support System - Steps
+  createSupportStep(data: InsertSupportStep): Promise<SupportStep>;
+  getSupportStepsByTemplateId(templateId: string): Promise<SupportStep[]>;
+  getSupportStepsByTicketId(ticketId: string): Promise<SupportStep[]>;
+  getSupportStepById(id: string): Promise<SupportStep | null>;
+  updateSupportStep(id: string, data: Partial<InsertSupportStep>): Promise<SupportStep | null>;
+  deleteSupportStep(id: string): Promise<boolean>;
+  
+  // CA Support System - Step Comments
+  createSupportStepComment(data: InsertSupportStepComment): Promise<SupportStepComment>;
+  getSupportStepComments(stepId: string): Promise<SupportStepComment[]>;
+  deleteSupportStepComment(id: string): Promise<boolean>;
   
   // Transaction Support
   withTransaction<T>(callback: (tx: any) => Promise<T>): Promise<T>;
@@ -8428,6 +8448,121 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(schema.probe42SyncLog.lastSyncAt))
       .limit(1);
     return log || null;
+  }
+
+  // CA Support System - Templates
+  async createSupportTemplate(data: InsertSupportTemplate): Promise<SupportTemplate> {
+    const id = randomUUID();
+    const [template] = await db.insert(schema.supportTemplates)
+      .values({ ...data, id, createdAt: new Date(), updatedAt: new Date() })
+      .returning();
+    return template;
+  }
+
+  async getSupportTemplates(category?: string): Promise<SupportTemplate[]> {
+    if (category) {
+      return await db.select()
+        .from(schema.supportTemplates)
+        .where(and(
+          eq(schema.supportTemplates.category, category),
+          eq(schema.supportTemplates.isActive, true)
+        ))
+        .orderBy(asc(schema.supportTemplates.name));
+    }
+    return await db.select()
+      .from(schema.supportTemplates)
+      .where(eq(schema.supportTemplates.isActive, true))
+      .orderBy(asc(schema.supportTemplates.name));
+  }
+
+  async getSupportTemplateById(id: string): Promise<SupportTemplate | null> {
+    const [template] = await db.select()
+      .from(schema.supportTemplates)
+      .where(eq(schema.supportTemplates.id, id));
+    return template || null;
+  }
+
+  async updateSupportTemplate(id: string, data: Partial<InsertSupportTemplate>): Promise<SupportTemplate | null> {
+    const [updated] = await db.update(schema.supportTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.supportTemplates.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async deleteSupportTemplate(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.supportTemplates)
+      .where(eq(schema.supportTemplates.id, id))
+      .returning();
+    return !!deleted;
+  }
+
+  // CA Support System - Steps
+  async createSupportStep(data: InsertSupportStep): Promise<SupportStep> {
+    const id = randomUUID();
+    const [step] = await db.insert(schema.supportSteps)
+      .values({ ...data, id, createdAt: new Date(), updatedAt: new Date() })
+      .returning();
+    return step;
+  }
+
+  async getSupportStepsByTemplateId(templateId: string): Promise<SupportStep[]> {
+    return await db.select()
+      .from(schema.supportSteps)
+      .where(eq(schema.supportSteps.templateId, templateId))
+      .orderBy(asc(schema.supportSteps.order));
+  }
+
+  async getSupportStepsByTicketId(ticketId: string): Promise<SupportStep[]> {
+    return await db.select()
+      .from(schema.supportSteps)
+      .where(eq(schema.supportSteps.ticketId, ticketId))
+      .orderBy(asc(schema.supportSteps.order));
+  }
+
+  async getSupportStepById(id: string): Promise<SupportStep | null> {
+    const [step] = await db.select()
+      .from(schema.supportSteps)
+      .where(eq(schema.supportSteps.id, id));
+    return step || null;
+  }
+
+  async updateSupportStep(id: string, data: Partial<InsertSupportStep>): Promise<SupportStep | null> {
+    const [updated] = await db.update(schema.supportSteps)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.supportSteps.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async deleteSupportStep(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.supportSteps)
+      .where(eq(schema.supportSteps.id, id))
+      .returning();
+    return !!deleted;
+  }
+
+  // CA Support System - Step Comments
+  async createSupportStepComment(data: InsertSupportStepComment): Promise<SupportStepComment> {
+    const id = randomUUID();
+    const [comment] = await db.insert(schema.supportStepComments)
+      .values({ ...data, id, createdAt: new Date() })
+      .returning();
+    return comment;
+  }
+
+  async getSupportStepComments(stepId: string): Promise<SupportStepComment[]> {
+    return await db.select()
+      .from(schema.supportStepComments)
+      .where(eq(schema.supportStepComments.stepId, stepId))
+      .orderBy(asc(schema.supportStepComments.createdAt));
+  }
+
+  async deleteSupportStepComment(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.supportStepComments)
+      .where(eq(schema.supportStepComments.id, id))
+      .returning();
+    return !!deleted;
   }
 
   // Transaction Support
