@@ -319,14 +319,67 @@ export default function StorePage() {
     enabled: isAuthenticated,
   });
   
-  // Fetch products from API
-  const { data: productsData, isLoading: isLoadingProducts } = useQuery<any[]>({
-    queryKey: ["/api/products"],
+  // Fetch categories from Store Management API
+  const { data: categoriesData, isLoading: isLoadingCategories } = useQuery<{
+    success: boolean;
+    categories: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      icon?: string;
+      displayOrder?: number;
+      subcategories: Array<{
+        id: string;
+        name: string;
+        description?: string;
+      }>;
+    }>;
+  }>({
+    queryKey: ["/api/store/categories"],
   });
+
+  // Fetch products from Store Management API
+  const { data: storeProductsData, isLoading: isLoadingStoreProducts } = useQuery<{
+    success: boolean;
+    products: any[];
+    count: number;
+  }>({
+    queryKey: ["/api/store/products"],
+  });
+
+  // Fallback: Fetch from legacy products API
+  const { data: legacyProductsData, isLoading: isLoadingLegacyProducts } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+    enabled: !storeProductsData?.products?.length,
+  });
+
+  const isLoadingProducts = isLoadingStoreProducts || isLoadingLegacyProducts;
   
-  // Normalize API data to match Product interface
-  const normalizeProduct = (apiProduct: any): Product => {
-    // Map database category to display category
+  // Normalize Store Management product to match Product interface
+  const normalizeStoreProduct = (storeProduct: any): Product => {
+    return {
+      id: storeProduct.id,
+      name: storeProduct.name,
+      shortDescription: storeProduct.shortDescription || storeProduct.description || '',
+      category: storeProduct.categoryName || storeProduct.categoryId,
+      subcategory: storeProduct.subcategoryName || storeProduct.subcategoryId,
+      productType: storeProduct.productType || storeProduct.planType || 'product',
+      kycProductCode: storeProduct.productKey,
+      price: storeProduct.basePrice,
+      minimumInvestment: storeProduct.minimumInvestment || 0,
+      riskLevel: storeProduct.riskLevel || 'medium',
+      expectedReturns: storeProduct.expectedReturns || storeProduct.returns1y || 0,
+      provider: storeProduct.provider || '',
+      features: storeProduct.features || [],
+      isFeatured: storeProduct.isFeatured || false,
+      isPremium: storeProduct.isPremium || false,
+      isNew: storeProduct.isNew || false,
+      badge: storeProduct.badge
+    };
+  };
+
+  // Legacy normalize function for old API
+  const normalizeLegacyProduct = (apiProduct: any): Product => {
     const categoryMap: Record<string, string> = {
       'mutual_fund': 'Investment Products',
       'bond': 'Investment Products',
@@ -355,11 +408,18 @@ export default function StorePage() {
     };
   };
   
-  // Use API data if available, fallback to mock data
-  const products = productsData ? productsData.map(normalizeProduct) : mockProducts;
+  // Use Store Management products first, then legacy API, then mock data
+  const products = storeProductsData?.products?.length 
+    ? storeProductsData.products.map(normalizeStoreProduct)
+    : legacyProductsData 
+      ? legacyProductsData.map(normalizeLegacyProduct) 
+      : mockProducts;
   
-  // Get unique categories from products
-  const categories = ["all", ...Array.from(new Set(products.map(p => p.category)))];
+  // Get categories from Store Management API or derive from products
+  const storeCategories = categoriesData?.categories || [];
+  const categories = storeCategories.length > 0
+    ? ["all", ...storeCategories.map(c => c.name)]
+    : ["all", ...Array.from(new Set(products.map(p => p.category)))];
 
   const isProductLocked = (product: Product): boolean => {
     if (!isAuthenticated) return false;
