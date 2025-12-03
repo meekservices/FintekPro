@@ -406,12 +406,12 @@ export function EnhancedNavigation() {
   return (
     <>
       {/* Left Sidebar with Sticky Positioning */}
-      <aside className={`sticky top-0 h-screen bg-white shadow-lg border-r border-gray-200 overflow-y-auto transition-all duration-300 ease-in-out ${
+      <aside className={`sticky top-0 h-screen bg-card shadow-lg border-r border-border overflow-y-auto transition-all duration-300 ease-in-out ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}>
         <div className="flex flex-col h-full">
           {/* Logo and Toggle */}
-          <div className="flex items-center h-16 px-4 border-b border-gray-200 justify-between">
+          <div className="flex items-center h-16 px-4 border-b border-border justify-between">
             {!isCollapsed && (
               <Link href="/">
                 <h1 className="text-xl font-bold text-finance-blue cursor-pointer" data-testid="logo">
@@ -432,7 +432,7 @@ export function EnhancedNavigation() {
 
           {/* User Profile Section */}
           {isAuthenticated && user && !isCollapsed && (
-            <div className="flex items-center space-x-3 p-4 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center space-x-3 p-4 border-b border-border bg-muted/50">
               {user?.profileImageUrl && (
                 <img 
                   src={user.profileImageUrl} 
@@ -441,8 +441,8 @@ export function EnhancedNavigation() {
                 />
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate text-sm">UID: {user?.userId || user?.id || 'N/A'}</p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="font-medium text-foreground truncate text-sm">UID: {user?.userId || user?.id || 'N/A'}</p>
+                <p className="text-xs text-muted-foreground truncate">
                   {user?.previousLoginAt 
                     ? `Last login: ${new Date(user.previousLoginAt).toLocaleString('en-IN', { 
                         dateStyle: 'short', 
@@ -455,7 +455,7 @@ export function EnhancedNavigation() {
           )}
 
           {/* Quick Actions */}
-          <div className="p-2 border-b border-gray-200">
+          <div className="p-2 border-b border-border">
             <div className="space-y-1">
               {/* Cart Button */}
               <Link href="/cart">
@@ -483,7 +483,7 @@ export function EnhancedNavigation() {
               {navigationGroups.map((group) => (
                 <div key={group.title} className="space-y-2">
                   {!isCollapsed && (
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
                       {group.title}
                     </h3>
                   )}
