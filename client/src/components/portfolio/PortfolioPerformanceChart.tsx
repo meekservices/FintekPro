@@ -14,7 +14,7 @@ import {
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type TimePeriod = "1D" | "1W" | "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL";
+type TimePeriod = "1D" | "1W" | "1M" | "3M" | "6M" | "YTD" | "1Y" | "2Y" | "3Y" | "ALL";
 
 interface PerformanceDataPoint {
   date: string;
@@ -34,9 +34,10 @@ const timePeriods: { label: string; value: TimePeriod }[] = [
   { label: "1W", value: "1W" },
   { label: "1M", value: "1M" },
   { label: "3M", value: "3M" },
-  { label: "6M", value: "6M" },
   { label: "YTD", value: "YTD" },
   { label: "1Y", value: "1Y" },
+  { label: "2Y", value: "2Y" },
+  { label: "3Y", value: "3Y" },
   { label: "All", value: "ALL" },
 ];
 
@@ -80,9 +81,17 @@ function generateHistoricalData(
       days = 365;
       interval = 7;
       break;
-    case "ALL":
+    case "2Y":
       days = 730;
       interval = 14;
+      break;
+    case "3Y":
+      days = 1095;
+      interval = 21;
+      break;
+    case "ALL":
+      days = 1825;
+      interval = 30;
       break;
     default:
       days = 30;
