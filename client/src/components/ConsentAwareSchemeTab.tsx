@@ -155,9 +155,21 @@ export function ConsentAwareSchemeTab({
         setChallengeId(null);
         setIsRefreshing(false);
         
-        queryClient.invalidateQueries({ queryKey: [`/api/government-schemes/${schemeType}`] });
+        queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey;
+            if (Array.isArray(key)) {
+              const keyStr = key.join('/');
+              return keyStr.includes(`government-schemes/${schemeType}`) || 
+                     keyStr.includes('government-schemes') ||
+                     keyStr.includes('insurance-holdings');
+            }
+            return false;
+          }
+        });
+        
         queryClient.invalidateQueries({ queryKey: ['government-schemes', 'consent'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/insurance-holdings'] });
+        queryClient.invalidateQueries({ queryKey: ['government-schemes'] });
         
         toast({
           title: "Refresh Complete",

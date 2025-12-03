@@ -36,15 +36,15 @@ export class TaxOrchestrator {
     const ayParts = data.assessmentYear.split('-');
     const financialYear = `${parseInt(ayParts[0]) - 1}-${parseInt(ayParts[1]) - 1}`;
 
-    const sessionData: InsertTaxSession = {
+    const sessionData = {
       userId: data.userId,
       panNumber: data.panNumber,
       assessmentYear: data.assessmentYear,
       financialYear: financialYear,
-      currentStep: 1,
-      completionPercentage: 5,
-      dataSourcesConnected: 0,
-      validationIssuesCount: 0
+      currentStep: 1 as number | null,
+      completionPercentage: 5 as number | null,
+      dataSourcesConnected: 0 as number | null,
+      validationIssuesCount: 0 as number | null
     };
 
     // Get AI suggestions for ITR form and tax regime
