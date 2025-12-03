@@ -1,9 +1,17 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Search, 
   Phone, 
@@ -19,13 +27,93 @@ import {
   Shield,
   Building,
   AlertTriangle,
-  ChevronDown
+  ChevronDown,
+  Plus,
+  Ticket,
+  Send,
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 
+interface SupportTicket {
+  id: number;
+  ticketNumber: string;
+  subject: string;
+  description: string;
+  category: string;
+  priority: string;
+  status: string;
+  createdAt: string;
+}
+
 export default function Support() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedFaqCard, setExpandedFaqCard] = useState<string | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newTicket, setNewTicket] = useState({
+    subject: "",
+    description: "",
+    category: "general",
+    priority: "medium",
+    clientName: "",
+    clientEmail: "",
+    clientPhone: ""
+  });
+
+  const { data: myTickets = [], isLoading: ticketsLoading } = useQuery<SupportTicket[]>({
+    queryKey: ["/api/support/my-tickets"],
+  });
+
+  const createTicketMutation = useMutation({
+    mutationFn: async (ticketData: typeof newTicket) => {
+      const res = await apiRequest("/api/support/tickets", {
+        method: "POST",
+        body: JSON.stringify(ticketData)
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/support/my-tickets"] });
+      setIsCreateDialogOpen(false);
+      setNewTicket({
+        subject: "",
+        description: "",
+        category: "general",
+        priority: "medium",
+        clientName: "",
+        clientEmail: "",
+        clientPhone: ""
+      });
+      toast({
+        title: "Support Request Created",
+        description: "Your request has been submitted. Our team will respond within 24 hours."
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to create request",
+        description: error.message || "Please try again later",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "open":
+        return "bg-blue-100 text-blue-800";
+      case "in_progress":
+        return "bg-yellow-100 text-yellow-800";
+      case "resolved":
+        return "bg-green-100 text-green-800";
+      case "closed":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
   const faqCategories = [
     {
@@ -207,6 +295,188 @@ export default function Support() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+          {/* Create Support Request Section */}
+          <div className="mb-12">
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-full bg-white shadow-sm">
+                      <Ticket className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">Need Help?</h3>
+                      <p className="text-gray-600">Create a support request and our team will assist you</p>
+                    </div>
+                  </div>
+                  <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="lg" className="gap-2" data-testid="button-create-ticket">
+                        <Plus className="h-5 w-5" />
+                        Create Support Request
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Create Support Request</DialogTitle>
+                        <DialogDescription>
+                          Fill in the details below and our support team will get back to you within 24 hours.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="clientName">Your Name</Label>
+                            <Input
+                              id="clientName"
+                              value={newTicket.clientName}
+                              onChange={(e) => setNewTicket({ ...newTicket, clientName: e.target.value })}
+                              placeholder="Enter your name"
+                              data-testid="input-client-name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="clientPhone">Phone Number</Label>
+                            <Input
+                              id="clientPhone"
+                              value={newTicket.clientPhone}
+                              onChange={(e) => setNewTicket({ ...newTicket, clientPhone: e.target.value })}
+                              placeholder="Enter your phone"
+                              data-testid="input-client-phone"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="clientEmail">Email Address</Label>
+                          <Input
+                            id="clientEmail"
+                            type="email"
+                            value={newTicket.clientEmail}
+                            onChange={(e) => setNewTicket({ ...newTicket, clientEmail: e.target.value })}
+                            placeholder="Enter your email"
+                            data-testid="input-client-email"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="subject">Subject</Label>
+                          <Input
+                            id="subject"
+                            value={newTicket.subject}
+                            onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+                            placeholder="Brief description of your issue"
+                            data-testid="input-subject"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Category</Label>
+                            <Select
+                              value={newTicket.category}
+                              onValueChange={(value) => setNewTicket({ ...newTicket, category: value })}
+                            >
+                              <SelectTrigger data-testid="select-category">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="general">General Inquiry</SelectItem>
+                                <SelectItem value="itr_filing">ITR Filing</SelectItem>
+                                <SelectItem value="gst_returns">GST Returns</SelectItem>
+                                <SelectItem value="tax_planning">Tax Planning</SelectItem>
+                                <SelectItem value="kyc_verification">KYC Verification</SelectItem>
+                                <SelectItem value="investment_advisory">Investment Advisory</SelectItem>
+                                <SelectItem value="account_issue">Account Issue</SelectItem>
+                                <SelectItem value="technical">Technical Support</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Priority</Label>
+                            <Select
+                              value={newTicket.priority}
+                              onValueChange={(value) => setNewTicket({ ...newTicket, priority: value })}
+                            >
+                              <SelectTrigger data-testid="select-priority">
+                                <SelectValue placeholder="Select priority" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">Low</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="urgent">Urgent</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="description">Description</Label>
+                          <Textarea
+                            id="description"
+                            value={newTicket.description}
+                            onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
+                            placeholder="Please describe your issue in detail..."
+                            className="min-h-[120px]"
+                            data-testid="input-description"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => createTicketMutation.mutate(newTicket)}
+                          disabled={!newTicket.subject || !newTicket.description || !newTicket.clientEmail || createTicketMutation.isPending}
+                          className="gap-2"
+                          data-testid="button-submit-ticket"
+                        >
+                          {createTicketMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                          Submit Request
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* My Tickets Section */}
+          {myTickets.length > 0 && (
+            <div className="mb-12">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6" data-testid="my-tickets-title">
+                My Support Requests
+              </h2>
+              <div className="space-y-4">
+                {myTickets.map((ticket) => (
+                  <Card key={ticket.id} className="hover:shadow-md transition-shadow" data-testid={`ticket-${ticket.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-mono text-gray-500">{ticket.ticketNumber}</span>
+                            <Badge className={getStatusColor(ticket.status)}>
+                              {ticket.status.replace('_', ' ')}
+                            </Badge>
+                          </div>
+                          <h4 className="font-medium text-gray-900">{ticket.subject}</h4>
+                          <p className="text-sm text-gray-600 line-clamp-2 mt-1">{ticket.description}</p>
+                        </div>
+                        <div className="text-right text-sm text-gray-500">
+                          <p>{new Date(ticket.createdAt).toLocaleDateString()}</p>
+                          <Badge variant="outline" className="mt-1 capitalize">{ticket.category.replace('_', ' ')}</Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* Contact Options */}
           <div className="mb-12">

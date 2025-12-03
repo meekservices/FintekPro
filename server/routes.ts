@@ -21165,6 +21165,29 @@ System Security Data:`;
     }
   });
 
+
+  // Get support tickets for current user (by email)
+  app.get("/api/support/my-tickets", async (req, res) => {
+    try {
+      // Get email from query param or from authenticated user
+      const email = req.query.email as string || (req.user as any)?.email;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      const tickets = await db
+        .select()
+        .from(schema.supportTickets)
+        .where(eq(schema.supportTickets.clientEmail, email))
+        .orderBy(desc(schema.supportTickets.createdAt));
+      
+      res.json(tickets);
+    } catch (error) {
+      console.error("Error fetching user tickets:", error);
+      res.status(500).json({ error: "Failed to fetch tickets" });
+    }
+  });
   // Handle contact form submissions
   app.post("/api/contact/submit", async (req, res) => {
     try {
