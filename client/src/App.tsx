@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GDPRConsent } from "@/components/gdpr-consent";
+import { ThemeProvider } from "@/contexts/theme-context";
 import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
@@ -579,13 +580,15 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <GDPRConsent />
-          <Router />
-        </TooltipProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <GDPRConsent />
+            <Router />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

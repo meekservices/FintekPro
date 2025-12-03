@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/contexts/theme-context";
 import { 
   Settings as SettingsIcon, 
   User, 
@@ -23,7 +24,11 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  Check
+  Check,
+  Sun,
+  Moon,
+  Monitor,
+  Palette
 } from "lucide-react";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,6 +55,7 @@ const securityFormSchema = z.object({
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   
@@ -129,6 +135,10 @@ export default function SettingsPage() {
           <TabsTrigger value="product-preferences" data-testid="tab-product-preferences">
             <SettingsIcon className="h-4 w-4 mr-2" />
             Product Accounts
+          </TabsTrigger>
+          <TabsTrigger value="appearance" data-testid="tab-appearance">
+            <Palette className="h-4 w-4 mr-2" />
+            Appearance
           </TabsTrigger>
         </ScrollableTabsList>
 
@@ -524,6 +534,158 @@ export default function SettingsPage() {
         {/* Product Account Preferences Tab */}
         <TabsContent value="product-preferences" className="space-y-6">
           <ProductAccountPreferences />
+        </TabsContent>
+
+        {/* Appearance Tab */}
+        <TabsContent value="appearance" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Visual Mode
+              </CardTitle>
+              <CardDescription>
+                Choose your preferred appearance theme. Select Light for a bright interface, Dark for reduced eye strain, or System to match your device settings.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  onClick={() => {
+                    setTheme("light");
+                    toast({ title: "Theme Updated", description: "Light mode activated" });
+                  }}
+                  className={`relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all hover:border-primary/50 ${
+                    theme === "light" 
+                      ? "border-primary bg-primary/5 shadow-sm" 
+                      : "border-muted hover:bg-muted/30"
+                  }`}
+                  data-testid="button-theme-light"
+                >
+                  {theme === "light" && (
+                    <div className="absolute top-2 right-2">
+                      <Check className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div className={`p-4 rounded-full ${theme === "light" ? "bg-primary/10" : "bg-muted"}`}>
+                    <Sun className={`h-8 w-8 ${theme === "light" ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold">Light</p>
+                    <p className="text-sm text-muted-foreground">Bright and clear</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setTheme("dark");
+                    toast({ title: "Theme Updated", description: "Dark mode activated" });
+                  }}
+                  className={`relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all hover:border-primary/50 ${
+                    theme === "dark" 
+                      ? "border-primary bg-primary/5 shadow-sm" 
+                      : "border-muted hover:bg-muted/30"
+                  }`}
+                  data-testid="button-theme-dark"
+                >
+                  {theme === "dark" && (
+                    <div className="absolute top-2 right-2">
+                      <Check className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div className={`p-4 rounded-full ${theme === "dark" ? "bg-primary/10" : "bg-muted"}`}>
+                    <Moon className={`h-8 w-8 ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold">Dark</p>
+                    <p className="text-sm text-muted-foreground">Easy on the eyes</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setTheme("system");
+                    toast({ title: "Theme Updated", description: "Following system preference" });
+                  }}
+                  className={`relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all hover:border-primary/50 ${
+                    theme === "system" 
+                      ? "border-primary bg-primary/5 shadow-sm" 
+                      : "border-muted hover:bg-muted/30"
+                  }`}
+                  data-testid="button-theme-system"
+                >
+                  {theme === "system" && (
+                    <div className="absolute top-2 right-2">
+                      <Check className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div className={`p-4 rounded-full ${theme === "system" ? "bg-primary/10" : "bg-muted"}`}>
+                    <Monitor className={`h-8 w-8 ${theme === "system" ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold">System</p>
+                    <p className="text-sm text-muted-foreground">Match device theme</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Current Mode</p>
+                    <p className="text-sm text-muted-foreground">
+                      Your interface is currently displaying in {resolvedTheme} mode
+                      {theme === "system" && " (based on your system settings)"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted">
+                    {resolvedTheme === "dark" ? (
+                      <Moon className="h-4 w-4" />
+                    ) : (
+                      <Sun className="h-4 w-4" />
+                    )}
+                    <span className="font-medium capitalize">{resolvedTheme}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Display Preferences</CardTitle>
+              <CardDescription>Additional display settings for your experience</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Reduce Motion</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Minimize animations and transitions
+                  </p>
+                </div>
+                <Switch data-testid="switch-reduce-motion" />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>High Contrast</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Increase contrast for better visibility
+                  </p>
+                </div>
+                <Switch data-testid="switch-high-contrast" />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Compact Mode</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Reduce spacing to show more content
+                  </p>
+                </div>
+                <Switch data-testid="switch-compact-mode" />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
