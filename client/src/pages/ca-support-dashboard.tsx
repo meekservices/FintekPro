@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -89,6 +90,7 @@ interface SupportTicket {
 
 export default function CASupportDashboard() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('tickets');
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
@@ -530,6 +532,14 @@ export default function CASupportDashboard() {
                         </span>
                       </div>
                       <Progress value={selectedTicket.stepProgress.percentage} className="h-3 mb-4" />
+                      <Button 
+                        onClick={() => setLocation(`/partner/ca-support/${selectedTicket.id}`)}
+                        className="w-full mt-4"
+                        data-testid="button-open-full-workflow"
+                      >
+                        Open Full Workflow Details
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
                     </div>
                   ) : (
                     <div className="p-6 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center">
@@ -558,6 +568,15 @@ export default function CASupportDashboard() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setLocation(`/partner/ca-support/${selectedTicket.id}`)}
+                        className="w-full max-w-xs mx-auto mt-4"
+                        data-testid="button-view-details"
+                      >
+                        View Ticket Details
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
                     </div>
                   )}
                 </div>
