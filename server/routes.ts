@@ -32350,6 +32350,390 @@ System Security Data:`;
     }
   });
 
+  // ========== CA Support System Routes ==========
+
+  // Get all support templates (for partner/CA)
+  app.get('/api/support/templates', requireAuth, async (req, res) => {
+    try {
+      const { category } = req.query;
+      const templates = await storage.getSupportTemplates(category as string | undefined);
+      res.json({ templates });
+    } catch (error) {
+      console.error('Error fetching support templates:', error);
+      res.status(500).json({ message: 'Failed to fetch support templates' });
+    }
+  });
+
+  // Get single support template with steps
+  app.get('/api/support/templates/:id', requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getSupportTemplateById(req.params.id);
+      if (!template) {
+        return res.status(404).json({ message: 'Template not found' });
+      }
+      const steps = await storage.getSupportStepsByTemplateId(req.params.id);
+      res.json({ template, steps });
+    } catch (error) {
+      console.error('Error fetching support template:', error);
+      res.status(500).json({ message: 'Failed to fetch support template' });
+    }
+  });
+
+  // Create new support template (admin/partner only)
+  app.post('/api/support/templates', requireAuth, async (req, res) => {
+    try {
+      const { name, description, category, estimatedTime, requiredDocuments, steps } = req.body;
+      
+      const template = await storage.createSupportTemplate({
+        name,
+        description,
+        category,
+        estimatedTime,
+        requiredDocuments: requiredDocuments || [],
+        isActive: true,
+        createdBy: req.user!.id,
+      });
+
+      // Create steps if provided
+      if (steps && Array.isArray(steps)) {
+        for (let i = 0; i < steps.length; i++) {
+          await storage.createSupportStep({
+            templateId: template.id,
+            title: steps[i].title,
+            description: steps[i].description,
+            order: i + 1,
+            status: 'pending',
+            isRequired: steps[i].isRequired !== false,
+          });
+        }
+      }
+
+      const createdSteps = await storage.getSupportStepsByTemplateId(template.id);
+      res.json({ template, steps: createdSteps });
+    } catch (error) {
+      console.error('Error creating support template:', error);
+      res.status(500).json({ message: 'Failed to create support template' });
+    }
+  });
+
+  // Update support template
+  app.patch('/api/support/templates/:id', requireAuth, async (req, res) => {
+    try {
+      const updated = await storage.updateSupportTemplate(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ message: 'Template not found' });
+      }
+      res.json({ template: updated });
+    } catch (error) {
+      console.error('Error updating support template:', error);
+      res.status(500).json({ message: 'Failed to update support template' });
+    }
+  });
+
+  // Delete support template
+  app.delete('/api/support/templates/:id', requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteSupportTemplate(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: 'Template not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting support template:', error);
+      res.status(500).json({ message: 'Failed to delete support template' });
+    }
+  });
+
+  // Get steps for a ticket
+  app.get('/api/support/tickets/:ticketId/steps', requireAuth, async (req, res) => {
+    try {
+      const steps = await storage.getSupportStepsByTicketId(req.params.ticketId);
+      res.json({ steps });
+    } catch (error) {
+      console.error('Error fetching ticket steps:', error);
+      res.status(500).json({ message: 'Failed to fetch ticket steps' });
+    }
+  });
+
+  // Create step for a ticket (from template or custom)
+  app.post('/api/support/tickets/:ticketId/steps', requireAuth, async (req, res) => {
+    try {
+      const { title, description, order, isRequired } = req.body;
+      const step = await storage.createSupportStep({
+        ticketId: req.params.ticketId,
+        title,
+        description,
+        order,
+        status: 'pending',
+        isRequired: isRequired !== false,
+      });
+      res.json({ step });
+    } catch (error) {
+      console.error('Error creating ticket step:', error);
+      res.status(500).json({ message: 'Failed to create ticket step' });
+    }
+  });
+
+  // Apply template steps to a ticket
+  app.post('/api/support/tickets/:ticketId/apply-template', requireAuth, async (req, res) => {
+    try {
+      const { templateId } = req.body;
+      const templateSteps = await storage.getSupportStepsByTemplateId(templateId);
+      
+      const createdSteps = [];
+      for (const templateStep of templateSteps) {
+        const step = await storage.createSupportStep({
+          ticketId: req.params.ticketId,
+          templateId: templateId,
+          title: templateStep.title,
+          description: templateStep.description,
+          order: templateStep.order,
+          status: 'pending',
+          isRequired: templateStep.isRequired,
+        });
+        createdSteps.push(step);
+      }
+
+      res.json({ steps: createdSteps });
+    } catch (error) {
+      console.error('Error applying template to ticket:', error);
+      res.status(500).json({ message: 'Failed to apply template to ticket' });
+    }
+  });
+
+  // Update step status
+  app.patch('/api/support/steps/:stepId', requireAuth, async (req, res) => {
+    try {
+      const { status, notes, assignedTo } = req.body;
+      const updateData: any = {};
+      
+      if (status) {
+        updateData.status = status;
+        if (status === 'completed') {
+          updateData.completedAt = new Date();
+          updateData.completedBy = req.user!.id;
+        }
+      }
+      if (notes !== undefined) updateData.notes = notes;
+      if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+
+      const updated = await storage.updateSupportStep(req.params.stepId, updateData);
+      if (!updated) {
+        return res.status(404).json({ message: 'Step not found' });
+      }
+      res.json({ step: updated });
+    } catch (error) {
+      console.error('Error updating step:', error);
+      res.status(500).json({ message: 'Failed to update step' });
+    }
+  });
+
+  // Add comment to step
+  app.post('/api/support/steps/:stepId/comments', requireAuth, async (req, res) => {
+    try {
+      const { content, isInternal } = req.body;
+      const comment = await storage.createSupportStepComment({
+        stepId: req.params.stepId,
+        authorId: req.user!.id,
+        authorType: 'partner',
+        content,
+        isInternal: isInternal || false,
+      });
+      res.json({ comment });
+    } catch (error) {
+      console.error('Error adding step comment:', error);
+      res.status(500).json({ message: 'Failed to add step comment' });
+    }
+  });
+
+  // Get comments for step
+  app.get('/api/support/steps/:stepId/comments', requireAuth, async (req, res) => {
+    try {
+      const comments = await storage.getSupportStepComments(req.params.stepId);
+      res.json({ comments });
+    } catch (error) {
+      console.error('Error fetching step comments:', error);
+      res.status(500).json({ message: 'Failed to fetch step comments' });
+    }
+  });
+
+  // Get partner's assigned support tickets with step progress
+  app.get('/api/partner/support/tickets', requireAuth, async (req, res) => {
+    try {
+      // Get support tickets assigned to partner's agents or the partner themselves
+      const tickets = await db.select()
+        .from(schema.supportTickets)
+        .where(eq(schema.supportTickets.assignedTo, req.user!.id))
+        .orderBy(desc(schema.supportTickets.createdAt));
+
+      // Enrich with step progress for each ticket
+      const enrichedTickets = await Promise.all(tickets.map(async (ticket) => {
+        const steps = await storage.getSupportStepsByTicketId(ticket.id);
+        const totalSteps = steps.length;
+        const completedSteps = steps.filter(s => s.status === 'completed').length;
+        
+        return {
+          ...ticket,
+          stepProgress: {
+            total: totalSteps,
+            completed: completedSteps,
+            percentage: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
+          },
+          nextStep: steps.find(s => s.status !== 'completed') || null,
+        };
+      }));
+
+      res.json({ tickets: enrichedTickets });
+    } catch (error) {
+      console.error('Error fetching partner support tickets:', error);
+      res.status(500).json({ message: 'Failed to fetch support tickets' });
+    }
+  });
+
+  // Get support statistics for partner dashboard
+  app.get('/api/partner/support/stats', requireAuth, async (req, res) => {
+    try {
+      const tickets = await db.select()
+        .from(schema.supportTickets)
+        .where(eq(schema.supportTickets.assignedTo, req.user!.id));
+
+      const stats = {
+        total: tickets.length,
+        open: tickets.filter(t => t.status === 'open').length,
+        inProgress: tickets.filter(t => t.status === 'in_progress').length,
+        resolved: tickets.filter(t => t.status === 'resolved').length,
+        pending: tickets.filter(t => t.status === 'pending').length,
+      };
+
+      res.json({ stats });
+    } catch (error) {
+      console.error('Error fetching support stats:', error);
+      res.status(500).json({ message: 'Failed to fetch support statistics' });
+    }
+  });
+
+  // Seed default support templates
+  app.post('/api/admin/support/seed-templates', requireAuth, async (req, res) => {
+    try {
+      const defaultTemplates = [
+        {
+          name: 'ITR-1 Filing (Sahaj)',
+          description: 'Step-by-step guide for filing ITR-1 for salaried individuals with income up to Rs.50 lakhs',
+          category: 'tax_filing',
+          estimatedTime: '2-3 days',
+          requiredDocuments: ['Form 16', 'Bank statements', 'PAN card', 'Aadhaar card', 'Investment proofs'],
+          steps: [
+            { title: 'Collect Income Documents', description: 'Gather Form 16, salary slips, and other income proofs from the client', isRequired: true },
+            { title: 'Verify PAN & Aadhaar', description: 'Ensure PAN is linked with Aadhaar and details match', isRequired: true },
+            { title: 'Download Form 26AS', description: 'Download and verify TDS credits from Form 26AS', isRequired: true },
+            { title: 'Download AIS', description: 'Fetch Annual Information Statement for comprehensive income verification', isRequired: true },
+            { title: 'Calculate Tax Liability', description: 'Compute tax under old vs new regime and recommend optimal choice', isRequired: true },
+            { title: 'Prepare ITR Form', description: 'Fill ITR-1 form with verified data', isRequired: true },
+            { title: 'Client Review', description: 'Share draft with client for approval before filing', isRequired: true },
+            { title: 'File ITR', description: 'Submit ITR on income tax portal and generate acknowledgement', isRequired: true },
+            { title: 'E-Verify Return', description: 'Complete e-verification via Aadhaar OTP or DSC', isRequired: true },
+          ],
+        },
+        {
+          name: 'ITR-2 Filing',
+          description: 'ITR-2 for individuals with capital gains, foreign income, or multiple house properties',
+          category: 'tax_filing',
+          estimatedTime: '3-5 days',
+          requiredDocuments: ['Form 16', 'Capital gains statements', 'Foreign income proof', 'Property documents', 'Bank statements'],
+          steps: [
+            { title: 'Collect All Income Sources', description: 'Gather salary, capital gains, rental income, and other income documents', isRequired: true },
+            { title: 'Verify Capital Gains', description: 'Calculate short-term and long-term capital gains from equity, mutual funds, and property', isRequired: true },
+            { title: 'Check Foreign Assets', description: 'If applicable, collect details of foreign assets and income for Schedule FA', isRequired: true },
+            { title: 'Download Form 26AS & AIS', description: 'Cross-verify all TDS credits and income reported by third parties', isRequired: true },
+            { title: 'Set-off Capital Losses', description: 'Carry forward losses from previous years if applicable', isRequired: true },
+            { title: 'Tax Calculation', description: 'Calculate tax liability considering all deductions and exemptions', isRequired: true },
+            { title: 'Prepare & Review ITR-2', description: 'Complete form preparation and internal review', isRequired: true },
+            { title: 'Client Sign-off', description: 'Get client approval on computed figures', isRequired: true },
+            { title: 'File & E-Verify', description: 'Submit return and complete e-verification', isRequired: true },
+          ],
+        },
+        {
+          name: 'KYC Verification',
+          description: 'Complete KYC verification process for investment accounts',
+          category: 'kyc',
+          estimatedTime: '1-2 days',
+          requiredDocuments: ['PAN card', 'Aadhaar card', 'Address proof', 'Passport photo', 'Bank statement'],
+          steps: [
+            { title: 'Collect KYC Documents', description: 'Request PAN, Aadhaar, address proof from client', isRequired: true },
+            { title: 'Verify Document Authenticity', description: 'Check if documents are valid and not expired', isRequired: true },
+            { title: 'PAN Verification', description: 'Verify PAN number with NSDL database', isRequired: true },
+            { title: 'Aadhaar Verification', description: 'Complete Aadhaar-based e-KYC if applicable', isRequired: true },
+            { title: 'Update CKYC Records', description: 'Update or create CKYC record with verified details', isRequired: true },
+            { title: 'Final Confirmation', description: 'Send KYC completion confirmation to client', isRequired: true },
+          ],
+        },
+        {
+          name: 'Tax Planning Consultation',
+          description: 'Comprehensive tax planning for the financial year',
+          category: 'tax_planning',
+          estimatedTime: '1-2 hours',
+          requiredDocuments: ['Previous ITR', 'Salary structure', 'Investment details', 'Loan documents'],
+          steps: [
+            { title: 'Review Current Tax Status', description: 'Analyze current income and tax liability', isRequired: true },
+            { title: 'Identify Deduction Opportunities', description: 'List eligible deductions under 80C, 80D, etc.', isRequired: true },
+            { title: 'HRA & House Property Analysis', description: 'Optimize HRA claim and home loan benefits', isRequired: false },
+            { title: 'Investment Recommendations', description: 'Suggest tax-saving investments based on risk profile', isRequired: true },
+            { title: 'Old vs New Regime Comparison', description: 'Calculate tax under both regimes and recommend optimal choice', isRequired: true },
+            { title: 'Prepare Tax Plan Document', description: 'Create comprehensive tax planning report for client', isRequired: true },
+          ],
+        },
+        {
+          name: 'GST Registration',
+          description: 'New GST registration for businesses',
+          category: 'gst',
+          estimatedTime: '5-7 days',
+          requiredDocuments: ['PAN card', 'Aadhaar card', 'Business registration', 'Bank account proof', 'Address proof'],
+          steps: [
+            { title: 'Gather Business Details', description: 'Collect business name, constitution, and nature details', isRequired: true },
+            { title: 'Verify Eligibility', description: 'Check if GST registration is mandatory based on turnover', isRequired: true },
+            { title: 'Collect Documents', description: 'Get all required documents from client', isRequired: true },
+            { title: 'Fill GST Application', description: 'Complete GST REG-01 form with business details', isRequired: true },
+            { title: 'Upload Documents', description: 'Upload all required documents to GST portal', isRequired: true },
+            { title: 'Application Submission', description: 'Submit application and note ARN', isRequired: true },
+            { title: 'Respond to Queries', description: 'Address any queries raised by GST officer', isRequired: false },
+            { title: 'Receive GSTIN', description: 'Download GST certificate after approval', isRequired: true },
+          ],
+        },
+      ];
+
+      const createdTemplates = [];
+      for (const templateData of defaultTemplates) {
+        const { steps, ...templateInfo } = templateData;
+        const template = await storage.createSupportTemplate({
+          ...templateInfo,
+          isActive: true,
+          createdBy: req.user!.id,
+        });
+
+        for (let i = 0; i < steps.length; i++) {
+          await storage.createSupportStep({
+            templateId: template.id,
+            title: steps[i].title,
+            description: steps[i].description,
+            order: i + 1,
+            status: 'pending',
+            isRequired: steps[i].isRequired,
+          });
+        }
+
+        createdTemplates.push(template);
+      }
+
+      res.json({ 
+        message: `Created ${createdTemplates.length} support templates`, 
+        templates: createdTemplates 
+      });
+    } catch (error) {
+      console.error('Error seeding support templates:', error);
+      res.status(500).json({ message: 'Failed to seed support templates' });
+    }
+  });
+
 
   return server;
 }
