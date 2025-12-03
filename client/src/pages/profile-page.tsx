@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { usePanConsent } from "@/hooks/use-pan-consent";
 import { PANDataDashboard } from "@/components/pan-data-dashboard";
 import { ReCKYCWorkflow } from "@/components/re-ckyc-workflow";
+import { RiskAssessment } from "@/components/wealth/risk-assessment";
 
 const profileSchema = z.object({
   // Enhanced KYC Fields - Mandatory as per SEBI
@@ -416,14 +417,14 @@ export default function ProfilePage() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      const response = await apiRequest("PUT", "/api/profile", { body: data });
+      const response = await apiRequest("/api/profile", { method: "PUT", body: JSON.stringify(data) });
       
       // Record PAN consent if given and not already recorded
       if (data.panNumber && data.panConsentGiven && !hasConsent) {
         await recordConsent();
       }
       
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
@@ -446,8 +447,8 @@ export default function ProfilePage() {
 
   const autoPopulateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/client/auto-populate", data);
-      return response.json();
+      const response = await apiRequest("/api/client/auto-populate", { method: "POST", body: JSON.stringify(data) });
+      return response;
     },
     onSuccess: (data) => {
       // Auto-fill form with fetched data
@@ -1194,6 +1195,22 @@ export default function ProfilePage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Risk Profile Assessment */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-blue-600" />
+                  Investment Risk Profile
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  SEBI-compliant risk profiling for personalized investment recommendations
+                </p>
+              </CardHeader>
+              <CardContent>
+                <RiskAssessment />
               </CardContent>
             </Card>
 

@@ -175,10 +175,6 @@ export default function PremiumInvestments() {
               <Lightbulb className="w-4 h-4 mr-2" />
               AI Insights
             </TabsTrigger>
-            <TabsTrigger value="risk" data-testid="tab-risk">
-              <PieChart className="w-4 h-4 mr-2" />
-              Risk Profile
-            </TabsTrigger>
             <TabsTrigger value="goals" data-testid="tab-goals">
               <Target className="w-4 h-4 mr-2" />
               Goal Planning
@@ -970,12 +966,6 @@ export default function PremiumInvestments() {
           <TabsContent value="retirement">
             <RetirementPlanning />
           </TabsContent>
-
-          {/* Risk Assessment Tab */}
-          <TabsContent value="risk">
-            <RiskAssessment />
-          </TabsContent>
-
 
         </Tabs>
       </div>

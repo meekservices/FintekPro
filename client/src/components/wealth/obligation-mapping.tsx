@@ -562,8 +562,8 @@ export function ObligationMapping() {
                                 CIBIL Verified
                               </Badge>
                             </div>
-                            {obligation.lenderName && (
-                              <p className="text-sm text-muted-foreground mt-1">{obligation.lenderName}</p>
+                            {obligation.notes && (
+                              <p className="text-sm text-muted-foreground mt-1">{obligation.notes}</p>
                             )}
                           </div>
                         </div>
