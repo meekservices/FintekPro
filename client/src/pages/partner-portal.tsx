@@ -750,7 +750,16 @@ export default function PartnerPortal() {
           {/* Support Tab */}
           <TabsContent value="support" className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Client Support</h2>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Client Support</h2>
+                <p className="text-sm text-gray-600">Manage client support requests with step-by-step workflows</p>
+              </div>
+              <a href="/partner/ca-support">
+                <Button className="gap-2" data-testid="button-open-ca-dashboard">
+                  <MessageCircle className="h-4 w-4" />
+                  Open CA Support Dashboard
+                </Button>
+              </a>
             </div>
 
             <div className="grid gap-6">

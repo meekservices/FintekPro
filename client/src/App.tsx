@@ -134,6 +134,7 @@ import BrowseUnlisted from "@/pages/unlisted/BrowseUnlisted";
 import CompanyDetails from "@/pages/unlisted/CompanyDetails";
 import CreateSellListing from "@/pages/unlisted/CreateSellListing";
 import CreateBuyRequest from "@/pages/unlisted/CreateBuyRequest";
+import CASupportDashboard from "@/pages/ca-support-dashboard";
 
 function UserProtectedRoutes() {
   return (
@@ -174,6 +175,7 @@ function UserProtectedRoutes() {
         <Route path="/agricultural-insights" component={AgriculturalInsights} />
         <Route path="/calculators" component={FinancialCalculators} />
         <Route path="/partner" component={PartnerPortal} />
+        <Route path="/partner/ca-support" component={CASupportDashboard} />
         <Route path="/support" component={Support} />
         <Route path="/wealth" component={InvestSmart} />
         <Route path="/investsmart" component={InvestSmart} />
