@@ -15,7 +15,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Package, FolderTree, Search, Loader2, ChevronRight, ChevronDown, 
   AlertTriangle, History, Eye, EyeOff, FileText, RefreshCw,
-  Plus, Edit, Trash2, ArrowLeft
+  Plus, Edit, Trash2, ArrowLeft, Shield, ShieldAlert, Sparkles, Award
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -264,6 +264,31 @@ export default function StoreManagement() {
     }
   };
 
+  // SEBI Licensing badges for mutual fund categories
+  const getLicenseBadge = (categoryId: string, categoryName: string) => {
+    if (categoryId === 'cat-mutual-funds' || categoryName.includes('Regular Schemes')) {
+      return {
+        type: 'ARN',
+        label: 'ARN Licensed',
+        description: 'Distribution license active',
+        color: 'bg-green-500/20 text-green-400 border-green-500/30',
+        icon: Shield,
+        authorized: true
+      };
+    }
+    if (categoryId === 'cat-mf-direct' || categoryName.includes('Direct Schemes')) {
+      return {
+        type: 'RIA',
+        label: 'RIA Required',
+        description: 'Advisory license pending',
+        color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+        icon: ShieldAlert,
+        authorized: false
+      };
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -366,12 +391,38 @@ export default function StoreManagement() {
                             <div className="flex items-center gap-2">
                               <FolderTree className={`w-5 h-5 ${category.isActive ? 'text-blue-400' : 'text-gray-600'}`} />
                               <div>
-                                <p className={`font-medium ${category.isActive ? 'text-white' : 'text-gray-500'}`}>
-                                  {category.name}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className={`font-medium ${category.isActive ? 'text-white' : 'text-gray-500'}`}>
+                                    {category.name}
+                                  </p>
+                                  {/* SEBI Licensing Badge */}
+                                  {(() => {
+                                    const licenseBadge = getLicenseBadge(category.id, category.name);
+                                    if (licenseBadge) {
+                                      const IconComponent = licenseBadge.icon;
+                                      return (
+                                        <Badge 
+                                          className={`text-xs ${licenseBadge.color}`}
+                                          title={licenseBadge.description}
+                                        >
+                                          <IconComponent className="w-3 h-3 mr-1" />
+                                          {licenseBadge.label}
+                                        </Badge>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </div>
                                 {category.description && (
                                   <p className="text-xs text-gray-500 truncate max-w-md">
                                     {category.description}
+                                  </p>
+                                )}
+                                {/* RIA Warning for Direct Schemes */}
+                                {(category.id === 'cat-mf-direct' || category.name.includes('Direct Schemes')) && (
+                                  <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                                    <ShieldAlert className="w-3 h-3" />
+                                    Enable when RIA authorization is obtained. Requires client advisory subscription.
                                   </p>
                                 )}
                               </div>
