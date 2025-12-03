@@ -124,30 +124,30 @@ export default function CASupportDetail() {
   });
 
   const { data: template } = useQuery<SupportTemplate>({
-    queryKey: ["/api/ca-support/templates", ticket?.templateId],
+    queryKey: ["/api/support/templates", ticket?.templateId],
     enabled: !!ticket?.templateId
   });
 
   const { data: steps = [], isLoading: stepsLoading } = useQuery<SupportStep[]>({
-    queryKey: ["/api/ca-support/templates", ticket?.templateId, "steps"],
-    enabled: !!ticket?.templateId
+    queryKey: ["/api/support/tickets", id, "steps"],
+    enabled: !!id
   });
 
   const { data: comments = [] } = useQuery<SupportComment[]>({
-    queryKey: ["/api/ca-support/steps", selectedStep?.id, "comments"],
+    queryKey: ["/api/support/steps", selectedStep?.id, "comments"],
     enabled: !!selectedStep?.id
   });
 
   const updateStepMutation = useMutation({
     mutationFn: async ({ stepId, status, notes }: { stepId: number; status: string; notes?: string }) => {
-      const res = await apiRequest(`/api/ca-support/steps/${stepId}`, {
+      const res = await apiRequest(`/api/support/steps/${stepId}`, {
         method: "PATCH",
         body: JSON.stringify({ status, notes, completedAt: status === 'completed' ? new Date().toISOString() : null })
       });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ca-support/templates", ticket?.templateId, "steps"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/support/tickets", id, "steps"] });
       toast({ title: "Step updated successfully" });
     },
     onError: () => {
@@ -157,14 +157,14 @@ export default function CASupportDetail() {
 
   const addCommentMutation = useMutation({
     mutationFn: async ({ stepId, comment, isInternal }: { stepId: number; comment: string; isInternal: boolean }) => {
-      const res = await apiRequest(`/api/ca-support/steps/${stepId}/comments`, {
+      const res = await apiRequest(`/api/support/steps/${stepId}/comments`, {
         method: "POST",
         body: JSON.stringify({ comment, isInternal, userId: 1 })
       });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ca-support/steps", selectedStep?.id, "comments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/support/steps", selectedStep?.id, "comments"] });
       setNewComment("");
       toast({ title: "Comment added" });
     }
@@ -172,14 +172,14 @@ export default function CASupportDetail() {
 
   const addStepMutation = useMutation({
     mutationFn: async (stepData: { templateId: number; title: string; description: string; stepNumber: number; isRequired: boolean; expectedDuration: number }) => {
-      const res = await apiRequest("/api/ca-support/steps", {
+      const res = await apiRequest("/api/support/steps", {
         method: "POST",
         body: JSON.stringify(stepData)
       });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ca-support/templates", ticket?.templateId, "steps"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/support/tickets", id, "steps"] });
       setIsAddStepOpen(false);
       setNewStep({ title: "", description: "", isRequired: true, expectedDuration: 30 });
       toast({ title: "Step added successfully" });
