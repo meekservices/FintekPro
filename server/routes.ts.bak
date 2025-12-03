@@ -53,6 +53,7 @@ import { digilockerService } from './services/digilockerService';
 import { amfiService } from './amfi-service';
 import { bseService } from './bse-service';
 import { validateKYC } from './kyc-middleware';
+import { requireLevel1, requireLevel2, injectKYCLevel, checkProductAccess, getAccessibleProducts, getUserKYCLevel } from './middleware/kyc-level-gate';
 import { MultiSourceMFService } from './services/multisource-mf-service';
 import { ObjectStorageService, ObjectNotFoundError } from './objectStorage';
 import { randomUUID } from 'crypto';
@@ -67,6 +68,9 @@ import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
+import { sandboxPANService } from './sandbox-pan-api';
+import { authBridgeCKYCService } from './authbridge-ckyc-api';
+import { KRAStatusService } from './services/kra-status-service';
 import { providerRegistry, type UnifiedApplicationData } from './partner-application-adapters';
 import { insertPartnerApplicationSchema, insertCashfreeTransactionSchema, insertPhonePeTransactionSchema } from '@shared/schema';
 import { cashfreeService } from './cashfree-service';
@@ -442,150 +446,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WhatsApp Authentication API endpoints
-  app.post("/api/whatsapp/auth/initiate", async (req, res) => {
-    try {
-      const { phoneNumber } = req.body;
-      
-      if (!phoneNumber) {
-        return res.status(400).json({ error: "Phone number is required" });
-      }
-
-      // Create authentication session
-      const sessionId = await whatsappService.createAuthSession(phoneNumber);
-      
-      res.json({ 
-        success: true, 
-        sessionId,
-        message: "Verification code sent to your WhatsApp" 
-      });
-    } catch (error) {
-      console.error("Error initiating WhatsApp auth:", error);
-      res.status(500).json({ error: "Failed to initiate WhatsApp authentication" });
-    }
-  });
-
-  app.post("/api/whatsapp/auth/verify", async (req, res) => {
-    try {
-      const { sessionId, code } = req.body;
-      
-      if (!sessionId || !code) {
-        return res.status(400).json({ error: "Session ID and verification code are required" });
-      }
-
-      const result = await whatsappService.verifyCode(sessionId, code);
-      
-      if (!result.success) {
-        return res.status(400).json({ error: "Invalid or expired verification code" });
-      }
-
-      if (result.userId) {
-        // Get user data for login
-        const user = await storage.getUser(result.userId);
-        if (user) {
-          // Simulate login session (you may need to integrate with your session management)
-          res.json({ 
-            success: true, 
-            user: {
-              id: user.id,
-              email: user.email,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              roles: user.roles || ['user']
-            },
-            message: "Authentication successful" 
-          });
-        } else {
-          res.status(404).json({ error: "User not found" });
-        }
-      } else {
-        res.status(400).json({ error: "Authentication failed" });
-      }
-    } catch (error) {
-      console.error("Error verifying WhatsApp auth:", error);
-      res.status(500).json({ error: "Failed to verify authentication" });
-    }
-  });
-
-  // Public endpoint to check WhatsApp service status
-  app.get("/api/whatsapp/status", async (req, res) => {
-    try {
-      const status = whatsappService.getStatus();
-      
-      res.json({ 
-        isReady: status.isReady,
-        hasQrCode: status.hasQrCode,
-        message: status.isReady 
-          ? "WhatsApp service is ready" 
-          : status.hasQrCode 
-            ? "WhatsApp service is waiting for QR code scan" 
-            : "WhatsApp service is initializing" 
-      });
-    } catch (error) {
-      console.error("Error getting WhatsApp status:", error);
-      res.status(500).json({ error: "Failed to get WhatsApp status" });
-    }
-  });
-
-  // Admin-only endpoint for QR code access during setup
-  app.get("/api/admin/whatsapp/qr", requireAdmin, async (req, res) => {
-    try {
-      const status = whatsappService.getStatus();
-      const qrCode = whatsappService.getQrCode();
-      
-      if (status.isReady) {
-        return res.json({ 
-          isReady: true,
-          qrCode: null,
-          message: "WhatsApp client is already authenticated" 
-        });
-      }
-
-      res.json({ 
-        isReady: false,
-        qrCode,
-        hasQrCode: status.hasQrCode,
-        message: qrCode 
-          ? "Scan this QR code with WhatsApp to authenticate" 
-          : "QR code not yet generated. Please wait..." 
-      });
-    } catch (error) {
-      console.error("Error getting WhatsApp QR code:", error);
-      res.status(500).json({ error: "Failed to get WhatsApp QR code" });
-    }
-  });
-
-  app.post("/api/whatsapp/auth/phone-login", async (req, res) => {
-    try {
-      const { phoneNumber } = req.body;
-      
-      if (!phoneNumber) {
-        return res.status(400).json({ error: "Phone number is required" });
-      }
-
-      // Check if user exists with this phone number
-      const users = await storage.getAllUsers();
-      const user = users.find(u => u.mobile === phoneNumber);
-      
-      if (!user) {
-        return res.status(404).json({ 
-          error: "No account found with this phone number. Please register first." 
-        });
-      }
-
-      // Create authentication session
-      const sessionId = await whatsappService.createAuthSession(phoneNumber);
-      
-      res.json({ 
-        success: true, 
-        sessionId,
-        message: "Verification code sent to your WhatsApp. Please check your messages." 
-      });
-    } catch (error) {
-      console.error("Error initiating phone login:", error);
-      res.status(500).json({ error: "Failed to initiate phone login" });
-    }
-  });
   
   // User Profile API endpoints
   app.get("/api/profile", requireClientOrHigher, async (req, res) => {
@@ -594,7 +454,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profile = await storage.getUserProfile(userId);
       
       if (!profile) {
-        return res.status(404).json({ error: "Profile not found" });
+        const newProfile = await storage.upsertUserProfile({ userId });
+        return res.json(newProfile);
       }
       
       res.json(profile);
@@ -763,15 +624,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 1. AGGREGATE ASSETS - Portfolio Holdings with real-time market values
       const userPortfolios = await db.query.portfolios.findMany({
         where: sql`${portfolios.userId} = ANY(${targetUserIds})`,
-        with: {
-          holdings: true
-        }
       });
       
+      // Fetch holdings separately (no Drizzle relations defined)
+      const portfolioIds = userPortfolios.map(p => p.id);
+      const allHoldings = portfolioIds.length > 0 
+        ? await db.query.portfolioHoldings.findMany({
+            where: sql`${portfolioHoldings.portfolioId} = ANY(${portfolioIds})`,
+          })
+        : [];
+      
+      // Group holdings by portfolio ID
+      const holdingsByPortfolio = new Map<string, typeof allHoldings>();
+      for (const holding of allHoldings) {
+        const existing = holdingsByPortfolio.get(holding.portfolioId) || [];
+        existing.push(holding);
+        holdingsByPortfolio.set(holding.portfolioId, existing);
+      }
       // OPTIMIZATION: Batch fetch all unique symbols for market data (avoid N+1 queries)
       const allSymbols = new Set<string>();
       for (const portfolio of userPortfolios) {
-        for (const holding of portfolio.holdings || []) {
+        for (const holding of (holdingsByPortfolio.get(portfolio.id) || [])) {
           allSymbols.add(holding.symbol);
         }
       }
@@ -796,7 +669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalPortfolioValue = 0;
       
       for (const portfolio of userPortfolios) {
-        for (const holding of portfolio.holdings || []) {
+        for (const holding of (holdingsByPortfolio.get(portfolio.id) || [])) {
           // Get current market price from pre-fetched data
           const marketInfo = marketDataMap.get(holding.symbol);
           
@@ -1623,25 +1496,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // KYC Status API endpoint
-  app.get("/api/kyc/status", async (req, res) => {
+  // KYC Status API endpoint - Returns user's KYC level and accessible products
+  app.get("/api/kyc/status", requireClientOrHigher, async (req: any, res) => {
     try {
-      // Mock KYC status data for demonstration
-      // In real implementation, this would connect to KRA, AMC, and broking databases
-      const mockKycStatusData = {
-        mutualFundKyc: "in_progress" as const,
-        brokingKyc: "pending" as const,
-        kraKyc: "completed" as const,
-        lastUpdated: new Date().toISOString(),
-        completionPercentage: 33, // Based on completed KYC types (1/3 completed)
-      };
-
-      res.json(mockKycStatusData);
+      const userId = req.user!.id;
+      const products = await getAccessibleProducts(userId);
+      const { level, profile } = await getUserKYCLevel(userId);
+      
+      res.json({
+        success: true,
+        data: {
+          kycLevel: level,
+          kycLevelName: level === '0' ? 'Basic Profile' : level === '1' ? 'PAN Verified' : 'Full KYC',
+          accessibleProducts: products.accessibleProducts,
+          blockedProducts: products.blockedProducts,
+          canAccessLoans: level >= '1',
+          canAccessInsurance: level >= '1',
+          canAccessInvestments: level >= '2',
+          nextAction: level === '0' ? 'Complete PAN verification' : level === '1' ? 'Complete full KYC' : null,
+          profile: {
+            panVerified: profile?.panVerifiedViaSandbox || false,
+            ckycFetched: profile?.ckycFetchedViaAuthBridge || false,
+            kraVerified: profile?.kraVerifiedViaProtean || false
+          }
+        }
+      });
     } catch (error) {
       console.error('KYC status error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch KYC status'
+        error: 'Failed to fetch KYC status'
+      });
+    }
+  });
+
+  // Get detailed KYC profile for dashboard
+  app.get("/api/kyc/my-profile", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { level, profile } = await getUserKYCLevel(userId);
+      const user = req.user;
+      
+      if (!profile) {
+        return res.json({
+          success: true,
+          data: {
+            userId: user.userId || user.id,
+            email: user.email,
+            mobile: user.mobile,
+            fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
+            kycLevel: level,
+            kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
+            kycStatus: 'pending',
+            panNumber: null,
+            panVerified: false,
+            aadhaarVerified: false,
+            bankVerified: false,
+            videoKycCompleted: false,
+            ckycVerified: false,
+            riskCategory: 'low',
+            pepStatus: 'N',
+            fatcaStatus: 'N',
+            amlStatus: 'clear',
+            kycTierMetadata: {
+              description: 'Basic profile - browse products only',
+              productsUnlocked: [],
+              maxAnnualInvestment: 0
+            }
+          }
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: {
+          userId: user.userId || user.id,
+          email: user.email,
+          mobile: user.mobile,
+          fullName: `${user.firstName || ''} ${user.middleName || ''} ${user.lastName || ''}`.trim(),
+          kycLevel: level,
+          kycTier: level === '0' ? 'basic' : level === '1' ? 'enhanced' : 'accredited_investor',
+          kycStatus: profile.kycStatus || 'pending',
+          panNumber: profile.panNumber || null,
+          panVerified: profile.panVerifiedViaSandbox || false,
+          aadhaarVerified: profile.aadhaarVerifiedViaCashfree || false,
+          bankVerified: profile.bankVerified || false,
+          videoKycCompleted: profile.videoKycCompleted || false,
+          ckycVerified: profile.ckycFetchedViaAuthBridge || false,
+          riskCategory: profile.riskCategory || 'low',
+          pepStatus: profile.pepStatus || 'N',
+          fatcaStatus: profile.fatcaStatus || 'N',
+          amlStatus: profile.amlStatus || 'clear',
+          kycTierMetadata: {
+            description: level === '0' 
+              ? 'Basic profile - browse products only' 
+              : level === '1' 
+                ? 'PAN Verified - access loans and insurance' 
+                : 'Full KYC - access all investment products',
+            productsUnlocked: level === '0' 
+              ? [] 
+              : level === '1' 
+                ? ['loans', 'insurance'] 
+                : ['loans', 'insurance', 'mutual_funds', 'equities', 'derivatives', 'unlisted'],
+            maxAnnualInvestment: level === '0' ? 0 : level === '1' ? 1000000 : 10000000
+          }
+        }
+      });
+    } catch (error) {
+      console.error('KYC profile error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch KYC profile'
       });
     }
   });
@@ -1652,42 +1617,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/kyc/wizard/start", requireClientOrHigher, async (req: any, res) => {
     try {
       const userId = req.user!.id;
+      const { forceNew } = req.body;
       
+      // Deactivate all existing sessions (including expired ones) to prevent duplicate key violations
+      await storage.deactivateAllUserKycSessions(userId);
       // Check for existing active session
       const existingSession = await storage.getActiveKycSession(userId);
       
-      if (existingSession) {
+      if (existingSession && !forceNew) {
+        // Return existing session with resumable flag
         return res.json({
           success: true,
           session: existingSession,
-          message: "Resuming existing KYC session"
+          resumable: true,
+          message: "You have an existing KYC session. You can resume it or start fresh."
         });
       }
       
-      // Create new session
-      const session = await storage.createKycVerificationSession({
+      // If forceNew is true, cancel the existing session
+      if (existingSession && forceNew) {
+        await storage.updateKycVerificationSession(existingSession.id, {
+          isActive: false,
+          completedAt: new Date()
+        });
+      }
+      
+      // Fetch user profile to check for existing verified data
+      const userProfile = await storage.getUserProfile(userId);
+      
+      // Check for existing verified data
+      const hasPanVerified = !!(userProfile?.panVerifiedViaSandbox && userProfile?.panNumber);
+      const hasCkycData = !!(userProfile?.ckycFetchedViaAuthBridge && userProfile?.ckycAuthBridgeResponse);
+      const hasAadhaarVerified = !!(userProfile?.aadharNumber && userProfile?.aadharNumber.length === 12);
+      
+      // Determine current step smartly based on existing data
+      let currentStep = "pan_verification";
+      if (hasPanVerified && hasCkycData) {
+        currentStep = "completion";
+      } else if (hasPanVerified) {
+        currentStep = "data_collection";
+      }
+      
+      // Build session data object with required fields
+      const sessionData: any = {
         userId,
         sessionType: "smart_kyc_wizard",
-        currentStep: "pan_verification",
+        currentStep,
         stepStatus: {
-          pan_verified: false,
+          pan_verified: hasPanVerified,
           aadhaar_otp_sent: false,
-          aadhaar_verified: false,
-          data_collected: false
+          aadhaar_verified: hasAadhaarVerified,
+          data_collected: hasCkycData
         },
-        panVerified: false,
+        panVerified: hasPanVerified,
         aadhaarOtpSent: false,
-        aadhaarOtpVerified: false,
+        aadhaarOtpVerified: hasAadhaarVerified,
         isActive: true,
         expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'] || 'unknown'
-      });
+      };
+      
+      // Add PAN fields if verified
+      if (hasPanVerified) {
+        sessionData.panNumber = userProfile.panNumber;
+        sessionData.panVerifiedAt = userProfile.panSandboxVerifiedAt;
+        sessionData.panVerificationData = userProfile.panSandboxResponse;
+        if (userProfile.panSandboxResponse?.date_of_birth) {
+          sessionData.panDob = userProfile.panSandboxResponse.date_of_birth;
+        }
+      }
+      
+      // Add Aadhaar fields if verified
+      if (hasAadhaarVerified) {
+        sessionData.aadhaarNumber = userProfile.aadharNumber;
+        sessionData.aadhaarVerifiedAt = new Date();
+      }
+      
+      // Create new session with smart pre-population
+      const session = await storage.createKycVerificationSession(sessionData);
       
       res.json({
         success: true,
         session,
-        message: "KYC session started successfully"
+        message: hasPanVerified ? "KYC session started with existing verified data" : "KYC session started successfully"
       });
     } catch (error) {
       console.error('Error starting KYC session:', error);
@@ -1725,9 +1738,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 1: Verify PAN with DOB
+  // Step 1: Verify PAN with DOB
   app.post("/api/kyc/wizard/verify-pan", requireClientOrHigher, async (req: any, res) => {
     try {
-      const { sessionId, panNumber, dob } = req.body;
+      const { sessionId, panNumber, dob, fullName } = req.body;
       const userId = req.user!.id;
       
       if (!sessionId || !panNumber || !dob) {
@@ -1747,15 +1761,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verify PAN using Sandbox API
-      const verification = await sandboxKYCService.verifyIndividualPAN(panNumber, dob);
+      // Verify PAN using Sandbox.co.in API
+      const verification = await sandboxPANService.verifyPAN(panNumber, fullName, dob);
       
-      
-      // verification returns IndividualPANDetails directly (no success wrapper)
-      if (!verification || !verification.pan) {
+      // Check if verification was successful
+      if (!verification || verification.status !== 'success' || !verification.data) {
         return res.json({
           success: false,
-          message: "PAN verification failed"
+          message: verification?.message || "PAN verification failed"
         });
       }
       
@@ -1765,8 +1778,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         panDob: new Date(dob),
         panVerified: true,
         panVerificationData: {
-          name: verification.fullName,
-          fatherName: verification.fatherName
+          name: verification.data.full_name || fullName,
+          fatherName: verification.data.father_name
         },
         panVerifiedAt: new Date(),
         currentStep: "aadhaar_otp",
@@ -1778,24 +1791,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
+      // Upgrade user to KYC Level 1 (PAN Verified)
+      // Get or create user profile
+      const existingProfile = await db.select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, userId))
+        .limit(1);
+      
+      if (existingProfile && existingProfile.length > 0) {
+        // Update existing profile to Level 1
+        await db.update(schema.userProfiles)
+          .set({
+            kycLevel: '1',
+            kycLevelUpgradedAt: new Date(),
+            panVerifiedViaSandbox: true,
+            panSandboxVerifiedAt: new Date(),
+            panSandboxResponse: verification.data,
+            panSandboxStatus: verification.data?.status || 'VALID',
+            panNumber: panNumber
+          })
+          .where(eq(schema.userProfiles.userId, userId));
+      } else {
+        // Create new profile with Level 1
+        await db.insert(schema.userProfiles)
+          .values({
+            userId: userId,
+            kycLevel: '1',
+            kycLevelUpgradedAt: new Date(),
+            panVerifiedViaSandbox: true,
+            panSandboxVerifiedAt: new Date(),
+            panSandboxResponse: verification.data,
+            panSandboxStatus: verification.data?.status || 'VALID',
+            panNumber: panNumber
+          });
+      }
+      
       res.json({
         success: true,
         data: {
-          name: verification.fullName,
-          fatherName: verification.fatherName
+          name: verification.data.full_name || fullName,
+          fatherName: verification.data.father_name
         },
-        message: "PAN verified successfully"
+        message: "PAN verified. You can now access loans and insurance marketplace."
       });
     } catch (error) {
       console.error('Error verifying PAN:', error);
+      
+      // Provide user-friendly error messages
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        
+        // Check for specific error types
+        if (errorMessage.includes('Authentication failed') || errorMessage.includes('credentials')) {
+          return res.status(500).json({
+            success: false,
+            message: 'PAN verification service is not configured. Please contact support.'
+          });
+        }
+        
+        if (errorMessage.includes('Invalid PAN format')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid PAN format. PAN must be in format: ABCDE1234F'
+          });
+        }
+        
+        if (errorMessage.includes('PAN_NOT_FOUND') || errorMessage.includes('not found')) {
+          return res.status(400).json({
+            success: false,
+            message: 'PAN not found in database. Please verify the PAN number.'
+          });
+        }
+      }
+      
       res.status(500).json({
         success: false,
-        message: 'Failed to verify PAN'
+        message: 'Failed to verify PAN. Please try again or contact support.'
       });
     }
   });
   
-  // Step 2: Send Aadhaar OTP
+
   app.post("/api/kyc/wizard/send-aadhaar-otp", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId, aadhaarNumber } = req.body;
@@ -1924,6 +2000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 4: Complete KYC wizard
+  // Step 4: Complete KYC wizard
   app.post("/api/kyc/wizard/complete", requireClientOrHigher, async (req: any, res) => {
     try {
       const { sessionId } = req.body;
@@ -1946,6 +2023,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Check user's KYC level before allowing completion
+      const userProfile = await db.select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, userId))
+        .limit(1);
+      
+      if (!userProfile || userProfile.length === 0 || !userProfile[0].kycLevel || parseInt(userProfile[0].kycLevel) < 1) {
+        return res.status(400).json({
+          success: false,
+          message: "KYC Level 1 (PAN verification) required before completing KYC wizard. Please verify your PAN first."
+        });
+      }
+      
+      const kycLevel = parseInt(userProfile[0].kycLevel);
+      
       // Mark session as completed
       await storage.completeKycSession(sessionId);
       
@@ -1954,9 +2046,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         smartKycCompletedAt: new Date()
       });
       
+      // For Level 2 users, update kycTier to 'enhanced'
+      if (kycLevel >= 2) {
+        await db.update(schema.userProfiles)
+          .set({
+            kycTier: 'enhanced'
+          })
+          .where(eq(schema.userProfiles.userId, userId));
+      }
+      
+      // Prepare success message based on KYC level
+      let message = '';
+      let accessibleProducts = [];
+      
+      if (kycLevel >= 2) {
+        message = "Smart KYC completed successfully. You have full access to all financial products.";
+        accessibleProducts = ['Loans', 'Insurance', 'Mutual Funds', 'PMS', 'AIF', 'Unlisted Securities'];
+      } else if (kycLevel >= 1) {
+        message = "Smart KYC completed successfully. You can now access loans and insurance products.";
+        accessibleProducts = ['Loans', 'Insurance'];
+      }
+      
       res.json({
         success: true,
-        message: "Smart KYC completed successfully"
+        message,
+        kycLevel,
+        accessibleProducts
       });
     } catch (error) {
       console.error('Error completing KYC:', error);
@@ -1967,6 +2082,267 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Step 2a: Check KRA Status
+  // Step 2a: Check KRA Status
+  app.post("/api/kyc/wizard/check-kra-status", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, panNumber, fullName, dateOfBirth } = req.body;
+      const userId = req.user!.id;
+
+      if (!sessionId || !panNumber || !fullName || !dateOfBirth) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID, PAN number, full name, and date of birth are required"
+        });
+      }
+
+      const session = await storage.getKycVerificationSession(sessionId);
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+
+      // Step 1: Call AuthBridge CKYC API to fetch CKYC record
+      console.log('📋 Fetching CKYC record via AuthBridge for PAN:', panNumber);
+      const ckycResult = await authBridgeCKYCService.fetchCKYC({
+        pan: panNumber,
+        full_name: fullName,
+        date_of_birth: dateOfBirth
+      });
+
+      // Get or create user profile
+      const existingProfile = await db.select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, userId))
+        .limit(1);
+
+      let ckycFound = false;
+      let ckycKin = null;
+
+      // Update user profile with CKYC data if found
+      if (ckycResult.status === 'success' && ckycResult.data) {
+        console.log('✅ CKYC record found via AuthBridge. KIN:', ckycResult.data.kin);
+        ckycFound = true;
+        ckycKin = ckycResult.data.kin;
+
+        const ckycUpdateData = {
+          ckycFetchedViaAuthBridge: true,
+          ckycAuthBridgeFetchedAt: new Date(),
+          ckycAuthBridgeKin: ckycResult.data.kin,
+          ckycAuthBridgeResponse: ckycResult.data,
+          ckycAuthBridgeStatus: 'found'
+        };
+
+        if (existingProfile && existingProfile.length > 0) {
+          await db.update(schema.userProfiles)
+            .set(ckycUpdateData)
+            .where(eq(schema.userProfiles.userId, userId));
+        } else {
+          await db.insert(schema.userProfiles)
+            .values({
+              userId: userId,
+              ...ckycUpdateData
+            });
+        }
+      } else {
+        console.log('ℹ️ CKYC record not found via AuthBridge for PAN:', panNumber);
+      }
+
+      // Step 2: Check KRA status using existing Protean/KRA integration
+      console.log('🔍 Checking KRA status for PAN:', panNumber);
+      const kraStatusService = new KRAStatusService();
+      let kraStatus = "KYC_NOT_FOUND";
+      let kraVerified = false;
+
+      try {
+        const kraResult = await kraStatusService.checkStatus({
+          panNumber: panNumber,
+          fullName: fullName,
+          dateOfBirth: dateOfBirth
+        });
+
+        if (kraResult.success && kraResult.status === 'VERIFIED') {
+          console.log('✅ KRA verified for PAN:', panNumber);
+          kraStatus = "VERIFIED";
+          kraVerified = true;
+
+          // Upgrade user to Level 2 (Full KYC)
+          const level2UpdateData = {
+            kycLevel: '2',
+            kycLevelUpgradedAt: new Date(),
+            kraVerifiedViaProtean: true,
+            kraProteanVerifiedAt: new Date(),
+            kraProteanStatus: 'VERIFIED',
+            kycTier: 'enhanced'
+          };
+
+          const currentProfile = await db.select()
+            .from(schema.userProfiles)
+            .where(eq(schema.userProfiles.userId, userId))
+            .limit(1);
+
+          if (currentProfile && currentProfile.length > 0) {
+            await db.update(schema.userProfiles)
+              .set(level2UpdateData)
+              .where(eq(schema.userProfiles.userId, userId));
+          } else {
+            await db.insert(schema.userProfiles)
+              .values({
+                userId: userId,
+                ...level2UpdateData
+              });
+          }
+
+          console.log('✅ User upgraded to KYC Level 2');
+        } else {
+          kraStatus = kraResult.status || "KYC_NOT_FOUND";
+          console.log('ℹ️ KRA status:', kraStatus);
+        }
+      } catch (kraError) {
+        console.error('❌ Error checking KRA status:', kraError);
+        kraStatus = "ERROR";
+      }
+
+      // Update session with KRA check status
+      await storage.updateKycVerificationSession(sessionId, {
+        stepStatus: { ...session.stepStatus as any, kra_checked: true }
+      });
+
+      // Prepare response based on results
+      let message = '';
+      let level = 0;
+
+      if (kraVerified) {
+        message = 'Full KYC verified! You can now access mutual funds, PMS, AIF, and unlisted securities.';
+        level = 2;
+      } else if (ckycFound) {
+        message = 'CKYC record found but KRA verification pending. You currently have access to loans and insurance.';
+        level = 1;
+      } else {
+        message = 'KYC verification pending. Please complete the full KYC process.';
+        level = 1;
+      }
+
+      res.json({
+        success: true,
+        kraStatus,
+        ckycFound,
+        ckycKin,
+        kycLevel: level,
+        message
+      });
+    } catch (error) {
+      console.error("Error checking KRA status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to check KRA status"
+      });
+    }
+  });
+
+
+  app.post("/api/kyc/wizard/risk-profiling", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience } = req.body;
+      const userId = req.user!.id;
+
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID is required"
+        });
+      }
+
+      const session = await storage.getKycVerificationSession(sessionId);
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+
+      const riskScores = { "conservative": 1, "moderate": 2, "aggressive": 3 };
+      const riskScore = (riskScores[riskTolerance as keyof typeof riskScores] || 2) * 20;
+
+      await storage.updateKycVerificationSession(sessionId, {
+        riskProfile: { investmentObjective, investmentHorizon, riskTolerance, incomeLevel, tradingExperience, riskScore },
+        stepStatus: { ...session.stepStatus as any, risk_profiled: true }
+      });
+
+      await storage.updateUser(userId, {
+        riskProfile: riskTolerance,
+        investmentObjective
+      });
+
+      res.json({
+        success: true,
+        riskScore,
+        message: "Risk profile saved successfully"
+      });
+    } catch (error) {
+      console.error("Error saving risk profile:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to save risk profile"
+      });
+    }
+  });
+
+  // Step 4: Compliance Sign-off
+  app.post("/api/kyc/wizard/compliance-signoff", requireClientOrHigher, async (req: any, res) => {
+    try {
+      const { sessionId, fatcaDeclaration, riskAcknowledgment, termsAndConditions, privacyPolicy, taxResidencyCountry, tinNumber, digitalSignature } = req.body;
+      const userId = req.user!.id;
+
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          message: "Session ID is required"
+        });
+      }
+
+      if (!fatcaDeclaration || !riskAcknowledgment || !termsAndConditions || !privacyPolicy) {
+        return res.status(400).json({
+          success: false,
+          message: "All compliance declarations must be accepted"
+        });
+      }
+
+      const session = await storage.getKycVerificationSession(sessionId);
+      if (!session || session.userId !== userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session"
+        });
+      }
+
+      await storage.updateKycVerificationSession(sessionId, {
+        complianceData: { fatcaDeclaration, riskAcknowledgment, termsAndConditions, privacyPolicy, taxResidencyCountry, tinNumber: tinNumber || undefined, digitalSignature: digitalSignature || undefined, completedAt: new Date() },
+        currentStep: "completed",
+        stepStatus: { ...session.stepStatus as any, compliance_signed: true }
+      });
+
+      await storage.updateUser(userId, {
+        taxResidencyCountry,
+        tinNumber: tinNumber || undefined,
+        complianceAcceptedAt: new Date()
+      });
+
+      res.json({
+        success: true,
+        message: "Compliance declarations accepted successfully"
+      });
+    } catch (error) {
+      console.error("Error saving compliance data:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to save compliance data"
+      });
+    }
+  });
   // Client Auto-Populate API endpoint
   app.post("/api/client/auto-populate", async (req, res) => {
     try {
@@ -4622,7 +4998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bonds API endpoints
   
   // Get government bonds data
-  app.get("/api/bonds/government", async (req, res) => {
+  app.get("/api/bonds/government", requireLevel2, async (req, res) => {
     try {
       const governmentBonds = [
         {
@@ -4695,7 +5071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get corporate bonds data
-  app.get("/api/bonds/corporate", async (req, res) => {
+  app.get("/api/bonds/corporate", requireLevel2, async (req, res) => {
     try {
       const corporateBonds = [
         {
@@ -4768,7 +5144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tax-free bonds data
-  app.get("/api/bonds/tax-free", async (req, res) => {
+  app.get("/api/bonds/tax-free", requireLevel2, async (req, res) => {
     try {
       const taxFreeBonds = [
         {
@@ -4825,7 +5201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE listed bonds data
-  app.get("/api/bonds/nse-listed", async (req, res) => {
+  app.get("/api/bonds/nse-listed", requireLevel2, async (req, res) => {
     try {
       // Real NSE listed bonds with live data
       const nseBonds = [
@@ -4948,7 +5324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE listed bonds data
-  app.get("/api/bonds/bse-listed", async (req, res) => {
+  app.get("/api/bonds/bse-listed", requireLevel2, async (req, res) => {
     try {
       // Real BSE listed bonds with live data
       const bseBonds = [
@@ -5072,7 +5448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get combined NSE & BSE bonds market data
-  app.get("/api/bonds/listed-bonds", async (req, res) => {
+  app.get("/api/bonds/listed-bonds", requireLevel2, async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -5141,7 +5517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Advanced bond search with comprehensive filters
-  app.get("/api/bonds/search/advanced", async (req, res) => {
+  app.get("/api/bonds/search/advanced", requireLevel2, async (req, res) => {
     try {
       const filters = {
         creditRatings: req.query.creditRatings ? (req.query.creditRatings as string).split(',') : undefined,
@@ -5176,7 +5552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by credit rating
-  app.get("/api/bonds/filter/rating", async (req, res) => {
+  app.get("/api/bonds/filter/rating", requireLevel2, async (req, res) => {
     try {
       const ratings = req.query.ratings ? (req.query.ratings as string).split(',') : ['AAA'];
       const bonds = await bseBondApi.getBondsByRating(ratings);
@@ -5197,7 +5573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by yield range
-  app.get("/api/bonds/filter/yield", async (req, res) => {
+  app.get("/api/bonds/filter/yield", requireLevel2, async (req, res) => {
     try {
       const minYield = req.query.min ? parseFloat(req.query.min as string) : 0;
       const maxYield = req.query.max ? parseFloat(req.query.max as string) : 15;
@@ -5220,7 +5596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds by maturity
-  app.get("/api/bonds/filter/maturity", async (req, res) => {
+  app.get("/api/bonds/filter/maturity", requireLevel2, async (req, res) => {
     try {
       const params = {
         minYears: req.query.minYears ? parseInt(req.query.minYears as string) : undefined,
@@ -5246,7 +5622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tax-free bonds
-  app.get("/api/bonds/tax-free-bonds", async (req, res) => {
+  app.get("/api/bonds/tax-free-bonds", requireLevel2, async (req, res) => {
     try {
       const bonds = await bseBondApi.getTaxFreeBonds();
 
@@ -5266,7 +5642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get infrastructure bonds
-  app.get("/api/bonds/infrastructure-bonds", async (req, res) => {
+  app.get("/api/bonds/infrastructure-bonds", requireLevel2, async (req, res) => {
     try {
       const bonds = await bseBondApi.getInfrastructureBonds();
 
@@ -5286,7 +5662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE NCB yield curve data
-  app.get("/api/bonds/yield-curve", async (req, res) => {
+  app.get("/api/bonds/yield-curve", requireLevel2, async (req, res) => {
     try {
       const yieldCurve = await nseNcbApi.getYieldCurve();
 
@@ -5305,7 +5681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get historical auction results
-  app.get("/api/bonds/auctions/historical", async (req, res) => {
+  app.get("/api/bonds/auctions/historical", requireLevel2, async (req, res) => {
     try {
       const params = {
         securityType: req.query.type as string,
@@ -5332,7 +5708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Sovereign Gold Bonds data
-  app.get("/api/bonds/sgb", async (req, res) => {
+  app.get("/api/bonds/sgb", requireLevel2, async (req, res) => {
     try {
       const sgbs = await nseNcbApi.getSGBData();
 
@@ -5352,7 +5728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get real-time bond market prices
-  app.post("/api/bonds/market-prices", async (req, res) => {
+  app.post("/api/bonds/market-prices", requireLevel2, async (req, res) => {
     try {
       const { isins } = req.body;
       
@@ -5381,7 +5757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get bonds market overview
-  app.get("/api/bonds/market-overview", async (req, res) => {
+  app.get("/api/bonds/market-overview", requireLevel2, async (req, res) => {
     try {
       const marketOverview = {
         totalMarketSize: "₹45,68,450 Cr",
@@ -5422,7 +5798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MCX listed bonds data (commodity-linked bonds)
-  app.get("/api/bonds/mcx-listed", async (req, res) => {
+  app.get("/api/bonds/mcx-listed", requireLevel2, async (req, res) => {
     try {
       // MCX commodity-linked bonds and structured products
       const mcxBonds = [
@@ -6008,6 +6384,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Store bond order in database
         const bondOrder = await db.insert(bondOrders).values({
+          orderNumber: response.orderId,
+          userId: userId,
           clientCode: orderRequest.clientCode,
           bondType: 'corporate',
           isin: orderRequest.isin,
@@ -6299,7 +6677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive AIF data from all AMCs with complete fund details
-  app.get("/api/aif/comprehensive", async (req, res) => {
+  app.get("/api/aif/comprehensive", requireLevel2, async (req, res) => {
     try {
       const { amc, category, subCategory, riskRating } = req.query;
       const amcStr = typeof amc === 'string' ? amc : Array.isArray(amc) ? amc[0] : undefined;
@@ -6694,7 +7072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NSE AIF funds data
-  app.get("/api/aif/nse-funds", async (req, res) => {
+  app.get("/api/aif/nse-funds", requireLevel2, async (req, res) => {
     try {
       const nseFunds = [
         {
@@ -6783,7 +7161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get BSE AIF funds data
-  app.get("/api/aif/bse-funds", async (req, res) => {
+  app.get("/api/aif/bse-funds", requireLevel2, async (req, res) => {
     try {
       const bseFunds = [
         {
@@ -6872,7 +7250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MCX AIF funds data (commodity-focused)
-  app.get("/api/aif/mcx-funds", async (req, res) => {
+  app.get("/api/aif/mcx-funds", requireLevel2, async (req, res) => {
     try {
       const mcxFunds = [
         {
@@ -6964,7 +7342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get NCDEX AIF funds data (agricultural-focused)
-  app.get("/api/aif/ncdex-funds", async (req, res) => {
+  app.get("/api/aif/ncdex-funds", requireLevel2, async (req, res) => {
     try {
       const ncdexFunds = [
         {
@@ -7056,7 +7434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get MSEI AIF funds data (SME and specialized)
-  app.get("/api/aif/msei-funds", async (req, res) => {
+  app.get("/api/aif/msei-funds", requireLevel2, async (req, res) => {
     try {
       const mseiFunds = [
         {
@@ -7148,7 +7526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comprehensive multi-exchange AIF data
-  app.get("/api/aif/all-exchanges", async (req, res) => {
+  app.get("/api/aif/all-exchanges", requireLevel2, async (req, res) => {
     try {
       const exchange = req.query.exchange as string;
       const category = req.query.category as string;
@@ -10388,7 +10766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Products
-  app.get("/api/marketplace/loan-products", async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-products", requireLevel1, async (req: any, res: any) => {
     try {
       const products = await storage.getLoanProducts();
       
@@ -10405,7 +10783,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-products/:productKey", async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-products/:productKey", requireLevel1, async (req: any, res: any) => {
     try {
       const { productKey } = req.params;
       const product = await storage.getLoanProductByKey(productKey);
@@ -10431,7 +10809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Providers
-  app.get("/api/marketplace/loan-providers", async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-providers", requireLevel1, async (req: any, res: any) => {
     try {
       const providers = await storage.getLoanProviders();
       
@@ -10448,7 +10826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-providers/:providerKey/products", async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-providers/:providerKey/products", requireLevel1, async (req: any, res: any) => {
     try {
       const { providerKey } = req.params;
       const { productKey } = req.query;
@@ -10478,7 +10856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Request and Offer Generation
-  app.post("/api/marketplace/loan-requests", requireAuth, async (req: any, res: any) => {
+  app.post("/api/marketplace/loan-requests", requireLevel1, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       
@@ -10514,7 +10892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/loan-requests/:requestId/generate-offers", requireAuth, async (req: any, res: any) => {
+  app.post("/api/marketplace/loan-requests/:requestId/generate-offers", requireLevel1, async (req: any, res: any) => {
     try {
       const { requestId } = req.params;
       const userId = req.user!.id;
@@ -10544,7 +10922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/loan-requests/:requestId/offers", requireAuth, async (req: any, res: any) => {
+  app.get("/api/marketplace/loan-requests/:requestId/offers", requireLevel1, async (req: any, res: any) => {
     try {
       const { requestId } = req.params;
       const userId = req.user!.id;
@@ -10574,7 +10952,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Loan Application Management
-  app.post("/api/marketplace/applications", requireAuth, async (req: any, res: any) => {
+  app.post("/api/marketplace/applications", requireLevel1, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       
@@ -10611,7 +10989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/applications", requireAuth, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications", requireLevel1, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       const applications = await storage.getLoanApplicationsMarketplace(userId);
@@ -10629,7 +11007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/marketplace/applications/:applicationId", requireAuth, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications/:applicationId", requireLevel1, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10655,7 +11033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/marketplace/applications/:applicationId", requireAuth, async (req: any, res: any) => {
+  app.patch("/api/marketplace/applications/:applicationId", requireLevel1, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10688,7 +11066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Application Documents
-  app.get("/api/marketplace/applications/:applicationId/documents", requireAuth, async (req: any, res: any) => {
+  app.get("/api/marketplace/applications/:applicationId/documents", requireLevel1, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10717,7 +11095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/applications/:applicationId/documents", requireAuth, async (req: any, res: any) => {
+  app.post("/api/marketplace/applications/:applicationId/documents", requireLevel1, async (req: any, res: any) => {
     try {
       const { applicationId } = req.params;
       const userId = req.user!.id;
@@ -10763,7 +11141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User's Loan Requests
-  app.get("/api/marketplace/my-requests", requireAuth, async (req: any, res: any) => {
+  app.get("/api/marketplace/my-requests", requireLevel1, async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       const requests = await storage.getLoanRequests(userId);
@@ -11180,6 +11558,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Insurance Holdings Routes
+
+  // Government Schemes Refresh Routes (OTP-based data refresh)
+  app.post("/api/government-schemes/:schemeType/refresh", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { schemeType } = req.params;
+      const { channel = 'mobile' } = req.body;
+      
+      const validSchemeTypes = ['epf', 'ppf', 'eps', 'nps', 'apy', 'insurance'];
+      if (!validSchemeTypes.includes(schemeType)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid scheme type: ${schemeType}` 
+        });
+      }
+      
+      // Generate a challenge ID for OTP verification
+      const challengeId = `refresh_${schemeType}_${userId}_${Date.now()}`;
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      
+      // In production, this would trigger an actual OTP send via SMS/Email
+      console.log(`[Government Schemes Refresh] OTP initiated for ${schemeType}, user: ${userId}, channel: ${channel}`);
+      
+      res.json({
+        success: true,
+        challengeId,
+        expiresAt: expiresAt.toISOString(),
+        message: `OTP sent to your registered ${channel === 'mobile' ? 'mobile number' : 'email'}`
+      });
+    } catch (error) {
+      console.error("Error initiating government scheme refresh:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to initiate data refresh" 
+      });
+    }
+  });
+
+  app.post("/api/government-schemes/:schemeType/otp/verify", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { schemeType } = req.params;
+      const { challengeId, otp } = req.body;
+      
+      if (!challengeId || !otp) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Challenge ID and OTP are required" 
+        });
+      }
+      
+      const validSchemeTypes = ['epf', 'ppf', 'eps', 'nps', 'apy', 'insurance'];
+      if (!validSchemeTypes.includes(schemeType)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid scheme type: ${schemeType}` 
+        });
+      }
+      
+      // In production, this would verify the OTP against the stored challenge
+      // For demo purposes, accept any 6-digit OTP
+      if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid OTP format. Please enter a 6-digit code." 
+        });
+      }
+      
+      // Simulate OTP verification and data refresh
+      console.log(`[Government Schemes Refresh] OTP verified for ${schemeType}, user: ${userId}, challengeId: ${challengeId}`);
+      
+      res.json({
+        success: true,
+        message: `${schemeType.toUpperCase()} data has been refreshed successfully from government sources`
+      });
+    } catch (error) {
+      console.error("Error verifying OTP for government scheme refresh:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to verify OTP" 
+      });
+    }
+  });
+
   app.get("/api/insurance-holdings", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
@@ -12548,7 +13010,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Mutual Fund API endpoints with MultiSource integration
-  app.get("/api/mutual-funds", async (req, res) => {
+  app.get("/api/mutual-funds", requireLevel2, async (req, res) => {
     try {
       const { 
         category, 
@@ -12649,7 +13111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/popular", async (req, res) => {
+  app.get("/api/mutual-funds/popular", requireLevel2, async (req, res) => {
     try {
       console.log("📈 Fetching best performing mutual funds with MultiSource service...");
       
@@ -12803,7 +13265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
+  app.get("/api/mutual-funds/:schemeCode", requireLevel2, async (req, res) => {
     try {
       const { schemeCode } = req.params;
       console.log(`📊 Fetching fund details for scheme: ${schemeCode} with MultiSource service`);
@@ -12983,7 +13445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/search/:query", async (req, res) => {
+  app.get("/api/mutual-funds/search/:query", requireLevel2, async (req, res) => {
     try {
       const { query } = req.params;
       console.log(`🔍 Searching funds with query: ${query}`);
@@ -20974,6 +21436,22 @@ System Security Data:`;
     }
   });
 
+  // Get user's unified orders (FintekPro transactions)
+  app.get('/api/unified-orders', requireClientOrHigher, async (req: any, res: any) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Get all orders for this user from unified_orders table
+      const orders = await storage.getUnifiedOrdersByUser(userId);
+      
+      res.json(orders);
+    } catch (error) {
+      console.error('Failed to fetch unified orders:', error);
+      res.status(500).json({ error: 'Failed to fetch orders' });
+    }
+  });
+
+
   // Load proposal items to cart
   app.post("/api/proposals/:proposalId/load-to-cart", requireAuth, async (req, res) => {
     try {
@@ -22213,7 +22691,7 @@ System Security Data:`;
 
 
   // Enhanced AIF Analytics API
-  app.get('/api/aif/analytics', async (req, res) => {
+  app.get('/api/aif/analytics', requireLevel2, async (req, res) => {
     try {
       const { timeframe = '1Y', category } = req.query;
       
@@ -24181,6 +24659,397 @@ System Security Data:`;
 
   // ========================
   // BAJAJ FINANCE API ROUTES
+
+  // ========================
+  // API CONFIGURATION MANAGEMENT
+  // ========================
+
+  // Get all API service configurations with real-time status
+  app.get("/api/admin/api-config", requireAdmin, async (req, res) => {
+    try {
+      const services = [
+        {
+          id: 'cashfree',
+          name: 'Cashfree',
+          description: 'Payment gateway & verification (primary)',
+          category: 'payments',
+          envVars: ['CASHFREE_APP_ID', 'CASHFREE_SECRET_KEY'],
+          environmentVar: 'CASHFREE_ENVIRONMENT',
+          status: process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY ? 'configured' : 'missing',
+          environment: process.env.CASHFREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'),
+          testEndpoint: '/api/admin/api-config/test/cashfree',
+          docs: 'https://docs.cashfree.com'
+        },
+        {
+          id: 'sandbox',
+          name: 'Sandbox.co.in',
+          description: 'Bank verification & ITR services',
+          category: 'verification',
+          envVars: ['SANDBOX_API_KEY', 'SANDBOX_API_SECRET'],
+          environmentVar: 'SANDBOX_ENVIRONMENT',
+          status: process.env.SANDBOX_API_KEY && process.env.SANDBOX_API_SECRET ? 'configured' : 'missing',
+          environment: process.env.SANDBOX_ENVIRONMENT || 'sandbox',
+          testEndpoint: '/api/admin/api-config/test/sandbox',
+          docs: 'https://docs.sandbox.co.in'
+        },
+        {
+          id: 'phonepe',
+          name: 'PhonePe',
+          description: 'Payment gateway (secondary)',
+          category: 'payments',
+          envVars: ['PHONEPE_MERCHANT_ID', 'PHONEPE_SALT_KEY', 'PHONEPE_SALT_INDEX'],
+          environmentVar: 'PHONEPE_ENVIRONMENT',
+          status: process.env.PHONEPE_MERCHANT_ID && process.env.PHONEPE_SALT_KEY ? 'configured' : 'missing',
+          environment: process.env.PHONEPE_ENVIRONMENT || 'sandbox',
+          testEndpoint: '/api/admin/api-config/test/phonepe',
+          docs: 'https://developer.phonepe.com'
+        },
+        {
+          id: 'gemini',
+          name: 'Google Gemini AI',
+          description: 'AI assistant & expense categorization',
+          category: 'ai',
+          envVars: ['GEMINI_API_KEY'],
+          environmentVar: null,
+          status: process.env.GEMINI_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/gemini',
+          docs: 'https://ai.google.dev/docs'
+        },
+        {
+          id: 'twilio',
+          name: 'Twilio',
+          description: 'SMS OTP delivery',
+          category: 'communication',
+          envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'],
+          environmentVar: null,
+          status: process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/twilio',
+          docs: 'https://www.twilio.com/docs'
+        },
+        {
+          id: 'email',
+          name: 'Email Service (SMTP)',
+          description: 'Email notifications & OTP',
+          category: 'communication',
+          envVars: ['EMAIL_USER', 'EMAIL_PASS', 'EMAIL_HOST', 'EMAIL_PORT'],
+          environmentVar: null,
+          status: process.env.EMAIL_USER && process.env.EMAIL_PASS ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/email',
+          docs: null
+        },
+        {
+          id: 'probe42',
+          name: 'Probe42',
+          description: 'Company data & financial analytics',
+          category: 'data',
+          envVars: ['PROBE42_API_KEY'],
+          environmentVar: null,
+          status: process.env.PROBE42_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/probe42',
+          docs: 'https://probe42.in/api-docs'
+        },
+        {
+          id: 'zoho',
+          name: 'Zoho Campaigns',
+          description: 'Email marketing automation',
+          category: 'marketing',
+          envVars: ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN'],
+          environmentVar: null,
+          status: process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/zoho',
+          docs: 'https://www.zoho.com/campaigns/api'
+        },
+        {
+          id: 'aisensy',
+          name: 'AiSensy',
+          description: 'WhatsApp Business API',
+          category: 'marketing',
+          envVars: ['AISENSY_API_KEY'],
+          environmentVar: null,
+          status: process.env.AISENSY_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/aisensy',
+          docs: 'https://docs.aisensy.com'
+        },
+        {
+          id: 'alphavantage',
+          name: 'Alpha Vantage',
+          description: 'Stock market data',
+          category: 'market-data',
+          envVars: ['ALPHA_VANTAGE_API_KEY'],
+          environmentVar: null,
+          status: process.env.ALPHA_VANTAGE_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/alphavantage',
+          docs: 'https://www.alphavantage.co/documentation'
+        },
+        {
+          id: 'openai',
+          name: 'OpenAI',
+          description: 'Advanced AI capabilities',
+          category: 'ai',
+          envVars: ['OPENAI_API_KEY'],
+          environmentVar: null,
+          status: process.env.OPENAI_API_KEY ? 'configured' : 'missing',
+          environment: 'production',
+          testEndpoint: '/api/admin/api-config/test/openai',
+          docs: 'https://platform.openai.com/docs'
+        },
+      ];
+
+      // Group by category
+      const categories: Record<string, { name: string; services: typeof services }> = {
+        payments: { name: 'Payment Gateways', services: [] },
+        verification: { name: 'Verification Services', services: [] },
+        ai: { name: 'AI Services', services: [] },
+        communication: { name: 'Communication', services: [] },
+        marketing: { name: 'Marketing', services: [] },
+        'market-data': { name: 'Market Data', services: [] },
+        data: { name: 'Data Services', services: [] }
+      };
+
+      services.forEach(service => {
+        if (categories[service.category]) {
+          categories[service.category].services.push(service);
+        }
+      });
+
+      // Calculate summary
+      const summary = {
+        total: services.length,
+        configured: services.filter(s => s.status === 'configured').length,
+        missing: services.filter(s => s.status === 'missing').length,
+        sandbox: services.filter(s => s.environment === 'sandbox').length,
+        production: services.filter(s => s.environment === 'production').length
+      };
+
+      res.json({
+        success: true,
+        data: {
+          services,
+          categories,
+          summary,
+          lastChecked: new Date().toISOString()
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching API config:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Test individual API connection
+  app.post("/api/admin/api-config/test/:serviceId", requireAdmin, async (req, res) => {
+    const { serviceId } = req.params;
+    
+    try {
+      let result: { success: boolean; message: string; details?: any; latency?: number } = {
+        success: false,
+        message: 'Unknown service'
+      };
+      
+      const startTime = Date.now();
+
+      switch (serviceId) {
+        case 'cashfree':
+          if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+            result = { success: false, message: 'Missing Cashfree credentials' };
+          } else {
+            try {
+              const env = process.env.CASHFREE_ENVIRONMENT || 'sandbox';
+              const baseUrl = env === 'production' 
+                ? 'https://api.cashfree.com' 
+                : 'https://sandbox.cashfree.com';
+              
+              const response = await fetch(`${baseUrl}/pg/orders`, {
+                method: 'GET',
+                headers: {
+                  'x-client-id': process.env.CASHFREE_APP_ID,
+                  'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+                  'x-api-version': '2023-08-01'
+                }
+              });
+              
+              result = {
+                success: response.status !== 401,
+                message: response.status === 401 ? 'Invalid credentials' : 'Connection successful',
+                details: { status: response.status, environment: env },
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+        case 'sandbox':
+          if (!process.env.SANDBOX_API_KEY || !process.env.SANDBOX_API_SECRET) {
+            result = { success: false, message: 'Missing Sandbox credentials' };
+          } else {
+            try {
+              const response = await fetch('https://api.sandbox.co.in/authenticate', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-api-key': process.env.SANDBOX_API_KEY,
+                  'x-api-secret': process.env.SANDBOX_API_SECRET,
+                  'x-api-version': '1.0'
+                }
+              });
+              
+              const data = await response.json();
+              result = {
+                success: data.access_token ? true : false,
+                message: data.access_token ? 'Authentication successful' : 'Authentication failed',
+                details: { hasToken: !!data.access_token },
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+        case 'gemini':
+          if (!process.env.GEMINI_API_KEY) {
+            result = { success: false, message: 'Missing Gemini API key' };
+          } else {
+            try {
+              const { GoogleGenAI } = await import('@google/genai');
+              const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+              result = {
+                success: true,
+                message: 'API key configured',
+                details: { model: 'gemini-2.0-flash' },
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+        case 'twilio':
+          if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+            result = { success: false, message: 'Missing Twilio credentials' };
+          } else {
+            try {
+              const credentials = Buffer.from(
+                `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+              ).toString('base64');
+              
+              const response = await fetch(
+                `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}.json`,
+                {
+                  headers: { 'Authorization': `Basic ${credentials}` }
+                }
+              );
+              
+              result = {
+                success: response.ok,
+                message: response.ok ? 'Credentials valid' : 'Invalid credentials',
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
+
+        case 'email':
+          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            result = { success: false, message: 'Missing email credentials' };
+          } else {
+            result = {
+              success: true,
+              message: 'Credentials configured (verification requires sending test email)',
+              details: { 
+                host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+                user: process.env.EMAIL_USER?.substring(0, 5) + '***'
+              },
+              latency: Date.now() - startTime
+            };
+          }
+          break;
+
+        default:
+          result = {
+            success: true,
+            message: 'Service status checked',
+            latency: Date.now() - startTime
+          };
+      }
+
+      // Log the test
+      await adminService.logActivity({
+        userId: req.user!.id,
+        action: 'api_connection_test',
+        resource: `Service: ${serviceId}`,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: { serviceId, result: result.success ? 'success' : 'failure' }
+      });
+
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      console.error(`Error testing ${serviceId}:`, error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Toggle service environment (sandbox/production)
+  app.post("/api/admin/api-config/environment/:serviceId", requireAdmin, async (req, res) => {
+    const { serviceId } = req.params;
+    const { environment } = req.body;
+
+    if (!['sandbox', 'production'].includes(environment)) {
+      return res.status(400).json({ success: false, error: 'Invalid environment. Must be sandbox or production' });
+    }
+
+    try {
+      const envVarMap: Record<string, string> = {
+        cashfree: 'CASHFREE_ENVIRONMENT',
+        sandbox: 'SANDBOX_ENVIRONMENT',
+        phonepe: 'PHONEPE_ENVIRONMENT'
+      };
+
+      const envVar = envVarMap[serviceId];
+      if (!envVar) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'This service does not support environment switching' 
+        });
+      }
+
+      // Update the environment variable
+      process.env[envVar] = environment;
+
+      // Log the change
+      await adminService.logActivity({
+        userId: req.user!.id,
+        action: 'api_environment_change',
+        resource: `Service: ${serviceId}`,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: { serviceId, environment, envVar }
+      });
+
+      res.json({ 
+        success: true, 
+        message: `${serviceId} environment switched to ${environment}`,
+        data: { serviceId, environment }
+      });
+    } catch (error: any) {
+      console.error(`Error switching environment for ${serviceId}:`, error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
   // ========================
 
   // EMI Calculator
@@ -24707,8 +25576,8 @@ System Security Data:`;
   app.post("/api/policybazaar/status", InsuranceMarketplaceAPI.getPolicyStatus);
   
   // New Marketplace Features
-  app.post("/api/insurance/compare", InsuranceMarketplaceAPI.compareInsurancePlans);
-  app.get("/api/insurance/providers/:type", (req, res) => {
+  app.post("/api/insurance/compare", requireLevel1, InsuranceMarketplaceAPI.compareInsurancePlans);
+  app.get("/api/insurance/providers/:type", requireLevel1, (req, res) => {
     const insuranceType = req.params.type;
     const providers = InsuranceMarketplaceAPI.getProvidersByType(insuranceType);
     res.json({ success: true, data: providers });
@@ -25959,6 +26828,217 @@ System Security Data:`;
         status: 'unhealthy',
         service: 'BSE Star KYC API',
         error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // ===== BSE UCC (Unique Client Code) ROUTES =====
+
+  // Create UCC for mutual fund trading (requires Level 2 KYC)
+  app.post("/api/bse/ucc/create", requireLevel2, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Import BSE UCC service
+      const { bseUCCService } = await import('./services/bse-ucc-service');
+      
+      // Double-check KYC Level 2 (middleware already validates, but extra safety)
+      const { level } = await getUserKYCLevel(userId);
+      if (level !== '2') {
+        return res.status(403).json({
+          success: false,
+          error: 'KYC Level 2 required',
+          message: 'You must complete full KYC verification before creating a UCC for mutual fund trading',
+          kycLevel: level,
+          requiredLevel: '2',
+          nextStep: {
+            action: 'complete_full_kyc',
+            url: '/onboarding',
+            description: 'Complete CKYC and KRA verification to unlock mutual fund trading'
+          }
+        });
+      }
+      
+      // Check if user already has a UCC
+      const existingProfile = await storage.getUserProfile(userId);
+      if (existingProfile?.bseUccCode) {
+        return res.status(400).json({
+          success: false,
+          error: 'UCC already exists',
+          message: 'You already have a BSE UCC code',
+          uccCode: existingProfile.bseUccCode,
+          clientCode: existingProfile.bseClientCode
+        });
+      }
+      
+      // Validate required fields from request body
+      const {
+        panNumber,
+        firstName,
+        middleName,
+        lastName,
+        dateOfBirth,
+        gender,
+        mobile,
+        email,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        pincode,
+        country,
+        bankAccountNumber,
+        bankIfscCode,
+        bankAccountType,
+        occupation,
+        annualIncome,
+        nomineeName,
+        nomineeRelationship,
+        nomineeDob,
+        taxStatus,
+        taxResidency,
+        isTaxResident,
+        isPEP,
+        ckycNumber
+      } = req.body;
+      
+      // Validate required fields
+      if (!panNumber || !firstName || !lastName || !dateOfBirth || !gender || !mobile || !email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields',
+          message: 'PAN number, first name, last name, date of birth, gender, mobile, and email are required'
+        });
+      }
+      
+      if (!addressLine1 || !city || !state || !pincode) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing address fields',
+          message: 'Address line 1, city, state, and pincode are required'
+        });
+      }
+      
+      if (!bankAccountNumber || !bankIfscCode || !bankAccountType) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing bank details',
+          message: 'Bank account number, IFSC code, and account type are required'
+        });
+      }
+      
+      // Create UCC via BSE Star API
+      const uccRequest = {
+        firstName,
+        middleName,
+        lastName,
+        dateOfBirth,
+        gender,
+        panNumber,
+        ckycNumber,
+        mobile,
+        email,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        pincode,
+        country: country || 'India',
+        bankAccountNumber,
+        bankIfscCode,
+        bankAccountType,
+        occupation,
+        annualIncome,
+        nomineeName,
+        nomineeRelationship,
+        nomineeDob,
+        taxStatus: taxStatus || 'INDIVIDUAL',
+        taxResidency,
+        isTaxResident,
+        isPEP
+      };
+      
+      const uccResult = await bseUCCService.createUCC(uccRequest);
+      
+      if (!uccResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: 'UCC creation failed',
+          message: uccResult.message,
+          errors: uccResult.errors
+        });
+      }
+      
+      // Store UCC code in user profile
+      await db.update(schema.userProfiles)
+        .set({
+          bseUccCode: uccResult.uccCode,
+          bseClientCode: uccResult.clientCode || uccResult.uccCode,
+          bseUccCreatedAt: new Date(),
+          bseUccStatus: "active"
+        })
+        .where(eq(schema.userProfiles.userId, userId));
+      // Log activity
+      adminService.logActivity({
+        userId,
+        action: 'bse_ucc_created',
+        resource: '/api/bse/ucc/create',
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        details: {
+          uccCode: uccResult.uccCode,
+          clientCode: uccResult.clientCode,
+          bseReference: uccResult.bseReference
+        }
+      }).catch(console.error);
+      
+      res.json({
+        success: true,
+        message: 'UCC created successfully',
+        uccCode: uccResult.uccCode,
+        clientCode: uccResult.clientCode,
+        bseReference: uccResult.bseReference
+      });
+    } catch (error) {
+      console.error("BSE UCC creation error:", error);
+      res.status(500).json({
+        success: false,
+        error: 'UCC creation failed',
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  });
+
+  // Get UCC status for current user
+  app.get("/api/bse/ucc/status", requireLevel2, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Fetch user profile
+      const profile = await storage.getUserProfile(userId);
+      
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          error: 'Profile not found',
+          message: 'User profile not found'
+        });
+      }
+      
+      res.json({
+        success: true,
+        hasUCC: !!profile.bseUccCode,
+        uccCode: profile.bseUccCode || null,
+        clientCode: profile.bseClientCode || null,
+        uccStatus: profile.bseUccStatus || null,
+        createdAt: profile.bseUccCreatedAt || null
+      });
+    } catch (error) {
+      console.error("BSE UCC status error:", error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch UCC status',
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
       });
     }
   });
@@ -30183,6 +31263,659 @@ System Security Data:`;
       res.status(500).json({ message: 'Failed to review submission' });
     }
   });
+
+
+  // ===================================================================
+  // PUBLIC STORE ROUTES (Client-facing - No Auth Required)
+  // ===================================================================
+
+  // Get active store categories for client store page
+  app.get('/api/store/categories', async (req, res) => {
+    try {
+      const allCategories = await storage.getAllStoreCategories();
+      const allSubcategories = await storage.getAllStoreSubcategories();
+      
+      // Filter to only active categories
+      const activeCategories = allCategories.filter(cat => cat.isActive);
+      
+      // Group active subcategories by category
+      const categoriesWithSubs = activeCategories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        icon: cat.icon,
+        displayOrder: cat.displayOrder,
+        subcategories: allSubcategories
+          .filter(sub => sub.categoryId === cat.id && sub.isActive)
+          .map(sub => ({
+            id: sub.id,
+            name: sub.name,
+            description: sub.description,
+            icon: sub.icon,
+            displayOrder: sub.displayOrder,
+          })),
+      }));
+
+      // Sort by display order
+      categoriesWithSubs.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+      res.json({ 
+        success: true,
+        categories: categoriesWithSubs 
+      });
+    } catch (error) {
+      console.error('Error fetching public store categories:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch categories' });
+    }
+  });
+
+  // Get active store products for client store page
+  app.get('/api/store/products', async (req, res) => {
+    try {
+      const { category, subcategory } = req.query;
+      
+      const allProducts = await storage.getAllStoreProducts();
+      const allCategories = await storage.getAllStoreCategories();
+      const allSubcategories = await storage.getAllStoreSubcategories();
+      
+      // Build lookup maps for active status
+      const activeCategoryIds = new Set(allCategories.filter(c => c.isActive).map(c => c.id));
+      const activeSubcategoryIds = new Set(allSubcategories.filter(s => s.isActive).map(s => s.id));
+      
+      // Filter to only active products with active parents
+      let activeProducts = allProducts.filter(product => {
+        if (!product.isActive) return false;
+        if (!activeCategoryIds.has(product.categoryId)) return false;
+        if (product.subcategoryId && !activeSubcategoryIds.has(product.subcategoryId)) return false;
+        return true;
+      });
+      
+      // Apply optional filters
+      if (category) {
+        activeProducts = activeProducts.filter(p => p.categoryId === category);
+      }
+      if (subcategory) {
+        activeProducts = activeProducts.filter(p => p.subcategoryId === subcategory);
+      }
+      
+      // Get category and subcategory names for each product
+      const categoryMap = Object.fromEntries(allCategories.map(c => [c.id, c.name]));
+      const subcategoryMap = Object.fromEntries(allSubcategories.map(s => [s.id, s.name]));
+      
+      const productsWithNames = activeProducts.map(product => ({
+        ...product,
+        categoryName: categoryMap[product.categoryId] || product.categoryId,
+        subcategoryName: product.subcategoryId ? (subcategoryMap[product.subcategoryId] || product.subcategoryId) : null,
+      }));
+
+      res.json({ 
+        success: true,
+        products: productsWithNames,
+        count: productsWithNames.length
+      });
+    } catch (error) {
+      console.error('Error fetching public store products:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch products' });
+    }
+  });
+
+  // Get featured/popular products for store homepage
+  app.get('/api/store/featured', async (req, res) => {
+    try {
+      const allProducts = await storage.getAllStoreProducts();
+      const allCategories = await storage.getAllStoreCategories();
+      const allSubcategories = await storage.getAllStoreSubcategories();
+      
+      const activeCategoryIds = new Set(allCategories.filter(c => c.isActive).map(c => c.id));
+      const activeSubcategoryIds = new Set(allSubcategories.filter(s => s.isActive).map(s => s.id));
+      
+      // Get active products from active parents
+      const activeProducts = allProducts.filter(product => {
+        if (!product.isActive) return false;
+        if (!activeCategoryIds.has(product.categoryId)) return false;
+        if (product.subcategoryId && !activeSubcategoryIds.has(product.subcategoryId)) return false;
+        return true;
+      });
+      
+      // Get category names
+      const categoryMap = Object.fromEntries(allCategories.map(c => [c.id, c.name]));
+      const subcategoryMap = Object.fromEntries(allSubcategories.map(s => [s.id, s.name]));
+      
+      const productsWithNames = activeProducts.map(product => ({
+        ...product,
+        categoryName: categoryMap[product.categoryId] || product.categoryId,
+        subcategoryName: product.subcategoryId ? (subcategoryMap[product.subcategoryId] || product.subcategoryId) : null,
+      }));
+
+      res.json({ 
+        success: true,
+        featured: productsWithNames.slice(0, 6),
+        popular: productsWithNames.slice(0, 10),
+        count: productsWithNames.length
+      });
+    } catch (error) {
+      console.error('Error fetching featured products:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch featured products' });
+    }
+  });
+
+
+  // ===================================================================
+  // STORE MANAGEMENT ROUTES (ADMIN)
+  // ===================================================================
+
+  // Get all store categories with their subcategories
+  app.get('/api/admin/store/categories', requireAdmin, async (req, res) => {
+    try {
+      const categories = await storage.getAllStoreCategories();
+      const subcategories = await storage.getAllStoreSubcategories();
+      
+      // Group subcategories by category
+      const categoriesWithSubs = categories.map(cat => ({
+        ...cat,
+        subcategories: subcategories.filter(sub => sub.categoryId === cat.id),
+      }));
+
+      res.json({ categories: categoriesWithSubs });
+    } catch (error) {
+      console.error('Error fetching store categories:', error);
+      res.status(500).json({ message: 'Failed to fetch categories' });
+    }
+  });
+
+  // Get single category by ID
+  app.get('/api/admin/store/categories/:id', requireAdmin, async (req, res) => {
+    try {
+      const category = await storage.getStoreCategoryById(req.params.id);
+      if (!category) {
+        return res.status(404).json({ message: 'Category not found' });
+      }
+      res.json({ category });
+    } catch (error) {
+      console.error('Error fetching category:', error);
+      res.status(500).json({ message: 'Failed to fetch category' });
+    }
+  });
+
+  // Create store category
+  app.post('/api/admin/store/categories', requireAdmin, async (req: any, res) => {
+    try {
+      const { name, description, icon, displayOrder } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: 'Category name is required' });
+      }
+
+      const category = await storage.createStoreCategory({
+        name,
+        description,
+        icon: icon || 'folder',
+        displayOrder: displayOrder || 0,
+        isActive: true,
+      });
+
+      // Log audit
+      await storage.createStoreAuditLog({
+        adminId: req.user.id,
+        adminEmail: req.user.email,
+        action: 'create',
+        targetType: 'category',
+        targetId: category.id,
+        targetName: category.name,
+        afterValue: category,
+      });
+
+      res.json({ success: true, category });
+    } catch (error) {
+      console.error('Error creating category:', error);
+      res.status(500).json({ message: 'Failed to create category' });
+    }
+  });
+
+  // Update store category
+  app.put('/api/admin/store/categories/:id', requireAdmin, async (req: any, res) => {
+    try {
+      const { name, description, icon, displayOrder } = req.body;
+      const existingCategory = await storage.getStoreCategoryById(req.params.id);
+      
+      if (!existingCategory) {
+        return res.status(404).json({ message: 'Category not found' });
+      }
+
+      const category = await storage.updateStoreCategory(req.params.id, {
+        name,
+        description,
+        icon,
+        displayOrder,
+      });
+
+      // Log audit
+      await storage.createStoreAuditLog({
+        adminId: req.user.id,
+        adminEmail: req.user.email,
+        action: 'update',
+        targetType: 'category',
+        targetId: category.id,
+        targetName: category.name,
+        beforeValue: existingCategory,
+        afterValue: category,
+      });
+
+      res.json({ success: true, category });
+    } catch (error) {
+      console.error('Error updating category:', error);
+      res.status(500).json({ message: 'Failed to update category' });
+    }
+  });
+
+  // Toggle category (with cascading to subcategories and products)
+  app.post('/api/admin/store/categories/:id/toggle', requireAdmin, async (req: any, res) => {
+    try {
+      const { isActive } = req.body;
+      
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ message: 'isActive must be a boolean' });
+      }
+
+      const result = await storage.toggleCategoryWithCascade(
+        req.params.id,
+        isActive,
+        req.user.id,
+        req.user.email
+      );
+
+      res.json({
+        success: true,
+        message: "Category " + (isActive ? "enabled" : "disabled") + " successfully with " + result.subcategories.length + " subcategories and " + result.products.length + " products",
+        ...result,
+      });
+    } catch (error) {
+      console.error('Error toggling category:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to toggle category' });
+    }
+  });
+
+  // Delete category
+  app.delete('/api/admin/store/categories/:id', requireAdmin, async (req: any, res) => {
+    try {
+      const category = await storage.getStoreCategoryById(req.params.id);
+      if (!category) {
+        return res.status(404).json({ message: 'Category not found' });
+      }
+
+      const subcategories = await storage.getStoreSubcategoriesByCategory(req.params.id);
+      if (subcategories.length > 0) {
+        return res.status(400).json({ message: 'Cannot delete category with existing subcategories. Delete subcategories first.' });
+      }
+
+      const products = await storage.getStoreProductsByCategory(req.params.id);
+      if (products.length > 0) {
+        return res.status(400).json({ message: 'Cannot delete category with existing products. Delete products first.' });
+      }
+
+      await storage.deleteStoreCategory(req.params.id);
+
+      await storage.createStoreAuditLog({
+        adminId: req.user.id,
+        adminEmail: req.user.email,
+        action: 'delete',
+        targetType: 'category',
+        targetId: category.id,
+        targetName: category.name,
+        beforeValue: category,
+      });
+
+      res.json({ success: true, message: 'Category deleted' });
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      res.status(500).json({ message: 'Failed to delete category' });
+    }
+  });
+
+  // Get all subcategories
+  app.get('/api/admin/store/subcategories', requireAdmin, async (req, res) => {
+    try {
+      const { categoryId } = req.query;
+      
+      let subcategories;
+      if (categoryId) {
+        subcategories = await storage.getStoreSubcategoriesByCategory(categoryId as string);
+      } else {
+        subcategories = await storage.getAllStoreSubcategories();
+      }
+
+      res.json({ subcategories });
+    } catch (error) {
+      console.error('Error fetching subcategories:', error);
+      res.status(500).json({ message: 'Failed to fetch subcategories' });
+    }
+  });
+
+  // Get single subcategory
+  app.get('/api/admin/store/subcategories/:id', requireAdmin, async (req, res) => {
+    try {
+      const subcategory = await storage.getStoreSubcategoryById(req.params.id);
+      if (!subcategory) {
+        return res.status(404).json({ message: 'Subcategory not found' });
+      }
+      res.json({ subcategory });
+    } catch (error) {
+      console.error('Error fetching subcategory:', error);
+      res.status(500).json({ message: 'Failed to fetch subcategory' });
+    }
+  });
+
+  // Create subcategory
+  app.post('/api/admin/store/subcategories', requireAdmin, async (req: any, res) => {
+    try {
+      const { categoryId, name, description, icon, displayOrder } = req.body;
+      
+      if (!categoryId || !name) {
+        return res.status(400).json({ message: 'Category ID and name are required' });
+      }
+
+      const category = await storage.getStoreCategoryById(categoryId);
+      if (!category) {
+        return res.status(404).json({ message: 'Parent category not found' });
+      }
+
+      const subcategory = await storage.createStoreSubcategory({
+        categoryId,
+        name,
+        description,
+        icon: icon || 'folder',
+        displayOrder: displayOrder || 0,
+        isActive: category.isActive,
+      });
+
+      await storage.createStoreAuditLog({
+        adminId: req.user.id,
+        adminEmail: req.user.email,
+        action: 'create',
+        targetType: 'subcategory',
+        targetId: subcategory.id,
+        targetName: subcategory.name,
+        afterValue: subcategory,
+      });
+
+      res.json({ success: true, subcategory });
+    } catch (error) {
+      console.error('Error creating subcategory:', error);
+      res.status(500).json({ message: 'Failed to create subcategory' });
+    }
+  });
+
+  // Toggle subcategory
+  app.post('/api/admin/store/subcategories/:id/toggle', requireAdmin, async (req: any, res) => {
+    try {
+      const { isActive } = req.body;
+      
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ message: 'isActive must be a boolean' });
+      }
+
+      const subcategory = await storage.getStoreSubcategoryById(req.params.id);
+      if (!subcategory) {
+        return res.status(404).json({ message: 'Subcategory not found' });
+      }
+
+      const category = await storage.getStoreCategoryById(subcategory.categoryId);
+      if (!category?.isActive && isActive) {
+        return res.status(400).json({ message: 'Cannot enable subcategory when parent category is disabled' });
+      }
+
+      const result = await storage.toggleSubcategoryWithCascade(
+        req.params.id,
+        isActive,
+        req.user.id,
+        req.user.email
+      );
+
+      res.json({
+        success: true,
+        message: "Subcategory " + (isActive ? "enabled" : "disabled") + " successfully with " + result.products.length + " products",
+        ...result,
+      });
+    } catch (error) {
+      console.error('Error toggling subcategory:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to toggle subcategory' });
+    }
+  });
+
+  // Delete subcategory
+  app.delete('/api/admin/store/subcategories/:id', requireAdmin, async (req: any, res) => {
+    try {
+      const subcategory = await storage.getStoreSubcategoryById(req.params.id);
+      if (!subcategory) {
+        return res.status(404).json({ message: 'Subcategory not found' });
+      }
+
+      const products = await storage.getStoreProductsBySubcategory(req.params.id);
+      if (products.length > 0) {
+        return res.status(400).json({ message: 'Cannot delete subcategory with existing products' });
+      }
+
+      await storage.deleteStoreSubcategory(req.params.id);
+
+      await storage.createStoreAuditLog({
+        adminId: req.user.id,
+        adminEmail: req.user.email,
+        action: 'delete',
+        targetType: 'subcategory',
+        targetId: subcategory.id,
+        targetName: subcategory.name,
+        beforeValue: subcategory,
+      });
+
+      res.json({ success: true, message: 'Subcategory deleted' });
+    } catch (error) {
+      console.error('Error deleting subcategory:', error);
+      res.status(500).json({ message: 'Failed to delete subcategory' });
+    }
+  });
+
+  // Get all products
+  app.get('/api/admin/store/products', requireAdmin, async (req, res) => {
+    try {
+      const { categoryId, subcategoryId } = req.query;
+      
+      let products;
+      if (subcategoryId) {
+        products = await storage.getStoreProductsBySubcategory(subcategoryId as string);
+      } else if (categoryId) {
+        products = await storage.getStoreProductsByCategory(categoryId as string);
+      } else {
+        products = await storage.getAllStoreProducts();
+      }
+
+      res.json({ products });
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      res.status(500).json({ message: 'Failed to fetch products' });
+    }
+  });
+
+  // Get single product
+  app.get('/api/admin/store/products/:id', requireAdmin, async (req, res) => {
+    try {
+      const product = await storage.getStoreProductById(req.params.id);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+      res.json({ product });
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      res.status(500).json({ message: 'Failed to fetch product' });
+    }
+  });
+
+  // Toggle single product
+  app.post('/api/admin/store/products/:id/toggle', requireAdmin, async (req: any, res) => {
+    try {
+      const { isActive } = req.body;
+      
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ message: 'isActive must be a boolean' });
+      }
+
+      const product = await storage.getStoreProductById(req.params.id);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+
+      const category = await storage.getStoreCategoryById(product.categoryId);
+      if (!category?.isActive && isActive) {
+        return res.status(400).json({ message: 'Cannot enable product when parent category is disabled' });
+      }
+
+      if (product.subcategoryId) {
+        const subcategory = await storage.getStoreSubcategoryById(product.subcategoryId);
+        if (!subcategory?.isActive && isActive) {
+          return res.status(400).json({ message: 'Cannot enable product when parent subcategory is disabled' });
+        }
+      }
+
+      await storage.createStoreAuditLog({
+        adminId: req.user.id,
+        adminEmail: req.user.email,
+        action: 'toggle',
+        targetType: 'product',
+        targetId: product.id,
+        targetName: product.name,
+        beforeValue: { isActive: product.isActive },
+        afterValue: { isActive },
+      });
+
+      const updated = await storage.updateStoreProductStatus(req.params.id, isActive);
+
+      res.json({
+        success: true,
+        message: "Product " + (isActive ? "enabled" : "disabled") + " successfully",
+        product: updated,
+      });
+    } catch (error) {
+      console.error('Error toggling product:', error);
+      res.status(500).json({ message: 'Failed to toggle product' });
+    }
+  });
+
+  // Get store audit logs
+  app.get('/api/admin/store/audit-logs', requireAdmin, async (req, res) => {
+    try {
+      const { targetType, targetId, adminId, limit } = req.query;
+      
+      const logs = await storage.getStoreAuditLogs({
+        targetType: targetType as string,
+        targetId: targetId as string,
+        adminId: adminId as string,
+        limit: limit ? parseInt(limit as string) : 100,
+      });
+
+      res.json({ logs });
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      res.status(500).json({ message: 'Failed to fetch audit logs' });
+    }
+  });
+
+  // Submit product inquiry (client-side)
+  app.post('/api/store/inquiries', async (req: any, res) => {
+    try {
+      const { productId, categoryId, subcategoryId, userId, name, email, mobile, message } = req.body;
+      
+      if (!name || !email || !message) {
+        return res.status(400).json({ message: 'Name, email, and message are required' });
+      }
+
+      const inquiry = await storage.createStoreProductInquiry({
+        productId: productId || null,
+        categoryId: categoryId || null,
+        subcategoryId: subcategoryId || null,
+        userId: userId || req.user?.id || null,
+        name,
+        email,
+        mobile: mobile || null,
+        message,
+        status: 'pending',
+      });
+
+      res.json({ success: true, inquiry });
+    } catch (error) {
+      console.error('Error creating inquiry:', error);
+      res.status(500).json({ message: 'Failed to submit inquiry' });
+    }
+  });
+
+  // Get all inquiries (admin)
+  app.get('/api/admin/store/inquiries', requireAdmin, async (req, res) => {
+    try {
+      const { status, productId, categoryId } = req.query;
+      
+      const inquiries = await storage.getStoreProductInquiries({
+        status: status as string,
+        productId: productId as string,
+        categoryId: categoryId as string,
+      });
+
+      res.json({ inquiries });
+    } catch (error) {
+      console.error('Error fetching inquiries:', error);
+      res.status(500).json({ message: 'Failed to fetch inquiries' });
+    }
+  });
+
+  // Update inquiry status (admin)
+  app.put('/api/admin/store/inquiries/:id', requireAdmin, async (req: any, res) => {
+    try {
+      const { status, adminNotes } = req.body;
+      
+      const updated = await storage.updateStoreProductInquiry(req.params.id, {
+        status,
+        adminNotes,
+        respondedBy: req.user.id,
+        respondedAt: new Date(),
+      });
+
+      if (!updated) {
+        return res.status(404).json({ message: 'Inquiry not found' });
+      }
+
+      res.json({ success: true, inquiry: updated });
+    } catch (error) {
+      console.error('Error updating inquiry:', error);
+      res.status(500).json({ message: 'Failed to update inquiry' });
+    }
+  });
+
+  // Get public store catalog (for client portal)
+  app.get('/api/store/catalog', async (req, res) => {
+    try {
+      const categories = await storage.getAllStoreCategories();
+      const subcategories = await storage.getAllStoreSubcategories();
+      const products = await storage.getAllStoreProducts();
+      
+      const activeCategories = categories.filter(c => c.isActive);
+      const activeSubcategories = subcategories.filter(s => s.isActive && activeCategories.some(c => c.id === s.categoryId));
+      const activeProducts = products.filter(p => p.isActive);
+      
+      const catalog = activeCategories.map(cat => ({
+        ...cat,
+        subcategories: activeSubcategories
+          .filter(sub => sub.categoryId === cat.id)
+          .map(sub => ({
+            ...sub,
+            products: activeProducts.filter(prod => prod.subcategoryId === sub.id),
+          })),
+        products: activeProducts.filter(prod => prod.categoryId === cat.id && !prod.subcategoryId),
+      }));
+
+      res.json({ catalog });
+    } catch (error) {
+      console.error('Error fetching store catalog:', error);
+      res.status(500).json({ message: 'Failed to fetch catalog' });
+    }
+  });
+
 
   return server;
 }

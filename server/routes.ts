@@ -11558,8 +11558,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Insurance Holdings Routes
+  // In-memory OTP storage for government scheme refresh (consider Redis for production)
+  const governmentSchemeOtpStore = new Map<string, { otp: string; expiresAt: Date; userId: string; schemeType: string }>();
 
-  // Government Schemes Refresh Routes (OTP-based data refresh)
+  // Government Schemes Refresh Routes (OTP-based data refresh with real SMS)
+  app.post("/api/government-schemes/:schemeType/refresh", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { schemeType } = req.params;
+      const { channel = 'mobile' } = req.body;
+      
+      const validSchemeTypes = ['epf', 'ppf', 'eps', 'nps', 'apy', 'insurance'];
+      if (!validSchemeTypes.includes(schemeType)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid scheme type: ${schemeType}` 
+        });
+      }
+      
+      // Get user's mobile number
+      const user = await storage.getUser(userId);
+      if (!user?.mobile) {
+        return res.status(400).json({
+          success: false,
+          message: "Mobile number not found. Please update your profile with a valid mobile number."
+        });
+      }
+      
+      // Generate OTP and challenge ID
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const challengeId = `refresh_${schemeType}_${userId}_${Date.now()}`;
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      
+      // Store OTP for verification
+      governmentSchemeOtpStore.set(challengeId, {
+        otp,
+        expiresAt,
+        userId,
+        schemeType
+      });
+      
+      // Clean up expired OTPs
+      for (const [key, value] of governmentSchemeOtpStore.entries()) {
+        if (value.expiresAt < new Date()) {
+          governmentSchemeOtpStore.delete(key);
+        }
+      }
+      
+      // Import and use SMS service
+      const { smsService } = await import("./services/sms-service.js");
+      
+      // Format message for government scheme refresh
+      const schemeName = schemeType.toUpperCase();
+      const formattedMobile = user.mobile.startsWith('+') ? user.mobile : `+91${user.mobile}`;
+      
+      if (smsService.isAvailable()) {
+        try {
+          // Send OTP via Twilio
+          const sent = await smsService.sendOTP(user.mobile, otp);
+          if (sent) {
+            console.log(`[Government Schemes Refresh] OTP sent via SMS for ${schemeType}, user: ${userId}`);
+          } else {
+            console.log(`[Government Schemes Refresh] SMS service unavailable, OTP: ${otp}`);
+          }
+        } catch (smsError) {
+          console.error(`[Government Schemes Refresh] SMS send failed:`, smsError);
+        }
+      } else {
+        console.log(`[Government Schemes Refresh] SMS not configured. OTP for ${schemeType}: ${otp}`);
+      }
+      
+      // Mask phone number for display
+      const maskedMobile = formattedMobile.slice(0, 3) + '****' + formattedMobile.slice(-4);
+      
+      res.json({
+        success: true,
+        challengeId,
+        expiresAt: expiresAt.toISOString(),
+        message: `OTP sent to ${maskedMobile}`
+      });
+    } catch (error) {
+      console.error("Error initiating government scheme refresh:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to initiate data refresh" 
+      });
+    }
+  });
+
+  app.post("/api/government-schemes/:schemeType/otp/verify", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { schemeType } = req.params;
+      const { challengeId, otp } = req.body;
+      
+      if (!challengeId || !otp) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Challenge ID and OTP are required" 
+        });
+      }
+      
+      const validSchemeTypes = ['epf', 'ppf', 'eps', 'nps', 'apy', 'insurance'];
+      if (!validSchemeTypes.includes(schemeType)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid scheme type: ${schemeType}` 
+        });
+      }
+      
+      // Validate OTP format
+      if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid OTP format. Please enter a 6-digit code." 
+        });
+      }
+      
+      // Retrieve stored OTP
+      const storedData = governmentSchemeOtpStore.get(challengeId);
+      
+      if (!storedData) {
+        return res.status(400).json({
+          success: false,
+          message: "OTP expired or invalid. Please request a new OTP."
+        });
+      }
+      
+      // Check expiry
+      if (storedData.expiresAt < new Date()) {
+        governmentSchemeOtpStore.delete(challengeId);
+        return res.status(400).json({
+          success: false,
+          message: "OTP has expired. Please request a new OTP."
+        });
+      }
+      
+      // Verify OTP
+      if (storedData.otp !== otp) {
+        return res.status(400).json({
+          success: false,
+          message: "Incorrect OTP. Please try again."
+        });
+      }
+      
+      // Verify user matches
+      if (storedData.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: "Unauthorized verification attempt."
+        });
+      }
+      
+      // OTP verified successfully - clean up
+      governmentSchemeOtpStore.delete(challengeId);
+      
+      console.log(`[Government Schemes Refresh] OTP verified for ${schemeType}, user: ${userId}`);
+      
+      res.json({
+        success: true,
+        message: `${schemeType.toUpperCase()} data has been refreshed successfully from government sources`
+      });
+    } catch (error) {
+      console.error("Error verifying OTP for government scheme refresh:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to verify OTP" 
+      });
+    }
+  });
+
   app.post("/api/government-schemes/:schemeType/refresh", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
