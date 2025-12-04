@@ -66,6 +66,7 @@ import ZohoDashboardPage from "@/pages/admin/zoho-dashboard";
 import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
 import ZohoLogsPage from "@/pages/admin/zoho-logs";
 import StoreManagement from "@/pages/admin/store-management";
+import SeedUnlistedPage from "@/pages/admin/seed-unlisted";
 import DuplicateManagementPage from "@/pages/admin/duplicate-management";
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
@@ -429,6 +430,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <StoreManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed-unlisted">
+        {() => (
+          <AdminLayout>
+            <SeedUnlistedPage />
           </AdminLayout>
         )}
       </Route>
