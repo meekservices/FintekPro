@@ -66,6 +66,7 @@ import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
 import { sandboxITRService } from './sandbox-itr-service';
+import { sandboxTDSService } from './sandbox-tds-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
@@ -17341,6 +17342,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============ END SANDBOX.CO.IN ITR API ROUTES ============
+
+  // ============ SANDBOX.CO.IN TDS API ROUTES ============
+
+  // Check if TDS service is configured
+  app.get("/api/tds/status", async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        configured: sandboxTDSService.isConfigured(),
+        message: sandboxTDSService.isConfigured()
+          ? "Sandbox.co.in TDS service is configured and ready"
+          : "Sandbox.co.in TDS service is using calculated data (API credentials not configured)"
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to check TDS service status" });
+    }
+  });
+
+  // Calculate TDS on Salary
+  app.post("/api/tds/calculate/salary", async (req, res) => {
+    try {
+      const result = await sandboxTDSService.calculateSalaryTDSAPI(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("TDS salary calculation error:", error);
+      res.status(500).json({ success: false, error: "TDS calculation failed" });
+    }
+  });
+
+  // Calculate TDS on Non-Salary Payments
+  app.post("/api/tds/calculate/non-salary", async (req, res) => {
+    try {
+      const result = await sandboxTDSService.calculateNonSalaryTDSAPI(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("TDS non-salary calculation error:", error);
+      res.status(500).json({ success: false, error: "TDS calculation failed" });
+    }
+  });
+
+  // Get TDS Section Rates Reference
+  app.get("/api/tds/section-rates", async (req, res) => {
+    try {
+      const rates = sandboxTDSService.getTDSSectionRates();
+      res.json({ success: true, data: rates });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch TDS rates" });
+    }
+  });
+
+  // Get TDS Form Types
+  app.get("/api/tds/form-types", async (req, res) => {
+    try {
+      const formTypes = sandboxTDSService.getTDSFormTypes();
+      res.json({ success: true, data: formTypes });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch TDS form types" });
+    }
+  });
+
+  // Get TDS Quarter Due Dates
+  app.get("/api/tds/due-dates/:financialYear", async (req, res) => {
+    try {
+      const { financialYear } = req.params;
+      const dueDates = sandboxTDSService.getTDSQuarterDueDates(financialYear);
+      res.json({ success: true, data: dueDates });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch TDS due dates" });
+    }
+  });
+
+  // Get TDS Analytics for TAN
+  app.get("/api/tds/analytics/:tan/:financialYear", async (req, res) => {
+    try {
+      const { tan, financialYear } = req.params;
+      const result = await sandboxTDSService.getTDSAnalytics(tan, financialYear);
+      res.json(result);
+    } catch (error) {
+      console.error("TDS analytics error:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch TDS analytics" });
+    }
+  });
+
+  // Generate Form 16 (Salary TDS Certificate)
+  app.post("/api/tds/form16/generate", async (req, res) => {
+    try {
+      const result = await sandboxTDSService.generateForm16(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("Form 16 generation error:", error);
+      res.status(500).json({ success: false, error: "Form 16 generation failed" });
+    }
+  });
+
+  // Generate Form 16A (Non-Salary TDS Certificate)
+  app.post("/api/tds/form16a/generate", async (req, res) => {
+    try {
+      const { tan, pan, quarter, financialYear } = req.body;
+      const result = await sandboxTDSService.generateForm16A(tan, pan, quarter, financialYear);
+      res.json(result);
+    } catch (error) {
+      console.error("Form 16A generation error:", error);
+      res.status(500).json({ success: false, error: "Form 16A generation failed" });
+    }
+  });
+
+  // Prepare TDS Return
+  app.post("/api/tds/return/prepare", async (req, res) => {
+    try {
+      const result = await sandboxTDSService.prepareTDSReturn(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error("TDS return preparation error:", error);
+      res.status(500).json({ success: false, error: "TDS return preparation failed" });
+    }
+  });
+
+  // E-File TDS Return
+  app.post("/api/tds/return/efile", async (req, res) => {
+    try {
+      const { returnId, userId, password } = req.body;
+      const result = await sandboxTDSService.eFileTDSReturn(returnId, { userId, password });
+      res.json(result);
+    } catch (error) {
+      console.error("TDS e-filing error:", error);
+      res.status(500).json({ success: false, error: "TDS e-filing failed" });
+    }
+  });
+
+  // Download CSI (Challan Status Inquiry)
+  app.get("/api/tds/csi/:tan/:financialYear", async (req, res) => {
+    try {
+      const { tan, financialYear } = req.params;
+      const result = await sandboxTDSService.downloadCSI(tan, financialYear);
+      res.json(result);
+    } catch (error) {
+      console.error("CSI download error:", error);
+      res.status(500).json({ success: false, error: "CSI download failed" });
+    }
+  });
+
+  // ============ END SANDBOX.CO.IN TDS API ROUTES ============
+
 
   // ============ TAX DATA CENTER API ROUTES ============
   
