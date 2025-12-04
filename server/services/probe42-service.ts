@@ -254,16 +254,22 @@ class Probe42Service {
     }
 
     if (!this.isConfigured) {
-      // Return mock data in development
+      console.log(`[Probe42] Not configured, using mock data for query: "${query}"`);
       return this.getMockSearchResults(query);
     }
 
     try {
+      console.log(`[Probe42] Searching real API for: "${query}"`);
       const response = await this.client.get('/companies/search', {
         params: { q: query }
       });
 
-      return response.data.companies || [];
+      const results = response.data.companies || [];
+      console.log(`[Probe42] Found ${results.length} companies for query: "${query}"`);
+      if (results.length > 0) {
+        console.log(`[Probe42] First result: ${results[0].name} (CIN: ${results[0].cin})`);
+      }
+      return results;
     } catch (error: any) {
       // Handle authentication errors gracefully - fall back to mock data in development
       if (error.response?.status === 401 || error.response?.status === 403) {
