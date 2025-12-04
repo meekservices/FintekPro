@@ -33,6 +33,21 @@ import {
   type BuyRequest,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
+import { apiResponse } from '../utils/responses';
+
+// Admin middleware for unlisted marketplace admin routes
+const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return apiResponse.unauthorized(res, 'Authentication required');
+  }
+
+  const userRoles = (req.user as any)?.roles || [];
+  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
+    return apiResponse.forbidden(res, 'Admin access required');
+  }
+
+  next();
+};
 
 const router = Router();
 
@@ -2609,12 +2624,8 @@ router.patch('/admin/update-store-prices/:productId', async (req: Request, res: 
  * GET /api/unlisted/admin/reconciliation/moneycontrol
  * Get list of companies on MoneyControl that are not in FintekPro (Admin only)
  */
-router.get('/admin/reconciliation/moneycontrol', requireLevel2, async (req: Request, res: Response) => {
+router.get('/admin/reconciliation/moneycontrol', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
-    
     const forceRefresh = req.query.refresh === 'true';
     const result = await moneyControlReconciliation.getReconciliationSuggestions(forceRefresh);
     
@@ -2629,12 +2640,8 @@ router.get('/admin/reconciliation/moneycontrol', requireLevel2, async (req: Requ
  * POST /api/unlisted/admin/reconciliation/refresh
  * Force refresh the MoneyControl cache (Admin only)
  */
-router.post('/admin/reconciliation/refresh', requireLevel2, async (req: Request, res: Response) => {
+router.post('/admin/reconciliation/refresh', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
-    
     const result = await moneyControlReconciliation.getReconciliationSuggestions(true);
     
     return apiResponse.success(res, {
@@ -2662,12 +2669,8 @@ const moneyControlCompanySchema = z.object({
  * POST /api/unlisted/admin/reconciliation/sync
  * Sync a company from MoneyControl to FintekPro (Admin only)
  */
-router.post('/admin/reconciliation/sync', requireLevel2, async (req: Request, res: Response) => {
+router.post('/admin/reconciliation/sync', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
-    
     const { company } = req.body;
     
     if (!company) {
@@ -2700,12 +2703,8 @@ router.post('/admin/reconciliation/sync', requireLevel2, async (req: Request, re
  * POST /api/unlisted/admin/reconciliation/sync-batch
  * Sync multiple companies from MoneyControl to FintekPro (Admin only)
  */
-router.post('/admin/reconciliation/sync-batch', requireLevel2, async (req: Request, res: Response) => {
+router.post('/admin/reconciliation/sync-batch', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
-    
     const { companies } = req.body;
     
     if (!Array.isArray(companies) || companies.length === 0) {
@@ -2753,12 +2752,8 @@ router.post('/admin/reconciliation/sync-batch', requireLevel2, async (req: Reque
  * GET /api/unlisted/admin/reconciliation/cache-status
  * Get current cache status (Admin only)
  */
-router.get('/admin/reconciliation/cache-status', requireLevel2, async (req: Request, res: Response) => {
+router.get('/admin/reconciliation/cache-status', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
-    
     const status = moneyControlReconciliation.getCacheStatus();
     return apiResponse.success(res, status);
   } catch (error: any) {
