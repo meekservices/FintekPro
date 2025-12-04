@@ -17485,6 +17485,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============ END SANDBOX.CO.IN TDS API ROUTES ============
 
+  // ============ SANDBOX.CO.IN OCR API ROUTES ============
+  
+  // Get OCR service status
+  app.get("/api/ocr/status", async (req, res) => {
+    try {
+      const status = sandboxITRService.getOCRStatus();
+      res.json({
+        success: true,
+        ...status,
+        message: status.available 
+          ? 'OCR service is configured and ready' 
+          : 'OCR service using mock data (API credentials not configured)'
+      });
+    } catch (error) {
+      console.error("OCR status check error:", error);
+      res.status(500).json({ success: false, error: "OCR status check failed" });
+    }
+  });
+
+  // Parse Form 16 document using OCR
+  app.post("/api/ocr/form16", async (req, res) => {
+    try {
+      const { fileData, fileName } = req.body;
+      
+      if (!fileData) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "File data is required (base64 encoded PDF)" 
+        });
+      }
+
+      // Convert base64 to buffer
+      const fileBuffer = Buffer.from(fileData, 'base64');
+      const result = await sandboxITRService.parseForm16(fileBuffer, fileName || 'form16.pdf');
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Form 16 OCR error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Form 16 OCR parsing failed",
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Parse Form 26AS document using OCR
+  app.post("/api/ocr/form26as", async (req, res) => {
+    try {
+      const { fileData, fileName } = req.body;
+      
+      if (!fileData) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "File data is required (base64 encoded PDF)" 
+        });
+      }
+
+      // Convert base64 to buffer
+      const fileBuffer = Buffer.from(fileData, 'base64');
+      const result = await sandboxITRService.parseForm26AS(fileBuffer, fileName || 'form26as.pdf');
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Form 26AS OCR error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Form 26AS OCR parsing failed",
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Parse any tax document (auto-detect type)
+  app.post("/api/ocr/parse-document", async (req, res) => {
+    try {
+      const { fileData, fileName, documentType } = req.body;
+      
+      if (!fileData) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "File data is required (base64 encoded PDF)" 
+        });
+      }
+
+      const fileBuffer = Buffer.from(fileData, 'base64');
+      let result;
+
+      // Route to appropriate OCR based on document type
+      switch (documentType?.toLowerCase()) {
+        case 'form16':
+        case 'form_16':
+        case 'form-16':
+          result = await sandboxITRService.parseForm16(fileBuffer, fileName || 'form16.pdf');
+          break;
+        case 'form26as':
+        case 'form_26as':
+        case 'form-26as':
+        case '26as':
+          result = await sandboxITRService.parseForm26AS(fileBuffer, fileName || 'form26as.pdf');
+          break;
+        default:
+          // Try to auto-detect based on filename
+          const lowerFileName = (fileName || '').toLowerCase();
+          if (lowerFileName.includes('form16') || lowerFileName.includes('form-16') || lowerFileName.includes('form_16')) {
+            result = await sandboxITRService.parseForm16(fileBuffer, fileName);
+          } else if (lowerFileName.includes('26as') || lowerFileName.includes('form26')) {
+            result = await sandboxITRService.parseForm26AS(fileBuffer, fileName);
+          } else {
+            // Default to Form 16 if cannot determine
+            result = await sandboxITRService.parseForm16(fileBuffer, fileName || 'document.pdf');
+          }
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Document OCR error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Document OCR parsing failed",
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ============ END SANDBOX.CO.IN OCR API ROUTES ============
+
+
 
   // ============ TAX DATA CENTER API ROUTES ============
   
