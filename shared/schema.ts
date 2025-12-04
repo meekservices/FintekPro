@@ -11758,3 +11758,37 @@ export const storeProductInquiries = pgTable("store_product_inquiries", {
 export type StoreProductInquiry = typeof storeProductInquiries.$inferSelect;
 export type InsertStoreProductInquiry = typeof storeProductInquiries.$inferInsert;
 export const insertStoreProductInquirySchema = createInsertSchema(storeProductInquiries).omit({ id: true, createdAt: true });
+
+// ===================================================================
+// MONEYCONTROL RECONCILIATION TYPES
+// ===================================================================
+
+export interface MoneyControlExternalCompany {
+  name: string;
+  isin: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  previousClose: number;
+  sector?: string;
+  url?: string;
+  scrapedAt: Date;
+}
+
+export interface MoneyControlReconciliationCache {
+  companies: MoneyControlExternalCompany[];
+  scrapedAt: Date;
+  expiresAt: Date;
+  source: string;
+}
+
+export interface MoneyControlReconciliationSuggestion {
+  externalCompany: MoneyControlExternalCompany;
+  matchConfidence: 'none' | 'low' | 'partial';
+  possibleMatches: {
+    companyId: string;
+    companyName: string;
+    matchScore: number;
+  }[];
+  status: 'new' | 'ignored' | 'synced';
+}

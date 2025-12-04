@@ -17,6 +17,7 @@ import { eq } from 'drizzle-orm';
 import { probe42Service } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import { priceAggregationService } from '../services/price-aggregation';
+import { moneyControlReconciliation } from '../services/moneycontrol-reconciliation';
 import {
   insertUnlistedCompanySchema,
   insertUnlistedPriceHistorySchema,
@@ -2597,6 +2598,131 @@ router.patch('/admin/update-store-prices/:productId', async (req: Request, res: 
   } catch (error: any) {
     console.error('Error updating store prices:', error);
     return apiResponse.serverError(res, 'Failed to update prices');
+  }
+});
+
+// ===================================================================
+// MONEYCONTROL RECONCILIATION ROUTES (Admin only)
+// ===================================================================
+
+/**
+ * GET /api/unlisted/admin/reconciliation/moneycontrol
+ * Get list of companies on MoneyControl that are not in FintekPro (Admin only)
+ */
+router.get('/admin/reconciliation/moneycontrol', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const forceRefresh = req.query.refresh === 'true';
+    const result = await moneyControlReconciliation.getReconciliationSuggestions(forceRefresh);
+    
+    return apiResponse.success(res, result);
+  } catch (error: any) {
+    console.error('Error fetching MoneyControl reconciliation:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to fetch reconciliation data');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/reconciliation/refresh
+ * Force refresh the MoneyControl cache (Admin only)
+ */
+router.post('/admin/reconciliation/refresh', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const result = await moneyControlReconciliation.getReconciliationSuggestions(true);
+    
+    return apiResponse.success(res, {
+      message: 'Cache refreshed successfully',
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('Error refreshing MoneyControl cache:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to refresh cache');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/reconciliation/sync
+ * Sync a company from MoneyControl to FintekPro (Admin only)
+ */
+router.post('/admin/reconciliation/sync', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { company } = req.body;
+    
+    if (!company || !company.name || !company.isin) {
+      return apiResponse.badRequest(res, 'Company with name and ISIN is required');
+    }
+    
+    const synced = await moneyControlReconciliation.syncCompanyFromMoneyControl(company, req.user.id);
+    
+    return apiResponse.created(res, {
+      message: 'Company synced successfully',
+      company: synced,
+    });
+  } catch (error: any) {
+    console.error('Error syncing company from MoneyControl:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to sync company');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/reconciliation/sync-batch
+ * Sync multiple companies from MoneyControl to FintekPro (Admin only)
+ */
+router.post('/admin/reconciliation/sync-batch', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companies } = req.body;
+    
+    if (!Array.isArray(companies) || companies.length === 0) {
+      return apiResponse.badRequest(res, 'Companies array is required');
+    }
+    
+    if (companies.length > 50) {
+      return apiResponse.badRequest(res, 'Maximum 50 companies per batch');
+    }
+    
+    const result = await moneyControlReconciliation.syncMultipleCompanies(companies, req.user?.id);
+    
+    return apiResponse.success(res, {
+      message: `Synced ${result.success.length} companies, ${result.failed.length} failed`,
+      success: result.success,
+      failed: result.failed,
+    });
+  } catch (error: any) {
+    console.error('Error batch syncing companies:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to batch sync companies');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/reconciliation/cache-status
+ * Get current cache status (Admin only)
+ */
+router.get('/admin/reconciliation/cache-status', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const status = moneyControlReconciliation.getCacheStatus();
+    return apiResponse.success(res, status);
+  } catch (error: any) {
+    console.error('Error getting cache status:', error);
+    return apiResponse.serverError(res, 'Failed to get cache status');
   }
 });
 
