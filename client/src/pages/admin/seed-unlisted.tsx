@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -140,7 +139,13 @@ export default function SeedUnlistedPage() {
   const fetchPriceSuggestions = async (companyId: string) => {
     setCompanyPrices(prev => ({
       ...prev,
-      [companyId]: { ...prev[companyId], loading: true }
+      [companyId]: { 
+        buyPrice: prev[companyId]?.buyPrice || '',
+        sellPrice: prev[companyId]?.sellPrice || '',
+        expanded: true, 
+        loading: true,
+        priceSuggestion: prev[companyId]?.priceSuggestion || null
+      }
     }));
 
     try {
@@ -167,7 +172,13 @@ export default function SeedUnlistedPage() {
       });
       setCompanyPrices(prev => ({
         ...prev,
-        [companyId]: { ...prev[companyId], loading: false }
+        [companyId]: { 
+          buyPrice: prev[companyId]?.buyPrice || '',
+          sellPrice: prev[companyId]?.sellPrice || '',
+          expanded: true,
+          loading: false,
+          priceSuggestion: null
+        }
       }));
     }
   };
@@ -681,80 +692,86 @@ export default function SeedUnlistedPage() {
                   const prices = companyPrices[company.id] || { buyPrice: '', sellPrice: '', expanded: false, loading: false, priceSuggestion: null };
                   
                   return (
-                    <Collapsible key={company.id} open={prices.expanded}>
-                      <div className="border border-gray-800 rounded-lg overflow-hidden">
-                        <CollapsibleTrigger asChild>
-                          <div 
-                            className="flex items-center gap-4 p-4 hover:bg-gray-800/50 cursor-pointer"
-                            onClick={() => toggleExpanded(company.id)}
-                            data-testid={`row-company-${company.id}`}
-                          >
-                            <div className="flex items-center justify-center w-8">
-                              {prices.loading ? (
-                                <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-                              ) : prices.expanded ? (
-                                <ChevronDown className="w-4 h-4 text-gray-400" />
-                              ) : (
-                                <ChevronRight className="w-4 h-4 text-gray-400" />
-                              )}
-                            </div>
-                            <Checkbox
-                              checked={selectedCompanies.has(company.id)}
-                              onCheckedChange={() => toggleSelectCompany(company.id)}
-                              onClick={(e) => e.stopPropagation()}
-                              data-testid={`checkbox-company-${company.id}`}
-                            />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <Building2 className="w-4 h-4 text-blue-400" />
-                                <span className="font-medium text-white">{company.name}</span>
-                                <Badge className={getStageBadgeColor(company.listingStage)}>
-                                  {getStageLabel(company.listingStage)}
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-gray-400 mt-1">
-                                {company.cin || 'No CIN'} • {company.sector || 'No sector'}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              {prices.buyPrice && prices.sellPrice && (
-                                <div className="text-right">
-                                  <div className="text-xs text-gray-400">Prices Set</div>
-                                  <div className="text-sm">
-                                    <span className="text-green-400">₹{prices.buyPrice}</span>
-                                    <span className="text-gray-500 mx-1">/</span>
-                                    <span className="text-red-400">₹{prices.sellPrice}</span>
-                                  </div>
-                                </div>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-blue-600/20 text-blue-400 border-blue-500/30"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleExpanded(company.id);
-                                }}
-                                data-testid={`button-expand-${company.id}`}
-                              >
-                                <BarChart3 className="w-4 h-4 mr-1" />
-                                {prices.expanded ? 'Hide' : 'View'} Prices
-                              </Button>
-                            </div>
-                          </div>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
+                    <div key={company.id} className="border border-gray-800 rounded-lg overflow-hidden">
+                      {/* Company Header Row */}
+                      <div 
+                        className="flex items-center gap-4 p-4 hover:bg-gray-800/50 cursor-pointer"
+                        onClick={() => toggleExpanded(company.id)}
+                        data-testid={`row-company-${company.id}`}
+                      >
+                        <div className="flex items-center justify-center w-8">
                           {prices.loading ? (
-                            <div className="p-8 flex items-center justify-center bg-gray-800/30">
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                          ) : prices.expanded ? (
+                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                          )}
+                        </div>
+                        <Checkbox
+                          checked={selectedCompanies.has(company.id)}
+                          onCheckedChange={() => toggleSelectCompany(company.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`checkbox-company-${company.id}`}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-blue-400" />
+                            <span className="font-medium text-white">{company.name}</span>
+                            <Badge className={getStageBadgeColor(company.listingStage)}>
+                              {getStageLabel(company.listingStage)}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-gray-400 mt-1">
+                            {company.cin || 'No CIN'} • {company.sector || 'No sector'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          {prices.buyPrice && prices.sellPrice && (
+                            <div className="text-right">
+                              <div className="text-xs text-gray-400">Prices Set</div>
+                              <div className="text-sm">
+                                <span className="text-green-400">₹{prices.buyPrice}</span>
+                                <span className="text-gray-500 mx-1">/</span>
+                                <span className="text-red-400">₹{prices.sellPrice}</span>
+                              </div>
+                            </div>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-blue-600/20 text-blue-400 border-blue-500/30"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpanded(company.id);
+                            }}
+                            data-testid={`button-expand-${company.id}`}
+                          >
+                            <BarChart3 className="w-4 h-4 mr-1" />
+                            {prices.expanded ? 'Hide' : 'View'} Prices
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Expandable Price Suggestion Panel */}
+                      {prices.expanded && (
+                        <>
+                          {prices.loading ? (
+                            <div className="p-8 flex items-center justify-center bg-gray-800/30 border-t border-gray-700">
                               <Loader2 className="w-6 h-6 animate-spin text-blue-400 mr-2" />
                               <span className="text-gray-400">Loading price suggestions...</span>
                             </div>
                           ) : prices.priceSuggestion ? (
                             <PriceSuggestionPanel company={company} prices={prices} />
-                          ) : null}
-                        </CollapsibleContent>
-                      </div>
-                    </Collapsible>
+                          ) : (
+                            <div className="p-8 flex items-center justify-center bg-gray-800/30 border-t border-gray-700">
+                              <AlertCircle className="w-6 h-6 text-yellow-400 mr-2" />
+                              <span className="text-gray-400">No price data available</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   );
                 })}
               </div>
