@@ -12,7 +12,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, Search, Loader2, Building2, CheckCircle, 
   AlertCircle, Sprout, TrendingUp, Package, ChevronDown, ChevronRight,
-  DollarSign, RefreshCw, BarChart3, Users, Calculator, ExternalLink
+  DollarSign, RefreshCw, BarChart3, Users, Calculator, ExternalLink,
+  Globe, Plus, Download, Clock
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -93,12 +94,49 @@ interface CompanyPriceState {
   priceSuggestion: PriceSuggestion | null;
 }
 
+interface MoneyControlExternalCompany {
+  name: string;
+  isin: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  previousClose: number;
+  sector?: string;
+  scrapedAt: string;
+}
+
+interface ReconciliationSuggestion {
+  externalCompany: MoneyControlExternalCompany;
+  matchConfidence: 'none' | 'low' | 'partial';
+  possibleMatches: {
+    companyId: string;
+    companyName: string;
+    matchScore: number;
+  }[];
+  status: 'new' | 'ignored' | 'synced';
+}
+
+interface ReconciliationData {
+  suggestions: ReconciliationSuggestion[];
+  cacheInfo: {
+    scrapedAt: string;
+    expiresAt: string;
+    totalMoneyControlCompanies: number;
+    totalFintekProCompanies: number;
+    matchedCount: number;
+    unmatchedCount: number;
+  };
+}
+
 export default function SeedUnlistedPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
   const [publishingCompanyId, setPublishingCompanyId] = useState<string | null>(null);
   const [companyPrices, setCompanyPrices] = useState<Record<string, CompanyPriceState>>({});
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
+  const [syncingCompanies, setSyncingCompanies] = useState<Set<string>>(new Set());
 
   const { data: companiesData, isLoading: isLoadingCompanies } = useQuery<UnlistedCompany[]>({
     queryKey: ['/api/unlisted/admin/companies'],
@@ -112,6 +150,18 @@ export default function SeedUnlistedPage() {
 
   const { data: storeProductsData } = useQuery<{ products: StoreProduct[] }>({
     queryKey: ['/api/admin/store/products'],
+  });
+
+  const { data: reconciliationData, isLoading: isLoadingReconciliation, refetch: refetchReconciliation } = useQuery<ReconciliationData>({
+    queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'],
+    queryFn: async () => {
+      const response = await fetch('/api/unlisted/admin/reconciliation/moneycontrol');
+      if (!response.ok) throw new Error('Failed to fetch MoneyControl suggestions');
+      const result = await response.json();
+      return result.data;
+    },
+    enabled: showSuggestions,
+    staleTime: 1000 * 60 * 5,
   });
 
   const companies = companiesData || [];
@@ -292,6 +342,80 @@ export default function SeedUnlistedPage() {
     }
 
     publishMutation.mutate({ companyId, buyPrice: prices.buyPrice, sellPrice: prices.sellPrice });
+  };
+
+  const handleSyncSuggestion = async (suggestion: ReconciliationSuggestion) => {
+    const isin = suggestion.externalCompany.isin;
+    setSyncingCompanies(prev => new Set(prev).add(isin));
+    
+    try {
+      const response = await apiRequest('/api/unlisted/admin/reconciliation/sync', {
+        method: 'POST',
+        body: JSON.stringify({ company: suggestion.externalCompany })
+      });
+      
+      toast({
+        title: 'Company synced',
+        description: `${suggestion.externalCompany.name} has been added to FintekPro`
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'] });
+      setSelectedSuggestions(prev => {
+        const next = new Set(prev);
+        next.delete(isin);
+        return next;
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Sync failed',
+        description: error.message || 'Failed to sync company',
+        variant: 'destructive'
+      });
+    } finally {
+      setSyncingCompanies(prev => {
+        const next = new Set(prev);
+        next.delete(isin);
+        return next;
+      });
+    }
+  };
+
+  const handleBulkSync = async () => {
+    const toSync = reconciliationData?.suggestions.filter(s => selectedSuggestions.has(s.externalCompany.isin)) || [];
+    if (toSync.length === 0) return;
+
+    for (const suggestion of toSync) {
+      await handleSyncSuggestion(suggestion);
+    }
+    setSelectedSuggestions(new Set());
+  };
+
+  const toggleSuggestionSelect = (isin: string) => {
+    setSelectedSuggestions(prev => {
+      const next = new Set(prev);
+      if (next.has(isin)) {
+        next.delete(isin);
+      } else {
+        next.add(isin);
+      }
+      return next;
+    });
+  };
+
+  const handleRefreshReconciliation = async () => {
+    try {
+      const response = await fetch('/api/unlisted/admin/reconciliation/moneycontrol?refresh=true');
+      if (!response.ok) throw new Error('Failed to refresh');
+      await refetchReconciliation();
+      toast({ title: 'MoneyControl data refreshed' });
+    } catch (error: any) {
+      toast({
+        title: 'Refresh failed',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
   };
 
   const toggleSelectAll = () => {
@@ -640,6 +764,16 @@ export default function SeedUnlistedPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className={showSuggestions ? "bg-orange-600/20 text-orange-400 border-orange-500" : "text-orange-400 border-orange-500/50"}
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            data-testid="button-toggle-suggestions"
+          >
+            <Globe className="w-4 h-4 mr-2" />
+            MoneyControl Sync
+          </Button>
           <Badge variant="outline" className="text-blue-400 border-blue-400">
             {availableCompanies.length} Available
           </Badge>
@@ -648,6 +782,146 @@ export default function SeedUnlistedPage() {
           </Badge>
         </div>
       </div>
+
+      {/* MoneyControl Suggestions Panel */}
+      {showSuggestions && (
+        <Card className="bg-orange-900/10 border-orange-500/30">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-orange-400" />
+                  MoneyControl Suggestions
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Companies found on MoneyControl that are not yet in FintekPro
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                {reconciliationData?.cacheInfo && (
+                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Last scraped: {format(new Date(reconciliationData.cacheInfo.scrapedAt), 'MMM d, HH:mm')}
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-orange-400 border-orange-500/50"
+                  onClick={handleRefreshReconciliation}
+                  disabled={isLoadingReconciliation}
+                  data-testid="button-refresh-suggestions"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1 ${isLoadingReconciliation ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                {selectedSuggestions.size > 0 && (
+                  <Button
+                    size="sm"
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    onClick={handleBulkSync}
+                    data-testid="button-bulk-sync"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add {selectedSuggestions.size} Selected
+                  </Button>
+                )}
+              </div>
+            </div>
+            {reconciliationData?.cacheInfo && (
+              <div className="flex items-center gap-4 mt-2 text-xs">
+                <span className="text-gray-400">
+                  MoneyControl: <span className="text-orange-400 font-medium">{reconciliationData.cacheInfo.totalMoneyControlCompanies}</span>
+                </span>
+                <span className="text-gray-400">
+                  FintekPro: <span className="text-blue-400 font-medium">{reconciliationData.cacheInfo.totalFintekProCompanies}</span>
+                </span>
+                <span className="text-gray-400">
+                  Already Synced: <span className="text-green-400 font-medium">{reconciliationData.cacheInfo.matchedCount}</span>
+                </span>
+                <span className="text-gray-400">
+                  New to Add: <span className="text-yellow-400 font-medium">{reconciliationData.cacheInfo.unmatchedCount}</span>
+                </span>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            {isLoadingReconciliation ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-orange-400 mr-2" />
+                <span className="text-gray-400">Fetching MoneyControl data...</span>
+              </div>
+            ) : !reconciliationData?.suggestions?.length ? (
+              <div className="text-center py-8 text-gray-400">
+                <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-400" />
+                <p>All MoneyControl companies are already synced!</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px]">
+                <div className="space-y-2">
+                  {reconciliationData.suggestions.map((suggestion) => (
+                    <div 
+                      key={suggestion.externalCompany.isin}
+                      className="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-orange-500/30"
+                    >
+                      <Checkbox
+                        checked={selectedSuggestions.has(suggestion.externalCompany.isin)}
+                        onCheckedChange={() => toggleSuggestionSelect(suggestion.externalCompany.isin)}
+                        data-testid={`checkbox-suggestion-${suggestion.externalCompany.isin}`}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white">{suggestion.externalCompany.name}</span>
+                          {suggestion.matchConfidence !== 'none' && (
+                            <Badge variant="outline" className={
+                              suggestion.matchConfidence === 'partial' 
+                                ? 'text-yellow-400 border-yellow-500/30' 
+                                : 'text-gray-400 border-gray-600'
+                            }>
+                              {suggestion.matchConfidence === 'partial' ? 'Possible duplicate' : 'Low match'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-400 mt-1">
+                          ISIN: {suggestion.externalCompany.isin} • 
+                          Price: <span className="text-green-400">₹{suggestion.externalCompany.price.toLocaleString('en-IN')}</span>
+                          {suggestion.externalCompany.changePercent !== 0 && (
+                            <span className={suggestion.externalCompany.changePercent >= 0 ? 'text-green-400 ml-2' : 'text-red-400 ml-2'}>
+                              {suggestion.externalCompany.changePercent >= 0 ? '+' : ''}{suggestion.externalCompany.changePercent.toFixed(2)}%
+                            </span>
+                          )}
+                        </div>
+                        {suggestion.possibleMatches.length > 0 && (
+                          <div className="text-xs text-yellow-400/80 mt-1">
+                            Similar to: {suggestion.possibleMatches[0].companyName} ({suggestion.possibleMatches[0].matchScore}% match)
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-orange-400 border-orange-500/50"
+                        onClick={() => handleSyncSuggestion(suggestion)}
+                        disabled={syncingCompanies.has(suggestion.externalCompany.isin)}
+                        data-testid={`button-sync-${suggestion.externalCompany.isin}`}
+                      >
+                        {syncingCompanies.has(suggestion.externalCompany.isin) ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add to FintekPro
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="bg-gray-900 border-gray-800">
         <CardHeader>
