@@ -620,8 +620,28 @@ export default function SeedUnlistedPage() {
     const suggestion = prices.priceSuggestion;
     if (!suggestion) return null;
 
+    const handleRefreshAllPrices = async () => {
+      await fetchPriceSuggestions(company.id);
+      toast({ title: 'Price data refreshed' });
+    };
+
     return (
       <div className="p-4 bg-gray-800/50 border-t border-gray-700 space-y-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm text-gray-400">
+            Review price sources and set final prices before publishing
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-blue-400 border-blue-500/50"
+            onClick={handleRefreshAllPrices}
+            data-testid={`button-refresh-all-prices-${company.id}`}
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Refresh All Prices
+          </Button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* MoneyControl Source */}
           <Card className="bg-gray-900 border-gray-700">
