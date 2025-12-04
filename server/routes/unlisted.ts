@@ -8,7 +8,7 @@
  * - Financials and ratios tracking
  */
 
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { storage } from '../storage';
 import { db } from '../db';
 import { apiResponse } from '../utils/responses';
@@ -33,7 +33,6 @@ import {
   type BuyRequest,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { apiResponse } from '../utils/responses';
 
 // Admin middleware for unlisted marketplace admin routes
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -2687,7 +2686,7 @@ router.post('/admin/reconciliation/sync', requireAdmin, async (req: Request, res
     const synced = await moneyControlReconciliation.syncCompanyFromMoneyControl({
       ...validatedCompany,
       scrapedAt: validatedCompany.scrapedAt ? new Date(validatedCompany.scrapedAt) : new Date(),
-    }, req.user.id);
+    }, (req.user as any)?.id);
     
     return apiResponse.created(res, {
       message: 'Company synced successfully',
@@ -2759,6 +2758,277 @@ router.get('/admin/reconciliation/cache-status', requireAdmin, async (req: Reque
   } catch (error: any) {
     console.error('Error getting cache status:', error);
     return apiResponse.serverError(res, 'Failed to get cache status');
+  }
+});
+
+// ===================================================================
+// UNIFIED SEARCH ROUTES (Admin only)
+// Search across MoneyControl and Probe42 simultaneously
+// ===================================================================
+
+interface UnifiedSearchResult {
+  id: string;
+  name: string;
+  isin?: string;
+  cin?: string;
+  pan?: string;
+  sector?: string;
+  status?: string;
+  incorporationDate?: string;
+  source: 'moneycontrol' | 'probe42' | 'internal';
+  currentPrice?: number;
+  priceChange?: number;
+  priceChangePercent?: number;
+  isInFintekPro: boolean;
+  fintekProId?: string;
+  rawData: any;
+}
+
+/**
+ * GET /api/unlisted/admin/unified-search
+ * Search companies across MoneyControl and Probe42 (Admin only)
+ */
+router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const query = (req.query.q as string || '').trim();
+    
+    if (!query || query.length < 2) {
+      return apiResponse.badRequest(res, 'Search query must be at least 2 characters');
+    }
+
+    const results: UnifiedSearchResult[] = [];
+    const existingCompanies = await storage.getAllUnlistedCompanies({});
+    const existingIsins = new Set(existingCompanies.map((c: UnlistedCompany) => c.isin).filter(Boolean));
+    const existingCins = new Set(existingCompanies.map((c: UnlistedCompany) => c.cin).filter(Boolean));
+    const queryLower = query.toLowerCase();
+
+    const [moneyControlResults, probe42Results] = await Promise.allSettled([
+      (async () => {
+        try {
+          const cached = await moneyControlReconciliation.getReconciliationSuggestions(false);
+          const allCompanies = cached.suggestions.map(s => s.externalCompany);
+          return allCompanies.filter((c: any) => 
+            c.name.toLowerCase().includes(queryLower) ||
+            c.isin?.toLowerCase().includes(queryLower)
+          );
+        } catch (e) {
+          console.error('MoneyControl search error:', e);
+          return [];
+        }
+      })(),
+      (async () => {
+        try {
+          if (query.length >= 3) {
+            return await probe42Service.searchCompanyByNameOrCIN(query);
+          }
+          return [];
+        } catch (e) {
+          console.error('Probe42 search error:', e);
+          return [];
+        }
+      })()
+    ]);
+
+    if (moneyControlResults.status === 'fulfilled') {
+      for (const company of moneyControlResults.value) {
+        const isInFintekPro = existingIsins.has(company.isin);
+        const existing = isInFintekPro 
+          ? existingCompanies.find((c: UnlistedCompany) => c.isin === company.isin)
+          : null;
+
+        results.push({
+          id: `mc_${company.isin}`,
+          name: company.name,
+          isin: company.isin,
+          sector: company.sector,
+          source: 'moneycontrol',
+          currentPrice: company.price,
+          priceChange: company.change,
+          priceChangePercent: company.changePercent,
+          isInFintekPro,
+          fintekProId: existing?.id,
+          rawData: company,
+        });
+      }
+    }
+
+    if (probe42Results.status === 'fulfilled') {
+      for (const company of probe42Results.value) {
+        const isInFintekPro = existingCins.has(company.cin);
+        const existing = existingCompanies.find((c: UnlistedCompany) => c.cin === company.cin);
+
+        results.push({
+          id: `p42_${company.company_id}`,
+          name: company.name,
+          cin: company.cin,
+          pan: company.pan,
+          status: company.status,
+          incorporationDate: company.incorporation_date,
+          source: 'probe42',
+          isInFintekPro,
+          fintekProId: existing?.id,
+          rawData: company,
+        });
+      }
+    }
+
+    results.sort((a, b) => {
+      if (a.isInFintekPro !== b.isInFintekPro) {
+        return a.isInFintekPro ? 1 : -1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return apiResponse.success(res, {
+      query,
+      totalResults: results.length,
+      results,
+      sources: {
+        moneycontrol: moneyControlResults.status === 'fulfilled' ? moneyControlResults.value.length : 0,
+        probe42: probe42Results.status === 'fulfilled' ? probe42Results.value.length : 0,
+      }
+    });
+  } catch (error: any) {
+    console.error('Error in unified search:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to search companies');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/company-details/:source/:id
+ * Get detailed company information from a specific source for preview (Admin only)
+ */
+router.get('/admin/company-details/:source/:id', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { source, id } = req.params;
+    
+    if (source === 'probe42') {
+      const details = await probe42Service.getCompanyDetails(id);
+      const financials = await probe42Service.getCompanyFinancials(id).catch(() => null);
+      
+      return apiResponse.success(res, {
+        source: 'probe42',
+        company: details,
+        financials,
+      });
+    } else if (source === 'moneycontrol') {
+      const cached = await moneyControlReconciliation.getReconciliationSuggestions(false);
+      const company = cached.suggestions.find(s => s.externalCompany.isin === id);
+      
+      if (!company) {
+        return apiResponse.notFound(res, 'Company not found in MoneyControl cache');
+      }
+      
+      return apiResponse.success(res, {
+        source: 'moneycontrol',
+        company: company.externalCompany,
+      });
+    } else {
+      return apiResponse.badRequest(res, 'Invalid source. Use "moneycontrol" or "probe42"');
+    }
+  } catch (error: any) {
+    console.error('Error fetching company details:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to fetch company details');
+  }
+});
+
+const isinRegex = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
+const cinRegex = /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+const publishCompanySchema = z.object({
+  name: z.string().min(1, 'Company name is required').max(200, 'Company name too long'),
+  isin: z.string().regex(isinRegex, 'Invalid ISIN format').optional().or(z.literal('')),
+  cin: z.string().regex(cinRegex, 'Invalid CIN format').optional().or(z.literal('')),
+  pan: z.string().regex(panRegex, 'Invalid PAN format').optional().or(z.literal('')),
+  sector: z.string().max(100).optional(),
+  status: z.string().max(50).optional(),
+  incorporationDate: z.string().optional(),
+  currentPrice: z.number().positive('Current price must be positive').optional(),
+  buyPrice: z.number().positive('Buy price must be positive').max(10000000, 'Buy price too high'),
+  sellPrice: z.number().positive('Sell price must be positive').max(10000000, 'Sell price too high'),
+  source: z.enum(['moneycontrol', 'probe42', 'manual']),
+  probe42CompanyId: z.string().optional(),
+}).refine(data => data.sellPrice > data.buyPrice, {
+  message: 'Sell price must be greater than buy price',
+  path: ['sellPrice'],
+});
+
+/**
+ * POST /api/unlisted/admin/publish-to-store
+ * Create unlisted company and publish to store in one action (Admin only)
+ */
+router.post('/admin/publish-to-store', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const validation = publishCompanySchema.safeParse(req.body);
+    if (!validation.success) {
+      return apiResponse.badRequest(res, 'Invalid request data', validation.error.errors);
+    }
+
+    const data = validation.data;
+    const userId = (req.user as any)?.id;
+
+    if (!data.isin && !data.cin) {
+      return apiResponse.badRequest(res, 'Either ISIN or CIN is required');
+    }
+
+    const existingCompanies = await storage.getAllUnlistedCompanies({});
+    let existingCompany = existingCompanies.find((c: UnlistedCompany) => 
+      (data.isin && c.isin === data.isin) || (data.cin && c.cin === data.cin)
+    );
+
+    if (!existingCompany) {
+      const companyData: any = {
+        name: data.name,
+        isin: data.isin || '',
+        cin: data.cin || '',
+        sector: data.sector || 'Unlisted',
+        isActive: true,
+        probe42CompanyId: data.probe42CompanyId,
+      };
+
+      existingCompany = await storage.createUnlistedCompany(companyData);
+      console.log(`[Publish] Created new unlisted company: ${existingCompany.id} - ${data.name}`);
+    }
+
+    const allStoreProducts = await storage.getAllStoreProducts();
+    const existingProduct = allStoreProducts.find((p: any) => 
+      p.category === 'unlisted' && p.sourceCompanyId === existingCompany!.id
+    );
+
+    if (existingProduct) {
+      return apiResponse.badRequest(res, 'This company is already published to the store');
+    }
+
+    const storeProduct = await storage.createStoreProduct({
+      name: data.name,
+      description: `Unlisted shares of ${data.name}`,
+      category: 'unlisted',
+      subcategory: data.sector || 'General',
+      price: data.currentPrice?.toString() || '0',
+      buyPrice: data.buyPrice.toString(),
+      sellPrice: data.sellPrice.toString(),
+      isActive: true,
+      sourceCompanyId: existingCompany.id,
+      metadata: {
+        isin: data.isin,
+        cin: data.cin,
+        pan: data.pan,
+        sector: data.sector,
+        source: data.source,
+        publishedAt: new Date().toISOString(),
+        publishedBy: userId,
+      },
+    });
+
+    return apiResponse.created(res, {
+      message: 'Company published to store successfully',
+      company: existingCompany,
+      storeProduct,
+    });
+  } catch (error: any) {
+    console.error('Error publishing company to store:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to publish company');
   }
 });
 

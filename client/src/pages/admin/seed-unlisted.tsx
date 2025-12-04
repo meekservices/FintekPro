@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -128,6 +128,34 @@ interface ReconciliationData {
   };
 }
 
+interface UnifiedSearchResult {
+  id: string;
+  name: string;
+  isin?: string;
+  cin?: string;
+  pan?: string;
+  sector?: string;
+  status?: string;
+  incorporationDate?: string;
+  source: 'moneycontrol' | 'probe42' | 'internal';
+  currentPrice?: number;
+  priceChange?: number;
+  priceChangePercent?: number;
+  isInFintekPro: boolean;
+  fintekProId?: string;
+  rawData: any;
+}
+
+interface UnifiedSearchResponse {
+  query: string;
+  totalResults: number;
+  results: UnifiedSearchResult[];
+  sources: {
+    moneycontrol: number;
+    probe42: number;
+  };
+}
+
 export default function SeedUnlistedPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -137,6 +165,13 @@ export default function SeedUnlistedPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
   const [syncingCompanies, setSyncingCompanies] = useState<Set<string>>(new Set());
+  
+  // Unified search state
+  const [unifiedSearchQuery, setUnifiedSearchQuery] = useState("");
+  const [debouncedUnifiedSearch, setDebouncedUnifiedSearch] = useState("");
+  const [selectedSearchResult, setSelectedSearchResult] = useState<UnifiedSearchResult | null>(null);
+  const [publishPrices, setPublishPrices] = useState({ buyPrice: '', sellPrice: '' });
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const { data: companiesData, isLoading: isLoadingCompanies } = useQuery<UnlistedCompany[]>({
     queryKey: ['/api/unlisted/admin/companies'],
@@ -163,6 +198,85 @@ export default function SeedUnlistedPage() {
     enabled: showSuggestions,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Debounce unified search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedUnifiedSearch(unifiedSearchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [unifiedSearchQuery]);
+
+  // Unified search query
+  const { data: unifiedSearchData, isLoading: isSearching } = useQuery<UnifiedSearchResponse>({
+    queryKey: ['/api/unlisted/admin/unified-search', debouncedUnifiedSearch],
+    queryFn: async () => {
+      const response = await fetch(`/api/unlisted/admin/unified-search?q=${encodeURIComponent(debouncedUnifiedSearch)}`);
+      if (!response.ok) throw new Error('Failed to search companies');
+      const result = await response.json();
+      return result.data;
+    },
+    enabled: debouncedUnifiedSearch.length >= 2,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const handlePublishToStore = async () => {
+    if (!selectedSearchResult) return;
+    
+    const buyPrice = parseFloat(publishPrices.buyPrice);
+    const sellPrice = parseFloat(publishPrices.sellPrice);
+    
+    if (!buyPrice || !sellPrice || buyPrice <= 0 || sellPrice <= 0) {
+      toast({
+        title: 'Invalid prices',
+        description: 'Please enter valid buy and sell prices',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setIsPublishing(true);
+    try {
+      const response = await apiRequest('/api/unlisted/admin/publish-to-store', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: selectedSearchResult.name,
+          isin: selectedSearchResult.isin,
+          cin: selectedSearchResult.cin,
+          pan: selectedSearchResult.pan,
+          sector: selectedSearchResult.sector,
+          status: selectedSearchResult.status,
+          incorporationDate: selectedSearchResult.incorporationDate,
+          currentPrice: selectedSearchResult.currentPrice,
+          buyPrice,
+          sellPrice,
+          source: selectedSearchResult.source,
+          probe42CompanyId: selectedSearchResult.source === 'probe42' 
+            ? selectedSearchResult.id.replace('p42_', '') 
+            : undefined,
+        })
+      });
+      
+      toast({
+        title: 'Published successfully',
+        description: `${selectedSearchResult.name} has been added to the store`
+      });
+      
+      setSelectedSearchResult(null);
+      setPublishPrices({ buyPrice: '', sellPrice: '' });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/store/products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/unified-search'] });
+    } catch (error: any) {
+      toast({
+        title: 'Publish failed',
+        description: error.message || 'Failed to publish company to store',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   const companies = companiesData || [];
   const storeProducts = storeProductsData?.products || [];
@@ -829,6 +943,194 @@ export default function SeedUnlistedPage() {
           </Badge>
         </div>
       </div>
+
+      {/* Unified Search - Search MoneyControl + Probe42 */}
+      <Card className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-white flex items-center gap-2">
+            <Search className="w-5 h-5 text-blue-400" />
+            Add New Unlisted Stock
+          </CardTitle>
+          <CardDescription className="text-gray-400">
+            Search across MoneyControl and Probe42 to find companies and publish them to the store
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search company by name, ISIN, or CIN..."
+                value={unifiedSearchQuery}
+                onChange={(e) => setUnifiedSearchQuery(e.target.value)}
+                className="pl-10 bg-gray-800 border-gray-700 text-white"
+                data-testid="input-unified-search"
+              />
+              {isSearching && (
+                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-blue-400" />
+              )}
+            </div>
+            
+            {unifiedSearchData && unifiedSearchData.results.length > 0 && (
+              <div className="text-xs text-gray-400 flex items-center gap-4">
+                <span>Found {unifiedSearchData.totalResults} results:</span>
+                <Badge variant="outline" className="text-orange-400 border-orange-400/50">
+                  MoneyControl: {unifiedSearchData.sources.moneycontrol}
+                </Badge>
+                <Badge variant="outline" className="text-purple-400 border-purple-400/50">
+                  Probe42: {unifiedSearchData.sources.probe42}
+                </Badge>
+              </div>
+            )}
+
+            {/* Search Results */}
+            {unifiedSearchData && unifiedSearchData.results.length > 0 && (
+              <ScrollArea className="h-[300px]">
+                <div className="space-y-2">
+                  {unifiedSearchData.results.map((result) => (
+                    <div
+                      key={result.id}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedSearchResult?.id === result.id
+                          ? 'bg-blue-900/30 border-blue-500'
+                          : 'bg-gray-800/50 border-gray-700 hover:bg-gray-800'
+                      } ${result.isInFintekPro ? 'opacity-60' : ''}`}
+                      onClick={() => !result.isInFintekPro && setSelectedSearchResult(result)}
+                      data-testid={`search-result-${result.id}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-white">{result.name}</span>
+                            <Badge 
+                              variant="outline" 
+                              className={result.source === 'moneycontrol' 
+                                ? 'text-orange-400 border-orange-400/50 text-xs' 
+                                : 'text-purple-400 border-purple-400/50 text-xs'
+                              }
+                            >
+                              {result.source === 'moneycontrol' ? 'MC' : 'P42'}
+                            </Badge>
+                            {result.isInFintekPro && (
+                              <Badge className="bg-green-500/20 text-green-400 text-xs">
+                                Already in FintekPro
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
+                            {result.isin && <span>ISIN: {result.isin}</span>}
+                            {result.cin && <span>CIN: {result.cin}</span>}
+                            {result.sector && <span>Sector: {result.sector}</span>}
+                          </div>
+                        </div>
+                        {result.currentPrice && (
+                          <div className="text-right">
+                            <div className="text-white font-medium">₹{result.currentPrice.toLocaleString()}</div>
+                            {result.priceChangePercent !== undefined && (
+                              <div className={`text-xs ${result.priceChangePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {result.priceChangePercent >= 0 ? '+' : ''}{result.priceChangePercent.toFixed(2)}%
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+
+            {debouncedUnifiedSearch.length >= 2 && !isSearching && unifiedSearchData?.results.length === 0 && (
+              <div className="text-center py-8 text-gray-400">
+                <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No companies found matching "{debouncedUnifiedSearch}"</p>
+              </div>
+            )}
+
+            {/* Selected Company Preview & Publish */}
+            {selectedSearchResult && (
+              <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-blue-400" />
+                  Publish to Store: {selectedSearchResult.name}
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
+                  <div>
+                    <span className="text-gray-400">Source:</span>
+                    <span className="ml-2 text-white capitalize">{selectedSearchResult.source}</span>
+                  </div>
+                  {selectedSearchResult.isin && (
+                    <div>
+                      <span className="text-gray-400">ISIN:</span>
+                      <span className="ml-2 text-white">{selectedSearchResult.isin}</span>
+                    </div>
+                  )}
+                  {selectedSearchResult.cin && (
+                    <div>
+                      <span className="text-gray-400">CIN:</span>
+                      <span className="ml-2 text-white">{selectedSearchResult.cin}</span>
+                    </div>
+                  )}
+                  {selectedSearchResult.currentPrice && (
+                    <div>
+                      <span className="text-gray-400">Current Price:</span>
+                      <span className="ml-2 text-white">₹{selectedSearchResult.currentPrice.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-end gap-4">
+                  <div className="flex-1">
+                    <label className="text-gray-400 text-sm block mb-1">Buy Price (₹)</label>
+                    <Input
+                      type="number"
+                      value={publishPrices.buyPrice}
+                      onChange={(e) => setPublishPrices(prev => ({ ...prev, buyPrice: e.target.value }))}
+                      placeholder={selectedSearchResult.currentPrice ? `Suggested: ${(selectedSearchResult.currentPrice * 0.95).toFixed(2)}` : "Enter buy price"}
+                      className="bg-gray-800 border-gray-700"
+                      data-testid="input-publish-buy-price"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-gray-400 text-sm block mb-1">Sell Price (₹)</label>
+                    <Input
+                      type="number"
+                      value={publishPrices.sellPrice}
+                      onChange={(e) => setPublishPrices(prev => ({ ...prev, sellPrice: e.target.value }))}
+                      placeholder={selectedSearchResult.currentPrice ? `Suggested: ${(selectedSearchResult.currentPrice * 1.05).toFixed(2)}` : "Enter sell price"}
+                      className="bg-gray-800 border-gray-700"
+                      data-testid="input-publish-sell-price"
+                    />
+                  </div>
+                  <Button
+                    onClick={handlePublishToStore}
+                    disabled={isPublishing || !publishPrices.buyPrice || !publishPrices.sellPrice}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    data-testid="button-publish-to-store"
+                  >
+                    {isPublishing ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Package className="w-4 h-4 mr-2" />
+                    )}
+                    Publish to Store
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedSearchResult(null);
+                      setPublishPrices({ buyPrice: '', sellPrice: '' });
+                    }}
+                    className="text-gray-400 border-gray-600"
+                    data-testid="button-cancel-publish"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* MoneyControl Suggestions Panel */}
       {showSuggestions && (
