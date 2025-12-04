@@ -2931,6 +2931,89 @@ const isinRegex = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
 const cinRegex = /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
+const addToFintekProSchema = z.object({
+  name: z.string().min(1, 'Company name is required').max(200, 'Company name too long'),
+  isin: z.string().regex(isinRegex, 'Invalid ISIN format').optional().or(z.literal('')),
+  cin: z.string().regex(cinRegex, 'Invalid CIN format').optional().or(z.literal('')),
+  pan: z.string().regex(panRegex, 'Invalid PAN format').optional().or(z.literal('')),
+  sector: z.string().max(100).optional(),
+  status: z.string().max(50).optional(),
+  incorporationDate: z.string().optional(),
+  currentPrice: z.number().positive('Current price must be positive').optional(),
+  buyPrice: z.number().positive('Buy price must be positive').max(10000000, 'Buy price too high'),
+  sellPrice: z.number().positive('Sell price must be positive').max(10000000, 'Sell price too high'),
+  source: z.enum(['moneycontrol', 'probe42', 'manual']),
+  probe42CompanyId: z.string().optional(),
+}).refine(data => data.sellPrice > data.buyPrice, {
+  message: 'Sell price must be greater than buy price',
+  path: ['sellPrice'],
+});
+
+/**
+ * POST /api/unlisted/admin/add-to-fintekpro
+ * Add company to FintekPro database for review before publishing to store (Admin only)
+ * This allows admin to review internal prices, client asks, and other details
+ */
+router.post('/admin/add-to-fintekpro', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const validation = addToFintekProSchema.safeParse(req.body);
+    if (!validation.success) {
+      return apiResponse.badRequest(res, 'Invalid request data', validation.error.errors);
+    }
+
+    const data = validation.data;
+    const userId = (req.user as any)?.id;
+
+    if (!data.isin && !data.cin) {
+      return apiResponse.badRequest(res, 'Either ISIN or CIN is required');
+    }
+
+    const existingCompanies = await storage.getAllUnlistedCompanies({});
+    const existingCompany = existingCompanies.find((c: UnlistedCompany) => 
+      (data.isin && c.isin === data.isin) || (data.cin && c.cin === data.cin)
+    );
+
+    if (existingCompany) {
+      return apiResponse.badRequest(res, 'This company already exists in FintekPro', {
+        companyId: existingCompany.id,
+        companyName: existingCompany.name
+      });
+    }
+
+    const companyData: any = {
+      name: data.name,
+      isin: data.isin || '',
+      cin: data.cin || '',
+      sector: data.sector || 'Unlisted',
+      status: data.status || 'active',
+      isActive: true,
+      probe42CompanyId: data.probe42CompanyId,
+      currentPrice: data.currentPrice?.toString(),
+      lastPrice: data.currentPrice?.toString(),
+      metadata: {
+        source: data.source,
+        addedBy: userId,
+        addedAt: new Date().toISOString(),
+        initialBuyPrice: data.buyPrice,
+        initialSellPrice: data.sellPrice,
+        incorporationDate: data.incorporationDate,
+        pan: data.pan,
+      }
+    };
+
+    const newCompany = await storage.createUnlistedCompany(companyData);
+    console.log(`[Add to FintekPro] Created new unlisted company: ${newCompany.id} - ${data.name} by admin ${userId}`);
+
+    return apiResponse.created(res, {
+      message: 'Company added to FintekPro successfully. You can now review it in the Unlisted Companies list and publish to store when ready.',
+      company: newCompany,
+    });
+  } catch (error: any) {
+    console.error('Error adding company to FintekPro:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to add company to FintekPro');
+  }
+});
+
 const publishCompanySchema = z.object({
   name: z.string().min(1, 'Company name is required').max(200, 'Company name too long'),
   isin: z.string().regex(isinRegex, 'Invalid ISIN format').optional().or(z.literal('')),
