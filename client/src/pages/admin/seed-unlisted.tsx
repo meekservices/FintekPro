@@ -223,27 +223,6 @@ export default function SeedUnlistedPage() {
   const handleAddToFintekPro = async () => {
     if (!selectedSearchResult) return;
     
-    const buyPrice = parseFloat(publishPrices.buyPrice);
-    const sellPrice = parseFloat(publishPrices.sellPrice);
-    
-    if (!buyPrice || !sellPrice || buyPrice <= 0 || sellPrice <= 0) {
-      toast({
-        title: 'Invalid prices',
-        description: 'Please enter valid buy and sell prices',
-        variant: 'destructive'
-      });
-      return;
-    }
-    
-    if (sellPrice <= buyPrice) {
-      toast({
-        title: 'Invalid prices',
-        description: 'Sell price must be greater than buy price',
-        variant: 'destructive'
-      });
-      return;
-    }
-    
     setIsPublishing(true);
     try {
       const response = await apiRequest('/api/unlisted/admin/add-to-fintekpro', {
@@ -257,8 +236,6 @@ export default function SeedUnlistedPage() {
           status: selectedSearchResult.status,
           incorporationDate: selectedSearchResult.incorporationDate,
           currentPrice: selectedSearchResult.currentPrice,
-          buyPrice,
-          sellPrice,
           source: selectedSearchResult.source,
           probe42CompanyId: selectedSearchResult.source === 'probe42' 
             ? selectedSearchResult.id.replace('p42_', '') 
@@ -268,7 +245,7 @@ export default function SeedUnlistedPage() {
       
       toast({
         title: 'Added to FintekPro',
-        description: `${selectedSearchResult.name} has been added. You can now review it in the Unlisted Companies list and publish to store when ready.`
+        description: `${selectedSearchResult.name} has been added. Review price sources below and publish to store when ready.`
       });
       
       setSelectedSearchResult(null);
@@ -1086,33 +1063,19 @@ export default function SeedUnlistedPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-end gap-4">
-                  <div className="flex-1">
-                    <label className="text-gray-400 text-sm block mb-1">Buy Price (₹)</label>
-                    <Input
-                      type="number"
-                      value={publishPrices.buyPrice}
-                      onChange={(e) => setPublishPrices(prev => ({ ...prev, buyPrice: e.target.value }))}
-                      placeholder={selectedSearchResult.currentPrice ? `Suggested: ${(selectedSearchResult.currentPrice * 0.95).toFixed(2)}` : "Enter buy price"}
-                      className="bg-gray-800 border-gray-700"
-                      data-testid="input-publish-buy-price"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-gray-400 text-sm block mb-1">Sell Price (₹)</label>
-                    <Input
-                      type="number"
-                      value={publishPrices.sellPrice}
-                      onChange={(e) => setPublishPrices(prev => ({ ...prev, sellPrice: e.target.value }))}
-                      placeholder={selectedSearchResult.currentPrice ? `Suggested: ${(selectedSearchResult.currentPrice * 1.05).toFixed(2)}` : "Enter sell price"}
-                      className="bg-gray-800 border-gray-700"
-                      data-testid="input-publish-sell-price"
-                    />
-                  </div>
+                <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700 mb-4">
+                  <p className="text-sm text-gray-400">
+                    <span className="text-blue-400 font-medium">Step 1:</span> Add to FintekPro database for internal review
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    <span className="text-emerald-400 font-medium">Step 2:</span> Review price sources below, then publish to store with your set prices
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
                   <Button
                     onClick={handleAddToFintekPro}
-                    disabled={isPublishing || !publishPrices.buyPrice || !publishPrices.sellPrice}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={isPublishing}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
                     data-testid="button-add-to-fintekpro"
                   >
                     {isPublishing ? (
@@ -1133,6 +1096,9 @@ export default function SeedUnlistedPage() {
                   >
                     Cancel
                   </Button>
+                  <span className="text-xs text-gray-500">
+                    Company will appear in the list below after adding
+                  </span>
                 </div>
               </div>
             )}

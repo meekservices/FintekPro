@@ -2940,13 +2940,10 @@ const addToFintekProSchema = z.object({
   status: z.string().max(50).optional(),
   incorporationDate: z.string().optional(),
   currentPrice: z.number().positive('Current price must be positive').optional(),
-  buyPrice: z.number().positive('Buy price must be positive').max(10000000, 'Buy price too high'),
-  sellPrice: z.number().positive('Sell price must be positive').max(10000000, 'Sell price too high'),
+  buyPrice: z.number().positive('Buy price must be positive').max(10000000, 'Buy price too high').optional(),
+  sellPrice: z.number().positive('Sell price must be positive').max(10000000, 'Sell price too high').optional(),
   source: z.enum(['moneycontrol', 'probe42', 'manual']),
   probe42CompanyId: z.string().optional(),
-}).refine(data => data.sellPrice > data.buyPrice, {
-  message: 'Sell price must be greater than buy price',
-  path: ['sellPrice'],
 });
 
 /**
