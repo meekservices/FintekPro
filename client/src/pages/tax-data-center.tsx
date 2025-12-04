@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Database, 
   Download, 
@@ -22,7 +23,12 @@ import {
   Receipt,
   Banknote,
   Calendar,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Upload,
+  FileUp,
+  Scan,
+  Eye,
+  Loader2
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -90,9 +96,57 @@ interface TaxDataSummary {
   salaryIncome: number;
 }
 
+interface OCRParseResult {
+  success: boolean;
+  documentType: string;
+  data: any;
+  extractedAt: string;
+  confidence?: number;
+  message?: string;
+}
+
+interface Form16Data {
+  pan: string;
+  employerName: string;
+  employerTan: string;
+  assessmentYear: string;
+  grossSalary: number;
+  totalDeductions: number;
+  taxableIncome: number;
+  taxDeducted: number;
+  surcharge: number;
+  educationCess: number;
+  totalTax: number;
+}
+
+interface Form26ASData {
+  pan: string;
+  assessmentYear: string;
+  totalTDSDeducted: number;
+  tdsEntries: Array<{
+    deductorName: string;
+    deductorTan: string;
+    section: string;
+    amountCredited: number;
+    tdsDeducted: number;
+    quarterEnd: string;
+  }>;
+}
+
+interface OCRStatusResponse {
+  success: boolean;
+  available: boolean;
+  mode: 'live' | 'mock';
+  message: string;
+}
+
 export default function TaxDataCenter() {
   const [selectedYear, setSelectedYear] = useState("2024-25");
   const [panNumber, setPanNumber] = useState("");
+  const [ocrResult, setOcrResult] = useState<OCRParseResult | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentType, setDocumentType] = useState<'form16' | 'form26as' | 'auto'>('auto');
+  const { toast } = useToast();
   
   // Query for data sources status
   const { data: dataSources, isLoading: sourcesLoading } = useQuery({
@@ -109,8 +163,9 @@ export default function TaxDataCenter() {
   // Mutation for syncing data from sources
   const syncDataMutation = useMutation({
     mutationFn: (sourceId: string) => 
-      apiRequest('POST', `/api/tax-data/sync/${sourceId}`, { 
-        body: { year: selectedYear, pan: panNumber } 
+      apiRequest(`/api/tax-data/sync/${sourceId}`, { 
+        method: 'POST',
+        body: JSON.stringify({ year: selectedYear, pan: panNumber })
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tax-data'] });
@@ -120,10 +175,11 @@ export default function TaxDataCenter() {
   // Mutation for generating consolidated report
   const generateReportMutation = useMutation({
     mutationFn: async (format: 'pdf' | 'excel' | 'json') => {
-      const response = await apiRequest('POST', '/api/tax-data/generate-report', { 
-        body: { year: selectedYear, format, pan: panNumber } 
+      const response = await apiRequest('/api/tax-data/generate-report', { 
+        method: 'POST',
+        body: JSON.stringify({ year: selectedYear, format, pan: panNumber })
       });
-      return await response.json();
+      return response;
     },
     onSuccess: (data: any) => {
       // Download file
@@ -133,6 +189,100 @@ export default function TaxDataCenter() {
       link.click();
     }
   });
+
+  // Query for OCR service status
+  const { data: ocrStatus } = useQuery<OCRStatusResponse>({
+    queryKey: ['/api/ocr/status']
+  });
+
+  // Mutation for OCR document parsing
+  const ocrParseMutation = useMutation({
+    mutationFn: async ({ file, docType }: { file: File; docType: 'form16' | 'form26as' | 'auto' }) => {
+      const base64Data = await fileToBase64(file);
+      const endpoint = docType === 'form16' ? '/api/ocr/form16' 
+                     : docType === 'form26as' ? '/api/ocr/form26as' 
+                     : '/api/ocr/parse-document';
+      
+      const response = await apiRequest(endpoint, { 
+        method: 'POST',
+        body: JSON.stringify({ 
+          fileData: base64Data, 
+          fileName: file.name,
+          documentType: docType === 'auto' ? undefined : docType
+        })
+      });
+      return response;
+    },
+    onSuccess: (data: OCRParseResult) => {
+      setOcrResult(data);
+      if (data.success) {
+        toast({
+          title: "Document Parsed Successfully",
+          description: `Extracted data from ${data.documentType}`,
+        });
+      } else {
+        toast({
+          title: "Parsing Issue",
+          description: data.message || "Could not fully extract document data",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "OCR Error",
+        description: error.message || "Failed to parse document",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Helper function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove the data:application/pdf;base64, prefix
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Handle file selection
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload a PDF document",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        toast({
+          title: "File Too Large",
+          description: "Maximum file size is 10MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      setSelectedFile(file);
+      setOcrResult(null);
+    }
+  }, [toast]);
+
+  // Handle OCR parsing
+  const handleParseDocument = () => {
+    if (selectedFile) {
+      ocrParseMutation.mutate({ file: selectedFile, docType: documentType });
+    }
+  };
 
   const handleSyncAll = async () => {
     const sources = Object.keys(DATA_SOURCES);
@@ -286,6 +436,7 @@ export default function TaxDataCenter() {
           <Tabs defaultValue="sources" className="space-y-4">
             <ScrollableTabsList>
               <TabsTrigger value="sources">Data Sources</TabsTrigger>
+              <TabsTrigger value="ocr">OCR Upload</TabsTrigger>
               <TabsTrigger value="reports">Generated Reports</TabsTrigger>
               <TabsTrigger value="export">Export Options</TabsTrigger>
             </ScrollableTabsList>
@@ -353,6 +504,266 @@ export default function TaxDataCenter() {
                     </Card>
                   );
                 })}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="ocr" className="space-y-4">
+              {/* OCR Service Status */}
+              <Alert className={ocrStatus?.available ? 'border-green-500' : 'border-amber-500'}>
+                <Scan className="h-4 w-4" />
+                <AlertTitle>OCR Document Parser</AlertTitle>
+                <AlertDescription>
+                  {ocrStatus?.available 
+                    ? 'OCR service is connected and ready to parse Form 16 and Form 26AS documents'
+                    : 'OCR service is in demo mode. Documents will be parsed with sample data.'}
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Upload Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Upload className="h-5 w-5" />
+                      Upload Tax Document
+                    </CardTitle>
+                    <CardDescription>
+                      Upload Form 16 or Form 26AS PDF to automatically extract tax data
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Document Type Selection */}
+                    <div className="space-y-2">
+                      <Label>Document Type</Label>
+                      <div className="flex gap-2">
+                        <Button
+                          variant={documentType === 'auto' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setDocumentType('auto')}
+                          data-testid="button-doctype-auto"
+                        >
+                          Auto-Detect
+                        </Button>
+                        <Button
+                          variant={documentType === 'form16' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setDocumentType('form16')}
+                          data-testid="button-doctype-form16"
+                        >
+                          Form 16
+                        </Button>
+                        <Button
+                          variant={documentType === 'form26as' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setDocumentType('form26as')}
+                          data-testid="button-doctype-form26as"
+                        >
+                          Form 26AS
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* File Upload */}
+                    <div className="space-y-2">
+                      <Label htmlFor="file-upload">Select PDF Document</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="file-upload"
+                          type="file"
+                          accept=".pdf"
+                          onChange={handleFileSelect}
+                          className="flex-1"
+                          data-testid="input-file-upload"
+                        />
+                      </div>
+                      {selectedFile && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <FileText className="h-4 w-4" />
+                          <span>{selectedFile.name}</span>
+                          <span className="text-gray-400">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Parse Button */}
+                    <Button
+                      onClick={handleParseDocument}
+                      disabled={!selectedFile || ocrParseMutation.isPending}
+                      className="w-full"
+                      data-testid="button-parse-document"
+                    >
+                      {ocrParseMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Parsing Document...
+                        </>
+                      ) : (
+                        <>
+                          <Scan className="h-4 w-4 mr-2" />
+                          Parse Document with OCR
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Supported Documents */}
+                    <div className="pt-4 border-t">
+                      <p className="text-sm font-medium mb-2">Supported Documents:</p>
+                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          Form 16 (TDS Certificate from Employer)
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          Form 26AS (Tax Credit Statement)
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Results Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Extracted Data
+                    </CardTitle>
+                    <CardDescription>
+                      View and verify the data extracted from your document
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {!ocrResult && !ocrParseMutation.isPending && (
+                      <div className="text-center py-8 text-gray-500">
+                        <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Upload and parse a document to see extracted data here</p>
+                      </div>
+                    )}
+
+                    {ocrParseMutation.isPending && (
+                      <div className="text-center py-8">
+                        <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-blue-500" />
+                        <p className="text-gray-600 dark:text-gray-400">Analyzing document with OCR...</p>
+                      </div>
+                    )}
+
+                    {ocrResult && ocrResult.success && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="default" className="bg-green-500">
+                            {ocrResult.documentType}
+                          </Badge>
+                          {ocrResult.confidence && (
+                            <span className="text-sm text-gray-500">
+                              Confidence: {(ocrResult.confidence * 100).toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Form 16 Data Display */}
+                        {ocrResult.documentType === 'form16' && ocrResult.data && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-gray-600 dark:text-gray-400">PAN:</div>
+                              <div className="font-medium">{ocrResult.data.pan || 'N/A'}</div>
+                              <div className="text-gray-600 dark:text-gray-400">Employer:</div>
+                              <div className="font-medium">{ocrResult.data.employerName || 'N/A'}</div>
+                              <div className="text-gray-600 dark:text-gray-400">Assessment Year:</div>
+                              <div className="font-medium">{ocrResult.data.assessmentYear || 'N/A'}</div>
+                            </div>
+                            <div className="border-t pt-3 space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Gross Salary:</span>
+                                <span className="font-medium text-green-600">₹{(ocrResult.data.grossSalary || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Total Deductions:</span>
+                                <span className="font-medium text-orange-600">₹{(ocrResult.data.totalDeductions || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Taxable Income:</span>
+                                <span className="font-medium">₹{(ocrResult.data.taxableIncome || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between border-t pt-2">
+                                <span className="text-gray-600 dark:text-gray-400 font-medium">Total TDS:</span>
+                                <span className="font-bold text-blue-600">₹{(ocrResult.data.totalTax || 0).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Form 26AS Data Display */}
+                        {ocrResult.documentType === 'form26as' && ocrResult.data && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-gray-600 dark:text-gray-400">PAN:</div>
+                              <div className="font-medium">{ocrResult.data.pan || 'N/A'}</div>
+                              <div className="text-gray-600 dark:text-gray-400">Assessment Year:</div>
+                              <div className="font-medium">{ocrResult.data.assessmentYear || 'N/A'}</div>
+                            </div>
+                            <div className="border-t pt-3">
+                              <div className="flex justify-between mb-3">
+                                <span className="text-gray-600 dark:text-gray-400 font-medium">Total TDS Deducted:</span>
+                                <span className="font-bold text-blue-600">₹{(ocrResult.data.totalTDSDeducted || 0).toLocaleString()}</span>
+                              </div>
+                              {ocrResult.data.tdsEntries && ocrResult.data.tdsEntries.length > 0 && (
+                                <div className="space-y-2">
+                                  <p className="text-sm font-medium">TDS Entries ({ocrResult.data.tdsEntries.length}):</p>
+                                  <div className="max-h-48 overflow-y-auto space-y-2">
+                                    {ocrResult.data.tdsEntries.slice(0, 5).map((entry: any, idx: number) => (
+                                      <div key={idx} className="bg-gray-50 dark:bg-gray-800 p-2 rounded text-sm">
+                                        <div className="font-medium">{entry.deductorName}</div>
+                                        <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                                          <span>{entry.section}</span>
+                                          <span>₹{(entry.tdsDeducted || 0).toLocaleString()}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {ocrResult.data.tdsEntries.length > 5 && (
+                                      <p className="text-sm text-gray-500 text-center">
+                                        +{ocrResult.data.tdsEntries.length - 5} more entries
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 pt-4 border-t">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setOcrResult(null)}
+                            data-testid="button-clear-result"
+                          >
+                            Clear
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="flex-1"
+                            data-testid="button-import-data"
+                          >
+                            Import to Tax Data
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {ocrResult && !ocrResult.success && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Parsing Failed</AlertTitle>
+                        <AlertDescription>
+                          {ocrResult.message || 'Could not extract data from the document. Please ensure the PDF is a valid tax document.'}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
 
