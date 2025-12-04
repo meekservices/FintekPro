@@ -890,32 +890,34 @@ export default function StoreManagement() {
               <AlertTriangle className="w-5 h-5 text-yellow-400" />
               Confirm {confirmDialog?.action === 'enable' ? 'Enable' : 'Disable'}
             </DialogTitle>
-            <div className="text-sm text-gray-400">
-              {confirmDialog?.action === 'disable' ? (
-                <>
-                  <p>Disabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will also disable:</p>
-                  <ul className="list-disc list-inside mt-2 space-y-1">
+            <DialogDescription asChild>
+              <div className="text-sm text-gray-400">
+                {confirmDialog?.action === 'disable' ? (
+                  <>
+                    <p>Disabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will also disable:</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      {confirmDialog?.type === 'category' && (
+                        <>
+                          <li>All subcategories under this category</li>
+                          <li>All products under this category and its subcategories</li>
+                        </>
+                      )}
+                      {confirmDialog?.type === 'subcategory' && (
+                        <li>All products under this subcategory</li>
+                      )}
+                    </ul>
+                    <p className="mt-3 text-yellow-400">Customers will see an inquiry form instead of these items.</p>
+                  </>
+                ) : (
+                  <>
+                    <p>Enabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will make it visible to customers.</p>
                     {confirmDialog?.type === 'category' && (
-                      <>
-                        <li>All subcategories under this category</li>
-                        <li>All products under this category and its subcategories</li>
-                      </>
+                      <p className="mt-2">Note: Subcategories and products will need to be enabled individually.</p>
                     )}
-                    {confirmDialog?.type === 'subcategory' && (
-                      <li>All products under this subcategory</li>
-                    )}
-                  </ul>
-                  <p className="mt-3 text-yellow-400">Customers will see an inquiry form instead of these items.</p>
-                </>
-              ) : (
-                <>
-                  <p>Enabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will make it visible to customers.</p>
-                  {confirmDialog?.type === 'category' && (
-                    <p className="mt-2">Note: Subcategories and products will need to be enabled individually.</p>
-                  )}
-                </>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-3 mt-4">
             <Button
