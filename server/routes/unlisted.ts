@@ -2027,16 +2027,11 @@ router.post('/admin/seed', async (req: Request, res: Response) => {
 // ===================================================================
 
 /**
- * POST /api/unlisted/admin/publish-to-store
- * Publish an unlisted company as a product in the store (Admin only)
+ * POST /api/unlisted/admin/publish-existing-to-store
+ * Publish an existing unlisted company as a product in the store (Admin only)
  */
-router.post('/admin/publish-to-store', async (req: Request, res: Response) => {
+router.post('/admin/publish-existing-to-store', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
-    
     const { companyId } = req.body;
     
     if (!companyId) {
