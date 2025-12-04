@@ -4564,6 +4564,12 @@ export const storeProducts = pgTable("store_products", {
   faceValue: decimal("face_value", { precision: 10, scale: 2 }),
   marketCap: decimal("market_cap", { precision: 20, scale: 2 }),
   peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  // Admin-controlled buy/sell prices for unlisted stocks
+  buyPrice: decimal("buy_price", { precision: 15, scale: 2 }), // Admin-set price for buying
+  sellPrice: decimal("sell_price", { precision: 15, scale: 2 }), // Admin-set price for selling
+  priceSource: varchar("price_source"), // 'moneycontrol', 'internal', 'marketplace', 'manual'
+  priceUpdatedAt: timestamp("price_updated_at"), // When prices were last updated
+  priceMetadata: jsonb("price_metadata"), // Additional price context for auditing
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, Search, Loader2, Building2, CheckCircle, 
-  AlertCircle, Sprout, TrendingUp, Package
+  AlertCircle, Sprout, TrendingUp, Package, ChevronDown, ChevronRight,
+  DollarSign, RefreshCw, BarChart3, Users, Calculator, ExternalLink
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -35,6 +37,61 @@ interface StoreProduct {
   id: string;
   name: string;
   sourceCompanyId?: string;
+  buyPrice?: string;
+  sellPrice?: string;
+}
+
+interface MoneyControlPrice {
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  lastUpdated: string | null;
+  available: boolean;
+  error?: string;
+  matchedName?: string;
+  matchScore?: number;
+}
+
+interface InternalCalculation {
+  suggestedPrice: number | null;
+  minPrice: number | null;
+  maxPrice: number | null;
+  confidence: 'high' | 'medium' | 'low' | null;
+  methodology: string | null;
+  rationale: string[];
+  available: boolean;
+  error?: string;
+}
+
+interface MarketplacePrice {
+  bestBid: number | null;
+  bestAsk: number | null;
+  bidVolume: number;
+  askVolume: number;
+  recentClearingPrice: number | null;
+  recentDealCount: number;
+  activeBuyRequests: number;
+  activeSellListings: number;
+  available: boolean;
+}
+
+interface PriceSuggestion {
+  companyId: string;
+  companyName: string;
+  moneyControl: MoneyControlPrice;
+  internalCalculation: InternalCalculation;
+  marketplace: MarketplacePrice;
+  recommendedBuyPrice: number | null;
+  recommendedSellPrice: number | null;
+  priceConfidence: 'high' | 'medium' | 'low';
+}
+
+interface CompanyPriceState {
+  buyPrice: string;
+  sellPrice: string;
+  expanded: boolean;
+  loading: boolean;
+  priceSuggestion: PriceSuggestion | null;
 }
 
 export default function SeedUnlistedPage() {
@@ -42,6 +99,7 @@ export default function SeedUnlistedPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
   const [publishingCompanyId, setPublishingCompanyId] = useState<string | null>(null);
+  const [companyPrices, setCompanyPrices] = useState<Record<string, CompanyPriceState>>({});
 
   const { data: companiesData, isLoading: isLoadingCompanies } = useQuery<UnlistedCompany[]>({
     queryKey: ['/api/unlisted/admin/companies'],
@@ -79,12 +137,90 @@ export default function SeedUnlistedPage() {
   const availableCompanies = filteredCompanies.filter(c => !publishedCompanyIds.has(c.id));
   const alreadyPublishedCompanies = filteredCompanies.filter(c => publishedCompanyIds.has(c.id));
 
+  const fetchPriceSuggestions = async (companyId: string) => {
+    setCompanyPrices(prev => ({
+      ...prev,
+      [companyId]: { ...prev[companyId], loading: true }
+    }));
+
+    try {
+      const response = await fetch(`/api/unlisted/admin/price-suggestions/${companyId}`);
+      if (!response.ok) throw new Error('Failed to fetch price suggestions');
+      const result = await response.json();
+      const suggestion = result.data as PriceSuggestion;
+
+      setCompanyPrices(prev => ({
+        ...prev,
+        [companyId]: {
+          buyPrice: prev[companyId]?.buyPrice || (suggestion.recommendedBuyPrice?.toString() || ''),
+          sellPrice: prev[companyId]?.sellPrice || (suggestion.recommendedSellPrice?.toString() || ''),
+          expanded: true,
+          loading: false,
+          priceSuggestion: suggestion,
+        }
+      }));
+    } catch (error: any) {
+      toast({
+        title: 'Failed to fetch prices',
+        description: error.message,
+        variant: 'destructive'
+      });
+      setCompanyPrices(prev => ({
+        ...prev,
+        [companyId]: { ...prev[companyId], loading: false }
+      }));
+    }
+  };
+
+  const refreshMoneyControlPrice = async (companyId: string) => {
+    try {
+      const response = await apiRequest(`/api/unlisted/admin/refresh-moneycontrol/${companyId}`, { method: 'POST' });
+      toast({ title: 'MoneyControl price refreshed' });
+      await fetchPriceSuggestions(companyId);
+    } catch (error: any) {
+      toast({
+        title: 'Failed to refresh price',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const toggleExpanded = (companyId: string) => {
+    const current = companyPrices[companyId];
+    if (!current?.priceSuggestion && !current?.loading) {
+      fetchPriceSuggestions(companyId);
+    } else {
+      setCompanyPrices(prev => ({
+        ...prev,
+        [companyId]: { ...prev[companyId], expanded: !prev[companyId]?.expanded }
+      }));
+    }
+  };
+
+  const applyPrice = (companyId: string, field: 'buyPrice' | 'sellPrice', value: number) => {
+    setCompanyPrices(prev => ({
+      ...prev,
+      [companyId]: { ...prev[companyId], [field]: value.toString() }
+    }));
+  };
+
+  const updatePrice = (companyId: string, field: 'buyPrice' | 'sellPrice', value: string) => {
+    setCompanyPrices(prev => ({
+      ...prev,
+      [companyId]: { ...prev[companyId], [field]: value }
+    }));
+  };
+
   const publishMutation = useMutation({
-    mutationFn: async (companyId: string) => {
+    mutationFn: async ({ companyId, buyPrice, sellPrice }: { companyId: string; buyPrice: string; sellPrice: string }) => {
       setPublishingCompanyId(companyId);
-      return apiRequest(`/api/unlisted/companies/${companyId}/publish-to-store`, { method: 'POST' });
+      return apiRequest(`/api/unlisted/companies/${companyId}/publish-to-store-with-prices`, { 
+        method: 'POST',
+        body: JSON.stringify({ buyPrice, sellPrice, priceSource: 'admin' })
+      });
     },
-    onSuccess: (data: any, companyId) => {
+    onSuccess: (data: any, { companyId }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/store/products'] });
       queryClient.invalidateQueries({ queryKey: ['/api/store/products'] });
@@ -95,7 +231,7 @@ export default function SeedUnlistedPage() {
       });
       toast({ 
         title: 'Published to Store', 
-        description: data?.data?.message || 'Company is now available in the Store under "Unlisted Stocks"'
+        description: data?.data?.message || 'Company is now available in the Store with your set prices'
       });
       setPublishingCompanyId(null);
     },
@@ -109,50 +245,43 @@ export default function SeedUnlistedPage() {
     }
   });
 
-  const bulkPublishMutation = useMutation({
-    mutationFn: async (companyIds: string[]) => {
-      const results = [];
-      for (const id of companyIds) {
-        try {
-          const result = await apiRequest(`/api/unlisted/companies/${id}/publish-to-store`, { method: 'POST' });
-          results.push({ id, success: true, result });
-        } catch (error: any) {
-          results.push({ id, success: false, error: error.message });
-        }
-      }
-      return results;
-    },
-    onSuccess: (results) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/store/products'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/store/products'] });
-      
-      const successCount = results.filter(r => r.success).length;
-      const failCount = results.filter(r => !r.success).length;
-      
-      setSelectedCompanies(new Set());
-      
-      if (failCount === 0) {
-        toast({ 
-          title: 'Bulk Publish Complete', 
-          description: `Successfully published ${successCount} companies to the Store`
-        });
-      } else {
-        toast({ 
-          title: 'Bulk Publish Partial Success', 
-          description: `Published ${successCount} companies, ${failCount} failed`,
-          variant: 'destructive'
-        });
-      }
-    },
-    onError: (error: any) => {
+  const handlePublish = (companyId: string) => {
+    const prices = companyPrices[companyId];
+    if (!prices?.buyPrice || !prices?.sellPrice) {
       toast({
-        title: 'Bulk publish failed',
-        description: error.message || 'Failed to publish companies',
+        title: 'Prices required',
+        description: 'Please set both buy and sell prices before publishing',
         variant: 'destructive'
       });
+      if (!prices?.priceSuggestion) {
+        fetchPriceSuggestions(companyId);
+      }
+      return;
     }
-  });
+
+    const buy = parseFloat(prices.buyPrice);
+    const sell = parseFloat(prices.sellPrice);
+
+    if (isNaN(buy) || isNaN(sell) || buy <= 0 || sell <= 0) {
+      toast({
+        title: 'Invalid prices',
+        description: 'Please enter valid positive numbers for prices',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (buy >= sell) {
+      toast({
+        title: 'Invalid price range',
+        description: 'Buy price must be less than sell price',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    publishMutation.mutate({ companyId, buyPrice: prices.buyPrice, sellPrice: prices.sellPrice });
+  };
 
   const toggleSelectAll = () => {
     if (selectedCompanies.size === availableCompanies.length) {
@@ -174,14 +303,6 @@ export default function SeedUnlistedPage() {
     });
   };
 
-  const handleBulkPublish = () => {
-    if (selectedCompanies.size === 0) {
-      toast({ title: 'No companies selected', variant: 'destructive' });
-      return;
-    }
-    bulkPublishMutation.mutate(Array.from(selectedCompanies));
-  };
-
   const getStageBadgeColor = (stage?: string) => {
     switch (stage) {
       case 'pre_ipo': return 'bg-blue-600/20 text-blue-400';
@@ -200,6 +321,293 @@ export default function SeedUnlistedPage() {
     }
   };
 
+  const getConfidenceBadge = (confidence: string | null) => {
+    switch (confidence) {
+      case 'high': return <Badge className="bg-green-600/20 text-green-400">High</Badge>;
+      case 'medium': return <Badge className="bg-yellow-600/20 text-yellow-400">Medium</Badge>;
+      case 'low': return <Badge className="bg-red-600/20 text-red-400">Low</Badge>;
+      default: return <Badge className="bg-gray-600/20 text-gray-400">N/A</Badge>;
+    }
+  };
+
+  const formatPrice = (price: number | null | undefined) => {
+    if (price === null || price === undefined) return '—';
+    return `₹${price.toLocaleString('en-IN')}`;
+  };
+
+  const PriceSuggestionPanel = ({ company, prices }: { company: UnlistedCompany; prices: CompanyPriceState }) => {
+    const suggestion = prices.priceSuggestion;
+    if (!suggestion) return null;
+
+    return (
+      <div className="p-4 bg-gray-800/50 border-t border-gray-700 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* MoneyControl Source */}
+          <Card className="bg-gray-900 border-gray-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2 text-orange-400">
+                <ExternalLink className="w-4 h-4" />
+                MoneyControl
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {suggestion.moneyControl.available ? (
+                <>
+                  <div className="text-2xl font-bold text-white">
+                    {formatPrice(suggestion.moneyControl.price)}
+                  </div>
+                  {suggestion.moneyControl.changePercent !== null && (
+                    <div className={`text-sm ${suggestion.moneyControl.changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {suggestion.moneyControl.changePercent >= 0 ? '+' : ''}{suggestion.moneyControl.changePercent.toFixed(2)}%
+                    </div>
+                  )}
+                  {suggestion.moneyControl.matchedName && (
+                    <div className="text-xs text-gray-400">
+                      Matched: {suggestion.moneyControl.matchedName}
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => applyPrice(company.id, 'buyPrice', suggestion.moneyControl.price! * 0.95)}
+                      data-testid={`apply-mc-buy-${company.id}`}
+                    >
+                      Apply -5% Buy
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => applyPrice(company.id, 'sellPrice', suggestion.moneyControl.price!)}
+                      data-testid={`apply-mc-sell-${company.id}`}
+                    >
+                      Apply Sell
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  {suggestion.moneyControl.error || 'Not available'}
+                </div>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full text-xs text-gray-400 hover:text-white"
+                onClick={() => refreshMoneyControlPrice(company.id)}
+                data-testid={`refresh-mc-${company.id}`}
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Refresh
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Internal Calculation Source */}
+          <Card className="bg-gray-900 border-gray-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2 text-blue-400">
+                <Calculator className="w-4 h-4" />
+                Internal Calculation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {suggestion.internalCalculation.available ? (
+                <>
+                  <div className="text-2xl font-bold text-white">
+                    {formatPrice(suggestion.internalCalculation.suggestedPrice)}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Range: {formatPrice(suggestion.internalCalculation.minPrice)} - {formatPrice(suggestion.internalCalculation.maxPrice)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">Confidence:</span>
+                    {getConfidenceBadge(suggestion.internalCalculation.confidence)}
+                  </div>
+                  {suggestion.internalCalculation.methodology && (
+                    <div className="text-xs text-gray-500">
+                      {suggestion.internalCalculation.methodology}
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => applyPrice(company.id, 'buyPrice', suggestion.internalCalculation.minPrice!)}
+                      data-testid={`apply-internal-buy-${company.id}`}
+                    >
+                      Apply Min Buy
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => applyPrice(company.id, 'sellPrice', suggestion.internalCalculation.maxPrice!)}
+                      data-testid={`apply-internal-sell-${company.id}`}
+                    >
+                      Apply Max Sell
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  {suggestion.internalCalculation.error || 'Insufficient data'}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Marketplace Source */}
+          <Card className="bg-gray-900 border-gray-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2 text-purple-400">
+                <Users className="w-4 h-4" />
+                Marketplace
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {suggestion.marketplace.available ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <div className="text-gray-400 text-xs">Best Bid</div>
+                      <div className="font-bold text-green-400">{formatPrice(suggestion.marketplace.bestBid)}</div>
+                      <div className="text-xs text-gray-500">{suggestion.marketplace.bidVolume} shares</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-400 text-xs">Best Ask</div>
+                      <div className="font-bold text-red-400">{formatPrice(suggestion.marketplace.bestAsk)}</div>
+                      <div className="text-xs text-gray-500">{suggestion.marketplace.askVolume} shares</div>
+                    </div>
+                  </div>
+                  {suggestion.marketplace.recentClearingPrice && (
+                    <div className="text-xs text-gray-400">
+                      Recent avg: {formatPrice(suggestion.marketplace.recentClearingPrice)} ({suggestion.marketplace.recentDealCount} deals)
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    {suggestion.marketplace.bestBid && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => applyPrice(company.id, 'buyPrice', suggestion.marketplace.bestBid!)}
+                        data-testid={`apply-mp-buy-${company.id}`}
+                      >
+                        Apply Bid
+                      </Button>
+                    )}
+                    {suggestion.marketplace.bestAsk && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => applyPrice(company.id, 'sellPrice', suggestion.marketplace.bestAsk!)}
+                        data-testid={`apply-mp-sell-${company.id}`}
+                      >
+                        Apply Ask
+                      </Button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  No marketplace activity
+                </div>
+              )}
+              <div className="text-xs text-gray-500">
+                {suggestion.marketplace.activeBuyRequests} buy requests, {suggestion.marketplace.activeSellListings} sell listings
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recommended Prices & Input */}
+        <div className="flex items-center gap-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
+          <div className="flex-1">
+            <div className="text-sm text-gray-400 mb-1">Recommended</div>
+            <div className="flex items-center gap-4">
+              <div>
+                <span className="text-xs text-gray-500">Buy:</span>
+                <span className="ml-1 font-bold text-green-400">{formatPrice(suggestion.recommendedBuyPrice)}</span>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500">Sell:</span>
+                <span className="ml-1 font-bold text-red-400">{formatPrice(suggestion.recommendedSellPrice)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-500">Confidence:</span>
+                {getConfidenceBadge(suggestion.priceConfidence)}
+              </div>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (suggestion.recommendedBuyPrice) applyPrice(company.id, 'buyPrice', suggestion.recommendedBuyPrice);
+              if (suggestion.recommendedSellPrice) applyPrice(company.id, 'sellPrice', suggestion.recommendedSellPrice);
+            }}
+            disabled={!suggestion.recommendedBuyPrice || !suggestion.recommendedSellPrice}
+            data-testid={`apply-recommended-${company.id}`}
+          >
+            Apply Recommended
+          </Button>
+        </div>
+
+        {/* Admin Price Input */}
+        <div className="flex items-center gap-4 p-4 bg-emerald-900/20 rounded-lg border border-emerald-700/30">
+          <DollarSign className="w-5 h-5 text-emerald-400" />
+          <div className="flex-1 grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Buy Price (₹)</label>
+              <Input
+                type="number"
+                value={prices.buyPrice}
+                onChange={(e) => updatePrice(company.id, 'buyPrice', e.target.value)}
+                placeholder="Enter buy price"
+                className="bg-gray-800 border-gray-700"
+                data-testid={`input-buy-price-${company.id}`}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Sell Price (₹)</label>
+              <Input
+                type="number"
+                value={prices.sellPrice}
+                onChange={(e) => updatePrice(company.id, 'sellPrice', e.target.value)}
+                placeholder="Enter sell price"
+                className="bg-gray-800 border-gray-700"
+                data-testid={`input-sell-price-${company.id}`}
+              />
+            </div>
+          </div>
+          <Button
+            onClick={() => handlePublish(company.id)}
+            disabled={publishingCompanyId === company.id || !prices.buyPrice || !prices.sellPrice}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            data-testid={`button-publish-with-prices-${company.id}`}
+          >
+            {publishingCompanyId === company.id ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Package className="w-4 h-4 mr-2" />
+                Publish with Prices
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -216,7 +624,7 @@ export default function SeedUnlistedPage() {
               Seed Unlisted Stocks
             </h1>
             <p className="text-gray-400 text-sm mt-1">
-              Select unlisted companies to publish to the Store
+              Set buy/sell prices and publish unlisted companies to the Store
             </p>
           </div>
         </div>
@@ -239,25 +647,8 @@ export default function SeedUnlistedPage() {
                 Available Companies
               </CardTitle>
               <CardDescription className="text-gray-400">
-                Select companies to add to the Store under "Unlisted Stocks" category
+                Click on a company row to view price suggestions from MoneyControl, Internal Calculation, and Marketplace
               </CardDescription>
-            </div>
-            <div className="flex items-center gap-3">
-              {selectedCompanies.size > 0 && (
-                <Button
-                  onClick={handleBulkPublish}
-                  disabled={bulkPublishMutation.isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                  data-testid="button-publish-selected"
-                >
-                  {bulkPublishMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Package className="w-4 h-4 mr-2" />
-                  )}
-                  Publish Selected ({selectedCompanies.size})
-                </Button>
-              )}
             </div>
           </div>
           <div className="relative mt-4">
@@ -284,85 +675,89 @@ export default function SeedUnlistedPage() {
               <p className="text-sm mt-2">No more unlisted companies available to seed</p>
             </div>
           ) : (
-            <ScrollArea className="h-[500px]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-gray-800 hover:bg-transparent">
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={selectedCompanies.size === availableCompanies.length && availableCompanies.length > 0}
-                        onCheckedChange={toggleSelectAll}
-                        data-testid="checkbox-select-all"
-                      />
-                    </TableHead>
-                    <TableHead className="text-gray-400">Company Name</TableHead>
-                    <TableHead className="text-gray-400">CIN</TableHead>
-                    <TableHead className="text-gray-400">Sector</TableHead>
-                    <TableHead className="text-gray-400">Stage</TableHead>
-                    <TableHead className="text-gray-400">Last Synced</TableHead>
-                    <TableHead className="text-right text-gray-400">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {availableCompanies.map((company) => (
-                    <TableRow 
-                      key={company.id} 
-                      className="border-gray-800 hover:bg-gray-800/50"
-                      data-testid={`row-company-${company.id}`}
-                    >
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedCompanies.has(company.id)}
-                          onCheckedChange={() => toggleSelectCompany(company.id)}
-                          data-testid={`checkbox-company-${company.id}`}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium text-white">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-blue-400" />
-                          {company.name}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm text-gray-300">
-                        {company.cin || 'N/A'}
-                      </TableCell>
-                      <TableCell className="text-gray-300">
-                        {company.sector || 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStageBadgeColor(company.listingStage)}>
-                          {getStageLabel(company.listingStage)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-400">
-                        {company.lastSyncedAt 
-                          ? format(new Date(company.lastSyncedAt), 'MMM dd, yyyy')
-                          : 'Never'
-                        }
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => publishMutation.mutate(company.id)}
-                          disabled={publishingCompanyId === company.id || publishMutation.isPending}
-                          className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30"
-                          data-testid={`button-publish-${company.id}`}
-                        >
-                          {publishingCompanyId === company.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <TrendingUp className="w-4 h-4 mr-1" />
-                              Publish
-                            </>
-                          )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <ScrollArea className="h-[600px]">
+              <div className="space-y-2">
+                {availableCompanies.map((company) => {
+                  const prices = companyPrices[company.id] || { buyPrice: '', sellPrice: '', expanded: false, loading: false, priceSuggestion: null };
+                  
+                  return (
+                    <Collapsible key={company.id} open={prices.expanded}>
+                      <div className="border border-gray-800 rounded-lg overflow-hidden">
+                        <CollapsibleTrigger asChild>
+                          <div 
+                            className="flex items-center gap-4 p-4 hover:bg-gray-800/50 cursor-pointer"
+                            onClick={() => toggleExpanded(company.id)}
+                            data-testid={`row-company-${company.id}`}
+                          >
+                            <div className="flex items-center justify-center w-8">
+                              {prices.loading ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                              ) : prices.expanded ? (
+                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-gray-400" />
+                              )}
+                            </div>
+                            <Checkbox
+                              checked={selectedCompanies.has(company.id)}
+                              onCheckedChange={() => toggleSelectCompany(company.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              data-testid={`checkbox-company-${company.id}`}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="w-4 h-4 text-blue-400" />
+                                <span className="font-medium text-white">{company.name}</span>
+                                <Badge className={getStageBadgeColor(company.listingStage)}>
+                                  {getStageLabel(company.listingStage)}
+                                </Badge>
+                              </div>
+                              <div className="text-sm text-gray-400 mt-1">
+                                {company.cin || 'No CIN'} • {company.sector || 'No sector'}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              {prices.buyPrice && prices.sellPrice && (
+                                <div className="text-right">
+                                  <div className="text-xs text-gray-400">Prices Set</div>
+                                  <div className="text-sm">
+                                    <span className="text-green-400">₹{prices.buyPrice}</span>
+                                    <span className="text-gray-500 mx-1">/</span>
+                                    <span className="text-red-400">₹{prices.sellPrice}</span>
+                                  </div>
+                                </div>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-blue-600/20 text-blue-400 border-blue-500/30"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpanded(company.id);
+                                }}
+                                data-testid={`button-expand-${company.id}`}
+                              >
+                                <BarChart3 className="w-4 h-4 mr-1" />
+                                {prices.expanded ? 'Hide' : 'View'} Prices
+                              </Button>
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          {prices.loading ? (
+                            <div className="p-8 flex items-center justify-center bg-gray-800/30">
+                              <Loader2 className="w-6 h-6 animate-spin text-blue-400 mr-2" />
+                              <span className="text-gray-400">Loading price suggestions...</span>
+                            </div>
+                          ) : prices.priceSuggestion ? (
+                            <PriceSuggestionPanel company={company} prices={prices} />
+                          ) : null}
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  );
+                })}
+              </div>
             </ScrollArea>
           )}
         </CardContent>

@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { probe42Service } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
+import { priceAggregationService } from '../services/price-aggregation';
 import {
   insertUnlistedCompanySchema,
   insertUnlistedPriceHistorySchema,
@@ -2269,6 +2270,333 @@ router.get('/admin/store-status/:companyId', async (req: Request, res: Response)
   } catch (error: any) {
     console.error('Error checking store status:', error);
     return apiResponse.serverError(res, 'Failed to check store status');
+  }
+});
+
+// ===================================================================
+// PRICE SUGGESTION ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/admin/price-suggestions/:companyId
+ * Get aggregated price suggestions from all sources (Admin only)
+ */
+router.get('/admin/price-suggestions/:companyId', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyId } = req.params;
+    
+    const suggestions = await priceAggregationService.getAggregatedPriceSuggestion(companyId);
+    
+    return apiResponse.success(res, suggestions);
+  } catch (error: any) {
+    console.error('Error fetching price suggestions:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to fetch price suggestions');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/price-suggestions/batch
+ * Get price suggestions for multiple companies (Admin only)
+ */
+router.post('/admin/price-suggestions/batch', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyIds } = req.body;
+    
+    if (!Array.isArray(companyIds) || companyIds.length === 0) {
+      return apiResponse.badRequest(res, 'companyIds array is required');
+    }
+    
+    if (companyIds.length > 20) {
+      return apiResponse.badRequest(res, 'Maximum 20 companies per batch');
+    }
+    
+    const suggestions = await priceAggregationService.getBatchPriceSuggestions(companyIds);
+    
+    return apiResponse.success(res, suggestions);
+  } catch (error: any) {
+    console.error('Error fetching batch price suggestions:', error);
+    return apiResponse.serverError(res, 'Failed to fetch price suggestions');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/refresh-moneycontrol/:companyId
+ * Refresh MoneyControl price for a company (Admin only)
+ */
+router.post('/admin/refresh-moneycontrol/:companyId', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyId } = req.params;
+    
+    const result = await priceAggregationService.refreshMoneyControlPrice(companyId);
+    
+    return apiResponse.success(res, result);
+  } catch (error: any) {
+    console.error('Error refreshing MoneyControl price:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to refresh MoneyControl price');
+  }
+});
+
+/**
+ * POST /api/unlisted/companies/:companyId/publish-to-store-with-prices
+ * Publish company to store with admin-set buy/sell prices (Admin only)
+ */
+router.post('/companies/:companyId/publish-to-store-with-prices', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyId } = req.params;
+    const { buyPrice, sellPrice, priceSource } = req.body;
+    
+    // Validate prices
+    if (!buyPrice || !sellPrice) {
+      return apiResponse.badRequest(res, 'Both buyPrice and sellPrice are required');
+    }
+    
+    const parsedBuyPrice = parseFloat(buyPrice);
+    const parsedSellPrice = parseFloat(sellPrice);
+    
+    if (isNaN(parsedBuyPrice) || isNaN(parsedSellPrice)) {
+      return apiResponse.badRequest(res, 'Invalid price values');
+    }
+    
+    if (parsedBuyPrice <= 0 || parsedSellPrice <= 0) {
+      return apiResponse.badRequest(res, 'Prices must be positive');
+    }
+    
+    if (parsedBuyPrice >= parsedSellPrice) {
+      return apiResponse.badRequest(res, 'Buy price must be less than sell price');
+    }
+    
+    // Get the company
+    const companyData = await storage.getUnlistedCompanyById(companyId);
+    if (!companyData) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const company = companyData as any;
+    
+    // Check if already published
+    const existingProduct = await storage.getStoreProductBySourceCompanyId(companyId);
+    if (existingProduct) {
+      // Update existing product with new prices
+      const updatedProduct = await storage.updateStoreProduct(existingProduct.id, {
+        buyPrice: parsedBuyPrice.toString(),
+        sellPrice: parsedSellPrice.toString(),
+        price: parsedSellPrice.toString(), // Use sell price as display price
+        priceSource: priceSource || 'manual',
+        priceUpdatedAt: new Date(),
+        priceMetadata: JSON.stringify({
+          updatedBy: req.user?.id,
+          updatedAt: new Date().toISOString(),
+          source: priceSource || 'manual',
+        }),
+      });
+      
+      return apiResponse.success(res, {
+        message: 'Store product prices updated successfully',
+        product: {
+          id: updatedProduct.id,
+          name: updatedProduct.name,
+          buyPrice: updatedProduct.buyPrice,
+          sellPrice: updatedProduct.sellPrice,
+        },
+        action: 'updated',
+      });
+    }
+    
+    // Get or create Unlisted Shares category
+    let unlistedCategory = await storage.getStoreCategoryBySlug('unlisted');
+    if (!unlistedCategory) {
+      unlistedCategory = await storage.createStoreCategory({
+        name: 'Unlisted Shares',
+        description: 'Pre-IPO and unlisted company shares for sophisticated investors',
+        slug: 'unlisted',
+        icon: 'TrendingUp',
+        displayOrder: 10,
+        isActive: true,
+      });
+    }
+    
+    // Get or create subcategory for sector
+    let subcategory = null;
+    if (company.sector) {
+      const sectorSlug = company.sector.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      subcategory = await storage.getStoreCategoryBySlug(sectorSlug);
+      if (!subcategory) {
+        subcategory = await storage.createStoreCategory({
+          name: company.sector,
+          description: `Unlisted shares in the ${company.sector} sector`,
+          slug: sectorSlug,
+          categoryId: unlistedCategory.id,
+          displayOrder: 0,
+          isActive: true,
+        });
+      }
+    }
+    
+    // Create the store product with prices
+    const productData = {
+      name: company.name,
+      shortDescription: `Unlisted shares of ${company.name} - ${company.sector || 'Technology'} sector`,
+      fullDescription: company.description || `Invest in ${company.name}, an unlisted company in the ${company.sector || 'Technology'} sector.`,
+      categoryId: unlistedCategory.id,
+      subcategoryId: subcategory?.id,
+      productType: 'unlisted_stock',
+      productKey: `UNLISTED-${company.cin || company.id}`,
+      price: parsedSellPrice.toString(),
+      buyPrice: parsedBuyPrice.toString(),
+      sellPrice: parsedSellPrice.toString(),
+      priceSource: priceSource || 'manual',
+      priceUpdatedAt: new Date(),
+      priceMetadata: JSON.stringify({
+        setBy: req.user?.id,
+        setAt: new Date().toISOString(),
+        source: priceSource || 'manual',
+      }),
+      currency: 'INR',
+      minimumInvestment: company.minLotSize ? String(Number(company.minLotSize) * parsedSellPrice) : '10000',
+      riskLevel: 'high',
+      features: JSON.stringify([
+        'Enhanced KYC Required',
+        'Pre-IPO Investment Opportunity',
+        `Sector: ${company.sector || 'Technology'}`,
+      ]),
+      eligibility: JSON.stringify({
+        kycLevel: 'enhanced',
+        minNetWorth: 2500000,
+        investorType: ['accredited', 'qualified'],
+      }),
+      documents: JSON.stringify([
+        'PAN Card',
+        'Address Proof',
+        'Bank Statement',
+        'Net Worth Certificate',
+      ]),
+      provider: company.name,
+      providerCode: company.cin || company.id,
+      regulatory: JSON.stringify({
+        cin: company.cin,
+        isin: company.isin,
+        sector: company.sector,
+        listingStage: company.listingStage,
+      }),
+      isActive: company.status === 'active',
+      isFeatured: false,
+      displayOrder: 0,
+      visibleToClients: true,
+      visibleToPartners: true,
+      visibleToAgents: true,
+      visibleToGuests: false,
+      showInquiryForm: true,
+      sourceCompanyId: company.id,
+      lotSize: company.minLotSize || 1,
+      faceValue: company.faceValue || null,
+      marketCap: company.marketCap || null,
+      peRatio: company.peRatio || null,
+    };
+    
+    const product = await storage.createStoreProduct(productData);
+    
+    return apiResponse.created(res, {
+      message: `${company.name} published to store with prices`,
+      product: {
+        id: product.id,
+        name: product.name,
+        buyPrice: product.buyPrice,
+        sellPrice: product.sellPrice,
+      },
+      category: {
+        id: unlistedCategory.id,
+        name: unlistedCategory.name,
+      },
+      action: 'created',
+    });
+  } catch (error: any) {
+    console.error('Error publishing to store with prices:', error);
+    return apiResponse.serverError(res, 'Failed to publish company to store');
+  }
+});
+
+/**
+ * PATCH /api/unlisted/admin/update-store-prices/:productId
+ * Update buy/sell prices for an existing store product (Admin only)
+ */
+router.patch('/admin/update-store-prices/:productId', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { productId } = req.params;
+    const { buyPrice, sellPrice, priceSource } = req.body;
+    
+    // Validate prices
+    if (!buyPrice || !sellPrice) {
+      return apiResponse.badRequest(res, 'Both buyPrice and sellPrice are required');
+    }
+    
+    const parsedBuyPrice = parseFloat(buyPrice);
+    const parsedSellPrice = parseFloat(sellPrice);
+    
+    if (isNaN(parsedBuyPrice) || isNaN(parsedSellPrice)) {
+      return apiResponse.badRequest(res, 'Invalid price values');
+    }
+    
+    if (parsedBuyPrice <= 0 || parsedSellPrice <= 0) {
+      return apiResponse.badRequest(res, 'Prices must be positive');
+    }
+    
+    if (parsedBuyPrice >= parsedSellPrice) {
+      return apiResponse.badRequest(res, 'Buy price must be less than sell price');
+    }
+    
+    // Update the product
+    const updatedProduct = await storage.updateStoreProduct(productId, {
+      buyPrice: parsedBuyPrice.toString(),
+      sellPrice: parsedSellPrice.toString(),
+      price: parsedSellPrice.toString(),
+      priceSource: priceSource || 'manual',
+      priceUpdatedAt: new Date(),
+      priceMetadata: JSON.stringify({
+        updatedBy: req.user?.id,
+        updatedAt: new Date().toISOString(),
+        source: priceSource || 'manual',
+      }),
+    });
+    
+    return apiResponse.success(res, {
+      message: 'Prices updated successfully',
+      product: {
+        id: updatedProduct.id,
+        name: updatedProduct.name,
+        buyPrice: updatedProduct.buyPrice,
+        sellPrice: updatedProduct.sellPrice,
+        priceSource: updatedProduct.priceSource,
+        priceUpdatedAt: updatedProduct.priceUpdatedAt,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error updating store prices:', error);
+    return apiResponse.serverError(res, 'Failed to update prices');
   }
 });
 
