@@ -450,8 +450,8 @@ export default function StoreManagement() {
                               {category.isActive ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
                               {category.isActive ? 'Active' : 'Disabled'}
                             </Badge>
-                            {/* Seed button for Unlisted Stocks category */}
-                            {(category.slug === 'unlisted-stocks' || category.name === 'Unlisted Stocks') && (
+                            {/* Seed button for Unlisted Shares/Stocks category */}
+                            {(category.slug === 'unlisted-stocks' || category.slug === 'unlisted' || category.name === 'Unlisted Stocks' || category.name === 'Unlisted Shares') && (
                               <Link href="/admin/store/seed-unlisted">
                                 <Button
                                   size="sm"
