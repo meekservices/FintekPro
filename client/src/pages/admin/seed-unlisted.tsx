@@ -220,7 +220,7 @@ export default function SeedUnlistedPage() {
     staleTime: 1000 * 60 * 2,
   });
 
-  const handlePublishToStore = async () => {
+  const handleAddToFintekPro = async () => {
     if (!selectedSearchResult) return;
     
     const buyPrice = parseFloat(publishPrices.buyPrice);
@@ -235,9 +235,18 @@ export default function SeedUnlistedPage() {
       return;
     }
     
+    if (sellPrice <= buyPrice) {
+      toast({
+        title: 'Invalid prices',
+        description: 'Sell price must be greater than buy price',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     setIsPublishing(true);
     try {
-      const response = await apiRequest('/api/unlisted/admin/publish-to-store', {
+      const response = await apiRequest('/api/unlisted/admin/add-to-fintekpro', {
         method: 'POST',
         body: JSON.stringify({
           name: selectedSearchResult.name,
@@ -258,19 +267,18 @@ export default function SeedUnlistedPage() {
       });
       
       toast({
-        title: 'Published successfully',
-        description: `${selectedSearchResult.name} has been added to the store`
+        title: 'Added to FintekPro',
+        description: `${selectedSearchResult.name} has been added. You can now review it in the Unlisted Companies list and publish to store when ready.`
       });
       
       setSelectedSearchResult(null);
       setPublishPrices({ buyPrice: '', sellPrice: '' });
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/store/products'] });
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/unified-search'] });
     } catch (error: any) {
       toast({
-        title: 'Publish failed',
-        description: error.message || 'Failed to publish company to store',
+        title: 'Failed to add',
+        description: error.message || 'Failed to add company to FintekPro',
         variant: 'destructive'
       });
     } finally {
@@ -1047,12 +1055,12 @@ export default function SeedUnlistedPage() {
               </div>
             )}
 
-            {/* Selected Company Preview & Publish */}
+            {/* Selected Company Preview & Add to FintekPro */}
             {selectedSearchResult && (
               <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
                 <h4 className="text-white font-medium mb-3 flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-blue-400" />
-                  Publish to Store: {selectedSearchResult.name}
+                  Add to FintekPro: {selectedSearchResult.name}
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
                   <div>
@@ -1102,17 +1110,17 @@ export default function SeedUnlistedPage() {
                     />
                   </div>
                   <Button
-                    onClick={handlePublishToStore}
+                    onClick={handleAddToFintekPro}
                     disabled={isPublishing || !publishPrices.buyPrice || !publishPrices.sellPrice}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    data-testid="button-publish-to-store"
+                    data-testid="button-add-to-fintekpro"
                   >
                     {isPublishing ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     ) : (
-                      <Package className="w-4 h-4 mr-2" />
+                      <Plus className="w-4 h-4 mr-2" />
                     )}
-                    Publish to Store
+                    Add to FintekPro
                   </Button>
                   <Button
                     variant="outline"
