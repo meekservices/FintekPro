@@ -65,9 +65,10 @@ router.get('/companies', async (req: Request, res: Response) => {
 
 /**
  * GET /api/unlisted/companies/:id
- * Get detailed information about a specific company
+ * Get detailed information about a specific company (public - no KYC required for browsing)
+ * Trading and financials still require Level 2 KYC as per SEBI regulations
  */
-router.get('/companies/:id', requireLevel2, async (req: Request, res: Response) => {
+router.get('/companies/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     

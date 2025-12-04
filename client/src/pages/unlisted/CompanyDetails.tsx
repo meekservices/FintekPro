@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   Building2, 
   TrendingUp, 
@@ -15,7 +16,10 @@ import {
   BarChart3,
   ArrowLeft,
   ShoppingCart,
-  Store
+  Store,
+  Lock,
+  Shield,
+  AlertTriangle
 } from 'lucide-react';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
@@ -87,41 +91,63 @@ export default function CompanyDetails() {
     },
   });
 
-  // Fetch financials
-  const { data: financials } = useQuery<CompanyFinancials[]>({
+  // Fetch financials (requires Level 2 KYC)
+  const { data: financials, error: financialsError } = useQuery<CompanyFinancials[]>({
     queryKey: ['/api/unlisted/companies', id, 'financials'],
     queryFn: async () => {
       const response = await fetch(`/api/unlisted/companies/${id}/financials`);
+      if (response.status === 403) {
+        const errorData = await response.json();
+        throw { status: 403, ...errorData };
+      }
       if (!response.ok) throw new Error('Failed to fetch financials');
       const result = await response.json();
       return result.data || [];
     },
     enabled: !!id,
+    retry: false,
   });
 
-  // Fetch ratios
-  const { data: ratios } = useQuery<CompanyRatios[]>({
+  // Fetch ratios (requires Level 2 KYC)
+  const { data: ratios, error: ratiosError } = useQuery<CompanyRatios[]>({
     queryKey: ['/api/unlisted/companies', id, 'ratios'],
     queryFn: async () => {
       const response = await fetch(`/api/unlisted/companies/${id}/ratios`);
+      if (response.status === 403) {
+        const errorData = await response.json();
+        throw { status: 403, ...errorData };
+      }
       if (!response.ok) throw new Error('Failed to fetch ratios');
       const result = await response.json();
       return result.data || [];
     },
     enabled: !!id,
+    retry: false,
   });
 
-  // Fetch price history
-  const { data: priceHistory } = useQuery<PriceHistory[]>({
+  // Fetch price history (requires Level 2 KYC)
+  const { data: priceHistory, error: priceHistoryError } = useQuery<PriceHistory[]>({
     queryKey: ['/api/unlisted/companies', id, 'price-history'],
     queryFn: async () => {
       const response = await fetch(`/api/unlisted/companies/${id}/price-history?limit=50`);
+      if (response.status === 403) {
+        const errorData = await response.json();
+        throw { status: 403, ...errorData };
+      }
       if (!response.ok) throw new Error('Failed to fetch price history');
       const result = await response.json();
       return result.data || [];
     },
     enabled: !!id,
+    retry: false,
   });
+
+  // Check if any restricted feature is blocked due to KYC
+  const financialsErrorData = financialsError as any;
+  const ratiosErrorData = ratiosError as any;
+  const priceHistoryErrorData = priceHistoryError as any;
+  const isKycBlocked = financialsErrorData?.status === 403 || ratiosErrorData?.status === 403 || priceHistoryErrorData?.status === 403;
+  const kycErrorData = financialsErrorData?.data || ratiosErrorData?.data || priceHistoryErrorData?.data;
 
   if (isLoadingCompany) {
     return <LoadingState />;
@@ -236,24 +262,71 @@ export default function CompanyDetails() {
         </CardHeader>
       </Card>
 
+      {/* KYC Gate Alert */}
+      {isKycBlocked && (
+        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/30" data-testid="alert-kyc-required">
+          <Shield className="h-5 w-5 text-amber-600" />
+          <AlertTitle className="text-amber-800 dark:text-amber-400">Complete KYC to Access Full Features</AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-300">
+            <p className="mb-3">
+              As per SEBI regulations, trading unlisted securities requires Level 2 (Full KYC) verification. 
+              You can browse company information, but to access detailed financials, price history, and place orders, 
+              please complete your KYC verification.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                size="sm" 
+                onClick={() => setLocation('/kyc-dashboard')}
+                className="bg-amber-600 hover:bg-amber-700"
+                data-testid="button-complete-kyc"
+              >
+                <Lock className="w-4 h-4 mr-2" />
+                Complete KYC Now
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setLocation('/profile?tab=kyc')}
+                className="border-amber-600 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900"
+                data-testid="button-view-kyc-status"
+              >
+                View KYC Status
+              </Button>
+            </div>
+            {kycErrorData?.requiredActions && kycErrorData.requiredActions.length > 0 && (
+              <div className="mt-3 p-3 bg-amber-100 dark:bg-amber-900/50 rounded-md">
+                <p className="text-sm font-medium mb-2">Required Verifications:</p>
+                <ul className="text-sm list-disc list-inside space-y-1">
+                  {kycErrorData.requiredActions.map((action: string, index: number) => (
+                    <li key={index}>{action}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Action Buttons */}
       <div className="flex gap-3">
         <Button 
           size="lg" 
           onClick={() => setLocation(`/unlisted/buy?company=${company.id}`)}
+          disabled={isKycBlocked}
           data-testid="button-place-buy-request"
         >
           <ShoppingCart className="w-5 h-5 mr-2" />
-          Place Buy Request
+          {isKycBlocked ? 'Complete KYC to Buy' : 'Place Buy Request'}
         </Button>
         <Button 
           size="lg" 
           variant="outline"
           onClick={() => setLocation(`/unlisted/sell?company=${company.id}`)}
+          disabled={isKycBlocked}
           data-testid="button-create-sell-listing"
         >
           <Store className="w-5 h-5 mr-2" />
-          Create Sell Listing
+          {isKycBlocked ? 'Complete KYC to Sell' : 'Create Sell Listing'}
         </Button>
       </div>
 
@@ -337,7 +410,20 @@ export default function CompanyDetails() {
         </TabsList>
 
         <TabsContent value="financials" className="space-y-4">
-          {financialChartData.length > 0 ? (
+          {isKycBlocked ? (
+            <Card className="border-amber-200 dark:border-amber-800">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Lock className="w-16 h-16 text-amber-500 mb-4" />
+                <h3 className="text-xl font-semibold mb-2">KYC Required</h3>
+                <p className="text-muted-foreground text-center max-w-md mb-4">
+                  Complete Level 2 KYC verification to access detailed financial statements and analysis.
+                </p>
+                <Button onClick={() => setLocation('/kyc-dashboard')} data-testid="button-complete-kyc-financials">
+                  Complete KYC Verification
+                </Button>
+              </CardContent>
+            </Card>
+          ) : financialChartData.length > 0 ? (
             <>
               <Card>
                 <CardHeader>
@@ -414,7 +500,20 @@ export default function CompanyDetails() {
         </TabsContent>
 
         <TabsContent value="ratios" className="space-y-4">
-          {ratioChartData.length > 0 ? (
+          {isKycBlocked ? (
+            <Card className="border-amber-200 dark:border-amber-800">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Lock className="w-16 h-16 text-amber-500 mb-4" />
+                <h3 className="text-xl font-semibold mb-2">KYC Required</h3>
+                <p className="text-muted-foreground text-center max-w-md mb-4">
+                  Complete Level 2 KYC verification to access valuation ratios and financial analysis.
+                </p>
+                <Button onClick={() => setLocation('/kyc-dashboard')} data-testid="button-complete-kyc-ratios">
+                  Complete KYC Verification
+                </Button>
+              </CardContent>
+            </Card>
+          ) : ratioChartData.length > 0 ? (
             <>
               <Card>
                 <CardHeader>
@@ -534,7 +633,20 @@ export default function CompanyDetails() {
         </TabsContent>
 
         <TabsContent value="price" className="space-y-4">
-          {priceChartData.length > 0 ? (
+          {isKycBlocked ? (
+            <Card className="border-amber-200 dark:border-amber-800">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Lock className="w-16 h-16 text-amber-500 mb-4" />
+                <h3 className="text-xl font-semibold mb-2">KYC Required</h3>
+                <p className="text-muted-foreground text-center max-w-md mb-4">
+                  Complete Level 2 KYC verification to access price history and market data.
+                </p>
+                <Button onClick={() => setLocation('/kyc-dashboard')} data-testid="button-complete-kyc-price">
+                  Complete KYC Verification
+                </Button>
+              </CardContent>
+            </Card>
+          ) : priceChartData.length > 0 ? (
             <>
               <Card>
                 <CardHeader>

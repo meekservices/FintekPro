@@ -890,10 +890,10 @@ export default function StoreManagement() {
               <AlertTriangle className="w-5 h-5 text-yellow-400" />
               Confirm {confirmDialog?.action === 'enable' ? 'Enable' : 'Disable'}
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <div className="text-sm text-gray-400">
               {confirmDialog?.action === 'disable' ? (
                 <>
-                  Disabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will also disable:
+                  <p>Disabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will also disable:</p>
                   <ul className="list-disc list-inside mt-2 space-y-1">
                     {confirmDialog?.type === 'category' && (
                       <>
@@ -909,13 +909,13 @@ export default function StoreManagement() {
                 </>
               ) : (
                 <>
-                  Enabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will make it visible to customers.
+                  <p>Enabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will make it visible to customers.</p>
                   {confirmDialog?.type === 'category' && (
                     <p className="mt-2">Note: Subcategories and products will need to be enabled individually.</p>
                   )}
                 </>
               )}
-            </DialogDescription>
+            </div>
           </DialogHeader>
           <div className="flex justify-end gap-3 mt-4">
             <Button
