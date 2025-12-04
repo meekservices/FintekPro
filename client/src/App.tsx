@@ -136,6 +136,7 @@ import CreateSellListing from "@/pages/unlisted/CreateSellListing";
 import CreateBuyRequest from "@/pages/unlisted/CreateBuyRequest";
 import CASupportDashboard from "@/pages/ca-support-dashboard";
 import CASupportDetail from "@/pages/ca-support-detail";
+import TDSCompliance from "@/pages/tds-compliance";
 
 function UserProtectedRoutes() {
   return (
@@ -215,6 +216,7 @@ function UserProtectedRoutes() {
         <Route path="/gift-city" component={GiftCity} />
         <Route path="/nri-services" component={NRIServices} />
         <Route path="/itr-tax-services" component={ITRTaxServices} />
+        <Route path="/tds-compliance" component={TDSCompliance} />
         <Route path="/domestic-trading" component={DomesticTrading} />
         <Route path="/global-trading" component={GlobalTrading} />
         <Route path="/cart" component={Cart} />

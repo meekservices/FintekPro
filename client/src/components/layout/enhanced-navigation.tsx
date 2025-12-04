@@ -302,6 +302,12 @@ export function EnhancedNavigation() {
               name: "ITR Filing Services",
               href: "/itr-tax-services",
               description: "Comprehensive ITR-1 to ITR-7 filing services"
+            },
+            {
+              name: "TDS Compliance",
+              href: "/tds-compliance",
+              description: "TDS calculator, Form 16/16A, return filing",
+              badge: "NEW"
             }
           ]
         }
