@@ -351,7 +351,14 @@ export default function SeedUnlistedPage() {
     try {
       const response = await apiRequest('/api/unlisted/admin/reconciliation/sync', {
         method: 'POST',
-        body: JSON.stringify({ company: suggestion.externalCompany })
+        body: JSON.stringify({ 
+          company: {
+            ...suggestion.externalCompany,
+            scrapedAt: typeof suggestion.externalCompany.scrapedAt === 'string' 
+              ? suggestion.externalCompany.scrapedAt 
+              : new Date().toISOString()
+          }
+        })
       });
       
       toast({
@@ -359,13 +366,15 @@ export default function SeedUnlistedPage() {
         description: `${suggestion.externalCompany.name} has been added to FintekPro`
       });
       
-      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'] });
       setSelectedSuggestions(prev => {
         const next = new Set(prev);
         next.delete(isin);
         return next;
       });
+      
+      await queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'] });
+      await refetchReconciliation();
     } catch (error: any) {
       toast({
         title: 'Sync failed',
@@ -385,10 +394,48 @@ export default function SeedUnlistedPage() {
     const toSync = reconciliationData?.suggestions.filter(s => selectedSuggestions.has(s.externalCompany.isin)) || [];
     if (toSync.length === 0) return;
 
+    let successCount = 0;
+    let failCount = 0;
+    
     for (const suggestion of toSync) {
-      await handleSyncSuggestion(suggestion);
+      const isin = suggestion.externalCompany.isin;
+      setSyncingCompanies(prev => new Set(prev).add(isin));
+      
+      try {
+        await apiRequest('/api/unlisted/admin/reconciliation/sync', {
+          method: 'POST',
+          body: JSON.stringify({ 
+            company: {
+              ...suggestion.externalCompany,
+              scrapedAt: typeof suggestion.externalCompany.scrapedAt === 'string' 
+                ? suggestion.externalCompany.scrapedAt 
+                : new Date().toISOString()
+            }
+          })
+        });
+        successCount++;
+      } catch (error) {
+        failCount++;
+      } finally {
+        setSyncingCompanies(prev => {
+          const next = new Set(prev);
+          next.delete(isin);
+          return next;
+        });
+      }
     }
+    
     setSelectedSuggestions(new Set());
+    
+    toast({
+      title: 'Bulk sync completed',
+      description: `${successCount} companies synced${failCount > 0 ? `, ${failCount} failed` : ''}`,
+      variant: failCount > 0 ? 'destructive' : 'default'
+    });
+    
+    await queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+    await queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'] });
+    await refetchReconciliation();
   };
 
   const toggleSuggestionSelect = (isin: string) => {

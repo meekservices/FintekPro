@@ -2609,7 +2609,7 @@ router.patch('/admin/update-store-prices/:productId', async (req: Request, res: 
  * GET /api/unlisted/admin/reconciliation/moneycontrol
  * Get list of companies on MoneyControl that are not in FintekPro (Admin only)
  */
-router.get('/admin/reconciliation/moneycontrol', async (req: Request, res: Response) => {
+router.get('/admin/reconciliation/moneycontrol', requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -2629,7 +2629,7 @@ router.get('/admin/reconciliation/moneycontrol', async (req: Request, res: Respo
  * POST /api/unlisted/admin/reconciliation/refresh
  * Force refresh the MoneyControl cache (Admin only)
  */
-router.post('/admin/reconciliation/refresh', async (req: Request, res: Response) => {
+router.post('/admin/reconciliation/refresh', requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -2647,11 +2647,22 @@ router.post('/admin/reconciliation/refresh', async (req: Request, res: Response)
   }
 });
 
+const moneyControlCompanySchema = z.object({
+  name: z.string().min(1, 'Company name is required'),
+  isin: z.string().min(12).max(12).regex(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/, 'Invalid ISIN format'),
+  price: z.number().positive('Price must be positive'),
+  change: z.number().optional().default(0),
+  changePercent: z.number().optional().default(0),
+  previousClose: z.number().optional().default(0),
+  sector: z.string().optional(),
+  scrapedAt: z.string().or(z.date()).optional(),
+});
+
 /**
  * POST /api/unlisted/admin/reconciliation/sync
  * Sync a company from MoneyControl to FintekPro (Admin only)
  */
-router.post('/admin/reconciliation/sync', async (req: Request, res: Response) => {
+router.post('/admin/reconciliation/sync', requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -2659,11 +2670,21 @@ router.post('/admin/reconciliation/sync', async (req: Request, res: Response) =>
     
     const { company } = req.body;
     
-    if (!company || !company.name || !company.isin) {
-      return apiResponse.badRequest(res, 'Company with name and ISIN is required');
+    if (!company) {
+      return apiResponse.badRequest(res, 'Company data is required');
     }
     
-    const synced = await moneyControlReconciliation.syncCompanyFromMoneyControl(company, req.user.id);
+    const validationResult = moneyControlCompanySchema.safeParse(company);
+    if (!validationResult.success) {
+      return apiResponse.badRequest(res, 'Invalid company data', validationResult.error.errors);
+    }
+    
+    const validatedCompany = validationResult.data;
+    
+    const synced = await moneyControlReconciliation.syncCompanyFromMoneyControl({
+      ...validatedCompany,
+      scrapedAt: validatedCompany.scrapedAt ? new Date(validatedCompany.scrapedAt) : new Date(),
+    }, req.user.id);
     
     return apiResponse.created(res, {
       message: 'Company synced successfully',
@@ -2679,7 +2700,7 @@ router.post('/admin/reconciliation/sync', async (req: Request, res: Response) =>
  * POST /api/unlisted/admin/reconciliation/sync-batch
  * Sync multiple companies from MoneyControl to FintekPro (Admin only)
  */
-router.post('/admin/reconciliation/sync-batch', async (req: Request, res: Response) => {
+router.post('/admin/reconciliation/sync-batch', requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -2695,12 +2716,32 @@ router.post('/admin/reconciliation/sync-batch', async (req: Request, res: Respon
       return apiResponse.badRequest(res, 'Maximum 50 companies per batch');
     }
     
-    const result = await moneyControlReconciliation.syncMultipleCompanies(companies, req.user?.id);
+    const validatedCompanies = [];
+    const validationErrors = [];
+    
+    for (let i = 0; i < companies.length; i++) {
+      const result = moneyControlCompanySchema.safeParse(companies[i]);
+      if (result.success) {
+        validatedCompanies.push({
+          ...result.data,
+          scrapedAt: result.data.scrapedAt ? new Date(result.data.scrapedAt) : new Date(),
+        });
+      } else {
+        validationErrors.push({ index: i, name: companies[i]?.name, errors: result.error.errors });
+      }
+    }
+    
+    if (validatedCompanies.length === 0) {
+      return apiResponse.badRequest(res, 'No valid companies to sync', validationErrors);
+    }
+    
+    const result = await moneyControlReconciliation.syncMultipleCompanies(validatedCompanies, req.user?.id);
     
     return apiResponse.success(res, {
       message: `Synced ${result.success.length} companies, ${result.failed.length} failed`,
       success: result.success,
       failed: result.failed,
+      validationErrors: validationErrors.length > 0 ? validationErrors : undefined,
     });
   } catch (error: any) {
     console.error('Error batch syncing companies:', error);
@@ -2712,7 +2753,7 @@ router.post('/admin/reconciliation/sync-batch', async (req: Request, res: Respon
  * GET /api/unlisted/admin/reconciliation/cache-status
  * Get current cache status (Admin only)
  */
-router.get('/admin/reconciliation/cache-status', async (req: Request, res: Response) => {
+router.get('/admin/reconciliation/cache-status', requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
