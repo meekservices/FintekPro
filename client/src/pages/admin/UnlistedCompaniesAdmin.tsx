@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle, Trash2, Store, ShoppingBag } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -183,6 +183,7 @@ function CompanyListView({
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [updatingStageId, setUpdatingStageId] = useState<string | null>(null);
   const [isBulkSyncing, setIsBulkSyncing] = useState(false);
+  const [publishingCompanyId, setPublishingCompanyId] = useState<string | null>(null);
 
   // Fetch companies with filters (admin endpoint - no KYC requirement)
   const { data: companies, isLoading } = useQuery<UnlistedCompany[]>({
@@ -328,6 +329,31 @@ function CompanyListView({
         variant: 'destructive'
       });
       setUpdatingStageId(null);
+    }
+  });
+
+  // Publish to store mutation
+  const publishToStoreMutation = useMutation({
+    mutationFn: async (companyId: string) => {
+      setPublishingCompanyId(companyId);
+      return apiRequest(`/api/unlisted/companies/${companyId}/publish-to-store`, { method: 'POST' });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/store/products'] });
+      toast({ 
+        title: 'Published to Store', 
+        description: data?.data?.message || `Company is now available in the Store under "Unlisted Stocks"` 
+      });
+      setPublishingCompanyId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Publish failed',
+        description: error.message || 'Failed to publish company to store',
+        variant: 'destructive'
+      });
+      setPublishingCompanyId(null);
     }
   });
 
@@ -568,6 +594,24 @@ function CompanyListView({
                               <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
                               <RefreshCw className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              publishToStoreMutation.mutate(company.id);
+                            }}
+                            disabled={publishingCompanyId === company.id || company.status !== 'active'}
+                            className={company.status === 'active' ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/20' : 'text-gray-500 cursor-not-allowed'}
+                            title={company.status === 'active' ? 'Publish to Store' : 'Company must be active to publish'}
+                            data-testid={`button-publish-${company.id}`}
+                          >
+                            {publishingCompanyId === company.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <ShoppingBag className="w-4 h-4" />
                             )}
                           </Button>
                           <AlertDialog>

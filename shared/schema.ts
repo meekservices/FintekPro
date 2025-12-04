@@ -4557,6 +4557,13 @@ export const storeProducts = pgTable("store_products", {
   // Inquiry settings when product is disabled
   showInquiryForm: boolean("show_inquiry_form").default(true),
   inquiryMessage: text("inquiry_message"),
+  // Link to source unlisted company (for unlisted stocks seeded from admin)
+  sourceCompanyId: varchar("source_company_id").references(() => preIpoCompanies.id),
+  // Unlisted stock specific fields
+  lotSize: integer("lot_size"), // minimum shares per transaction
+  faceValue: decimal("face_value", { precision: 10, scale: 2 }),
+  marketCap: decimal("market_cap", { precision: 20, scale: 2 }),
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

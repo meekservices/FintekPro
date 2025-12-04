@@ -2006,4 +2006,270 @@ router.post('/admin/seed', async (req: Request, res: Response) => {
   }
 });
 
+// ===================================================================
+// STORE SEEDING ROUTES - Publish Unlisted Stocks to Store
+// ===================================================================
+
+/**
+ * POST /api/unlisted/admin/publish-to-store
+ * Publish an unlisted company as a product in the store (Admin only)
+ */
+router.post('/admin/publish-to-store', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyId } = req.body;
+    
+    if (!companyId) {
+      return apiResponse.badRequest(res, 'Company ID is required');
+    }
+    
+    // Get the company details
+    const companyData = await storage.getUnlistedCompanyById(companyId);
+    if (!companyData) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    // Cast to any to access extended properties that may be enriched from related tables
+    const company = companyData as any;
+    
+    // Check if already published to store
+    const existingProduct = await storage.getStoreProductBySourceCompanyId(companyId);
+    if (existingProduct) {
+      return apiResponse.badRequest(res, 'Company is already published to store', {
+        productId: existingProduct.id,
+        productName: existingProduct.name
+      });
+    }
+    
+    // Get or create the "Unlisted Stocks" category
+    let unlistedCategory = await storage.getStoreCategoryBySlug('unlisted-stocks');
+    
+    if (!unlistedCategory) {
+      // Create the Unlisted Stocks category
+      unlistedCategory = await storage.createStoreCategory({
+        name: 'Unlisted Stocks',
+        description: 'Trade shares of unlisted companies before they go public. Enhanced KYC required.',
+        slug: 'unlisted-stocks',
+        icon: 'Building2',
+        displayOrder: 10,
+        isActive: true,
+      });
+      console.log('Created Unlisted Stocks category:', unlistedCategory.id);
+    }
+    
+    // Get or create sector-based subcategory
+    const sectorSlug = (company.sector || 'others').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const sectorName = company.sector || 'Others';
+    
+    let subcategory = await storage.getStoreSubcategoryBySlug(sectorSlug);
+    
+    if (!subcategory) {
+      // Create the sector subcategory
+      subcategory = await storage.createStoreSubcategory({
+        name: sectorName,
+        description: `Unlisted stocks in the ${sectorName} sector`,
+        slug: sectorSlug,
+        categoryId: unlistedCategory.id,
+        displayOrder: 0,
+        isActive: true,
+      });
+      console.log('Created subcategory:', subcategory.name);
+    }
+    
+    // Map company risk rating to store risk level
+    const riskMapping: Record<string, string> = {
+      'low': 'low',
+      'medium': 'medium',
+      'moderate': 'medium',
+      'high': 'high',
+      'very_high': 'high',
+    };
+    
+    // Create the store product
+    const productData = {
+      name: company.name,
+      shortDescription: `Unlisted shares of ${company.name} - ${company.sector || 'Technology'} sector`,
+      fullDescription: company.description || `Invest in ${company.name}, an unlisted company in the ${company.sector || 'Technology'} sector. ${company.listingStage === 'pre_ipo' ? 'Pre-IPO opportunity.' : 'Growth stage investment.'}`,
+      categoryId: unlistedCategory.id,
+      subcategoryId: subcategory?.id,
+      productType: 'unlisted_stock',
+      productKey: `UNLISTED-${company.cin || company.id}`,
+      price: company.currentPrice || company.lastPrice || null,
+      currency: 'INR',
+      minimumInvestment: company.minLotSize ? String(Number(company.minLotSize) * Number(company.currentPrice || company.lastPrice || 100)) : '10000',
+      riskLevel: riskMapping[company.riskRating?.toLowerCase() || 'high'] || 'high',
+      expectedReturns: company.expectedReturns || null,
+      features: JSON.stringify([
+        'Enhanced KYC Required',
+        'Pre-IPO Investment Opportunity',
+        company.listingStage === 'pre_ipo' ? 'Expected to list soon' : 'Growth stage company',
+        `Sector: ${company.sector || 'Technology'}`,
+      ]),
+      eligibility: JSON.stringify({
+        kycLevel: 'enhanced',
+        minNetWorth: 2500000,
+        investorType: ['accredited', 'qualified'],
+        description: 'Enhanced/Accredited KYC tier required for unlisted stock trading',
+      }),
+      documents: JSON.stringify([
+        'PAN Card',
+        'Address Proof',
+        'Bank Statement',
+        'Net Worth Certificate',
+        'Risk Acknowledgment Form',
+      ]),
+      provider: company.name,
+      providerCode: company.cin || company.id,
+      regulatory: JSON.stringify({
+        cin: company.cin,
+        isin: company.isin,
+        sector: company.sector,
+        listingStage: company.listingStage,
+        dataSource: 'unlisted_marketplace',
+      }),
+      isActive: company.status === 'active',
+      isFeatured: false,
+      displayOrder: 0,
+      visibleToClients: true,
+      visibleToPartners: true,
+      visibleToAgents: true,
+      visibleToGuests: false, // Guests cannot see unlisted stocks
+      showInquiryForm: true,
+      inquiryMessage: 'Contact our team for unlisted stock investment opportunities',
+      sourceCompanyId: company.id,
+      lotSize: company.minLotSize || 1,
+      faceValue: company.faceValue || null,
+      marketCap: company.marketCap || null,
+      peRatio: company.peRatio || null,
+    };
+    
+    const product = await storage.createStoreProduct(productData);
+    
+    console.log(`Published ${company.name} to store as product ${product.id}`);
+    
+    return apiResponse.created(res, {
+      message: `${company.name} published to store successfully`,
+      product: {
+        id: product.id,
+        name: product.name,
+        categoryId: product.categoryId,
+        productType: product.productType,
+      },
+      category: {
+        id: unlistedCategory.id,
+        name: unlistedCategory.name,
+      },
+      subcategory: subcategory ? {
+        id: subcategory.id,
+        name: subcategory.name,
+      } : null,
+    });
+  } catch (error: any) {
+    console.error('Error publishing to store:', error);
+    return apiResponse.serverError(res, 'Failed to publish company to store');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/sync-store-product/:companyId
+ * Sync store product data with source unlisted company (Admin only)
+ */
+router.post('/admin/sync-store-product/:companyId', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyId } = req.params;
+    
+    // Get the company details
+    const companyData = await storage.getUnlistedCompanyById(companyId);
+    if (!companyData) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    // Cast to any to access extended properties
+    const company = companyData as any;
+    
+    // Find the linked store product
+    const product = await storage.getStoreProductBySourceCompanyId(companyId);
+    if (!product) {
+      return apiResponse.notFound(res, 'Company is not published to store yet');
+    }
+    
+    // Update the store product with latest company data
+    const updatedProduct = await storage.updateStoreProduct(product.id, {
+      name: company.name,
+      shortDescription: `Unlisted shares of ${company.name} - ${company.sector || 'Technology'} sector`,
+      price: company.currentPrice || company.lastPrice || product.price,
+      isActive: company.status === 'active',
+      marketCap: company.marketCap || product.marketCap,
+      peRatio: company.peRatio || product.peRatio,
+      regulatory: JSON.stringify({
+        cin: company.cin,
+        isin: company.isin,
+        sector: company.sector,
+        listingStage: company.listingStage,
+        dataSource: 'unlisted_marketplace',
+        lastSynced: new Date().toISOString(),
+      }),
+    });
+    
+    return apiResponse.success(res, {
+      message: 'Store product synced successfully',
+      product: {
+        id: updatedProduct.id,
+        name: updatedProduct.name,
+        price: updatedProduct.price,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error syncing store product:', error);
+    return apiResponse.serverError(res, 'Failed to sync store product');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/store-status/:companyId
+ * Check if a company is published to store (Admin only)
+ */
+router.get('/admin/store-status/:companyId', async (req: Request, res: Response) => {
+  try {
+    // Check if user is admin
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyId } = req.params;
+    
+    const product = await storage.getStoreProductBySourceCompanyId(companyId);
+    
+    if (product) {
+      return apiResponse.success(res, {
+        isPublished: true,
+        product: {
+          id: product.id,
+          name: product.name,
+          isActive: product.isActive,
+          price: product.price,
+          createdAt: product.createdAt,
+        },
+      });
+    }
+    
+    return apiResponse.success(res, {
+      isPublished: false,
+      product: null,
+    });
+  } catch (error: any) {
+    console.error('Error checking store status:', error);
+    return apiResponse.serverError(res, 'Failed to check store status');
+  }
+});
+
 export default router;

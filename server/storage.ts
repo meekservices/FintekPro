@@ -1069,6 +1069,8 @@ export interface IStorage {
   
   // Enhanced Store Management Methods
   getStoreCategoryById(categoryId: string): Promise<any | undefined>;
+  getStoreCategoryBySlug(slug: string): Promise<any | undefined>;
+  getStoreProductBySourceCompanyId(sourceCompanyId: string): Promise<any | undefined>;
   createStoreCategory(data: any): Promise<any>;
   updateStoreCategory(id: string, data: any): Promise<any | undefined>;
   deleteStoreCategory(id: string): Promise<boolean>;
@@ -1077,6 +1079,7 @@ export interface IStorage {
   getAllStoreSubcategories(): Promise<any[]>;
   getStoreSubcategoriesByCategory(categoryId: string): Promise<any[]>;
   getStoreSubcategoryById(id: string): Promise<any | undefined>;
+  getStoreSubcategoryBySlug(slug: string): Promise<any | undefined>;
   createStoreSubcategory(data: any): Promise<any>;
   updateStoreSubcategory(id: string, data: any): Promise<any | undefined>;
   updateStoreSubcategoryStatus(id: string, isActive: boolean): Promise<any | undefined>;
@@ -7713,6 +7716,20 @@ export class DatabaseStorage implements IStorage {
     return category || undefined;
   }
 
+  async getStoreCategoryBySlug(slug: string): Promise<any | undefined> {
+    const [category] = await db.select()
+      .from(schema.storeCategories)
+      .where(eq(schema.storeCategories.slug, slug));
+    return category || undefined;
+  }
+
+  async getStoreProductBySourceCompanyId(sourceCompanyId: string): Promise<any | undefined> {
+    const [product] = await db.select()
+      .from(schema.storeProducts)
+      .where(eq(schema.storeProducts.sourceCompanyId, sourceCompanyId));
+    return product || undefined;
+  }
+
   async createStoreCategory(data: any): Promise<any> {
     const [category] = await db.insert(schema.storeCategories)
       .values({
@@ -7762,6 +7779,13 @@ export class DatabaseStorage implements IStorage {
     const [subcategory] = await db.select()
       .from(schema.storeSubcategories)
       .where(eq(schema.storeSubcategories.id, id));
+    return subcategory || undefined;
+  }
+
+  async getStoreSubcategoryBySlug(slug: string): Promise<any | undefined> {
+    const [subcategory] = await db.select()
+      .from(schema.storeSubcategories)
+      .where(eq(schema.storeSubcategories.slug, slug));
     return subcategory || undefined;
   }
 
