@@ -15,13 +15,15 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Package, FolderTree, Search, Loader2, ChevronRight, ChevronDown, 
   AlertTriangle, History, Eye, EyeOff, FileText, RefreshCw,
-  Plus, Edit, Trash2, ArrowLeft, Shield, ShieldAlert, Sparkles, Award
+  Plus, Edit, Trash2, ArrowLeft, Shield, ShieldAlert, Sparkles, Award, Sprout
 } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 
 interface Category {
   id: string;
   name: string;
+  slug?: string;
   description?: string;
   icon?: string;
   displayOrder?: number;
@@ -448,6 +450,20 @@ export default function StoreManagement() {
                               {category.isActive ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
                               {category.isActive ? 'Active' : 'Disabled'}
                             </Badge>
+                            {/* Seed button for Unlisted Stocks category */}
+                            {(category.slug === 'unlisted-stocks' || category.name === 'Unlisted Stocks') && (
+                              <Link href="/admin/store/seed-unlisted">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30"
+                                  data-testid="button-seed-unlisted"
+                                >
+                                  <Sprout className="w-4 h-4 mr-1" />
+                                  Seed
+                                </Button>
+                              </Link>
+                            )}
                             <Switch
                               checked={category.isActive}
                               onCheckedChange={(checked) => handleToggle('category', category, checked)}
