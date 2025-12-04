@@ -19,8 +19,10 @@ import { LoanOffersCard } from "@/components/LoanOffersCard";
 import { 
   Heart, ShoppingCart, Search, Star, TrendingUp, Shield, Globe, CreditCard, FileText, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
-  Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw, Lock, AlertCircle
+  Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw, Lock, AlertCircle,
+  MessageSquare, CheckCircle, XCircle, Info
 } from "lucide-react";
+import { ProductInquiryForm } from "@/components/store/ProductInquiryForm";
 
 interface Product {
   id: string;
@@ -305,6 +307,8 @@ export default function StorePage() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [selectedLockedProduct, setSelectedLockedProduct] = useState<Product | null>(null);
   const [requiredTier, setRequiredTier] = useState<string>("");
+  const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
+  const [inquiryProduct, setInquiryProduct] = useState<Product | null>(null);
   
   const { addToCart, isAddingToCart } = useCart();
   const { toast } = useToast();
@@ -446,6 +450,71 @@ export default function StorePage() {
       case "accredited_investor": return "Accredited Investor";
       default: return tier;
     }
+  };
+
+  const getKycRequirementsForTier = (tier: string) => {
+    const requirements: Record<string, { 
+      regulator: string; 
+      requirements: string[]; 
+      reason: string;
+    }> = {
+      basic: {
+        regulator: "SEBI/RBI",
+        requirements: [
+          "PAN Card verification"
+        ],
+        reason: "Basic KYC with PAN verification is required for accessing mutual funds, limited equity trading, and IPO retail subscriptions as per SEBI regulations."
+      },
+      enhanced: {
+        regulator: "SEBI/RBI",
+        requirements: [
+          "PAN Card verified",
+          "Aadhaar Card verified",
+          "Video KYC (In-Person Verification) completed",
+          "Income proof documentation submitted",
+          "Risk assessment profile completed",
+          "FATCA/CRS declaration completed",
+          "Bank account linked and verified"
+        ],
+        reason: "Enhanced KYC is mandated by SEBI for trading in derivatives (F&O), unlisted securities, margin trading, and higher value transactions."
+      },
+      accredited_investor: {
+        regulator: "SEBI",
+        requirements: [
+          "Enhanced KYC completed (all above requirements)",
+          "AML (Anti-Money Laundering) status cleared",
+          "PEP (Politically Exposed Person) status cleared",
+          "Qualification via one of the following routes:",
+          "  • Annual income ≥ ₹2 Crore with proof documents, OR",
+          "  • Net worth ≥ ₹7.5 Crore (excluding primary residence) with CA certificate, OR",
+          "  • Securities portfolio ≥ ₹5 Crore with depository statement, OR",
+          "  • Professional qualification (CA/CFA/MBA Finance/CPA/FRM/ACCA) with 3+ years experience"
+        ],
+        reason: "SEBI Accredited Investor status is required under SEBI (AIF) Regulations 2012 for investing in AIFs, PMS, Pre-IPO, private equity, and other sophisticated investment products."
+      }
+    };
+    return requirements[tier] || requirements.enhanced;
+  };
+
+  const getProductTypeRegulation = (productCode: string): string => {
+    const regulations: Record<string, string> = {
+      mutual_funds_direct: "SEBI (Mutual Funds) Regulations, 1996",
+      derivatives_fo: "SEBI (Securities Contracts) Rules - F&O Segment",
+      unlisted_securities: "SEBI Unlisted Securities Trading Guidelines",
+      aif_cat1: "SEBI (Alternative Investment Funds) Regulations, 2012 - Category I",
+      aif_cat2: "SEBI (Alternative Investment Funds) Regulations, 2012 - Category II",
+      aif_cat3: "SEBI (Alternative Investment Funds) Regulations, 2012 - Category III",
+      pms: "SEBI (Portfolio Managers) Regulations, 2020",
+      pre_ipo_investments: "SEBI (Issue of Capital and Disclosure Requirements) Regulations",
+      bonds_ncds: "SEBI (Issue and Listing of Non-Convertible Securities) Regulations, 2021",
+      margin_trading: "SEBI Margin Trading Facility Guidelines",
+    };
+    return regulations[productCode] || "SEBI/RBI Regulatory Compliance";
+  };
+
+  const openInquiryModal = (product: Product) => {
+    setInquiryProduct(product);
+    setInquiryModalOpen(true);
   };
 
   const showUpgradeModal = (product: Product) => {
@@ -922,6 +991,107 @@ export default function StorePage() {
         onWishlistToggle={toggleWishlist}
         isWishlisted={selectedProduct ? wishlist.includes(selectedProduct.id) : false}
       />
+
+      {/* KYC Upgrade Modal */}
+      <Dialog open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-900">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+              <Shield className="h-5 w-5 text-amber-500" />
+              KYC Upgrade Required
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {selectedLockedProduct && (
+                  <p className="mt-1">
+                    <strong className="text-gray-900 dark:text-white">{selectedLockedProduct.name}</strong> requires{" "}
+                    <Badge variant="outline" className="ml-1 text-amber-600 border-amber-600">
+                      {getTierDisplayName(requiredTier)}
+                    </Badge>
+                  </p>
+                )}
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            {/* Regulatory Information */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                    Regulatory Requirement ({getKycRequirementsForTier(requiredTier).regulator})
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                    {getKycRequirementsForTier(requiredTier).reason}
+                  </p>
+                  {selectedLockedProduct?.kycProductCode && (
+                    <p className="text-xs text-blue-600 dark:text-blue-500 mt-2">
+                      Reference: {getProductTypeRegulation(selectedLockedProduct.kycProductCode)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Requirements List */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                Required Documents/Verification:
+              </p>
+              <ul className="space-y-2">
+                {getKycRequirementsForTier(requiredTier).requirements.map((req, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                    <CheckCircle className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    {req}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setUpgradeModalOpen(false)}
+              className="dark:border-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setUpgradeModalOpen(false);
+                window.location.href = '/kyc-dashboard';
+              }}
+              className="bg-finance-blue hover:bg-finance-blue/90"
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              Complete KYC
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Inquiry Modal (for disabled/unavailable products) */}
+      <Dialog open={inquiryModalOpen} onOpenChange={setInquiryModalOpen}>
+        <DialogContent className="sm:max-w-[550px] p-0 bg-transparent border-0">
+          {inquiryProduct && (
+            <ProductInquiryForm
+              type="product"
+              itemId={inquiryProduct.id}
+              itemName={inquiryProduct.name}
+              categoryName={inquiryProduct.category}
+              subcategoryName={inquiryProduct.subcategory}
+              description="This product is currently not available for direct purchase. Please submit your requirement and our team will contact you within 24-48 hours."
+              onClose={() => {
+                setInquiryModalOpen(false);
+                setInquiryProduct(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
