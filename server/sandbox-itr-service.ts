@@ -137,6 +137,151 @@ export interface ITRCalculationResponse {
   message: string;
 }
 
+// ============ OCR API RESPONSE TYPES ============
+
+export interface Form16OCRResponse {
+  success: boolean;
+  data?: {
+    documentType: 'FORM_16' | 'FORM_16_PART_A' | 'FORM_16_PART_B';
+    assessmentYear: string;
+    financialYear: string;
+    employee: {
+      pan: string;
+      name: string;
+      address?: string;
+      email?: string;
+    };
+    employer: {
+      tan: string;
+      name: string;
+      address?: string;
+    };
+    salaryDetails: {
+      grossSalary: number;
+      exemptAllowances: number;
+      netSalary: number;
+      standardDeduction: number;
+      professionalTax: number;
+    };
+    incomeDetails: {
+      salaryIncome: number;
+      housePropertyIncome: number;
+      otherIncome: number;
+      grossTotalIncome: number;
+    };
+    deductions: {
+      section80C: number;
+      section80CCC: number;
+      section80CCD1: number;
+      section80CCD1B: number;
+      section80CCD2: number;
+      section80D: number;
+      section80E: number;
+      section80G: number;
+      section80TTA: number;
+      totalDeductions: number;
+    };
+    taxComputation: {
+      totalTaxableIncome: number;
+      taxOnTotalIncome: number;
+      rebate87A: number;
+      surcharge: number;
+      educationCess: number;
+      totalTaxPayable: number;
+      reliefUnder89: number;
+      netTaxPayable: number;
+    };
+    tdsDetails: {
+      tdsDeducted: number;
+      tdsDeposited: number;
+      challanDetails?: Array<{
+        challanNo: string;
+        date: string;
+        amount: number;
+        bsrCode: string;
+      }>;
+    };
+    verificationDetails?: {
+      dateOfIssue: string;
+      placeOfIssue: string;
+      signatory: string;
+      designation: string;
+    };
+    confidence: number;
+    rawExtractedText?: string;
+  };
+  message: string;
+  errors?: string[];
+}
+
+export interface Form26ASOCRResponse {
+  success: boolean;
+  data?: {
+    pan: string;
+    assessmentYear: string;
+    financialYear: string;
+    partA_TDS: Array<{
+      deductorTAN: string;
+      deductorName: string;
+      section: string;
+      transactionDate: string;
+      amountPaid: number;
+      tdsDeducted: number;
+      tdsDeposited: number;
+      dateOfDeposit?: string;
+    }>;
+    partA1_TDS15G15H: Array<{
+      deductorTAN: string;
+      deductorName: string;
+      section: string;
+      amountPaid: number;
+      declarationType: '15G' | '15H';
+    }>;
+    partA2_TCS: Array<{
+      collectorTAN: string;
+      collectorName: string;
+      section: string;
+      amountReceived: number;
+      tcsCollected: number;
+      tcsDeposited: number;
+    }>;
+    partB_AdvanceTax: Array<{
+      bsrCode: string;
+      challanSerialNo: string;
+      date: string;
+      amount: number;
+    }>;
+    partC_SelfAssessmentTax: Array<{
+      bsrCode: string;
+      challanSerialNo: string;
+      date: string;
+      amount: number;
+    }>;
+    partD_Refunds: Array<{
+      assessmentYear: string;
+      mode: string;
+      amount: number;
+      dateOfPayment: string;
+    }>;
+    partE_AIRTransactions: Array<{
+      transactionType: string;
+      reportingEntity: string;
+      amount: number;
+    }>;
+    summary: {
+      totalTDSDeducted: number;
+      totalTCSCollected: number;
+      totalAdvanceTax: number;
+      totalSelfAssessmentTax: number;
+      totalRefunds: number;
+      totalTaxCredits: number;
+    };
+    confidence: number;
+  };
+  message: string;
+  errors?: string[];
+}
+
 class SandboxITRService {
   private apiKey: string;
   private apiSecret: string;
@@ -788,6 +933,387 @@ class SandboxITRService {
       netPayable: calculationData.taxPayable,
       refundDue: calculationData.refundAmount,
       effectiveRate: `${calculationData.effectiveTaxRate.toFixed(2)}%`,
+    };
+  }
+
+  // ============ OCR API METHODS ============
+
+  /**
+   * Parse Form 16 PDF document using Sandbox.co.in OCR API
+   * Endpoint: POST /form-16/pdf
+   */
+  async parseForm16(fileBuffer: Buffer, fileName: string): Promise<Form16OCRResponse> {
+    try {
+      if (!this.apiKey || !this.apiSecret) {
+        console.log('Using mock Form 16 OCR response (API credentials not configured)');
+        return this.getMockForm16OCRResponse();
+      }
+
+      const formData = new FormData();
+      const blob = new Blob([fileBuffer], { type: 'application/pdf' });
+      formData.append('file', blob, fileName);
+
+      const response = await fetch(`${SANDBOX_BASE_URL}/form-16/pdf`, {
+        method: 'POST',
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-api-secret': this.apiSecret,
+          'Accept': 'application/json',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error('Form 16 OCR API error:', errorBody);
+        throw new Error(`Form 16 OCR failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        data: this.transformForm16Response(result),
+        message: 'Form 16 parsed successfully',
+      };
+    } catch (error) {
+      console.error('Form 16 OCR error:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Form 16 OCR failed',
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
+      };
+    }
+  }
+
+  /**
+   * Parse Form 26AS PDF document using Sandbox.co.in OCR API
+   * Endpoint: POST /form-26as/pdf
+   */
+  async parseForm26AS(fileBuffer: Buffer, fileName: string): Promise<Form26ASOCRResponse> {
+    try {
+      if (!this.apiKey || !this.apiSecret) {
+        console.log('Using mock Form 26AS OCR response (API credentials not configured)');
+        return this.getMockForm26ASOCRResponse();
+      }
+
+      const formData = new FormData();
+      const blob = new Blob([fileBuffer], { type: 'application/pdf' });
+      formData.append('file', blob, fileName);
+
+      const response = await fetch(`${SANDBOX_BASE_URL}/form-26as/pdf`, {
+        method: 'POST',
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-api-secret': this.apiSecret,
+          'Accept': 'application/json',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error('Form 26AS OCR API error:', errorBody);
+        throw new Error(`Form 26AS OCR failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        data: this.transformForm26ASResponse(result),
+        message: 'Form 26AS parsed successfully',
+      };
+    } catch (error) {
+      console.error('Form 26AS OCR error:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Form 26AS OCR failed',
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
+      };
+    }
+  }
+
+  private transformForm16Response(apiResponse: any): Form16OCRResponse['data'] {
+    return {
+      documentType: apiResponse.document_type || 'FORM_16',
+      assessmentYear: apiResponse.assessment_year || '',
+      financialYear: apiResponse.financial_year || '',
+      employee: {
+        pan: apiResponse.employee?.pan || '',
+        name: apiResponse.employee?.name || '',
+        address: apiResponse.employee?.address,
+        email: apiResponse.employee?.email,
+      },
+      employer: {
+        tan: apiResponse.employer?.tan || apiResponse.deductor?.tan || '',
+        name: apiResponse.employer?.name || apiResponse.deductor?.name || '',
+        address: apiResponse.employer?.address || apiResponse.deductor?.address,
+      },
+      salaryDetails: {
+        grossSalary: apiResponse.salary_details?.gross_salary || 0,
+        exemptAllowances: apiResponse.salary_details?.exempt_allowances || 0,
+        netSalary: apiResponse.salary_details?.net_salary || 0,
+        standardDeduction: apiResponse.salary_details?.standard_deduction || 50000,
+        professionalTax: apiResponse.salary_details?.professional_tax || 0,
+      },
+      incomeDetails: {
+        salaryIncome: apiResponse.income_details?.salary_income || 0,
+        housePropertyIncome: apiResponse.income_details?.house_property_income || 0,
+        otherIncome: apiResponse.income_details?.other_income || 0,
+        grossTotalIncome: apiResponse.income_details?.gross_total_income || 0,
+      },
+      deductions: {
+        section80C: apiResponse.deductions?.section_80c || 0,
+        section80CCC: apiResponse.deductions?.section_80ccc || 0,
+        section80CCD1: apiResponse.deductions?.section_80ccd_1 || 0,
+        section80CCD1B: apiResponse.deductions?.section_80ccd_1b || 0,
+        section80CCD2: apiResponse.deductions?.section_80ccd_2 || 0,
+        section80D: apiResponse.deductions?.section_80d || 0,
+        section80E: apiResponse.deductions?.section_80e || 0,
+        section80G: apiResponse.deductions?.section_80g || 0,
+        section80TTA: apiResponse.deductions?.section_80tta || 0,
+        totalDeductions: apiResponse.deductions?.total || 0,
+      },
+      taxComputation: {
+        totalTaxableIncome: apiResponse.tax_computation?.taxable_income || 0,
+        taxOnTotalIncome: apiResponse.tax_computation?.tax_on_income || 0,
+        rebate87A: apiResponse.tax_computation?.rebate_87a || 0,
+        surcharge: apiResponse.tax_computation?.surcharge || 0,
+        educationCess: apiResponse.tax_computation?.education_cess || 0,
+        totalTaxPayable: apiResponse.tax_computation?.total_tax || 0,
+        reliefUnder89: apiResponse.tax_computation?.relief_89 || 0,
+        netTaxPayable: apiResponse.tax_computation?.net_tax || 0,
+      },
+      tdsDetails: {
+        tdsDeducted: apiResponse.tds_details?.tds_deducted || 0,
+        tdsDeposited: apiResponse.tds_details?.tds_deposited || 0,
+        challanDetails: apiResponse.tds_details?.challans?.map((c: any) => ({
+          challanNo: c.challan_no || '',
+          date: c.date || '',
+          amount: c.amount || 0,
+          bsrCode: c.bsr_code || '',
+        })),
+      },
+      verificationDetails: apiResponse.verification ? {
+        dateOfIssue: apiResponse.verification.date_of_issue || '',
+        placeOfIssue: apiResponse.verification.place_of_issue || '',
+        signatory: apiResponse.verification.signatory || '',
+        designation: apiResponse.verification.designation || '',
+      } : undefined,
+      confidence: apiResponse.confidence || 0.85,
+    };
+  }
+
+  private transformForm26ASResponse(apiResponse: any): Form26ASOCRResponse['data'] {
+    return {
+      pan: apiResponse.pan || '',
+      assessmentYear: apiResponse.assessment_year || '',
+      financialYear: apiResponse.financial_year || '',
+      partA_TDS: (apiResponse.part_a?.tds || []).map((item: any) => ({
+        deductorTAN: item.deductor_tan || '',
+        deductorName: item.deductor_name || '',
+        section: item.section || '',
+        transactionDate: item.transaction_date || '',
+        amountPaid: item.amount_paid || 0,
+        tdsDeducted: item.tds_deducted || 0,
+        tdsDeposited: item.tds_deposited || 0,
+        dateOfDeposit: item.date_of_deposit,
+      })),
+      partA1_TDS15G15H: (apiResponse.part_a1?.declarations || []).map((item: any) => ({
+        deductorTAN: item.deductor_tan || '',
+        deductorName: item.deductor_name || '',
+        section: item.section || '',
+        amountPaid: item.amount_paid || 0,
+        declarationType: item.declaration_type || '15G',
+      })),
+      partA2_TCS: (apiResponse.part_a2?.tcs || []).map((item: any) => ({
+        collectorTAN: item.collector_tan || '',
+        collectorName: item.collector_name || '',
+        section: item.section || '',
+        amountReceived: item.amount_received || 0,
+        tcsCollected: item.tcs_collected || 0,
+        tcsDeposited: item.tcs_deposited || 0,
+      })),
+      partB_AdvanceTax: (apiResponse.part_b?.advance_tax || []).map((item: any) => ({
+        bsrCode: item.bsr_code || '',
+        challanSerialNo: item.challan_serial_no || '',
+        date: item.date || '',
+        amount: item.amount || 0,
+      })),
+      partC_SelfAssessmentTax: (apiResponse.part_c?.self_assessment_tax || []).map((item: any) => ({
+        bsrCode: item.bsr_code || '',
+        challanSerialNo: item.challan_serial_no || '',
+        date: item.date || '',
+        amount: item.amount || 0,
+      })),
+      partD_Refunds: (apiResponse.part_d?.refunds || []).map((item: any) => ({
+        assessmentYear: item.assessment_year || '',
+        mode: item.mode || '',
+        amount: item.amount || 0,
+        dateOfPayment: item.date_of_payment || '',
+      })),
+      partE_AIRTransactions: (apiResponse.part_e?.air_transactions || []).map((item: any) => ({
+        transactionType: item.transaction_type || '',
+        reportingEntity: item.reporting_entity || '',
+        amount: item.amount || 0,
+      })),
+      summary: {
+        totalTDSDeducted: apiResponse.summary?.total_tds_deducted || 0,
+        totalTCSCollected: apiResponse.summary?.total_tcs_collected || 0,
+        totalAdvanceTax: apiResponse.summary?.total_advance_tax || 0,
+        totalSelfAssessmentTax: apiResponse.summary?.total_self_assessment_tax || 0,
+        totalRefunds: apiResponse.summary?.total_refunds || 0,
+        totalTaxCredits: apiResponse.summary?.total_tax_credits || 0,
+      },
+      confidence: apiResponse.confidence || 0.85,
+    };
+  }
+
+  private getMockForm16OCRResponse(): Form16OCRResponse {
+    return {
+      success: true,
+      data: {
+        documentType: 'FORM_16',
+        assessmentYear: '2024-25',
+        financialYear: '2023-24',
+        employee: {
+          pan: 'ABCDE1234F',
+          name: 'John Doe',
+          address: '123 Main Street, Mumbai, Maharashtra 400001',
+          email: 'john.doe@example.com',
+        },
+        employer: {
+          tan: 'MUMB12345E',
+          name: 'ABC Corporation Pvt Ltd',
+          address: 'Tower A, Business Park, Mumbai 400051',
+        },
+        salaryDetails: {
+          grossSalary: 1200000,
+          exemptAllowances: 50000,
+          netSalary: 1150000,
+          standardDeduction: 50000,
+          professionalTax: 2500,
+        },
+        incomeDetails: {
+          salaryIncome: 1097500,
+          housePropertyIncome: 0,
+          otherIncome: 25000,
+          grossTotalIncome: 1122500,
+        },
+        deductions: {
+          section80C: 150000,
+          section80CCC: 0,
+          section80CCD1: 0,
+          section80CCD1B: 50000,
+          section80CCD2: 0,
+          section80D: 25000,
+          section80E: 0,
+          section80G: 10000,
+          section80TTA: 10000,
+          totalDeductions: 245000,
+        },
+        taxComputation: {
+          totalTaxableIncome: 877500,
+          taxOnTotalIncome: 82500,
+          rebate87A: 0,
+          surcharge: 0,
+          educationCess: 3300,
+          totalTaxPayable: 85800,
+          reliefUnder89: 0,
+          netTaxPayable: 85800,
+        },
+        tdsDetails: {
+          tdsDeducted: 85800,
+          tdsDeposited: 85800,
+          challanDetails: [
+            { challanNo: 'CHL001', date: '2024-01-15', amount: 21450, bsrCode: 'BSR001' },
+            { challanNo: 'CHL002', date: '2024-02-15', amount: 21450, bsrCode: 'BSR001' },
+            { challanNo: 'CHL003', date: '2024-03-15', amount: 42900, bsrCode: 'BSR001' },
+          ],
+        },
+        verificationDetails: {
+          dateOfIssue: '2024-06-15',
+          placeOfIssue: 'Mumbai',
+          signatory: 'Rajesh Kumar',
+          designation: 'Finance Manager',
+        },
+        confidence: 0.92,
+      },
+      message: 'Form 16 parsed successfully (mock data - API credentials not configured)',
+    };
+  }
+
+  private getMockForm26ASOCRResponse(): Form26ASOCRResponse {
+    return {
+      success: true,
+      data: {
+        pan: 'ABCDE1234F',
+        assessmentYear: '2024-25',
+        financialYear: '2023-24',
+        partA_TDS: [
+          {
+            deductorTAN: 'MUMB12345E',
+            deductorName: 'ABC Corporation Pvt Ltd',
+            section: '192',
+            transactionDate: '2024-03-31',
+            amountPaid: 1200000,
+            tdsDeducted: 85800,
+            tdsDeposited: 85800,
+            dateOfDeposit: '2024-04-07',
+          },
+          {
+            deductorTAN: 'BANK67890F',
+            deductorName: 'State Bank of India',
+            section: '194A',
+            transactionDate: '2024-03-31',
+            amountPaid: 75000,
+            tdsDeducted: 7500,
+            tdsDeposited: 7500,
+            dateOfDeposit: '2024-04-07',
+          },
+        ],
+        partA1_TDS15G15H: [],
+        partA2_TCS: [],
+        partB_AdvanceTax: [
+          {
+            bsrCode: 'ADV001',
+            challanSerialNo: 'ADV2024001',
+            date: '2023-09-15',
+            amount: 10000,
+          },
+        ],
+        partC_SelfAssessmentTax: [],
+        partD_Refunds: [],
+        partE_AIRTransactions: [
+          {
+            transactionType: 'SFT-001 Cash Deposits',
+            reportingEntity: 'State Bank of India',
+            amount: 500000,
+          },
+        ],
+        summary: {
+          totalTDSDeducted: 93300,
+          totalTCSCollected: 0,
+          totalAdvanceTax: 10000,
+          totalSelfAssessmentTax: 0,
+          totalRefunds: 0,
+          totalTaxCredits: 103300,
+        },
+        confidence: 0.89,
+      },
+      message: 'Form 26AS parsed successfully (mock data - API credentials not configured)',
+    };
+  }
+
+  /**
+   * Get OCR service status
+   */
+  getOCRStatus(): { available: boolean; endpoints: string[] } {
+    return {
+      available: !!(this.apiKey && this.apiSecret),
+      endpoints: [
+        'POST /form-16/pdf - Parse Form 16 document',
+        'POST /form-26as/pdf - Parse Form 26AS document',
+      ],
     };
   }
 
