@@ -17,11 +17,67 @@ import {
   DollarSign,
   Activity,
   BarChart3,
-  Zap
+  Zap,
+  Database,
+  Info
 } from "lucide-react";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useState } from "react";
 import type { UnlistedCompany, CompanyFinancials, CompanyRatios, UnlistedPriceHistory, UnlistedDeal } from "@shared/schema";
+
+const getDataSourceLabel = (source: string | null | undefined) => {
+  const sourceConfig: Record<string, { label: string; color: string; description: string }> = {
+    tofler: { 
+      label: 'Tofler', 
+      color: 'text-blue-500',
+      description: 'Primary data source - cleaned financials'
+    },
+    mca: { 
+      label: 'MCA', 
+      color: 'text-green-500',
+      description: 'Official government filings'
+    },
+    probe42: { 
+      label: 'Probe42', 
+      color: 'text-gray-500',
+      description: 'Legacy data source'
+    },
+    moneycontrol: { 
+      label: 'MoneyControl', 
+      color: 'text-purple-500',
+      description: 'Market price data'
+    },
+    fintekpro: { 
+      label: 'FintekPro', 
+      color: 'text-amber-500',
+      description: 'Internal database'
+    },
+  };
+  
+  const config = sourceConfig[source?.toLowerCase() || ''] || sourceConfig.fintekpro;
+  return config;
+};
+
+const DataSourceBadge = ({ source }: { source: string | null | undefined }) => {
+  const config = getDataSourceLabel(source);
+  
+  return (
+    <TooltipProvider>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center gap-1 text-xs ${config.color} cursor-help`}>
+            <Database className="h-3 w-3" />
+            {config.label}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">{config.description}</p>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  );
+};
 
 export default function UnlistedCompanyDetails() {
   const { id } = useParams<{ id: string }>();
@@ -361,9 +417,9 @@ export default function UnlistedCompanyDetails() {
                   No ratio data available
                 </p>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-4">
-                Powered by Probe42
-              </p>
+              <div className="flex justify-end mt-4">
+                <DataSourceBadge source={selectedYearRatios?.dataSource} />
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -371,11 +427,18 @@ export default function UnlistedCompanyDetails() {
         {/* Financial Trend Charts */}
         <Card className="bg-white dark:bg-gray-900">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Financial Trends
-            </CardTitle>
-            <CardDescription>Last 3 years performance metrics</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Financial Trends
+                </CardTitle>
+                <CardDescription>Last 3 years performance metrics</CardDescription>
+              </div>
+              {financials.length > 0 && (
+                <DataSourceBadge source={financials[0]?.dataSource} />
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

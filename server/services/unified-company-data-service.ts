@@ -110,22 +110,9 @@ class UnifiedCompanyDataService {
     let ownFinancials: CompanyFinancials[] = [];
     let ownRatios: CompanyRatios[] = [];
 
-    // Step 1: Try FintekPro's own data first (fastest)
-    if (company) {
-      ownFinancials = await storage.getCompanyFinancials(company.id);
-      ownRatios = await storage.getCompanyRatios(company.id);
-      
-      if (ownFinancials.length > 0 || ownRatios.length > 0) {
-        results.push({
-          success: true,
-          source: 'fintekpro',
-          data: { financials: ownFinancials, ratios: ownRatios },
-        });
-      }
-    }
-
-    // Step 2: Try Tofler (primary external source)
-    if (!skipTofler && (forceRefresh || ownFinancials.length === 0)) {
+    // Step 1: Try Tofler FIRST (primary external source - always attempt unless skipTofler)
+    // This ensures we get the freshest data from the primary source
+    if (!skipTofler) {
       try {
         if (cin) {
           toflerData = await toflerService.getCompanyDetails(cin);
@@ -158,8 +145,28 @@ class UnifiedCompanyDataService {
       }
     }
 
-    // Step 3: Try MCA as fallback
-    if (includeMCA && cin && (!toflerData || forceRefresh)) {
+    // Step 2: Get FintekPro's own data (fallback if Tofler fails or for supplementary data)
+    // Only used if Tofler data is not available
+    if (company) {
+      ownFinancials = await storage.getCompanyFinancials(company.id);
+      ownRatios = await storage.getCompanyRatios(company.id);
+      
+      if (ownFinancials.length > 0 || ownRatios.length > 0) {
+        results.push({
+          success: true,
+          source: 'fintekpro',
+          data: { financials: ownFinancials, ratios: ownRatios },
+        });
+      }
+    }
+
+    // Step 3: Try MCA as final fallback
+    // Engage when: Tofler failed (null) OR Tofler returned shell data (no usable financials/ratios)
+    const toflerHasUsableData = toflerData && 
+      ((toflerData.financials && toflerData.financials.length > 0) || 
+       (toflerData.ratios && toflerData.ratios.length > 0));
+    
+    if (includeMCA && cin && !toflerHasUsableData) {
       try {
         if (mcaService.isConfigured()) {
           mcaData = await mcaService.getCompanyByCIN(cin);
