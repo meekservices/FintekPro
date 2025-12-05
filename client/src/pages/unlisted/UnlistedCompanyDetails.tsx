@@ -31,11 +31,6 @@ import type { UnlistedCompany, CompanyFinancials, CompanyRatios, UnlistedPriceHi
 
 const getDataSourceLabel = (source: string | null | undefined) => {
   const sourceConfig: Record<string, { label: string; color: string; description: string }> = {
-    tofler: { 
-      label: 'Tofler', 
-      color: 'text-blue-500',
-      description: 'Primary data source - cleaned financials'
-    },
     mca: { 
       label: 'MCA', 
       color: 'text-green-500',

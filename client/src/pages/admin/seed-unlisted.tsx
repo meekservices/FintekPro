@@ -137,7 +137,7 @@ interface UnifiedSearchResult {
   sector?: string;
   status?: string;
   incorporationDate?: string;
-  source: 'moneycontrol' | 'probe42' | 'tofler' | 'mca' | 'internal';
+  source: 'moneycontrol' | 'probe42' | 'mca' | 'internal';
   currentPrice?: number;
   priceChange?: number;
   priceChangePercent?: number;
@@ -152,7 +152,6 @@ interface UnifiedSearchResponse {
   totalResults: number;
   results: UnifiedSearchResult[];
   sources: {
-    tofler: number;
     moneycontrol: number;
     mca: number;
     probe42: number;
@@ -161,11 +160,6 @@ interface UnifiedSearchResponse {
 
 const getSourceBadge = (source: string, dataQuality?: number) => {
   const sourceConfig: Record<string, { label: string; color: string; description: string }> = {
-    tofler: { 
-      label: 'Tofler', 
-      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      description: 'Primary data source - cleaned financials and ratios'
-    },
     mca: { 
       label: 'MCA', 
       color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
@@ -1035,11 +1029,6 @@ export default function SeedUnlistedPage() {
             {unifiedSearchData && unifiedSearchData.results.length > 0 && (
               <div className="text-xs text-gray-400 flex items-center gap-4 flex-wrap">
                 <span>Found {unifiedSearchData.totalResults} results:</span>
-                {unifiedSearchData.sources.tofler > 0 && (
-                  <Badge variant="outline" className="text-blue-400 border-blue-400/50">
-                    Tofler: {unifiedSearchData.sources.tofler}
-                  </Badge>
-                )}
                 {unifiedSearchData.sources.mca > 0 && (
                   <Badge variant="outline" className="text-green-400 border-green-400/50">
                     MCA: {unifiedSearchData.sources.mca}
