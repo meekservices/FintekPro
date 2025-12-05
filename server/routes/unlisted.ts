@@ -18,6 +18,10 @@ import { probe42Service } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import { priceAggregationService } from '../services/price-aggregation';
 import { moneyControlReconciliation } from '../services/moneycontrol-reconciliation';
+import { toflerService } from '../services/tofler-service';
+import { mcaService } from '../services/mca-service';
+import { unifiedCompanyDataService } from '../services/unified-company-data-service';
+import { valuationService } from '../services/valuation-service';
 import {
   insertUnlistedCompanySchema,
   insertUnlistedPriceHistorySchema,
@@ -2770,18 +2774,20 @@ interface UnifiedSearchResult {
   sector?: string;
   status?: string;
   incorporationDate?: string;
-  source: 'moneycontrol' | 'probe42' | 'internal';
+  source: 'moneycontrol' | 'probe42' | 'tofler' | 'mca' | 'internal';
   currentPrice?: number;
   priceChange?: number;
   priceChangePercent?: number;
   isInFintekPro: boolean;
   fintekProId?: string;
+  dataQuality?: number;
   rawData: any;
 }
 
 /**
  * GET /api/unlisted/admin/unified-search
- * Search companies across MoneyControl and Probe42 (Admin only)
+ * Search companies across multiple data sources (Admin only)
+ * Priority: Tofler (primary) → MoneyControl → MCA → Probe42 (legacy)
  */
 router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Response) => {
   try {
@@ -2796,8 +2802,24 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
     const existingIsins = new Set(existingCompanies.map((c: UnlistedCompany) => c.isin).filter(Boolean));
     const existingCins = new Set(existingCompanies.map((c: UnlistedCompany) => c.cin).filter(Boolean));
     const queryLower = query.toLowerCase();
+    const seenCins = new Set<string>();
+    const seenIsins = new Set<string>();
 
-    const [moneyControlResults, probe42Results] = await Promise.allSettled([
+    // Search all sources in parallel
+    const [toflerResults, moneyControlResults, mcaResults, probe42Results] = await Promise.allSettled([
+      // Tofler (primary source)
+      (async () => {
+        try {
+          if (query.length >= 3) {
+            return await toflerService.searchCompanies(query);
+          }
+          return [];
+        } catch (e) {
+          console.error('Tofler search error:', e);
+          return [];
+        }
+      })(),
+      // MoneyControl (price data)
       (async () => {
         try {
           const cached = await moneyControlReconciliation.getReconciliationSuggestions(false);
@@ -2811,6 +2833,23 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
           return [];
         }
       })(),
+      // MCA (official company filings via Sandbox.co.in)
+      // Note: MCA doesn't have a search API, requires direct CIN lookup
+      // We skip this in unified search and use it for direct company details
+      (async () => {
+        try {
+          // Check if query looks like a CIN (21 characters)
+          if (query.length === 21 && /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(query)) {
+            const company = await mcaService.getCompanyByCIN(query);
+            return company ? [company] : [];
+          }
+          return [];
+        } catch (e) {
+          console.error('MCA search error:', e);
+          return [];
+        }
+      })(),
+      // Probe42 (legacy, will be deprecated)
       (async () => {
         try {
           if (query.length >= 3) {
@@ -2824,8 +2863,35 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
       })()
     ]);
 
+    // Process Tofler results first (primary source)
+    if (toflerResults.status === 'fulfilled') {
+      for (const company of toflerResults.value) {
+        if (company.cin) seenCins.add(company.cin);
+        const isInFintekPro = company.cin ? existingCins.has(company.cin) : false;
+        const existing = company.cin 
+          ? existingCompanies.find((c: UnlistedCompany) => c.cin === company.cin)
+          : null;
+
+        results.push({
+          id: `tofler_${company.cin || company.name.replace(/\s+/g, '_')}`,
+          name: company.name,
+          cin: company.cin,
+          status: company.status,
+          source: 'tofler',
+          isInFintekPro,
+          fintekProId: existing?.id || undefined,
+          dataQuality: 85,
+          rawData: company,
+        });
+      }
+    }
+
+    // Process MoneyControl results (for price data)
     if (moneyControlResults.status === 'fulfilled') {
       for (const company of moneyControlResults.value) {
+        if (company.isin && seenIsins.has(company.isin)) continue;
+        if (company.isin) seenIsins.add(company.isin);
+        
         const isInFintekPro = existingIsins.has(company.isin);
         const existing = isInFintekPro 
           ? existingCompanies.find((c: UnlistedCompany) => c.isin === company.isin)
@@ -2841,14 +2907,44 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
           priceChange: company.change,
           priceChangePercent: company.changePercent,
           isInFintekPro,
-          fintekProId: existing?.id,
+          fintekProId: existing?.id || undefined,
+          dataQuality: 70,
           rawData: company,
         });
       }
     }
 
+    // Process MCA results (official government filings)
+    if (mcaResults.status === 'fulfilled') {
+      for (const company of mcaResults.value) {
+        if (company.cin && seenCins.has(company.cin)) continue;
+        if (company.cin) seenCins.add(company.cin);
+        
+        const isInFintekPro = company.cin ? existingCins.has(company.cin) : false;
+        const existing = company.cin 
+          ? existingCompanies.find((c: UnlistedCompany) => c.cin === company.cin)
+          : null;
+
+        results.push({
+          id: `mca_${company.cin}`,
+          name: company.companyName,
+          cin: company.cin,
+          status: company.companyStatus,
+          source: 'mca',
+          isInFintekPro,
+          fintekProId: existing?.id || undefined,
+          dataQuality: 90,
+          rawData: company,
+        });
+      }
+    }
+
+    // Process Probe42 results (legacy, lower priority)
     if (probe42Results.status === 'fulfilled') {
       for (const company of probe42Results.value) {
+        if (company.cin && seenCins.has(company.cin)) continue;
+        if (company.cin) seenCins.add(company.cin);
+        
         const isInFintekPro = existingCins.has(company.cin);
         const existing = existingCompanies.find((c: UnlistedCompany) => c.cin === company.cin);
 
@@ -2861,15 +2957,20 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
           incorporationDate: company.incorporation_date,
           source: 'probe42',
           isInFintekPro,
-          fintekProId: existing?.id,
+          fintekProId: existing?.id || undefined,
+          dataQuality: 60,
           rawData: company,
         });
       }
     }
 
+    // Sort: non-FintekPro first, then by data quality, then by name
     results.sort((a, b) => {
       if (a.isInFintekPro !== b.isInFintekPro) {
         return a.isInFintekPro ? 1 : -1;
+      }
+      if ((a.dataQuality || 0) !== (b.dataQuality || 0)) {
+        return (b.dataQuality || 0) - (a.dataQuality || 0);
       }
       return a.name.localeCompare(b.name);
     });
@@ -2879,7 +2980,9 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
       totalResults: results.length,
       results,
       sources: {
+        tofler: toflerResults.status === 'fulfilled' ? toflerResults.value.length : 0,
         moneycontrol: moneyControlResults.status === 'fulfilled' ? moneyControlResults.value.length : 0,
+        mca: mcaResults.status === 'fulfilled' ? mcaResults.value.length : 0,
         probe42: probe42Results.status === 'fulfilled' ? probe42Results.value.length : 0,
       }
     });
@@ -2897,7 +3000,27 @@ router.get('/admin/company-details/:source/:id', requireAdmin, async (req: Reque
   try {
     const { source, id } = req.params;
     
-    if (source === 'probe42') {
+    if (source === 'tofler') {
+      const details = await toflerService.getCompanyDetails(id);
+      
+      return apiResponse.success(res, {
+        source: 'tofler',
+        company: details?.details,
+        financials: details?.financials,
+        ratios: details?.ratios,
+      });
+    } else if (source === 'mca') {
+      // MCA requires CIN for lookup
+      const details = await mcaService.getCompanyByCIN(id);
+      if (!details) {
+        return apiResponse.notFound(res, 'Company not found in MCA records');
+      }
+      
+      return apiResponse.success(res, {
+        source: 'mca',
+        company: details,
+      });
+    } else if (source === 'probe42') {
       const details = await probe42Service.getCompanyDetails(id);
       const financials = await probe42Service.getCompanyFinancials(id).catch(() => null);
       
@@ -2919,11 +3042,39 @@ router.get('/admin/company-details/:source/:id', requireAdmin, async (req: Reque
         company: company.externalCompany,
       });
     } else {
-      return apiResponse.badRequest(res, 'Invalid source. Use "moneycontrol" or "probe42"');
+      return apiResponse.badRequest(res, 'Invalid source. Use "tofler", "mca", "moneycontrol", or "probe42"');
     }
   } catch (error: any) {
     console.error('Error fetching company details:', error);
     return apiResponse.serverError(res, error.message || 'Failed to fetch company details');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/company-unified-data/:companyId
+ * Get comprehensive unified data for a company from all sources (Admin only)
+ */
+router.get('/admin/company-unified-data/:companyId', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(companyId);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const unifiedData = await unifiedCompanyDataService.getCompanyData(companyId);
+    const valuationData = await valuationService.getValuationData({ companyId });
+    
+    return apiResponse.success(res, {
+      companyId,
+      companyName: company.name,
+      ...unifiedData,
+      valuation: valuationData.valuation,
+    });
+  } catch (error: any) {
+    console.error('Error fetching unified company data:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to fetch unified company data');
   }
 });
 

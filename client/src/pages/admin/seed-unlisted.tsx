@@ -137,12 +137,13 @@ interface UnifiedSearchResult {
   sector?: string;
   status?: string;
   incorporationDate?: string;
-  source: 'moneycontrol' | 'probe42' | 'internal';
+  source: 'moneycontrol' | 'probe42' | 'tofler' | 'mca' | 'internal';
   currentPrice?: number;
   priceChange?: number;
   priceChangePercent?: number;
   isInFintekPro: boolean;
   fintekProId?: string;
+  dataQuality?: number;
   rawData: any;
 }
 
@@ -151,10 +152,70 @@ interface UnifiedSearchResponse {
   totalResults: number;
   results: UnifiedSearchResult[];
   sources: {
+    tofler: number;
     moneycontrol: number;
+    mca: number;
     probe42: number;
   };
 }
+
+const getSourceBadge = (source: string, dataQuality?: number) => {
+  const sourceConfig: Record<string, { label: string; color: string; description: string }> = {
+    tofler: { 
+      label: 'Tofler', 
+      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      description: 'Primary data source - cleaned financials and ratios'
+    },
+    mca: { 
+      label: 'MCA', 
+      color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      description: 'Official government filings via Sandbox API'
+    },
+    moneycontrol: { 
+      label: 'MoneyControl', 
+      color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+      description: 'Real-time price data'
+    },
+    probe42: { 
+      label: 'Probe42', 
+      color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+      description: 'Legacy source (deprecated)'
+    },
+    internal: { 
+      label: 'FintekPro', 
+      color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+      description: 'Internal database'
+    },
+    fintekpro: { 
+      label: 'FintekPro', 
+      color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+      description: 'Internal database'
+    },
+    calculated: { 
+      label: 'Calculated', 
+      color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      description: 'Derived from financial data'
+    },
+    unavailable: { 
+      label: 'N/A', 
+      color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+      description: 'Data not available'
+    },
+  };
+  
+  const config = sourceConfig[source] || sourceConfig.internal;
+  
+  return (
+    <Badge 
+      variant="secondary" 
+      className={`${config.color} text-xs font-medium`}
+      title={config.description}
+    >
+      {config.label}
+      {dataQuality && <span className="ml-1 opacity-70">({dataQuality}%)</span>}
+    </Badge>
+  );
+};
 
 export default function SeedUnlistedPage() {
   const { toast } = useToast();
@@ -977,14 +1038,28 @@ export default function SeedUnlistedPage() {
             </div>
             
             {unifiedSearchData && unifiedSearchData.results.length > 0 && (
-              <div className="text-xs text-gray-400 flex items-center gap-4">
+              <div className="text-xs text-gray-400 flex items-center gap-4 flex-wrap">
                 <span>Found {unifiedSearchData.totalResults} results:</span>
-                <Badge variant="outline" className="text-orange-400 border-orange-400/50">
-                  MoneyControl: {unifiedSearchData.sources.moneycontrol}
-                </Badge>
-                <Badge variant="outline" className="text-purple-400 border-purple-400/50">
-                  Probe42: {unifiedSearchData.sources.probe42}
-                </Badge>
+                {unifiedSearchData.sources.tofler > 0 && (
+                  <Badge variant="outline" className="text-blue-400 border-blue-400/50">
+                    Tofler: {unifiedSearchData.sources.tofler}
+                  </Badge>
+                )}
+                {unifiedSearchData.sources.mca > 0 && (
+                  <Badge variant="outline" className="text-green-400 border-green-400/50">
+                    MCA: {unifiedSearchData.sources.mca}
+                  </Badge>
+                )}
+                {unifiedSearchData.sources.moneycontrol > 0 && (
+                  <Badge variant="outline" className="text-purple-400 border-purple-400/50">
+                    MoneyControl: {unifiedSearchData.sources.moneycontrol}
+                  </Badge>
+                )}
+                {unifiedSearchData.sources.probe42 > 0 && (
+                  <Badge variant="outline" className="text-gray-400 border-gray-400/50">
+                    Probe42: {unifiedSearchData.sources.probe42}
+                  </Badge>
+                )}
               </div>
             )}
 
@@ -1007,15 +1082,7 @@ export default function SeedUnlistedPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-white">{result.name}</span>
-                            <Badge 
-                              variant="outline" 
-                              className={result.source === 'moneycontrol' 
-                                ? 'text-orange-400 border-orange-400/50 text-xs' 
-                                : 'text-purple-400 border-purple-400/50 text-xs'
-                              }
-                            >
-                              {result.source === 'moneycontrol' ? 'MC' : 'P42'}
-                            </Badge>
+                            {getSourceBadge(result.source, result.dataQuality)}
                             {result.isInFintekPro && (
                               <Badge className="bg-green-500/20 text-green-400 text-xs">
                                 Already in FintekPro
