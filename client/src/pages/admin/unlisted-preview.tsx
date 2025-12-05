@@ -574,7 +574,7 @@ export default function UnlistedPreviewPage() {
                   <div className="p-3 bg-gray-800 rounded-lg">
                     <div className="text-xs text-gray-400">EBITDA Margin</div>
                     <div className={`text-lg font-bold ${
-                      latestRatios && parseFloat(latestRatios.marginEbitda?.toString() || '0') >= 15 
+                      latestRatios && parseFloat(latestRatios.marginEbitda?.toString() || '0') >= 0.15 
                         ? 'text-green-400' 
                         : 'text-white'
                     }`}>
@@ -584,7 +584,7 @@ export default function UnlistedPreviewPage() {
                   <div className="p-3 bg-gray-800 rounded-lg">
                     <div className="text-xs text-gray-400">PAT Margin</div>
                     <div className={`text-lg font-bold ${
-                      latestRatios && parseFloat(latestRatios.marginPat?.toString() || '0') >= 10 
+                      latestRatios && parseFloat(latestRatios.marginPat?.toString() || '0') >= 0.08 
                         ? 'text-green-400' 
                         : 'text-white'
                     }`}>
@@ -596,17 +596,17 @@ export default function UnlistedPreviewPage() {
             </Card>
           )}
           
-          {/* Growth Metrics Card */}
-          {latestRatios && (
+          {/* Growth Metrics Card - YoY Changes Only */}
+          {latestRatios && (latestRatios.revenueGrowth || latestRatios.profitGrowth) && (
             <Card className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-purple-500/30">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-purple-400" />
-                  Growth Metrics
+                  Year-on-Year Growth
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 bg-gray-900/50 rounded-lg">
                     <div className="text-xs text-gray-400">Revenue Growth</div>
                     <div className={`text-lg font-bold ${
@@ -628,30 +628,6 @@ export default function UnlistedPreviewPage() {
                     }`}>
                       {latestRatios.profitGrowth 
                         ? `${parseFloat(latestRatios.profitGrowth.toString()) >= 0 ? '+' : ''}${(parseFloat(latestRatios.profitGrowth.toString()) * 100).toFixed(1)}%`
-                        : '—'}
-                    </div>
-                  </div>
-                  <div className="p-3 bg-gray-900/50 rounded-lg">
-                    <div className="text-xs text-gray-400">ROE</div>
-                    <div className={`text-lg font-bold ${
-                      parseFloat(latestRatios.roe?.toString() || '0') >= 15 
-                        ? 'text-green-400' 
-                        : 'text-white'
-                    }`}>
-                      {latestRatios.roe 
-                        ? `${(parseFloat(latestRatios.roe.toString()) * 100).toFixed(1)}%`
-                        : '—'}
-                    </div>
-                  </div>
-                  <div className="p-3 bg-gray-900/50 rounded-lg">
-                    <div className="text-xs text-gray-400">ROCE</div>
-                    <div className={`text-lg font-bold ${
-                      parseFloat(latestRatios.roce?.toString() || '0') >= 15 
-                        ? 'text-green-400' 
-                        : 'text-white'
-                    }`}>
-                      {latestRatios.roce 
-                        ? `${(parseFloat(latestRatios.roce.toString()) * 100).toFixed(1)}%`
                         : '—'}
                     </div>
                   </div>
@@ -705,16 +681,22 @@ export default function UnlistedPreviewPage() {
                   <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
                     <span className="text-gray-400 text-sm">ROE</span>
                     <span className={`font-medium ${
-                      (parseFloat(latestRatios.roe?.toString() || '0') >= 15) 
+                      (parseFloat(latestRatios.roe?.toString() || '0') >= 0.15) 
                         ? 'text-green-400' 
                         : 'text-white'
                     }`}>
-                      {formatPercent(latestRatios.roe)}
+                      {latestRatios.roe ? `${(parseFloat(latestRatios.roe.toString()) * 100).toFixed(1)}%` : '—'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
                     <span className="text-gray-400 text-sm">ROCE</span>
-                    <span className="text-white font-medium">{formatPercent(latestRatios.roce)}</span>
+                    <span className={`font-medium ${
+                      (parseFloat(latestRatios.roce?.toString() || '0') >= 0.15) 
+                        ? 'text-green-400' 
+                        : 'text-white'
+                    }`}>
+                      {latestRatios.roce ? `${(parseFloat(latestRatios.roce.toString()) * 100).toFixed(1)}%` : '—'}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
                     <span className="text-gray-400 text-sm">Debt/Equity</span>
@@ -728,11 +710,15 @@ export default function UnlistedPreviewPage() {
                   </div>
                   <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
                     <span className="text-gray-400 text-sm">Current Ratio</span>
-                    <span className="text-white font-medium">{latestRatios.currentRatio?.toString() || '—'}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                    <span className="text-gray-400 text-sm">PAT Margin</span>
-                    <span className="text-white font-medium">{formatPercent(latestRatios.marginPat)}</span>
+                    <span className={`font-medium ${
+                      (parseFloat(latestRatios.currentRatio?.toString() || '0') >= 1.5) 
+                        ? 'text-green-400' 
+                        : (parseFloat(latestRatios.currentRatio?.toString() || '0') < 1) 
+                          ? 'text-red-400' 
+                          : 'text-amber-400'
+                    }`}>
+                      {latestRatios.currentRatio?.toString() || '—'}
+                    </span>
                   </div>
                 </>
               ) : (
@@ -812,7 +798,7 @@ export default function UnlistedPreviewPage() {
       </div>
 
       {/* Directors Section */}
-      {company?.directors && Array.isArray(company.directors) && company.directors.length > 0 && (
+      {company?.directors && Array.isArray(company.directors) && (company.directors as Array<{name?: string; din?: string; designation?: string}>).length > 0 && (
         <Card className="bg-gray-900 border-gray-800 mb-6">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
