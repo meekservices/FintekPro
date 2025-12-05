@@ -2838,15 +2838,23 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
           const mcaCompanyData = mcaService.toFintekProCompanyData(mcaData);
           const updateData: any = { lastSyncedAt: new Date() };
           
-          // Update company name to match official MCA records
-          if (mcaCompanyData.name && mcaCompanyData.name !== companyData.name) {
-            updateData.name = mcaCompanyData.name;
-            enrichedFields.push({
-              field: 'name',
-              oldValue: companyData.name,
-              newValue: mcaCompanyData.name,
-              source: 'MCA'
-            });
+          // Always use MCA company name as authoritative source (official government registry)
+          // Force update even if names appear similar - MCA is the definitive source
+          if (mcaCompanyData.name) {
+            const normalizedMcaName = mcaCompanyData.name.trim();
+            const normalizedCurrentName = (companyData.name || '').trim();
+            
+            // Update if names differ in any way (case, spacing, abbreviations like Ltd vs Limited)
+            if (normalizedMcaName.toLowerCase() !== normalizedCurrentName.toLowerCase() || 
+                normalizedMcaName !== normalizedCurrentName) {
+              updateData.name = normalizedMcaName;
+              enrichedFields.push({
+                field: 'name',
+                oldValue: companyData.name,
+                newValue: normalizedMcaName,
+                source: 'MCA'
+              });
+            }
           }
           
           // Update sector if available and needed
