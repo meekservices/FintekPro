@@ -2399,6 +2399,44 @@ router.post('/admin/refresh-moneycontrol/:companyId', async (req: Request, res: 
 });
 
 /**
+ * POST /api/unlisted/admin/refresh-company-data/:companyId
+ * Refresh all company data from external sources (Admin only)
+ */
+router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyId } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(companyId);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const results: { source: string; status: string; error?: string }[] = [];
+    
+    try {
+      const mcResult = await priceAggregationService.refreshMoneyControlPrice(companyId);
+      results.push({ source: 'moneycontrol', status: mcResult ? 'success' : 'no_data' });
+    } catch (mcError: any) {
+      results.push({ source: 'moneycontrol', status: 'error', error: mcError.message });
+    }
+    
+    return apiResponse.success(res, {
+      message: 'Company data refresh completed',
+      companyId,
+      companyName: (company as any).name,
+      results,
+    });
+  } catch (error: any) {
+    console.error('Error refreshing company data:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to refresh company data');
+  }
+});
+
+/**
  * POST /api/unlisted/companies/:companyId/publish-to-store-with-prices
  * Publish company to store with admin-set buy/sell prices (Admin only)
  */

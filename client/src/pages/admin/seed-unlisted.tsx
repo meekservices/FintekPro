@@ -15,7 +15,7 @@ import {
   DollarSign, RefreshCw, BarChart3, Users, Calculator, ExternalLink,
   Globe, Plus, Download, Clock
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 
 interface UnlistedCompany {
@@ -219,6 +219,7 @@ const getSourceBadge = (source: string, dataQuality?: number) => {
 
 export default function SeedUnlistedPage() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
   const [publishingCompanyId, setPublishingCompanyId] = useState<string | null>(null);
@@ -466,12 +467,12 @@ export default function SeedUnlistedPage() {
     }
   });
 
-  const handlePublish = (companyId: string) => {
+  const handleSaveAndPreview = (companyId: string) => {
     const prices = companyPrices[companyId];
     if (!prices?.buyPrice || !prices?.sellPrice) {
       toast({
         title: 'Prices required',
-        description: 'Please set both buy and sell prices before publishing',
+        description: 'Please set both buy and sell prices before previewing',
         variant: 'destructive'
       });
       if (!prices?.priceSuggestion) {
@@ -501,7 +502,7 @@ export default function SeedUnlistedPage() {
       return;
     }
 
-    publishMutation.mutate({ companyId, buyPrice: prices.buyPrice, sellPrice: prices.sellPrice });
+    navigate(`/admin/unlisted/preview/${companyId}?buyPrice=${prices.buyPrice}&sellPrice=${prices.sellPrice}`);
   };
 
   const handleSyncSuggestion = async (suggestion: ReconciliationSuggestion) => {
@@ -951,19 +952,13 @@ export default function SeedUnlistedPage() {
             </div>
           </div>
           <Button
-            onClick={() => handlePublish(company.id)}
-            disabled={publishingCompanyId === company.id || !prices.buyPrice || !prices.sellPrice}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            data-testid={`button-publish-with-prices-${company.id}`}
+            onClick={() => handleSaveAndPreview(company.id)}
+            disabled={!prices.buyPrice || !prices.sellPrice}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            data-testid={`button-save-preview-${company.id}`}
           >
-            {publishingCompanyId === company.id ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <>
-                <Package className="w-4 h-4 mr-2" />
-                Publish with Prices
-              </>
-            )}
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Save Price & Preview
           </Button>
         </div>
       </div>
