@@ -214,8 +214,7 @@ export default function UnlistedPreviewPage() {
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     try {
-      const response = await apiRequest(`/api/unlisted/admin/refresh-company-data/${id}`, { method: 'POST' });
-      const result = await response.json();
+      const result = await apiRequest(`/api/unlisted/admin/refresh-company-data/${id}`, { method: 'POST' });
       
       await Promise.all([
         refetchCompany(),
@@ -224,7 +223,7 @@ export default function UnlistedPreviewPage() {
         refetchDataQuality(),
       ]);
       
-      const successfulSources = result.data?.results
+      const successfulSources = result?.data?.results
         ?.filter((r: any) => r.status === 'success')
         ?.map((r: any) => r.source)
         ?.join(', ') || 'none';
