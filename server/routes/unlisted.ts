@@ -2828,11 +2828,52 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
       });
     }
     
-    // Try MCA first if CIN is available
-    if (companyData.cin && mcaService.isConfigured()) {
+    // If CIN is missing but we have a company name, try to fetch CIN from MCA search
+    let currentCIN = companyData.cin;
+    if (!currentCIN && companyData.name && mcaService.isConfigured()) {
       try {
-        console.log(`[Auto-Enrich] Fetching MCA data for CIN: ${companyData.cin}`);
-        const mcaData = await mcaService.getCompanyByCIN(companyData.cin);
+        console.log(`[Auto-Enrich] No CIN available, searching MCA by company name: ${companyData.name}`);
+        const cinResult = await mcaService.getCINByCompanyName(companyData.name);
+        
+        if (cinResult) {
+          currentCIN = cinResult.cin;
+          companyData.cin = cinResult.cin; // Update local reference to prevent overwrite
+          console.log(`[Auto-Enrich] Found CIN ${cinResult.cin} for "${companyData.name}" (official: "${cinResult.officialName}")`);
+          
+          // Save the CIN to the company record
+          await storage.updateUnlistedCompany(companyId, { cin: cinResult.cin, lastSyncedAt: new Date() });
+          enrichedFields.push({
+            field: 'cin',
+            oldValue: null,
+            newValue: cinResult.cin,
+            source: 'MCA Search'
+          });
+          enrichmentSource = 'MCA Search';
+          
+          // Also update name if official name is different
+          if (cinResult.officialName && cinResult.officialName !== companyData.name) {
+            await storage.updateUnlistedCompany(companyId, { name: cinResult.officialName });
+            enrichedFields.push({
+              field: 'name',
+              oldValue: companyData.name,
+              newValue: cinResult.officialName,
+              source: 'MCA Search'
+            });
+            companyData.name = cinResult.officialName; // Update local reference
+          }
+        } else {
+          console.log(`[Auto-Enrich] Could not find CIN for "${companyData.name}" in MCA search`);
+        }
+      } catch (cinError: any) {
+        console.error('[Auto-Enrich] Error searching for CIN:', cinError.message);
+      }
+    }
+    
+    // Try MCA first if CIN is available (either from DB or newly fetched)
+    if (currentCIN && mcaService.isConfigured()) {
+      try {
+        console.log(`[Auto-Enrich] Fetching MCA data for CIN: ${currentCIN}`);
+        const mcaData = await mcaService.getCompanyByCIN(currentCIN);
         
         if (mcaData) {
           const mcaCompanyData = mcaService.toFintekProCompanyData(mcaData);
@@ -2927,7 +2968,8 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
           
           if (Object.keys(updateData).length > 1) {
             await storage.updateUnlistedCompany(companyId, updateData);
-            enrichmentSource = 'MCA';
+            // Combine sources if CIN was found via search
+            enrichmentSource = enrichmentSource === 'MCA Search' ? 'MCA Search + MCA' : 'MCA';
             console.log(`[Auto-Enrich] Updated ${enrichedFields.length} fields from MCA for ${companyData.name}`);
           }
         }
@@ -2970,7 +3012,12 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
           
           if (Object.keys(updateData).length > 1) {
             await storage.updateUnlistedCompany(companyId, updateData);
-            enrichmentSource = enrichmentSource === 'MCA' ? 'MCA + Probe42' : 'Probe42';
+            // Combine sources properly
+            if (enrichmentSource.includes('MCA')) {
+              enrichmentSource = enrichmentSource + ' + Probe42';
+            } else {
+              enrichmentSource = 'Probe42';
+            }
             console.log(`[Auto-Enrich] Updated ${enrichedFields.length} fields from Probe42 for ${companyData.name}`);
           }
         }

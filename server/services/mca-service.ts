@@ -308,6 +308,134 @@ class MCAService {
   }
 
   /**
+   * Search for company CIN by company name
+   * Used when we have ISIN but not CIN - searches MCA database by name
+   */
+  async searchCompanyByName(companyName: string): Promise<MCASearchResult[]> {
+    if (!companyName || companyName.length < 3) {
+      console.log('[MCA] Company name too short for search:', companyName);
+      return [];
+    }
+
+    try {
+      const token = await this.getAccessToken();
+      
+      // Clean up company name for search
+      const searchName = companyName
+        .replace(/\s+(Ltd|Limited|Pvt|Private)\.?$/i, '')
+        .replace(/[^\w\s]/g, '')
+        .trim();
+      
+      console.log(`[MCA] Searching companies by name: "${searchName}"`);
+      
+      const response = await this.client.post(
+        '/mca/company/search',
+        {
+          '@entity': 'in.co.sandbox.kyc.mca.search.request',
+          company_name: searchName,
+          consent: 'y',
+          reason: 'for company identification and KYC',
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data?.code === 200 && response.data?.data?.companies) {
+        const companies = response.data.data.companies;
+        console.log(`[MCA] Found ${companies.length} companies matching "${searchName}"`);
+        
+        return companies.map((c: any) => ({
+          cin: c.cin || c.CIN || '',
+          name: c.company_name || c.name || '',
+          status: c.company_status || c.status || '',
+          category: c.company_category || '',
+          authorizedCapital: parseFloat(c.authorized_capital) || 0,
+          paidUpCapital: parseFloat(c.paid_up_capital) || 0,
+          dateOfIncorporation: c.date_of_incorporation || '',
+        }));
+      }
+
+      console.log('[MCA] No companies found for:', searchName);
+      return [];
+    } catch (error: any) {
+      console.error('[MCA] Error searching companies:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get CIN by searching for company name (used when ISIN exists but CIN doesn't)
+   * Returns the best matching CIN based on name similarity
+   */
+  async getCINByCompanyName(companyName: string): Promise<{ cin: string; officialName: string } | null> {
+    if (!companyName) return null;
+
+    const results = await this.searchCompanyByName(companyName);
+    
+    if (results.length === 0) return null;
+
+    // Find best match by comparing names
+    const normalizedInput = companyName.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    
+    let bestMatch: MCASearchResult | null = null;
+    let bestScore = 0;
+
+    for (const result of results) {
+      const normalizedResult = result.name.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      
+      // Calculate similarity score
+      let score = 0;
+      
+      // Exact match
+      if (normalizedInput === normalizedResult) {
+        score = 100;
+      }
+      // Contains the input name
+      else if (normalizedResult.includes(normalizedInput) || normalizedInput.includes(normalizedResult)) {
+        score = 80;
+      }
+      // Word overlap
+      else {
+        const inputWords = normalizedInput.split(/\s+/);
+        const resultWords = new Set(normalizedResult.split(/\s+/));
+        let matchingWords = 0;
+        for (const word of inputWords) {
+          if (word.length > 2 && resultWords.has(word)) {
+            matchingWords++;
+          }
+        }
+        score = (matchingWords / Math.max(inputWords.length, resultWords.size)) * 70;
+      }
+
+      // Prefer active companies
+      if (result.status.toLowerCase().includes('active')) {
+        score += 10;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = result;
+      }
+    }
+
+    // Only return if we have a reasonable match (>40% confidence)
+    if (bestMatch && bestScore >= 40) {
+      console.log(`[MCA] Best match for "${companyName}": "${bestMatch.name}" (CIN: ${bestMatch.cin}, score: ${bestScore})`);
+      return {
+        cin: bestMatch.cin,
+        officialName: bestMatch.name,
+      };
+    }
+
+    console.log(`[MCA] No confident match found for "${companyName}" (best score: ${bestScore})`);
+    return null;
+  }
+
+  /**
    * Convert MCA data to FintekPro company format
    */
   toFintekProCompanyData(mcaData: MCACompanyMasterData): {
