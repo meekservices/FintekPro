@@ -3,16 +3,14 @@
  * Aggregates company data from multiple sources with priority fallback:
  * 
  * Priority Order:
- * 1. Tofler (Primary) - Best for cleaned financials and ratios
- * 2. FintekPro Own Data - Internal database from previous syncs
- * 3. MCA (Fallback) - Official government filings via Sandbox API
+ * 1. FintekPro Own Data (Primary) - Internal database
+ * 2. MCA (Fallback) - Official government filings via Sandbox API
  * 
  * This service provides a single interface for fetching company data,
- * automatically falling back to secondary sources if primary is unavailable.
+ * automatically falling back to MCA if internal data is unavailable.
  */
 
 import { storage } from '../storage';
-import { toflerService, type ToflerCompanyFullData, type ToflerFinancialData, type ToflerRatiosData } from './tofler-service';
 import { mcaService, type MCACompanyMasterData } from './mca-service';
 import type { 
   CompanyFinancials, 
@@ -22,13 +20,40 @@ import type {
   InsertCompanyRatios 
 } from '@shared/schema';
 
-export type DataSource = 'tofler' | 'fintekpro' | 'mca' | 'moneycontrol' | 'probe42';
+export type DataSource = 'fintekpro' | 'mca' | 'moneycontrol' | 'probe42';
 
 export interface SourcedData<T> {
   data: T;
   source: DataSource;
   fetchedAt: Date;
   confidence: 'high' | 'medium' | 'low';
+}
+
+export interface FinancialData {
+  financialYear: string;
+  revenue?: number;
+  pat?: number;
+  networth?: number;
+  totalAssets?: number;
+  totalLiabilities?: number;
+  totalDebt?: number;
+  ebitda?: number;
+  operatingProfit?: number;
+  shareCapital?: number;
+  reserves?: number;
+}
+
+export interface RatiosData {
+  financialYear: string;
+  peRatio?: number;
+  pbRatio?: number;
+  roe?: number;
+  roce?: number;
+  debtEquity?: number;
+  currentRatio?: number;
+  marginEbitda?: number;
+  marginPat?: number;
+  marginOperating?: number;
 }
 
 export interface UnifiedCompanyData {
@@ -42,12 +67,12 @@ export interface UnifiedCompanyData {
     source: DataSource;
   };
   financials: {
-    years: SourcedData<ToflerFinancialData>[];
+    years: SourcedData<FinancialData>[];
     source: DataSource;
     available: boolean;
   };
   ratios: {
-    years: SourcedData<ToflerRatiosData>[];
+    years: SourcedData<RatiosData>[];
     source: DataSource;
     available: boolean;
   };
@@ -103,7 +128,7 @@ export interface DataSourceTelemetry {
   ratiosSource: DataSource | null;
   fallbackTriggered: boolean;
   fallbackReason?: string;
-  toflerHasUsableData: boolean;
+  fintekproHasUsableData: boolean;
   dataQualityScore: number;
   warnings: string[];
 }
@@ -152,16 +177,16 @@ class UnifiedCompanyDataService {
 
   /**
    * Fetch complete company data with automatic fallback
+   * Priority: FintekPro → MCA
    */
   async getCompanyData(
     companyIdOrCin: string,
     options: {
       forceRefresh?: boolean;
       includeMCA?: boolean;
-      skipTofler?: boolean;
     } = {}
   ): Promise<UnifiedCompanyData | null> {
-    const { forceRefresh = false, includeMCA = true, skipTofler = false } = options;
+    const { forceRefresh = false, includeMCA = true } = options;
     const startTime = Date.now();
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const warnings: string[] = [];
@@ -174,48 +199,11 @@ class UnifiedCompanyDataService {
     let cin = company?.cin || (companyIdOrCin.length === 21 ? companyIdOrCin : undefined);
     
     const results: DataFetchResult[] = [];
-    let toflerData: ToflerCompanyFullData | null = null;
     let mcaData: MCACompanyMasterData | null = null;
     let ownFinancials: CompanyFinancials[] = [];
     let ownRatios: CompanyRatios[] = [];
 
-    // Step 1: Try Tofler FIRST (primary external source - always attempt unless skipTofler)
-    // This ensures we get the freshest data from the primary source
-    if (!skipTofler) {
-      try {
-        if (cin) {
-          toflerData = await toflerService.getCompanyDetails(cin);
-        } else if (company?.name) {
-          const searchResults = await toflerService.searchCompanies(company.name);
-          if (searchResults.length > 0) {
-            toflerData = await toflerService.getCompanyDetails(searchResults[0].url);
-          }
-        }
-        
-        if (toflerData) {
-          results.push({
-            success: true,
-            source: 'tofler',
-            data: toflerData,
-          });
-        } else {
-          results.push({
-            success: false,
-            source: 'tofler',
-            error: 'No data found on Tofler',
-          });
-        }
-      } catch (error: any) {
-        results.push({
-          success: false,
-          source: 'tofler',
-          error: error.message,
-        });
-      }
-    }
-
-    // Step 2: Get FintekPro's own data (fallback if Tofler fails or for supplementary data)
-    // Only used if Tofler data is not available
+    // Step 1: Get FintekPro's own data (PRIMARY SOURCE)
     if (company) {
       ownFinancials = await storage.getCompanyFinancials(company.id);
       ownRatios = await storage.getCompanyRatios(company.id);
@@ -229,13 +217,11 @@ class UnifiedCompanyDataService {
       }
     }
 
-    // Step 3: Try MCA as final fallback
-    // Engage when: Tofler failed (null) OR Tofler returned shell data (no usable financials/ratios)
-    const toflerHasUsableData = toflerData && 
-      ((toflerData.financials && toflerData.financials.length > 0) || 
-       (toflerData.ratios && toflerData.ratios.length > 0));
-    
-    if (includeMCA && cin && !toflerHasUsableData) {
+    // Determine if FintekPro has usable data
+    const fintekproHasUsableData = ownFinancials.length > 0 || ownRatios.length > 0;
+
+    // Step 2: Try MCA as fallback when FintekPro data is insufficient
+    if (includeMCA && cin && !fintekproHasUsableData) {
       try {
         if (mcaService.isConfigured()) {
           mcaData = await mcaService.getCompanyByCIN(cin);
@@ -253,6 +239,12 @@ class UnifiedCompanyDataService {
               error: 'No data found in MCA',
             });
           }
+        } else {
+          results.push({
+            success: false,
+            source: 'mca',
+            error: 'MCA service not configured (missing SANDBOX_API_KEY/SANDBOX_API_SECRET)',
+          });
         }
       } catch (error: any) {
         results.push({
@@ -267,9 +259,8 @@ class UnifiedCompanyDataService {
     const sourcesAttempted: DataSource[] = [];
     const sourcesSucceeded: DataSource[] = [];
     
-    if (!skipTofler) sourcesAttempted.push('tofler');
     if (company) sourcesAttempted.push('fintekpro');
-    if (includeMCA && cin && !toflerHasUsableData) sourcesAttempted.push('mca');
+    if (includeMCA && cin && !fintekproHasUsableData) sourcesAttempted.push('mca');
 
     results.forEach(r => {
       if (r.success) {
@@ -279,16 +270,13 @@ class UnifiedCompanyDataService {
       }
     });
 
-    const fallbackTriggered = !toflerHasUsableData && sourcesAttempted.includes('tofler');
+    const fallbackTriggered = !fintekproHasUsableData && sourcesAttempted.includes('mca');
     let fallbackReason: string | undefined;
     
     if (fallbackTriggered) {
-      const toflerResult = results.find(r => r.source === 'tofler');
-      if (!toflerResult?.success) {
-        fallbackReason = toflerResult?.error || 'Tofler failed';
-      } else if (toflerData && (!toflerData.financials?.length && !toflerData.ratios?.length)) {
-        fallbackReason = 'Tofler returned shell data without financials/ratios';
-        warnings.push('Primary source (Tofler) returned incomplete data - using fallback sources');
+      fallbackReason = 'No financial data in FintekPro database - using MCA fallback';
+      if (company) {
+        warnings.push('Primary data source (FintekPro) has no financial records - using MCA data');
       }
     }
 
@@ -297,13 +285,11 @@ class UnifiedCompanyDataService {
     }
 
     // Determine primary source failure
-    const toflerResult = results.find(r => r.source === 'tofler');
-    const primarySourceFailed = !skipTofler && (!toflerResult?.success || !toflerHasUsableData);
+    const primarySourceFailed = !fintekproHasUsableData;
 
     // Aggregate data from all sources with fallback info
     const aggregatedData = this.aggregateData(
       company || undefined, 
-      toflerData, 
       mcaData, 
       ownFinancials, 
       ownRatios, 
@@ -317,8 +303,8 @@ class UnifiedCompanyDataService {
     );
 
     // Determine sources used for telemetry
-    const financialsSource = this.determineFinancialsSource(toflerData, ownFinancials, mcaData);
-    const ratiosSource = this.determineRatiosSource(toflerData, ownRatios);
+    const financialsSource = this.determineFinancialsSource(ownFinancials, mcaData);
+    const ratiosSource = this.determineRatiosSource(ownRatios);
 
     // Log telemetry
     this.logTelemetry({
@@ -334,7 +320,7 @@ class UnifiedCompanyDataService {
       ratiosSource,
       fallbackTriggered,
       fallbackReason,
-      toflerHasUsableData: !!toflerHasUsableData,
+      fintekproHasUsableData: !!fintekproHasUsableData,
       dataQualityScore: aggregatedData?.dataQuality.overallScore || 0,
       warnings,
     });
@@ -347,7 +333,6 @@ class UnifiedCompanyDataService {
    */
   private aggregateData(
     company: UnlistedCompany | undefined,
-    toflerData: ToflerCompanyFullData | null,
     mcaData: MCACompanyMasterData | null,
     ownFinancials: CompanyFinancials[],
     ownRatios: CompanyRatios[],
@@ -369,61 +354,56 @@ class UnifiedCompanyDataService {
     }
 
     // Determine best source for each data type
-    const financialsSource = this.determineFinancialsSource(toflerData, ownFinancials, mcaData);
-    const ratiosSource = this.determineRatiosSource(toflerData, ownRatios);
-    const basicSource = this.determineBasicSource(company, toflerData, mcaData);
+    const financialsSource = this.determineFinancialsSource(ownFinancials, mcaData);
+    const ratiosSource = this.determineRatiosSource(ownRatios);
+    const basicSource = this.determineBasicSource(company, mcaData);
 
     // Build financials data
-    const financialsYears: SourcedData<ToflerFinancialData>[] = [];
+    const financialsYears: SourcedData<FinancialData>[] = [];
     
-    if (financialsSource === 'tofler' && toflerData?.financials) {
-      toflerData.financials.forEach(f => {
-        financialsYears.push({
-          data: f,
-          source: 'tofler',
-          fetchedAt: new Date(),
-          confidence: 'high',
-        });
-      });
-    } else if (financialsSource === 'fintekpro' && ownFinancials.length > 0) {
+    if (financialsSource === 'fintekpro' && ownFinancials.length > 0) {
       ownFinancials.forEach(f => {
         financialsYears.push({
           data: this.convertOwnFinancials(f),
           source: 'fintekpro',
           fetchedAt: new Date(f.updatedAt || f.createdAt || Date.now()),
-          confidence: 'medium',
+          confidence: 'high',
         });
+      });
+    } else if (financialsSource === 'mca' && mcaData?.balanceSheets && mcaData.balanceSheets.length > 0) {
+      // MCA provides balance sheet filing info but limited financial data
+      // Capital info is available from the master data
+      const latestBalanceSheet = mcaData.balanceSheets[0];
+      financialsYears.push({
+        data: {
+          financialYear: latestBalanceSheet.financialYear || 'Latest',
+          shareCapital: mcaData.paidUpCapital,
+        },
+        source: 'mca',
+        fetchedAt: new Date(),
+        confidence: 'medium',
       });
     }
 
     // Build ratios data
-    const ratiosYears: SourcedData<ToflerRatiosData>[] = [];
+    const ratiosYears: SourcedData<RatiosData>[] = [];
     
-    if (ratiosSource === 'tofler' && toflerData?.ratios) {
-      toflerData.ratios.forEach(r => {
-        ratiosYears.push({
-          data: r,
-          source: 'tofler',
-          fetchedAt: new Date(),
-          confidence: 'high',
-        });
-      });
-    } else if (ratiosSource === 'fintekpro' && ownRatios.length > 0) {
+    if (ratiosSource === 'fintekpro' && ownRatios.length > 0) {
       ownRatios.forEach(r => {
         ratiosYears.push({
           data: this.convertOwnRatios(r),
           source: 'fintekpro',
           fetchedAt: new Date(r.updatedAt || r.createdAt || Date.now()),
-          confidence: 'medium',
+          confidence: 'high',
         });
       });
     }
 
     // Build capital data
-    const capitalData = this.buildCapitalData(company, toflerData, mcaData);
+    const capitalData = this.buildCapitalData(company, mcaData);
 
     // Build directors data
-    const directorsData = this.buildDirectorsData(toflerData, mcaData);
+    const directorsData = this.buildDirectorsData(mcaData);
 
     // Build charges data
     const chargesData = this.buildChargesData(mcaData);
@@ -440,16 +420,16 @@ class UnifiedCompanyDataService {
       (ratiosYears.length > 0 ? 30 : 0) +
       (capitalData.paidUpCapital ? 20 : 0) +
       (directorsData.list.length > 0 ? 10 : 0) +
-      (chargesData.source !== 'fintekpro' ? 10 : 5))
+      (chargesData.source === 'mca' ? 10 : 5))
     );
 
     return {
       basic: {
-        name: company?.name || toflerData?.details.name || mcaData?.companyName || 'Unknown',
-        cin: company?.cin || toflerData?.details.cin || mcaData?.cin || undefined,
+        name: company?.name || mcaData?.companyName || 'Unknown',
+        cin: company?.cin || mcaData?.cin || undefined,
         isin: company?.isin || undefined,
-        sector: company?.sector || toflerData?.details.industry || undefined,
-        industry: company?.industry || toflerData?.details.category || undefined,
+        sector: company?.sector || undefined,
+        industry: company?.industry || undefined,
         status: company?.status || mcaData?.companyStatus || 'unknown',
         source: basicSource,
       },
@@ -480,37 +460,31 @@ class UnifiedCompanyDataService {
   }
 
   private determineFinancialsSource(
-    toflerData: ToflerCompanyFullData | null,
     ownFinancials: CompanyFinancials[],
     mcaData: MCACompanyMasterData | null
   ): DataSource {
-    if (toflerData?.financials && toflerData.financials.length > 0) return 'tofler';
     if (ownFinancials.length > 0) return 'fintekpro';
-    if (mcaData) return 'mca';
+    if (mcaData?.balanceSheets && mcaData.balanceSheets.length > 0) return 'mca';
     return 'fintekpro';
   }
 
   private determineRatiosSource(
-    toflerData: ToflerCompanyFullData | null,
     ownRatios: CompanyRatios[]
   ): DataSource {
-    if (toflerData?.ratios && toflerData.ratios.length > 0) return 'tofler';
     if (ownRatios.length > 0) return 'fintekpro';
     return 'fintekpro';
   }
 
   private determineBasicSource(
     company: UnlistedCompany | undefined,
-    toflerData: ToflerCompanyFullData | null,
     mcaData: MCACompanyMasterData | null
   ): DataSource {
     if (company) return 'fintekpro';
-    if (toflerData) return 'tofler';
     if (mcaData) return 'mca';
     return 'fintekpro';
   }
 
-  private convertOwnFinancials(f: CompanyFinancials): ToflerFinancialData {
+  private convertOwnFinancials(f: CompanyFinancials): FinancialData {
     return {
       financialYear: f.financialYear,
       revenue: f.revenue ? parseFloat(f.revenue) : undefined,
@@ -525,7 +499,7 @@ class UnifiedCompanyDataService {
     };
   }
 
-  private convertOwnRatios(r: CompanyRatios): ToflerRatiosData {
+  private convertOwnRatios(r: CompanyRatios): RatiosData {
     return {
       financialYear: r.financialYear,
       peRatio: r.peRatio ? parseFloat(r.peRatio) : undefined,
@@ -542,10 +516,9 @@ class UnifiedCompanyDataService {
 
   private buildCapitalData(
     company: UnlistedCompany | undefined,
-    toflerData: ToflerCompanyFullData | null,
     mcaData: MCACompanyMasterData | null
   ): UnifiedCompanyData['capital'] {
-    // Priority: MCA (official) → Tofler → FintekPro
+    // Priority: MCA (official) → FintekPro
     if (mcaData) {
       const faceValue = 10; // Assumed
       return {
@@ -554,16 +527,6 @@ class UnifiedCompanyDataService {
         faceValue,
         totalShares: mcaData.paidUpCapital > 0 ? Math.floor(mcaData.paidUpCapital / faceValue) : undefined,
         source: 'mca',
-      };
-    }
-
-    if (toflerData?.details) {
-      return {
-        authorizedCapital: toflerData.details.authorizedCapital,
-        paidUpCapital: toflerData.details.paidUpCapital,
-        faceValue: undefined,
-        totalShares: undefined,
-        source: 'tofler',
       };
     }
 
@@ -583,7 +546,6 @@ class UnifiedCompanyDataService {
   }
 
   private buildDirectorsData(
-    toflerData: ToflerCompanyFullData | null,
     mcaData: MCACompanyMasterData | null
   ): UnifiedCompanyData['directors'] {
     if (mcaData?.directors && mcaData.directors.length > 0) {
@@ -625,7 +587,7 @@ class UnifiedCompanyDataService {
   }
 
   /**
-   * Refresh and save data from external sources to FintekPro database
+   * Refresh and save data from MCA to FintekPro database
    */
   async refreshAndSaveData(companyId: string): Promise<{
     success: boolean;
@@ -648,10 +610,9 @@ class UnifiedCompanyDataService {
       let financialsSaved = 0;
       let ratiosSaved = 0;
 
-      // Save financials if from Tofler
-      if (data.financials.source === 'tofler' && data.financials.years.length > 0) {
+      // Save financials if from MCA
+      if (data.financials.source === 'mca' && data.financials.years.length > 0) {
         for (const yearData of data.financials.years) {
-          // Check if already exists for this year
           const existing = await storage.getCompanyFinancialsByYear(companyId, yearData.data.financialYear);
           if (!existing) {
             const financialsToInsert: InsertCompanyFinancials = {
@@ -666,38 +627,10 @@ class UnifiedCompanyDataService {
               ebitda: yearData.data.ebitda?.toString() || null,
               shareCapital: yearData.data.shareCapital?.toString() || null,
               reserves: yearData.data.reserves?.toString() || null,
-              dataSource: 'tofler',
+              dataSource: 'mca',
             };
-            
             await storage.createCompanyFinancials(financialsToInsert);
             financialsSaved++;
-          }
-        }
-      }
-
-      // Save ratios if from Tofler
-      if (data.ratios.source === 'tofler' && data.ratios.years.length > 0) {
-        for (const yearData of data.ratios.years) {
-          // Check if already exists for this year
-          const existing = await storage.getCompanyRatiosByYear(companyId, yearData.data.financialYear);
-          if (!existing) {
-            const ratiosToInsert: InsertCompanyRatios = {
-              companyId,
-              financialYear: yearData.data.financialYear,
-              peRatio: yearData.data.peRatio?.toString() || null,
-              pbRatio: yearData.data.pbRatio?.toString() || null,
-              roe: yearData.data.roe?.toString() || null,
-              roce: yearData.data.roce?.toString() || null,
-              debtEquity: yearData.data.debtEquity?.toString() || null,
-              currentRatio: yearData.data.currentRatio?.toString() || null,
-              marginEbitda: yearData.data.marginEbitda?.toString() || null,
-              marginPat: yearData.data.marginPat?.toString() || null,
-              marginOperating: yearData.data.marginOperating?.toString() || null,
-              dataSource: 'tofler',
-            };
-            
-            await storage.createCompanyRatios(ratiosToInsert);
-            ratiosSaved++;
           }
         }
       }
@@ -706,10 +639,10 @@ class UnifiedCompanyDataService {
         success: true,
         financialsSaved,
         ratiosSaved,
-        source: data.financials.source || data.ratios.source || 'fintekpro',
+        source: data.financials.source,
       };
     } catch (error: any) {
-      console.error('[UnifiedData] Error refreshing data:', error.message);
+      console.error('[UnifiedData] Error refreshing data:', error);
       return {
         success: false,
         financialsSaved: 0,
@@ -718,75 +651,6 @@ class UnifiedCompanyDataService {
         error: error.message,
       };
     }
-  }
-
-  /**
-   * Search for company across all sources
-   */
-  async searchCompany(query: string): Promise<{
-    source: DataSource;
-    results: Array<{
-      name: string;
-      cin?: string;
-      status?: string;
-      url?: string;
-    }>;
-  }[]> {
-    const allResults: {
-      source: DataSource;
-      results: Array<{
-        name: string;
-        cin?: string;
-        status?: string;
-        url?: string;
-      }>;
-    }[] = [];
-
-    // Search Tofler
-    try {
-      const toflerResults = await toflerService.searchCompanies(query);
-      if (toflerResults.length > 0) {
-        allResults.push({
-          source: 'tofler',
-          results: toflerResults.map(r => ({
-            name: r.name,
-            cin: r.cin,
-            status: r.status,
-            url: r.url,
-          })),
-        });
-      }
-    } catch (error) {
-      console.error('[UnifiedData] Tofler search error:', error);
-    }
-
-    // Search FintekPro database (filter locally)
-    try {
-      const allCompanies = await storage.getAllUnlistedCompanies();
-      const queryLower = query.toLowerCase();
-      const ownResults = allCompanies
-        .filter(c => 
-          c.name.toLowerCase().includes(queryLower) ||
-          (c.cin && c.cin.toLowerCase().includes(queryLower)) ||
-          (c.isin && c.isin.toLowerCase().includes(queryLower))
-        )
-        .slice(0, 10);
-      
-      if (ownResults.length > 0) {
-        allResults.push({
-          source: 'fintekpro',
-          results: ownResults.map((r: UnlistedCompany) => ({
-            name: r.name,
-            cin: r.cin || undefined,
-            status: r.status,
-          })),
-        });
-      }
-    } catch (error) {
-      console.error('[UnifiedData] FintekPro search error:', error);
-    }
-
-    return allResults;
   }
 }
 

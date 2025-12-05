@@ -2,115 +2,29 @@
  * Regression Tests for Unified Company Data Service
  * 
  * Tests fallback scenarios:
- * 1. Tofler success - returns full data
- * 2. Tofler partial data - returns shell without financials/ratios → triggers MCA fallback
- * 3. Tofler failure - throws error → triggers FintekPro then MCA fallback
- * 4. MCA fallback verification when Tofler is unavailable
+ * 1. FintekPro success - returns full data from internal database
+ * 2. FintekPro empty - triggers MCA fallback
+ * 3. MCA fallback verification when FintekPro has no data
+ * 
+ * Data Source Priority: FintekPro (internal) → MCA (Sandbox.co.in API)
  * 
  * Run with: npx tsx server/services/__tests__/unified-company-data-service.test.ts
  */
-
-const mockToflerFullData = {
-  basicInfo: {
-    name: 'Test Company Private Limited',
-    cin: 'U12345MH2020PTC123456',
-    dateOfIncorporation: '2020-01-15',
-    status: 'Active',
-    category: 'Private Limited',
-    class: 'Company limited by Shares',
-    authorizedCapital: 10000000,
-    paidUpCapital: 5000000,
-    registeredOffice: 'Mumbai, Maharashtra',
-    registrarOfCompanies: 'ROC-Mumbai',
-    email: 'test@company.com',
-  },
-  financials: [
-    {
-      year: 'FY2023',
-      revenue: 50000000,
-      profit: 5000000,
-      netWorth: 25000000,
-      totalAssets: 40000000,
-      totalLiabilities: 15000000,
-      operatingExpenses: 30000000,
-      depreciation: 2000000,
-      interestExpense: 500000,
-      taxExpense: 1000000,
-    },
-  ],
-  ratios: [
-    {
-      year: 'FY2023',
-      roe: 20,
-      roce: 18,
-      debtToEquity: 0.6,
-      currentRatio: 1.5,
-      operatingMargin: 10,
-      netMargin: 10,
-      assetTurnover: 1.25,
-    },
-  ],
-  directors: [{ name: 'John Doe', din: '12345678', designation: 'Director' }],
-  charges: [],
-};
-
-const mockToflerShellData = {
-  basicInfo: {
-    name: 'Shell Company Private Limited',
-    cin: 'U12345MH2020PTC789012',
-    dateOfIncorporation: '2021-06-01',
-    status: 'Active',
-    category: 'Private Limited',
-    class: 'Company limited by Shares',
-    authorizedCapital: 1000000,
-    paidUpCapital: 500000,
-    registeredOffice: 'Delhi',
-    registrarOfCompanies: 'ROC-Delhi',
-    email: 'shell@company.com',
-  },
-  financials: [],
-  ratios: [],
-  directors: [],
-  charges: [],
-};
-
-const mockMCAData = {
-  cin: 'U12345MH2020PTC789012',
-  companyName: 'Shell Company Private Limited',
-  companyStatus: 'Active',
-  dateOfIncorporation: '2021-06-01',
-  registeredOfficeAddress: 'Delhi',
-  authorizedCapital: 1000000,
-  paidUpCapital: 500000,
-  companyCategory: 'Company limited by Shares',
-  companySubCategory: 'Non-govt company',
-  classOfCompany: 'Private',
-  industryCode: 'M70',
-  industryDescription: 'Activities of head offices',
-  directors: [{ din: '87654321', name: 'Jane Smith', designation: 'Director' }],
-  charges: [],
-  financials: {
-    totalAssets: 2000000,
-    totalLiabilities: 500000,
-    turnover: 3000000,
-    netWorth: 1500000,
-  },
-};
 
 const mockOwnFinancials = [
   {
     id: '1',
     companyId: 'company-1',
-    fiscalYear: 'FY2023',
-    revenue: 45000000,
-    netProfit: 4500000,
-    totalAssets: 38000000,
-    totalLiabilities: 14000000,
-    netWorth: 24000000,
-    operatingExpenses: 28000000,
-    depreciation: 1800000,
-    interestExpense: 450000,
-    taxExpense: 900000,
+    financialYear: 'FY2023',
+    revenue: '45000000',
+    pat: '4500000',
+    totalAssets: '38000000',
+    totalLiabilities: '14000000',
+    networth: '24000000',
+    ebitda: '6000000',
+    shareCapital: '5000000',
+    reserves: '19000000',
+    totalDebt: '8000000',
     dataSource: 'fintekpro',
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
@@ -121,21 +35,45 @@ const mockOwnRatios = [
   {
     id: '1',
     companyId: 'company-1',
-    fiscalYear: 'FY2023',
-    roe: 18.75,
-    roce: 17.5,
-    debtToEquity: 0.58,
-    currentRatio: 1.45,
-    operatingMargin: 9.5,
-    netMargin: 10,
-    assetTurnover: 1.18,
+    financialYear: 'FY2023',
+    roe: '18.75',
+    roce: '17.5',
+    debtEquity: '0.58',
+    currentRatio: '1.45',
+    peRatio: '12.5',
+    pbRatio: '1.8',
+    marginEbitda: '13.3',
+    marginPat: '10',
+    marginOperating: '12',
     dataSource: 'fintekpro',
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
   },
 ];
 
-type DataSource = 'tofler' | 'fintekpro' | 'mca' | 'moneycontrol' | 'probe42';
+const mockMCAData = {
+  cin: 'U12345MH2020PTC789012',
+  companyName: 'Test Company Private Limited',
+  companyStatus: 'Active',
+  companyCategory: 'Company limited by Shares',
+  companySubcategory: 'Non-govt company',
+  classOfCompany: 'Private',
+  dateOfIncorporation: '2021-06-01',
+  rocCode: 'RoC-Mumbai',
+  registeredAddress: 'Mumbai, Maharashtra',
+  emailId: 'test@company.com',
+  authorizedCapital: 10000000,
+  paidUpCapital: 5000000,
+  whetherListedOrNot: 'Unlisted',
+  suspendedAtStockExchange: 'NA',
+  activeCompliance: 'Active',
+  directors: [{ din: '87654321', name: 'Jane Smith', designation: 'Director', beginDate: '2021-06-01' }],
+  charges: [],
+  balanceSheets: [{ filingDate: '2024-03-31', financialYear: 'FY2024' }],
+  annualReturns: [],
+};
+
+type DataSource = 'fintekpro' | 'mca' | 'moneycontrol' | 'probe42';
 
 interface TestResult {
   sourcesAttempted: string[];
@@ -143,72 +81,49 @@ interface TestResult {
   primarySource: string | null;
   financialsSource: string | null;
   ratiosSource: string | null;
-  toflerCalled: boolean;
-  toflerError: string | null;
-  toflerHasUsableData: boolean;
   fintekproCalled: boolean;
+  fintekproHasUsableData: boolean;
   mcaCalled: boolean;
   callOrder: string[];
 }
 
 async function simulateGetCompanyData(
   companyIdOrCin: string,
-  options: { includeMCA?: boolean; skipTofler?: boolean },
+  options: { includeMCA?: boolean },
   storage: any,
-  toflerService: any,
   mcaService: any
 ): Promise<TestResult> {
-  const { includeMCA = true, skipTofler = false } = options;
+  const { includeMCA = true } = options;
   const callOrder: string[] = [];
   const sourcesAttempted: string[] = [];
   const sourcesUsed: string[] = [];
-  let toflerError: string | null = null;
-  let toflerData: any = null;
   let mcaData: any = null;
-  let toflerCalled = false;
   let fintekproCalled = false;
   let mcaCalled = false;
 
   const company = await storage.getUnlistedCompanyById(companyIdOrCin);
   const cin = company?.cin || (companyIdOrCin.length === 21 ? companyIdOrCin : undefined);
 
-  if (!skipTofler) {
-    callOrder.push('tofler');
-    toflerCalled = true;
-    sourcesAttempted.push('tofler');
-    try {
-      if (cin) {
-        toflerData = await toflerService.getCompanyDetails(cin);
-      } else if (company?.name) {
-        const searchResults = await toflerService.searchCompanies(company.name);
-        if (searchResults.length > 0) {
-          toflerData = await toflerService.getCompanyDetails(searchResults[0].url);
-        }
-      }
-      if (toflerData) {
-        sourcesUsed.push('tofler');
-      }
-    } catch (error: any) {
-      toflerError = error.message;
-    }
-  }
+  let ownFinancials: any[] = [];
+  let ownRatios: any[] = [];
 
+  // Step 1: Get FintekPro's own data (PRIMARY SOURCE)
   if (company) {
     callOrder.push('fintekpro');
     fintekproCalled = true;
-    const ownFinancials = await storage.getCompanyFinancials(company.id);
-    const ownRatios = await storage.getCompanyRatios(company.id);
+    ownFinancials = await storage.getCompanyFinancials(company.id);
+    ownRatios = await storage.getCompanyRatios(company.id);
     if (ownFinancials.length > 0 || ownRatios.length > 0) {
       sourcesAttempted.push('fintekpro');
       sourcesUsed.push('fintekpro');
     }
   }
 
-  const toflerHasUsableData = toflerData && 
-    ((toflerData.financials && toflerData.financials.length > 0) || 
-     (toflerData.ratios && toflerData.ratios.length > 0));
+  // Determine if FintekPro has usable data
+  const fintekproHasUsableData = ownFinancials.length > 0 || ownRatios.length > 0;
 
-  if (includeMCA && cin && !toflerHasUsableData) {
+  // Step 2: Try MCA as fallback when FintekPro data is insufficient
+  if (includeMCA && cin && !fintekproHasUsableData) {
     callOrder.push('mca');
     mcaCalled = true;
     sourcesAttempted.push('mca');
@@ -220,12 +135,10 @@ async function simulateGetCompanyData(
     }
   }
 
-  const financialsSource = toflerHasUsableData ? 'tofler' : 
-    (sourcesUsed.includes('fintekpro') ? 'fintekpro' : 
-    (sourcesUsed.includes('mca') ? 'mca' : null));
+  const financialsSource = fintekproHasUsableData ? 'fintekpro' : 
+    (sourcesUsed.includes('mca') ? 'mca' : null);
 
-  const ratiosSource = toflerHasUsableData ? 'tofler' :
-    (sourcesUsed.includes('fintekpro') ? 'fintekpro' : null);
+  const ratiosSource = fintekproHasUsableData ? 'fintekpro' : null;
 
   return {
     sourcesAttempted,
@@ -233,10 +146,8 @@ async function simulateGetCompanyData(
     primarySource: sourcesUsed[0] || null,
     financialsSource,
     ratiosSource,
-    toflerCalled,
-    toflerError,
-    toflerHasUsableData: !!toflerHasUsableData,
     fintekproCalled,
+    fintekproHasUsableData: !!fintekproHasUsableData,
     mcaCalled,
     callOrder,
   };
@@ -258,6 +169,7 @@ function assertContains(arr: any[], value: any, message: string) {
 
 async function runTests() {
   console.log('\n🧪 Running Unified Company Data Service Regression Tests\n');
+  console.log('📊 Data Priority: FintekPro (internal) → MCA (Sandbox.co.in API)\n');
   console.log('=' .repeat(70) + '\n');
   
   let passed = 0;
@@ -265,200 +177,157 @@ async function runTests() {
 
   const tests: { name: string; fn: () => Promise<void> }[] = [
     {
-      name: 'Scenario 1: Tofler Success - Uses Tofler as primary source',
+      name: 'Scenario 1: FintekPro Success - Uses FintekPro as primary source',
       fn: async () => {
         const mockStorage = {
           getUnlistedCompanyById: async () => ({ id: 'company-1', name: 'Test Company', cin: 'U12345MH2020PTC123456' }),
-          getCompanyFinancials: async () => [],
-          getCompanyRatios: async () => [],
-        };
-        const mockToflerService = {
-          getCompanyDetails: async () => mockToflerFullData,
-          searchCompanies: async () => [],
+          getCompanyFinancials: async () => mockOwnFinancials,
+          getCompanyRatios: async () => mockOwnRatios,
         };
         const mockMcaService = {
           isConfigured: () => true,
           getCompanyByCIN: async () => mockMCAData,
         };
 
-        const result = await simulateGetCompanyData('company-1', { includeMCA: true, skipTofler: false }, mockStorage, mockToflerService, mockMcaService);
+        const result = await simulateGetCompanyData('company-1', { includeMCA: true }, mockStorage, mockMcaService);
         
-        assertEqual(result.toflerCalled, true, 'Tofler should be called');
-        assertEqual(result.primarySource, 'tofler', 'Primary source should be Tofler');
-        assertEqual(result.financialsSource, 'tofler', 'Financials source should be Tofler');
-        assertEqual(result.mcaCalled, false, 'MCA should NOT be called when Tofler succeeds with full data');
+        assertEqual(result.fintekproCalled, true, 'FintekPro should be called');
+        assertEqual(result.primarySource, 'fintekpro', 'Primary source should be FintekPro');
+        assertEqual(result.financialsSource, 'fintekpro', 'Financials source should be FintekPro');
+        assertEqual(result.mcaCalled, false, 'MCA should NOT be called when FintekPro has data');
       },
     },
     {
-      name: 'Scenario 2: Tofler Partial Data - Triggers MCA fallback',
+      name: 'Scenario 2: FintekPro Empty - Triggers MCA fallback',
       fn: async () => {
         const mockStorage = {
-          getUnlistedCompanyById: async () => ({ id: 'company-2', name: 'Shell Company', cin: 'U12345MH2020PTC789012' }),
+          getUnlistedCompanyById: async () => ({ id: 'company-2', name: 'New Company', cin: 'U12345MH2020PTC789012' }),
           getCompanyFinancials: async () => [],
           getCompanyRatios: async () => [],
-        };
-        const mockToflerService = {
-          getCompanyDetails: async () => mockToflerShellData,
-          searchCompanies: async () => [],
         };
         const mockMcaService = {
           isConfigured: () => true,
           getCompanyByCIN: async () => mockMCAData,
         };
 
-        const result = await simulateGetCompanyData('company-2', { includeMCA: true, skipTofler: false }, mockStorage, mockToflerService, mockMcaService);
+        const result = await simulateGetCompanyData('company-2', { includeMCA: true }, mockStorage, mockMcaService);
         
-        assertEqual(result.toflerCalled, true, 'Tofler should be called');
-        assertEqual(result.toflerHasUsableData, false, 'Tofler should NOT have usable data');
-        assertEqual(result.mcaCalled, true, 'MCA should be called when Tofler returns shell data');
+        assertEqual(result.fintekproCalled, true, 'FintekPro should be called');
+        assertEqual(result.fintekproHasUsableData, false, 'FintekPro should NOT have usable data');
+        assertEqual(result.mcaCalled, true, 'MCA should be called when FintekPro has no data');
         assertContains(result.sourcesUsed, 'mca', 'MCA should be in sources used');
       },
     },
     {
-      name: 'Scenario 3: Tofler Failure - Falls back to FintekPro then MCA',
+      name: 'Scenario 3: MCA NOT called when FintekPro has financials',
       fn: async () => {
         const mockStorage = {
-          getUnlistedCompanyById: async () => ({ id: 'company-3', name: 'Error Test', cin: 'U12345MH2020PTC111222' }),
+          getUnlistedCompanyById: async () => ({ id: 'company-3', name: 'Existing Company', cin: 'U12345MH2020PTC999000' }),
           getCompanyFinancials: async () => mockOwnFinancials,
-          getCompanyRatios: async () => mockOwnRatios,
-        };
-        const mockToflerService = {
-          getCompanyDetails: async () => { throw new Error('Tofler API rate limit exceeded'); },
-          searchCompanies: async () => [],
+          getCompanyRatios: async () => [],
         };
         const mockMcaService = {
           isConfigured: () => true,
           getCompanyByCIN: async () => mockMCAData,
         };
 
-        const result = await simulateGetCompanyData('company-3', { includeMCA: true, skipTofler: false }, mockStorage, mockToflerService, mockMcaService);
+        const result = await simulateGetCompanyData('company-3', { includeMCA: true }, mockStorage, mockMcaService);
         
-        assertEqual(result.toflerCalled, true, 'Tofler should be called');
-        assertEqual(result.toflerError, 'Tofler API rate limit exceeded', 'Should capture Tofler error');
-        assertEqual(result.fintekproCalled, true, 'FintekPro should be called');
-        assertContains(result.sourcesUsed, 'fintekpro', 'FintekPro should be in sources used');
-        assertEqual(result.mcaCalled, true, 'MCA should be called when Tofler fails');
+        assertEqual(result.fintekproHasUsableData, true, 'FintekPro should have usable data');
+        assertEqual(result.mcaCalled, false, 'MCA should NOT be called when FintekPro has data');
       },
     },
     {
-      name: 'Scenario 4: Priority - Tofler called first unless skipTofler',
+      name: 'Scenario 4: MCA NOT called when FintekPro has ratios only',
       fn: async () => {
         const mockStorage = {
-          getUnlistedCompanyById: async () => ({ id: 'company-4', name: 'Priority Test', cin: 'U12345MH2020PTC333444' }),
-          getCompanyFinancials: async () => mockOwnFinancials,
+          getUnlistedCompanyById: async () => ({ id: 'company-4', name: 'Ratios Company', cin: 'U12345MH2020PTC111222' }),
+          getCompanyFinancials: async () => [],
           getCompanyRatios: async () => mockOwnRatios,
-        };
-        const mockToflerService = {
-          getCompanyDetails: async () => mockToflerFullData,
-          searchCompanies: async () => [],
         };
         const mockMcaService = {
           isConfigured: () => true,
           getCompanyByCIN: async () => mockMCAData,
         };
 
-        const result = await simulateGetCompanyData('company-4', { includeMCA: true, skipTofler: false }, mockStorage, mockToflerService, mockMcaService);
+        const result = await simulateGetCompanyData('company-4', { includeMCA: true }, mockStorage, mockMcaService);
         
-        assertEqual(result.callOrder[0], 'tofler', 'Tofler should be called first');
-        assertEqual(result.toflerCalled, true, 'Tofler should be called');
+        assertEqual(result.fintekproHasUsableData, true, 'FintekPro should have usable data (ratios)');
+        assertEqual(result.mcaCalled, false, 'MCA should NOT be called when FintekPro has ratios');
       },
     },
     {
-      name: 'Scenario 5: skipTofler flag - Skips Tofler when true',
+      name: 'Scenario 5: Call order - FintekPro called before MCA',
       fn: async () => {
         const mockStorage = {
-          getUnlistedCompanyById: async () => ({ id: 'company-5', name: 'Skip Test', cin: 'U12345MH2020PTC555666' }),
-          getCompanyFinancials: async () => mockOwnFinancials,
-          getCompanyRatios: async () => mockOwnRatios,
-        };
-        const mockToflerService = {
-          getCompanyDetails: async () => mockToflerFullData,
-          searchCompanies: async () => [],
-        };
-        const mockMcaService = {
-          isConfigured: () => true,
-          getCompanyByCIN: async () => mockMCAData,
-        };
-
-        const result = await simulateGetCompanyData('company-5', { includeMCA: true, skipTofler: true }, mockStorage, mockToflerService, mockMcaService);
-        
-        assertEqual(result.toflerCalled, false, 'Tofler should NOT be called when skipTofler is true');
-        assertEqual(result.fintekproCalled, true, 'FintekPro should be called');
-      },
-    },
-    {
-      name: 'Scenario 6: MCA Fallback Condition - Engages when toflerHasUsableData is false',
-      fn: async () => {
-        const mockStorage = {
-          getUnlistedCompanyById: async () => ({ id: 'company-6', name: 'MCA Fallback Test', cin: 'U12345MH2020PTC777888' }),
+          getUnlistedCompanyById: async () => ({ id: 'company-5', name: 'Order Test', cin: 'U12345MH2020PTC333444' }),
           getCompanyFinancials: async () => [],
           getCompanyRatios: async () => [],
         };
-        const mockToflerService = {
-          getCompanyDetails: async () => ({
-            basicInfo: mockToflerShellData.basicInfo,
-            financials: [],
-            ratios: [],
-            directors: [],
-            charges: [],
-          }),
-          searchCompanies: async () => [],
-        };
         const mockMcaService = {
           isConfigured: () => true,
           getCompanyByCIN: async () => mockMCAData,
         };
 
-        const result = await simulateGetCompanyData('company-6', { includeMCA: true, skipTofler: false }, mockStorage, mockToflerService, mockMcaService);
+        const result = await simulateGetCompanyData('company-5', { includeMCA: true }, mockStorage, mockMcaService);
         
-        assertEqual(result.toflerHasUsableData, false, 'Tofler should NOT have usable data');
-        assertEqual(result.mcaCalled, true, 'MCA should be called');
+        assertEqual(result.callOrder[0], 'fintekpro', 'FintekPro should be called first');
+        assertEqual(result.callOrder[1], 'mca', 'MCA should be called second');
       },
     },
     {
-      name: 'Scenario 7: MCA NOT called when Tofler has usable financials',
+      name: 'Scenario 6: MCA requires CIN for lookup',
       fn: async () => {
         const mockStorage = {
-          getUnlistedCompanyById: async () => ({ id: 'company-7', name: 'No MCA Needed', cin: 'U12345MH2020PTC999000' }),
+          getUnlistedCompanyById: async () => ({ id: 'company-6', name: 'No CIN Company', cin: null }),
           getCompanyFinancials: async () => [],
           getCompanyRatios: async () => [],
         };
-        const mockToflerService = {
-          getCompanyDetails: async () => mockToflerFullData,
-          searchCompanies: async () => [],
-        };
         const mockMcaService = {
           isConfigured: () => true,
           getCompanyByCIN: async () => mockMCAData,
         };
 
-        const result = await simulateGetCompanyData('company-7', { includeMCA: true, skipTofler: false }, mockStorage, mockToflerService, mockMcaService);
+        const result = await simulateGetCompanyData('company-6', { includeMCA: true }, mockStorage, mockMcaService);
         
-        assertEqual(result.toflerHasUsableData, true, 'Tofler should have usable data');
-        assertEqual(result.mcaCalled, false, 'MCA should NOT be called when Tofler has usable data');
+        assertEqual(result.mcaCalled, false, 'MCA should NOT be called without CIN');
       },
     },
     {
-      name: 'Scenario 8: Tofler preferred over stale FintekPro data',
+      name: 'Scenario 7: MCA service not configured - graceful handling',
       fn: async () => {
         const mockStorage = {
-          getUnlistedCompanyById: async () => ({ id: 'company-8', name: 'Stale Data Test', cin: 'U12345MH2020PTC112233' }),
-          getCompanyFinancials: async () => mockOwnFinancials,
-          getCompanyRatios: async () => mockOwnRatios,
+          getUnlistedCompanyById: async () => ({ id: 'company-7', name: 'Unconfigured Test', cin: 'U12345MH2020PTC555666' }),
+          getCompanyFinancials: async () => [],
+          getCompanyRatios: async () => [],
         };
-        const mockToflerService = {
-          getCompanyDetails: async () => mockToflerFullData,
-          searchCompanies: async () => [],
+        const mockMcaService = {
+          isConfigured: () => false,
+          getCompanyByCIN: async () => { throw new Error('Should not be called'); },
+        };
+
+        const result = await simulateGetCompanyData('company-7', { includeMCA: true }, mockStorage, mockMcaService);
+        
+        assertEqual(result.mcaCalled, true, 'MCA should be attempted');
+        assertEqual(result.sourcesUsed.includes('mca'), false, 'MCA should NOT be in sources used when not configured');
+      },
+    },
+    {
+      name: 'Scenario 8: includeMCA=false skips MCA entirely',
+      fn: async () => {
+        const mockStorage = {
+          getUnlistedCompanyById: async () => ({ id: 'company-8', name: 'Skip MCA', cin: 'U12345MH2020PTC777888' }),
+          getCompanyFinancials: async () => [],
+          getCompanyRatios: async () => [],
         };
         const mockMcaService = {
           isConfigured: () => true,
           getCompanyByCIN: async () => mockMCAData,
         };
 
-        const result = await simulateGetCompanyData('company-8', { includeMCA: true, skipTofler: false }, mockStorage, mockToflerService, mockMcaService);
+        const result = await simulateGetCompanyData('company-8', { includeMCA: false }, mockStorage, mockMcaService);
         
-        assertEqual(result.financialsSource, 'tofler', 'Tofler should be preferred for financials');
-        assertEqual(result.ratiosSource, 'tofler', 'Tofler should be preferred for ratios');
+        assertEqual(result.mcaCalled, false, 'MCA should NOT be called when includeMCA is false');
       },
     },
   ];

@@ -4,14 +4,12 @@
  * Data sources (priority order):
  * 1. Crunchbase API (requires CRUNCHBASE_API_KEY - paid)
  * 2. FintekPro Own Data (stored valuations/deals)
- * 3. Tofler (may include funding info in company details)
  * 
  * This service is designed for SEBI-compliant unlisted stock marketplace.
  * Returns empty/unavailable when no real data is found (NO mock data).
  */
 
 import { storage } from '../storage';
-import { toflerService } from './tofler-service';
 import type { UnlistedCompany } from '@shared/schema';
 
 export interface FundingRound {
@@ -34,7 +32,7 @@ export interface ValuationData {
   totalFundingRaised?: number;
   lastFundingRound?: FundingRound;
   estimatedMarketCap?: number;
-  source: 'crunchbase' | 'fintekpro' | 'tofler' | 'calculated' | 'unavailable';
+  source: 'crunchbase' | 'fintekpro' | 'mca' | 'calculated' | 'unavailable';
   confidence: 'high' | 'medium' | 'low' | 'none';
   lastUpdated?: string;
 }
@@ -115,24 +113,7 @@ class ValuationService {
       }
     }
     
-    // 3. Try Tofler for any funding info
-    if (cin) {
-      try {
-        const toflerData = await this.extractFromTofler(cin);
-        if (toflerData && toflerData.source !== 'unavailable') {
-          return {
-            companyId: company?.id,
-            companyName,
-            cin,
-            valuation: toflerData,
-          };
-        }
-      } catch (error) {
-        errors.push(`Tofler: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }
-    
-    // 4. Calculate estimated valuation from financials if available
+    // 3. Calculate estimated valuation from financials if available
     if (company?.id) {
       try {
         const calculatedData = await this.calculateFromFinancials(company.id);
@@ -286,38 +267,6 @@ class ValuationService {
       };
     } catch (error) {
       console.error('[Valuation] FintekPro data error:', error);
-      return null;
-    }
-  }
-  
-  /**
-   * Extract any funding info from Tofler data
-   */
-  private async extractFromTofler(cin: string): Promise<ValuationData | null> {
-    try {
-      const toflerData = await toflerService.getCompanyDetails(cin);
-      
-      if (!toflerData) {
-        return null;
-      }
-      
-      // Tofler has capital structure in details
-      const { authorizedCapital, paidUpCapital } = toflerData.details;
-      
-      if (authorizedCapital || paidUpCapital) {
-        return {
-          valuationCurrency: 'INR',
-          valuationMethod: 'Capital structure',
-          fundingRounds: [],
-          source: 'tofler',
-          confidence: 'low',
-          lastUpdated: new Date().toISOString(),
-        };
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('[Valuation] Tofler extraction error:', error);
       return null;
     }
   }

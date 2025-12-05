@@ -18,7 +18,6 @@ import { probe42Service } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import { priceAggregationService } from '../services/price-aggregation';
 import { moneyControlReconciliation } from '../services/moneycontrol-reconciliation';
-import { toflerService } from '../services/tofler-service';
 import { mcaService } from '../services/mca-service';
 import { unifiedCompanyDataService } from '../services/unified-company-data-service';
 import { valuationService } from '../services/valuation-service';
@@ -2808,7 +2807,7 @@ interface UnifiedSearchResult {
   sector?: string;
   status?: string;
   incorporationDate?: string;
-  source: 'moneycontrol' | 'probe42' | 'tofler' | 'mca' | 'internal';
+  source: 'moneycontrol' | 'probe42' | 'mca' | 'fintekpro';
   currentPrice?: number;
   priceChange?: number;
   priceChangePercent?: number;
@@ -2821,7 +2820,7 @@ interface UnifiedSearchResult {
 /**
  * GET /api/unlisted/admin/unified-search
  * Search companies across multiple data sources (Admin only)
- * Priority: Tofler (primary) → MoneyControl → MCA → Probe42 (legacy)
+ * Priority: FintekPro (internal) → MoneyControl → MCA → Probe42 (legacy)
  */
 router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Response) => {
   try {
@@ -2840,19 +2839,7 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
     const seenIsins = new Set<string>();
 
     // Search all sources in parallel
-    const [toflerResults, moneyControlResults, mcaResults, probe42Results] = await Promise.allSettled([
-      // Tofler (primary source)
-      (async () => {
-        try {
-          if (query.length >= 3) {
-            return await toflerService.searchCompanies(query);
-          }
-          return [];
-        } catch (e) {
-          console.error('Tofler search error:', e);
-          return [];
-        }
-      })(),
+    const [moneyControlResults, mcaResults, probe42Results] = await Promise.allSettled([
       // MoneyControl (price data)
       (async () => {
         try {
@@ -2896,29 +2883,6 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
         }
       })()
     ]);
-
-    // Process Tofler results first (primary source)
-    if (toflerResults.status === 'fulfilled') {
-      for (const company of toflerResults.value) {
-        if (company.cin) seenCins.add(company.cin);
-        const isInFintekPro = company.cin ? existingCins.has(company.cin) : false;
-        const existing = company.cin 
-          ? existingCompanies.find((c: UnlistedCompany) => c.cin === company.cin)
-          : null;
-
-        results.push({
-          id: `tofler_${company.cin || company.name.replace(/\s+/g, '_')}`,
-          name: company.name,
-          cin: company.cin,
-          status: company.status,
-          source: 'tofler',
-          isInFintekPro,
-          fintekProId: existing?.id || undefined,
-          dataQuality: 85,
-          rawData: company,
-        });
-      }
-    }
 
     // Process MoneyControl results (for price data)
     if (moneyControlResults.status === 'fulfilled') {
@@ -3014,7 +2978,6 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
       totalResults: results.length,
       results,
       sources: {
-        tofler: toflerResults.status === 'fulfilled' ? toflerResults.value.length : 0,
         moneycontrol: moneyControlResults.status === 'fulfilled' ? moneyControlResults.value.length : 0,
         mca: mcaResults.status === 'fulfilled' ? mcaResults.value.length : 0,
         probe42: probe42Results.status === 'fulfilled' ? probe42Results.value.length : 0,
@@ -3034,16 +2997,7 @@ router.get('/admin/company-details/:source/:id', requireAdmin, async (req: Reque
   try {
     const { source, id } = req.params;
     
-    if (source === 'tofler') {
-      const details = await toflerService.getCompanyDetails(id);
-      
-      return apiResponse.success(res, {
-        source: 'tofler',
-        company: details?.details,
-        financials: details?.financials,
-        ratios: details?.ratios,
-      });
-    } else if (source === 'mca') {
+    if (source === 'mca') {
       // MCA requires CIN for lookup
       const details = await mcaService.getCompanyByCIN(id);
       if (!details) {
@@ -3076,7 +3030,7 @@ router.get('/admin/company-details/:source/:id', requireAdmin, async (req: Reque
         company: company.externalCompany,
       });
     } else {
-      return apiResponse.badRequest(res, 'Invalid source. Use "tofler", "mca", "moneycontrol", or "probe42"');
+      return apiResponse.badRequest(res, 'Invalid source. Use "mca", "moneycontrol", or "probe42"');
     }
   } catch (error: any) {
     console.error('Error fetching company details:', error);
