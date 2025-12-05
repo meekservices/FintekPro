@@ -2838,11 +2838,21 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
           const mcaCompanyData = mcaService.toFintekProCompanyData(mcaData);
           const updateData: any = { lastSyncedAt: new Date() };
           
+          console.log('[Auto-Enrich] MCA raw data:', JSON.stringify(mcaData, null, 2));
+          console.log('[Auto-Enrich] MCA company data:', JSON.stringify(mcaCompanyData, null, 2));
+          console.log('[Auto-Enrich] Current company name:', companyData.name);
+          console.log('[Auto-Enrich] MCA company name:', mcaCompanyData.name);
+          
           // Always use MCA company name as authoritative source (official government registry)
           // Force update even if names appear similar - MCA is the definitive source
           if (mcaCompanyData.name) {
             const normalizedMcaName = mcaCompanyData.name.trim();
             const normalizedCurrentName = (companyData.name || '').trim();
+            
+            console.log('[Auto-Enrich] Normalized MCA name:', normalizedMcaName);
+            console.log('[Auto-Enrich] Normalized current name:', normalizedCurrentName);
+            console.log('[Auto-Enrich] Names equal (case-insensitive)?', normalizedMcaName.toLowerCase() === normalizedCurrentName.toLowerCase());
+            console.log('[Auto-Enrich] Names equal (exact)?', normalizedMcaName === normalizedCurrentName);
             
             // Update if names differ in any way (case, spacing, abbreviations like Ltd vs Limited)
             if (normalizedMcaName.toLowerCase() !== normalizedCurrentName.toLowerCase() || 
@@ -2854,7 +2864,12 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
                 newValue: normalizedMcaName,
                 source: 'MCA'
               });
+              console.log('[Auto-Enrich] Name will be updated to:', normalizedMcaName);
+            } else {
+              console.log('[Auto-Enrich] Name update skipped - names are identical');
             }
+          } else {
+            console.log('[Auto-Enrich] No name in MCA response');
           }
           
           // Update sector if available and needed
