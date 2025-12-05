@@ -12,6 +12,7 @@
 
 import { storage } from '../storage';
 import { mcaService, type MCACompanyMasterData } from './mca-service';
+import { probe42Service, type Probe42CompanyDetails } from './probe42-service';
 import type { 
   CompanyFinancials, 
   CompanyRatios, 
@@ -200,6 +201,7 @@ class UnifiedCompanyDataService {
     
     const results: DataFetchResult[] = [];
     let mcaData: MCACompanyMasterData | null = null;
+    let probe42Details: Probe42CompanyDetails | null = null;
     let ownFinancials: CompanyFinancials[] = [];
     let ownRatios: CompanyRatios[] = [];
 
@@ -255,12 +257,36 @@ class UnifiedCompanyDataService {
       }
     }
 
+    // Step 3: Try Probe42 for additional data (especially directors)
+    // Always attempt fetch - Probe42 service has built-in mock data fallback when API isn't configured
+    if (company?.probe42CompanyId) {
+      try {
+        probe42Details = await probe42Service.getCompanyDetails(company.probe42CompanyId);
+        if (probe42Details) {
+          results.push({
+            success: true,
+            source: 'probe42',
+            data: probe42Details,
+          });
+          console.log(`[UnifiedData] Got Probe42 details with ${probe42Details.directors?.length || 0} directors`);
+        }
+      } catch (error: any) {
+        console.log(`[UnifiedData] Probe42 fetch failed: ${error.message}`);
+        results.push({
+          success: false,
+          source: 'probe42',
+          error: error.message,
+        });
+      }
+    }
+
     // Build telemetry data
     const sourcesAttempted: DataSource[] = [];
     const sourcesSucceeded: DataSource[] = [];
     
     if (company) sourcesAttempted.push('fintekpro');
     if (includeMCA && cin && !fintekproHasUsableData) sourcesAttempted.push('mca');
+    if (company?.probe42CompanyId) sourcesAttempted.push('probe42');
 
     results.forEach(r => {
       if (r.success) {
@@ -291,6 +317,7 @@ class UnifiedCompanyDataService {
     const aggregatedData = this.aggregateData(
       company || undefined, 
       mcaData, 
+      probe42Details,
       ownFinancials, 
       ownRatios, 
       results,
@@ -334,6 +361,7 @@ class UnifiedCompanyDataService {
   private aggregateData(
     company: UnlistedCompany | undefined,
     mcaData: MCACompanyMasterData | null,
+    probe42Details: Probe42CompanyDetails | null,
     ownFinancials: CompanyFinancials[],
     ownRatios: CompanyRatios[],
     fetchResults: DataFetchResult[],
@@ -403,7 +431,7 @@ class UnifiedCompanyDataService {
     const capitalData = this.buildCapitalData(company, mcaData);
 
     // Build directors data
-    const directorsData = this.buildDirectorsData(mcaData);
+    const directorsData = this.buildDirectorsData(mcaData, probe42Details);
 
     // Build charges data
     const chargesData = this.buildChargesData(mcaData);
@@ -546,8 +574,10 @@ class UnifiedCompanyDataService {
   }
 
   private buildDirectorsData(
-    mcaData: MCACompanyMasterData | null
+    mcaData: MCACompanyMasterData | null,
+    probe42Details: Probe42CompanyDetails | null
   ): UnifiedCompanyData['directors'] {
+    // Priority: MCA (official) → Probe42
     if (mcaData?.directors && mcaData.directors.length > 0) {
       return {
         list: mcaData.directors.map(d => ({
@@ -556,6 +586,18 @@ class UnifiedCompanyDataService {
           designation: d.designation,
         })),
         source: 'mca',
+      };
+    }
+
+    // Fallback to Probe42 directors
+    if (probe42Details?.directors && probe42Details.directors.length > 0) {
+      return {
+        list: probe42Details.directors.map(d => ({
+          name: d.name,
+          din: d.din || '',
+          designation: d.designation || '',
+        })),
+        source: 'probe42',
       };
     }
 

