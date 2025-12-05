@@ -619,6 +619,23 @@ class Probe42Service {
       status: 'Active',
       website: 'https://example.com',
       description: 'Mock company for development purposes',
+      directors: [
+        {
+          name: 'Vikram Kumar Limaye',
+          din: '00488534',
+          designation: 'Managing Director & CEO',
+        },
+        {
+          name: 'Dinesh Kumar Mehrotra',
+          din: '00142711',
+          designation: 'Chairman',
+        },
+        {
+          name: 'Neeraj Kulshrestha',
+          din: '03531199',
+          designation: 'Chief Business Operations Officer',
+        },
+      ],
     };
   }
 
