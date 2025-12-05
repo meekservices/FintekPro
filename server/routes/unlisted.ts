@@ -1681,6 +1681,46 @@ router.get('/admin/companies', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * PATCH /api/unlisted/admin/companies/:id
+ * Update company information (admin only) - supports CIN, sector, industry, etc.
+ */
+router.patch('/admin/companies/:id', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    
+    // Verify company exists
+    const existing = await storage.getUnlistedCompanyById(id);
+    if (!existing) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    // Use schema validation with partial to allow partial updates
+    const validatedData = insertUnlistedCompanySchema.partial().parse(req.body);
+    
+    if (Object.keys(validatedData).length === 0) {
+      return apiResponse.badRequest(res, 'No valid fields to update');
+    }
+    
+    console.log(`[Admin] Updating company ${id} with fields:`, Object.keys(validatedData));
+    const updated = await storage.updateUnlistedCompany(id, validatedData);
+    
+    return apiResponse.success(res, updated, 'Company updated successfully');
+  } catch (error: any) {
+    console.error('Error updating company (admin):', error);
+    
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
+    }
+    
+    return apiResponse.serverError(res, 'Failed to update company');
+  }
+});
+
 // ===================================================================
 // ADMIN LISTINGS MANAGEMENT ROUTES
 // ===================================================================
