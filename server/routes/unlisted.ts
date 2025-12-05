@@ -2672,6 +2672,7 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
               revenue: fin.revenue?.toString(),
               ebitda: fin.ebitda?.toString(),
               pat: fin.pat?.toString(),
+              netProfit: fin.pat?.toString(), // Use PAT as Net Profit for display
               totalAssets: fin.total_assets?.toString(),
               networth: fin.networth?.toString(),
               totalDebt: fin.total_debt?.toString(),
