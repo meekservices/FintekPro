@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -228,6 +229,23 @@ export default function SeedUnlistedPage() {
   const [selectedSearchResult, setSelectedSearchResult] = useState<UnifiedSearchResult | null>(null);
   const [publishPrices, setPublishPrices] = useState({ buyPrice: '', sellPrice: '' });
   const [isPublishing, setIsPublishing] = useState(false);
+  
+  // Manual add state for when external sources don't have data
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualAddData, setManualAddData] = useState({
+    name: '',
+    cin: '',
+    sector: 'Unknown',
+    industry: '',
+    description: ''
+  });
+  const [isManualAdding, setIsManualAdding] = useState(false);
+  
+  // Helper to check if query looks like a CIN
+  const isValidCINFormat = (query: string) => {
+    const cinPattern = /^[UL]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/i;
+    return cinPattern.test(query.trim());
+  };
 
   const { data: companiesData, isLoading: isLoadingCompanies } = useQuery<UnlistedCompany[]>({
     queryKey: ['/api/unlisted/admin/companies'],
@@ -316,6 +334,51 @@ export default function SeedUnlistedPage() {
       });
     } finally {
       setIsPublishing(false);
+    }
+  };
+  
+  // Handle manual add when external sources don't have data
+  const handleManualAdd = async () => {
+    if (!manualAddData.name.trim()) {
+      toast({
+        title: 'Company name required',
+        description: 'Please enter the company name',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setIsManualAdding(true);
+    try {
+      const response = await apiRequest('/api/unlisted/admin/add-to-fintekpro', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: manualAddData.name.trim(),
+          cin: manualAddData.cin.trim() || undefined,
+          sector: manualAddData.sector || 'Unknown',
+          industry: manualAddData.industry.trim() || undefined,
+          description: manualAddData.description.trim() || `Manually added by admin`,
+          source: 'manual',
+        })
+      });
+      
+      toast({
+        title: 'Company Added',
+        description: `${manualAddData.name} has been added to FintekPro. You can now set prices and publish to the store.`
+      });
+      
+      setShowManualAdd(false);
+      setManualAddData({ name: '', cin: '', sector: 'Unknown', industry: '', description: '' });
+      setUnifiedSearchQuery('');
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+    } catch (error: any) {
+      toast({
+        title: 'Failed to add company',
+        description: error.message || 'Failed to add company manually',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsManualAdding(false);
     }
   };
 
@@ -1097,9 +1160,138 @@ export default function SeedUnlistedPage() {
             )}
 
             {debouncedUnifiedSearch.length >= 2 && !isSearching && unifiedSearchData?.results.length === 0 && (
-              <div className="text-center py-8 text-gray-400">
-                <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No companies found matching "{debouncedUnifiedSearch}"</p>
+              <div className="py-6">
+                <div className="text-center text-gray-400 mb-4">
+                  <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No companies found matching "{debouncedUnifiedSearch}"</p>
+                  <p className="text-xs mt-1 text-gray-500">
+                    External sources (MCA/Probe42) may be unavailable or don't have this data
+                  </p>
+                </div>
+                
+                {/* Manual Add Option */}
+                {!showManualAdd ? (
+                  <div className="text-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowManualAdd(true);
+                        // Pre-fill CIN if the search query looks like a CIN
+                        if (isValidCINFormat(debouncedUnifiedSearch)) {
+                          setManualAddData(prev => ({ ...prev, cin: debouncedUnifiedSearch.toUpperCase() }));
+                        }
+                      }}
+                      className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
+                      data-testid="button-manual-add"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Company Manually
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                    <h4 className="text-white font-medium mb-4 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-400" />
+                      Add Company Manually
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <Label className="text-gray-400 text-sm">Company Name *</Label>
+                        <Input
+                          value={manualAddData.name}
+                          onChange={(e) => setManualAddData(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Enter company name"
+                          className="mt-1 bg-gray-800 border-gray-600 text-white"
+                          data-testid="input-manual-company-name"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-gray-400 text-sm">CIN (21 characters)</Label>
+                        <Input
+                          value={manualAddData.cin}
+                          onChange={(e) => setManualAddData(prev => ({ ...prev, cin: e.target.value.toUpperCase() }))}
+                          placeholder="e.g., U72900KA2008PLC045316"
+                          maxLength={21}
+                          className="mt-1 bg-gray-800 border-gray-600 text-white font-mono"
+                          data-testid="input-manual-cin"
+                        />
+                        {manualAddData.cin && !isValidCINFormat(manualAddData.cin) && manualAddData.cin.length === 21 && (
+                          <p className="text-xs text-yellow-400 mt-1">CIN format may be incorrect</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-gray-400 text-sm">Sector</Label>
+                        <select
+                          value={manualAddData.sector}
+                          onChange={(e) => setManualAddData(prev => ({ ...prev, sector: e.target.value }))}
+                          className="mt-1 w-full bg-gray-800 border border-gray-600 text-white rounded-md px-3 py-2"
+                          data-testid="select-manual-sector"
+                        >
+                          <option value="Unknown">Unknown</option>
+                          <option value="Technology">Technology</option>
+                          <option value="Financial Services">Financial Services</option>
+                          <option value="Healthcare">Healthcare</option>
+                          <option value="Consumer Goods">Consumer Goods</option>
+                          <option value="Industrial">Industrial</option>
+                          <option value="Energy">Energy</option>
+                          <option value="Materials">Materials</option>
+                          <option value="Real Estate">Real Estate</option>
+                          <option value="Utilities">Utilities</option>
+                          <option value="Communication Services">Communication Services</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="text-gray-400 text-sm">Industry</Label>
+                        <Input
+                          value={manualAddData.industry}
+                          onChange={(e) => setManualAddData(prev => ({ ...prev, industry: e.target.value }))}
+                          placeholder="e.g., Software Development"
+                          className="mt-1 bg-gray-800 border-gray-600 text-white"
+                          data-testid="input-manual-industry"
+                        />
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <Label className="text-gray-400 text-sm">Description (optional)</Label>
+                      <Input
+                        value={manualAddData.description}
+                        onChange={(e) => setManualAddData(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Brief company description"
+                        className="mt-1 bg-gray-800 border-gray-600 text-white"
+                        data-testid="input-manual-description"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        onClick={handleManualAdd}
+                        disabled={isManualAdding || !manualAddData.name.trim()}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        data-testid="button-confirm-manual-add"
+                      >
+                        {isManualAdding ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <Plus className="w-4 h-4 mr-2" />
+                        )}
+                        Add to FintekPro
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowManualAdd(false);
+                          setManualAddData({ name: '', cin: '', sector: 'Unknown', industry: '', description: '' });
+                        }}
+                        className="text-gray-400 border-gray-600"
+                        data-testid="button-cancel-manual-add"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3">
+                      After adding, you can enrich data from the preview page and set prices before publishing.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
