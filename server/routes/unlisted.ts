@@ -2793,6 +2793,195 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
 });
 
 /**
+ * POST /api/unlisted/admin/auto-enrich/:companyId
+ * Auto-enrich company metadata (name, sector, industry) from MCA using CIN
+ * with Probe42 fallback. Used when sector/industry are "Unknown"
+ */
+router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { companyId } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(companyId);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const companyData = company as any;
+    const enrichedFields: { field: string; oldValue: string | null; newValue: string; source: string }[] = [];
+    let enrichmentSource = 'none';
+    
+    // Check if enrichment is needed
+    const needsSectorEnrich = !companyData.sector || companyData.sector.toLowerCase().includes('unknown');
+    const needsIndustryEnrich = !companyData.industry || companyData.industry.toLowerCase().includes('unknown');
+    
+    if (!needsSectorEnrich && !needsIndustryEnrich) {
+      return apiResponse.success(res, {
+        message: 'Company metadata already complete',
+        companyId,
+        companyName: companyData.name,
+        enrichedFields: [],
+        alreadyComplete: true,
+      });
+    }
+    
+    // Try MCA first if CIN is available
+    if (companyData.cin && mcaService.isConfigured()) {
+      try {
+        console.log(`[Auto-Enrich] Fetching MCA data for CIN: ${companyData.cin}`);
+        const mcaData = await mcaService.getCompanyByCIN(companyData.cin);
+        
+        if (mcaData) {
+          const mcaCompanyData = mcaService.toFintekProCompanyData(mcaData);
+          const updateData: any = { lastSyncedAt: new Date() };
+          
+          // Update company name to match official MCA records
+          if (mcaCompanyData.name && mcaCompanyData.name !== companyData.name) {
+            updateData.name = mcaCompanyData.name;
+            enrichedFields.push({
+              field: 'name',
+              oldValue: companyData.name,
+              newValue: mcaCompanyData.name,
+              source: 'MCA'
+            });
+          }
+          
+          // Update sector if available and needed
+          if (mcaCompanyData.sector && needsSectorEnrich) {
+            updateData.sector = mcaCompanyData.sector;
+            enrichedFields.push({
+              field: 'sector',
+              oldValue: companyData.sector || 'Unknown',
+              newValue: mcaCompanyData.sector,
+              source: 'MCA'
+            });
+          }
+          
+          // Update industry if available and needed
+          if (mcaCompanyData.industry && needsIndustryEnrich) {
+            updateData.industry = mcaCompanyData.industry;
+            enrichedFields.push({
+              field: 'industry',
+              oldValue: companyData.industry || 'Unknown',
+              newValue: mcaCompanyData.industry,
+              source: 'MCA'
+            });
+          }
+          
+          // Also update other useful MCA fields if missing
+          if (mcaCompanyData.paidUpCapital && !companyData.paidUpCapital) {
+            updateData.paidUpCapital = mcaCompanyData.paidUpCapital;
+            enrichedFields.push({
+              field: 'paidUpCapital',
+              oldValue: null,
+              newValue: mcaCompanyData.paidUpCapital,
+              source: 'MCA'
+            });
+          }
+          
+          if (mcaCompanyData.authorizedCapital && !companyData.authorizedCapital) {
+            updateData.authorizedCapital = mcaCompanyData.authorizedCapital;
+            enrichedFields.push({
+              field: 'authorizedCapital',
+              oldValue: null,
+              newValue: mcaCompanyData.authorizedCapital,
+              source: 'MCA'
+            });
+          }
+          
+          if (mcaCompanyData.incorporationDate && !companyData.incorporationDate) {
+            updateData.incorporationDate = mcaCompanyData.incorporationDate;
+            enrichedFields.push({
+              field: 'incorporationDate',
+              oldValue: null,
+              newValue: mcaCompanyData.incorporationDate,
+              source: 'MCA'
+            });
+          }
+          
+          if (Object.keys(updateData).length > 1) {
+            await storage.updateUnlistedCompany(companyId, updateData);
+            enrichmentSource = 'MCA';
+            console.log(`[Auto-Enrich] Updated ${enrichedFields.length} fields from MCA for ${companyData.name}`);
+          }
+        }
+      } catch (mcaError: any) {
+        console.error('[Auto-Enrich] MCA error:', mcaError.message);
+      }
+    }
+    
+    // If still missing sector/industry, try Probe42
+    const stillNeedsSector = enrichedFields.every(f => f.field !== 'sector') && needsSectorEnrich;
+    const stillNeedsIndustry = enrichedFields.every(f => f.field !== 'industry') && needsIndustryEnrich;
+    
+    if ((stillNeedsSector || stillNeedsIndustry) && companyData.probe42CompanyId) {
+      try {
+        console.log(`[Auto-Enrich] Fetching Probe42 data for ID: ${companyData.probe42CompanyId}`);
+        const probe42Details = await probe42Service.getCompanyDetails(companyData.probe42CompanyId);
+        
+        if (probe42Details) {
+          const updateData: any = { lastSyncedAt: new Date() };
+          
+          if (probe42Details.sector && stillNeedsSector) {
+            updateData.sector = probe42Details.sector;
+            enrichedFields.push({
+              field: 'sector',
+              oldValue: companyData.sector || 'Unknown',
+              newValue: probe42Details.sector,
+              source: 'Probe42'
+            });
+          }
+          
+          if (probe42Details.industry && stillNeedsIndustry) {
+            updateData.industry = probe42Details.industry;
+            enrichedFields.push({
+              field: 'industry',
+              oldValue: companyData.industry || 'Unknown',
+              newValue: probe42Details.industry,
+              source: 'Probe42'
+            });
+          }
+          
+          if (Object.keys(updateData).length > 1) {
+            await storage.updateUnlistedCompany(companyId, updateData);
+            enrichmentSource = enrichmentSource === 'MCA' ? 'MCA + Probe42' : 'Probe42';
+            console.log(`[Auto-Enrich] Updated ${enrichedFields.length} fields from Probe42 for ${companyData.name}`);
+          }
+        }
+      } catch (p42Error: any) {
+        console.error('[Auto-Enrich] Probe42 error:', p42Error.message);
+      }
+    }
+    
+    // Fetch the updated company data
+    const updatedCompany = await storage.getUnlistedCompanyById(companyId);
+    
+    return apiResponse.success(res, {
+      message: enrichedFields.length > 0 
+        ? `Successfully enriched ${enrichedFields.length} field(s) from ${enrichmentSource}`
+        : 'No enrichment data found from external sources',
+      companyId,
+      companyName: (updatedCompany as any)?.name || companyData.name,
+      enrichedFields,
+      enrichmentSource,
+      updatedCompany: updatedCompany ? {
+        id: (updatedCompany as any).id,
+        name: (updatedCompany as any).name,
+        sector: (updatedCompany as any).sector,
+        industry: (updatedCompany as any).industry,
+        cin: (updatedCompany as any).cin,
+      } : null,
+    });
+  } catch (error: any) {
+    console.error('Error auto-enriching company:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to auto-enrich company data');
+  }
+});
+
+/**
  * POST /api/unlisted/companies/:companyId/publish-to-store-with-prices
  * Publish company to store with admin-set buy/sell prices (Admin only)
  */

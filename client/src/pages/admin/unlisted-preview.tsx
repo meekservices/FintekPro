@@ -42,7 +42,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { UnlistedCompany, CompanyFinancials, CompanyRatios } from "@shared/schema";
 
 const getDataSourceLabel = (source: string | null | undefined) => {
@@ -194,6 +194,12 @@ export default function UnlistedPreviewPage() {
   const [editingPeerIndex, setEditingPeerIndex] = useState<number | null>(null);
   const [currentPeer, setCurrentPeer] = useState<ListedPeer>(emptyPeer);
   const [isSavingPeers, setIsSavingPeers] = useState(false);
+  const [isAutoEnriching, setIsAutoEnriching] = useState(false);
+  const [enrichmentResult, setEnrichmentResult] = useState<{
+    enrichedFields: { field: string; oldValue: string | null; newValue: string; source: string }[];
+    enrichmentSource: string;
+  } | null>(null);
+  const hasAttemptedEnrichRef = useRef(false);
   
   const searchParams = new URLSearchParams(window.location.search);
   const buyPrice = searchParams.get('buyPrice') || '';
@@ -257,6 +263,58 @@ export default function UnlistedPreviewPage() {
     },
     enabled: !!id,
   });
+
+  // Auto-enrich missing metadata (sector, industry, name) from MCA/Probe42
+  useEffect(() => {
+    const autoEnrichCompany = async () => {
+      if (!company || !id || hasAttemptedEnrichRef.current) return;
+      
+      const needsSectorEnrich = !company.sector || (company.sector as string).toLowerCase().includes('unknown');
+      const needsIndustryEnrich = !company.industry || (company.industry as string).toLowerCase().includes('unknown');
+      
+      if (!needsSectorEnrich && !needsIndustryEnrich) return;
+      
+      hasAttemptedEnrichRef.current = true;
+      setIsAutoEnriching(true);
+      
+      try {
+        const response = await apiRequest(`/api/unlisted/admin/auto-enrich/${id}`, { method: 'POST' });
+        
+        if (response?.data?.enrichedFields?.length > 0) {
+          setEnrichmentResult({
+            enrichedFields: response.data.enrichedFields,
+            enrichmentSource: response.data.enrichmentSource,
+          });
+          
+          // Refetch company data to get updated values
+          await refetchCompany();
+          
+          toast({
+            title: 'Company Data Enriched',
+            description: `Updated ${response.data.enrichedFields.length} field(s) from ${response.data.enrichmentSource}`,
+          });
+        } else if (response?.data?.enrichmentSource === 'none') {
+          // No data found from external sources
+          toast({
+            title: 'No Enrichment Data Available',
+            description: 'Could not find sector/industry from MCA or Probe42. Consider updating manually.',
+            variant: 'destructive',
+          });
+        }
+      } catch (error: any) {
+        console.error('[Auto-Enrich] Error:', error);
+        toast({
+          title: 'Auto-Enrichment Failed',
+          description: error.message || 'Could not fetch company data from external sources',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsAutoEnriching(false);
+      }
+    };
+    
+    autoEnrichCompany();
+  }, [company, id, toast, refetchCompany]);
 
   const handleRefreshData = async () => {
     setIsRefreshing(true);
@@ -510,6 +568,42 @@ export default function UnlistedPreviewPage() {
       </div>
 
       <DataQualityWarning quality={dataQuality} />
+
+      {/* Auto-Enrichment Status */}
+      {isAutoEnriching && (
+        <Alert className="mb-4 border-blue-500 bg-blue-50 dark:bg-blue-950/20" data-testid="alert-auto-enriching">
+          <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+          <AlertTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
+            Auto-Enriching Company Data
+          </AlertTitle>
+          <AlertDescription className="text-xs text-blue-600 dark:text-blue-400">
+            Fetching missing sector and industry information from MCA/Probe42...
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Enrichment Result Notification */}
+      {enrichmentResult && enrichmentResult.enrichedFields.length > 0 && (
+        <Alert className="mb-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" data-testid="alert-enriched">
+          <CheckCircle className="h-4 w-4 text-emerald-500" />
+          <AlertTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            Company Data Enriched from {enrichmentResult.enrichmentSource}
+          </AlertTitle>
+          <AlertDescription className="text-xs text-emerald-600 dark:text-emerald-400">
+            <div className="mt-2 space-y-1">
+              {enrichmentResult.enrichedFields.map((field, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="font-medium capitalize">{field.field}:</span>
+                  <span className="text-gray-500 line-through">{field.oldValue || 'Empty'}</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                  <span className="text-emerald-700 dark:text-emerald-300 font-medium">{field.newValue}</span>
+                  <Badge variant="outline" className="text-xs">{field.source}</Badge>
+                </div>
+              ))}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
