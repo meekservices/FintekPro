@@ -598,7 +598,7 @@ export default function UnlistedPreviewPage() {
           
           {/* Growth Metrics Card - YoY Changes Only */}
           {latestRatios && (latestRatios.revenueGrowth || latestRatios.profitGrowth) && (
-            <Card className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-purple-500/30">
+            <Card className="bg-gray-900 border-gray-800">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-purple-400" />
@@ -638,7 +638,7 @@ export default function UnlistedPreviewPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="bg-gradient-to-br from-emerald-900/30 to-blue-900/30 border-emerald-500/30">
+          <Card className="bg-gray-900 border-gray-800">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-400" />
@@ -824,7 +824,7 @@ export default function UnlistedPreviewPage() {
 
       {/* Investment Thesis Section */}
       {latestFinancials && latestRatios && (
-        <Card className="bg-gradient-to-br from-indigo-900/30 to-blue-900/30 border-indigo-500/30 mb-6">
+        <Card className="bg-gray-900 border-gray-800 mb-6">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-yellow-400" />
