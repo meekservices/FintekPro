@@ -153,9 +153,11 @@ export default function UnlistedPreviewPage() {
   const sellPrice = searchParams.get('sellPrice') || '';
 
   const { data: company, isLoading: isLoadingCompany, refetch: refetchCompany } = useQuery<UnlistedCompany>({
-    queryKey: ['/api/unlisted/companies', id],
+    queryKey: ['/api/unlisted/admin/companies', id],
     queryFn: async () => {
-      const response = await fetch(`/api/unlisted/companies/${id}`);
+      const response = await fetch(`/api/unlisted/admin/companies/${id}`, {
+        credentials: 'include',
+      });
       if (!response.ok) throw new Error('Failed to fetch company');
       const result = await response.json();
       return result.data;
@@ -163,9 +165,11 @@ export default function UnlistedPreviewPage() {
   });
 
   const { data: financials, isLoading: isLoadingFinancials, refetch: refetchFinancials } = useQuery<CompanyFinancials[]>({
-    queryKey: ['/api/unlisted/companies', id, 'financials'],
+    queryKey: ['/api/unlisted/admin/companies', id, 'financials'],
     queryFn: async () => {
-      const response = await fetch(`/api/unlisted/companies/${id}/financials`);
+      const response = await fetch(`/api/unlisted/admin/companies/${id}/financials`, {
+        credentials: 'include',
+      });
       if (!response.ok) return [];
       const result = await response.json();
       return result.data || [];
@@ -174,9 +178,11 @@ export default function UnlistedPreviewPage() {
   });
 
   const { data: ratios, isLoading: isLoadingRatios, refetch: refetchRatios } = useQuery<CompanyRatios[]>({
-    queryKey: ['/api/unlisted/companies', id, 'ratios'],
+    queryKey: ['/api/unlisted/admin/companies', id, 'ratios'],
     queryFn: async () => {
-      const response = await fetch(`/api/unlisted/companies/${id}/ratios`);
+      const response = await fetch(`/api/unlisted/admin/companies/${id}/ratios`, {
+        credentials: 'include',
+      });
       if (!response.ok) return [];
       const result = await response.json();
       return result.data || [];
@@ -185,9 +191,11 @@ export default function UnlistedPreviewPage() {
   });
 
   const { data: dataQuality, refetch: refetchDataQuality } = useQuery<DataQualityInfo>({
-    queryKey: ['/api/unlisted/companies', id, 'data-quality'],
+    queryKey: ['/api/unlisted/admin/companies', id, 'data-quality'],
     queryFn: async () => {
-      const response = await fetch(`/api/unlisted/companies/${id}/data-quality`);
+      const response = await fetch(`/api/unlisted/admin/companies/${id}/data-quality`, {
+        credentials: 'include',
+      });
       if (!response.ok) {
         return {
           fallbackUsed: false,
@@ -206,16 +214,26 @@ export default function UnlistedPreviewPage() {
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     try {
-      await apiRequest(`/api/unlisted/admin/refresh-company-data/${id}`, { method: 'POST' });
+      const response = await apiRequest(`/api/unlisted/admin/refresh-company-data/${id}`, { method: 'POST' });
+      const result = await response.json();
+      
       await Promise.all([
         refetchCompany(),
         refetchFinancials(),
         refetchRatios(),
         refetchDataQuality(),
       ]);
+      
+      const successfulSources = result.data?.results
+        ?.filter((r: any) => r.status === 'success')
+        ?.map((r: any) => r.source)
+        ?.join(', ') || 'none';
+      
       toast({
         title: 'Data refreshed',
-        description: 'Company data has been updated from all sources',
+        description: successfulSources !== 'none' 
+          ? `Updated from: ${successfulSources}` 
+          : 'No new data found from external sources',
       });
     } catch (error: any) {
       toast({
@@ -467,7 +485,22 @@ export default function UnlistedPreviewPage() {
                 <div className="h-48 flex items-center justify-center text-gray-500">
                   <div className="text-center">
                     <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>No financial data available</p>
+                    <p className="mb-3">No financial data available</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRefreshData}
+                      disabled={isRefreshing}
+                      className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
+                      data-testid="button-fetch-financial-data"
+                    >
+                      {isRefreshing ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      Fetch Financial Data
+                    </Button>
                   </div>
                 </div>
               )}
@@ -550,53 +583,75 @@ export default function UnlistedPreviewPage() {
             </CardContent>
           </Card>
 
-          {latestRatios && (
-            <Card className="bg-gray-900 border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-purple-400" />
-                  Key Ratios
-                  {latestRatios.dataSource && (
-                    <DataSourceBadge source={latestRatios.dataSource} />
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                  <span className="text-gray-400 text-sm">ROE</span>
-                  <span className={`font-medium ${
-                    (parseFloat(latestRatios.roe?.toString() || '0') >= 15) 
-                      ? 'text-green-400' 
-                      : 'text-white'
-                  }`}>
-                    {formatPercent(latestRatios.roe)}
-                  </span>
+          <Card className="bg-gray-900 border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Activity className="w-5 h-5 text-purple-400" />
+                Key Ratios
+                {latestRatios?.dataSource && (
+                  <DataSourceBadge source={latestRatios.dataSource} />
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {latestRatios ? (
+                <>
+                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+                    <span className="text-gray-400 text-sm">ROE</span>
+                    <span className={`font-medium ${
+                      (parseFloat(latestRatios.roe?.toString() || '0') >= 15) 
+                        ? 'text-green-400' 
+                        : 'text-white'
+                    }`}>
+                      {formatPercent(latestRatios.roe)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+                    <span className="text-gray-400 text-sm">ROCE</span>
+                    <span className="text-white font-medium">{formatPercent(latestRatios.roce)}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+                    <span className="text-gray-400 text-sm">Debt/Equity</span>
+                    <span className={`font-medium ${
+                      (parseFloat(latestRatios.debtEquity?.toString() || '0') > 1) 
+                        ? 'text-red-400' 
+                        : 'text-green-400'
+                    }`}>
+                      {latestRatios.debtEquity?.toString() || '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+                    <span className="text-gray-400 text-sm">Current Ratio</span>
+                    <span className="text-white font-medium">{latestRatios.currentRatio?.toString() || '—'}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
+                    <span className="text-gray-400 text-sm">PAT Margin</span>
+                    <span className="text-white font-medium">{formatPercent(latestRatios.marginPat)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  <Activity className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm mb-3">No ratio data available</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshData}
+                    disabled={isRefreshing}
+                    className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
+                    data-testid="button-fetch-ratio-data"
+                  >
+                    {isRefreshing ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Fetch Data
+                  </Button>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                  <span className="text-gray-400 text-sm">ROCE</span>
-                  <span className="text-white font-medium">{formatPercent(latestRatios.roce)}</span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                  <span className="text-gray-400 text-sm">Debt/Equity</span>
-                  <span className={`font-medium ${
-                    (parseFloat(latestRatios.debtEquity?.toString() || '0') > 1) 
-                      ? 'text-red-400' 
-                      : 'text-green-400'
-                  }`}>
-                    {latestRatios.debtEquity?.toString() || '—'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                  <span className="text-gray-400 text-sm">Current Ratio</span>
-                  <span className="text-white font-medium">{latestRatios.currentRatio?.toString() || '—'}</span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                  <span className="text-gray-400 text-sm">PAT Margin</span>
-                  <span className="text-white font-medium">{formatPercent(latestRatios.marginPat)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="bg-gray-900 border-gray-800">
             <CardHeader>
@@ -627,7 +682,22 @@ export default function UnlistedPreviewPage() {
               {!latestRatios?.peRatio && !latestRatios?.pbRatio && !latestRatios?.evEbitda && (
                 <div className="text-center text-gray-500 py-4">
                   <Zap className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Valuation data not available</p>
+                  <p className="text-sm mb-3">Valuation data not available</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshData}
+                    disabled={isRefreshing}
+                    className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
+                    data-testid="button-fetch-valuation-data"
+                  >
+                    {isRefreshing ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Fetch Data
+                  </Button>
                 </div>
               )}
             </CardContent>

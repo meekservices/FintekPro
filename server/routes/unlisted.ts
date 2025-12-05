@@ -2399,6 +2399,117 @@ router.post('/admin/refresh-moneycontrol/:companyId', async (req: Request, res: 
 });
 
 /**
+ * GET /api/unlisted/admin/companies/:id
+ * Get company details (Admin only - bypasses KYC requirements)
+ */
+router.get('/admin/companies/:id', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    const company = await storage.getUnlistedCompanyById(id);
+    
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    return apiResponse.success(res, company);
+  } catch (error: any) {
+    console.error('Error fetching company:', error);
+    return apiResponse.serverError(res, 'Failed to fetch company');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/companies/:id/financials
+ * Get company financials (Admin only - bypasses KYC requirements)
+ */
+router.get('/admin/companies/:id/financials', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const financials = await storage.getCompanyFinancials(id);
+    return apiResponse.success(res, financials);
+  } catch (error: any) {
+    console.error('Error fetching financials:', error);
+    return apiResponse.serverError(res, 'Failed to fetch financial data');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/companies/:id/ratios
+ * Get company ratios (Admin only - bypasses KYC requirements)
+ */
+router.get('/admin/companies/:id/ratios', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const ratios = await storage.getCompanyRatios(id);
+    return apiResponse.success(res, ratios);
+  } catch (error: any) {
+    console.error('Error fetching ratios:', error);
+    return apiResponse.serverError(res, 'Failed to fetch ratio data');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/companies/:id/data-quality
+ * Get data quality information (Admin only - bypasses KYC requirements)
+ */
+router.get('/admin/companies/:id/data-quality', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const unifiedData = await unifiedCompanyDataService.getCompanyData(id);
+    
+    if (!unifiedData) {
+      return apiResponse.success(res, {
+        fallbackUsed: false,
+        fallbackReason: null,
+        warnings: ['No data available'],
+        primarySourceFailed: true,
+        sourcesUsed: [],
+        overallScore: 0,
+      });
+    }
+    
+    return apiResponse.success(res, unifiedData.dataQuality);
+  } catch (error: any) {
+    console.error('Error fetching data quality:', error);
+    return apiResponse.serverError(res, 'Failed to fetch data quality');
+  }
+});
+
+/**
  * POST /api/unlisted/admin/refresh-company-data/:companyId
  * Refresh all company data from external sources (Admin only)
  */
@@ -2415,8 +2526,10 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       return apiResponse.notFound(res, 'Company not found');
     }
     
-    const results: { source: string; status: string; error?: string }[] = [];
+    const companyData = company as any;
+    const results: { source: string; status: string; error?: string; data?: any }[] = [];
     
+    // Try MoneyControl price refresh
     try {
       const mcResult = await priceAggregationService.refreshMoneyControlPrice(companyId);
       results.push({ source: 'moneycontrol', status: mcResult ? 'success' : 'no_data' });
@@ -2424,10 +2537,92 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       results.push({ source: 'moneycontrol', status: 'error', error: mcError.message });
     }
     
+    // Try MCA data fetch if CIN is available
+    if (companyData.cin && mcaService.isConfigured()) {
+      try {
+        console.log(`[Refresh] Fetching MCA data for CIN: ${companyData.cin}`);
+        const mcaData = await mcaService.getCompanyByCIN(companyData.cin);
+        
+        if (mcaData) {
+          // Update company with MCA data
+          const companyUpdate = mcaService.toFintekProCompanyData(mcaData);
+          await storage.updateUnlistedCompany(companyId, {
+            industry: companyUpdate.industry || companyData.industry,
+            sector: companyUpdate.sector || companyData.sector,
+            faceValue: companyUpdate.faceValue || companyData.faceValue,
+            totalShares: companyUpdate.totalShares ? parseInt(companyUpdate.totalShares) : companyData.totalShares,
+            description: companyUpdate.registeredAddress || companyData.description,
+            lastSyncedAt: new Date(),
+          });
+          
+          // Calculate basic metrics from MCA data
+          const metrics = mcaService.estimateBasicMetrics(mcaData);
+          
+          // Store MCA-derived ratios if we have them
+          if (metrics.debtEquity !== undefined) {
+            const currentYear = new Date().getFullYear();
+            const financialYear = `${currentYear - 1}-${currentYear}`;
+            
+            try {
+              await storage.createCompanyRatios({
+                companyId,
+                financialYear,
+                debtEquity: metrics.debtEquity.toString(),
+                dataSource: 'mca',
+              });
+            } catch (ratioError) {
+              console.log('[Refresh] Could not store MCA ratios:', ratioError);
+            }
+          }
+          
+          results.push({ 
+            source: 'mca', 
+            status: 'success',
+            data: {
+              paidUpCapital: mcaData.paidUpCapital,
+              authorizedCapital: mcaData.authorizedCapital,
+              directors: mcaData.directors.length,
+              charges: mcaData.charges.length,
+            }
+          });
+        } else {
+          results.push({ source: 'mca', status: 'no_data' });
+        }
+      } catch (mcaError: any) {
+        console.error('[Refresh] MCA error:', mcaError);
+        results.push({ source: 'mca', status: 'error', error: mcaError.message });
+      }
+    } else if (!companyData.cin) {
+      results.push({ source: 'mca', status: 'skipped', error: 'No CIN available' });
+    } else {
+      results.push({ source: 'mca', status: 'skipped', error: 'API not configured' });
+    }
+    
+    // Try Probe42 sync if available
+    if (probe42Service.isReady()) {
+      try {
+        // Use company's probe42 ID if available for direct sync
+        if (companyData.probe42CompanyId) {
+          const financials = await probe42Service.getCompanyFinancials(companyData.probe42CompanyId, 3);
+          const ratios = await probe42Service.getCompanyRatios(companyData.probe42CompanyId, 3);
+          
+          if (financials.length > 0 || ratios.length > 0) {
+            results.push({ source: 'probe42', status: 'success' });
+          } else {
+            results.push({ source: 'probe42', status: 'no_data' });
+          }
+        } else {
+          results.push({ source: 'probe42', status: 'skipped', error: 'No Probe42 company ID linked' });
+        }
+      } catch (p42Error: any) {
+        results.push({ source: 'probe42', status: 'error', error: p42Error.message });
+      }
+    }
+    
     return apiResponse.success(res, {
       message: 'Company data refresh completed',
       companyId,
-      companyName: (company as any).name,
+      companyName: companyData.name,
       results,
     });
   } catch (error: any) {
