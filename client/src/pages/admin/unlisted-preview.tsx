@@ -21,7 +21,12 @@ import {
   RefreshCw,
   Package,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  Users,
+  Lightbulb,
+  TrendingDown,
+  Shield,
+  Target
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -515,7 +520,7 @@ export default function UnlistedPreviewPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   <div className="p-3 bg-gray-800 rounded-lg">
                     <div className="text-xs text-gray-400">Revenue</div>
                     <div className="text-lg font-bold text-white">
@@ -523,19 +528,19 @@ export default function UnlistedPreviewPage() {
                     </div>
                   </div>
                   <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">Net Profit</div>
-                    <div className={`text-lg font-bold ${
-                      (parseFloat(latestFinancials.netProfit?.toString() || '0') >= 0) 
-                        ? 'text-green-400' 
-                        : 'text-red-400'
-                    }`}>
-                      {formatCurrency(latestFinancials.netProfit)}
+                    <div className="text-xs text-gray-400">EBITDA</div>
+                    <div className="text-lg font-bold text-blue-400">
+                      {formatCurrency(latestFinancials.ebitda)}
                     </div>
                   </div>
                   <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">Total Assets</div>
-                    <div className="text-lg font-bold text-white">
-                      {formatCurrency(latestFinancials.totalAssets)}
+                    <div className="text-xs text-gray-400">Net Profit (PAT)</div>
+                    <div className={`text-lg font-bold ${
+                      (parseFloat(latestFinancials.netProfit?.toString() || latestFinancials.pat?.toString() || '0') >= 0) 
+                        ? 'text-green-400' 
+                        : 'text-red-400'
+                    }`}>
+                      {formatCurrency(latestFinancials.netProfit || latestFinancials.pat)}
                     </div>
                   </div>
                   <div className="p-3 bg-gray-800 rounded-lg">
@@ -546,6 +551,108 @@ export default function UnlistedPreviewPage() {
                         : 'text-red-400'
                     }`}>
                       {formatCurrency(latestFinancials.networth)}
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-3 bg-gray-800 rounded-lg">
+                    <div className="text-xs text-gray-400">Total Assets</div>
+                    <div className="text-lg font-bold text-white">
+                      {formatCurrency(latestFinancials.totalAssets)}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-800 rounded-lg">
+                    <div className="text-xs text-gray-400">Total Debt</div>
+                    <div className={`text-lg font-bold ${
+                      (parseFloat(latestFinancials.totalDebt?.toString() || '0') > parseFloat(latestFinancials.networth?.toString() || '1')) 
+                        ? 'text-red-400' 
+                        : 'text-amber-400'
+                    }`}>
+                      {formatCurrency(latestFinancials.totalDebt)}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-800 rounded-lg">
+                    <div className="text-xs text-gray-400">EBITDA Margin</div>
+                    <div className={`text-lg font-bold ${
+                      latestRatios && parseFloat(latestRatios.marginEbitda?.toString() || '0') >= 15 
+                        ? 'text-green-400' 
+                        : 'text-white'
+                    }`}>
+                      {latestRatios?.marginEbitda ? `${(parseFloat(latestRatios.marginEbitda.toString()) * 100).toFixed(1)}%` : '—'}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-800 rounded-lg">
+                    <div className="text-xs text-gray-400">PAT Margin</div>
+                    <div className={`text-lg font-bold ${
+                      latestRatios && parseFloat(latestRatios.marginPat?.toString() || '0') >= 10 
+                        ? 'text-green-400' 
+                        : 'text-white'
+                    }`}>
+                      {latestRatios?.marginPat ? `${(parseFloat(latestRatios.marginPat.toString()) * 100).toFixed(1)}%` : '—'}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Growth Metrics Card */}
+          {latestRatios && (
+            <Card className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-purple-500/30">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                  Growth Metrics
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-3 bg-gray-900/50 rounded-lg">
+                    <div className="text-xs text-gray-400">Revenue Growth</div>
+                    <div className={`text-lg font-bold ${
+                      parseFloat(latestRatios.revenueGrowth?.toString() || '0') >= 0 
+                        ? 'text-green-400' 
+                        : 'text-red-400'
+                    }`}>
+                      {latestRatios.revenueGrowth 
+                        ? `${parseFloat(latestRatios.revenueGrowth.toString()) >= 0 ? '+' : ''}${(parseFloat(latestRatios.revenueGrowth.toString()) * 100).toFixed(1)}%`
+                        : '—'}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-900/50 rounded-lg">
+                    <div className="text-xs text-gray-400">Profit Growth</div>
+                    <div className={`text-lg font-bold ${
+                      parseFloat(latestRatios.profitGrowth?.toString() || '0') >= 0 
+                        ? 'text-green-400' 
+                        : 'text-red-400'
+                    }`}>
+                      {latestRatios.profitGrowth 
+                        ? `${parseFloat(latestRatios.profitGrowth.toString()) >= 0 ? '+' : ''}${(parseFloat(latestRatios.profitGrowth.toString()) * 100).toFixed(1)}%`
+                        : '—'}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-900/50 rounded-lg">
+                    <div className="text-xs text-gray-400">ROE</div>
+                    <div className={`text-lg font-bold ${
+                      parseFloat(latestRatios.roe?.toString() || '0') >= 15 
+                        ? 'text-green-400' 
+                        : 'text-white'
+                    }`}>
+                      {latestRatios.roe 
+                        ? `${(parseFloat(latestRatios.roe.toString()) * 100).toFixed(1)}%`
+                        : '—'}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-900/50 rounded-lg">
+                    <div className="text-xs text-gray-400">ROCE</div>
+                    <div className={`text-lg font-bold ${
+                      parseFloat(latestRatios.roce?.toString() || '0') >= 15 
+                        ? 'text-green-400' 
+                        : 'text-white'
+                    }`}>
+                      {latestRatios.roce 
+                        ? `${(parseFloat(latestRatios.roce.toString()) * 100).toFixed(1)}%`
+                        : '—'}
                     </div>
                   </div>
                 </div>
@@ -703,6 +810,131 @@ export default function UnlistedPreviewPage() {
           </Card>
         </div>
       </div>
+
+      {/* Directors Section */}
+      {company?.directors && Array.isArray(company.directors) && company.directors.length > 0 && (
+        <Card className="bg-gray-900 border-gray-800 mb-6">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-cyan-400" />
+              Board of Directors
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(company.directors as Array<{name?: string; din?: string; designation?: string}>).map((director, index) => (
+                <div key={index} className="p-4 bg-gray-800 rounded-lg">
+                  <div className="text-white font-medium">{director.name || 'Unknown'}</div>
+                  <div className="text-sm text-gray-400">{director.designation || 'Director'}</div>
+                  {director.din && (
+                    <div className="text-xs text-gray-500 mt-1">DIN: {director.din}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Investment Thesis Section */}
+      {latestFinancials && latestRatios && (
+        <Card className="bg-gradient-to-br from-indigo-900/30 to-blue-900/30 border-indigo-500/30 mb-6">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-yellow-400" />
+              Investment Thesis
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Key investment highlights and risk factors
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Strengths */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-green-400 font-medium mb-2">
+                  <Target className="w-4 h-4" />
+                  Investment Highlights
+                </div>
+                <ul className="space-y-2">
+                  {latestRatios.roe && parseFloat(latestRatios.roe.toString()) >= 0.15 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      <span>Strong ROE of {(parseFloat(latestRatios.roe.toString()) * 100).toFixed(1)}% indicates efficient capital utilization</span>
+                    </li>
+                  )}
+                  {latestRatios.roce && parseFloat(latestRatios.roce.toString()) >= 0.15 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      <span>Healthy ROCE of {(parseFloat(latestRatios.roce.toString()) * 100).toFixed(1)}% shows good return on capital employed</span>
+                    </li>
+                  )}
+                  {latestRatios.debtEquity && parseFloat(latestRatios.debtEquity.toString()) < 0.5 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      <span>Conservative leverage with debt-to-equity of {latestRatios.debtEquity}</span>
+                    </li>
+                  )}
+                  {latestRatios.revenueGrowth && parseFloat(latestRatios.revenueGrowth.toString()) > 0.2 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      <span>Strong revenue growth of {(parseFloat(latestRatios.revenueGrowth.toString()) * 100).toFixed(1)}% YoY</span>
+                    </li>
+                  )}
+                  {latestFinancials.networth && parseFloat(latestFinancials.networth.toString()) > 0 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      <span>Positive net worth of {formatCurrency(latestFinancials.networth)}</span>
+                    </li>
+                  )}
+                  {latestRatios.currentRatio && parseFloat(latestRatios.currentRatio.toString()) >= 1.5 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      <span>Healthy liquidity with current ratio of {latestRatios.currentRatio}</span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+              
+              {/* Risk Factors */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-amber-400 font-medium mb-2">
+                  <Shield className="w-4 h-4" />
+                  Risk Factors
+                </div>
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <span>Unlisted shares have limited liquidity compared to publicly traded stocks</span>
+                  </li>
+                  {latestRatios.debtEquity && parseFloat(latestRatios.debtEquity.toString()) > 1 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                      <span>High leverage with debt-to-equity of {latestRatios.debtEquity}</span>
+                    </li>
+                  )}
+                  {latestRatios.profitGrowth && parseFloat(latestRatios.profitGrowth.toString()) < 0 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <TrendingDown className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                      <span>Profit decline of {(Math.abs(parseFloat(latestRatios.profitGrowth.toString())) * 100).toFixed(1)}% YoY</span>
+                    </li>
+                  )}
+                  {latestFinancials.networth && parseFloat(latestFinancials.networth.toString()) < 0 && (
+                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                      <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                      <span>Negative net worth indicates accumulated losses</span>
+                    </li>
+                  )}
+                  <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <span>Share price depends on company performance and market conditions</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">

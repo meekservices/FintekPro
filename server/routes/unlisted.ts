@@ -2701,6 +2701,7 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
               financialYear: ratio.financial_year,
               peRatio: ratio.pe_ratio?.toString(),
               pbRatio: ratio.pb_ratio?.toString(),
+              evEbitda: ratio.ev_ebitda?.toString(),
               roe: ratio.roe?.toString(),
               roce: ratio.roce?.toString(),
               marginEbitda: ratio.margin_ebitda?.toString(),

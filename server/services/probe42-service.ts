@@ -709,16 +709,17 @@ class Probe42Service {
         company_id: companyId,
         financial_year: fy,
         
-        pe_ratio: 45.5,
-        pb_ratio: 8.2,
-        roe: 0.12,
-        roce: 0.15,
-        margin_ebitda: 0.10,
-        margin_pat: 0.04,
-        debt_equity: 0.33,
-        current_ratio: 1.8,
-        revenue_growth: 0.30,
-        profit_growth: 0.20,
+        pe_ratio: 25.5 + (i * 2),
+        pb_ratio: 4.2 + (i * 0.5),
+        ev_ebitda: 12.5 + (i * 1),
+        roe: 0.18 - (i * 0.02),
+        roce: 0.22 - (i * 0.02),
+        margin_ebitda: 0.15 - (i * 0.01),
+        margin_pat: 0.08 - (i * 0.01),
+        debt_equity: 0.35 + (i * 0.05),
+        current_ratio: 2.0 - (i * 0.1),
+        revenue_growth: 0.28 - (i * 0.03),
+        profit_growth: 0.22 - (i * 0.02),
       });
     }
 
