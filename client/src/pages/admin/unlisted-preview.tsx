@@ -4,6 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -26,7 +30,14 @@ import {
   Lightbulb,
   TrendingDown,
   Shield,
-  Target
+  Target,
+  Scale,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  Plus,
+  Trash2,
+  Pencil
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -146,12 +157,43 @@ const formatPercent = (value: number | string | null | undefined): string => {
   return `${num.toFixed(2)}%`;
 };
 
+interface ListedPeer {
+  name: string;
+  ticker: string;
+  exchange: string;
+  marketCap?: number;
+  peRatio?: number;
+  pbRatio?: number;
+  evEbitda?: number;
+  roe?: number;
+  roce?: number;
+  debtEquity?: number;
+  revenueGrowth?: number;
+}
+
+const emptyPeer: ListedPeer = {
+  name: '',
+  ticker: '',
+  exchange: 'NSE',
+  peRatio: undefined,
+  pbRatio: undefined,
+  evEbitda: undefined,
+  roe: undefined,
+  roce: undefined,
+  debtEquity: undefined,
+  revenueGrowth: undefined,
+};
+
 export default function UnlistedPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isPeerDialogOpen, setIsPeerDialogOpen] = useState(false);
+  const [editingPeerIndex, setEditingPeerIndex] = useState<number | null>(null);
+  const [currentPeer, setCurrentPeer] = useState<ListedPeer>(emptyPeer);
+  const [isSavingPeers, setIsSavingPeers] = useState(false);
   
   const searchParams = new URLSearchParams(window.location.search);
   const buyPrice = searchParams.get('buyPrice') || '';
@@ -290,6 +332,83 @@ export default function UnlistedPreviewPage() {
 
   const handleBack = () => {
     navigate('/admin/store/seed-unlisted');
+  };
+
+  const getCurrentPeers = (): ListedPeer[] => {
+    if (!company?.listedPeers || !Array.isArray(company.listedPeers)) return [];
+    return company.listedPeers as ListedPeer[];
+  };
+
+  const handleAddPeer = () => {
+    setEditingPeerIndex(null);
+    setCurrentPeer({ ...emptyPeer });
+    setIsPeerDialogOpen(true);
+  };
+
+  const handleEditPeer = (index: number) => {
+    const peers = getCurrentPeers();
+    if (peers[index]) {
+      setEditingPeerIndex(index);
+      setCurrentPeer({ ...peers[index] });
+      setIsPeerDialogOpen(true);
+    }
+  };
+
+  const handleDeletePeer = async (index: number) => {
+    const peers = getCurrentPeers();
+    const updatedPeers = peers.filter((_, i) => i !== index);
+    await savePeers(updatedPeers);
+  };
+
+  const handleSavePeer = async () => {
+    if (!currentPeer.name || !currentPeer.ticker) {
+      toast({
+        title: 'Required fields missing',
+        description: 'Company name and ticker are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const peers = getCurrentPeers();
+    let updatedPeers: ListedPeer[];
+
+    if (editingPeerIndex !== null) {
+      updatedPeers = [...peers];
+      updatedPeers[editingPeerIndex] = currentPeer;
+    } else {
+      updatedPeers = [...peers, currentPeer];
+    }
+
+    await savePeers(updatedPeers);
+    setIsPeerDialogOpen(false);
+    setCurrentPeer({ ...emptyPeer });
+    setEditingPeerIndex(null);
+  };
+
+  const savePeers = async (peers: ListedPeer[]) => {
+    setIsSavingPeers(true);
+    try {
+      await apiRequest(`/api/unlisted/admin/companies/${id}/peers`, {
+        method: 'PUT',
+        body: JSON.stringify({ listedPeers: peers }),
+      });
+      
+      await refetchCompany();
+      
+      toast({
+        title: 'Peers updated',
+        description: 'Listed peer companies have been saved',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Failed to save peers',
+        description: error.message || 'An error occurred',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingPeers(false);
+    }
   };
 
   if (isLoadingCompany) {
@@ -822,6 +941,306 @@ export default function UnlistedPreviewPage() {
         </Card>
       )}
 
+      {/* Listed Peers Comparison Section */}
+      {company?.listedPeers && Array.isArray(company.listedPeers) && (company.listedPeers as Array<{
+        name?: string;
+        ticker?: string;
+        exchange?: string;
+        marketCap?: number;
+        peRatio?: number;
+        pbRatio?: number;
+        evEbitda?: number;
+        roe?: number;
+        roce?: number;
+        debtEquity?: number;
+        revenueGrowth?: number;
+      }>).length > 0 && latestRatios && (
+        <Card className="bg-gray-900 border-gray-800 mb-6">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Scale className="w-5 h-5 text-blue-400" />
+              Comparison with Listed Peers
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Side-by-side comparison with similar publicly traded companies
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-700">
+                    <TableHead className="text-gray-400 font-medium">Metric</TableHead>
+                    <TableHead className="text-amber-400 font-medium">
+                      {company.name}
+                      <Badge className="ml-2 bg-amber-500/20 text-amber-400 text-xs">Unlisted</Badge>
+                    </TableHead>
+                    {(company.listedPeers as Array<{name?: string; ticker?: string; exchange?: string}>).map((peer, index) => (
+                      <TableHead key={index} className="text-gray-300 font-medium">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            {peer.name}
+                            <Badge className="ml-2 bg-blue-500/20 text-blue-400 text-xs">{peer.exchange || 'NSE'}</Badge>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditPeer(index)}
+                              className="h-6 w-6 p-0 text-gray-400 hover:text-blue-400"
+                              data-testid={`button-edit-peer-${index}`}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeletePeer(index)}
+                              className="h-6 w-6 p-0 text-gray-400 hover:text-red-400"
+                              data-testid={`button-delete-peer-${index}`}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* P/E Ratio */}
+                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
+                    <TableCell className="text-gray-400">P/E Ratio</TableCell>
+                    <TableCell className="text-white font-medium">
+                      {latestRatios.peRatio ? parseFloat(latestRatios.peRatio.toString()).toFixed(1) : 'N/A'}
+                    </TableCell>
+                    {(company.listedPeers as Array<{peRatio?: number}>).map((peer, index) => {
+                      const companyPE = latestRatios.peRatio ? parseFloat(latestRatios.peRatio.toString()) : null;
+                      const peerPE = peer.peRatio;
+                      const diff = companyPE && peerPE ? ((companyPE - peerPE) / peerPE) * 100 : null;
+                      return (
+                        <TableCell key={index} className="text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span>{peerPE?.toFixed(1) || 'N/A'}</span>
+                            {diff !== null && (
+                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-gray-500'}`}>
+                                {diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                {Math.abs(diff).toFixed(0)}%
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                  {/* P/B Ratio */}
+                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
+                    <TableCell className="text-gray-400">P/B Ratio</TableCell>
+                    <TableCell className="text-white font-medium">
+                      {latestRatios.pbRatio ? parseFloat(latestRatios.pbRatio.toString()).toFixed(2) : 'N/A'}
+                    </TableCell>
+                    {(company.listedPeers as Array<{pbRatio?: number}>).map((peer, index) => {
+                      const companyPB = latestRatios.pbRatio ? parseFloat(latestRatios.pbRatio.toString()) : null;
+                      const peerPB = peer.pbRatio;
+                      const diff = companyPB && peerPB ? ((companyPB - peerPB) / peerPB) * 100 : null;
+                      return (
+                        <TableCell key={index} className="text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span>{peerPB?.toFixed(2) || 'N/A'}</span>
+                            {diff !== null && (
+                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-gray-500'}`}>
+                                {diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                {Math.abs(diff).toFixed(0)}%
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                  {/* EV/EBITDA */}
+                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
+                    <TableCell className="text-gray-400">EV/EBITDA</TableCell>
+                    <TableCell className="text-white font-medium">
+                      {latestRatios.evEbitda ? parseFloat(latestRatios.evEbitda.toString()).toFixed(1) : 'N/A'}
+                    </TableCell>
+                    {(company.listedPeers as Array<{evEbitda?: number}>).map((peer, index) => {
+                      const companyEV = latestRatios.evEbitda ? parseFloat(latestRatios.evEbitda.toString()) : null;
+                      const peerEV = peer.evEbitda;
+                      const diff = companyEV && peerEV ? ((companyEV - peerEV) / peerEV) * 100 : null;
+                      return (
+                        <TableCell key={index} className="text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span>{peerEV?.toFixed(1) || 'N/A'}</span>
+                            {diff !== null && (
+                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-gray-500'}`}>
+                                {diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                {Math.abs(diff).toFixed(0)}%
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                  {/* ROE */}
+                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
+                    <TableCell className="text-gray-400">ROE (%)</TableCell>
+                    <TableCell className="text-white font-medium">
+                      {latestRatios.roe ? (parseFloat(latestRatios.roe.toString()) * 100).toFixed(1) : 'N/A'}
+                    </TableCell>
+                    {(company.listedPeers as Array<{roe?: number}>).map((peer, index) => {
+                      const companyROE = latestRatios.roe ? parseFloat(latestRatios.roe.toString()) * 100 : null;
+                      const peerROE = peer.roe;
+                      const diff = companyROE !== null && peerROE ? companyROE - peerROE : null;
+                      return (
+                        <TableCell key={index} className="text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span>{peerROE?.toFixed(1) || 'N/A'}</span>
+                            {diff !== null && (
+                              <span className={`text-xs flex items-center ${diff > 2 ? 'text-green-400' : diff < -2 ? 'text-red-400' : 'text-gray-500'}`}>
+                                {diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                {diff > 0 ? '+' : ''}{diff.toFixed(1)}pp
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                  {/* ROCE */}
+                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
+                    <TableCell className="text-gray-400">ROCE (%)</TableCell>
+                    <TableCell className="text-white font-medium">
+                      {latestRatios.roce ? (parseFloat(latestRatios.roce.toString()) * 100).toFixed(1) : 'N/A'}
+                    </TableCell>
+                    {(company.listedPeers as Array<{roce?: number}>).map((peer, index) => {
+                      const companyROCE = latestRatios.roce ? parseFloat(latestRatios.roce.toString()) * 100 : null;
+                      const peerROCE = peer.roce;
+                      const diff = companyROCE !== null && peerROCE ? companyROCE - peerROCE : null;
+                      return (
+                        <TableCell key={index} className="text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span>{peerROCE?.toFixed(1) || 'N/A'}</span>
+                            {diff !== null && (
+                              <span className={`text-xs flex items-center ${diff > 2 ? 'text-green-400' : diff < -2 ? 'text-red-400' : 'text-gray-500'}`}>
+                                {diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                {diff > 0 ? '+' : ''}{diff.toFixed(1)}pp
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                  {/* Debt/Equity */}
+                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
+                    <TableCell className="text-gray-400">Debt/Equity</TableCell>
+                    <TableCell className="text-white font-medium">
+                      {latestRatios.debtEquity || 'N/A'}
+                    </TableCell>
+                    {(company.listedPeers as Array<{debtEquity?: number}>).map((peer, index) => {
+                      const companyDE = latestRatios.debtEquity ? parseFloat(latestRatios.debtEquity.toString()) : null;
+                      const peerDE = peer.debtEquity;
+                      const diff = companyDE !== null && peerDE !== undefined ? companyDE - peerDE : null;
+                      return (
+                        <TableCell key={index} className="text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span>{peerDE?.toFixed(2) || 'N/A'}</span>
+                            {diff !== null && (
+                              <span className={`text-xs flex items-center ${diff < -0.2 ? 'text-green-400' : diff > 0.2 ? 'text-red-400' : 'text-gray-500'}`}>
+                                {diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                {diff > 0 ? '+' : ''}{diff.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                  {/* Revenue Growth */}
+                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
+                    <TableCell className="text-gray-400">Revenue Growth (%)</TableCell>
+                    <TableCell className="text-white font-medium">
+                      {latestRatios.revenueGrowth ? (parseFloat(latestRatios.revenueGrowth.toString()) * 100).toFixed(1) : 'N/A'}
+                    </TableCell>
+                    {(company.listedPeers as Array<{revenueGrowth?: number}>).map((peer, index) => {
+                      const companyGrowth = latestRatios.revenueGrowth ? parseFloat(latestRatios.revenueGrowth.toString()) * 100 : null;
+                      const peerGrowth = peer.revenueGrowth;
+                      const diff = companyGrowth !== null && peerGrowth !== undefined ? companyGrowth - peerGrowth : null;
+                      return (
+                        <TableCell key={index} className="text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span>{peerGrowth?.toFixed(1) || 'N/A'}</span>
+                            {diff !== null && (
+                              <span className={`text-xs flex items-center ${diff > 5 ? 'text-green-400' : diff < -5 ? 'text-red-400' : 'text-gray-500'}`}>
+                                {diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                {diff > 0 ? '+' : ''}{diff.toFixed(1)}pp
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+            <div className="mt-4 p-3 bg-gray-800 rounded-lg flex items-start justify-between">
+              <div className="flex items-start gap-2">
+                <Scale className="w-4 h-4 text-blue-400 mt-0.5" />
+                <div className="text-xs text-gray-400">
+                  <span className="text-green-400">Green</span> indicates the unlisted company is trading at a discount or outperforming peers. 
+                  <span className="text-red-400 ml-1">Red</span> indicates premium valuation or underperformance. 
+                  <span className="text-gray-500 ml-1">pp = percentage points</span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddPeer}
+                className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10 flex-shrink-0"
+                data-testid="button-add-peer"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Peer
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add Peers Section (when no peers exist) */}
+      {latestRatios && (!company?.listedPeers || !Array.isArray(company.listedPeers) || (company.listedPeers as ListedPeer[]).length === 0) && (
+        <Card className="bg-gray-900 border-gray-800 mb-6">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Scale className="w-5 h-5 text-blue-400" />
+              Comparison with Listed Peers
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Add comparable listed companies to help investors assess valuation
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Scale className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+              <p className="text-gray-400 mb-4">No listed peers added yet</p>
+              <p className="text-sm text-gray-500 mb-6">Add comparable publicly-traded companies to show relative valuation metrics</p>
+              <Button
+                variant="outline"
+                onClick={handleAddPeer}
+                className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
+                data-testid="button-add-first-peer"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Listed Peer
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Investment Thesis Section */}
       {latestFinancials && latestRatios && (
         <Card className="bg-gray-900 border-gray-800 mb-6">
@@ -959,6 +1378,185 @@ export default function UnlistedPreviewPage() {
       </div>
 
       <div className="h-20" />
+
+      {/* Peer Management Dialog */}
+      <Dialog open={isPeerDialogOpen} onOpenChange={setIsPeerDialogOpen}>
+        <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Scale className="w-5 h-5 text-blue-400" />
+              {editingPeerIndex !== null ? 'Edit Listed Peer' : 'Add Listed Peer'}
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Enter the financial metrics of a comparable publicly-traded company
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="peer-name" className="text-gray-300">Company Name *</Label>
+                <Input
+                  id="peer-name"
+                  value={currentPeer.name}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, name: e.target.value })}
+                  placeholder="e.g., HDFC Bank"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="peer-ticker" className="text-gray-300">Ticker Symbol *</Label>
+                <Input
+                  id="peer-ticker"
+                  value={currentPeer.ticker}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, ticker: e.target.value.toUpperCase() })}
+                  placeholder="e.g., HDFCBANK"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-ticker"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="peer-exchange" className="text-gray-300">Exchange</Label>
+                <Select
+                  value={currentPeer.exchange}
+                  onValueChange={(value) => setCurrentPeer({ ...currentPeer, exchange: value })}
+                >
+                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white" data-testid="select-peer-exchange">
+                    <SelectValue placeholder="Select exchange" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700">
+                    <SelectItem value="NSE">NSE</SelectItem>
+                    <SelectItem value="BSE">BSE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="peer-pe" className="text-gray-300">P/E Ratio</Label>
+                <Input
+                  id="peer-pe"
+                  type="number"
+                  step="0.1"
+                  value={currentPeer.peRatio || ''}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, peRatio: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="e.g., 25.5"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-pe"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="peer-pb" className="text-gray-300">P/B Ratio</Label>
+                <Input
+                  id="peer-pb"
+                  type="number"
+                  step="0.01"
+                  value={currentPeer.pbRatio || ''}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, pbRatio: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="e.g., 3.2"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-pb"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="peer-ev" className="text-gray-300">EV/EBITDA</Label>
+                <Input
+                  id="peer-ev"
+                  type="number"
+                  step="0.1"
+                  value={currentPeer.evEbitda || ''}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, evEbitda: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="e.g., 15.8"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-ev"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="peer-de" className="text-gray-300">Debt/Equity</Label>
+                <Input
+                  id="peer-de"
+                  type="number"
+                  step="0.01"
+                  value={currentPeer.debtEquity || ''}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, debtEquity: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="e.g., 0.5"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-de"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="peer-roe" className="text-gray-300">ROE (%)</Label>
+                <Input
+                  id="peer-roe"
+                  type="number"
+                  step="0.1"
+                  value={currentPeer.roe || ''}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, roe: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="e.g., 18.5"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-roe"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="peer-roce" className="text-gray-300">ROCE (%)</Label>
+                <Input
+                  id="peer-roce"
+                  type="number"
+                  step="0.1"
+                  value={currentPeer.roce || ''}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, roce: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="e.g., 22.3"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-roce"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="peer-growth" className="text-gray-300">Revenue Growth (%)</Label>
+                <Input
+                  id="peer-growth"
+                  type="number"
+                  step="0.1"
+                  value={currentPeer.revenueGrowth || ''}
+                  onChange={(e) => setCurrentPeer({ ...currentPeer, revenueGrowth: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="e.g., 15.2"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-peer-growth"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsPeerDialogOpen(false)}
+              className="border-gray-700 text-gray-300"
+              data-testid="button-cancel-peer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSavePeer}
+              disabled={isSavingPeers}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="button-save-peer"
+            >
+              {isSavingPeers ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : null}
+              {editingPeerIndex !== null ? 'Update Peer' : 'Add Peer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

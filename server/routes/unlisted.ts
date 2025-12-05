@@ -2510,6 +2510,42 @@ router.get('/admin/companies/:id/data-quality', async (req: Request, res: Respon
 });
 
 /**
+ * PUT /api/unlisted/admin/companies/:id/peers
+ * Update listed peer companies for comparison (Admin only)
+ */
+router.put('/admin/companies/:id/peers', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    const { listedPeers } = req.body;
+    
+    if (!Array.isArray(listedPeers)) {
+      return apiResponse.badRequest(res, 'listedPeers must be an array');
+    }
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    await storage.updateUnlistedCompany(id, { listedPeers });
+    
+    console.log(`[Peers] Updated ${listedPeers.length} listed peers for company ${id}`);
+    
+    return apiResponse.success(res, { 
+      message: 'Listed peers updated successfully',
+      peersCount: listedPeers.length 
+    });
+  } catch (error: any) {
+    console.error('Error updating listed peers:', error);
+    return apiResponse.serverError(res, 'Failed to update listed peers');
+  }
+});
+
+/**
  * POST /api/unlisted/admin/refresh-company-data/:companyId
  * Refresh all company data from external sources (Admin only)
  */
