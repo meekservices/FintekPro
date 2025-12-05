@@ -105,6 +105,40 @@ router.get('/companies/:id', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/unlisted/companies/:id/data-quality
+ * Get data quality information for a company (public)
+ * Returns sources used, fallback status, and quality score
+ */
+router.get('/companies/:id/data-quality', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const unifiedData = await unifiedCompanyDataService.getCompanyData(id);
+    
+    if (!unifiedData) {
+      return apiResponse.success(res, {
+        fallbackUsed: false,
+        fallbackReason: null,
+        warnings: ['No data available'],
+        primarySourceFailed: true,
+        sourcesUsed: [],
+        overallScore: 0,
+      });
+    }
+    
+    return apiResponse.success(res, unifiedData.dataQuality);
+  } catch (error: any) {
+    console.error('Error fetching data quality:', error);
+    return apiResponse.serverError(res, 'Failed to fetch data quality');
+  }
+});
+
+/**
  * POST /api/unlisted/companies
  * Create a new unlisted company (admin only)
  */

@@ -19,8 +19,11 @@ import {
   BarChart3,
   Zap,
   Database,
-  Info
+  Info,
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useState } from "react";
@@ -79,6 +82,59 @@ const DataSourceBadge = ({ source }: { source: string | null | undefined }) => {
   );
 };
 
+interface DataQualityInfo {
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+  warnings: string[];
+  primarySourceFailed: boolean;
+  sourcesUsed: string[];
+  overallScore: number;
+  missingData?: string[];
+  lastUpdated?: string;
+}
+
+const DataQualityWarning = ({ quality }: { quality: DataQualityInfo | null | undefined }) => {
+  if (!quality) return null;
+  
+  const hasWarnings = quality.fallbackUsed || quality.warnings.length > 0 || (quality.missingData && quality.missingData.length > 0);
+  if (!hasWarnings) return null;
+
+  const isWarning = quality.fallbackUsed || quality.primarySourceFailed;
+
+  return (
+    <Alert className={`mb-4 ${isWarning ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'}`} data-testid="alert-data-quality">
+      <AlertTriangle className={`h-4 w-4 ${isWarning ? 'text-amber-500' : 'text-blue-500'}`} />
+      <AlertTitle className="text-sm font-medium">
+        {quality.primarySourceFailed ? 'Using Fallback Data Sources' : 'Data Quality Notice'}
+      </AlertTitle>
+      <AlertDescription className="text-xs mt-1">
+        {quality.fallbackReason && (
+          <p className="mb-1">{quality.fallbackReason}</p>
+        )}
+        {quality.warnings.length > 0 && (
+          <ul className="list-disc list-inside space-y-0.5">
+            {quality.warnings.map((warning, i) => (
+              <li key={i}>{warning}</li>
+            ))}
+          </ul>
+        )}
+        {quality.missingData && quality.missingData.length > 0 && (
+          <p className="mt-1 text-muted-foreground">
+            Missing: {quality.missingData.join(', ')}
+          </p>
+        )}
+        <div className="mt-2 flex items-center gap-4 text-muted-foreground">
+          <span>Sources: {quality.sourcesUsed.length > 0 ? quality.sourcesUsed.join(', ') : 'Internal'}</span>
+          <span>Quality: {quality.overallScore}%</span>
+          {quality.lastUpdated && (
+            <span>Updated: {new Date(quality.lastUpdated).toLocaleDateString()}</span>
+          )}
+        </div>
+      </AlertDescription>
+    </Alert>
+  );
+};
+
 export default function UnlistedCompanyDetails() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -113,6 +169,12 @@ export default function UnlistedCompanyDetails() {
   const { data: deals = [], isLoading: isLoadingDeals } = useQuery<UnlistedDeal[]>({
     queryKey: ['/api/unlisted/deals'],
     enabled: !!id,
+  });
+
+  // Fetch data quality from backend (uses unified company data service)
+  const { data: dataQuality } = useQuery<DataQualityInfo>({
+    queryKey: ['/api/unlisted/companies', id, 'data-quality'],
+    enabled: !!id && !!company,
   });
 
   const isLoading = isLoadingCompany || isLoadingFinancials || isLoadingRatios;
@@ -286,6 +348,9 @@ export default function UnlistedCompanyDetails() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Data Quality Warning Banner */}
+        <DataQualityWarning quality={dataQuality} />
       </div>
 
       <div className="max-w-7xl mx-auto space-y-6">

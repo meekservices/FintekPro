@@ -73,6 +73,10 @@ export interface UnifiedCompanyData {
     sourcesUsed: DataSource[];
     missingData: string[];
     lastUpdated: Date;
+    fallbackUsed: boolean;
+    fallbackReason?: string;
+    warnings: string[];
+    primarySourceFailed: boolean;
   };
 }
 
@@ -83,7 +87,68 @@ export interface DataFetchResult {
   error?: string;
 }
 
+/**
+ * Telemetry event for data source selection monitoring
+ */
+export interface DataSourceTelemetry {
+  requestId: string;
+  companyIdOrCin: string;
+  timestamp: Date;
+  duration: number;
+  sourcesAttempted: DataSource[];
+  sourcesSucceeded: DataSource[];
+  sourcesFailed: { source: DataSource; error: string }[];
+  primarySource: DataSource | null;
+  financialsSource: DataSource | null;
+  ratiosSource: DataSource | null;
+  fallbackTriggered: boolean;
+  fallbackReason?: string;
+  toflerHasUsableData: boolean;
+  dataQualityScore: number;
+  warnings: string[];
+}
+
 class UnifiedCompanyDataService {
+  private telemetryLogs: DataSourceTelemetry[] = [];
+
+  /**
+   * Get recent telemetry logs for monitoring
+   */
+  getTelemetryLogs(limit: number = 100): DataSourceTelemetry[] {
+    return this.telemetryLogs.slice(-limit);
+  }
+
+  /**
+   * Log telemetry event for production monitoring
+   */
+  private logTelemetry(telemetry: DataSourceTelemetry): void {
+    this.telemetryLogs.push(telemetry);
+    
+    if (this.telemetryLogs.length > 1000) {
+      this.telemetryLogs = this.telemetryLogs.slice(-500);
+    }
+
+    const logLevel = telemetry.fallbackTriggered ? '⚠️' : '✅';
+    const sourcesInfo = `Primary: ${telemetry.primarySource || 'none'} | Financials: ${telemetry.financialsSource || 'none'} | Ratios: ${telemetry.ratiosSource || 'none'}`;
+    
+    console.log(`${logLevel} [DataSource Telemetry] ${telemetry.companyIdOrCin} | ${sourcesInfo} | Quality: ${telemetry.dataQualityScore}% | Duration: ${telemetry.duration}ms`);
+    
+    if (telemetry.fallbackTriggered) {
+      console.log(`📊 [Fallback Analysis] Reason: ${telemetry.fallbackReason} | Attempted: [${telemetry.sourcesAttempted.join(', ')}] | Succeeded: [${telemetry.sourcesSucceeded.join(', ')}]`);
+    }
+    
+    if (telemetry.sourcesFailed.length > 0) {
+      telemetry.sourcesFailed.forEach(f => {
+        console.log(`❌ [Source Failed] ${f.source}: ${f.error}`);
+      });
+    }
+
+    if (telemetry.warnings.length > 0) {
+      telemetry.warnings.forEach(w => {
+        console.log(`⚠️ [DataSource Warning] ${w}`);
+      });
+    }
+  }
 
   /**
    * Fetch complete company data with automatic fallback
@@ -97,8 +162,12 @@ class UnifiedCompanyDataService {
     } = {}
   ): Promise<UnifiedCompanyData | null> {
     const { forceRefresh = false, includeMCA = true, skipTofler = false } = options;
+    const startTime = Date.now();
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const warnings: string[] = [];
+    const sourcesFailed: { source: DataSource; error: string }[] = [];
     
-    console.log(`[UnifiedData] Fetching data for: ${companyIdOrCin}`);
+    console.log(`[UnifiedData] Fetching data for: ${companyIdOrCin} (Request: ${requestId})`);
     
     // First, check if this is a company ID or CIN
     let company = await storage.getUnlistedCompanyById(companyIdOrCin);
@@ -194,8 +263,83 @@ class UnifiedCompanyDataService {
       }
     }
 
-    // Aggregate data from all sources
-    return this.aggregateData(company || undefined, toflerData, mcaData, ownFinancials, ownRatios, results);
+    // Build telemetry data
+    const sourcesAttempted: DataSource[] = [];
+    const sourcesSucceeded: DataSource[] = [];
+    
+    if (!skipTofler) sourcesAttempted.push('tofler');
+    if (company) sourcesAttempted.push('fintekpro');
+    if (includeMCA && cin && !toflerHasUsableData) sourcesAttempted.push('mca');
+
+    results.forEach(r => {
+      if (r.success) {
+        sourcesSucceeded.push(r.source);
+      } else {
+        sourcesFailed.push({ source: r.source, error: r.error || 'Unknown error' });
+      }
+    });
+
+    const fallbackTriggered = !toflerHasUsableData && sourcesAttempted.includes('tofler');
+    let fallbackReason: string | undefined;
+    
+    if (fallbackTriggered) {
+      const toflerResult = results.find(r => r.source === 'tofler');
+      if (!toflerResult?.success) {
+        fallbackReason = toflerResult?.error || 'Tofler failed';
+      } else if (toflerData && (!toflerData.financials?.length && !toflerData.ratios?.length)) {
+        fallbackReason = 'Tofler returned shell data without financials/ratios';
+        warnings.push('Primary source (Tofler) returned incomplete data - using fallback sources');
+      }
+    }
+
+    if (!sourcesSucceeded.length && !company) {
+      warnings.push('All data sources failed - no data available');
+    }
+
+    // Determine primary source failure
+    const toflerResult = results.find(r => r.source === 'tofler');
+    const primarySourceFailed = !skipTofler && (!toflerResult?.success || !toflerHasUsableData);
+
+    // Aggregate data from all sources with fallback info
+    const aggregatedData = this.aggregateData(
+      company || undefined, 
+      toflerData, 
+      mcaData, 
+      ownFinancials, 
+      ownRatios, 
+      results,
+      {
+        fallbackUsed: fallbackTriggered,
+        fallbackReason,
+        warnings,
+        primarySourceFailed,
+      }
+    );
+
+    // Determine sources used for telemetry
+    const financialsSource = this.determineFinancialsSource(toflerData, ownFinancials, mcaData);
+    const ratiosSource = this.determineRatiosSource(toflerData, ownRatios);
+
+    // Log telemetry
+    this.logTelemetry({
+      requestId,
+      companyIdOrCin,
+      timestamp: new Date(),
+      duration: Date.now() - startTime,
+      sourcesAttempted,
+      sourcesSucceeded,
+      sourcesFailed,
+      primarySource: sourcesSucceeded[0] || null,
+      financialsSource,
+      ratiosSource,
+      fallbackTriggered,
+      fallbackReason,
+      toflerHasUsableData: !!toflerHasUsableData,
+      dataQualityScore: aggregatedData?.dataQuality.overallScore || 0,
+      warnings,
+    });
+
+    return aggregatedData;
   }
 
   /**
@@ -207,7 +351,13 @@ class UnifiedCompanyDataService {
     mcaData: MCACompanyMasterData | null,
     ownFinancials: CompanyFinancials[],
     ownRatios: CompanyRatios[],
-    fetchResults: DataFetchResult[]
+    fetchResults: DataFetchResult[],
+    fallbackInfo?: {
+      fallbackUsed: boolean;
+      fallbackReason?: string;
+      warnings: string[];
+      primarySourceFailed: boolean;
+    }
   ): UnifiedCompanyData | null {
     
     const sourcesUsed: DataSource[] = fetchResults
@@ -321,6 +471,10 @@ class UnifiedCompanyDataService {
         sourcesUsed,
         missingData,
         lastUpdated: new Date(),
+        fallbackUsed: fallbackInfo?.fallbackUsed ?? false,
+        fallbackReason: fallbackInfo?.fallbackReason,
+        warnings: fallbackInfo?.warnings ?? [],
+        primarySourceFailed: fallbackInfo?.primarySourceFailed ?? false,
       },
     };
   }
