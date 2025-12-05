@@ -200,6 +200,8 @@ export default function UnlistedPreviewPage() {
     enrichmentSource: string;
   } | null>(null);
   const hasAttemptedEnrichRef = useRef(false);
+  const [manualCIN, setManualCIN] = useState('');
+  const [isSavingCIN, setIsSavingCIN] = useState(false);
   
   const searchParams = new URLSearchParams(window.location.search);
   const buyPrice = searchParams.get('buyPrice') || '';
@@ -469,6 +471,85 @@ export default function UnlistedPreviewPage() {
     }
   };
 
+  const handleSaveCIN = async () => {
+    if (!manualCIN.trim()) {
+      toast({
+        title: 'CIN Required',
+        description: 'Please enter a valid CIN (Corporate Identification Number)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate CIN format (21 characters, alphanumeric)
+    const cinPattern = /^[A-Z][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+    if (!cinPattern.test(manualCIN.trim().toUpperCase())) {
+      toast({
+        title: 'Invalid CIN Format',
+        description: 'CIN must be 21 characters (e.g., U12345AB1234ABC123456)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingCIN(true);
+    try {
+      await apiRequest(`/api/unlisted/admin/companies/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ cin: manualCIN.trim().toUpperCase() }),
+      });
+      
+      toast({
+        title: 'CIN Saved',
+        description: 'Now fetching company data from MCA...',
+      });
+      
+      // Refetch company data
+      await refetchCompany();
+      
+      // Reset enrichment state to allow re-enrichment with new CIN
+      hasAttemptedEnrichRef.current = false;
+      setEnrichmentResult(null);
+      
+      // Trigger auto-enrich with the new CIN
+      setIsAutoEnriching(true);
+      try {
+        const response = await apiRequest(`/api/unlisted/admin/auto-enrich/${id}`, { method: 'POST' });
+        
+        if (response?.data?.enrichedFields?.length > 0) {
+          setEnrichmentResult({
+            enrichedFields: response.data.enrichedFields,
+            enrichmentSource: response.data.enrichmentSource,
+          });
+          await refetchCompany();
+          toast({
+            title: 'Company Data Enriched',
+            description: `Updated ${response.data.enrichedFields.length} field(s) from ${response.data.enrichmentSource}`,
+          });
+        } else {
+          toast({
+            title: 'CIN Saved',
+            description: 'No additional data found from MCA for this CIN',
+          });
+        }
+      } catch (enrichError: any) {
+        console.error('[Manual CIN] Enrich error:', enrichError);
+      } finally {
+        setIsAutoEnriching(false);
+      }
+      
+      setManualCIN('');
+    } catch (error: any) {
+      toast({
+        title: 'Failed to save CIN',
+        description: error.message || 'An error occurred',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingCIN(false);
+    }
+  };
+
   if (isLoadingCompany) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -637,10 +718,40 @@ export default function UnlistedPreviewPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                {company.cin && (
+                {company.cin ? (
                   <div>
                     <span className="text-gray-500">CIN</span>
                     <p className="text-white font-mono text-xs">{company.cin}</p>
+                  </div>
+                ) : (
+                  <div className="col-span-2">
+                    <Label className="text-gray-500 text-xs mb-1 block">CIN (Required for MCA data)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={manualCIN}
+                        onChange={(e) => setManualCIN(e.target.value.toUpperCase())}
+                        placeholder="U12345AB1234ABC123456"
+                        className="bg-gray-800 border-gray-700 text-white font-mono text-xs h-8"
+                        maxLength={21}
+                        data-testid="input-manual-cin"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSaveCIN}
+                        disabled={isSavingCIN || isAutoEnriching || !manualCIN.trim()}
+                        className="bg-blue-600 hover:bg-blue-700 h-8 px-3"
+                        data-testid="button-save-cin"
+                      >
+                        {isSavingCIN || isAutoEnriching ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-3 h-3" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Find CIN at <a href="https://www.mca.gov.in/content/mca/global/en/mca/fo-llp-services/findCinFinalSingleCom.html" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">mca.gov.in</a>
+                    </p>
                   </div>
                 )}
                 {company.isin && (
