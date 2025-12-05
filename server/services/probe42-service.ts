@@ -590,6 +590,42 @@ class Probe42Service {
         incorporation_date: '2000-12-22',
         keywords: ['paytm', 'one97', 'payments', 'fintech'],
       },
+      {
+        company_id: 'mock_care_health',
+        name: 'Care Health Insurance Limited',
+        cin: 'U66010DL2007PLC161503',
+        roc_state: 'Delhi',
+        status: 'Active',
+        incorporation_date: '2007-02-02',
+        keywords: ['care', 'health', 'insurance', 'religare'],
+      },
+      {
+        company_id: 'mock_ncdex',
+        name: 'NCDEX Limited',
+        cin: 'U51909MH2003PLC140116',
+        roc_state: 'Maharashtra',
+        status: 'Active',
+        incorporation_date: '2003-04-23',
+        keywords: ['ncdex', 'commodity', 'exchange'],
+      },
+      {
+        company_id: 'mock_capgemini',
+        name: 'Capgemini Technology Services India Limited',
+        cin: 'U72200TG1993PLC015206',
+        roc_state: 'Telangana',
+        status: 'Active',
+        incorporation_date: '1993-01-08',
+        keywords: ['capgemini', 'technology', 'consulting', 'it'],
+      },
+      {
+        company_id: 'mock_metropolitan',
+        name: 'Metropolitan Stock Exchange of India Limited',
+        cin: 'U67120MH2008PLC178925',
+        roc_state: 'Maharashtra',
+        status: 'Active',
+        incorporation_date: '2008-10-01',
+        keywords: ['metropolitan', 'stock', 'exchange', 'msei'],
+      },
     ];
 
     const queryLower = query.toLowerCase();

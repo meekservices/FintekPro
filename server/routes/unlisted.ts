@@ -2598,46 +2598,72 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       results.push({ source: 'mca', status: 'skipped', error: 'API not configured' });
     }
     
-    // Try Probe42 sync if available
-    if (probe42Service.isReady()) {
-      try {
-        // Use company's probe42 ID if available for direct sync
-        if (companyData.probe42CompanyId) {
-          // Fetch company details (includes directors), financials, and ratios
-          const [companyDetails, financials, ratios] = await Promise.all([
-            probe42Service.getCompanyDetails(companyData.probe42CompanyId),
-            probe42Service.getCompanyFinancials(companyData.probe42CompanyId, 3),
-            probe42Service.getCompanyRatios(companyData.probe42CompanyId, 3),
-          ]);
+    // Try Probe42 sync - always attempt as it has mock data fallback in development
+    try {
+      let probe42Id = companyData.probe42CompanyId;
+      
+      // If no Probe42 ID, try to search and link the company
+      if (!probe42Id && companyData.name) {
+        console.log(`[Refresh] No Probe42 ID, searching for: ${companyData.name}`);
+        const searchResults = await probe42Service.searchCompanyByNameOrCIN(companyData.name.substring(0, 50));
+        
+        if (searchResults.length > 0) {
+          // Link the first matching company
+          probe42Id = searchResults[0].company_id;
+          console.log(`[Refresh] Found and linking Probe42 company: ${probe42Id}`);
           
-          // Store directors if available from Probe42
-          if (companyDetails?.directors && companyDetails.directors.length > 0) {
-            console.log(`[Refresh] Got ${companyDetails.directors.length} directors from Probe42`);
-            // Store directors in the unified data service cache
-            await storage.updateUnlistedCompany(companyId, {
-              lastSyncedAt: new Date(),
-            });
+          // Update company with Probe42 ID and CIN if available
+          const updateData: any = { probe42CompanyId: probe42Id };
+          if (searchResults[0].cin && !companyData.cin) {
+            updateData.cin = searchResults[0].cin;
+            console.log(`[Refresh] Auto-populated CIN: ${searchResults[0].cin}`);
           }
           
-          if (financials.length > 0 || ratios.length > 0 || (companyDetails?.directors && companyDetails.directors.length > 0)) {
-            results.push({ 
-              source: 'probe42', 
-              status: 'success',
-              data: {
-                financials: financials.length,
-                ratios: ratios.length,
-                directors: companyDetails?.directors?.length || 0,
-              }
-            });
-          } else {
-            results.push({ source: 'probe42', status: 'no_data' });
-          }
-        } else {
-          results.push({ source: 'probe42', status: 'skipped', error: 'No Probe42 company ID linked' });
+          await storage.updateUnlistedCompany(companyId, updateData);
         }
-      } catch (p42Error: any) {
-        results.push({ source: 'probe42', status: 'error', error: p42Error.message });
       }
+      
+      // Use company's probe42 ID if available for direct sync
+      if (probe42Id) {
+        // Fetch company details (includes directors), financials, and ratios
+        const [companyDetails, financials, ratios] = await Promise.all([
+          probe42Service.getCompanyDetails(probe42Id),
+          probe42Service.getCompanyFinancials(probe42Id, 3),
+          probe42Service.getCompanyRatios(probe42Id, 3),
+        ]);
+        
+        // Update company with details from Probe42 including CIN if missing
+        if (companyDetails) {
+          const updateData: any = { lastSyncedAt: new Date() };
+          if (companyDetails.cin && !companyData.cin) {
+            updateData.cin = companyDetails.cin;
+            console.log(`[Refresh] Auto-populated CIN from Probe42 details: ${companyDetails.cin}`);
+          }
+          await storage.updateUnlistedCompany(companyId, updateData);
+          
+          if (companyDetails.directors && companyDetails.directors.length > 0) {
+            console.log(`[Refresh] Got ${companyDetails.directors.length} directors from Probe42`);
+          }
+        }
+        
+        if (financials.length > 0 || ratios.length > 0 || (companyDetails?.directors && companyDetails.directors.length > 0)) {
+          results.push({ 
+            source: 'probe42', 
+            status: 'success',
+            data: {
+              financials: financials.length,
+              ratios: ratios.length,
+              directors: companyDetails?.directors?.length || 0,
+            }
+          });
+        } else {
+          results.push({ source: 'probe42', status: 'no_data' });
+        }
+      } else {
+        results.push({ source: 'probe42', status: 'skipped', error: 'Could not find matching company in Probe42' });
+      }
+    } catch (p42Error: any) {
+      results.push({ source: 'probe42', status: 'error', error: p42Error.message });
     }
     
     return apiResponse.success(res, {
