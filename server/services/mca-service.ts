@@ -99,6 +99,7 @@ class MCAService {
 
   /**
    * Get or refresh access token for Sandbox API
+   * Uses x-api-key and x-api-secret headers for authentication
    */
   private async getAccessToken(): Promise<string> {
     // Check if we have a valid token
@@ -113,17 +114,15 @@ class MCAService {
     try {
       console.log('[MCA] Fetching new access token from Sandbox...');
       
-      // Sandbox uses Basic auth with API key and secret for token generation
-      const authString = Buffer.from(`${SANDBOX_API_KEY}:${SANDBOX_API_SECRET}`).toString('base64');
-      
+      // Sandbox.co.in uses x-api-key and x-api-secret headers for authentication
       const response = await axios.post(
         `${SANDBOX_BASE_URL}/authenticate`,
         {},
         {
           headers: {
-            'Authorization': `Basic ${authString}`,
             'Content-Type': 'application/json',
             'x-api-key': SANDBOX_API_KEY,
+            'x-api-secret': SANDBOX_API_SECRET,
           },
         }
       );
@@ -131,8 +130,8 @@ class MCAService {
       if (response.data?.access_token) {
         const token: string = response.data.access_token;
         this.accessToken = token;
-        // Token typically expires in 1 hour
-        this.tokenExpiry = new Date(Date.now() + 50 * 60 * 1000); // 50 minutes to be safe
+        // Token typically expires in 24 hours, but we refresh at 23 hours to be safe
+        this.tokenExpiry = new Date(Date.now() + 23 * 60 * 60 * 1000);
         console.log('[MCA] Access token obtained successfully');
         return token;
       }
@@ -168,8 +167,8 @@ class MCAService {
         },
         {
           headers: {
-            'Authorization': token,
-            'x-api-key': SANDBOX_API_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         }
       );
@@ -278,8 +277,8 @@ class MCAService {
         },
         {
           headers: {
-            'Authorization': token,
-            'x-api-key': SANDBOX_API_KEY,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         }
       );
