@@ -2639,6 +2639,19 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
             updateData.cin = companyDetails.cin;
             console.log(`[Refresh] Auto-populated CIN from Probe42 details: ${companyDetails.cin}`);
           }
+          // Add capital info if available
+          if (companyDetails.paid_up_capital) {
+            updateData.paidUpCapital = companyDetails.paid_up_capital.toString();
+          }
+          if (companyDetails.authorized_capital) {
+            updateData.authorizedCapital = companyDetails.authorized_capital.toString();
+          }
+          if (companyDetails.face_value) {
+            updateData.faceValue = companyDetails.face_value.toString();
+          }
+          if (companyDetails.total_shares) {
+            updateData.totalShares = companyDetails.total_shares;
+          }
           await storage.updateUnlistedCompany(companyId, updateData);
           
           if (companyDetails.directors && companyDetails.directors.length > 0) {
@@ -2646,13 +2659,76 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
           }
         }
         
-        if (financials.length > 0 || ratios.length > 0 || (companyDetails?.directors && companyDetails.directors.length > 0)) {
+        // Store financials in database
+        let financialsSaved = 0;
+        for (const fin of financials) {
+          try {
+            const existingFin = await storage.getCompanyFinancialsByYear(companyId, fin.financial_year);
+            const finData = {
+              companyId,
+              financialYear: fin.financial_year,
+              periodStart: fin.period_start,
+              periodEnd: fin.period_end,
+              revenue: fin.revenue?.toString(),
+              ebitda: fin.ebitda?.toString(),
+              pat: fin.pat?.toString(),
+              totalAssets: fin.total_assets?.toString(),
+              networth: fin.networth?.toString(),
+              totalDebt: fin.total_debt?.toString(),
+              dataSource: 'probe42' as const,
+              verified: false,
+            };
+            if (existingFin) {
+              await storage.updateCompanyFinancials(existingFin.id, finData);
+            } else {
+              await storage.createCompanyFinancials(finData);
+            }
+            financialsSaved++;
+          } catch (finError) {
+            console.log(`[Refresh] Could not save financial for ${fin.financial_year}:`, finError);
+          }
+        }
+        console.log(`[Refresh] Saved ${financialsSaved} financials from Probe42`);
+        
+        // Store ratios in database
+        let ratiosSaved = 0;
+        for (const ratio of ratios) {
+          try {
+            const existingRatio = await storage.getCompanyRatiosByYear(companyId, ratio.financial_year);
+            const ratioData = {
+              companyId,
+              financialYear: ratio.financial_year,
+              peRatio: ratio.pe_ratio?.toString(),
+              pbRatio: ratio.pb_ratio?.toString(),
+              roe: ratio.roe?.toString(),
+              roce: ratio.roce?.toString(),
+              marginEbitda: ratio.margin_ebitda?.toString(),
+              marginPat: ratio.margin_pat?.toString(),
+              debtEquity: ratio.debt_equity?.toString(),
+              currentRatio: ratio.current_ratio?.toString(),
+              revenueGrowth: ratio.revenue_growth?.toString(),
+              profitGrowth: ratio.profit_growth?.toString(),
+              dataSource: 'probe42' as const,
+            };
+            if (existingRatio) {
+              await storage.updateCompanyRatios(existingRatio.id, ratioData);
+            } else {
+              await storage.createCompanyRatios(ratioData);
+            }
+            ratiosSaved++;
+          } catch (ratioError) {
+            console.log(`[Refresh] Could not save ratio for ${ratio.financial_year}:`, ratioError);
+          }
+        }
+        console.log(`[Refresh] Saved ${ratiosSaved} ratios from Probe42`);
+        
+        if (financialsSaved > 0 || ratiosSaved > 0 || (companyDetails?.directors && companyDetails.directors.length > 0)) {
           results.push({ 
             source: 'probe42', 
             status: 'success',
             data: {
-              financials: financials.length,
-              ratios: ratios.length,
+              financials: financialsSaved,
+              ratios: ratiosSaved,
               directors: companyDetails?.directors?.length || 0,
             }
           });
