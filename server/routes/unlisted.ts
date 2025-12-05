@@ -2828,44 +2828,77 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
       });
     }
     
-    // If CIN is missing but we have a company name, try to fetch CIN from MCA search
+    // If CIN is missing but we have a company name, try to fetch CIN from Probe42 search
+    // Note: Sandbox.co.in MCA API doesn't support company name search, only CIN lookup
     let currentCIN = companyData.cin;
-    if (!currentCIN && companyData.name && mcaService.isConfigured()) {
+    if (!currentCIN && companyData.name) {
       try {
-        console.log(`[Auto-Enrich] No CIN available, searching MCA by company name: ${companyData.name}`);
-        const cinResult = await mcaService.getCINByCompanyName(companyData.name);
+        console.log(`[Auto-Enrich] No CIN available, searching Probe42 by company name: ${companyData.name}`);
+        const probe42Results = await probe42Service.searchCompanyByNameOrCIN(companyData.name);
         
-        if (cinResult) {
-          currentCIN = cinResult.cin;
-          companyData.cin = cinResult.cin; // Update local reference to prevent overwrite
-          console.log(`[Auto-Enrich] Found CIN ${cinResult.cin} for "${companyData.name}" (official: "${cinResult.officialName}")`);
+        if (probe42Results && probe42Results.length > 0) {
+          // Find best match by name similarity
+          const searchNameLower = companyData.name.toLowerCase().replace(/\s+/g, ' ').trim();
+          let bestMatch = probe42Results[0];
+          let bestScore = 0;
           
-          // Save the CIN to the company record
-          await storage.updateUnlistedCompany(companyId, { cin: cinResult.cin, lastSyncedAt: new Date() });
-          enrichedFields.push({
-            field: 'cin',
-            oldValue: null,
-            newValue: cinResult.cin,
-            source: 'MCA Search'
-          });
-          enrichmentSource = 'MCA Search';
+          for (const result of probe42Results) {
+            const resultNameLower = result.name.toLowerCase().replace(/\s+/g, ' ').trim();
+            // Simple word match scoring
+            const searchWords = searchNameLower.split(' ');
+            const resultWords = resultNameLower.split(' ');
+            let matchScore = 0;
+            for (const word of searchWords) {
+              if (resultWords.some(rw => rw.includes(word) || word.includes(rw))) {
+                matchScore++;
+              }
+            }
+            const score = matchScore / Math.max(searchWords.length, resultWords.length);
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = result;
+            }
+          }
           
-          // Also update name if official name is different
-          if (cinResult.officialName && cinResult.officialName !== companyData.name) {
-            await storage.updateUnlistedCompany(companyId, { name: cinResult.officialName });
+          if (bestMatch.cin && bestScore >= 0.4) {
+            currentCIN = bestMatch.cin;
+            companyData.cin = bestMatch.cin; // Update local reference to prevent overwrite
+            console.log(`[Auto-Enrich] Found CIN ${bestMatch.cin} for "${companyData.name}" via Probe42 (matched: "${bestMatch.name}", score: ${(bestScore * 100).toFixed(1)}%)`);
+            
+            // Save the CIN and Probe42 ID to the company record
+            const updatePayload: any = { cin: bestMatch.cin, lastSyncedAt: new Date() };
+            if (bestMatch.id) {
+              updatePayload.probe42CompanyId = bestMatch.id;
+            }
+            await storage.updateUnlistedCompany(companyId, updatePayload);
+            
             enrichedFields.push({
-              field: 'name',
-              oldValue: companyData.name,
-              newValue: cinResult.officialName,
-              source: 'MCA Search'
+              field: 'cin',
+              oldValue: null,
+              newValue: bestMatch.cin,
+              source: 'Probe42'
             });
-            companyData.name = cinResult.officialName; // Update local reference
+            enrichmentSource = 'Probe42';
+            
+            // Also update name if official name differs meaningfully
+            if (bestMatch.name && bestMatch.name.toLowerCase() !== companyData.name.toLowerCase()) {
+              await storage.updateUnlistedCompany(companyId, { name: bestMatch.name });
+              enrichedFields.push({
+                field: 'name',
+                oldValue: companyData.name,
+                newValue: bestMatch.name,
+                source: 'Probe42'
+              });
+              companyData.name = bestMatch.name; // Update local reference
+            }
+          } else {
+            console.log(`[Auto-Enrich] Probe42 search found ${probe42Results.length} results but no confident match (best score: ${(bestScore * 100).toFixed(1)}%)`);
           }
         } else {
-          console.log(`[Auto-Enrich] Could not find CIN for "${companyData.name}" in MCA search`);
+          console.log(`[Auto-Enrich] Could not find CIN for "${companyData.name}" in Probe42 search`);
         }
       } catch (cinError: any) {
-        console.error('[Auto-Enrich] Error searching for CIN:', cinError.message);
+        console.error('[Auto-Enrich] Error searching Probe42 for CIN:', cinError.message);
       }
     }
     
@@ -2968,8 +3001,12 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
           
           if (Object.keys(updateData).length > 1) {
             await storage.updateUnlistedCompany(companyId, updateData);
-            // Combine sources if CIN was found via search
-            enrichmentSource = enrichmentSource === 'MCA Search' ? 'MCA Search + MCA' : 'MCA';
+            // Combine sources if CIN was found via Probe42
+            if (enrichmentSource === 'Probe42') {
+              enrichmentSource = 'Probe42 + MCA';
+            } else if (enrichmentSource === 'none') {
+              enrichmentSource = 'MCA';
+            }
             console.log(`[Auto-Enrich] Updated ${enrichedFields.length} fields from MCA for ${companyData.name}`);
           }
         }
@@ -3012,10 +3049,10 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
           
           if (Object.keys(updateData).length > 1) {
             await storage.updateUnlistedCompany(companyId, updateData);
-            // Combine sources properly
-            if (enrichmentSource.includes('MCA')) {
-              enrichmentSource = enrichmentSource + ' + Probe42';
-            } else {
+            // Combine sources properly - add Probe42 details to existing source
+            if (enrichmentSource.includes('MCA') && !enrichmentSource.includes('Probe42')) {
+              enrichmentSource = enrichmentSource + ' + Probe42 Details';
+            } else if (enrichmentSource === 'none' || enrichmentSource === '') {
               enrichmentSource = 'Probe42';
             }
             console.log(`[Auto-Enrich] Updated ${enrichedFields.length} fields from Probe42 for ${companyData.name}`);
