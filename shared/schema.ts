@@ -10203,6 +10203,7 @@ export const unlistedCompanies = pgTable("unlisted_companies", {
   logo: varchar("logo"),
   tags: jsonb("tags").default([]),
   directors: jsonb("directors").default([]), // Array of director details from Probe42
+  listedPeers: jsonb("listed_peers").default([]), // Array of listed peer companies for comparison
   
   // Metadata
   createdBy: varchar("created_by").references(() => users.id),
