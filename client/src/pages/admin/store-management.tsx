@@ -450,20 +450,35 @@ export default function StoreManagement() {
                               {category.isActive ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
                               {category.isActive ? 'Active' : 'Disabled'}
                             </Badge>
-                            {/* Seed button for Unlisted Shares/Stocks category */}
-                            {(category.slug === 'unlisted-stocks' || category.slug === 'unlisted' || category.name === 'Unlisted Stocks' || category.name === 'Unlisted Shares') && (
-                              <Link href="/admin/store/seed-unlisted">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30"
-                                  data-testid="button-seed-unlisted"
-                                >
-                                  <Sprout className="w-4 h-4 mr-1" />
-                                  Seed
-                                </Button>
-                              </Link>
-                            )}
+                            {/* Seed button for all categories */}
+                            {(() => {
+                              const getSeedRoute = (cat: Category) => {
+                                const slug = cat.slug || cat.id;
+                                if (slug === 'unlisted' || slug === 'unlisted-stocks' || cat.name === 'Unlisted Shares') {
+                                  return '/admin/unlisted/seed';
+                                }
+                                if (slug === 'fixed-income' || cat.name === 'Fixed Income') {
+                                  return '/admin/bonds/dashboard';
+                                }
+                                if (slug === 'mf-regular' || slug === 'mf-direct' || cat.name.includes('Mutual Funds')) {
+                                  return '/admin/mutual-funds';
+                                }
+                                return `/admin/store/seed/${slug}`;
+                              };
+                              return (
+                                <Link href={getSeedRoute(category)}>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30"
+                                    data-testid={`button-seed-${category.slug || category.id}`}
+                                  >
+                                    <Sprout className="w-4 h-4 mr-1" />
+                                    Seed
+                                  </Button>
+                                </Link>
+                              );
+                            })()}
                             <Switch
                               checked={category.isActive}
                               onCheckedChange={(checked) => handleToggle('category', category, checked)}
