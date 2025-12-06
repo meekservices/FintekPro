@@ -1,10 +1,26 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { bondFeeProfiles, bondFeeOverrides, bondCatalog, governmentSecurities, corporateBonds, bondMarketplaceAuditLogs } from "@shared/schema";
 import { bondFeeCalibrationService, REGULATORY_FEE_CAPS, type InstrumentType } from "../services/bond-fee-calibration-service";
 import { eq, and, desc, sql, or, ilike } from "drizzle-orm";
 
 const router = Router();
+
+// Admin authentication middleware
+const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  const user = (req as any).user;
+  if (!user) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  const roles = user.roles || [];
+  if (!roles.includes('admin') && !roles.includes('superadmin')) {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  next();
+};
+
+// Apply admin auth to all routes
+router.use(requireAdmin);
 
 // ============================================
 // FEE PROFILES API
@@ -520,6 +536,19 @@ router.post("/catalog/:id/publish", async (req: Request, res: Response) => {
       feeOverrideId: feeOverrideId || undefined,
     });
     
+    // Validate fees are within regulatory caps
+    const instType = bond[0].instrumentType as InstrumentType;
+    const regulatoryCap = REGULATORY_FEE_CAPS[instType];
+    if (regulatoryCap) {
+      const brokerageRate = feeBreakdown.brokerageFee / transactionAmount * 100;
+      if (brokerageRate > regulatoryCap.maxBrokerage) {
+        return res.status(400).json({ 
+          error: `Brokerage rate ${brokerageRate.toFixed(4)}% exceeds regulatory cap of ${regulatoryCap.maxBrokerage}% for ${instType}`,
+          regulatoryViolation: true 
+        });
+      }
+    }
+    
     // Update bond status to published
     const result = await db.update(bondCatalog)
       .set({
@@ -640,11 +669,45 @@ router.post("/catalog/bulk-publish", async (req: Request, res: Response) => {
           continue;
         }
         
+        // Validate fees before publishing
+        const instType = bond[0].instrumentType as InstrumentType;
+        const feeProfile = await bondFeeCalibrationService.getProfileByInstrumentType(instType);
+        
+        if (!feeProfile) {
+          failed++;
+          errors.push(`${bond[0].isin}: No fee profile configured`);
+          continue;
+        }
+        
+        const transactionAmount = parseFloat(bond[0].cleanPrice || bond[0].faceValue || '1000');
+        const grossYield = parseFloat(bond[0].yieldToMaturity || '0');
+        
+        const feeBreakdown = await bondFeeCalibrationService.calculateFees({
+          instrumentType: instType,
+          transactionAmount,
+          grossYield,
+          investorSegment: 'retail',
+          transactionType: 'buy',
+          feeProfileId: feeProfile.id,
+        });
+        
+        // Validate regulatory caps
+        const regulatoryCap = REGULATORY_FEE_CAPS[instType];
+        if (regulatoryCap) {
+          const brokerageRate = feeBreakdown.brokerageFee / transactionAmount * 100;
+          if (brokerageRate > regulatoryCap.maxBrokerage) {
+            failed++;
+            errors.push(`${bond[0].isin}: Brokerage ${brokerageRate.toFixed(4)}% exceeds cap ${regulatoryCap.maxBrokerage}%`);
+            continue;
+          }
+        }
+        
         await db.update(bondCatalog)
           .set({
             status: 'published',
             publishedAt: new Date(),
             publishedBy: userId,
+            netYieldToMaturity: String(feeBreakdown.netYield),
             updatedAt: new Date(),
           })
           .where(eq(bondCatalog.id, id));
