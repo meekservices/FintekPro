@@ -247,9 +247,9 @@ router.delete('/companies/:id', async (req: Request, res: Response) => {
  * GET /api/unlisted/probe42/status
  * Check Probe42 API health and configuration status
  */
-router.get('/probe42/status', requireLevel2, async (req: Request, res: Response) => {
+router.get('/probe42/status', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
+    // Admin-only operation
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
     }
@@ -271,8 +271,13 @@ router.get('/probe42/status', requireLevel2, async (req: Request, res: Response)
  * GET /api/unlisted/probe42/search
  * Search for companies on Probe42
  */
-router.get('/probe42/search', requireLevel2, async (req: Request, res: Response) => {
+router.get('/probe42/search', requireAuth, async (req: Request, res: Response) => {
   try {
+    // Admin-only operation
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
     const { q } = req.query;
     
     if (!q || typeof q !== 'string') {
@@ -293,11 +298,11 @@ router.get('/probe42/search', requireLevel2, async (req: Request, res: Response)
 
 /**
  * POST /api/unlisted/probe42/sync/:companyId
- * Sync company data from Probe42
+ * Sync company data from Probe42 (Admin only - no investor KYC required)
  */
-router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res: Response) => {
+router.post('/probe42/sync/:companyId', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
+    // Admin-only operation
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
     }
@@ -514,9 +519,9 @@ router.post('/probe42/sync/:companyId', requireLevel2, async (req: Request, res:
  * POST /api/unlisted/probe42/sync-all
  * Bulk sync all companies with Probe42 (admin only)
  */
-router.post('/probe42/sync-all', requireLevel2, async (req: Request, res: Response) => {
+router.post('/probe42/sync-all', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
+    // Admin-only operation
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
     }
