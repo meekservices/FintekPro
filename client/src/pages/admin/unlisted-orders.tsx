@@ -98,17 +98,22 @@ export default function UnlistedOrders() {
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'match' | null>(null);
   
-  const { data: listings, isLoading: listingsLoading, refetch: refetchListings } = useQuery<SellListing[]>({
+  const { data: listingsData, isLoading: listingsLoading, refetch: refetchListings } = useQuery<{ listings: SellListing[]; pagination: any }>({
     queryKey: ['/api/unlisted/admin/all-listings'],
   });
+  const listings = listingsData?.listings || [];
   
-  const { data: buyRequests, isLoading: buyRequestsLoading, refetch: refetchBuyRequests } = useQuery<BuyRequest[]>({
+  const { data: buyRequestsData, isLoading: buyRequestsLoading, refetch: refetchBuyRequests } = useQuery<{ buyRequests: BuyRequest[]; pagination: any }>({
     queryKey: ['/api/unlisted/admin/all-buy-requests'],
   });
+  const buyRequests = buyRequestsData?.buyRequests || [];
   
   const updateListingMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return apiRequest('PATCH', `/api/unlisted/admin/listings/${id}/status`, { status });
+      return apiRequest(`/api/unlisted/admin/listings/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
     },
     onSuccess: () => {
       toast({ title: 'Success', description: 'Listing updated successfully' });
@@ -122,7 +127,10 @@ export default function UnlistedOrders() {
   
   const updateBuyRequestMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return apiRequest('PATCH', `/api/unlisted/admin/buy-requests/${id}/status`, { status });
+      return apiRequest(`/api/unlisted/admin/buy-requests/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
     },
     onSuccess: () => {
       toast({ title: 'Success', description: 'Buy request updated successfully' });
@@ -153,7 +161,7 @@ export default function UnlistedOrders() {
     );
   }
   
-  const filteredListings = (listings || []).filter(listing => {
+  const filteredListings = listings.filter(listing => {
     const matchesSearch = !searchQuery || 
       listing.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       listing.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -161,7 +169,7 @@ export default function UnlistedOrders() {
     return matchesSearch && matchesStatus;
   });
   
-  const filteredBuyRequests = (buyRequests || []).filter(request => {
+  const filteredBuyRequests = buyRequests.filter(request => {
     const matchesSearch = !searchQuery || 
       request.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -197,10 +205,10 @@ export default function UnlistedOrders() {
     }
   };
   
-  const activeListingsCount = (listings || []).filter(l => l.status === 'active').length;
-  const pendingListingsCount = (listings || []).filter(l => l.status === 'pending').length;
-  const activeBuyCount = (buyRequests || []).filter(r => r.status === 'active').length;
-  const pendingBuyCount = (buyRequests || []).filter(r => r.status === 'pending').length;
+  const activeListingsCount = listings.filter(l => l.status === 'active').length;
+  const pendingListingsCount = listings.filter(l => l.status === 'pending').length;
+  const activeBuyCount = buyRequests.filter(r => r.status === 'active').length;
+  const pendingBuyCount = buyRequests.filter(r => r.status === 'pending').length;
   
   return (
     <div className="space-y-6 p-6">
