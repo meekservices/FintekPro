@@ -1518,7 +1518,7 @@ router.get('/risk-disclosures/company/:companyId', async (req: Request, res: Res
     const companyRisks = unlistedRiskDisclosureService.getCompanySpecificRisks({
       netWorth: (company as any).netWorth ? parseFloat((company as any).netWorth.toString()) : undefined,
       debtEquityRatio: latestRatios?.debtEquity ? parseFloat(latestRatios.debtEquity.toString()) : undefined,
-      profitMargin: latestRatios?.netProfitMargin ? parseFloat(latestRatios.netProfitMargin.toString()) : undefined,
+      profitMargin: latestRatios?.marginPat ? parseFloat(latestRatios.marginPat.toString()) : undefined,
       riskScore: (company as any).riskScore ?? undefined,
     });
     
@@ -2261,7 +2261,7 @@ router.post('/admin/bulk-price', requireAdmin, async (req: Request, res: Respons
         }
         
         let newPrice: number;
-        const currentPrice = company.currentPrice || company.landingPrice || 0;
+        const currentPrice = parseFloat(company.publishedBuyPrice?.toString() || company.draftBuyPrice?.toString() || '0');
         
         if (priceChange.mode === 'fixed') {
           newPrice = priceChange.value;
@@ -2279,19 +2279,11 @@ router.post('/admin/bulk-price', requireAdmin, async (req: Request, res: Respons
           continue;
         }
         
-        // Update company with new price and add to price history
+        // Update company with new draft price (requires publish workflow)
         await storage.updateUnlistedCompany(companyId, { 
-          currentPrice: newPrice,
-          lastUpdatedAt: new Date().toISOString()
-        });
-        
-        // Add to price history
-        await storage.addUnlistedPriceHistory({
-          companyId,
-          price: newPrice,
-          source: 'admin_input',
-          date: new Date().toISOString().split('T')[0],
-          notes: `Bulk price update: ${priceChange.mode === 'fixed' ? 'set to ₹' + newPrice : (priceChange.value >= 0 ? '+' : '') + priceChange.value + '%'}`
+          draftBuyPrice: newPrice.toString(),
+          draftSellPrice: (newPrice * 1.05).toFixed(2), // 5% spread for sell price
+          pricingStatus: 'draft',
         });
         
         updates.push({ companyId, oldPrice: currentPrice, newPrice });
@@ -2430,7 +2422,7 @@ router.get('/admin/compliance/alerts', requireAdmin, async (req: Request, res: R
           companyName: company?.name || 'Unknown',
           userId: listing.sellerUserId,
           userName: seller ? `${seller.firstName} ${seller.lastName}` : 'Unknown',
-          tradeValue: (listing.askingPrice || 0) * listing.quantity,
+          tradeValue: (parseFloat(listing.askPrice) || 0) * listing.quantity,
           timestamp: listing.updatedAt || listing.createdAt,
           status: 'acknowledged'
         });
@@ -2455,7 +2447,7 @@ router.get('/admin/compliance/alerts', requireAdmin, async (req: Request, res: R
           companyName: company?.name || 'Unknown',
           userId: request.buyerUserId,
           userName: buyer ? `${buyer.firstName} ${buyer.lastName}` : 'Unknown',
-          tradeValue: (request.bidPrice || 0) * request.quantity,
+          tradeValue: (parseFloat(request.maxPrice) || 0) * request.quantity,
           timestamp: request.updatedAt || request.createdAt,
           status: 'acknowledged'
         });
