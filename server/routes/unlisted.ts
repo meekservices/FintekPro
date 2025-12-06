@@ -1506,10 +1506,10 @@ router.get('/risk-disclosures/company/:companyId', async (req: Request, res: Res
     const latestRatios = ratios && ratios.length > 0 ? ratios[0] : null;
     
     const companyRisks = unlistedRiskDisclosureService.getCompanySpecificRisks({
-      netWorth: company.netWorth ? parseFloat(company.netWorth.toString()) : undefined,
-      debtEquityRatio: latestRatios?.debtEquityRatio ? parseFloat(latestRatios.debtEquityRatio.toString()) : undefined,
-      profitMargin: latestRatios?.profitMargin ? parseFloat(latestRatios.profitMargin.toString()) : undefined,
-      riskScore: company.riskScore ?? undefined,
+      netWorth: (company as any).netWorth ? parseFloat((company as any).netWorth.toString()) : undefined,
+      debtEquityRatio: latestRatios?.debtEquity ? parseFloat(latestRatios.debtEquity.toString()) : undefined,
+      profitMargin: latestRatios?.netProfitMargin ? parseFloat(latestRatios.netProfitMargin.toString()) : undefined,
+      riskScore: (company as any).riskScore ?? undefined,
     });
     
     const standardDisclosures = unlistedRiskDisclosureService.formatDisclosuresForDisplay();
@@ -1518,7 +1518,7 @@ router.get('/risk-disclosures/company/:companyId', async (req: Request, res: Res
       ...standardDisclosures,
       companySpecificRisks: companyRisks,
       companyName: company.name,
-      companyRiskScore: company.riskScore,
+      companyRiskScore: (company as any).riskScore,
     });
   } catch (error: any) {
     console.error('Error fetching company risk disclosures:', error);
@@ -1885,6 +1885,214 @@ router.get('/admin/negotiations', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching negotiations:', error);
     return apiResponse.serverError(res, 'Failed to fetch negotiations');
+  }
+});
+
+// ===================================================================
+// ADMIN DASHBOARD ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/admin/dashboard-metrics
+ * Get dashboard metrics for admin overview
+ */
+router.get('/admin/dashboard-metrics', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    // Get all companies
+    const allCompanies = await storage.getAllUnlistedCompanies({});
+    const activeCompanies = allCompanies.filter(c => c.status === 'active');
+    const suspendedCompanies = allCompanies.filter(c => c.tradingSuspended);
+    const companiesNeedingPricing = allCompanies.filter(c => 
+      c.status === 'active' && (!c.draftBuyPrice || !c.draftSellPrice)
+    );
+    const companiesWithDraftPrices = allCompanies.filter(c => 
+      c.pricingStatus === 'draft' || c.pricingStatus === 'pending_review'
+    );
+    
+    // Get high-risk companies
+    const highRiskCompanies = allCompanies.filter(c => 
+      c.complianceStatus === 'blocked' || ((c as any).riskScore && (c as any).riskScore > 70)
+    );
+    
+    // Get all active sell listings
+    const activeSellListings = await db.select()
+      .from(sellListings)
+      .where(eq(sellListings.status, 'active'));
+    
+    // Get all active buy requests
+    const activeBuyRequests = await db.select()
+      .from(buyRequests)
+      .where(eq(buyRequests.status, 'active'));
+    
+    // Get pending deals (awaiting settlement)
+    const pendingDeals = await db.select()
+      .from(unlistedDeals)
+      .where(eq(unlistedDeals.status, 'pending'));
+    
+    // Get completed deals in last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentDeals = await db.select().from(unlistedDeals);
+    const completedRecentDeals = recentDeals.filter(d => 
+      d.status === 'completed' && new Date(d.createdAt || '') > sevenDaysAgo
+    );
+    
+    // Calculate total trading volume (last 7 days)
+    const tradingVolume = completedRecentDeals.reduce((sum, deal) => {
+      const price = parseFloat(deal.agreedPrice || '0');
+      const qty = deal.quantity || 0;
+      return sum + (price * qty);
+    }, 0);
+    
+    // Get compliance alerts
+    const complianceAlerts: Array<{
+      id: string;
+      type: 'error' | 'warning' | 'info';
+      title: string;
+      description: string;
+      companyId?: string;
+      companyName?: string;
+      createdAt: string;
+    }> = [];
+    
+    // Add alerts for blocked companies
+    for (const company of highRiskCompanies) {
+      complianceAlerts.push({
+        id: `blocked-${company.id}`,
+        type: 'error',
+        title: 'Company Blocked from Trading',
+        description: `${company.name} has compliance status: ${company.complianceStatus || 'high risk score'}`,
+        companyId: company.id,
+        companyName: company.name,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    
+    // Add alerts for suspended trading
+    for (const company of suspendedCompanies) {
+      if (!highRiskCompanies.find(c => c.id === company.id)) {
+        complianceAlerts.push({
+          id: `suspended-${company.id}`,
+          type: 'warning',
+          title: 'Trading Suspended',
+          description: `${company.name} has trading currently suspended`,
+          companyId: company.id,
+          companyName: company.name,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+    
+    // Add alerts for companies needing pricing
+    if (companiesNeedingPricing.length > 5) {
+      complianceAlerts.push({
+        id: 'pricing-backlog',
+        type: 'info',
+        title: 'Pricing Backlog',
+        description: `${companiesNeedingPricing.length} companies need price updates`,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    
+    return apiResponse.success(res, {
+      metrics: {
+        totalCompanies: allCompanies.length,
+        activeCompanies: activeCompanies.length,
+        suspendedCompanies: suspendedCompanies.length,
+        companiesNeedingPricing: companiesNeedingPricing.length,
+        companiesWithDraftPrices: companiesWithDraftPrices.length,
+        highRiskCompanies: highRiskCompanies.length,
+        activeSellListings: activeSellListings.length,
+        activeBuyRequests: activeBuyRequests.length,
+        pendingDeals: pendingDeals.length,
+        completedDealsLast7Days: completedRecentDeals.length,
+        tradingVolumeLast7Days: tradingVolume,
+      },
+      complianceAlerts: complianceAlerts.slice(0, 10),
+      recentActivity: {
+        newListingsToday: activeSellListings.filter(l => {
+          const created = new Date(l.createdAt || '');
+          const today = new Date();
+          return created.toDateString() === today.toDateString();
+        }).length,
+        newBuyRequestsToday: activeBuyRequests.filter(r => {
+          const created = new Date(r.createdAt || '');
+          const today = new Date();
+          return created.toDateString() === today.toDateString();
+        }).length,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching dashboard metrics:', error);
+    return apiResponse.serverError(res, 'Failed to fetch dashboard metrics');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/audit-log
+ * Get audit log entries for unlisted marketplace
+ */
+router.get('/admin/audit-log', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { 
+      page = '1', 
+      limit = '50',
+      actionType,
+      companyId,
+      userId,
+      startDate,
+      endDate
+    } = req.query;
+    
+    const pageNum = parseInt(page as string);
+    const limitNum = Math.min(parseInt(limit as string), 100);
+    
+    // For now, return simulated audit log - in production this would query actual audit tables
+    const auditEntries = [
+      {
+        id: '1',
+        action: 'price_published',
+        userId: 'admin-1',
+        userName: 'Admin User',
+        companyId: 'company-1',
+        companyName: 'Sample Company',
+        timestamp: new Date().toISOString(),
+        details: { buyPrice: '500', sellPrice: '520' },
+        ipAddress: '127.0.0.1',
+      },
+      {
+        id: '2', 
+        action: 'trading_suspended',
+        userId: 'admin-1',
+        userName: 'Admin User',
+        companyId: 'company-2',
+        companyName: 'Another Company',
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        details: { reason: 'Compliance review pending' },
+        ipAddress: '127.0.0.1',
+      },
+    ];
+    
+    return apiResponse.success(res, {
+      entries: auditEntries,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: auditEntries.length,
+        totalPages: 1,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching audit log:', error);
+    return apiResponse.serverError(res, 'Failed to fetch audit log');
   }
 });
 

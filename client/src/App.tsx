@@ -131,6 +131,9 @@ import UserManagement from "@/pages/admin/user-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
 import UnlistedNegotiations from "@/pages/admin/UnlistedNegotiations";
+import UnlistedDashboard from "@/pages/admin/unlisted-dashboard";
+import UnlistedOrders from "@/pages/admin/unlisted-orders";
+import UnlistedAuditLog from "@/pages/admin/unlisted-audit-log";
 import FixedIncomeAdmin from "@/pages/admin/FixedIncomeAdmin";
 import BondCommissionSettings from "@/pages/admin/bond-commission-settings";
 import BrowseUnlisted from "@/pages/unlisted/BrowseUnlisted";
@@ -467,6 +470,34 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <UnlistedNegotiations />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/dashboard">
+        {() => (
+          <AdminLayout>
+            <UnlistedDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/orders">
+        {() => (
+          <AdminLayout>
+            <UnlistedOrders />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/audit-log">
+        {() => (
+          <AdminLayout>
+            <UnlistedAuditLog />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/seed">
+        {() => (
+          <AdminLayout>
+            <SeedUnlistedPage />
           </AdminLayout>
         )}
       </Route>
