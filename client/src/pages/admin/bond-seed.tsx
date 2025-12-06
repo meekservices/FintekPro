@@ -85,6 +85,25 @@ interface AuditLog {
   additionalInfo?: any;
 }
 
+interface NetYieldResult {
+  grossYield: number;
+  netYield: number;
+  netYieldAfterTax: number;
+  feeImpactBps: number;
+  taxImpactBps: number;
+  totalImpactBps: number;
+  annualizedFeePercentage: number;
+  breakdown: {
+    platformFeeAnnualized: number;
+    brokerageFeeAnnualized: number;
+    transactionChargesAnnualized: number;
+    gstAnnualized: number;
+    stampDutyAnnualized: number;
+  };
+  regulatoryCompliant: boolean;
+  violations: string[];
+}
+
 const INSTRUMENT_TYPES = [
   { value: 'gsec', label: 'Government Securities (G-Sec)', category: 'government' },
   { value: 'tbill', label: 'Treasury Bills (T-Bill)', category: 'government' },
@@ -115,6 +134,8 @@ export default function BondSeedAdmin() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBonds, setSelectedBonds] = useState<Set<string>>(new Set());
   const [publishDialog, setPublishDialog] = useState<{ open: boolean; bonds: BondCatalogItem[] }>({ open: false, bonds: [] });
+  const [netYields, setNetYields] = useState<Record<string, NetYieldResult>>({});
+  const [selectedSegment, setSelectedSegment] = useState<'retail' | 'hni' | 'institutional'>('retail');
   const [unlisistedDialog, setUnlistedDialog] = useState(false);
   const [newUnlistedBond, setNewUnlistedBond] = useState({
     isin: '',
@@ -213,6 +234,22 @@ export default function BondSeedAdmin() {
     },
   });
 
+  const fetchNetYieldsMutation = useMutation({
+    mutationFn: async ({ bondIds, investorSegment }: { bondIds: string[], investorSegment: string }) => {
+      const response = await apiRequest('/api/admin/bond-seed/catalog/batch-net-yield', {
+        method: 'POST',
+        body: JSON.stringify({ bondIds, investorSegment })
+      });
+      return response as { netYields: Record<string, NetYieldResult> };
+    },
+    onSuccess: (data) => {
+      setNetYields(data.netYields || {});
+    },
+    onError: (error: any) => {
+      console.error("Error fetching net yields:", error);
+    },
+  });
+
   const unpublishBondMutation = useMutation({
     mutationFn: (bondId: string) => apiRequest(`/api/admin/bond-seed/catalog/${bondId}/unpublish`, { method: 'POST' }),
     onSuccess: () => {
@@ -283,6 +320,21 @@ export default function BondSeedAdmin() {
     const selectedBondItems = bonds.filter(b => selectedBonds.has(b.id) && b.status === 'draft');
     if (selectedBondItems.length > 0) {
       setPublishDialog({ open: true, bonds: selectedBondItems });
+      // Fetch net yields for selected bonds
+      fetchNetYieldsMutation.mutate({
+        bondIds: selectedBondItems.map(b => b.id),
+        investorSegment: selectedSegment
+      });
+    }
+  };
+
+  const handleSegmentChange = (segment: 'retail' | 'hni' | 'institutional') => {
+    setSelectedSegment(segment);
+    if (publishDialog.bonds.length > 0) {
+      fetchNetYieldsMutation.mutate({
+        bondIds: publishDialog.bonds.map(b => b.id),
+        investorSegment: segment
+      });
     }
   };
 
@@ -452,7 +504,13 @@ export default function BondSeedAdmin() {
                             <Button 
                               size="sm" 
                               variant="outline"
-                              onClick={() => setPublishDialog({ open: true, bonds: [bond] })}
+                              onClick={() => {
+                                setPublishDialog({ open: true, bonds: [bond] });
+                                fetchNetYieldsMutation.mutate({
+                                  bondIds: [bond.id],
+                                  investorSegment: selectedSegment
+                                });
+                              }}
                               data-testid={`button-publish-${bond.id}`}
                             >
                               <Eye className="h-3 w-3 mr-1" />
@@ -720,48 +778,141 @@ export default function BondSeedAdmin() {
       </Tabs>
 
       <Dialog open={publishDialog.open} onOpenChange={(open) => setPublishDialog({ ...publishDialog, open })}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Publish Bonds to Marketplace</DialogTitle>
             <DialogDescription>
-              Review fee structure before publishing. Bonds will be visible to clients with appropriate KYC tier.
+              Review fee structure and net yields before publishing. Bonds will be visible to clients with appropriate KYC tier.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {publishDialog.bonds.map((bond) => {
-              const profile = getFeeProfileForType(bond.instrumentType);
-              return (
-                <Card key={bond.id} className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium">{bond.bondName}</h4>
-                      <p className="text-sm text-muted-foreground">{bond.isin} | {bond.issuerName}</p>
-                    </div>
-                    <Badge className={KYC_TIER_COLORS[bond.kycTierRequired]}>
-                      {bond.kycTierRequired} KYC required
-                    </Badge>
-                  </div>
-                  {profile && (
-                    <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Retail Brokerage</p>
-                        <p className="font-mono">{parseFloat(profile.retailBrokerageRate).toFixed(3)}% + GST</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">HNI Brokerage</p>
-                        <p className="font-mono">{parseFloat(profile.hniBrokerageRate).toFixed(3)}% + GST</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Platform Fee</p>
-                        <p className="font-mono">{parseFloat(profile.platformFeeRate).toFixed(2)}%</p>
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
+          
+          <div className="flex items-center gap-4 py-2 border-b">
+            <Label className="text-sm font-medium">Investor Segment:</Label>
+            <Select value={selectedSegment} onValueChange={(v) => handleSegmentChange(v as 'retail' | 'hni' | 'institutional')}>
+              <SelectTrigger className="w-[180px]" data-testid="select-investor-segment">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="retail">Retail</SelectItem>
+                <SelectItem value="hni">HNI</SelectItem>
+                <SelectItem value="institutional">Institutional</SelectItem>
+              </SelectContent>
+            </Select>
+            {fetchNetYieldsMutation.isPending && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
           </div>
-          <DialogFooter>
+          
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-4 py-4">
+              {publishDialog.bonds.map((bond) => {
+                const profile = getFeeProfileForType(bond.instrumentType);
+                const yieldData = netYields[bond.id];
+                return (
+                  <Card key={bond.id} className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium">{bond.bondName}</h4>
+                        <p className="text-sm text-muted-foreground">{bond.isin} | {bond.issuerName}</p>
+                      </div>
+                      <Badge className={KYC_TIER_COLORS[bond.kycTierRequired]}>
+                        {bond.kycTierRequired} KYC required
+                      </Badge>
+                    </div>
+                    
+                    {yieldData && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="flex items-center gap-2 mb-3">
+                          <TrendingUp className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">Net Yield Analysis</span>
+                          {!yieldData.regulatoryCompliant && (
+                            <Badge variant="destructive" className="ml-auto">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Compliance Issue
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-4 gap-4 text-sm">
+                          <div className="bg-muted/50 p-2 rounded">
+                            <p className="text-muted-foreground text-xs">Gross YTM</p>
+                            <p className="font-mono text-lg font-semibold text-green-600 dark:text-green-400">
+                              {yieldData.grossYield.toFixed(2)}%
+                            </p>
+                          </div>
+                          <div className="bg-muted/50 p-2 rounded">
+                            <p className="text-muted-foreground text-xs">Fee Impact</p>
+                            <p className="font-mono text-lg font-semibold text-amber-600 dark:text-amber-400">
+                              -{yieldData.feeImpactBps} bps
+                            </p>
+                          </div>
+                          <div className="bg-muted/50 p-2 rounded">
+                            <p className="text-muted-foreground text-xs">Net Yield</p>
+                            <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">
+                              {yieldData.netYield.toFixed(2)}%
+                            </p>
+                          </div>
+                          <div className="bg-muted/50 p-2 rounded">
+                            <p className="text-muted-foreground text-xs">After Tax (30%)</p>
+                            <p className="font-mono text-lg font-semibold">
+                              {yieldData.netYieldAfterTax.toFixed(2)}%
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2 grid grid-cols-5 gap-2 text-xs text-muted-foreground">
+                          <div>
+                            <span className="block">Platform</span>
+                            <span className="font-mono">{yieldData.breakdown.platformFeeAnnualized.toFixed(4)}%</span>
+                          </div>
+                          <div>
+                            <span className="block">Brokerage</span>
+                            <span className="font-mono">{yieldData.breakdown.brokerageFeeAnnualized.toFixed(4)}%</span>
+                          </div>
+                          <div>
+                            <span className="block">Txn Charges</span>
+                            <span className="font-mono">{yieldData.breakdown.transactionChargesAnnualized.toFixed(4)}%</span>
+                          </div>
+                          <div>
+                            <span className="block">GST</span>
+                            <span className="font-mono">{yieldData.breakdown.gstAnnualized.toFixed(4)}%</span>
+                          </div>
+                          <div>
+                            <span className="block">Stamp Duty</span>
+                            <span className="font-mono">{yieldData.breakdown.stampDutyAnnualized.toFixed(4)}%</span>
+                          </div>
+                        </div>
+                        {yieldData.violations.length > 0 && (
+                          <Alert variant="destructive" className="mt-3">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>
+                              {yieldData.violations.join('; ')}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    )}
+                    
+                    {!yieldData && profile && (
+                      <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Retail Brokerage</p>
+                          <p className="font-mono">{parseFloat(profile.retailBrokerageRate).toFixed(3)}% + GST</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">HNI Brokerage</p>
+                          <p className="font-mono">{parseFloat(profile.hniBrokerageRate).toFixed(3)}% + GST</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Platform Fee</p>
+                          <p className="font-mono">{parseFloat(profile.platformFeeRate).toFixed(2)}%</p>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          </ScrollArea>
+          <DialogFooter className="pt-4 border-t">
             <Button variant="outline" onClick={() => setPublishDialog({ open: false, bonds: [] })}>
               Cancel
             </Button>
