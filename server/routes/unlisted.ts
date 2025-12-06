@@ -63,13 +63,14 @@ const router = Router();
 
 /**
  * GET /api/unlisted/companies
- * List all unlisted companies with optional filters (public - no KYC required for browsing)
+ * List only STORE-PUBLISHED unlisted companies (public - no KYC required for browsing)
+ * Only returns companies where storeProductId is not null (published to store)
  */
 router.get('/companies', async (req: Request, res: Response) => {
   try {
     const { status, sector } = req.query;
     
-    const filters: { status?: string; sector?: string } = {};
+    const filters: { status?: string; sector?: string; storePublishedOnly?: boolean } = {};
     if (status && typeof status === 'string') filters.status = status;
     if (sector && typeof sector === 'string') filters.sector = sector;
     
@@ -77,6 +78,9 @@ router.get('/companies', async (req: Request, res: Response) => {
     if (!filters.status) {
       filters.status = 'active';
     }
+    
+    // Client browse should ONLY see store-published companies
+    filters.storePublishedOnly = true;
     
     const companies = await storage.getAllUnlistedCompanies(filters);
     return apiResponse.success(res, companies);

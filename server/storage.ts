@@ -3,7 +3,7 @@ import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeT
 import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument, type UnlistedCompany, type InsertUnlistedCompany, type CompanyFinancials, type InsertCompanyFinancials, type CompanyRatios, type InsertCompanyRatios, type UnlistedPriceHistory, type InsertUnlistedPriceHistory, type SellListing, type InsertSellListing, type BuyRequest, type InsertBuyRequest, type UnlistedDeal, type InsertUnlistedDeal, type Probe42SyncLog, type InsertProbe42SyncLog, type SupportTemplate, type InsertSupportTemplate, type SupportStep, type InsertSupportStep, type SupportStepComment, type InsertSupportStepComment } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, and, or, desc, asc, gte, lte, like, ilike, sql } from "drizzle-orm";
+import { eq, and, or, desc, asc, gte, lte, like, ilike, sql, isNotNull, inArray } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { generateUniqueUserId } from "./auth";
 
@@ -8207,9 +8207,7 @@ export class DatabaseStorage implements IStorage {
     return company || null;
   }
 
-  async getAllUnlistedCompanies(filters?: { status?: string; sector?: string }): Promise<UnlistedCompany[]> {
-    let query = db.select().from(schema.unlistedCompanies);
-    
+  async getAllUnlistedCompanies(filters?: { status?: string; sector?: string; storePublishedOnly?: boolean }): Promise<UnlistedCompany[]> {
     const conditions = [];
     if (filters?.status) {
       conditions.push(eq(schema.unlistedCompanies.status, filters.status));
@@ -8217,6 +8215,27 @@ export class DatabaseStorage implements IStorage {
     if (filters?.sector) {
       conditions.push(eq(schema.unlistedCompanies.sector, filters.sector));
     }
+    
+    // If storePublishedOnly is true, only return companies linked to a store product
+    if (filters?.storePublishedOnly) {
+      // Get companies that have a store product with matching sourceCompanyId
+      const storeLinkedCompanyIds = await db.select({ sourceCompanyId: schema.storeProducts.sourceCompanyId })
+        .from(schema.storeProducts)
+        .where(and(
+          isNotNull(schema.storeProducts.sourceCompanyId),
+          eq(schema.storeProducts.isActive, true)
+        ));
+      
+      const linkedIds = storeLinkedCompanyIds.map(p => p.sourceCompanyId).filter(Boolean) as string[];
+      
+      if (linkedIds.length === 0) {
+        return [];
+      }
+      
+      conditions.push(inArray(schema.unlistedCompanies.id, linkedIds));
+    }
+    
+    let query = db.select().from(schema.unlistedCompanies);
     
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as any;
