@@ -137,6 +137,14 @@ export default function BondSeedAdmin() {
   const [netYields, setNetYields] = useState<Record<string, NetYieldResult>>({});
   const [selectedSegment, setSelectedSegment] = useState<'retail' | 'hni' | 'institutional'>('retail');
   const [unlisistedDialog, setUnlistedDialog] = useState(false);
+  const [feeOverrideDialog, setFeeOverrideDialog] = useState<{ open: boolean; bond: BondCatalogItem | null }>({ open: false, bond: null });
+  const [feeOverride, setFeeOverride] = useState({
+    platformFeeOverride: '',
+    brokerageFeeOverride: '',
+    transactionChargesOverride: '',
+    overrideReason: ''
+  });
+  const [overrideNetYield, setOverrideNetYield] = useState<NetYieldResult | null>(null);
   const [newUnlistedBond, setNewUnlistedBond] = useState({
     isin: '',
     bondName: '',
@@ -247,6 +255,66 @@ export default function BondSeedAdmin() {
     },
     onError: (error: any) => {
       console.error("Error fetching net yields:", error);
+    },
+  });
+
+  const previewOverrideNetYieldMutation = useMutation({
+    mutationFn: async (data: { bond: BondCatalogItem; override: typeof feeOverride }) => {
+      const response = await apiRequest('/api/admin/bond-seed/preview-override-net-yield', {
+        method: 'POST',
+        body: JSON.stringify({
+          instrumentType: data.bond.instrumentType,
+          grossYield: data.bond.yieldToMaturity || '0',
+          transactionAmount: data.bond.minInvestment || '100000',
+          holdingPeriodYears: data.bond.maturityDate ? 
+            Math.max(0.25, (new Date(data.bond.maturityDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)) : 1,
+          investorSegment: selectedSegment,
+          platformFeeOverride: data.override.platformFeeOverride || null,
+          brokerageFeeOverride: data.override.brokerageFeeOverride || null,
+          transactionChargesOverride: data.override.transactionChargesOverride || null,
+        })
+      });
+      return response as NetYieldResult;
+    },
+    onSuccess: (data) => {
+      setOverrideNetYield(data);
+    },
+    onError: (error: any) => {
+      console.error("Error previewing override net yield:", error);
+    },
+  });
+
+  const createFeeOverrideMutation = useMutation({
+    mutationFn: async (data: { bond: BondCatalogItem; override: typeof feeOverride }) => {
+      return await apiRequest('/api/admin/bond-seed/fee-overrides', {
+        method: 'POST',
+        body: JSON.stringify({
+          isin: data.bond.isin,
+          catalogId: data.bond.id,
+          platformFeeOverride: data.override.platformFeeOverride || null,
+          brokerageFeeOverride: data.override.brokerageFeeOverride || null,
+          transactionChargesOverride: data.override.transactionChargesOverride || null,
+          overrideReason: data.override.overrideReason,
+        })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/audit-logs'] });
+      setFeeOverrideDialog({ open: false, bond: null });
+      setFeeOverride({ platformFeeOverride: '', brokerageFeeOverride: '', transactionChargesOverride: '', overrideReason: '' });
+      setOverrideNetYield(null);
+      toast({
+        title: "Fee Override Created",
+        description: "Custom fees have been applied to this bond",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create fee override",
+        variant: "destructive",
+      });
     },
   });
 
@@ -517,6 +585,15 @@ export default function BondSeedAdmin() {
                               Publish
                             </Button>
                           )}
+                          <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => setFeeOverrideDialog({ open: true, bond })}
+                              data-testid={`button-fee-override-${bond.id}`}
+                              title="Set custom fees"
+                            >
+                              <Percent className="h-3 w-3" />
+                            </Button>
                           {bond.status === 'published' && (
                             <Button 
                               size="sm" 
@@ -1088,6 +1165,171 @@ export default function BondSeedAdmin() {
                 <Plus className="h-4 w-4 mr-2" />
               )}
               Create Draft
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={feeOverrideDialog.open} onOpenChange={(open) => {
+        setFeeOverrideDialog({ ...feeOverrideDialog, open });
+        if (!open) {
+          setFeeOverride({ platformFeeOverride: '', brokerageFeeOverride: '', transactionChargesOverride: '', overrideReason: '' });
+          setOverrideNetYield(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Custom Fee Override</DialogTitle>
+            <DialogDescription>
+              Set custom fees for this bond. Net yield will be recalculated automatically.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {feeOverrideDialog.bond && (
+            <div className="space-y-6 py-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <h4 className="font-medium">{feeOverrideDialog.bond.bondName}</h4>
+                <p className="text-sm text-muted-foreground">{feeOverrideDialog.bond.isin} | {feeOverrideDialog.bond.issuerName}</p>
+                <div className="mt-2 flex gap-4 text-sm">
+                  <span>Gross YTM: <strong>{feeOverrideDialog.bond.yieldToMaturity}%</strong></span>
+                  <span>Type: <strong>{feeOverrideDialog.bond.instrumentType}</strong></span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Platform Fee Override (%)</Label>
+                  <Input 
+                    value={feeOverride.platformFeeOverride}
+                    onChange={(e) => setFeeOverride({ ...feeOverride, platformFeeOverride: e.target.value })}
+                    type="number"
+                    step="0.001"
+                    placeholder="Leave blank for default"
+                    data-testid="input-platform-fee-override"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Brokerage Override (%)</Label>
+                  <Input 
+                    value={feeOverride.brokerageFeeOverride}
+                    onChange={(e) => setFeeOverride({ ...feeOverride, brokerageFeeOverride: e.target.value })}
+                    type="number"
+                    step="0.001"
+                    placeholder="Leave blank for default"
+                    data-testid="input-brokerage-override"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Txn Charges Override (%)</Label>
+                  <Input 
+                    value={feeOverride.transactionChargesOverride}
+                    onChange={(e) => setFeeOverride({ ...feeOverride, transactionChargesOverride: e.target.value })}
+                    type="number"
+                    step="0.001"
+                    placeholder="Leave blank for default"
+                    data-testid="input-txn-charges-override"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Override Reason <span className="text-red-500">*</span></Label>
+                <Input 
+                  value={feeOverride.overrideReason}
+                  onChange={(e) => setFeeOverride({ ...feeOverride, overrideReason: e.target.value })}
+                  placeholder="Reason for custom fee override (required for audit)"
+                  data-testid="input-override-reason"
+                />
+              </div>
+              
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (feeOverrideDialog.bond) {
+                    previewOverrideNetYieldMutation.mutate({
+                      bond: feeOverrideDialog.bond,
+                      override: feeOverride
+                    });
+                  }
+                }}
+                disabled={previewOverrideNetYieldMutation.isPending}
+                data-testid="button-preview-net-yield"
+              >
+                {previewOverrideNetYieldMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                )}
+                Preview Net Yield
+              </Button>
+              
+              {overrideNetYield && (
+                <div className="p-4 border rounded-lg bg-muted/30">
+                  <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    Net Yield Preview (with overrides)
+                  </h5>
+                  <div className="grid grid-cols-4 gap-4 text-sm">
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                      <p className="text-muted-foreground text-xs">Gross YTM</p>
+                      <p className="font-mono text-lg font-semibold text-green-600 dark:text-green-400">
+                        {overrideNetYield.grossYield.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                      <p className="text-muted-foreground text-xs">Fee Impact</p>
+                      <p className="font-mono text-lg font-semibold text-amber-600 dark:text-amber-400">
+                        -{overrideNetYield.feeImpactBps} bps
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                      <p className="text-muted-foreground text-xs">Net Yield</p>
+                      <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">
+                        {overrideNetYield.netYield.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                      <p className="text-muted-foreground text-xs">After Tax (30%)</p>
+                      <p className="font-mono text-lg font-semibold">
+                        {overrideNetYield.netYieldAfterTax.toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
+                  {!overrideNetYield.regulatoryCompliant && (
+                    <Alert variant="destructive" className="mt-3">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        {overrideNetYield.violations.join('; ')}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFeeOverrideDialog({ open: false, bond: null })}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (feeOverrideDialog.bond) {
+                  createFeeOverrideMutation.mutate({
+                    bond: feeOverrideDialog.bond,
+                    override: feeOverride
+                  });
+                }
+              }}
+              disabled={createFeeOverrideMutation.isPending || !feeOverride.overrideReason}
+              data-testid="button-save-override"
+            >
+              {createFeeOverrideMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
+              Save Override
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -187,6 +187,235 @@ router.post("/catalog/batch-net-yield", async (req: Request, res: Response) => {
 });
 
 // ============================================
+// FEE OVERRIDES API
+// ============================================
+
+// Preview net yield with temporary override values (before saving)
+router.post("/preview-override-net-yield", async (req: Request, res: Response) => {
+  try {
+    const { 
+      instrumentType, 
+      grossYield, 
+      transactionAmount, 
+      holdingPeriodYears, 
+      investorSegment,
+      platformFeeOverride,
+      brokerageFeeOverride,
+      transactionChargesOverride
+    } = req.body;
+    
+    // Get base fee profile
+    const profile = await bondFeeCalibrationService.getProfileByInstrumentType(instrumentType);
+    const caps = REGULATORY_FEE_CAPS[instrumentType as InstrumentType];
+    const violations: string[] = [];
+    
+    // Use override values if provided, otherwise use profile defaults
+    let platformFeeRate = platformFeeOverride !== null && platformFeeOverride !== '' 
+      ? parseFloat(platformFeeOverride) 
+      : (profile ? parseFloat(profile.platformFeeValue || '0') : caps.maxPlatformFee * 0.5);
+      
+    let brokerageRate = brokerageFeeOverride !== null && brokerageFeeOverride !== ''
+      ? parseFloat(brokerageFeeOverride)
+      : (profile ? parseFloat(profile.brokerageFeeValue || '0') : caps.maxBrokerage * 0.5);
+      
+    let transactionChargesRate = transactionChargesOverride !== null && transactionChargesOverride !== ''
+      ? parseFloat(transactionChargesOverride)
+      : (profile ? parseFloat(profile.transactionCharges || '0') : 0);
+    
+    // Apply investor segment multiplier (only to defaults, not overrides)
+    let segmentMultiplier = 1.0;
+    if (profile && (platformFeeOverride === null || platformFeeOverride === '') && (brokerageFeeOverride === null || brokerageFeeOverride === '')) {
+      switch (investorSegment) {
+        case 'retail':
+          segmentMultiplier = parseFloat(profile.retailMultiplier || '1.00');
+          break;
+        case 'hni':
+          segmentMultiplier = parseFloat(profile.hniMultiplier || '1.00');
+          break;
+        case 'institutional':
+          segmentMultiplier = parseFloat(profile.institutionalMultiplier || '0.50');
+          break;
+      }
+      platformFeeRate *= segmentMultiplier;
+      brokerageRate *= segmentMultiplier;
+    }
+    
+    // Validate against regulatory caps
+    if (brokerageRate > caps.maxBrokerage) {
+      violations.push(`Brokerage ${brokerageRate.toFixed(4)}% exceeds regulatory cap of ${caps.maxBrokerage}%`);
+      brokerageRate = caps.maxBrokerage;
+    }
+    if (platformFeeRate > caps.maxPlatformFee) {
+      violations.push(`Platform fee ${platformFeeRate.toFixed(4)}% exceeds regulatory cap of ${caps.maxPlatformFee}%`);
+      platformFeeRate = caps.maxPlatformFee;
+    }
+    
+    // Calculate fees
+    const gstRate = profile ? parseFloat(profile.gstRate || '18') : 18;
+    const gstOnBrokeragePercent = (brokerageRate * gstRate) / 100;
+    const gstOnPlatformFeePercent = (platformFeeRate * gstRate) / 100;
+    const totalGstPercent = gstOnBrokeragePercent + gstOnPlatformFeePercent;
+    
+    let stampDutyPercent = 0;
+    if (caps.stampDuty) {
+      const stampDutyRate = profile ? parseFloat(profile.stampDutyRate || '0') : ((caps as any).stampDutyRate || 0);
+      stampDutyPercent = stampDutyRate * 100;
+    }
+    
+    const totalOneTimeFees = platformFeeRate + brokerageRate + transactionChargesRate + totalGstPercent + stampDutyPercent;
+    const holdingYears = parseFloat(holdingPeriodYears || '1') || 1;
+    const annualizedFeePercentage = holdingYears > 0 ? totalOneTimeFees / holdingYears : totalOneTimeFees;
+    
+    const grossYieldNum = parseFloat(grossYield || '0');
+    const netYield = grossYieldNum - annualizedFeePercentage;
+    
+    const isTaxFree = instrumentType === 'tax_free_bond' || instrumentType === 'sgb';
+    const taxBracket = 30;
+    const effectiveTaxRate = isTaxFree ? 0 : taxBracket;
+    const taxImpact = (netYield * effectiveTaxRate) / 100;
+    const netYieldAfterTax = netYield - taxImpact;
+    
+    const feeImpactBps = Math.round(annualizedFeePercentage * 100);
+    const taxImpactBps = Math.round(taxImpact * 100);
+    
+    const breakdown = {
+      platformFeeAnnualized: Math.round((platformFeeRate / holdingYears) * 10000) / 10000,
+      brokerageFeeAnnualized: Math.round((brokerageRate / holdingYears) * 10000) / 10000,
+      transactionChargesAnnualized: Math.round((transactionChargesRate / holdingYears) * 10000) / 10000,
+      gstAnnualized: Math.round((totalGstPercent / holdingYears) * 10000) / 10000,
+      stampDutyAnnualized: Math.round((stampDutyPercent / holdingYears) * 10000) / 10000,
+    };
+    
+    res.json({
+      grossYield: Math.round(grossYieldNum * 10000) / 10000,
+      netYield: Math.round(netYield * 10000) / 10000,
+      netYieldAfterTax: Math.round(netYieldAfterTax * 10000) / 10000,
+      feeImpactBps,
+      taxImpactBps,
+      totalImpactBps: feeImpactBps + taxImpactBps,
+      annualizedFeePercentage: Math.round(annualizedFeePercentage * 10000) / 10000,
+      breakdown,
+      regulatoryCompliant: violations.length === 0,
+      violations
+    });
+  } catch (error: any) {
+    console.error("Error previewing override net yield:", error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Create fee override for a specific bond
+router.post("/fee-overrides", async (req: Request, res: Response) => {
+  try {
+    const { isin, catalogId, platformFeeOverride, brokerageFeeOverride, transactionChargesOverride, overrideReason } = req.body;
+    const userId = (req as any).user?.id;
+    
+    if (!overrideReason) {
+      return res.status(400).json({ error: "Override reason is required" });
+    }
+    
+    // Create the override
+    const override = await bondFeeCalibrationService.createFeeOverride({
+      isin,
+      platformFeeOverride: platformFeeOverride ? parseFloat(platformFeeOverride) : undefined,
+      brokerageFeeOverride: brokerageFeeOverride ? parseFloat(brokerageFeeOverride) : undefined,
+      transactionChargesOverride: transactionChargesOverride ? parseFloat(transactionChargesOverride) : undefined,
+      overrideReason,
+      createdBy: userId,
+    });
+    
+    // Update the bond catalog entry with the override ID
+    if (catalogId && override) {
+      await db.update(bondCatalog)
+        .set({ feeOverrideId: override.id, updatedAt: new Date() })
+        .where(eq(bondCatalog.id, catalogId));
+    }
+    
+    // Audit log
+    await db.insert(bondMarketplaceAuditLogs).values({
+      userId,
+      userEmail: (req as any).user?.email,
+      userRole: 'admin',
+      action: 'create_fee_override',
+      entityType: 'fee_override',
+      entityId: override?.id,
+      afterValue: { isin, catalogId, platformFeeOverride, brokerageFeeOverride, transactionChargesOverride, overrideReason },
+      changeDescription: `Created fee override for ${isin}`,
+      complianceRelated: true,
+      riskLevel: 'high',
+      ipAddress: req.ip,
+      retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000),
+    });
+    
+    res.json({ override });
+  } catch (error: any) {
+    console.error("Error creating fee override:", error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get fee overrides for a bond
+router.get("/fee-overrides/:isin", async (req: Request, res: Response) => {
+  try {
+    const { isin } = req.params;
+    
+    const overrides = await db.select()
+      .from(bondFeeOverrides)
+      .where(eq(bondFeeOverrides.isin, isin))
+      .orderBy(desc(bondFeeOverrides.createdAt));
+    
+    res.json({ overrides });
+  } catch (error: any) {
+    console.error("Error fetching fee overrides:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete fee override
+router.delete("/fee-overrides/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user?.id;
+    
+    // Get existing override for audit
+    const existing = await db.select().from(bondFeeOverrides).where(eq(bondFeeOverrides.id, id)).limit(1);
+    
+    if (!existing[0]) {
+      return res.status(404).json({ error: "Override not found" });
+    }
+    
+    // Delete the override
+    await db.delete(bondFeeOverrides).where(eq(bondFeeOverrides.id, id));
+    
+    // Remove override reference from catalog
+    await db.update(bondCatalog)
+      .set({ feeOverrideId: null, updatedAt: new Date() })
+      .where(eq(bondCatalog.feeOverrideId, id));
+    
+    // Audit log
+    await db.insert(bondMarketplaceAuditLogs).values({
+      userId,
+      userEmail: (req as any).user?.email,
+      userRole: 'admin',
+      action: 'delete_fee_override',
+      entityType: 'fee_override',
+      entityId: id,
+      beforeValue: existing[0],
+      changeDescription: `Deleted fee override for ${existing[0].isin}`,
+      complianceRelated: true,
+      riskLevel: 'high',
+      ipAddress: req.ip,
+      retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000),
+    });
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Error deleting fee override:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
 // BOND CATALOG API (Draft/Publish Workflow)
 // ============================================
 
