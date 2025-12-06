@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -1495,6 +1496,8 @@ function BondMarketplace() {
   const [buyQuantity, setBuyQuantity] = useState('');
   const [riskAcknowledgments, setRiskAcknowledgments] = useState<Record<string, boolean>>({});
   const [sellRiskAcknowledgments, setSellRiskAcknowledgments] = useState<Record<string, boolean>>({});
+  const [tierCheckStatus, setTierCheckStatus] = useState<'idle' | 'checking' | 'done'>('idle');
+  const [tierError, setTierError] = useState<string | null>(null);
   
   const [sellForm, setSellForm] = useState({
     isin: '',
@@ -1526,7 +1529,7 @@ function BondMarketplace() {
     queryKey: ['/api/bonds/buy-requests/my'],
   });
   
-  const { data: eligibility } = useQuery({
+  const { data: eligibility } = useQuery<{ eligible: boolean; tier?: string; reason?: string }>({
     queryKey: ['/api/bonds/trading-eligibility'],
   });
 
