@@ -1,6 +1,6 @@
 export interface RiskDisclosure {
   id: string;
-  category: 'general' | 'liquidity' | 'regulatory' | 'operational' | 'market' | 'information';
+  category: 'general' | 'liquidity' | 'regulatory' | 'operational' | 'market' | 'information' | 'valuation' | 'fraud';
   title: string;
   description: string;
   mandatory: boolean;
@@ -101,6 +101,34 @@ export const SEBI_RISK_DISCLOSURES: RiskDisclosure[] = [
     description: 'Transactions in unlisted securities may have different tax implications than listed securities. Consult your tax advisor for specific guidance.',
     mandatory: false,
   },
+  {
+    id: 'valuation-1',
+    category: 'valuation',
+    title: 'Valuation Uncertainty',
+    description: 'Unlisted securities lack standard market-based valuation. Prices are based on internal valuations, comparable transactions, or negotiations. Actual value may differ significantly from quoted prices.',
+    mandatory: true,
+  },
+  {
+    id: 'valuation-2',
+    category: 'valuation',
+    title: 'No Independent Valuation',
+    description: 'Unlike listed securities, there is no independent third-party valuation mechanism. Valuations may be influenced by interested parties and may not reflect fair market value.',
+    mandatory: true,
+  },
+  {
+    id: 'fraud-1',
+    category: 'fraud',
+    title: 'Fraud and Misrepresentation Risks',
+    description: 'The unlisted securities market is susceptible to fraudulent schemes, including pump-and-dump schemes, fake company documents, and misrepresentation of financial data. Exercise extreme caution.',
+    mandatory: true,
+  },
+  {
+    id: 'fraud-2',
+    category: 'fraud',
+    title: 'Verification Limitations',
+    description: 'Verification of company information, share certificates, and seller identity may be limited. FintekPro performs due diligence but cannot guarantee the authenticity of all information.',
+    mandatory: true,
+  },
 ];
 
 export const DISCLOSURE_VERSION = '2024-01';
@@ -195,6 +223,8 @@ I confirm that I am making this trade voluntarily and understand all associated 
       operational: 'Operational Risks',
       market: 'Market Risks',
       information: 'Information Risks',
+      valuation: 'Valuation Risks',
+      fraud: 'Fraud and Verification Risks',
     };
 
     const categories = Object.keys(categoryTitles).map(cat => ({
