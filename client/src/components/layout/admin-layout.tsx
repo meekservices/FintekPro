@@ -24,7 +24,11 @@ import {
   Building2,
   Target,
   PieChart,
-  Store
+  Store,
+  Briefcase,
+  ClipboardList,
+  History,
+  Handshake
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -83,6 +87,36 @@ const adminNavItems = [
     href: "/admin/store-management",
     icon: Store,
     description: "Control categories, products & visibility"
+  },
+  {
+    title: "Unlisted Dashboard",
+    href: "/admin/unlisted/dashboard",
+    icon: Briefcase,
+    description: "Unlisted marketplace overview & metrics"
+  },
+  {
+    title: "Unlisted Orders",
+    href: "/admin/unlisted/orders",
+    icon: ClipboardList,
+    description: "Manage sell listings & buy requests"
+  },
+  {
+    title: "Unlisted Negotiations",
+    href: "/admin/unlisted/negotiations",
+    icon: Handshake,
+    description: "Seller/buyer price negotiations"
+  },
+  {
+    title: "Unlisted Audit Log",
+    href: "/admin/unlisted/audit-log",
+    icon: History,
+    description: "Compliance & trading event history"
+  },
+  {
+    title: "Unlisted Companies",
+    href: "/admin/unlisted/companies",
+    icon: Building2,
+    description: "Manage company listings & pricing"
   },
   {
     title: "Zoho Integration",
