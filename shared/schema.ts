@@ -11854,3 +11854,334 @@ export interface MoneyControlReconciliationSuggestion {
   }[];
   status: 'new' | 'ignored' | 'synced';
 }
+
+// ===================================================================
+// BOND MARKETPLACE TABLES (Listed & Unlisted Bonds, NCDs, Debentures)
+// SEBI NCS & RBI Compliant Two-Sided Marketplace
+// ===================================================================
+
+// Bond Sell Listings table - Investors listing bonds for sale
+export const bondSellListings = pgTable("bond_sell_listings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellerUserId: varchar("seller_user_id").references(() => users.id).notNull(),
+  
+  // Instrument Reference (one of these will be set based on instrumentType)
+  instrumentType: varchar("instrument_type").notNull(), // 'government_security', 'corporate_bond'
+  governmentSecurityId: varchar("government_security_id").references(() => governmentSecurities.id),
+  corporateBondId: varchar("corporate_bond_id").references(() => corporateBonds.id),
+  isin: varchar("isin").notNull(), // ISIN for cross-reference
+  
+  // Bond Details (denormalized for performance)
+  bondName: text("bond_name").notNull(),
+  bondType: varchar("bond_type").notNull(), // 'g_sec', 't_bill', 'sdl', 'sgb', 'tax_free_bond', 'infrastructure_bond', 'corporate_bond', 'ncd', 'debenture'
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }),
+  maturityDate: date("maturity_date"),
+  creditRating: varchar("credit_rating"),
+  isListed: boolean("is_listed").default(true), // Listed on NSE/BSE vs OTC/unlisted
+  
+  // Listing Details
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).notNull(),
+  quantity: bigint("quantity", { mode: "number" }).notNull(), // Number of units
+  askPrice: decimal("ask_price", { precision: 15, scale: 4 }).notNull(), // Price per unit (clean price)
+  askYield: decimal("ask_yield", { precision: 8, scale: 4 }), // Yield to maturity at ask price
+  floorPrice: decimal("floor_price", { precision: 15, scale: 4 }).notNull(), // Minimum acceptable price
+  
+  // Accrued Interest (for dirty price calculation)
+  accruedInterest: decimal("accrued_interest", { precision: 15, scale: 4 }),
+  lastCouponDate: date("last_coupon_date"),
+  nextCouponDate: date("next_coupon_date"),
+  
+  // Listing Status
+  status: varchar("status").default("pending").notNull(), // pending, active, matched, partial, cancelled, expired, compliance_blocked
+  quantityRemaining: bigint("quantity_remaining", { mode: "number" }),
+  
+  // Validity
+  validUntil: timestamp("valid_until"),
+  autoRenew: boolean("auto_renew").default(false),
+  
+  // Additional Terms
+  minimumLotSize: bigint("minimum_lot_size", { mode: "number" }).default(1),
+  settlementDays: integer("settlement_days").default(2), // T+2 settlement
+  notes: text("notes"),
+  
+  // Holding Verification
+  dematAccountNumber: varchar("demat_account_number"),
+  holdingVerified: boolean("holding_verified").default(false),
+  holdingVerifiedAt: timestamp("holding_verified_at"),
+  holdingProofUrl: text("holding_proof_url"), // Document URL
+  
+  // KYC & Compliance
+  kycTier: integer("kyc_tier").default(1), // 1=Basic, 2=Enhanced, 3=Accredited
+  kycVerified: boolean("kyc_verified").default(false),
+  complianceStatus: varchar("compliance_status").default("pending"), // pending, cleared, blocked
+  complianceBlockReasons: jsonb("compliance_block_reasons").default([]),
+  riskAcknowledged: boolean("risk_acknowledged").default(false),
+  riskAcknowledgedAt: timestamp("risk_acknowledged_at"),
+  
+  // TDS Handling
+  tdsApplicable: boolean("tds_applicable").default(true),
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }).default("10.00"), // Default 10% TDS on interest
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_sell_listings_seller").on(table.sellerUserId),
+  index("idx_bond_sell_listings_isin").on(table.isin),
+  index("idx_bond_sell_listings_status").on(table.status),
+  index("idx_bond_sell_listings_type").on(table.instrumentType),
+  index("idx_bond_sell_listings_bond_type").on(table.bondType),
+]);
+
+export type BondSellListing = typeof bondSellListings.$inferSelect;
+export type InsertBondSellListing = typeof bondSellListings.$inferInsert;
+export const insertBondSellListingSchema = createInsertSchema(bondSellListings).omit({ 
+  id: true, createdAt: true, updatedAt: true, quantityRemaining: true 
+});
+
+// Bond Buy Requests table - Investors requesting to buy bonds
+export const bondBuyRequests = pgTable("bond_buy_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buyerUserId: varchar("buyer_user_id").references(() => users.id).notNull(),
+  
+  // Instrument Reference (one of these will be set based on instrumentType)
+  instrumentType: varchar("instrument_type").notNull(), // 'government_security', 'corporate_bond'
+  governmentSecurityId: varchar("government_security_id").references(() => governmentSecurities.id),
+  corporateBondId: varchar("corporate_bond_id").references(() => corporateBonds.id),
+  isin: varchar("isin").notNull(),
+  
+  // Bond Details (denormalized for performance)
+  bondName: text("bond_name").notNull(),
+  bondType: varchar("bond_type").notNull(),
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }),
+  maturityDate: date("maturity_date"),
+  creditRating: varchar("credit_rating"),
+  isListed: boolean("is_listed").default(true),
+  
+  // Request Details
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).notNull(),
+  quantity: bigint("quantity", { mode: "number" }).notNull(),
+  maxPrice: decimal("max_price", { precision: 15, scale: 4 }).notNull(), // Maximum price willing to pay (clean)
+  targetPrice: decimal("target_price", { precision: 15, scale: 4 }), // Preferred price
+  targetYield: decimal("target_yield", { precision: 8, scale: 4 }), // Preferred yield
+  
+  // Request Status
+  status: varchar("status").default("pending").notNull(), // pending, active, matched, partial, cancelled, expired, compliance_blocked
+  quantityFilled: bigint("quantity_filled", { mode: "number" }).default(0),
+  
+  // Validity
+  validUntil: timestamp("valid_until"),
+  
+  // Additional Preferences
+  preferredLotSize: bigint("preferred_lot_size", { mode: "number" }),
+  maxSettlementDays: integer("max_settlement_days").default(3),
+  preferredRatingMin: varchar("preferred_rating_min"), // Minimum credit rating
+  notes: text("notes"),
+  
+  // KYC & Compliance
+  kycTier: integer("kyc_tier").default(1),
+  kycVerified: boolean("kyc_verified").default(false),
+  fundsVerified: boolean("funds_verified").default(false),
+  complianceStatus: varchar("compliance_status").default("pending"),
+  complianceBlockReasons: jsonb("compliance_block_reasons").default([]),
+  riskAcknowledged: boolean("risk_acknowledged").default(false),
+  riskAcknowledgedAt: timestamp("risk_acknowledged_at"),
+  
+  // SEBI Risk Disclosures Acknowledged
+  sebiDisclosuresAcknowledged: jsonb("sebi_disclosures_acknowledged").default([]), // Array of disclosure IDs
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_buy_requests_buyer").on(table.buyerUserId),
+  index("idx_bond_buy_requests_isin").on(table.isin),
+  index("idx_bond_buy_requests_status").on(table.status),
+  index("idx_bond_buy_requests_type").on(table.instrumentType),
+  index("idx_bond_buy_requests_bond_type").on(table.bondType),
+]);
+
+export type BondBuyRequest = typeof bondBuyRequests.$inferSelect;
+export type InsertBondBuyRequest = typeof bondBuyRequests.$inferInsert;
+export const insertBondBuyRequestSchema = createInsertSchema(bondBuyRequests).omit({ 
+  id: true, createdAt: true, updatedAt: true, quantityFilled: true 
+});
+
+// Bond Deals table - Matched transactions
+export const bondDeals = pgTable("bond_deals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sellListingId: varchar("sell_listing_id").references(() => bondSellListings.id).notNull(),
+  buyRequestId: varchar("buy_request_id").references(() => bondBuyRequests.id).notNull(),
+  
+  // Parties
+  sellerUserId: varchar("seller_user_id").references(() => users.id).notNull(),
+  buyerUserId: varchar("buyer_user_id").references(() => users.id).notNull(),
+  
+  // Instrument Details
+  instrumentType: varchar("instrument_type").notNull(),
+  governmentSecurityId: varchar("government_security_id").references(() => governmentSecurities.id),
+  corporateBondId: varchar("corporate_bond_id").references(() => corporateBonds.id),
+  isin: varchar("isin").notNull(),
+  bondName: text("bond_name").notNull(),
+  bondType: varchar("bond_type").notNull(),
+  
+  // Deal Terms
+  quantity: bigint("quantity", { mode: "number" }).notNull(),
+  agreedPrice: decimal("agreed_price", { precision: 15, scale: 4 }).notNull(), // Clean price
+  accruedInterest: decimal("accrued_interest", { precision: 15, scale: 4 }).default("0"),
+  dirtyPrice: decimal("dirty_price", { precision: 15, scale: 4 }), // Clean + accrued
+  totalValue: decimal("total_value", { precision: 20, scale: 2 }).notNull(), // quantity * dirtyPrice
+  effectiveYield: decimal("effective_yield", { precision: 8, scale: 4 }), // YTM at agreed price
+  
+  // Deal Status
+  status: varchar("status").default("pending").notNull(), // pending, escrowed, payment_pending, payment_received, transferred, completed, cancelled, failed
+  
+  // Payment & Transfer
+  escrowId: varchar("escrow_id"),
+  escrowedAt: timestamp("escrowed_at"),
+  paymentGateway: varchar("payment_gateway"), // cashfree, phonepe
+  paymentTransactionId: varchar("payment_transaction_id"),
+  paymentCompletedAt: timestamp("payment_completed_at"),
+  
+  // Bond Transfer
+  transferMode: varchar("transfer_mode"), // off_market, on_market
+  transferReferenceNumber: varchar("transfer_reference_number"),
+  bondsTransferredAt: timestamp("bonds_transferred_at"),
+  
+  // Settlement
+  settlementDate: date("settlement_date"),
+  actualSettlementDate: date("actual_settlement_date"),
+  
+  // Platform Fees
+  platformFee: decimal("platform_fee", { precision: 15, scale: 2 }),
+  sellerFee: decimal("seller_fee", { precision: 15, scale: 2 }),
+  buyerFee: decimal("buyer_fee", { precision: 15, scale: 2 }),
+  stampDuty: decimal("stamp_duty", { precision: 15, scale: 2 }),
+  
+  // TDS on Accrued Interest
+  tdsOnInterest: decimal("tds_on_interest", { precision: 15, scale: 2 }).default("0"),
+  tdsDeductedBy: varchar("tds_deducted_by"), // platform, seller
+  tdsCertificateNumber: varchar("tds_certificate_number"),
+  
+  // Net Settlement
+  sellerPayout: decimal("seller_payout", { precision: 20, scale: 2 }),
+  buyerCharge: decimal("buyer_charge", { precision: 20, scale: 2 }),
+  
+  // Compliance
+  complianceChecked: boolean("compliance_checked").default(false),
+  complianceApprovedBy: varchar("compliance_approved_by").references(() => users.id),
+  complianceApprovedAt: timestamp("compliance_approved_at"),
+  complianceNotes: text("compliance_notes"),
+  
+  // Regulatory Reporting
+  sebiReportingRequired: boolean("sebi_reporting_required").default(false),
+  sebiReportedAt: timestamp("sebi_reported_at"),
+  rbiReportingRequired: boolean("rbi_reporting_required").default(false),
+  rbiReportedAt: timestamp("rbi_reported_at"),
+  
+  // Metadata
+  matchedAt: timestamp("matched_at").defaultNow(),
+  matchedBy: varchar("matched_by").references(() => users.id), // Admin who matched
+  completedAt: timestamp("completed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_deals_seller").on(table.sellerUserId),
+  index("idx_bond_deals_buyer").on(table.buyerUserId),
+  index("idx_bond_deals_isin").on(table.isin),
+  index("idx_bond_deals_status").on(table.status),
+  index("idx_bond_deals_matched").on(table.matchedAt),
+]);
+
+export type BondDeal = typeof bondDeals.$inferSelect;
+export type InsertBondDeal = typeof bondDeals.$inferInsert;
+export const insertBondDealSchema = createInsertSchema(bondDeals).omit({ 
+  id: true, createdAt: true, updatedAt: true, matchedAt: true 
+});
+
+// Bond Marketplace Audit Logs table - 7-year retention for regulatory compliance
+export const bondMarketplaceAuditLogs = pgTable("bond_marketplace_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Actor
+  userId: varchar("user_id").references(() => users.id),
+  userEmail: varchar("user_email"),
+  userRole: varchar("user_role"), // admin, investor, seller
+  
+  // Action Details
+  action: varchar("action").notNull(), // create_listing, update_listing, cancel_listing, create_request, match_deal, approve_compliance, complete_deal, etc.
+  entityType: varchar("entity_type").notNull(), // sell_listing, buy_request, deal
+  entityId: varchar("entity_id").notNull(),
+  
+  // Instrument Context
+  isin: varchar("isin"),
+  bondType: varchar("bond_type"),
+  instrumentType: varchar("instrument_type"),
+  
+  // Change Tracking
+  beforeValue: jsonb("before_value"),
+  afterValue: jsonb("after_value"),
+  changeDescription: text("change_description"),
+  
+  // Compliance Context
+  complianceRelated: boolean("compliance_related").default(false),
+  riskLevel: varchar("risk_level"), // low, medium, high, critical
+  
+  // Request Context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  
+  // Timestamps
+  timestamp: timestamp("timestamp").defaultNow(),
+  
+  // Retention Policy
+  retentionExpiresAt: timestamp("retention_expires_at"), // 7 years from timestamp
+}, (table) => [
+  index("idx_bond_audit_user").on(table.userId),
+  index("idx_bond_audit_action").on(table.action),
+  index("idx_bond_audit_entity").on(table.entityType, table.entityId),
+  index("idx_bond_audit_isin").on(table.isin),
+  index("idx_bond_audit_timestamp").on(table.timestamp),
+]);
+
+export type BondMarketplaceAuditLog = typeof bondMarketplaceAuditLogs.$inferSelect;
+export type InsertBondMarketplaceAuditLog = typeof bondMarketplaceAuditLogs.$inferInsert;
+export const insertBondMarketplaceAuditLogSchema = createInsertSchema(bondMarketplaceAuditLogs).omit({ 
+  id: true, timestamp: true 
+});
+
+// SEBI NCS Risk Disclosure Acknowledgments for Bonds
+export const bondRiskDisclosureAcknowledgments = pgTable("bond_risk_disclosure_acknowledgments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Disclosure Category (per SEBI NCS Regulations)
+  disclosureCategory: varchar("disclosure_category").notNull(), // credit_risk, interest_rate_risk, liquidity_risk, default_risk, call_risk, reinvestment_risk, regulatory_risk, issuer_risk
+  disclosureVersion: varchar("disclosure_version").default("1.0"),
+  
+  // Instrument Context (can be general or specific)
+  bondType: varchar("bond_type"), // If specific to a bond type
+  isin: varchar("isin"), // If specific to an instrument
+  creditRatingCategory: varchar("credit_rating_category"), // investment_grade, below_investment_grade
+  
+  // Acknowledgment Details
+  acknowledged: boolean("acknowledged").default(false),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedFromIp: varchar("acknowledged_from_ip"),
+  
+  // Disclosure Content Hash (for version tracking)
+  contentHash: varchar("content_hash"),
+  
+  // Validity
+  validUntil: timestamp("valid_until"), // May require re-acknowledgment annually
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_disclosure_user").on(table.userId),
+  index("idx_bond_disclosure_category").on(table.disclosureCategory),
+  index("idx_bond_disclosure_isin").on(table.isin),
+]);

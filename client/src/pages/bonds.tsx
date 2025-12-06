@@ -1133,6 +1133,572 @@ function TaxFreeBonds() {
   );
 }
 
+// Bond Marketplace Component - Sell Listings and Buy Requests with SEBI Compliance
+function BondMarketplace() {
+  const { toast } = useToast();
+  const [showCreateSellDialog, setShowCreateSellDialog] = useState(false);
+  const [showBuyDialog, setShowBuyDialog] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [buyQuantity, setBuyQuantity] = useState('');
+  const [riskAcknowledgments, setRiskAcknowledgments] = useState<Record<string, boolean>>({});
+  const [sellRiskAcknowledgments, setSellRiskAcknowledgments] = useState<Record<string, boolean>>({});
+  
+  const [sellForm, setSellForm] = useState({
+    isin: '',
+    bondName: '',
+    bondType: 'corporate',
+    instrumentType: 'corporate_bond',
+    faceValue: '',
+    quantity: '',
+    askPrice: '',
+    floorPrice: '',
+    couponRate: '',
+    maturityDate: '',
+    creditRating: 'AA',
+    isListed: true,
+    dematAccountNumber: '',
+  });
+  
+  const requiredRiskCategories = ['credit', 'liquidity', 'interest_rate', 'default', 'regulatory'];
+  
+  const { data: sellListings, isLoading: loadingSell } = useQuery<any[]>({
+    queryKey: ['/api/bonds/sell-listings'],
+  });
+  
+  const { data: myListings, isLoading: loadingMyListings } = useQuery<any[]>({
+    queryKey: ['/api/bonds/sell-listings/my'],
+  });
+  
+  const { data: myRequests, isLoading: loadingMyRequests } = useQuery<any[]>({
+    queryKey: ['/api/bonds/buy-requests/my'],
+  });
+  
+  const { data: eligibility } = useQuery({
+    queryKey: ['/api/bonds/trading-eligibility'],
+  });
+
+  const allSellRisksAcknowledged = requiredRiskCategories.every(cat => sellRiskAcknowledgments[cat]);
+
+  const createSellListingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest('/api/bonds/sell-listings', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: 'Success', description: 'Sell listing created successfully' });
+      queryClient.invalidateQueries({ queryKey: ['/api/bonds/sell-listings/my'] });
+      setShowCreateSellDialog(false);
+      setSellForm({
+        isin: '', bondName: '', bondType: 'corporate', instrumentType: 'corporate_bond',
+        faceValue: '', quantity: '', askPrice: '', floorPrice: '', couponRate: '',
+        maturityDate: '', creditRating: 'AA', isListed: true, dematAccountNumber: '',
+      });
+      setSellRiskAcknowledgments({});
+    },
+    onError: (error: any) => {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Failed to create sell listing', 
+        description: error.message || 'Please ensure you meet KYC requirements and acknowledge all risks' 
+      });
+    },
+  });
+
+  const handleSubmitSellListing = () => {
+    if (!sellForm.isin || !sellForm.bondName || !sellForm.faceValue || !sellForm.quantity || !sellForm.askPrice || !sellForm.floorPrice) {
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill in all required fields' });
+      return;
+    }
+    
+    const transactionValue = parseFloat(sellForm.askPrice) * parseInt(sellForm.quantity);
+    const requiresRiskAck = !sellForm.isListed || transactionValue > 5000000;
+    
+    if (requiresRiskAck && !allSellRisksAcknowledged) {
+      toast({
+        variant: 'destructive',
+        title: 'Risk Acknowledgment Required',
+        description: 'Please acknowledge all mandatory risk disclosures before proceeding',
+      });
+      return;
+    }
+    
+    createSellListingMutation.mutate({
+      ...sellForm,
+      faceValue: sellForm.faceValue,
+      quantity: parseInt(sellForm.quantity),
+      askPrice: sellForm.askPrice,
+      floorPrice: sellForm.floorPrice,
+      couponRate: sellForm.couponRate ? parseFloat(sellForm.couponRate) : null,
+      riskAcknowledgments: sellRiskAcknowledgments,
+    });
+  };
+
+  const toggleSellRiskAck = (category: string) => {
+    setSellRiskAcknowledgments(prev => ({ ...prev, [category]: !prev[category] }));
+  };
+
+  const createBuyRequestMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest('/api/bonds/buy-requests', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: 'Success', description: 'Buy request created successfully' });
+      queryClient.invalidateQueries({ queryKey: ['/api/bonds/buy-requests/my'] });
+      setShowBuyDialog(false);
+      setSelectedListing(null);
+      setBuyQuantity('');
+      setRiskAcknowledgments({});
+    },
+    onError: (error: any) => {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Failed to create buy request', 
+        description: error.message || 'Please ensure you meet KYC requirements and acknowledge all risks' 
+      });
+    },
+  });
+
+  const handleBuyClick = (listing: any) => {
+    setSelectedListing(listing);
+    setShowBuyDialog(true);
+    setTierCheckStatus('idle');
+    setTierError(null);
+    setRiskAcknowledgments({});
+    setBuyQuantity('1');
+  };
+
+  const allRisksAcknowledged = requiredRiskCategories.every(cat => riskAcknowledgments[cat]);
+  
+  const handleSubmitBuyRequest = () => {
+    if (!selectedListing || !buyQuantity) return;
+    
+    const transactionValue = parseFloat(selectedListing.askPrice) * parseInt(buyQuantity);
+    const requiresRiskAck = !selectedListing.isListed || transactionValue > 5000000;
+    
+    if (requiresRiskAck && !allRisksAcknowledged) {
+      toast({
+        variant: 'destructive',
+        title: 'Risk Acknowledgment Required',
+        description: 'Please acknowledge all mandatory risk disclosures before proceeding',
+      });
+      return;
+    }
+    
+    createBuyRequestMutation.mutate({
+      instrumentType: selectedListing.instrumentType,
+      isin: selectedListing.isin,
+      bondName: selectedListing.bondName,
+      bondType: selectedListing.bondType,
+      couponRate: selectedListing.couponRate,
+      maturityDate: selectedListing.maturityDate,
+      creditRating: selectedListing.creditRating,
+      isListed: selectedListing.isListed,
+      faceValue: selectedListing.faceValue,
+      quantity: parseInt(buyQuantity),
+      maxPrice: selectedListing.askPrice,
+      targetPrice: selectedListing.askPrice,
+      riskAcknowledged: allRisksAcknowledged,
+      riskAcknowledgments: riskAcknowledgments,
+    });
+  };
+
+  const toggleRiskAck = (category: string) => {
+    setRiskAcknowledgments(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* KYC Eligibility Status Banner */}
+      {eligibility && (
+        <Alert className={(eligibility as any)?.eligible ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            {(eligibility as any)?.eligible 
+              ? `You are eligible to trade bonds. KYC Tier: ${(eligibility as any)?.tier || 'Basic'}`
+              : `Complete your KYC to access bond trading. ${(eligibility as any)?.reason || ''}`
+            }
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900">Bond Marketplace</h3>
+          <p className="text-gray-600 text-sm">Buy and sell bonds in our secondary market</p>
+        </div>
+        <Dialog open={showCreateSellDialog} onOpenChange={setShowCreateSellDialog}>
+          <DialogTrigger asChild>
+            <Button data-testid="btn-create-sell-listing">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Sell My Bonds
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create Sell Listing</DialogTitle>
+              <DialogDescription>
+                List your bonds for sale in the marketplace. A buyer will be matched to your listing.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {/* Eligibility Banner */}
+              {eligibility && (
+                <Alert className={(eligibility as any)?.eligible ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}>
+                  <Shield className="h-4 w-4" />
+                  <AlertDescription>
+                    {(eligibility as any)?.eligible 
+                      ? `KYC Tier: ${(eligibility as any)?.tier || 'Basic'} - You are eligible to create sell listings`
+                      : `Complete your KYC to create sell listings. ${(eligibility as any)?.reason || ''}`
+                    }
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="sell-isin">ISIN *</Label>
+                  <Input id="sell-isin" value={sellForm.isin} onChange={(e) => setSellForm(p => ({ ...p, isin: e.target.value }))} placeholder="e.g., INE123A01234" data-testid="input-sell-isin" />
+                </div>
+                <div>
+                  <Label htmlFor="sell-bondName">Bond Name *</Label>
+                  <Input id="sell-bondName" value={sellForm.bondName} onChange={(e) => setSellForm(p => ({ ...p, bondName: e.target.value }))} placeholder="e.g., HDFC NCD 2028" data-testid="input-sell-bondName" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="sell-bondType">Bond Type</Label>
+                  <Select value={sellForm.bondType} onValueChange={(v) => setSellForm(p => ({ ...p, bondType: v, instrumentType: v === 'government' ? 'government_security' : 'corporate_bond' }))}>
+                    <SelectTrigger data-testid="select-sell-bondType"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="corporate">Corporate Bond</SelectItem>
+                      <SelectItem value="ncd">NCD</SelectItem>
+                      <SelectItem value="government">Government Security</SelectItem>
+                      <SelectItem value="tax-free">Tax-Free Bond</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="sell-creditRating">Credit Rating</Label>
+                  <Select value={sellForm.creditRating} onValueChange={(v) => setSellForm(p => ({ ...p, creditRating: v }))}>
+                    <SelectTrigger data-testid="select-sell-creditRating"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AAA">AAA</SelectItem>
+                      <SelectItem value="AA+">AA+</SelectItem>
+                      <SelectItem value="AA">AA</SelectItem>
+                      <SelectItem value="A+">A+</SelectItem>
+                      <SelectItem value="A">A</SelectItem>
+                      <SelectItem value="BBB">BBB</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="sell-faceValue">Face Value *</Label>
+                  <Input id="sell-faceValue" type="number" value={sellForm.faceValue} onChange={(e) => setSellForm(p => ({ ...p, faceValue: e.target.value }))} placeholder="e.g., 1000" data-testid="input-sell-faceValue" />
+                </div>
+                <div>
+                  <Label htmlFor="sell-quantity">Quantity *</Label>
+                  <Input id="sell-quantity" type="number" value={sellForm.quantity} onChange={(e) => setSellForm(p => ({ ...p, quantity: e.target.value }))} placeholder="e.g., 100" data-testid="input-sell-quantity" />
+                </div>
+                <div>
+                  <Label htmlFor="sell-couponRate">Coupon Rate (%)</Label>
+                  <Input id="sell-couponRate" type="number" step="0.01" value={sellForm.couponRate} onChange={(e) => setSellForm(p => ({ ...p, couponRate: e.target.value }))} placeholder="e.g., 8.5" data-testid="input-sell-couponRate" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="sell-askPrice">Ask Price (₹) *</Label>
+                  <Input id="sell-askPrice" type="number" value={sellForm.askPrice} onChange={(e) => setSellForm(p => ({ ...p, askPrice: e.target.value }))} placeholder="e.g., 1050" data-testid="input-sell-askPrice" />
+                </div>
+                <div>
+                  <Label htmlFor="sell-floorPrice">Floor Price (₹) *</Label>
+                  <Input id="sell-floorPrice" type="number" value={sellForm.floorPrice} onChange={(e) => setSellForm(p => ({ ...p, floorPrice: e.target.value }))} placeholder="e.g., 1000" data-testid="input-sell-floorPrice" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="sell-maturityDate">Maturity Date</Label>
+                  <Input id="sell-maturityDate" type="date" value={sellForm.maturityDate} onChange={(e) => setSellForm(p => ({ ...p, maturityDate: e.target.value }))} data-testid="input-sell-maturityDate" />
+                </div>
+                <div>
+                  <Label htmlFor="sell-dematAccount">Demat Account Number</Label>
+                  <Input id="sell-dematAccount" value={sellForm.dematAccountNumber} onChange={(e) => setSellForm(p => ({ ...p, dematAccountNumber: e.target.value }))} placeholder="e.g., 1234567890123456" data-testid="input-sell-dematAccount" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="sell-isListed" checked={sellForm.isListed} onChange={(e) => setSellForm(p => ({ ...p, isListed: e.target.checked }))} data-testid="checkbox-sell-isListed" />
+                <Label htmlFor="sell-isListed">Bond is listed on exchange</Label>
+              </div>
+
+              {/* SEBI Risk Disclosure Acknowledgments for Sell Listing */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                  SEBI Risk Disclosures (Seller)
+                </h4>
+                <p className="text-sm text-gray-600">
+                  You must acknowledge the following risks before listing bonds for sale:
+                </p>
+                <div className="space-y-2">
+                  {requiredRiskCategories.map((category) => (
+                    <div key={category} className="flex items-start gap-2">
+                      <input type="checkbox" id={`sell-risk-${category}`} checked={sellRiskAcknowledgments[category] || false} onChange={() => toggleSellRiskAck(category)} className="mt-1" data-testid={`checkbox-sell-risk-${category}`} />
+                      <label htmlFor={`sell-risk-${category}`} className="text-sm">
+                        <span className="font-medium capitalize">{category.replace('_', ' ')} Risk:</span>{' '}
+                        {category === 'credit' && 'I understand pricing may reflect issuer credit changes.'}
+                        {category === 'liquidity' && 'I understand my listing may not attract buyers immediately.'}
+                        {category === 'interest_rate' && 'I understand bond values fluctuate with rates.'}
+                        {category === 'default' && 'I confirm the bond has no current defaults.'}
+                        {category === 'regulatory' && 'I confirm compliance with SEBI/RBI regulations.'}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Button onClick={handleSubmitSellListing} disabled={createSellListingMutation.isPending || !allSellRisksAcknowledged} className="w-full" data-testid="btn-submit-sell-listing">
+                {createSellListingMutation.isPending ? 'Submitting...' : 'Create Sell Listing'}
+              </Button>
+              
+              {!allSellRisksAcknowledged && (
+                <p className="text-sm text-amber-600 text-center">Please acknowledge all risk disclosures to proceed</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Buy Dialog with Risk Acknowledgments */}
+      <Dialog open={showBuyDialog} onOpenChange={setShowBuyDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Buy Bonds</DialogTitle>
+            <DialogDescription>
+              Create a buy request for {selectedListing?.bondName}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedListing && (
+            <div className="space-y-4 py-4">
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Bond:</span>
+                  <span className="font-medium">{selectedListing.bondName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ask Price:</span>
+                  <span className="font-bold text-green-600">₹{parseFloat(selectedListing.askPrice).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Available:</span>
+                  <span>{selectedListing.quantity} units</span>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="buy-qty">Quantity</Label>
+                <Input
+                  id="buy-qty"
+                  type="number"
+                  min="1"
+                  max={selectedListing.quantity}
+                  value={buyQuantity}
+                  onChange={(e) => setBuyQuantity(e.target.value)}
+                  data-testid="input-buy-quantity"
+                />
+              </div>
+
+              {/* SEBI Risk Disclosure Acknowledgments */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                  SEBI Risk Disclosures
+                </h4>
+                <p className="text-sm text-gray-600">
+                  You must acknowledge the following risks before proceeding with this transaction:
+                </p>
+                <div className="space-y-2">
+                  {requiredRiskCategories.map((category) => (
+                    <div key={category} className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        id={`risk-${category}`}
+                        checked={riskAcknowledgments[category] || false}
+                        onChange={() => toggleRiskAck(category)}
+                        className="mt-1"
+                        data-testid={`checkbox-risk-${category}`}
+                      />
+                      <label htmlFor={`risk-${category}`} className="text-sm">
+                        <span className="font-medium capitalize">{category.replace('_', ' ')} Risk:</span>{' '}
+                        {category === 'credit' && 'The issuer may default on payments.'}
+                        {category === 'liquidity' && 'Bonds may be difficult to sell before maturity.'}
+                        {category === 'interest_rate' && 'Bond values fluctuate with interest rate changes.'}
+                        {category === 'default' && 'There is a risk of complete loss of principal.'}
+                        {category === 'regulatory' && 'Regulatory changes may affect bond value or taxability.'}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSubmitBuyRequest}
+                disabled={createBuyRequestMutation.isPending || !allRisksAcknowledged || !buyQuantity}
+                className="w-full"
+                data-testid="btn-confirm-buy-request"
+              >
+                {createBuyRequestMutation.isPending ? 'Submitting...' : 'Submit Buy Request'}
+              </Button>
+              
+              {!allRisksAcknowledged && (
+                <p className="text-sm text-amber-600 text-center">
+                  Please acknowledge all risk disclosures to proceed
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Active Sell Listings in Market */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-blue-600" />
+            Available Bonds for Sale
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingSell ? (
+            <LoadingState variant="list" count={3} />
+          ) : !sellListings || sellListings.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p>No bonds currently listed for sale</p>
+              <p className="text-sm">Check back later or create a sell listing</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {sellListings.map((listing: any) => (
+                <div key={listing.id} className="border rounded-lg p-4 flex justify-between items-center">
+                  <div>
+                    <h4 className="font-medium text-gray-900">{listing.bondName}</h4>
+                    <div className="flex gap-2 mt-1">
+                      <Badge variant="outline">{listing.bondType}</Badge>
+                      <span className="text-sm text-gray-500">ISIN: {listing.isin}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-gray-900">₹{parseFloat(listing.askPrice).toLocaleString()}</p>
+                    <p className="text-sm text-gray-500">{listing.quantity} units available</p>
+                    <Button 
+                      size="sm" 
+                      className="mt-2" 
+                      onClick={() => handleBuyClick(listing)}
+                      data-testid={`btn-buy-${listing.id}`}
+                    >
+                      Buy Now
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* My Listings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-green-600" />
+            My Sell Listings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingMyListings ? (
+            <LoadingState variant="list" count={2} />
+          ) : !myListings || myListings.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">
+              <p className="text-sm">You haven't created any sell listings yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myListings.map((listing: any) => (
+                <div key={listing.id} className="border rounded-lg p-4 flex justify-between items-center">
+                  <div>
+                    <h4 className="font-medium">{listing.bondName}</h4>
+                    <p className="text-sm text-gray-500">{listing.quantity} units @ ₹{parseFloat(listing.askPrice).toLocaleString()}</p>
+                  </div>
+                  <Badge variant={
+                    listing.status === 'active' ? 'default' :
+                    listing.status === 'pending' ? 'outline' :
+                    listing.status === 'matched' ? 'secondary' : 'destructive'
+                  }>
+                    {listing.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* My Buy Requests */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="h-5 w-5 text-purple-600" />
+            My Buy Requests
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingMyRequests ? (
+            <LoadingState variant="list" count={2} />
+          ) : !myRequests || myRequests.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">
+              <p className="text-sm">You haven't placed any buy requests yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myRequests.map((request: any) => (
+                <div key={request.id} className="border rounded-lg p-4 flex justify-between items-center">
+                  <div>
+                    <h4 className="font-medium">{request.bondName}</h4>
+                    <p className="text-sm text-gray-500">{request.quantity} units @ max ₹{parseFloat(request.maxPrice).toLocaleString()}</p>
+                  </div>
+                  <Badge variant={
+                    request.status === 'active' ? 'default' :
+                    request.status === 'pending' ? 'outline' :
+                    request.status === 'matched' ? 'secondary' : 'destructive'
+                  }>
+                    {request.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // Bond Holdings Component
 function BondHoldings() {
   const { data: holdings, isLoading } = useQuery({
@@ -1395,6 +1961,7 @@ export default function Bonds() {
         <Tabs defaultValue="explore" className="space-y-8">
           <ScrollableTabsList>
             <TabsTrigger value="explore" data-testid="tab-explore" className="flex-shrink-0">Explore Bonds</TabsTrigger>
+            <TabsTrigger value="marketplace" data-testid="tab-marketplace" className="flex-shrink-0">Marketplace</TabsTrigger>
             <TabsTrigger value="calculator" data-testid="tab-calculator" className="flex-shrink-0">Bond Calculator</TabsTrigger>
             <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="flex-shrink-0">My Bonds</TabsTrigger>
             <TabsTrigger value="education" data-testid="tab-education" className="flex-shrink-0">Learn</TabsTrigger>
@@ -1639,6 +2206,10 @@ export default function Bonds() {
               </Card>
 
             </div>
+          </TabsContent>
+
+          <TabsContent value="marketplace" className="space-y-6" data-testid="bonds-marketplace">
+            <BondMarketplace />
           </TabsContent>
 
           <TabsContent value="portfolio" className="space-y-6" data-testid="bonds-portfolio">

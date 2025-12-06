@@ -5,7 +5,140 @@ import { storage } from "./storage";
  * Bond Trading KYC Sequential Gate
  * Enforces: PAN → CKYC → KRA → Demat → Risk Profile before allowing bond orders
  * SEBI/RBI Compliant - All steps must be completed in sequence
+ * 
+ * REGULATORY TIER REQUIREMENTS:
+ * Tier 1 (Basic KYC): G-Secs, T-Bills, SDL, SGBs
+ * Tier 2 (Enhanced KYC): Listed NCDs, Tax-Free Bonds, 54EC Bonds
+ * Tier 3 (Accredited Investor): Unlisted bonds, Private placements, High-value (>₹50L)
  */
+
+// Regulatory tier definitions for different bond types
+export type RegulatoryTier = 'tier1_basic' | 'tier2_enhanced' | 'tier3_accredited';
+
+export interface TierRequirement {
+  tier: RegulatoryTier;
+  name: string;
+  minKycLevel: string;
+  requiresAccreditation: boolean;
+  requiresRiskAcknowledgment: boolean;
+  minInvestment?: number;
+  maxInvestment?: number;
+  bondTypes: string[];
+  description: string;
+}
+
+export const REGULATORY_TIERS: Record<RegulatoryTier, TierRequirement> = {
+  tier1_basic: {
+    tier: 'tier1_basic',
+    name: 'Tier 1 - Basic',
+    minKycLevel: 'basic',
+    requiresAccreditation: false,
+    requiresRiskAcknowledgment: false,
+    bondTypes: ['g_sec', 'gsec', 't_bill', 'sdl', 'sgb', 'sovereign_gold_bond', 'government_security'],
+    description: 'Government Securities, Treasury Bills, State Development Loans, and Sovereign Gold Bonds'
+  },
+  tier2_enhanced: {
+    tier: 'tier2_enhanced',
+    name: 'Tier 2 - Enhanced',
+    minKycLevel: 'enhanced',
+    requiresAccreditation: false,
+    requiresRiskAcknowledgment: true,
+    bondTypes: ['ncd', 'listed_ncd', 'tax_free_bond', '54ec_bond', 'infrastructure_bond', 'corporate_bond'],
+    description: 'Listed NCDs, Tax-Free Bonds, Infrastructure Bonds, and 54EC Capital Gains Bonds'
+  },
+  tier3_accredited: {
+    tier: 'tier3_accredited',
+    name: 'Tier 3 - Accredited Investor',
+    minKycLevel: 'accredited',
+    requiresAccreditation: true,
+    requiresRiskAcknowledgment: true,
+    minInvestment: 1000000, // ₹10 Lakh minimum for private placements
+    bondTypes: ['unlisted_ncd', 'private_placement', 'subordinated_debt', 'perpetual_bond', 'at1_bond'],
+    description: 'Unlisted NCDs, Private Placements, Subordinated Debt, and High-Risk Instruments'
+  }
+};
+
+// High-value transaction threshold requiring additional verification
+export const HIGH_VALUE_THRESHOLD = 5000000; // ₹50 Lakh
+
+/**
+ * Determine regulatory tier based on bond type and transaction value
+ */
+export function determineRegulatoryTier(bondType: string, transactionValue?: number, isListed?: boolean): RegulatoryTier {
+  const bondTypeLower = bondType.toLowerCase().replace(/[_-]/g, '');
+  
+  // High-value transactions always require Tier 3
+  if (transactionValue && transactionValue >= HIGH_VALUE_THRESHOLD) {
+    return 'tier3_accredited';
+  }
+  
+  // Unlisted bonds always require Tier 3
+  if (isListed === false) {
+    return 'tier3_accredited';
+  }
+  
+  // Check Tier 1 (Government securities)
+  for (const type of REGULATORY_TIERS.tier1_basic.bondTypes) {
+    if (bondTypeLower.includes(type.replace(/[_-]/g, ''))) {
+      return 'tier1_basic';
+    }
+  }
+  
+  // Check Tier 3 (Accredited investor required)
+  for (const type of REGULATORY_TIERS.tier3_accredited.bondTypes) {
+    if (bondTypeLower.includes(type.replace(/[_-]/g, ''))) {
+      return 'tier3_accredited';
+    }
+  }
+  
+  // Default to Tier 2 for listed corporate bonds/NCDs
+  return 'tier2_enhanced';
+}
+
+/**
+ * Check if user meets tier requirements
+ */
+export async function checkTierEligibility(userId: string, tier: RegulatoryTier): Promise<{
+  eligible: boolean;
+  missingRequirements: string[];
+  requiredTier: TierRequirement;
+}> {
+  const user = await storage.getUser(userId) as any;
+  const requirements = REGULATORY_TIERS[tier];
+  const missingRequirements: string[] = [];
+  
+  if (!user) {
+    return { eligible: false, missingRequirements: ['User authentication required'], requiredTier: requirements };
+  }
+  
+  // Check KYC level
+  const kycLevel = user.kycTier?.toLowerCase() || user.kycLevel?.toLowerCase() || 'none';
+  const kycLevelMap: Record<string, number> = { 'none': 0, 'basic': 1, 'enhanced': 2, 'accredited': 3 };
+  const userKycLevel = kycLevelMap[kycLevel] || 0;
+  const requiredKycLevel = kycLevelMap[requirements.minKycLevel] || 0;
+  
+  if (userKycLevel < requiredKycLevel) {
+    missingRequirements.push(`${requirements.minKycLevel.charAt(0).toUpperCase() + requirements.minKycLevel.slice(1)} KYC required`);
+  }
+  
+  // Check accreditation for Tier 3
+  if (requirements.requiresAccreditation) {
+    const isAccredited = user.isAccreditedInvestor === true || 
+                         user.accreditedInvestorStatus === 'verified' ||
+                         (user.netWorth && parseFloat(user.netWorth) >= 20000000) || // ₹2Cr net worth
+                         (user.annualIncome && parseFloat(user.annualIncome) >= 5000000); // ₹50L income
+    
+    if (!isAccredited) {
+      missingRequirements.push('Accredited Investor verification required (SEBI criteria: Net worth ≥₹2Cr or Annual income ≥₹50L)');
+    }
+  }
+  
+  return {
+    eligible: missingRequirements.length === 0,
+    missingRequirements,
+    requiredTier: requirements
+  };
+}
 
 export interface KYCStepStatus {
   step: string;

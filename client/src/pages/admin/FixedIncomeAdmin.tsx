@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { 
   Plus, Edit, Trash2, Search, Filter, Download, Upload,
   Landmark, Building2, Coins, Receipt, AlertCircle, CheckCircle2,
-  RefreshCw, Eye, FileText, Calendar, TrendingUp
+  RefreshCw, Eye, FileText, Calendar, TrendingUp, Handshake, ShoppingCart, Store
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -1135,6 +1135,353 @@ function AuditLogsView() {
   );
 }
 
+interface BondSellListing {
+  id: string;
+  sellerUserId: string;
+  isin: string;
+  bondName: string;
+  bondType: string;
+  quantity: number;
+  askPrice: string;
+  status: string;
+  createdAt: string;
+}
+
+interface BondBuyRequest {
+  id: string;
+  buyerUserId: string;
+  isin: string;
+  bondName: string;
+  bondType: string;
+  quantity: number;
+  maxPrice: string;
+  status: string;
+  createdAt: string;
+}
+
+function BondMarketplaceManagement() {
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'sell' | 'buy' | 'deals'>('sell');
+
+  const { data: sellListings, isLoading: loadingSell } = useQuery<BondSellListing[]>({
+    queryKey: ['/api/bonds/admin/listings'],
+  });
+
+  const { data: buyRequests, isLoading: loadingBuy } = useQuery<BondBuyRequest[]>({
+    queryKey: ['/api/bonds/admin/requests'],
+  });
+
+  const { data: stats, isLoading: loadingStats } = useQuery<{
+    totalSellListings: number;
+    totalBuyRequests: number;
+    totalDeals: number;
+    activeSellListings: number;
+    activeBuyRequests: number;
+    pendingDeals: number;
+    totalVolume: string;
+  }>({
+    queryKey: ['/api/bonds/admin/stats'],
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return await apiRequest(`/api/bonds/admin/listings/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bonds/admin/listings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bonds/admin/stats'] });
+      toast({ title: 'Status updated successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Failed to update status', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const handleApprove = (id: string) => {
+    updateStatusMutation.mutate({ id, status: 'active' });
+  };
+
+  const handleReject = (id: string) => {
+    updateStatusMutation.mutate({ id, status: 'rejected' });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Bond Marketplace Management</h3>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/bonds/admin/listings'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/bonds/admin/requests'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/bonds/admin/stats'] });
+          }} data-testid="btn-refresh-marketplace">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Store className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-xl font-bold">{stats?.activeSellListings || 0}</p>
+                <p className="text-sm text-gray-500">Active Sell Listings</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <ShoppingCart className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-xl font-bold">{stats?.activeBuyRequests || 0}</p>
+                <p className="text-sm text-gray-500">Active Buy Requests</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Handshake className="h-5 w-5 text-purple-600" />
+              <div>
+                <p className="text-xl font-bold">{stats?.pendingDeals || 0}</p>
+                <p className="text-sm text-gray-500">Pending Deals</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="h-5 w-5 text-amber-600" />
+              <div>
+                <p className="text-xl font-bold">₹{parseFloat(stats?.totalVolume || '0').toLocaleString()}</p>
+                <p className="text-sm text-gray-500">Total Volume</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-2 border-b">
+        <Button
+          variant={activeTab === 'sell' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('sell')}
+          data-testid="btn-tab-sell"
+        >
+          <Store className="h-4 w-4 mr-2" />
+          Sell Listings ({stats?.totalSellListings || 0})
+        </Button>
+        <Button
+          variant={activeTab === 'buy' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('buy')}
+          data-testid="btn-tab-buy"
+        >
+          <ShoppingCart className="h-4 w-4 mr-2" />
+          Buy Requests ({stats?.totalBuyRequests || 0})
+        </Button>
+        <Button
+          variant={activeTab === 'deals' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('deals')}
+          data-testid="btn-tab-deals"
+        >
+          <Handshake className="h-4 w-4 mr-2" />
+          Deals ({stats?.totalDeals || 0})
+        </Button>
+      </div>
+
+      {/* Sell Listings Tab */}
+      {activeTab === 'sell' && (
+        <div>
+          {loadingSell ? (
+            <LoadingState variant="list" count={5} />
+          ) : !sellListings || sellListings.length === 0 ? (
+            <EmptyState
+              icon={Store}
+              title="No sell listings"
+              description="Bond sell listings will appear here when investors create them"
+            />
+          ) : (
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bond</TableHead>
+                    <TableHead>ISIN</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">Ask Price</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sellListings.map((listing) => (
+                    <TableRow key={listing.id}>
+                      <TableCell className="font-medium">{listing.bondName}</TableCell>
+                      <TableCell className="font-mono text-sm">{listing.isin}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{listing.bondType}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{listing.quantity}</TableCell>
+                      <TableCell className="text-right">₹{parseFloat(listing.askPrice).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          listing.status === 'active' ? 'default' :
+                          listing.status === 'pending' ? 'outline' :
+                          listing.status === 'matched' ? 'secondary' :
+                          'destructive'
+                        }>
+                          {listing.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{new Date(listing.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {listing.status === 'pending' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7"
+                                onClick={() => handleApprove(listing.id)}
+                                disabled={updateStatusMutation.isPending}
+                                data-testid={`btn-approve-${listing.id}`}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-red-600"
+                                onClick={() => handleReject(listing.id)}
+                                disabled={updateStatusMutation.isPending}
+                                data-testid={`btn-reject-${listing.id}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7"
+                            data-testid={`btn-view-${listing.id}`}
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Buy Requests Tab */}
+      {activeTab === 'buy' && (
+        <div>
+          {loadingBuy ? (
+            <LoadingState variant="list" count={5} />
+          ) : !buyRequests || buyRequests.length === 0 ? (
+            <EmptyState
+              icon={ShoppingCart}
+              title="No buy requests"
+              description="Bond buy requests will appear here when investors create them"
+            />
+          ) : (
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bond</TableHead>
+                    <TableHead>ISIN</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">Max Price</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {buyRequests.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-medium">{request.bondName}</TableCell>
+                      <TableCell className="font-mono text-sm">{request.isin}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{request.bondType}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{request.quantity}</TableCell>
+                      <TableCell className="text-right">₹{parseFloat(request.maxPrice).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          request.status === 'active' ? 'default' :
+                          request.status === 'pending' ? 'outline' :
+                          request.status === 'matched' ? 'secondary' :
+                          'destructive'
+                        }>
+                          {request.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{new Date(request.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7"
+                          data-testid={`btn-view-request-${request.id}`}
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Deals Tab */}
+      {activeTab === 'deals' && (
+        <div>
+          <Alert className="mb-4">
+            <Handshake className="h-4 w-4" />
+            <AlertTitle>Deal Matching</AlertTitle>
+            <AlertDescription>
+              Match sell listings with buy requests to create deals. Ensure compliance checks are completed before approving.
+            </AlertDescription>
+          </Alert>
+          <EmptyState
+            icon={Handshake}
+            title="No deals yet"
+            description="Matched deals between sellers and buyers will appear here"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function FixedIncomeAdmin() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -1222,6 +1569,10 @@ export default function FixedIncomeAdmin() {
             <Eye className="h-4 w-4 mr-2" />
             Audit Logs
           </TabsTrigger>
+          <TabsTrigger value="marketplace" data-testid="tab-admin-marketplace">
+            <Handshake className="h-4 w-4 mr-2" />
+            Marketplace
+          </TabsTrigger>
         </ScrollableTabsList>
 
         <div className="mt-6">
@@ -1239,6 +1590,9 @@ export default function FixedIncomeAdmin() {
           </TabsContent>
           <TabsContent value="audit">
             <AuditLogsView />
+          </TabsContent>
+          <TabsContent value="marketplace">
+            <BondMarketplaceManagement />
           </TabsContent>
         </div>
       </Tabs>

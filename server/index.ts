@@ -252,6 +252,10 @@ app.use((req, res, next) => {
   const complianceRoutes = await import('./routes/compliance');
   app.use('/api/compliance', complianceRoutes.default);
   
+  // Register Bond Marketplace routes (SEBI NCS Compliant)
+  const bondMarketplaceRoutes = await import('./routes/bond-marketplace');
+  app.use('/api/bonds', bondMarketplaceRoutes.default);
+  
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');
