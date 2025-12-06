@@ -672,13 +672,13 @@ export default function UnlistedPreviewPage() {
           </AlertTitle>
           <AlertDescription className="text-xs text-emerald-600 dark:text-emerald-400">
             <div className="mt-2 space-y-1">
-              {enrichmentResult.enrichedFields.map((field, i) => (
+              {enrichmentResult.enrichedFields.map((field: { field: string; oldValue: string | null; newValue: string; source: string }, i: number) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="font-medium capitalize">{field.field}:</span>
-                  <span className="text-gray-500 line-through">{field.oldValue || 'Empty'}</span>
+                  <span className="font-medium capitalize">{String(field.field)}:</span>
+                  <span className="text-gray-500 line-through">{String(field.oldValue || 'Empty')}</span>
                   <ArrowUpRight className="w-3 h-3" />
-                  <span className="text-emerald-700 dark:text-emerald-300 font-medium">{field.newValue}</span>
-                  <Badge variant="outline" className="text-xs">{field.source}</Badge>
+                  <span className="text-emerald-700 dark:text-emerald-300 font-medium">{String(field.newValue)}</span>
+                  <Badge variant="outline" className="text-xs">{String(field.source)}</Badge>
                 </div>
               ))}
             </div>
