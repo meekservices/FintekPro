@@ -827,7 +827,7 @@ export default function SeedUnlistedPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-300">
                   <AlertCircle className="w-4 h-4 inline mr-1" />
                   {suggestion.moneyControl.error || 'Not available'}
                 </div>
@@ -867,7 +867,7 @@ export default function SeedUnlistedPage() {
                     {getConfidenceBadge(suggestion.internalCalculation.confidence)}
                   </div>
                   {suggestion.internalCalculation.methodology && (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-300">
                       {suggestion.internalCalculation.methodology}
                     </div>
                   )}
@@ -893,7 +893,7 @@ export default function SeedUnlistedPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-300">
                   <AlertCircle className="w-4 h-4 inline mr-1" />
                   {suggestion.internalCalculation.error || 'Insufficient data'}
                 </div>
@@ -916,12 +916,12 @@ export default function SeedUnlistedPage() {
                     <div>
                       <div className="text-gray-400 text-xs">Best Bid</div>
                       <div className="font-bold text-green-400">{formatPrice(suggestion.marketplace.bestBid)}</div>
-                      <div className="text-xs text-gray-500">{suggestion.marketplace.bidVolume} shares</div>
+                      <div className="text-xs text-gray-300">{suggestion.marketplace.bidVolume} shares</div>
                     </div>
                     <div>
                       <div className="text-gray-400 text-xs">Best Ask</div>
                       <div className="font-bold text-red-400">{formatPrice(suggestion.marketplace.bestAsk)}</div>
-                      <div className="text-xs text-gray-500">{suggestion.marketplace.askVolume} shares</div>
+                      <div className="text-xs text-gray-300">{suggestion.marketplace.askVolume} shares</div>
                     </div>
                   </div>
                   {suggestion.marketplace.recentClearingPrice && (
@@ -955,12 +955,12 @@ export default function SeedUnlistedPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-300">
                   <AlertCircle className="w-4 h-4 inline mr-1" />
                   No marketplace activity
                 </div>
               )}
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-300">
                 {suggestion.marketplace.activeBuyRequests} buy requests, {suggestion.marketplace.activeSellListings} sell listings
               </div>
             </CardContent>
@@ -973,15 +973,15 @@ export default function SeedUnlistedPage() {
             <div className="text-sm text-gray-400 mb-1">Recommended</div>
             <div className="flex items-center gap-4">
               <div>
-                <span className="text-xs text-gray-500">Buy:</span>
+                <span className="text-xs text-gray-300">Buy:</span>
                 <span className="ml-1 font-bold text-green-400">{formatPrice(suggestion.recommendedBuyPrice)}</span>
               </div>
               <div>
-                <span className="text-xs text-gray-500">Sell:</span>
+                <span className="text-xs text-gray-300">Sell:</span>
                 <span className="ml-1 font-bold text-red-400">{formatPrice(suggestion.recommendedSellPrice)}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500">Confidence:</span>
+                <span className="text-xs text-gray-300">Confidence:</span>
                 {getConfidenceBadge(suggestion.priceConfidence)}
               </div>
             </div>
@@ -1404,7 +1404,7 @@ export default function SeedUnlistedPage() {
                         Cancel
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-3">
+                    <p className="text-xs text-gray-300 mt-3">
                       After adding, you can enrich data from the preview page and set prices before publishing.
                     </p>
                   </div>
@@ -1476,7 +1476,7 @@ export default function SeedUnlistedPage() {
                   >
                     Cancel
                   </Button>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-300">
                     Company will appear in the list below after adding
                   </span>
                 </div>
@@ -1709,7 +1709,7 @@ export default function SeedUnlistedPage() {
                               <div className="text-xs text-gray-400">Prices Set</div>
                               <div className="text-sm">
                                 <span className="text-green-400">₹{prices.buyPrice}</span>
-                                <span className="text-gray-500 mx-1">/</span>
+                                <span className="text-gray-400 mx-1">/</span>
                                 <span className="text-red-400">₹{prices.sellPrice}</span>
                               </div>
                             </div>
@@ -1787,11 +1787,11 @@ export default function SeedUnlistedPage() {
                     >
                       <TableCell className="font-medium text-gray-400">
                         <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-gray-500" />
+                          <Building2 className="w-4 h-4 text-gray-400" />
                           {company.name}
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-500">
+                      <TableCell className="text-gray-300">
                         {company.sector || 'N/A'}
                       </TableCell>
                       <TableCell>
