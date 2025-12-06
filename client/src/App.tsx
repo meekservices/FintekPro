@@ -134,6 +134,7 @@ import UnlistedNegotiations from "@/pages/admin/UnlistedNegotiations";
 import UnlistedDashboard from "@/pages/admin/unlisted-dashboard";
 import UnlistedOrders from "@/pages/admin/unlisted-orders";
 import UnlistedAuditLog from "@/pages/admin/unlisted-audit-log";
+import UnlistedComplianceAlerts from "@/pages/admin/unlisted-compliance-alerts";
 import FixedIncomeAdmin from "@/pages/admin/FixedIncomeAdmin";
 import BondCommissionSettings from "@/pages/admin/bond-commission-settings";
 import BrowseUnlisted from "@/pages/unlisted/BrowseUnlisted";
@@ -491,6 +492,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <UnlistedAuditLog />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/compliance-alerts">
+        {() => (
+          <AdminLayout>
+            <UnlistedComplianceAlerts />
           </AdminLayout>
         )}
       </Route>

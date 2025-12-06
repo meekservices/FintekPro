@@ -2313,6 +2313,160 @@ router.post('/admin/bulk-price', requireAdmin, async (req: Request, res: Respons
 });
 
 // ===================================================================
+// ADMIN COMPLIANCE ALERT CENTER ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/admin/compliance/stats
+ * Get compliance alert statistics
+ */
+router.get('/admin/compliance/stats', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const allCompanies = await storage.getAllUnlistedCompanies({});
+    const allListings = await db.select().from(sellListings);
+    const allBuyRequests = await db.select().from(buyRequests);
+    
+    let criticalAlerts = 0;
+    let blockedTrades = 0;
+    let kycFailures = 0;
+    let highRiskCompanies = 0;
+    
+    for (const company of allCompanies) {
+      const redFlags = (company as any).redFlags || [];
+      if (redFlags.length > 0) {
+        highRiskCompanies++;
+        if (redFlags.includes('negative_net_worth') || redFlags.includes('very_high_leverage')) {
+          criticalAlerts++;
+        }
+      }
+    }
+    
+    for (const listing of allListings) {
+      if (listing.status === 'rejected') {
+        blockedTrades++;
+      }
+    }
+    
+    for (const request of allBuyRequests) {
+      if (request.status === 'rejected') {
+        blockedTrades++;
+      }
+    }
+    
+    const totalAlerts = criticalAlerts + blockedTrades + kycFailures + highRiskCompanies;
+    
+    return apiResponse.success(res, {
+      totalAlerts,
+      criticalAlerts,
+      blockedTrades,
+      kycFailures,
+      highRiskCompanies,
+      pendingAcknowledgment: Math.floor(totalAlerts * 0.3)
+    });
+  } catch (error: any) {
+    console.error('Error fetching compliance stats:', error);
+    return apiResponse.serverError(res, 'Failed to fetch compliance statistics');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/compliance/alerts
+ * Get compliance alerts with optional filters
+ */
+router.get('/admin/compliance/alerts', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { type, severity, status } = req.query;
+    const alerts: any[] = [];
+    
+    const allCompanies = await storage.getAllUnlistedCompanies({});
+    const allListings = await db.select().from(sellListings);
+    const allBuyRequests = await db.select().from(buyRequests);
+    
+    for (const company of allCompanies) {
+      const redFlags = (company as any).redFlags || [];
+      if (redFlags.length > 0) {
+        const isCritical = redFlags.includes('negative_net_worth') || redFlags.includes('very_high_leverage');
+        
+        if (type && type !== 'all' && type !== 'high_risk') continue;
+        if (severity && severity !== 'all') {
+          if (isCritical && severity !== 'critical') continue;
+          if (!isCritical && severity !== 'high') continue;
+        }
+        
+        alerts.push({
+          id: `risk-${company.id}`,
+          type: 'high_risk',
+          severity: isCritical ? 'critical' : 'high',
+          title: `High-Risk Company: ${company.name}`,
+          description: `Red flags detected: ${redFlags.join(', ')}`,
+          companyId: company.id,
+          companyName: company.name,
+          timestamp: company.lastSyncedAt || company.createdAt,
+          status: 'active'
+        });
+      }
+    }
+    
+    for (const listing of allListings) {
+      if (listing.status === 'rejected') {
+        if (type && type !== 'all' && type !== 'blocked_trade') continue;
+        if (severity && severity !== 'all' && severity !== 'high') continue;
+        
+        const company = await storage.getUnlistedCompanyById(listing.companyId);
+        const seller = await storage.getUser(listing.sellerUserId);
+        
+        alerts.push({
+          id: `blocked-sell-${listing.id}`,
+          type: 'blocked_trade',
+          severity: 'high',
+          title: 'Sell Listing Rejected',
+          description: `Sell listing for ${listing.quantity} shares rejected`,
+          companyId: listing.companyId,
+          companyName: company?.name || 'Unknown',
+          userId: listing.sellerUserId,
+          userName: seller ? `${seller.firstName} ${seller.lastName}` : 'Unknown',
+          tradeValue: (listing.askingPrice || 0) * listing.quantity,
+          timestamp: listing.updatedAt || listing.createdAt,
+          status: 'acknowledged'
+        });
+      }
+    }
+    
+    for (const request of allBuyRequests) {
+      if (request.status === 'rejected') {
+        if (type && type !== 'all' && type !== 'blocked_trade') continue;
+        if (severity && severity !== 'all' && severity !== 'high') continue;
+        
+        const company = await storage.getUnlistedCompanyById(request.companyId);
+        const buyer = await storage.getUser(request.buyerUserId);
+        
+        alerts.push({
+          id: `blocked-buy-${request.id}`,
+          type: 'blocked_trade',
+          severity: 'high',
+          title: 'Buy Request Rejected',
+          description: `Buy request for ${request.quantity} shares rejected`,
+          companyId: request.companyId,
+          companyName: company?.name || 'Unknown',
+          userId: request.buyerUserId,
+          userName: buyer ? `${buyer.firstName} ${buyer.lastName}` : 'Unknown',
+          tradeValue: (request.bidPrice || 0) * request.quantity,
+          timestamp: request.updatedAt || request.createdAt,
+          status: 'acknowledged'
+        });
+      }
+    }
+    
+    alerts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    return apiResponse.success(res, alerts);
+  } catch (error: any) {
+    console.error('Error fetching compliance alerts:', error);
+    return apiResponse.serverError(res, 'Failed to fetch compliance alerts');
+  }
+});
+
+// ===================================================================
 // ADMIN LISTINGS MANAGEMENT ROUTES
 // ===================================================================
 

@@ -16,6 +16,7 @@ import {
   Home,
   Bell,
   AlertCircle,
+  AlertTriangle,
   DollarSign,
   Workflow,
   TrendingUp,
@@ -111,6 +112,12 @@ const adminNavItems = [
     href: "/admin/unlisted/audit-log",
     icon: History,
     description: "Compliance & trading event history"
+  },
+  {
+    title: "Compliance Alerts",
+    href: "/admin/unlisted/compliance-alerts",
+    icon: AlertTriangle,
+    description: "Blocked trades, KYC failures, high-risk flags"
   },
   {
     title: "Unlisted Companies",
