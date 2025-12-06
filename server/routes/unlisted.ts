@@ -23,6 +23,7 @@ import { unifiedCompanyDataService } from '../services/unified-company-data-serv
 import { valuationService } from '../services/valuation-service';
 import { unlistedPricingWorkflowService } from '../services/unlisted-pricing-workflow';
 import { unlistedEligibilityService } from '../services/unlisted-eligibility';
+import { unlistedRiskDisclosureService } from '../services/unlisted-risk-disclosures';
 import {
   insertUnlistedCompanySchema,
   insertUnlistedPriceHistorySchema,
@@ -1199,7 +1200,27 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
       return apiResponse.unauthorized(res, 'Authentication required');
     }
     
-    const validatedData = insertSellListingSchema.parse(req.body);
+    const { acknowledgedDisclosureIds, ...orderData } = req.body;
+    const validatedData = insertSellListingSchema.parse(orderData);
+    
+    // Validate risk disclosure acknowledgment (SEBI Compliance)
+    if (!acknowledgedDisclosureIds || !Array.isArray(acknowledgedDisclosureIds)) {
+      return apiResponse.badRequest(res, 'Risk disclosure acknowledgment is required. Please read and accept all mandatory disclosures before creating a listing.');
+    }
+    
+    const disclosureValidation = unlistedRiskDisclosureService.validateAcknowledgment({
+      acknowledgedDisclosureIds,
+      userId: req.user.id,
+      companyId: validatedData.companyId,
+      tradeType: 'sell',
+    });
+    
+    if (!disclosureValidation.valid) {
+      console.log(`[COMPLIANCE] sell_listing_blocked: Missing risk disclosures | userId: ${req.user.id} | missing: ${disclosureValidation.missingDisclosures.join(', ')}`);
+      return apiResponse.badRequest(res, 'All mandatory risk disclosures must be acknowledged before creating a listing.', {
+        missingDisclosures: disclosureValidation.missingDisclosures,
+      });
+    }
     
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(validatedData.companyId);
@@ -1228,7 +1249,7 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
     }
     
     // Log compliance event
-    console.log(`[COMPLIANCE] unlisted_sell_listing: { userId: '${req.user.id}', companyId: '${validatedData.companyId}', quantity: ${validatedData.quantity}, value: ${transactionValue}, outcome: 'success' }`);
+    console.log(`[COMPLIANCE] unlisted_sell_listing: { userId: '${req.user.id}', companyId: '${validatedData.companyId}', quantity: ${validatedData.quantity}, value: ${transactionValue}, disclosureVersion: '${unlistedRiskDisclosureService.getDisclosureVersion()}', outcome: 'success' }`);
     
     // Create listing
     const listing = await storage.createSellListing({
@@ -1294,7 +1315,27 @@ router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) 
       return apiResponse.unauthorized(res, 'Authentication required');
     }
     
-    const validatedData = insertBuyRequestSchema.parse(req.body);
+    const { acknowledgedDisclosureIds, ...orderData } = req.body;
+    const validatedData = insertBuyRequestSchema.parse(orderData);
+    
+    // Validate risk disclosure acknowledgment (SEBI Compliance)
+    if (!acknowledgedDisclosureIds || !Array.isArray(acknowledgedDisclosureIds)) {
+      return apiResponse.badRequest(res, 'Risk disclosure acknowledgment is required. Please read and accept all mandatory disclosures before placing an order.');
+    }
+    
+    const disclosureValidation = unlistedRiskDisclosureService.validateAcknowledgment({
+      acknowledgedDisclosureIds,
+      userId: req.user.id,
+      companyId: validatedData.companyId,
+      tradeType: 'buy',
+    });
+    
+    if (!disclosureValidation.valid) {
+      console.log(`[COMPLIANCE] buy_request_blocked: Missing risk disclosures | userId: ${req.user.id} | missing: ${disclosureValidation.missingDisclosures.join(', ')}`);
+      return apiResponse.badRequest(res, 'All mandatory risk disclosures must be acknowledged before placing an order.', {
+        missingDisclosures: disclosureValidation.missingDisclosures,
+      });
+    }
     
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(validatedData.companyId);
@@ -1323,7 +1364,7 @@ router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) 
     }
     
     // Log compliance event
-    console.log(`[COMPLIANCE] unlisted_buy_request: { userId: '${req.user.id}', companyId: '${validatedData.companyId}', quantity: ${validatedData.quantity}, maxValue: ${transactionValue}, outcome: 'success' }`);
+    console.log(`[COMPLIANCE] unlisted_buy_request: { userId: '${req.user.id}', companyId: '${validatedData.companyId}', quantity: ${validatedData.quantity}, maxValue: ${transactionValue}, disclosureVersion: '${unlistedRiskDisclosureService.getDisclosureVersion()}', outcome: 'success' }`);
     
     // Create buy request
     const request = await storage.createBuyRequest({
@@ -1427,6 +1468,111 @@ router.get('/eligibility/kyc-upgrade', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching KYC upgrade status:', error);
     return apiResponse.serverError(res, 'Failed to fetch KYC upgrade status');
+  }
+});
+
+// ===================================================================
+// RISK DISCLOSURES ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/risk-disclosures
+ * Get all SEBI-mandated risk disclosures for unlisted securities trading
+ */
+router.get('/risk-disclosures', async (_req: Request, res: Response) => {
+  try {
+    const formattedDisclosures = unlistedRiskDisclosureService.formatDisclosuresForDisplay();
+    return apiResponse.success(res, formattedDisclosures);
+  } catch (error: any) {
+    console.error('Error fetching risk disclosures:', error);
+    return apiResponse.serverError(res, 'Failed to fetch risk disclosures');
+  }
+});
+
+/**
+ * GET /api/unlisted/risk-disclosures/company/:companyId
+ * Get company-specific risk warnings in addition to standard disclosures
+ */
+router.get('/risk-disclosures/company/:companyId', async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(companyId);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const ratios = await storage.getCompanyRatios(companyId);
+    const latestRatios = ratios && ratios.length > 0 ? ratios[0] : null;
+    
+    const companyRisks = unlistedRiskDisclosureService.getCompanySpecificRisks({
+      netWorth: company.netWorth ? parseFloat(company.netWorth.toString()) : undefined,
+      debtEquityRatio: latestRatios?.debtEquityRatio ? parseFloat(latestRatios.debtEquityRatio.toString()) : undefined,
+      profitMargin: latestRatios?.profitMargin ? parseFloat(latestRatios.profitMargin.toString()) : undefined,
+      riskScore: company.riskScore ?? undefined,
+    });
+    
+    const standardDisclosures = unlistedRiskDisclosureService.formatDisclosuresForDisplay();
+    
+    return apiResponse.success(res, {
+      ...standardDisclosures,
+      companySpecificRisks: companyRisks,
+      companyName: company.name,
+      companyRiskScore: company.riskScore,
+    });
+  } catch (error: any) {
+    console.error('Error fetching company risk disclosures:', error);
+    return apiResponse.serverError(res, 'Failed to fetch company risk disclosures');
+  }
+});
+
+/**
+ * POST /api/unlisted/risk-disclosures/validate
+ * Validate that all mandatory disclosures have been acknowledged
+ */
+router.post('/risk-disclosures/validate', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    const { acknowledgedDisclosureIds, companyId, tradeType } = req.body;
+    
+    if (!Array.isArray(acknowledgedDisclosureIds)) {
+      return apiResponse.badRequest(res, 'acknowledgedDisclosureIds must be an array');
+    }
+    
+    if (!companyId || typeof companyId !== 'string') {
+      return apiResponse.badRequest(res, 'companyId is required');
+    }
+    
+    if (!['buy', 'sell'].includes(tradeType)) {
+      return apiResponse.badRequest(res, 'tradeType must be "buy" or "sell"');
+    }
+    
+    const validation = unlistedRiskDisclosureService.validateAcknowledgment({
+      acknowledgedDisclosureIds,
+      userId: req.user.id,
+      companyId,
+      tradeType,
+    });
+    
+    if (!validation.valid) {
+      return apiResponse.badRequest(res, 'Not all mandatory disclosures have been acknowledged', {
+        missingDisclosures: validation.missingDisclosures,
+      });
+    }
+    
+    console.log(`[COMPLIANCE] risk_disclosure_acknowledged: { userId: '${req.user.id}', companyId: '${companyId}', tradeType: '${tradeType}', version: '${unlistedRiskDisclosureService.getDisclosureVersion()}' }`);
+    
+    return apiResponse.success(res, {
+      valid: true,
+      disclosureVersion: unlistedRiskDisclosureService.getDisclosureVersion(),
+      acknowledgedAt: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Error validating risk disclosures:', error);
+    return apiResponse.serverError(res, 'Failed to validate risk disclosures');
   }
 });
 
