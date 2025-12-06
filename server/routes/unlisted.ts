@@ -2169,6 +2169,149 @@ router.patch('/admin/companies/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/unlisted/admin/bulk-status
+ * Bulk update status for multiple companies (publish/suspend)
+ */
+router.post('/admin/bulk-status', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyIds, status } = req.body;
+    
+    if (!Array.isArray(companyIds) || companyIds.length === 0) {
+      return apiResponse.badRequest(res, 'companyIds must be a non-empty array');
+    }
+    
+    if (!['active', 'inactive', 'delisted'].includes(status)) {
+      return apiResponse.badRequest(res, 'Invalid status. Must be active, inactive, or delisted');
+    }
+    
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+    
+    for (const companyId of companyIds) {
+      try {
+        const company = await storage.getUnlistedCompanyById(companyId);
+        if (!company) {
+          errors.push(`Company ${companyId} not found`);
+          failedCount++;
+          continue;
+        }
+        
+        await storage.updateUnlistedCompany(companyId, { status });
+        successCount++;
+        
+        console.log(`[Admin Bulk] Updated company ${companyId} status to ${status}`);
+      } catch (err: any) {
+        errors.push(`Failed to update ${companyId}: ${err.message}`);
+        failedCount++;
+      }
+    }
+    
+    return apiResponse.success(res, {
+      successCount,
+      failedCount,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Updated ${successCount} companies to ${status}${failedCount > 0 ? `, ${failedCount} failed` : ''}`
+    });
+  } catch (error: any) {
+    console.error('Error in bulk status update:', error);
+    return apiResponse.serverError(res, 'Failed to perform bulk status update');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/bulk-price
+ * Bulk update prices for multiple companies
+ * Supports fixed price or percentage change
+ */
+router.post('/admin/bulk-price', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyIds, priceChange } = req.body;
+    
+    if (!Array.isArray(companyIds) || companyIds.length === 0) {
+      return apiResponse.badRequest(res, 'companyIds must be a non-empty array');
+    }
+    
+    if (!priceChange || !['fixed', 'percentage'].includes(priceChange.mode)) {
+      return apiResponse.badRequest(res, 'Invalid priceChange. Must include mode (fixed or percentage) and value');
+    }
+    
+    if (typeof priceChange.value !== 'number' || isNaN(priceChange.value)) {
+      return apiResponse.badRequest(res, 'priceChange.value must be a valid number');
+    }
+    
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+    const updates: Array<{ companyId: string; oldPrice: number | null; newPrice: number }> = [];
+    
+    for (const companyId of companyIds) {
+      try {
+        const company = await storage.getUnlistedCompanyById(companyId);
+        if (!company) {
+          errors.push(`Company ${companyId} not found`);
+          failedCount++;
+          continue;
+        }
+        
+        let newPrice: number;
+        const currentPrice = company.currentPrice || company.landingPrice || 0;
+        
+        if (priceChange.mode === 'fixed') {
+          newPrice = priceChange.value;
+        } else {
+          // Percentage change
+          newPrice = currentPrice * (1 + priceChange.value / 100);
+        }
+        
+        // Round to 2 decimal places
+        newPrice = Math.round(newPrice * 100) / 100;
+        
+        if (newPrice < 0) {
+          errors.push(`Company ${companyId}: calculated price would be negative`);
+          failedCount++;
+          continue;
+        }
+        
+        // Update company with new price and add to price history
+        await storage.updateUnlistedCompany(companyId, { 
+          currentPrice: newPrice,
+          lastUpdatedAt: new Date().toISOString()
+        });
+        
+        // Add to price history
+        await storage.addUnlistedPriceHistory({
+          companyId,
+          price: newPrice,
+          source: 'admin_input',
+          date: new Date().toISOString().split('T')[0],
+          notes: `Bulk price update: ${priceChange.mode === 'fixed' ? 'set to ₹' + newPrice : (priceChange.value >= 0 ? '+' : '') + priceChange.value + '%'}`
+        });
+        
+        updates.push({ companyId, oldPrice: currentPrice, newPrice });
+        successCount++;
+        
+        console.log(`[Admin Bulk] Updated company ${companyId} price from ₹${currentPrice} to ₹${newPrice}`);
+      } catch (err: any) {
+        errors.push(`Failed to update ${companyId}: ${err.message}`);
+        failedCount++;
+      }
+    }
+    
+    return apiResponse.success(res, {
+      successCount,
+      failedCount,
+      updates,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Updated prices for ${successCount} companies${failedCount > 0 ? `, ${failedCount} failed` : ''}`
+    });
+  } catch (error: any) {
+    console.error('Error in bulk price update:', error);
+    return apiResponse.serverError(res, 'Failed to perform bulk price update');
+  }
+});
+
 // ===================================================================
 // ADMIN LISTINGS MANAGEMENT ROUTES
 // ===================================================================

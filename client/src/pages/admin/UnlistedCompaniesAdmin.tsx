@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Building2, Search, RefreshCw, ArrowLeft, Plus, Loader2, TrendingUp, BarChart3, History, Activity, Download, CheckCircle, XCircle, AlertCircle, Trash2, CheckSquare, IndianRupee, Power } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -183,6 +184,11 @@ function CompanyListView({
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [updatingStageId, setUpdatingStageId] = useState<string | null>(null);
   const [isBulkSyncing, setIsBulkSyncing] = useState(false);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(new Set());
+  const [isBulkPriceDialogOpen, setIsBulkPriceDialogOpen] = useState(false);
+  const [bulkPriceValue, setBulkPriceValue] = useState('');
+  const [bulkPricePercentage, setBulkPricePercentage] = useState('');
+  const [bulkPriceMode, setBulkPriceMode] = useState<'fixed' | 'percentage'>('percentage');
 
   // Fetch companies with filters (admin endpoint - no KYC requirement)
   const { data: companies, isLoading } = useQuery<UnlistedCompany[]>({
@@ -331,6 +337,95 @@ function CompanyListView({
     }
   });
 
+  // Bulk status update mutation (publish/suspend)
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({ companyIds, status }: { companyIds: string[]; status: string }) => {
+      return apiRequest('/api/unlisted/admin/bulk-status', { 
+        method: 'POST',
+        body: JSON.stringify({ companyIds, status })
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      setSelectedCompanyIds(new Set());
+      toast({ 
+        title: 'Bulk status update complete', 
+        description: data.data?.message || `Updated ${data.data?.successCount || 0} companies` 
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Bulk update failed',
+        description: error.message || 'Failed to update companies',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  // Bulk price update mutation
+  const bulkPriceMutation = useMutation({
+    mutationFn: async ({ companyIds, priceChange }: { companyIds: string[]; priceChange: { mode: 'fixed' | 'percentage'; value: number } }) => {
+      return apiRequest('/api/unlisted/admin/bulk-price', { 
+        method: 'POST',
+        body: JSON.stringify({ companyIds, priceChange })
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+      setSelectedCompanyIds(new Set());
+      setIsBulkPriceDialogOpen(false);
+      setBulkPriceValue('');
+      setBulkPricePercentage('');
+      toast({ 
+        title: 'Bulk price update complete', 
+        description: data.data?.message || `Updated prices for ${data.data?.successCount || 0} companies` 
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Bulk price update failed',
+        description: error.message || 'Failed to update prices',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  // Selection helpers
+  const toggleSelectAll = () => {
+    if (selectedCompanyIds.size === filteredCompanies.length) {
+      setSelectedCompanyIds(new Set());
+    } else {
+      setSelectedCompanyIds(new Set(filteredCompanies.map(c => c.id)));
+    }
+  };
+
+  const toggleSelectCompany = (companyId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSelection = new Set(selectedCompanyIds);
+    if (newSelection.has(companyId)) {
+      newSelection.delete(companyId);
+    } else {
+      newSelection.add(companyId);
+    }
+    setSelectedCompanyIds(newSelection);
+  };
+
+  const handleBulkPriceSubmit = () => {
+    const value = bulkPriceMode === 'fixed' 
+      ? parseFloat(bulkPriceValue)
+      : parseFloat(bulkPricePercentage);
+    
+    if (isNaN(value)) {
+      toast({ title: 'Invalid value', description: 'Please enter a valid number', variant: 'destructive' });
+      return;
+    }
+
+    bulkPriceMutation.mutate({
+      companyIds: Array.from(selectedCompanyIds),
+      priceChange: { mode: bulkPriceMode, value }
+    });
+  };
+
   // Filter companies by search query
   const filteredCompanies = companies?.filter(company => {
     if (!searchQuery) return true;
@@ -393,13 +488,132 @@ function CompanyListView({
         </CardContent>
       </Card>
 
+      {/* Bulk Actions Bar */}
+      {selectedCompanyIds.size > 0 && (
+        <Card className="bg-blue-950 border-blue-800">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="w-5 h-5 text-blue-400" />
+                <span className="text-white font-medium">{selectedCompanyIds.size} companies selected</span>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => bulkStatusMutation.mutate({ companyIds: Array.from(selectedCompanyIds), status: 'active' })}
+                  disabled={bulkStatusMutation.isPending}
+                  className="border-green-600 text-green-400 hover:bg-green-600/20"
+                  data-testid="button-bulk-publish"
+                >
+                  {bulkStatusMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                  Publish
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => bulkStatusMutation.mutate({ companyIds: Array.from(selectedCompanyIds), status: 'inactive' })}
+                  disabled={bulkStatusMutation.isPending}
+                  className="border-amber-600 text-amber-400 hover:bg-amber-600/20"
+                  data-testid="button-bulk-suspend"
+                >
+                  {bulkStatusMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Power className="w-4 h-4 mr-2" />}
+                  Suspend
+                </Button>
+                <Dialog open={isBulkPriceDialogOpen} onOpenChange={setIsBulkPriceDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-400 hover:bg-purple-600/20"
+                      data-testid="button-bulk-price"
+                    >
+                      <IndianRupee className="w-4 h-4 mr-2" />
+                      Batch Price Update
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-gray-900 border-gray-800">
+                    <DialogHeader>
+                      <DialogTitle className="text-white">Batch Price Update</DialogTitle>
+                      <DialogDescription className="text-gray-400">
+                        Update prices for {selectedCompanyIds.size} selected companies
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="flex gap-2">
+                        <Button
+                          variant={bulkPriceMode === 'percentage' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setBulkPriceMode('percentage')}
+                          className={bulkPriceMode === 'percentage' ? 'bg-blue-600' : ''}
+                        >
+                          Percentage Change
+                        </Button>
+                        <Button
+                          variant={bulkPriceMode === 'fixed' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setBulkPriceMode('fixed')}
+                          className={bulkPriceMode === 'fixed' ? 'bg-blue-600' : ''}
+                        >
+                          Fixed Price
+                        </Button>
+                      </div>
+                      {bulkPriceMode === 'percentage' ? (
+                        <div>
+                          <Label className="text-gray-300">Percentage Change (%)</Label>
+                          <Input
+                            type="number"
+                            placeholder="e.g. 5 for +5%, -10 for -10%"
+                            value={bulkPricePercentage}
+                            onChange={(e) => setBulkPricePercentage(e.target.value)}
+                            className="bg-gray-800 border-gray-700 text-white"
+                          />
+                          <p className="text-xs text-gray-400 mt-1">Use positive values for increase, negative for decrease</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <Label className="text-gray-300">New Fixed Price (₹)</Label>
+                          <Input
+                            type="number"
+                            placeholder="Enter new price"
+                            value={bulkPriceValue}
+                            onChange={(e) => setBulkPriceValue(e.target.value)}
+                            className="bg-gray-800 border-gray-700 text-white"
+                          />
+                        </div>
+                      )}
+                      <Button
+                        onClick={handleBulkPriceSubmit}
+                        disabled={bulkPriceMutation.isPending}
+                        className="w-full bg-purple-600 hover:bg-purple-700"
+                      >
+                        {bulkPriceMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Apply Price Update
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedCompanyIds(new Set())}
+                  className="text-gray-400 hover:text-white"
+                >
+                  Clear Selection
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Companies Table */}
       <Card className="bg-gray-900 border-gray-800">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-white">Companies ({filteredCompanies.length})</CardTitle>
             <CardDescription className="text-gray-400">
-              Click on a company to view details
+              Select companies for bulk actions or click to view details
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -440,6 +654,14 @@ function CompanyListView({
             <Table>
               <TableHeader>
                 <TableRow className="border-gray-800 hover:bg-gray-800/50">
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={filteredCompanies.length > 0 && selectedCompanyIds.size === filteredCompanies.length}
+                      onCheckedChange={toggleSelectAll}
+                      className="border-gray-600"
+                      data-testid="checkbox-select-all"
+                    />
+                  </TableHead>
                   <TableHead className="text-gray-400">Company Name</TableHead>
                   <TableHead className="text-gray-400">CIN</TableHead>
                   <TableHead className="text-gray-400">Sector</TableHead>
@@ -452,7 +674,7 @@ function CompanyListView({
               <TableBody>
                 {filteredCompanies.length === 0 ? (
                   <TableRow className="border-gray-800">
-                    <TableCell colSpan={7} className="text-center text-gray-400 py-8">
+                    <TableCell colSpan={8} className="text-center text-gray-400 py-8">
                       No companies found matching your criteria
                     </TableCell>
                   </TableRow>
@@ -460,10 +682,26 @@ function CompanyListView({
                   filteredCompanies.map((company) => (
                     <TableRow
                       key={company.id}
-                      className="border-gray-800 hover:bg-gray-800/50 cursor-pointer"
+                      className={`border-gray-800 hover:bg-gray-800/50 cursor-pointer ${selectedCompanyIds.has(company.id) ? 'bg-blue-950/30' : ''}`}
                       onClick={() => onSelectCompany(company.id)}
                       data-testid={`row-company-${company.id}`}
                     >
+                      <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedCompanyIds.has(company.id)}
+                          onCheckedChange={() => {
+                            const newSelection = new Set(selectedCompanyIds);
+                            if (newSelection.has(company.id)) {
+                              newSelection.delete(company.id);
+                            } else {
+                              newSelection.add(company.id);
+                            }
+                            setSelectedCompanyIds(newSelection);
+                          }}
+                          className="border-gray-600"
+                          data-testid={`checkbox-company-${company.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium text-white" data-testid={`text-name-${company.id}`}>
                         <div className="flex items-center gap-2">
                           <Building2 className="w-4 h-4 text-blue-400" />
