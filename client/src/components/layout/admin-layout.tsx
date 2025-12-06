@@ -29,9 +29,11 @@ import {
   Briefcase,
   ClipboardList,
   History,
-  Handshake
+  Handshake,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -90,40 +92,48 @@ const adminNavItems = [
     description: "Control categories, products & visibility"
   },
   {
-    title: "Unlisted Dashboard",
+    title: "Unlisted Marketplace",
     href: "/admin/unlisted/dashboard",
     icon: Briefcase,
-    description: "Unlisted marketplace overview & metrics"
-  },
-  {
-    title: "Unlisted Orders",
-    href: "/admin/unlisted/orders",
-    icon: ClipboardList,
-    description: "Manage sell listings & buy requests"
-  },
-  {
-    title: "Unlisted Negotiations",
-    href: "/admin/unlisted/negotiations",
-    icon: Handshake,
-    description: "Seller/buyer price negotiations"
-  },
-  {
-    title: "Unlisted Audit Log",
-    href: "/admin/unlisted/audit-log",
-    icon: History,
-    description: "Compliance & trading event history"
-  },
-  {
-    title: "Compliance Alerts",
-    href: "/admin/unlisted/compliance-alerts",
-    icon: AlertTriangle,
-    description: "Blocked trades, KYC failures, high-risk flags"
-  },
-  {
-    title: "Unlisted Companies",
-    href: "/admin/unlisted/companies",
-    icon: Building2,
-    description: "Manage company listings & pricing"
+    description: "Pre-IPO & unlisted shares management",
+    children: [
+      {
+        title: "Dashboard",
+        href: "/admin/unlisted/dashboard",
+        icon: Home,
+        description: "Overview & metrics"
+      },
+      {
+        title: "Companies",
+        href: "/admin/unlisted/companies",
+        icon: Building2,
+        description: "Manage listings & pricing"
+      },
+      {
+        title: "Orders",
+        href: "/admin/unlisted/orders",
+        icon: ClipboardList,
+        description: "Sell listings & buy requests"
+      },
+      {
+        title: "Negotiations",
+        href: "/admin/unlisted/negotiations",
+        icon: Handshake,
+        description: "Price negotiations"
+      },
+      {
+        title: "Compliance Alerts",
+        href: "/admin/unlisted/compliance-alerts",
+        icon: AlertTriangle,
+        description: "Blocked trades & KYC failures"
+      },
+      {
+        title: "Audit Log",
+        href: "/admin/unlisted/audit-log",
+        icon: History,
+        description: "Compliance event history"
+      }
+    ]
   },
   {
     title: "Zoho Integration",
@@ -203,6 +213,35 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+
+  // Auto-expand menu if current location matches a child
+  useEffect(() => {
+    adminNavItems.forEach(item => {
+      if (item.children) {
+        const isChildActive = item.children.some(child => location === child.href || location.startsWith(child.href + '/'));
+        if (isChildActive) {
+          setExpandedMenus(prev => {
+            const next = new Set(Array.from(prev));
+            next.add(item.title);
+            return next;
+          });
+        }
+      }
+    });
+  }, [location]);
+
+  const toggleMenu = (title: string) => {
+    setExpandedMenus(prev => {
+      const next = new Set(prev);
+      if (next.has(title)) {
+        next.delete(title);
+      } else {
+        next.add(title);
+      }
+      return next;
+    });
+  };
   
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
@@ -304,10 +343,83 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           )}
         >
           {sidebarOpen && (
-            <nav className="p-4 space-y-2">
+            <nav className="p-4 space-y-1">
               {adminNavItems.map((item) => {
                 const Icon = item.icon;
+                const hasChildren = item.children && item.children.length > 0;
+                const isExpanded = expandedMenus.has(item.title);
                 const isActive = location === item.href;
+                const isChildActive = hasChildren && item.children?.some(
+                  child => location === child.href || location.startsWith(child.href + '/')
+                );
+                
+                if (hasChildren) {
+                  return (
+                    <div key={item.title}>
+                      <button
+                        onClick={() => toggleMenu(item.title)}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group",
+                          isChildActive
+                            ? "bg-blue-600/20 text-blue-400"
+                            : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                        )}
+                        data-testid={`button-menu-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className={cn(
+                            "text-sm font-medium",
+                            isChildActive ? "text-blue-400" : "text-gray-300 group-hover:text-white"
+                          )}>
+                            {item.title}
+                          </p>
+                          <p className="text-xs mt-0.5 text-gray-500">
+                            {item.description}
+                          </p>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-gray-500" />
+                        )}
+                      </button>
+                      
+                      {isExpanded && (
+                        <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-4">
+                          {item.children?.map((child) => {
+                            const ChildIcon = child.icon;
+                            const isChildItemActive = location === child.href;
+                            
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                className={cn(
+                                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
+                                  isChildItemActive
+                                    ? "bg-blue-600 text-white"
+                                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                )}
+                                data-testid={`link-admin-${child.href.split('/').pop()}`}
+                              >
+                                <ChildIcon className="h-4 w-4 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className={cn(
+                                    "text-sm",
+                                    isChildItemActive ? "text-white font-medium" : "text-gray-300 group-hover:text-white"
+                                  )}>
+                                    {child.title}
+                                  </p>
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
                 
                 return (
                   <Link
