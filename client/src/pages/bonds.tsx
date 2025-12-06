@@ -29,6 +29,7 @@ import {
   SuitabilityScore,
   WatchlistButton,
   AlertButton,
+  RiskDisclosureModal,
   useEnhancedBondMarketplace
 } from "@/components/BondMarketplaceEnhancements";
 
@@ -321,6 +322,8 @@ function GovernmentSecurities() {
   const [selectedBond, setSelectedBond] = useState<any>(null);
   const [bidAmount, setBidAmount] = useState("");
   const [orderError, setOrderError] = useState<any>(null);
+  const [showRiskDisclosure, setShowRiskDisclosure] = useState(false);
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const orderGuard = useOrderGuard();
@@ -336,6 +339,25 @@ function GovernmentSecurities() {
   const govtSecurityIds = ['gsec', 't_bill', 'sdl', 'sgb'];
   const isGSecEligible = eligibilitySummary?.eligibleCategories?.some(c => govtSecurityIds.includes(c.id)) ?? false;
 
+  const riskAttestMutation = useMutation({
+    mutationFn: (attestData: any) => apiRequest("/api/bonds/risk-attestation", { method: "POST", body: JSON.stringify(attestData) }),
+    onSuccess: () => {
+      setRiskAcknowledged(true);
+      setShowRiskDisclosure(false);
+      toast({
+        title: "Risk Disclosures Acknowledged",
+        description: "You can now proceed with your order.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Attestation Failed",
+        description: "Failed to record risk acknowledgment. Please try again.",
+      });
+    },
+  });
+
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/gsec/orders", { method: "POST", body: JSON.stringify(orderData) }),
     onSuccess: () => {
@@ -345,6 +367,7 @@ function GovernmentSecurities() {
       });
       setSelectedBond(null);
       setBidAmount("");
+      setRiskAcknowledged(false);
       queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
     },
     onError: (error: any) => {
@@ -352,6 +375,17 @@ function GovernmentSecurities() {
       setOrderError(parsedError);
     },
   });
+  
+  const handleRiskAttest = (bond: any) => {
+    riskAttestMutation.mutate({
+      isin: bond.isin,
+      bondName: bond.securityName,
+      instrumentType: bond.securityType || 'g_sec',
+      transactionValue: parseFloat(bidAmount) || bond.minimumBidAmount,
+      disclosuresAcknowledged: true,
+      orderType: 'buy'
+    });
+  };
 
   if (isLoading) {
     return <LoadingState variant="list" count={2} />;
@@ -426,9 +460,9 @@ function GovernmentSecurities() {
                   )}
                 </div>
 
-                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); } }}>
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); } }}>
                   <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setSelectedBond(bond); }} size="sm" data-testid={`invest-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); setSelectedBond(bond); }} size="sm" data-testid={`invest-${bond.isin}`}>
                       Place Bid
                     </Button>
                   </DialogTrigger>
@@ -449,7 +483,7 @@ function GovernmentSecurities() {
                           type="number"
                           placeholder={`Min: ${bond.minimumBidAmount}`}
                           value={bidAmount}
-                          onChange={(e) => setBidAmount(e.target.value)}
+                          onChange={(e) => { setBidAmount(e.target.value); if (riskAcknowledged) setRiskAcknowledged(false); }}
                           data-testid="bid-amount-input"
                         />
                         <p className="text-xs text-gray-500 mt-1">
@@ -488,29 +522,72 @@ function GovernmentSecurities() {
                         />
                       )}
 
-                      <Button
-                        className="w-full"
-                        onClick={() => {
-                          setOrderError(null);
-                          const amount = parseFloat(bidAmount);
-                          if (!amount || amount < bond.minimumBidAmount) {
-                            toast({
-                              variant: "destructive",
-                              title: "Invalid Amount",
-                              description: `Minimum bid amount is ₹${bond.minimumBidAmount?.toLocaleString()}`,
-                            });
-                            return;
-                          }
-                          placeOrderMutation.mutate({
-                            isin: bond.isin,
-                            bidAmount: amount,
-                          });
-                        }}
-                        disabled={placeOrderMutation.isPending || !!orderError}
-                        data-testid="confirm-bid-button"
-                      >
-                        {placeOrderMutation.isPending ? "Placing Bid..." : "Confirm Bid"}
-                      </Button>
+                      {/* Risk Disclosure Section */}
+                      {showRiskDisclosure ? (
+                        <RiskDisclosureModal
+                          bondId={bond.isin}
+                          bondName={bond.securityName}
+                          onAttest={() => handleRiskAttest(bond)}
+                          isAttesting={riskAttestMutation.isPending}
+                        />
+                      ) : (
+                        <>
+                          {!riskAcknowledged && (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setShowRiskDisclosure(true)}
+                              disabled={!parseFloat(bidAmount) || parseFloat(bidAmount) < (bond.minimumBidAmount || 0)}
+                              data-testid="review-risks-button"
+                            >
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Review Risk Disclosures
+                            </Button>
+                          )}
+                          
+                          {riskAcknowledged && (
+                            <Alert className="bg-green-50 border-green-200">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <AlertDescription className="text-green-700 text-sm">
+                                Risk disclosures acknowledged. You can proceed with your order.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          <Button
+                            className="w-full"
+                            onClick={() => {
+                              setOrderError(null);
+                              const amount = parseFloat(bidAmount);
+                              if (!amount || amount < bond.minimumBidAmount) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Invalid Amount",
+                                  description: `Minimum bid amount is ₹${bond.minimumBidAmount?.toLocaleString()}`,
+                                });
+                                return;
+                              }
+                              if (!riskAcknowledged) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Risk Disclosure Required",
+                                  description: "Please review and acknowledge the risk disclosures before proceeding.",
+                                });
+                                setShowRiskDisclosure(true);
+                                return;
+                              }
+                              placeOrderMutation.mutate({
+                                isin: bond.isin,
+                                bidAmount: amount,
+                              });
+                            }}
+                            disabled={placeOrderMutation.isPending || !!orderError}
+                            data-testid="confirm-bid-button"
+                          >
+                            {placeOrderMutation.isPending ? "Placing Bid..." : "Confirm Bid"}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -529,6 +606,8 @@ function CorporateBonds() {
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [orderError, setOrderError] = useState<any>(null);
+  const [showRiskDisclosure, setShowRiskDisclosure] = useState(false);
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const orderGuard = useOrderGuard();
@@ -542,6 +621,36 @@ function CorporateBonds() {
   
   const isCorporateEligible = eligibilitySummary?.eligibleCategories?.some(c => c.id === 'corporate_listed') ?? false;
 
+  const riskAttestMutation = useMutation({
+    mutationFn: (attestData: any) => apiRequest("/api/bonds/risk-attestation", { method: "POST", body: JSON.stringify(attestData) }),
+    onSuccess: () => {
+      setRiskAcknowledged(true);
+      setShowRiskDisclosure(false);
+      toast({
+        title: "Risk Disclosures Acknowledged",
+        description: "You can now proceed with your order.",
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Attestation Failed",
+        description: "Failed to record risk acknowledgment.",
+      });
+    },
+  });
+
+  const handleRiskAttest = (bond: any) => {
+    riskAttestMutation.mutate({
+      isin: bond.isin,
+      bondName: bond.name || bond.issuerName || bond.bondName,
+      instrumentType: 'corporate',
+      transactionValue: parseFloat(quantity) * (parseFloat(limitPrice) || bond.lastPrice || 0),
+      disclosuresAcknowledged: true,
+      orderType: 'buy'
+    });
+  };
+
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/corporate/orders", { method: "POST", body: JSON.stringify(orderData) }),
     onSuccess: () => {
@@ -552,6 +661,7 @@ function CorporateBonds() {
       setSelectedBond(null);
       setQuantity("");
       setLimitPrice("");
+      setRiskAcknowledged(false);
       queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
     },
     onError: (error: any) => {
@@ -635,9 +745,9 @@ function CorporateBonds() {
                   </div>
                 </div>
 
-                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => !open && setSelectedBond(null)}>
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); } }}>
                   <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setSelectedBond(bond); }} size="sm" data-testid={`buy-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); setSelectedBond(bond); }} size="sm" data-testid={`buy-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
@@ -658,7 +768,7 @@ function CorporateBonds() {
                           type="number"
                           placeholder="Number of bonds"
                           value={quantity}
-                          onChange={(e) => setQuantity(e.target.value)}
+                          onChange={(e) => { setQuantity(e.target.value); if (riskAcknowledged) setRiskAcknowledged(false); }}
                           data-testid="quantity-input"
                         />
                       </div>
@@ -669,7 +779,7 @@ function CorporateBonds() {
                           type="number"
                           placeholder={`Last: ${bond.lastPrice}`}
                           value={limitPrice}
-                          onChange={(e) => setLimitPrice(e.target.value)}
+                          onChange={(e) => { setLimitPrice(e.target.value); if (riskAcknowledged) setRiskAcknowledged(false); }}
                           data-testid="limit-price-input"
                         />
                         <p className="text-xs text-gray-500 mt-1">
@@ -706,33 +816,76 @@ function CorporateBonds() {
                         />
                       )}
 
-                      <Button
-                        className="w-full"
-                        onClick={() => {
-                          setOrderError(null);
-                          const qty = parseInt(quantity);
-                          const price = parseFloat(limitPrice);
-                          if (!qty || qty <= 0) {
-                            toast({
-                              variant: "destructive",
-                              title: "Invalid Quantity",
-                              description: "Please enter a valid quantity",
-                            });
-                            return;
-                          }
-                          placeOrderMutation.mutate({
-                            isin: bond.isin,
-                            orderType: "buy",
-                            quantity: qty,
-                            orderCategory: price ? "limit" : "market",
-                            limitPrice: price || bond.lastPrice,
-                          });
-                        }}
-                        disabled={placeOrderMutation.isPending || !!orderError}
-                        data-testid="confirm-buy-button"
-                      >
-                        {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
-                      </Button>
+                      {/* Risk Disclosure Section */}
+                      {showRiskDisclosure ? (
+                        <RiskDisclosureModal
+                          bondId={bond.isin}
+                          bondName={bond.name || bond.issuerName || bond.bondName || 'Corporate Bond'}
+                          onAttest={() => handleRiskAttest(bond)}
+                          isAttesting={riskAttestMutation.isPending}
+                        />
+                      ) : (
+                        <>
+                          {!riskAcknowledged && (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setShowRiskDisclosure(true)}
+                              disabled={!parseInt(quantity) || parseInt(quantity) <= 0 || (!parseFloat(limitPrice) && !bond.lastPrice)}
+                              data-testid="review-corp-risks-button"
+                            >
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Review Risk Disclosures
+                            </Button>
+                          )}
+                          
+                          {riskAcknowledged && (
+                            <Alert className="bg-green-50 border-green-200">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <AlertDescription className="text-green-700 text-sm">
+                                Risk disclosures acknowledged.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          <Button
+                            className="w-full"
+                            onClick={() => {
+                              setOrderError(null);
+                              const qty = parseInt(quantity);
+                              const price = parseFloat(limitPrice);
+                              if (!qty || qty <= 0) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Invalid Quantity",
+                                  description: "Please enter a valid quantity",
+                                });
+                                return;
+                              }
+                              if (!riskAcknowledged) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Risk Disclosure Required",
+                                  description: "Please review and acknowledge the risk disclosures before proceeding.",
+                                });
+                                setShowRiskDisclosure(true);
+                                return;
+                              }
+                              placeOrderMutation.mutate({
+                                isin: bond.isin,
+                                orderType: "buy",
+                                quantity: qty,
+                                orderCategory: price ? "limit" : "market",
+                                limitPrice: price || bond.lastPrice,
+                              });
+                            }}
+                            disabled={placeOrderMutation.isPending || !!orderError}
+                            data-testid="confirm-buy-button"
+                          >
+                            {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -751,6 +904,8 @@ function NCDBonds() {
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [orderError, setOrderError] = useState<any>(null);
+  const [showRiskDisclosure, setShowRiskDisclosure] = useState(false);
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const orderGuard = useOrderGuard();
@@ -764,6 +919,29 @@ function NCDBonds() {
   
   const isNCDEligible = eligibilitySummary?.eligibleCategories?.some(c => c.id === 'ncd_listed') ?? false;
 
+  const riskAttestMutation = useMutation({
+    mutationFn: (attestData: any) => apiRequest("/api/bonds/risk-attestation", { method: "POST", body: JSON.stringify(attestData) }),
+    onSuccess: () => {
+      setRiskAcknowledged(true);
+      setShowRiskDisclosure(false);
+      toast({ title: "Risk Disclosures Acknowledged" });
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Attestation Failed" });
+    },
+  });
+
+  const handleRiskAttest = (bond: any) => {
+    riskAttestMutation.mutate({
+      isin: bond.isin,
+      bondName: bond.name || bond.issuerName || bond.bondName,
+      instrumentType: 'ncd',
+      transactionValue: parseFloat(quantity) * (parseFloat(limitPrice) || bond.lastPrice || 0),
+      disclosuresAcknowledged: true,
+      orderType: 'buy'
+    });
+  };
+
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/ncd/orders", { method: "POST", body: JSON.stringify(orderData) }),
     onSuccess: () => {
@@ -774,6 +952,7 @@ function NCDBonds() {
       setSelectedBond(null);
       setQuantity("");
       setLimitPrice("");
+      setRiskAcknowledged(false);
       queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
     },
     onError: (error: any) => {
@@ -858,9 +1037,9 @@ function NCDBonds() {
                   </div>
                 </div>
 
-                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); } }}>
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); } }}>
                   <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setSelectedBond(bond); }} size="sm" data-testid={`buy-ncd-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); setSelectedBond(bond); }} size="sm" data-testid={`buy-ncd-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
@@ -881,7 +1060,7 @@ function NCDBonds() {
                           type="number"
                           placeholder="Number of NCDs"
                           value={quantity}
-                          onChange={(e) => setQuantity(e.target.value)}
+                          onChange={(e) => { setQuantity(e.target.value); if (riskAcknowledged) setRiskAcknowledged(false); }}
                           data-testid="ncd-quantity-input"
                         />
                       </div>
@@ -892,7 +1071,7 @@ function NCDBonds() {
                           type="number"
                           placeholder={`Last: ${bond.lastPrice}`}
                           value={limitPrice}
-                          onChange={(e) => setLimitPrice(e.target.value)}
+                          onChange={(e) => { setLimitPrice(e.target.value); if (riskAcknowledged) setRiskAcknowledged(false); }}
                           data-testid="ncd-limit-price-input"
                         />
                         <p className="text-xs text-gray-500 mt-1">
@@ -929,33 +1108,76 @@ function NCDBonds() {
                         />
                       )}
 
-                      <Button
-                        className="w-full"
-                        onClick={() => {
-                          setOrderError(null);
-                          const qty = parseInt(quantity);
-                          const price = parseFloat(limitPrice);
-                          if (!qty || qty <= 0) {
-                            toast({
-                              variant: "destructive",
-                              title: "Invalid Quantity",
-                              description: "Please enter a valid quantity",
-                            });
-                            return;
-                          }
-                          placeOrderMutation.mutate({
-                            isin: bond.isin,
-                            orderType: "buy",
-                            quantity: qty,
-                            orderCategory: price ? "limit" : "market",
-                            limitPrice: price || bond.lastPrice,
-                          });
-                        }}
-                        disabled={placeOrderMutation.isPending || !!orderError}
-                        data-testid="confirm-ncd-buy-button"
-                      >
-                        {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
-                      </Button>
+                      {/* Risk Disclosure Section */}
+                      {showRiskDisclosure ? (
+                        <RiskDisclosureModal
+                          bondId={bond.isin}
+                          bondName={bond.name || bond.issuerName || 'NCD'}
+                          onAttest={() => handleRiskAttest(bond)}
+                          isAttesting={riskAttestMutation.isPending}
+                        />
+                      ) : (
+                        <>
+                          {!riskAcknowledged && (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setShowRiskDisclosure(true)}
+                              disabled={!parseInt(quantity) || parseInt(quantity) <= 0 || (!parseFloat(limitPrice) && !bond.lastPrice)}
+                              data-testid="review-ncd-risks-button"
+                            >
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Review Risk Disclosures
+                            </Button>
+                          )}
+                          
+                          {riskAcknowledged && (
+                            <Alert className="bg-green-50 border-green-200">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <AlertDescription className="text-green-700 text-sm">
+                                Risk disclosures acknowledged.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          <Button
+                            className="w-full"
+                            onClick={() => {
+                              setOrderError(null);
+                              const qty = parseInt(quantity);
+                              const price = parseFloat(limitPrice);
+                              if (!qty || qty <= 0) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Invalid Quantity",
+                                  description: "Please enter a valid quantity",
+                                });
+                                return;
+                              }
+                              if (!riskAcknowledged) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Risk Disclosure Required",
+                                  description: "Please review and acknowledge the risk disclosures.",
+                                });
+                                setShowRiskDisclosure(true);
+                                return;
+                              }
+                              placeOrderMutation.mutate({
+                                isin: bond.isin,
+                                orderType: "buy",
+                                quantity: qty,
+                                orderCategory: price ? "limit" : "market",
+                                limitPrice: price || bond.lastPrice,
+                              });
+                            }}
+                            disabled={placeOrderMutation.isPending || !!orderError}
+                            data-testid="confirm-ncd-buy-button"
+                          >
+                            {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -974,6 +1196,8 @@ function TaxFreeBonds() {
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [orderError, setOrderError] = useState<any>(null);
+  const [showRiskDisclosure, setShowRiskDisclosure] = useState(false);
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const orderGuard = useOrderGuard();
@@ -987,6 +1211,29 @@ function TaxFreeBonds() {
   
   const isTaxFreeEligible = eligibilitySummary?.eligibleCategories?.some(c => c.id === 'tax_free') ?? false;
 
+  const riskAttestMutation = useMutation({
+    mutationFn: (attestData: any) => apiRequest("/api/bonds/risk-attestation", { method: "POST", body: JSON.stringify(attestData) }),
+    onSuccess: () => {
+      setRiskAcknowledged(true);
+      setShowRiskDisclosure(false);
+      toast({ title: "Risk Disclosures Acknowledged" });
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Attestation Failed" });
+    },
+  });
+
+  const handleRiskAttest = (bond: any) => {
+    riskAttestMutation.mutate({
+      isin: bond.isin,
+      bondName: bond.name || bond.issuerName || bond.bondName,
+      instrumentType: 'tax_free',
+      transactionValue: parseFloat(quantity) * (parseFloat(limitPrice) || bond.lastPrice || 0),
+      disclosuresAcknowledged: true,
+      orderType: 'buy'
+    });
+  };
+
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/tax-free/orders", { method: "POST", body: JSON.stringify(orderData) }),
     onSuccess: () => {
@@ -997,6 +1244,7 @@ function TaxFreeBonds() {
       setSelectedBond(null);
       setQuantity("");
       setLimitPrice("");
+      setRiskAcknowledged(false);
       queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
     },
     onError: (error: any) => {
@@ -1081,9 +1329,9 @@ function TaxFreeBonds() {
                   </div>
                 </div>
 
-                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); } }}>
+                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); } }}>
                   <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setSelectedBond(bond); }} size="sm" data-testid={`buy-tax-free-${bond.isin}`}>
+                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); setSelectedBond(bond); }} size="sm" data-testid={`buy-tax-free-${bond.isin}`}>
                       Buy
                     </Button>
                   </DialogTrigger>
@@ -1104,7 +1352,7 @@ function TaxFreeBonds() {
                           type="number"
                           placeholder="Number of bonds"
                           value={quantity}
-                          onChange={(e) => setQuantity(e.target.value)}
+                          onChange={(e) => { setQuantity(e.target.value); if (riskAcknowledged) setRiskAcknowledged(false); }}
                           data-testid="tax-free-quantity-input"
                         />
                       </div>
@@ -1115,7 +1363,7 @@ function TaxFreeBonds() {
                           type="number"
                           placeholder={`Last: ${bond.lastPrice}`}
                           value={limitPrice}
-                          onChange={(e) => setLimitPrice(e.target.value)}
+                          onChange={(e) => { setLimitPrice(e.target.value); if (riskAcknowledged) setRiskAcknowledged(false); }}
                           data-testid="tax-free-limit-price-input"
                         />
                         <p className="text-xs text-gray-500 mt-1">
@@ -1156,33 +1404,76 @@ function TaxFreeBonds() {
                         />
                       )}
 
-                      <Button
-                        className="w-full"
-                        onClick={() => {
-                          setOrderError(null);
-                          const qty = parseInt(quantity);
-                          const price = parseFloat(limitPrice);
-                          if (!qty || qty <= 0) {
-                            toast({
-                              variant: "destructive",
-                              title: "Invalid Quantity",
-                              description: "Please enter a valid quantity",
-                            });
-                            return;
-                          }
-                          placeOrderMutation.mutate({
-                            isin: bond.isin,
-                            orderType: "buy",
-                            quantity: qty,
-                            orderCategory: price ? "limit" : "market",
-                            limitPrice: price || bond.lastPrice,
-                          });
-                        }}
-                        disabled={placeOrderMutation.isPending || !!orderError}
-                        data-testid="confirm-tax-free-buy-button"
-                      >
-                        {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
-                      </Button>
+                      {/* Risk Disclosure Section */}
+                      {showRiskDisclosure ? (
+                        <RiskDisclosureModal
+                          bondId={bond.isin}
+                          bondName={bond.name || bond.issuerName || 'Tax-Free Bond'}
+                          onAttest={() => handleRiskAttest(bond)}
+                          isAttesting={riskAttestMutation.isPending}
+                        />
+                      ) : (
+                        <>
+                          {!riskAcknowledged && (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setShowRiskDisclosure(true)}
+                              disabled={!parseInt(quantity) || parseInt(quantity) <= 0 || (!parseFloat(limitPrice) && !bond.lastPrice)}
+                              data-testid="review-taxfree-risks-button"
+                            >
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Review Risk Disclosures
+                            </Button>
+                          )}
+                          
+                          {riskAcknowledged && (
+                            <Alert className="bg-green-50 border-green-200">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <AlertDescription className="text-green-700 text-sm">
+                                Risk disclosures acknowledged.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          <Button
+                            className="w-full"
+                            onClick={() => {
+                              setOrderError(null);
+                              const qty = parseInt(quantity);
+                              const price = parseFloat(limitPrice);
+                              if (!qty || qty <= 0) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Invalid Quantity",
+                                  description: "Please enter a valid quantity",
+                                });
+                                return;
+                              }
+                              if (!riskAcknowledged) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Risk Disclosure Required",
+                                  description: "Please review and acknowledge the risk disclosures.",
+                                });
+                                setShowRiskDisclosure(true);
+                                return;
+                              }
+                              placeOrderMutation.mutate({
+                                isin: bond.isin,
+                                orderType: "buy",
+                                quantity: qty,
+                                orderCategory: price ? "limit" : "market",
+                                limitPrice: price || bond.lastPrice,
+                              });
+                            }}
+                            disabled={placeOrderMutation.isPending || !!orderError}
+                            data-testid="confirm-tax-free-buy-button"
+                          >
+                            {placeOrderMutation.isPending ? "Placing Order..." : "Confirm Order"}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
