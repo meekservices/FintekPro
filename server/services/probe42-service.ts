@@ -26,6 +26,20 @@ const PROBE42_BASE_URL = process.env.PROBE42_BASE_URL || 'https://api.probe42.in
 // TYPE DEFINITIONS
 // ===================================================================
 
+export interface Probe42ApiError {
+  code: number;
+  message: string;
+  troubleshooting: string;
+  isRetryable: boolean;
+}
+
+export interface Probe42SearchResult {
+  success: boolean;
+  data?: Probe42CompanySearchResult[];
+  error?: Probe42ApiError;
+  usedMockData?: boolean;
+}
+
 export interface Probe42CompanySearchResult {
   company_id: string;
   name: string;
@@ -290,6 +304,107 @@ class Probe42Service {
         error,
         true
       );
+    }
+  }
+
+  /**
+   * Search for companies by name or CIN with detailed error information
+   * Returns structured result with success/failure details for UI display
+   */
+  async searchCompanyByNameOrCINWithDetails(query: string): Promise<Probe42SearchResult> {
+    if (!query || query.trim().length < 3) {
+      return {
+        success: false,
+        error: {
+          code: 400,
+          message: 'Search query too short',
+          troubleshooting: 'Search query must be at least 3 characters long.',
+          isRetryable: false
+        }
+      };
+    }
+
+    if (!this.isConfigured) {
+      console.log(`[Probe42] Not configured, using mock data for query: "${query}"`);
+      return {
+        success: true,
+        data: this.getMockSearchResults(query),
+        usedMockData: true
+      };
+    }
+
+    try {
+      console.log(`[Probe42] Searching real API for: "${query}"`);
+      const response = await this.client.get('/companies/search', {
+        params: { q: query }
+      });
+
+      const results = response.data.companies || [];
+      console.log(`[Probe42] Found ${results.length} companies for query: "${query}"`);
+      
+      return {
+        success: true,
+        data: results,
+        usedMockData: false
+      };
+    } catch (error: any) {
+      const errorCode = error.response?.status || 500;
+      const errorMessage = error.response?.data?.message || error.message;
+
+      console.error(`[Probe42] Search error: ${errorCode} - ${errorMessage}`);
+
+      // Map common error codes to user-friendly messages
+      let troubleshooting: string;
+      let isRetryable: boolean;
+
+      switch (errorCode) {
+        case 401:
+          troubleshooting = 'Probe42 API authentication failed. API key is missing or invalid. Contact system administrator.';
+          isRetryable = false;
+          break;
+        case 403:
+          troubleshooting = 'Probe42 API access denied. API key may be expired, or subscription limit reached. Contact Probe42 support.';
+          isRetryable = false;
+          break;
+        case 404:
+          troubleshooting = 'Probe42 search endpoint not found. API configuration may be incorrect.';
+          isRetryable = false;
+          break;
+        case 429:
+          troubleshooting = 'Probe42 rate limit exceeded. Too many requests. Please wait a few minutes and try again.';
+          isRetryable = true;
+          break;
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          troubleshooting = 'Probe42 API is temporarily unavailable. Please try again later.';
+          isRetryable = true;
+          break;
+        default:
+          troubleshooting = `Unexpected error from Probe42 API. Error details: ${errorMessage}`;
+          isRetryable = true;
+      }
+
+      // In development, fall back to mock data if authentication fails
+      if (process.env.NODE_ENV === 'development' && (errorCode === 401 || errorCode === 403)) {
+        console.warn('⚠️ Probe42 API authentication failed. Using mock data in development.');
+        return {
+          success: true,
+          data: this.getMockSearchResults(query),
+          usedMockData: true
+        };
+      }
+
+      return {
+        success: false,
+        error: {
+          code: errorCode,
+          message: errorMessage || 'Unknown error',
+          troubleshooting,
+          isRetryable
+        }
+      };
     }
   }
 

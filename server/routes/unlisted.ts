@@ -2907,8 +2907,8 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
             
             // Save the CIN and Probe42 ID to the company record
             const updatePayload: any = { cin: bestMatch.cin, lastSyncedAt: new Date() };
-            if (bestMatch.id) {
-              updatePayload.probe42CompanyId = bestMatch.id;
+            if (bestMatch.company_id) {
+              updatePayload.probe42CompanyId = bestMatch.company_id;
             }
             await storage.updateUnlistedCompany(companyId, updatePayload);
             
@@ -3547,6 +3547,20 @@ interface UnifiedSearchResult {
   rawData: any;
 }
 
+interface SourceError {
+  code: number;
+  message: string;
+  troubleshooting: string;
+  isRetryable: boolean;
+}
+
+interface SourceStatus {
+  searched: boolean;
+  resultCount: number;
+  error?: SourceError;
+  usedMockData?: boolean;
+}
+
 /**
  * GET /api/unlisted/admin/unified-search
  * Search companies across multiple data sources (Admin only)
@@ -3567,50 +3581,88 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
     const queryLower = query.toLowerCase();
     const seenCins = new Set<string>();
     const seenIsins = new Set<string>();
+    
+    // Track source statuses for detailed error reporting
+    const sourceStatuses: Record<string, SourceStatus> = {
+      moneycontrol: { searched: false, resultCount: 0 },
+      mca: { searched: false, resultCount: 0 },
+      probe42: { searched: false, resultCount: 0 }
+    };
 
-    // Search all sources in parallel
+    // Search all sources in parallel with detailed error tracking
     const [moneyControlResults, mcaResults, probe42Results] = await Promise.allSettled([
       // MoneyControl (price data)
       (async () => {
+        sourceStatuses.moneycontrol.searched = true;
         try {
           const cached = await moneyControlReconciliation.getReconciliationSuggestions(false);
           const allCompanies = cached.suggestions.map(s => s.externalCompany);
-          return allCompanies.filter((c: any) => 
+          const filtered = allCompanies.filter((c: any) => 
             c.name.toLowerCase().includes(queryLower) ||
             c.isin?.toLowerCase().includes(queryLower)
           );
-        } catch (e) {
+          sourceStatuses.moneycontrol.resultCount = filtered.length;
+          return filtered;
+        } catch (e: any) {
           console.error('MoneyControl search error:', e);
+          sourceStatuses.moneycontrol.error = {
+            code: 500,
+            message: e.message || 'Unknown error',
+            troubleshooting: 'MoneyControl data fetch failed. This is a web scraping source and may be temporarily unavailable.',
+            isRetryable: true
+          };
           return [];
         }
       })(),
       // MCA (official company filings via Sandbox.co.in)
       // Note: MCA doesn't have a search API, requires direct CIN lookup
-      // We skip this in unified search and use it for direct company details
       (async () => {
-        try {
-          // Check if query looks like a CIN (21 characters)
-          if (query.length === 21 && /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(query)) {
-            const company = await mcaService.getCompanyByCIN(query);
-            return company ? [company] : [];
-          }
-          return [];
-        } catch (e) {
-          console.error('MCA search error:', e);
+        // Check if query looks like a CIN (21 characters)
+        const isCinFormat = query.length === 21 && /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(query);
+        
+        if (!isCinFormat) {
+          // MCA doesn't support name search - only CIN lookup
+          sourceStatuses.mca.searched = false;
+          sourceStatuses.mca.error = {
+            code: 400,
+            message: 'MCA requires CIN lookup',
+            troubleshooting: 'MCA (Sandbox.co.in API) only supports direct CIN lookup, not company name search. Enter a valid 21-character CIN to search MCA.',
+            isRetryable: false
+          };
           return [];
         }
+        
+        sourceStatuses.mca.searched = true;
+        const mcaResult = await mcaService.getCompanyByCINWithDetails(query);
+        
+        if (mcaResult.success && mcaResult.data) {
+          sourceStatuses.mca.resultCount = 1;
+          return [mcaResult.data];
+        } else if (mcaResult.error) {
+          sourceStatuses.mca.error = mcaResult.error;
+          return [];
+        }
+        return [];
       })(),
       // Probe42 (legacy, will be deprecated)
       (async () => {
-        try {
-          if (query.length >= 3) {
-            return await probe42Service.searchCompanyByNameOrCIN(query);
-          }
-          return [];
-        } catch (e) {
-          console.error('Probe42 search error:', e);
+        if (query.length < 3) {
+          sourceStatuses.probe42.searched = false;
           return [];
         }
+        
+        sourceStatuses.probe42.searched = true;
+        const probe42Result = await probe42Service.searchCompanyByNameOrCINWithDetails(query);
+        
+        if (probe42Result.success && probe42Result.data) {
+          sourceStatuses.probe42.resultCount = probe42Result.data.length;
+          sourceStatuses.probe42.usedMockData = probe42Result.usedMockData;
+          return probe42Result.data;
+        } else if (probe42Result.error) {
+          sourceStatuses.probe42.error = probe42Result.error;
+          return [];
+        }
+        return [];
       })()
     ]);
 
@@ -3708,10 +3760,11 @@ router.get('/admin/unified-search', requireAdmin, async (req: Request, res: Resp
       totalResults: results.length,
       results,
       sources: {
-        moneycontrol: moneyControlResults.status === 'fulfilled' ? moneyControlResults.value.length : 0,
-        mca: mcaResults.status === 'fulfilled' ? mcaResults.value.length : 0,
-        probe42: probe42Results.status === 'fulfilled' ? probe42Results.value.length : 0,
-      }
+        moneycontrol: sourceStatuses.moneycontrol.resultCount,
+        mca: sourceStatuses.mca.resultCount,
+        probe42: sourceStatuses.probe42.resultCount,
+      },
+      sourceStatuses
     });
   } catch (error: any) {
     console.error('Error in unified search:', error);

@@ -82,6 +82,19 @@ export interface MCASearchResult {
   dateOfIncorporation: string;
 }
 
+export interface MCAApiError {
+  code: number;
+  message: string;
+  troubleshooting: string;
+  isRetryable: boolean;
+}
+
+export interface MCAFetchResult {
+  success: boolean;
+  data?: MCACompanyMasterData;
+  error?: MCAApiError;
+}
+
 class MCAService {
   private client: AxiosInstance;
   private accessToken: string | null = null;
@@ -185,6 +198,126 @@ class MCAService {
     } catch (error: any) {
       console.error('[MCA] Error fetching company:', error.response?.data || error.message);
       return null;
+    }
+  }
+
+  /**
+   * Get company master data by CIN with detailed error information
+   * Returns structured result with success/failure details for UI display
+   */
+  async getCompanyByCINWithDetails(cin: string): Promise<MCAFetchResult> {
+    if (!cin || cin.length !== 21) {
+      return {
+        success: false,
+        error: {
+          code: 400,
+          message: 'Invalid CIN format',
+          troubleshooting: 'CIN must be exactly 21 characters in the format: U12345AB1234ABC123456',
+          isRetryable: false
+        }
+      };
+    }
+
+    if (!SANDBOX_API_KEY || !SANDBOX_API_SECRET) {
+      return {
+        success: false,
+        error: {
+          code: 401,
+          message: 'API credentials not configured',
+          troubleshooting: 'Sandbox.co.in API credentials (SANDBOX_API_KEY, SANDBOX_API_SECRET) are not set. Contact system administrator.',
+          isRetryable: false
+        }
+      };
+    }
+
+    try {
+      const token = await this.getAccessToken();
+      
+      console.log(`[MCA] Fetching company data for CIN: ${cin}`);
+      
+      const response = await this.client.post(
+        '/mca/company/master-data/search',
+        {
+          '@entity': 'in.co.sandbox.kyc.mca.master_data.request',
+          id: cin,
+          consent: 'y',
+          reason: 'for KYC and financial analysis',
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data?.code === 200 && response.data?.data?.company_master_data) {
+        const data = response.data.data;
+        const masterData = data.company_master_data;
+        
+        return {
+          success: true,
+          data: this.transformMCAResponse(masterData, data)
+        };
+      }
+
+      return {
+        success: false,
+        error: {
+          code: response.data?.code || 404,
+          message: 'Company not found in MCA database',
+          troubleshooting: 'The CIN may not exist in MCA records, or the company data is not yet available. Try verifying the CIN on the MCA portal.',
+          isRetryable: false
+        }
+      };
+    } catch (error: any) {
+      const errorCode = error.response?.data?.code || error.response?.status || 500;
+      const errorMessage = error.response?.data?.message || error.message;
+      
+      console.error('[MCA] Error fetching company:', error.response?.data || error.message);
+
+      // Map common error codes to user-friendly messages
+      let troubleshooting: string;
+      let isRetryable: boolean;
+
+      switch (errorCode) {
+        case 401:
+          troubleshooting = 'Authentication failed. API credentials may be expired or invalid. Contact system administrator.';
+          isRetryable = false;
+          break;
+        case 403:
+          troubleshooting = 'Access denied by Sandbox.co.in API. Possible causes: (1) API subscription does not include this CIN, (2) API quota exhausted, (3) CIN not indexed in test environment. Try in production or contact Sandbox support.';
+          isRetryable = false;
+          break;
+        case 404:
+          troubleshooting = 'Company not found. The CIN may be incorrect or the company is not registered with MCA.';
+          isRetryable = false;
+          break;
+        case 429:
+          troubleshooting = 'Rate limit exceeded. Too many requests to Sandbox.co.in API. Please wait a few minutes and try again.';
+          isRetryable = true;
+          break;
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          troubleshooting = 'Sandbox.co.in API is temporarily unavailable. Please try again later.';
+          isRetryable = true;
+          break;
+        default:
+          troubleshooting = `Unexpected error from MCA API. Error details: ${errorMessage}`;
+          isRetryable = true;
+      }
+
+      return {
+        success: false,
+        error: {
+          code: errorCode,
+          message: errorMessage || 'Unknown error',
+          troubleshooting,
+          isRetryable
+        }
+      };
     }
   }
 

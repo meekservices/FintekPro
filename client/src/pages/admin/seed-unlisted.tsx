@@ -148,6 +148,20 @@ interface UnifiedSearchResult {
   rawData: any;
 }
 
+interface SourceError {
+  code: number;
+  message: string;
+  troubleshooting: string;
+  isRetryable: boolean;
+}
+
+interface SourceStatus {
+  searched: boolean;
+  resultCount: number;
+  error?: SourceError;
+  usedMockData?: boolean;
+}
+
 interface UnifiedSearchResponse {
   query: string;
   totalResults: number;
@@ -156,6 +170,11 @@ interface UnifiedSearchResponse {
     moneycontrol: number;
     mca: number;
     probe42: number;
+  };
+  sourceStatuses?: {
+    moneycontrol: SourceStatus;
+    mca: SourceStatus;
+    probe42: SourceStatus;
   };
 }
 
@@ -1164,10 +1183,108 @@ export default function SeedUnlistedPage() {
                 <div className="text-center text-gray-400 mb-4">
                   <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p>No companies found matching "{debouncedUnifiedSearch}"</p>
-                  <p className="text-xs mt-1 text-gray-500">
-                    External sources (MCA/Probe42) may be unavailable or don't have this data
-                  </p>
                 </div>
+                
+                {/* Detailed Source Error Information */}
+                {unifiedSearchData?.sourceStatuses && (
+                  <div className="space-y-2 mb-4 max-w-xl mx-auto">
+                    {/* MCA Status */}
+                    {unifiedSearchData.sourceStatuses.mca && (
+                      <div className={`p-3 rounded-lg border text-left ${
+                        unifiedSearchData.sourceStatuses.mca.error 
+                          ? 'bg-red-900/20 border-red-500/30' 
+                          : 'bg-gray-800/50 border-gray-700'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-green-400 border-green-400/50 text-xs">MCA</Badge>
+                          <span className="text-xs text-gray-400">
+                            {unifiedSearchData.sourceStatuses.mca.searched 
+                              ? `${unifiedSearchData.sourceStatuses.mca.resultCount} results`
+                              : 'Not searched'}
+                          </span>
+                          {unifiedSearchData.sourceStatuses.mca.error && (
+                            <Badge variant="destructive" className="text-xs">
+                              Error {unifiedSearchData.sourceStatuses.mca.error.code}
+                            </Badge>
+                          )}
+                        </div>
+                        {unifiedSearchData.sourceStatuses.mca.error && (
+                          <p className="text-xs text-red-300">
+                            {unifiedSearchData.sourceStatuses.mca.error.troubleshooting}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Probe42 Status */}
+                    {unifiedSearchData.sourceStatuses.probe42 && (
+                      <div className={`p-3 rounded-lg border text-left ${
+                        unifiedSearchData.sourceStatuses.probe42.error && !unifiedSearchData.sourceStatuses.probe42.usedMockData
+                          ? 'bg-red-900/20 border-red-500/30' 
+                          : unifiedSearchData.sourceStatuses.probe42.usedMockData
+                            ? 'bg-yellow-900/20 border-yellow-500/30'
+                            : 'bg-gray-800/50 border-gray-700'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-gray-400 border-gray-400/50 text-xs">Probe42</Badge>
+                          <span className="text-xs text-gray-400">
+                            {unifiedSearchData.sourceStatuses.probe42.searched 
+                              ? `${unifiedSearchData.sourceStatuses.probe42.resultCount} results`
+                              : 'Not searched'}
+                          </span>
+                          {unifiedSearchData.sourceStatuses.probe42.usedMockData && (
+                            <Badge variant="outline" className="text-yellow-400 border-yellow-400/50 text-xs">
+                              Mock Data
+                            </Badge>
+                          )}
+                          {unifiedSearchData.sourceStatuses.probe42.error && !unifiedSearchData.sourceStatuses.probe42.usedMockData && (
+                            <Badge variant="destructive" className="text-xs">
+                              Error {unifiedSearchData.sourceStatuses.probe42.error.code}
+                            </Badge>
+                          )}
+                        </div>
+                        {unifiedSearchData.sourceStatuses.probe42.error && !unifiedSearchData.sourceStatuses.probe42.usedMockData && (
+                          <p className="text-xs text-red-300">
+                            {unifiedSearchData.sourceStatuses.probe42.error.troubleshooting}
+                          </p>
+                        )}
+                        {unifiedSearchData.sourceStatuses.probe42.usedMockData && (
+                          <p className="text-xs text-yellow-300">
+                            Using mock data in development mode. Real API authentication failed.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* MoneyControl Status */}
+                    {unifiedSearchData.sourceStatuses.moneycontrol && (
+                      <div className={`p-3 rounded-lg border text-left ${
+                        unifiedSearchData.sourceStatuses.moneycontrol.error 
+                          ? 'bg-red-900/20 border-red-500/30' 
+                          : 'bg-gray-800/50 border-gray-700'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-purple-400 border-purple-400/50 text-xs">MoneyControl</Badge>
+                          <span className="text-xs text-gray-400">
+                            {unifiedSearchData.sourceStatuses.moneycontrol.searched 
+                              ? `${unifiedSearchData.sourceStatuses.moneycontrol.resultCount} results`
+                              : 'Not searched'}
+                          </span>
+                          {unifiedSearchData.sourceStatuses.moneycontrol.error && (
+                            <Badge variant="destructive" className="text-xs">
+                              Error {unifiedSearchData.sourceStatuses.moneycontrol.error.code}
+                            </Badge>
+                          )}
+                        </div>
+                        {unifiedSearchData.sourceStatuses.moneycontrol.error && (
+                          <p className="text-xs text-red-300">
+                            {unifiedSearchData.sourceStatuses.moneycontrol.error.troubleshooting}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {/* Manual Add Option */}
                 {!showManualAdd ? (
