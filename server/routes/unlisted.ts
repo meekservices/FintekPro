@@ -21,6 +21,7 @@ import { moneyControlReconciliation } from '../services/moneycontrol-reconciliat
 import { mcaService } from '../services/mca-service';
 import { unifiedCompanyDataService } from '../services/unified-company-data-service';
 import { valuationService } from '../services/valuation-service';
+import { unlistedPricingWorkflowService } from '../services/unlisted-pricing-workflow';
 import {
   insertUnlistedCompanySchema,
   insertUnlistedPriceHistorySchema,
@@ -4026,6 +4027,194 @@ router.post('/admin/publish-to-store', requireAdmin, async (req: Request, res: R
   } catch (error: any) {
     console.error('Error publishing company to store:', error);
     return apiResponse.serverError(res, error.message || 'Failed to publish company');
+  }
+});
+
+// ===================================================================
+// PRICING WORKFLOW ROUTES (Admin Only)
+// ===================================================================
+
+/**
+ * POST /api/unlisted/companies/:companyId/save-draft-prices
+ * Save draft prices for a company (Admin only)
+ */
+router.post('/companies/:companyId/save-draft-prices', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const { buyPrice, sellPrice } = req.body;
+    const userId = (req.user as any)?.id;
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.get('User-Agent');
+
+    if (typeof buyPrice !== 'number' || typeof sellPrice !== 'number') {
+      return apiResponse.badRequest(res, 'buyPrice and sellPrice must be numbers');
+    }
+
+    const result = await unlistedPricingWorkflowService.saveDraftPrices(
+      companyId,
+      buyPrice,
+      sellPrice,
+      userId,
+      ipAddress,
+      userAgent
+    );
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.message);
+    }
+
+    return apiResponse.success(res, result, 'Draft prices saved successfully');
+  } catch (error: any) {
+    console.error('Error saving draft prices:', error);
+    return apiResponse.serverError(res, 'Failed to save draft prices');
+  }
+});
+
+/**
+ * GET /api/unlisted/companies/:companyId/validate-prices
+ * Validate prices for a company (Admin only)
+ */
+router.get('/companies/:companyId/validate-prices', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const buyPrice = Number(req.query.buyPrice);
+    const sellPrice = Number(req.query.sellPrice);
+
+    if (isNaN(buyPrice) || isNaN(sellPrice)) {
+      return apiResponse.badRequest(res, 'buyPrice and sellPrice query parameters are required and must be numbers');
+    }
+
+    const result = await unlistedPricingWorkflowService.validatePrices(companyId, buyPrice, sellPrice);
+    return apiResponse.success(res, result);
+  } catch (error: any) {
+    console.error('Error validating prices:', error);
+    return apiResponse.serverError(res, 'Failed to validate prices');
+  }
+});
+
+/**
+ * POST /api/unlisted/companies/:companyId/publish-prices
+ * Publish draft prices for a company (Admin only)
+ */
+router.post('/companies/:companyId/publish-prices', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const userId = (req.user as any)?.id;
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.get('User-Agent');
+
+    const result = await unlistedPricingWorkflowService.publishPrices(
+      companyId,
+      userId,
+      ipAddress,
+      userAgent
+    );
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.message);
+    }
+
+    return apiResponse.success(res, result, 'Prices published successfully');
+  } catch (error: any) {
+    console.error('Error publishing prices:', error);
+    return apiResponse.serverError(res, 'Failed to publish prices');
+  }
+});
+
+/**
+ * POST /api/unlisted/companies/:companyId/check-compliance
+ * Run compliance check and update company status (Admin only)
+ */
+router.post('/companies/:companyId/check-compliance', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    
+    const result = await unlistedPricingWorkflowService.checkComplianceAndUpdate(companyId);
+    return apiResponse.success(res, result, 'Compliance check completed');
+  } catch (error: any) {
+    console.error('Error checking compliance:', error);
+    return apiResponse.serverError(res, 'Failed to check compliance');
+  }
+});
+
+/**
+ * POST /api/unlisted/companies/:companyId/suspend-trading
+ * Suspend trading for a company (Admin only)
+ */
+router.post('/companies/:companyId/suspend-trading', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const { reason } = req.body;
+    const userId = (req.user as any)?.id;
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.get('User-Agent');
+
+    if (!reason || typeof reason !== 'string') {
+      return apiResponse.badRequest(res, 'reason is required');
+    }
+
+    const result = await unlistedPricingWorkflowService.suspendTrading(
+      companyId,
+      reason,
+      userId,
+      ipAddress,
+      userAgent
+    );
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.message);
+    }
+
+    return apiResponse.success(res, result, 'Trading suspended successfully');
+  } catch (error: any) {
+    console.error('Error suspending trading:', error);
+    return apiResponse.serverError(res, 'Failed to suspend trading');
+  }
+});
+
+/**
+ * POST /api/unlisted/companies/:companyId/resume-trading
+ * Resume trading for a company (Admin only)
+ */
+router.post('/companies/:companyId/resume-trading', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const userId = (req.user as any)?.id;
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.get('User-Agent');
+
+    const result = await unlistedPricingWorkflowService.resumeTrading(
+      companyId,
+      userId,
+      ipAddress,
+      userAgent
+    );
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.message);
+    }
+
+    return apiResponse.success(res, result, 'Trading resumed successfully');
+  } catch (error: any) {
+    console.error('Error resuming trading:', error);
+    return apiResponse.serverError(res, 'Failed to resume trading');
+  }
+});
+
+/**
+ * GET /api/unlisted/companies/:companyId/audit-log
+ * Get audit log for a company (Admin only)
+ */
+router.get('/companies/:companyId/audit-log', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const limit = Number(req.query.limit) || 50;
+
+    const logs = await unlistedPricingWorkflowService.getAuditLog(companyId, limit);
+    return apiResponse.success(res, logs);
+  } catch (error: any) {
+    console.error('Error fetching audit log:', error);
+    return apiResponse.serverError(res, 'Failed to fetch audit log');
   }
 });
 

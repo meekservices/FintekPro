@@ -10197,6 +10197,27 @@ export const unlistedCompanies = pgTable("unlisted_companies", {
   status: varchar("status").default("active").notNull(), // active, inactive, delisted
   listingStage: varchar("listing_stage"), // unlisted, pre_ipo, growth, mature
   
+  // Pricing Workflow
+  pricingStatus: varchar("pricing_status").default("draft"), // draft, pending_review, published
+  draftBuyPrice: decimal("draft_buy_price", { precision: 20, scale: 2 }),
+  draftSellPrice: decimal("draft_sell_price", { precision: 20, scale: 2 }),
+  publishedBuyPrice: decimal("published_buy_price", { precision: 20, scale: 2 }),
+  publishedSellPrice: decimal("published_sell_price", { precision: 20, scale: 2 }),
+  pricePublishedAt: timestamp("price_published_at"),
+  pricePublishedBy: varchar("price_published_by").references(() => users.id),
+  
+  // Compliance Status
+  complianceStatus: varchar("compliance_status").default("pending"), // pending, cleared, blocked
+  complianceBlockReasons: jsonb("compliance_block_reasons").default([]), // Array of blocking reasons
+  complianceRiskScore: integer("compliance_risk_score").default(0), // 0-100
+  complianceLastCheckedAt: timestamp("compliance_last_checked_at"),
+  
+  // Trading Controls
+  tradingSuspended: boolean("trading_suspended").default(false),
+  tradingSuspendedAt: timestamp("trading_suspended_at"),
+  tradingSuspendedBy: varchar("trading_suspended_by").references(() => users.id),
+  tradingSuspendedReason: text("trading_suspended_reason"),
+  
   // Additional Info
   website: varchar("website"),
   description: text("description"),
@@ -10214,6 +10235,38 @@ export const unlistedCompanies = pgTable("unlisted_companies", {
   index("idx_unlisted_companies_probe42").on(table.probe42CompanyId),
   index("idx_unlisted_companies_status").on(table.status),
   index("idx_unlisted_companies_sector").on(table.sector),
+  index("idx_unlisted_companies_pricing_status").on(table.pricingStatus),
+  index("idx_unlisted_companies_compliance_status").on(table.complianceStatus),
+]);
+
+// Unlisted Marketplace Audit Log - tracks compliance overrides, price changes, suspensions
+export const unlistedAuditLog = pgTable("unlisted_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  actionType: varchar("action_type").notNull(), // price_saved, price_published, compliance_override, trading_suspended, trading_resumed
+  actionBy: varchar("action_by").references(() => users.id).notNull(),
+  
+  // Price Change Details
+  previousBuyPrice: decimal("previous_buy_price", { precision: 20, scale: 2 }),
+  previousSellPrice: decimal("previous_sell_price", { precision: 20, scale: 2 }),
+  newBuyPrice: decimal("new_buy_price", { precision: 20, scale: 2 }),
+  newSellPrice: decimal("new_sell_price", { precision: 20, scale: 2 }),
+  priceChangePercent: decimal("price_change_percent", { precision: 10, scale: 2 }),
+  
+  // Compliance Details
+  complianceFlags: jsonb("compliance_flags").default([]), // Flags that were overridden or present
+  overrideReason: text("override_reason"),
+  
+  // Metadata
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_unlisted_audit_company").on(table.companyId),
+  index("idx_unlisted_audit_action").on(table.actionType),
+  index("idx_unlisted_audit_user").on(table.actionBy),
+  index("idx_unlisted_audit_date").on(table.createdAt),
 ]);
 
 // Company Financials table
@@ -10490,6 +10543,13 @@ export const insertUnlistedCompanySchema = createInsertSchema(unlistedCompanies)
 });
 export type UnlistedCompany = typeof unlistedCompanies.$inferSelect;
 export type InsertUnlistedCompany = z.infer<typeof insertUnlistedCompanySchema>;
+
+export const insertUnlistedAuditLogSchema = createInsertSchema(unlistedAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type UnlistedAuditLog = typeof unlistedAuditLog.$inferSelect;
+export type InsertUnlistedAuditLog = z.infer<typeof insertUnlistedAuditLogSchema>;
 
 export const insertCompanyFinancialsSchema = createInsertSchema(companyFinancials).omit({
   id: true,
