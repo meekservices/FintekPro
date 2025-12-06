@@ -104,6 +104,88 @@ router.post("/calculate-fees", async (req: Request, res: Response) => {
   }
 });
 
+// Calculate net yield with detailed breakdown
+router.post("/calculate-net-yield", async (req: Request, res: Response) => {
+  try {
+    const { 
+      instrumentType, 
+      grossYield, 
+      transactionAmount, 
+      holdingPeriodYears, 
+      investorSegment, 
+      taxBracket,
+      feeProfileId, 
+      feeOverrideId 
+    } = req.body;
+    
+    const result = await bondFeeCalibrationService.calculateNetYield({
+      instrumentType,
+      grossYield: parseFloat(grossYield),
+      transactionAmount: parseFloat(transactionAmount || '100000'),
+      holdingPeriodYears: parseFloat(holdingPeriodYears || '1'),
+      investorSegment: investorSegment || 'retail',
+      taxBracket: parseFloat(taxBracket || '30'),
+      feeProfileId,
+      feeOverrideId
+    });
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error calculating net yield:", error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Calculate net yield for a specific bond in catalog
+router.get("/catalog/:bondId/net-yield", async (req: Request, res: Response) => {
+  try {
+    const { bondId } = req.params;
+    const { investorSegment } = req.query;
+    
+    const result = await bondFeeCalibrationService.calculateNetYieldForBond(
+      bondId, 
+      (investorSegment as 'retail' | 'hni' | 'institutional') || 'retail'
+    );
+    
+    if (!result) {
+      return res.status(404).json({ error: "Bond not found" });
+    }
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error calculating net yield for bond:", error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Batch calculate net yields for multiple bonds
+router.post("/catalog/batch-net-yield", async (req: Request, res: Response) => {
+  try {
+    const { bondIds, investorSegment } = req.body;
+    
+    if (!Array.isArray(bondIds) || bondIds.length === 0) {
+      return res.status(400).json({ error: "bondIds must be a non-empty array" });
+    }
+    
+    const results: Record<string, any> = {};
+    
+    for (const bondId of bondIds) {
+      const result = await bondFeeCalibrationService.calculateNetYieldForBond(
+        bondId,
+        investorSegment || 'retail'
+      );
+      if (result) {
+        results[bondId] = result;
+      }
+    }
+    
+    res.json({ netYields: results });
+  } catch (error: any) {
+    console.error("Error batch calculating net yields:", error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // ============================================
 // BOND CATALOG API (Draft/Publish Workflow)
 // ============================================
