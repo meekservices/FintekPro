@@ -260,6 +260,10 @@ app.use((req, res, next) => {
   const bondSeedAdminRoutes = await import('./routes/bond-seed-admin');
   app.use('/api/admin/bond-seed', bondSeedAdminRoutes.default);
   
+  // Register Bond Marketplace Improvements routes (Enhanced Filtering, Eligibility, Watchlist, Suitability)
+  const bondMarketplaceImprovements = await import('./routes/bond-marketplace-improvements');
+  app.use('/api/bonds', bondMarketplaceImprovements.default);
+  
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');

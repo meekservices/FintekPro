@@ -12400,3 +12400,176 @@ export type InsertBondCatalogEntry = typeof bondCatalog.$inferInsert;
 export const insertBondCatalogSchema = createInsertSchema(bondCatalog).omit({ 
   id: true, createdAt: true, updatedAt: true, publishedAt: true 
 });
+
+// =====================================================
+// BOND MARKETPLACE IMPROVEMENTS
+// =====================================================
+
+// Bond Alerts - Notifications for watchlist items
+export const bondAlerts = pgTable("bond_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  watchlistId: varchar("watchlist_id").references(() => bondWatchlist.id),
+  
+  // Alert Type
+  alertType: varchar("alert_type").notNull(), // yield_change, price_change, new_listing, maturity_approaching
+  
+  // Bond Reference
+  isin: varchar("isin").notNull(),
+  bondName: varchar("bond_name").notNull(),
+  
+  // Alert Details
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  previousValue: decimal("previous_value", { precision: 15, scale: 4 }),
+  currentValue: decimal("current_value", { precision: 15, scale: 4 }),
+  changePercentage: decimal("change_percentage", { precision: 8, scale: 4 }),
+  
+  // Status
+  status: varchar("status").default("unread").notNull(), // unread, read, dismissed
+  readAt: timestamp("read_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_bond_alerts_user").on(table.userId),
+  index("idx_bond_alerts_status").on(table.status),
+]);
+
+export type BondAlert = typeof bondAlerts.$inferSelect;
+export type InsertBondAlert = typeof bondAlerts.$inferInsert;
+export const insertBondAlertSchema = createInsertSchema(bondAlerts).omit({
+  id: true, createdAt: true
+});
+
+// Risk Disclosure Attestations - SEBI compliance log
+export const bondRiskDisclosureAttestations = pgTable("bond_risk_disclosure_attestations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  // Order Reference
+  orderId: varchar("order_id"),
+  orderType: varchar("order_type"), // buy_request, sell_listing
+  
+  // Bond Reference
+  isin: varchar("isin").notNull(),
+  bondName: varchar("bond_name").notNull(),
+  instrumentType: varchar("instrument_type").notNull(),
+  transactionValue: decimal("transaction_value", { precision: 15, scale: 2 }).notNull(),
+  
+  // Disclosure Categories Acknowledged
+  disclosuresAcknowledged: jsonb("disclosures_acknowledged").notNull(), // Array of category codes
+  allDisclosuresAccepted: boolean("all_disclosures_accepted").default(false),
+  
+  // User Attestation
+  attestedAt: timestamp("attested_at").defaultNow(),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Audit (7-year SEBI retention)
+  retentionExpiresAt: timestamp("retention_expires_at"),
+}, (table) => [
+  index("idx_disclosure_attestation_user").on(table.userId),
+  index("idx_disclosure_attestation_order").on(table.orderId),
+  index("idx_disclosure_attestation_isin").on(table.isin),
+]);
+
+export type BondRiskDisclosureAttestation = typeof bondRiskDisclosureAttestations.$inferSelect;
+export type InsertBondRiskDisclosureAttestation = typeof bondRiskDisclosureAttestations.$inferInsert;
+
+// Suitability Scores - Bond matching to investor profile
+export const bondSuitabilityScores = pgTable("bond_suitability_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  isin: varchar("isin").notNull(),
+  
+  // Scoring Components (0-100)
+  riskAlignmentScore: integer("risk_alignment_score").notNull(), // How well risk matches profile
+  horizonAlignmentScore: integer("horizon_alignment_score").notNull(), // Investment horizon match
+  liquidityScore: integer("liquidity_score").notNull(), // Liquidity needs match
+  yieldExpectationScore: integer("yield_expectation_score").notNull(), // Yield target match
+  taxEfficiencyScore: integer("tax_efficiency_score").notNull(), // Tax benefit match
+  
+  // Overall Score
+  overallSuitabilityScore: integer("overall_suitability_score").notNull(),
+  suitabilityCategory: varchar("suitability_category").notNull(), // highly_suitable, suitable, neutral, less_suitable, not_suitable
+  
+  // Reasoning
+  reasoningSummary: text("reasoning_summary"),
+  warnings: jsonb("warnings"), // Array of warning messages
+  
+  // Cache invalidation
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  validUntil: timestamp("valid_until"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_suitability_user").on(table.userId),
+  index("idx_suitability_isin").on(table.isin),
+  index("idx_suitability_score").on(table.overallSuitabilityScore),
+]);
+
+export type BondSuitabilityScore = typeof bondSuitabilityScores.$inferSelect;
+export type InsertBondSuitabilityScore = typeof bondSuitabilityScores.$inferInsert;
+
+// Fee Override Audit Trail - For compliance dashboard
+export const bondFeeOverrideAudit = pgTable("bond_fee_override_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Override Reference
+  overrideId: varchar("override_id").references(() => bondFeeOverrides.id),
+  isin: varchar("isin").notNull(),
+  bondName: varchar("bond_name"),
+  instrumentType: varchar("instrument_type"),
+  
+  // Change Details
+  action: varchar("action").notNull(), // created, modified, approved, revoked
+  
+  // Before/After Values
+  previousPlatformFee: decimal("previous_platform_fee", { precision: 10, scale: 4 }),
+  newPlatformFee: decimal("new_platform_fee", { precision: 10, scale: 4 }),
+  previousBrokerageFee: decimal("previous_brokerage_fee", { precision: 10, scale: 4 }),
+  newBrokerageFee: decimal("new_brokerage_fee", { precision: 10, scale: 4 }),
+  previousTransactionCharges: decimal("previous_transaction_charges", { precision: 10, scale: 4 }),
+  newTransactionCharges: decimal("new_transaction_charges", { precision: 10, scale: 4 }),
+  
+  // Net Yield Impact
+  previousNetYield: decimal("previous_net_yield", { precision: 8, scale: 4 }),
+  newNetYield: decimal("new_net_yield", { precision: 8, scale: 4 }),
+  yieldImpactBps: integer("yield_impact_bps"),
+  
+  // Reason and Approval
+  overrideReason: text("override_reason"),
+  regulatoryViolations: jsonb("regulatory_violations"), // Array of violation messages
+  
+  // Audit Metadata
+  performedBy: varchar("performed_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  performedAt: timestamp("performed_at").defaultNow(),
+  
+  // Compliance Retention (7 years)
+  retentionExpiresAt: timestamp("retention_expires_at"),
+}, (table) => [
+  index("idx_fee_audit_override").on(table.overrideId),
+  index("idx_fee_audit_isin").on(table.isin),
+  index("idx_fee_audit_action").on(table.action),
+  index("idx_fee_audit_date").on(table.performedAt),
+]);
+
+export type BondFeeOverrideAudit = typeof bondFeeOverrideAudit.$inferSelect;
+export type InsertBondFeeOverrideAudit = typeof bondFeeOverrideAudit.$inferInsert;
+
+// Bond Comparison Sessions - Temporary storage for comparison feature
+export const bondComparisonSessions = pgTable("bond_comparison_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  sessionToken: varchar("session_token"),
+  
+  // Bonds to compare (max 4)
+  bondIsins: text("bond_isins").array().notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("idx_comparison_user").on(table.userId),
+  index("idx_comparison_session").on(table.sessionToken),
+]);

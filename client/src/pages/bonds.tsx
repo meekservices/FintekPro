@@ -18,6 +18,19 @@ import { OrderBlocker } from "@/components/OrderBlocker";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { LoadingState } from "@/components/LoadingState";
 import { useMemo } from "react";
+import { 
+  EnhancedBondFilters, 
+  MaturityLadderView, 
+  BondComparisonTable,
+  KYCTierBadge,
+  EligibilityBadge,
+  DataFreshnessIndicator,
+  NetYieldDisplay,
+  SuitabilityScore,
+  WatchlistButton,
+  AlertButton,
+  useEnhancedBondMarketplace
+} from "@/components/BondMarketplaceEnhancements";
 
 // Fee calculation hook for bond orders
 interface CommissionConfig {
@@ -1902,6 +1915,40 @@ function BondOrders() {
   );
 }
 
+interface UnifiedBond {
+  id: string;
+  isin: string;
+  bondName: string;
+  issuerName: string;
+  instrumentType: string;
+  displayType: string;
+  couponRate: string | null;
+  yieldToMaturity: string | null;
+  maturityDate: string | null;
+  yearsToMaturity: number | null;
+  creditRating: string | null;
+  ratingAgency: string | null;
+  minInvestment: number;
+  faceValue: number;
+  taxCategory: string;
+  isTaxFree: boolean;
+  isListed: boolean;
+  exchange: string;
+  lastUpdated: Date | null;
+  lastPrice?: number;
+  source: 'government_securities' | 'corporate_bonds';
+}
+
+interface BondFiltersState {
+  creditRating?: string[];
+  maturityRange?: [number, number];
+  yieldRange?: [number, number];
+  minInvestment?: number;
+  taxFree?: boolean;
+  instrumentType?: string[];
+  sortBy?: string;
+}
+
 export default function Bonds() {
   const [investmentAmount, setInvestmentAmount] = useState("");
   const [bondYield, setBondYield] = useState("");
@@ -1913,9 +1960,72 @@ export default function Bonds() {
   const [tenureFilter, setTenureFilter] = useState<string>("");
   const [ratingFilter, setRatingFilter] = useState<string>("");
   
+  // Enhanced filters state
+  const [enhancedFilters, setEnhancedFilters] = useState<BondFiltersState>({});
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  
   // Comparison state
   const [compareMode, setCompareMode] = useState(false);
   const [selectedBonds, setSelectedBonds] = useState<string[]>([]);
+  
+  // Fetch unified bonds catalog for enhanced features
+  interface EnhancedCatalogResponse {
+    bonds: UnifiedBond[];
+    total: number;
+    filters: Record<string, unknown>;
+    pagination: Record<string, unknown>;
+  }
+  
+  // Build query string from enhanced filters
+  const catalogQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (enhancedFilters.creditRating?.length) {
+      params.set('creditRating', enhancedFilters.creditRating.join(','));
+    }
+    if (enhancedFilters.maturityRange) {
+      params.set('minMaturity', String(enhancedFilters.maturityRange[0]));
+      params.set('maxMaturity', String(enhancedFilters.maturityRange[1]));
+    }
+    if (enhancedFilters.yieldRange) {
+      params.set('minYield', String(enhancedFilters.yieldRange[0]));
+      params.set('maxYield', String(enhancedFilters.yieldRange[1]));
+    }
+    if (enhancedFilters.minInvestment) {
+      params.set('maxMinInvestment', String(enhancedFilters.minInvestment));
+    }
+    if (enhancedFilters.taxFree) {
+      params.set('taxFree', 'true');
+    }
+    if (enhancedFilters.instrumentType?.length) {
+      params.set('instrumentType', enhancedFilters.instrumentType.join(','));
+    }
+    if (enhancedFilters.sortBy) {
+      params.set('sortBy', enhancedFilters.sortBy);
+    }
+    const queryString = params.toString();
+    return queryString ? `?${queryString}` : '';
+  }, [enhancedFilters]);
+  
+  const { data: catalogData, isLoading: loadingUnifiedBonds } = useQuery<EnhancedCatalogResponse>({
+    queryKey: ['/api/bonds/enhanced-catalog', catalogQueryString],
+    queryFn: async () => {
+      const response = await fetch(`/api/bonds/enhanced-catalog${catalogQueryString}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch bonds catalog');
+      }
+      return response.json();
+    },
+    staleTime: 60000,
+  });
+  
+  const unifiedBonds = catalogData?.bonds ?? [];
+  
+  // Get selected bonds for comparison
+  const selectedBondsData = useMemo(() => {
+    return unifiedBonds.filter(bond => selectedBonds.includes(bond.isin));
+  }, [unifiedBonds, selectedBonds]);
 
   const calculateReturns = () => {
     const principal = parseFloat(investmentAmount) || 0;
@@ -1996,21 +2106,22 @@ export default function Bonds() {
                           Compare ({selectedBonds.length})
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-4xl">
+                      <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
                         <DialogHeader>
                           <DialogTitle>Bond Comparison</DialogTitle>
                           <DialogDescription>
-                            Compare key features of selected bonds
+                            Compare key features of selected bonds side-by-side
                           </DialogDescription>
                         </DialogHeader>
-                        <div className={`grid gap-4 ${
-                          selectedBonds.length === 2 ? 'grid-cols-2' : 
-                          selectedBonds.length === 3 ? 'grid-cols-3' : 
-                          'grid-cols-1'
-                        }`}>
-                          {/* Comparison will be implemented with actual bond data */}
-                          <p className="text-sm text-gray-500">Comparison view coming soon</p>
-                        </div>
+                        <BondComparisonTable 
+                          selectedBonds={selectedBondsData}
+                          onRemove={(bondId) => {
+                            const bond = selectedBondsData.find(b => b.id === bondId);
+                            if (bond) {
+                              setSelectedBonds(prev => prev.filter(isin => isin !== bond.isin));
+                            }
+                          }}
+                        />
                       </DialogContent>
                     </Dialog>
                   </div>
@@ -2083,7 +2194,37 @@ export default function Bonds() {
                   {compareMode ? "Exit Compare" : "Compare Bonds"}
                 </Button>
               </div>
+              
+              <div className="flex justify-end mt-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  data-testid="toggle-advanced-filters"
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  {showAdvancedFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
+                </Button>
+              </div>
+              
+              {showAdvancedFilters && (
+                <div className="mt-4">
+                  <EnhancedBondFilters
+                    filters={enhancedFilters}
+                    onFiltersChange={setEnhancedFilters}
+                  />
+                </div>
+              )}
             </div>
+            
+            {/* Maturity Ladder Visualization */}
+            {unifiedBonds.length > 0 && (
+              <Card>
+                <CardContent className="p-6">
+                  <MaturityLadderView bonds={unifiedBonds} />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Bond Categories - Real-time data */}
             <BondCategoriesSection />
