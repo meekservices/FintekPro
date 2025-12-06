@@ -39,6 +39,7 @@ import {
   type BuyRequest,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
+import { requireAuth } from '../middleware/roleMiddleware';
 
 // Admin middleware for unlisted marketplace admin routes
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -718,8 +719,10 @@ router.post('/probe42/sync-all', requireLevel2, async (req: Request, res: Respon
 /**
  * GET /api/unlisted/companies/:id/financials
  * Get company financial statements
+ * SEBI Compliance: Allow authenticated users to view for due diligence
+ * KYC gates apply only at order placement, not information access
  */
-router.get('/companies/:id/financials', requireLevel2, async (req: Request, res: Response) => {
+router.get('/companies/:id/financials', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -740,8 +743,9 @@ router.get('/companies/:id/financials', requireLevel2, async (req: Request, res:
 /**
  * GET /api/unlisted/companies/:id/ratios
  * Get company financial ratios
+ * SEBI Compliance: Allow authenticated users to view for due diligence
  */
-router.get('/companies/:id/ratios', requireLevel2, async (req: Request, res: Response) => {
+router.get('/companies/:id/ratios', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -762,8 +766,9 @@ router.get('/companies/:id/ratios', requireLevel2, async (req: Request, res: Res
 /**
  * GET /api/unlisted/companies/:id/price-history
  * Get price history for a company
+ * SEBI Compliance: Allow authenticated users to view for due diligence
  */
-router.get('/companies/:id/price-history', requireLevel2, async (req: Request, res: Response) => {
+router.get('/companies/:id/price-history', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { limit } = req.query;

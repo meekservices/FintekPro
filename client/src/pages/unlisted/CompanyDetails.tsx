@@ -91,16 +91,15 @@ export default function CompanyDetails() {
     },
   });
 
-  // Fetch financials (requires Level 2 KYC)
+  // Fetch financials (available to authenticated users for due diligence)
   const { data: financials, error: financialsError } = useQuery<CompanyFinancials[]>({
     queryKey: ['/api/unlisted/companies', id, 'financials'],
     queryFn: async () => {
       const response = await fetch(`/api/unlisted/companies/${id}/financials`);
-      if (response.status === 403) {
-        const errorData = await response.json();
-        throw { status: 403, ...errorData };
+      if (!response.ok) {
+        if (response.status === 401) throw { status: 401, message: 'Please sign in to view financial data' };
+        throw new Error('Failed to fetch financials');
       }
-      if (!response.ok) throw new Error('Failed to fetch financials');
       const result = await response.json();
       return result.data || [];
     },
@@ -108,16 +107,15 @@ export default function CompanyDetails() {
     retry: false,
   });
 
-  // Fetch ratios (requires Level 2 KYC)
+  // Fetch ratios (available to authenticated users for due diligence)
   const { data: ratios, error: ratiosError } = useQuery<CompanyRatios[]>({
     queryKey: ['/api/unlisted/companies', id, 'ratios'],
     queryFn: async () => {
       const response = await fetch(`/api/unlisted/companies/${id}/ratios`);
-      if (response.status === 403) {
-        const errorData = await response.json();
-        throw { status: 403, ...errorData };
+      if (!response.ok) {
+        if (response.status === 401) throw { status: 401, message: 'Please sign in to view ratio data' };
+        throw new Error('Failed to fetch ratios');
       }
-      if (!response.ok) throw new Error('Failed to fetch ratios');
       const result = await response.json();
       return result.data || [];
     },
@@ -125,16 +123,15 @@ export default function CompanyDetails() {
     retry: false,
   });
 
-  // Fetch price history (requires Level 2 KYC)
+  // Fetch price history (available to authenticated users for due diligence)
   const { data: priceHistory, error: priceHistoryError } = useQuery<PriceHistory[]>({
     queryKey: ['/api/unlisted/companies', id, 'price-history'],
     queryFn: async () => {
       const response = await fetch(`/api/unlisted/companies/${id}/price-history?limit=50`);
-      if (response.status === 403) {
-        const errorData = await response.json();
-        throw { status: 403, ...errorData };
+      if (!response.ok) {
+        if (response.status === 401) throw { status: 401, message: 'Please sign in to view price history' };
+        throw new Error('Failed to fetch price history');
       }
-      if (!response.ok) throw new Error('Failed to fetch price history');
       const result = await response.json();
       return result.data || [];
     },
@@ -142,12 +139,19 @@ export default function CompanyDetails() {
     retry: false,
   });
 
-  // Check if any restricted feature is blocked due to KYC
+  // Fetch trading eligibility status (determines if user can place orders)
+  const { data: eligibilityData } = useQuery<{ success: boolean; data: { eligible: boolean; maxTradeValue: number; reasons?: string[] } }>({
+    queryKey: ['/api/unlisted/eligibility/check'],
+    retry: false,
+  });
+  
+  // Check if user needs to login
   const financialsErrorData = financialsError as any;
-  const ratiosErrorData = ratiosError as any;
-  const priceHistoryErrorData = priceHistoryError as any;
-  const isKycBlocked = financialsErrorData?.status === 403 || ratiosErrorData?.status === 403 || priceHistoryErrorData?.status === 403;
-  const kycErrorData = financialsErrorData?.data || ratiosErrorData?.data || priceHistoryErrorData?.data;
+  const isNotLoggedIn = financialsErrorData?.status === 401;
+  
+  // Trading eligibility (Enhanced KYC + risk acknowledgment required for orders)
+  const canTrade = eligibilityData?.data?.eligible === true;
+  const eligibilityReasons = eligibilityData?.data?.reasons || [];
 
   if (isLoadingCompany) {
     return <LoadingState />;
@@ -262,17 +266,52 @@ export default function CompanyDetails() {
         </CardHeader>
       </Card>
 
-      {/* KYC Gate Alert */}
-      {isKycBlocked && (
-        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/30" data-testid="alert-kyc-required">
+      {/* Login Required Alert */}
+      {isNotLoggedIn && (
+        <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/30" data-testid="alert-login-required">
+          <Lock className="h-5 w-5 text-blue-600" />
+          <AlertTitle className="text-blue-800 dark:text-blue-400">Sign In Required</AlertTitle>
+          <AlertDescription className="text-blue-700 dark:text-blue-300">
+            <p className="mb-3">
+              Please sign in to view detailed company financials, ratios, and price history for your research.
+            </p>
+            <Button 
+              size="sm" 
+              onClick={() => setLocation('/auth')}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-sign-in"
+            >
+              <Lock className="w-4 h-4 mr-2" />
+              Sign In
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Trading Eligibility Info Banner */}
+      {!isNotLoggedIn && !canTrade && (
+        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/30" data-testid="alert-trading-eligibility">
           <Shield className="h-5 w-5 text-amber-600" />
-          <AlertTitle className="text-amber-800 dark:text-amber-400">Complete KYC to Access Full Features</AlertTitle>
+          <AlertTitle className="text-amber-800 dark:text-amber-400">Trading Eligibility Required</AlertTitle>
           <AlertDescription className="text-amber-700 dark:text-amber-300">
             <p className="mb-3">
-              As per SEBI regulations, trading unlisted securities requires Level 2 (Full KYC) verification. 
-              You can browse company information, but to access detailed financials, price history, and place orders, 
-              please complete your KYC verification.
+              You can view all company data for research purposes. To place buy/sell orders, SEBI regulations require:
             </p>
+            <ul className="text-sm list-disc list-inside space-y-1 mb-3">
+              <li>Enhanced KYC verification (Tier 3)</li>
+              <li>Risk disclosure acknowledgment</li>
+              <li>Accredited Investor status for trades above ₹50 Lakhs</li>
+            </ul>
+            {eligibilityReasons.length > 0 && (
+              <div className="mb-3 p-3 bg-amber-100 dark:bg-amber-900/50 rounded-md">
+                <p className="text-sm font-medium mb-2">Pending Requirements:</p>
+                <ul className="text-sm list-disc list-inside space-y-1">
+                  {eligibilityReasons.map((reason: string, index: number) => (
+                    <li key={index}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 size="sm" 
@@ -281,7 +320,7 @@ export default function CompanyDetails() {
                 data-testid="button-complete-kyc"
               >
                 <Lock className="w-4 h-4 mr-2" />
-                Complete KYC Now
+                Complete Verification
               </Button>
               <Button 
                 size="sm" 
@@ -290,19 +329,9 @@ export default function CompanyDetails() {
                 className="border-amber-600 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900"
                 data-testid="button-view-kyc-status"
               >
-                View KYC Status
+                View Status
               </Button>
             </div>
-            {kycErrorData?.requiredActions && kycErrorData.requiredActions.length > 0 && (
-              <div className="mt-3 p-3 bg-amber-100 dark:bg-amber-900/50 rounded-md">
-                <p className="text-sm font-medium mb-2">Required Verifications:</p>
-                <ul className="text-sm list-disc list-inside space-y-1">
-                  {kycErrorData.requiredActions.map((action: string, index: number) => (
-                    <li key={index}>{action}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </AlertDescription>
         </Alert>
       )}
@@ -312,21 +341,21 @@ export default function CompanyDetails() {
         <Button 
           size="lg" 
           onClick={() => setLocation(`/unlisted/buy?company=${company.id}`)}
-          disabled={isKycBlocked}
+          disabled={!canTrade}
           data-testid="button-place-buy-request"
         >
           <ShoppingCart className="w-5 h-5 mr-2" />
-          {isKycBlocked ? 'Complete KYC to Buy' : 'Place Buy Request'}
+          {canTrade ? 'Place Buy Request' : 'Complete Verification to Buy'}
         </Button>
         <Button 
           size="lg" 
           variant="outline"
           onClick={() => setLocation(`/unlisted/sell?company=${company.id}`)}
-          disabled={isKycBlocked}
+          disabled={!canTrade}
           data-testid="button-create-sell-listing"
         >
           <Store className="w-5 h-5 mr-2" />
-          {isKycBlocked ? 'Complete KYC to Sell' : 'Create Sell Listing'}
+          {canTrade ? 'Create Sell Listing' : 'Complete Verification to Sell'}
         </Button>
       </div>
 
