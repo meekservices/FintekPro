@@ -81,9 +81,10 @@ export default function UnlistedAuditLog() {
   const [actionFilter, setActionFilter] = useState('all');
   const [page, setPage] = useState(1);
   
-  const { data, isLoading, refetch } = useQuery<AuditLogResponse>({
+  const { data: responseData, isLoading, refetch } = useQuery<{ success: boolean; data: AuditLogResponse }>({
     queryKey: ['/api/unlisted/admin/audit-log', { page, actionType: actionFilter !== 'all' ? actionFilter : undefined }],
   });
+  const data = responseData?.data;
   
   if (authLoading) {
     return <LoadingState />;

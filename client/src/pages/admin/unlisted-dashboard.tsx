@@ -164,7 +164,7 @@ const AlertItem = ({ alert }: { alert: ComplianceAlert }) => {
 export default function UnlistedDashboard() {
   const { user, isLoading: authLoading } = useAuth();
   
-  const { data, isLoading, error, refetch } = useQuery<DashboardData>({
+  const { data: responseData, isLoading, error, refetch } = useQuery<{ success: boolean; data: DashboardData }>({
     queryKey: ['/api/unlisted/admin/dashboard-metrics'],
     refetchInterval: 60000,
   });
@@ -191,6 +191,8 @@ export default function UnlistedDashboard() {
   if (isLoading) {
     return <LoadingState />;
   }
+  
+  const data = responseData?.data;
   
   if (error || !data) {
     return (

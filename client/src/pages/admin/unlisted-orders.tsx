@@ -98,15 +98,15 @@ export default function UnlistedOrders() {
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'match' | null>(null);
   
-  const { data: listingsData, isLoading: listingsLoading, refetch: refetchListings } = useQuery<{ listings: SellListing[]; pagination: any }>({
+  const { data: listingsResponse, isLoading: listingsLoading, refetch: refetchListings } = useQuery<{ success: boolean; data: { listings: SellListing[]; pagination: any } }>({
     queryKey: ['/api/unlisted/admin/all-listings'],
   });
-  const listings = listingsData?.listings || [];
+  const listings = listingsResponse?.data?.listings || [];
   
-  const { data: buyRequestsData, isLoading: buyRequestsLoading, refetch: refetchBuyRequests } = useQuery<{ buyRequests: BuyRequest[]; pagination: any }>({
+  const { data: buyRequestsResponse, isLoading: buyRequestsLoading, refetch: refetchBuyRequests } = useQuery<{ success: boolean; data: { buyRequests: BuyRequest[]; pagination: any } }>({
     queryKey: ['/api/unlisted/admin/all-buy-requests'],
   });
-  const buyRequests = buyRequestsData?.buyRequests || [];
+  const buyRequests = buyRequestsResponse?.data?.buyRequests || [];
   
   const updateListingMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
