@@ -22,6 +22,7 @@ import { mcaService } from '../services/mca-service';
 import { unifiedCompanyDataService } from '../services/unified-company-data-service';
 import { valuationService } from '../services/valuation-service';
 import { unlistedPricingWorkflowService } from '../services/unlisted-pricing-workflow';
+import { unlistedEligibilityService } from '../services/unlisted-eligibility';
 import {
   insertUnlistedCompanySchema,
   insertUnlistedPriceHistorySchema,
@@ -1339,6 +1340,93 @@ router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) 
     }
     
     return apiResponse.serverError(res, 'Failed to create buy request');
+  }
+});
+
+// ===================================================================
+// ELIGIBILITY ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/eligibility
+ * Check current user's eligibility for unlisted marketplace trading
+ */
+router.get('/eligibility', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    const eligibility = await unlistedEligibilityService.checkUserEligibility(req.user.id);
+    return apiResponse.success(res, eligibility);
+  } catch (error: any) {
+    console.error('Error checking eligibility:', error);
+    return apiResponse.serverError(res, 'Failed to check eligibility');
+  }
+});
+
+/**
+ * POST /api/unlisted/eligibility/check-trade
+ * Check if a specific trade is allowed based on user eligibility and trade value
+ */
+router.post('/eligibility/check-trade', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    const { tradeValue, tradeType } = req.body;
+    
+    if (typeof tradeValue !== 'number' || tradeValue <= 0) {
+      return apiResponse.badRequest(res, 'Valid trade value is required');
+    }
+    
+    if (!['buy', 'sell'].includes(tradeType)) {
+      return apiResponse.badRequest(res, 'Trade type must be "buy" or "sell"');
+    }
+    
+    const eligibility = await unlistedEligibilityService.checkTradeEligibility({
+      userId: req.user.id,
+      tradeValue,
+      tradeType,
+    });
+    
+    return apiResponse.success(res, eligibility);
+  } catch (error: any) {
+    console.error('Error checking trade eligibility:', error);
+    return apiResponse.serverError(res, 'Failed to check trade eligibility');
+  }
+});
+
+/**
+ * GET /api/unlisted/eligibility/requirements
+ * Get the requirements for trading in the unlisted marketplace
+ */
+router.get('/eligibility/requirements', async (_req: Request, res: Response) => {
+  try {
+    const requirements = await unlistedEligibilityService.getEligibilityRequirements();
+    return apiResponse.success(res, requirements);
+  } catch (error: any) {
+    console.error('Error fetching requirements:', error);
+    return apiResponse.serverError(res, 'Failed to fetch requirements');
+  }
+});
+
+/**
+ * GET /api/unlisted/eligibility/kyc-upgrade
+ * Get the user's KYC upgrade status and remaining steps
+ */
+router.get('/eligibility/kyc-upgrade', async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    const upgradeStatus = await unlistedEligibilityService.getKYCUpgradeStatus(req.user.id);
+    return apiResponse.success(res, upgradeStatus);
+  } catch (error: any) {
+    console.error('Error fetching KYC upgrade status:', error);
+    return apiResponse.serverError(res, 'Failed to fetch KYC upgrade status');
   }
 });
 
