@@ -78,6 +78,41 @@ export interface FeeBreakdown {
   totalFeesPercentage: number;
   grossYield: number;
   netYield: number;
+  netYieldAfterTax: number;
+  effectiveCostBps: number; // Basis points impact on yield
+  holdingPeriodYears: number;
+  regulatoryCompliant: boolean;
+  violations: string[];
+}
+
+// Net Yield Calculation Input
+export interface NetYieldCalculationInput {
+  instrumentType: InstrumentType;
+  grossYield: number; // YTM in percentage
+  transactionAmount: number;
+  holdingPeriodYears?: number; // Default to maturity
+  investorSegment: 'retail' | 'hni' | 'institutional';
+  taxBracket?: number; // For after-tax yield
+  feeProfileId?: string;
+  feeOverrideId?: string;
+}
+
+// Net Yield Result
+export interface NetYieldResult {
+  grossYield: number;
+  netYield: number;
+  netYieldAfterTax: number;
+  feeImpactBps: number;
+  taxImpactBps: number;
+  totalImpactBps: number;
+  annualizedFeePercentage: number;
+  breakdown: {
+    platformFeeAnnualized: number;
+    brokerageFeeAnnualized: number;
+    transactionChargesAnnualized: number;
+    gstAnnualized: number;
+    stampDutyAnnualized: number;
+  };
   regulatoryCompliant: boolean;
   violations: string[];
 }
@@ -267,8 +302,19 @@ class BondFeeCalibrationService {
     const totalFees = platformFee + brokerageFee + transactionCharges + gstOnBrokerage + gstOnPlatformFee + stampDuty;
     const totalFeesPercentage = (totalFees / transactionAmount) * 100;
     
-    // Net yield calculation (simple approximation - actual would need duration/maturity)
-    const netYield = grossYield - totalFeesPercentage;
+    // Net yield calculation - annualize fees assuming 1 year holding period
+    const holdingPeriodYears = 1;
+    const annualizedFeeImpact = totalFeesPercentage / holdingPeriodYears;
+    const netYield = grossYield - annualizedFeeImpact;
+    
+    // Calculate after-tax yield (assuming 30% tax bracket for taxable instruments)
+    const isTaxFree = instrumentType === 'tax_free_bond' || instrumentType === 'sgb';
+    const effectiveTaxRate = isTaxFree ? 0 : 30;
+    const taxImpact = (netYield * effectiveTaxRate) / 100;
+    const netYieldAfterTax = netYield - taxImpact;
+    
+    // Convert to basis points
+    const effectiveCostBps = Math.round(annualizedFeeImpact * 100);
     
     return {
       platformFee: Math.round(platformFee * 100) / 100,
@@ -281,6 +327,9 @@ class BondFeeCalibrationService {
       totalFeesPercentage: Math.round(totalFeesPercentage * 10000) / 10000,
       grossYield,
       netYield: Math.round(netYield * 10000) / 10000,
+      netYieldAfterTax: Math.round(netYieldAfterTax * 10000) / 10000,
+      effectiveCostBps,
+      holdingPeriodYears,
       regulatoryCompliant: violations.length === 0,
       violations
     };
@@ -358,6 +407,183 @@ class BondFeeCalibrationService {
   // Get regulatory caps for display
   getRegulatoryCaps() {
     return REGULATORY_FEE_CAPS;
+  }
+  
+  // Calculate net yield with detailed breakdown
+  async calculateNetYield(input: NetYieldCalculationInput): Promise<NetYieldResult> {
+    const { 
+      instrumentType, 
+      grossYield, 
+      transactionAmount, 
+      holdingPeriodYears = 1, 
+      investorSegment, 
+      taxBracket = 30,
+      feeProfileId, 
+      feeOverrideId 
+    } = input;
+    
+    // Get fee profile
+    let profile: BondFeeProfile | null = null;
+    if (feeProfileId) {
+      const profiles = await db.select().from(bondFeeProfiles).where(eq(bondFeeProfiles.id, feeProfileId)).limit(1);
+      profile = profiles[0] || null;
+    }
+    if (!profile) {
+      profile = await this.getProfileByInstrumentType(instrumentType);
+    }
+    
+    // Get regulatory caps
+    const caps = REGULATORY_FEE_CAPS[instrumentType];
+    const violations: string[] = [];
+    
+    // Base fee rates
+    let platformFeeRate = profile ? parseFloat(profile.platformFeeValue || '0') : caps.maxPlatformFee * 0.5;
+    let brokerageRate = profile ? parseFloat(profile.brokerageFeeValue || '0') : caps.maxBrokerage * 0.5;
+    let transactionChargesRate = profile ? parseFloat(profile.transactionCharges || '0') : 0;
+    
+    // Apply overrides if present
+    if (feeOverrideId) {
+      const overrides = await db.select().from(bondFeeOverrides).where(eq(bondFeeOverrides.id, feeOverrideId)).limit(1);
+      if (overrides[0]) {
+        if (overrides[0].platformFeeOverride) platformFeeRate = parseFloat(overrides[0].platformFeeOverride);
+        if (overrides[0].brokerageFeeOverride) brokerageRate = parseFloat(overrides[0].brokerageFeeOverride);
+        if (overrides[0].transactionChargesOverride) transactionChargesRate = parseFloat(overrides[0].transactionChargesOverride);
+      }
+    }
+    
+    // Apply investor segment multiplier
+    let segmentMultiplier = 1.0;
+    if (profile) {
+      switch (investorSegment) {
+        case 'retail':
+          segmentMultiplier = parseFloat(profile.retailMultiplier || '1.00');
+          break;
+        case 'hni':
+          segmentMultiplier = parseFloat(profile.hniMultiplier || '1.00');
+          break;
+        case 'institutional':
+          segmentMultiplier = parseFloat(profile.institutionalMultiplier || '0.50');
+          break;
+      }
+    }
+    
+    // Apply multipliers
+    platformFeeRate *= segmentMultiplier;
+    brokerageRate *= segmentMultiplier;
+    
+    // Validate against regulatory caps
+    if (brokerageRate > caps.maxBrokerage) {
+      violations.push(`Brokerage ${brokerageRate.toFixed(4)}% exceeds regulatory cap of ${caps.maxBrokerage}%`);
+      brokerageRate = caps.maxBrokerage;
+    }
+    if (platformFeeRate > caps.maxPlatformFee) {
+      violations.push(`Platform fee ${platformFeeRate.toFixed(4)}% exceeds regulatory cap of ${caps.maxPlatformFee}%`);
+      platformFeeRate = caps.maxPlatformFee;
+    }
+    
+    // Calculate one-time fee amounts as percentage
+    const platformFeePercent = platformFeeRate;
+    const brokerageFeePercent = brokerageRate;
+    const transactionChargesPercent = transactionChargesRate;
+    
+    // GST on fees (18%)
+    const gstRate = profile ? parseFloat(profile.gstRate || '18') : 18;
+    const gstOnBrokeragePercent = (brokerageFeePercent * gstRate) / 100;
+    const gstOnPlatformFeePercent = (platformFeePercent * gstRate) / 100;
+    const totalGstPercent = gstOnBrokeragePercent + gstOnPlatformFeePercent;
+    
+    // Stamp duty (one-time on buy)
+    let stampDutyPercent = 0;
+    if (caps.stampDuty) {
+      const stampDutyRate = profile ? parseFloat(profile.stampDutyRate || '0') : ((caps as any).stampDutyRate || 0);
+      stampDutyPercent = stampDutyRate * 100; // Convert to percentage
+    }
+    
+    // Total one-time fees as percentage
+    const totalOneTimeFees = platformFeePercent + brokerageFeePercent + transactionChargesPercent + totalGstPercent + stampDutyPercent;
+    
+    // Annualize the one-time fees across holding period
+    // Formula: annualized impact = one-time fee % / holding period years
+    const annualizedFeePercentage = holdingPeriodYears > 0 ? totalOneTimeFees / holdingPeriodYears : totalOneTimeFees;
+    
+    // Calculate net yield (gross yield minus annualized fees)
+    const netYield = grossYield - annualizedFeePercentage;
+    
+    // Calculate after-tax yield for taxable bonds
+    const isTaxFree = instrumentType === 'tax_free_bond' || instrumentType === 'sgb';
+    const effectiveTaxRate = isTaxFree ? 0 : taxBracket;
+    const taxImpact = (netYield * effectiveTaxRate) / 100;
+    const netYieldAfterTax = netYield - taxImpact;
+    
+    // Convert to basis points for easy comparison
+    const feeImpactBps = Math.round(annualizedFeePercentage * 100);
+    const taxImpactBps = Math.round(taxImpact * 100);
+    const totalImpactBps = feeImpactBps + taxImpactBps;
+    
+    // Breakdown annualized
+    const breakdown = {
+      platformFeeAnnualized: Math.round((platformFeePercent / (holdingPeriodYears || 1)) * 10000) / 10000,
+      brokerageFeeAnnualized: Math.round((brokerageFeePercent / (holdingPeriodYears || 1)) * 10000) / 10000,
+      transactionChargesAnnualized: Math.round((transactionChargesPercent / (holdingPeriodYears || 1)) * 10000) / 10000,
+      gstAnnualized: Math.round((totalGstPercent / (holdingPeriodYears || 1)) * 10000) / 10000,
+      stampDutyAnnualized: Math.round((stampDutyPercent / (holdingPeriodYears || 1)) * 10000) / 10000,
+    };
+    
+    return {
+      grossYield: Math.round(grossYield * 10000) / 10000,
+      netYield: Math.round(netYield * 10000) / 10000,
+      netYieldAfterTax: Math.round(netYieldAfterTax * 10000) / 10000,
+      feeImpactBps,
+      taxImpactBps,
+      totalImpactBps,
+      annualizedFeePercentage: Math.round(annualizedFeePercentage * 10000) / 10000,
+      breakdown,
+      regulatoryCompliant: violations.length === 0,
+      violations
+    };
+  }
+  
+  // Calculate net yield for a bond catalog entry
+  async calculateNetYieldForBond(bondId: string, investorSegment: 'retail' | 'hni' | 'institutional' = 'retail'): Promise<NetYieldResult | null> {
+    // Get bond from catalog
+    const bonds = await db.select().from(bondCatalog).where(eq(bondCatalog.id, bondId)).limit(1);
+    if (!bonds[0]) return null;
+    
+    const bond = bonds[0];
+    const grossYield = parseFloat(bond.yieldToMaturity || '0');
+    const transactionAmount = parseFloat(bond.minInvestment || '100000');
+    
+    // Calculate holding period from maturity date
+    let holdingPeriodYears = 1;
+    if (bond.maturityDate) {
+      const now = new Date();
+      const maturity = new Date(bond.maturityDate);
+      holdingPeriodYears = Math.max(0.25, (maturity.getTime() - now.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    }
+    
+    return this.calculateNetYield({
+      instrumentType: bond.instrumentType as InstrumentType,
+      grossYield,
+      transactionAmount,
+      holdingPeriodYears,
+      investorSegment,
+      feeProfileId: bond.feeProfileId || undefined,
+      feeOverrideId: bond.feeOverrideId || undefined,
+    });
+  }
+  
+  // Batch calculate net yields for multiple bonds
+  async calculateNetYieldsForBonds(bondIds: string[], investorSegment: 'retail' | 'hni' | 'institutional' = 'retail'): Promise<Map<string, NetYieldResult>> {
+    const results = new Map<string, NetYieldResult>();
+    
+    for (const bondId of bondIds) {
+      const result = await this.calculateNetYieldForBond(bondId, investorSegment);
+      if (result) {
+        results.set(bondId, result);
+      }
+    }
+    
+    return results;
   }
 }
 
