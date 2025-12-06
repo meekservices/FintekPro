@@ -1482,7 +1482,11 @@ function BondMarketplaceManagement() {
   );
 }
 
-export default function FixedIncomeAdmin() {
+interface FixedIncomeAdminProps {
+  defaultTab?: 'bonds' | 'ncd' | 'sgb' | 'orders' | 'audit' | 'marketplace';
+}
+
+export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAdminProps) {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -1547,7 +1551,7 @@ export default function FixedIncomeAdmin() {
         </Card>
       </div>
 
-      <Tabs defaultValue="bonds" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <ScrollableTabsList>
           <TabsTrigger value="bonds" data-testid="tab-admin-bonds">
             <Landmark className="h-4 w-4 mr-2" />
@@ -1571,7 +1575,7 @@ export default function FixedIncomeAdmin() {
           </TabsTrigger>
           <TabsTrigger value="marketplace" data-testid="tab-admin-marketplace">
             <Handshake className="h-4 w-4 mr-2" />
-            Marketplace
+            Bond Marketplace
           </TabsTrigger>
         </ScrollableTabsList>
 

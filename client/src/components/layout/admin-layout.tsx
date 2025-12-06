@@ -31,7 +31,9 @@ import {
   History,
   Handshake,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Landmark,
+  ShoppingCart
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -132,6 +134,44 @@ const adminNavItems = [
         href: "/admin/unlisted/audit-log",
         icon: History,
         description: "Compliance event history"
+      }
+    ]
+  },
+  {
+    title: "Bond Marketplace",
+    href: "/admin/bonds/dashboard",
+    icon: Landmark,
+    description: "Corporate bonds, NCDs & G-Secs management",
+    children: [
+      {
+        title: "Dashboard",
+        href: "/admin/bonds/dashboard",
+        icon: Home,
+        description: "Overview & metrics"
+      },
+      {
+        title: "Sell Listings",
+        href: "/admin/bonds/sell-listings",
+        icon: Store,
+        description: "Manage bond sell listings"
+      },
+      {
+        title: "Buy Requests",
+        href: "/admin/bonds/buy-requests",
+        icon: ShoppingCart,
+        description: "Manage bond buy requests"
+      },
+      {
+        title: "Deals",
+        href: "/admin/bonds/deals",
+        icon: Handshake,
+        description: "Matched deals & settlements"
+      },
+      {
+        title: "Audit Log",
+        href: "/admin/bonds/audit-log",
+        icon: History,
+        description: "Bond marketplace audit trail"
       }
     ]
   },

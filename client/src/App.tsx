@@ -132,6 +132,7 @@ import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
 import UnlistedNegotiations from "@/pages/admin/UnlistedNegotiations";
 import UnlistedDashboard from "@/pages/admin/unlisted-dashboard";
+import BondMarketplaceDashboard from "@/pages/admin/bond-marketplace-dashboard";
 import UnlistedOrders from "@/pages/admin/unlisted-orders";
 import UnlistedAuditLog from "@/pages/admin/unlisted-audit-log";
 import UnlistedComplianceAlerts from "@/pages/admin/unlisted-compliance-alerts";
@@ -506,6 +507,41 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <SeedUnlistedPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/dashboard">
+        {() => (
+          <AdminLayout>
+            <BondMarketplaceDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/sell-listings">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin defaultTab="marketplace" />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/buy-requests">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin defaultTab="marketplace" />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/deals">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin defaultTab="marketplace" />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/audit-log">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin defaultTab="audit" />
           </AdminLayout>
         )}
       </Route>
