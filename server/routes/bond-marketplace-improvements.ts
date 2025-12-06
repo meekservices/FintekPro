@@ -396,9 +396,9 @@ router.get('/eligibility/:isin', requireAuth, async (req: Request, res: Response
       return apiResponse.unauthorized(res, 'Authentication required');
     }
 
-    // Get user's KYC profile
-    const [userProfile] = await db.select().from(schema.kycProfiles)
-      .where(eq(schema.kycProfiles.userId, userId));
+    // Get user's KYC profile from users table
+    const [userProfile] = await db.select().from(schema.users)
+      .where(eq(schema.users.id, userId));
 
     // Get bond details
     let bond: any = null;
@@ -469,11 +469,16 @@ router.get('/eligibility/:isin', requireAuth, async (req: Request, res: Response
 router.get('/my-eligibility-summary', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req.user as any)?.id;
+    
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'User not authenticated');
+    }
 
-    const [userProfile] = await db.select().from(schema.kycProfiles)
-      .where(eq(schema.kycProfiles.userId, userId));
+    const users = await db.select().from(schema.users)
+      .where(eq(schema.users.id, userId));
+    const user = users[0];
 
-    const userTier = userProfile?.kycTier || 'none';
+    const userTier = user?.kycTier || 'none';
     
     const eligibleCategories = [];
     const restrictedCategories = [];

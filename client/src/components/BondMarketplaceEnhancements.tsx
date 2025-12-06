@@ -174,15 +174,15 @@ export function EligibilityBadge({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge 
-            className="bg-amber-100 text-amber-700 border-amber-200 flex items-center gap-1 cursor-pointer hover:bg-amber-200 transition-colors" 
-            variant="outline"
-            onClick={onUpgradeClick}
-            data-testid="upgrade-kyc-badge"
-          >
-            <Lock className="h-3 w-3" />
-            Upgrade KYC
-          </Badge>
+          <span onClick={onUpgradeClick} data-testid="upgrade-kyc-badge" className="cursor-pointer">
+            <Badge 
+              className="bg-amber-100 text-amber-700 border-amber-200 flex items-center gap-1 hover:bg-amber-200 transition-colors" 
+              variant="outline"
+            >
+              <Lock className="h-3 w-3" />
+              Upgrade KYC
+            </Badge>
+          </span>
         </TooltipTrigger>
         <TooltipContent>
           <p>Requires {kycTierRequired} KYC tier to invest</p>
