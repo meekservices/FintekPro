@@ -235,18 +235,18 @@ router.get('/maturity-ladder', async (req: Request, res: Response) => {
         bondName: b.securityName,
         instrumentType: 'government',
         couponRate: b.couponRate,
-        yieldToMaturity: b.indicativeYield,
+        yieldToMaturity: b.yieldToMaturity,
         maturityDate: b.maturityDate,
         creditRating: 'SOV'
       })),
       ...corpBonds.map(b => ({
         isin: b.isin,
-        bondName: b.bondName || b.issuerName,
+        bondName: b.bondName || b.issuer,
         instrumentType: 'corporate',
         couponRate: b.couponRate,
-        yieldToMaturity: b.yieldToMaturity || b.currentYield,
+        yieldToMaturity: b.yieldToMaturity,
         maturityDate: b.maturityDate,
-        creditRating: b.creditRating || b.rating
+        creditRating: b.creditRating
       }))
     ];
 
@@ -325,11 +325,11 @@ router.post('/compare', async (req: Request, res: Response) => {
           issuerName: 'Government of India',
           instrumentType: 'government',
           couponRate: govBond.couponRate,
-          yieldToMaturity: govBond.indicativeYield,
+          yieldToMaturity: govBond.yieldToMaturity,
           maturityDate: govBond.maturityDate,
           creditRating: 'SOV',
-          minInvestment: govBond.minimumBidAmount || 10000,
-          faceValue: govBond.faceValue || 100,
+          minInvestment: govBond.minimumInvestment || '10000',
+          faceValue: govBond.faceValue || '100',
           taxCategory: 'taxable',
           riskLevel: 'Very Low',
           liquidityRating: 'High'
@@ -342,21 +342,21 @@ router.post('/compare', async (req: Request, res: Response) => {
         .where(eq(schema.corporateBonds.isin, isin));
       
       if (corpBond) {
-        const riskLevel = getRiskLevel(corpBond.creditRating || corpBond.rating || '');
+        const riskLevel = getRiskLevel(corpBond.creditRating || '');
         bonds.push({
           isin: corpBond.isin,
-          bondName: corpBond.bondName || corpBond.issuerName,
-          issuerName: corpBond.issuerName,
+          bondName: corpBond.bondName || corpBond.issuer,
+          issuerName: corpBond.issuer,
           instrumentType: corpBond.bondType || 'corporate',
           couponRate: corpBond.couponRate,
-          yieldToMaturity: corpBond.yieldToMaturity || corpBond.currentYield,
+          yieldToMaturity: corpBond.yieldToMaturity,
           maturityDate: corpBond.maturityDate,
-          creditRating: corpBond.creditRating || corpBond.rating,
+          creditRating: corpBond.creditRating,
           minInvestment: corpBond.minimumLotSize || 10000,
-          faceValue: corpBond.faceValue || 1000,
+          faceValue: corpBond.faceValue || '1000',
           taxCategory: corpBond.bondType === 'tax_free' ? 'tax_free' : 'taxable',
           riskLevel,
-          liquidityRating: corpBond.isListed ? 'Medium' : 'Low'
+          liquidityRating: corpBond.tradingStatus === 'active' ? 'Medium' : 'Low'
         });
       }
     }
@@ -412,7 +412,7 @@ router.get('/eligibility/:isin', requireAuth, async (req: Request, res: Response
     if (govBond) {
       bond = govBond;
       bondType = govBond.securityType || 'gsec';
-      minInvestment = govBond.minimumBidAmount || 10000;
+      minInvestment = parseInt(govBond.minimumInvestment || '10000');
     } else {
       const [corpBond] = await db.select().from(schema.corporateBonds)
         .where(eq(schema.corporateBonds.isin, isin));
@@ -420,7 +420,7 @@ router.get('/eligibility/:isin', requireAuth, async (req: Request, res: Response
       if (corpBond) {
         bond = corpBond;
         bondType = corpBond.bondType || 'corporate';
-        isListed = corpBond.isListed !== false;
+        isListed = corpBond.tradingStatus === 'active';
         minInvestment = corpBond.minimumLotSize || 10000;
       }
     }
@@ -434,26 +434,27 @@ router.get('/eligibility/:isin', requireAuth, async (req: Request, res: Response
     const tierCheck = await checkTierEligibility(userId, requiredTier);
 
     // Get user's current tier
-    const userTier = userProfile?.kycTier || 'none';
+    const userTier = (userProfile as any)?.kycTier || 'none';
     const tierOrder = ['none', 'basic', 'tier_1', 'tier_2', 'tier_3', 'enhanced', 'accredited'];
+    const requiredTierStr = String(requiredTier);
 
     return apiResponse.success(res, {
       isin,
-      bondName: bond.securityName || bond.bondName || bond.issuerName,
+      bondName: bond.securityName || bond.bondName || bond.issuer,
       bondType,
       isListed,
       eligibility: {
         isEligible: tierCheck.eligible,
-        reason: tierCheck.reason,
+        missingRequirements: tierCheck.missingRequirements,
         userTier,
-        requiredTier,
-        upgradeRequired: tierOrder.indexOf(userTier) < tierOrder.indexOf(requiredTier),
-        upgradePath: tierCheck.eligible ? null : getUpgradePath(userTier, requiredTier)
+        requiredTier: requiredTierStr,
+        upgradeRequired: tierOrder.indexOf(userTier) < tierOrder.indexOf(requiredTierStr),
+        upgradePath: tierCheck.eligible ? null : getUpgradePath(userTier, requiredTierStr)
       },
       requirements: {
         minInvestment,
-        kycDocumentsRequired: getKycDocumentsForTier(requiredTier),
-        riskDisclosuresRequired: !isListed || requiredTier === 'tier_3'
+        kycDocumentsRequired: getKycDocumentsForTier(requiredTierStr),
+        riskDisclosuresRequired: !isListed || requiredTierStr === 'tier_3'
       }
     });
   } catch (error: any) {
@@ -478,10 +479,10 @@ router.get('/my-eligibility-summary', requireAuth, async (req: Request, res: Res
       .where(eq(schema.users.id, userId));
     const user = users[0];
 
-    const userTier = user?.kycTier || 'none';
+    const userTier = (user as any)?.kycTier || 'none';
     
-    const eligibleCategories = [];
-    const restrictedCategories = [];
+    const eligibleCategories: { id: string; name: string; tier: string }[] = [];
+    const restrictedCategories: { id: string; name: string; tier: string; requiredTier?: string }[] = [];
 
     // Define tier capabilities
     const tierCapabilities: Record<string, string[]> = {
@@ -613,14 +614,14 @@ router.post('/risk-attestation', requireAuth, async (req: Request, res: Response
 router.get('/data-freshness', async (_req: Request, res: Response) => {
   try {
     // Get latest update timestamps from various sources
-    const [latestGov] = await db.select({ updatedAt: schema.governmentSecurities.updatedAt })
+    const [latestGov] = await db.select({ lastUpdated: schema.governmentSecurities.lastUpdated })
       .from(schema.governmentSecurities)
-      .orderBy(desc(schema.governmentSecurities.updatedAt))
+      .orderBy(desc(schema.governmentSecurities.lastUpdated))
       .limit(1);
 
-    const [latestCorp] = await db.select({ updatedAt: schema.corporateBonds.updatedAt })
+    const [latestCorp] = await db.select({ lastUpdated: schema.corporateBonds.lastUpdated })
       .from(schema.corporateBonds)
-      .orderBy(desc(schema.corporateBonds.updatedAt))
+      .orderBy(desc(schema.corporateBonds.lastUpdated))
       .limit(1);
 
     const now = new Date();
@@ -629,15 +630,15 @@ router.get('/data-freshness', async (_req: Request, res: Response) => {
     const sources = [
       {
         source: 'Government Securities (RBI)',
-        lastUpdated: latestGov?.updatedAt,
-        isStale: latestGov?.updatedAt ? (now.getTime() - new Date(latestGov.updatedAt).getTime()) > freshnesThreshold : true,
-        status: latestGov?.updatedAt ? (now.getTime() - new Date(latestGov.updatedAt).getTime()) > freshnesThreshold ? 'stale' : 'fresh' : 'unavailable'
+        lastUpdated: latestGov?.lastUpdated,
+        isStale: latestGov?.lastUpdated ? (now.getTime() - new Date(latestGov.lastUpdated).getTime()) > freshnesThreshold : true,
+        status: latestGov?.lastUpdated ? (now.getTime() - new Date(latestGov.lastUpdated).getTime()) > freshnesThreshold ? 'stale' : 'fresh' : 'unavailable'
       },
       {
         source: 'Corporate Bonds (NSE/BSE)',
-        lastUpdated: latestCorp?.updatedAt,
-        isStale: latestCorp?.updatedAt ? (now.getTime() - new Date(latestCorp.updatedAt).getTime()) > freshnesThreshold : true,
-        status: latestCorp?.updatedAt ? (now.getTime() - new Date(latestCorp.updatedAt).getTime()) > freshnesThreshold ? 'stale' : 'fresh' : 'unavailable'
+        lastUpdated: latestCorp?.lastUpdated,
+        isStale: latestCorp?.lastUpdated ? (now.getTime() - new Date(latestCorp.lastUpdated).getTime()) > freshnesThreshold : true,
+        status: latestCorp?.lastUpdated ? (now.getTime() - new Date(latestCorp.lastUpdated).getTime()) > freshnesThreshold ? 'stale' : 'fresh' : 'unavailable'
       }
     ];
 
@@ -656,6 +657,41 @@ router.get('/data-freshness', async (_req: Request, res: Response) => {
 // TASK 5: Net Yield Display for Investors
 // =====================================================
 
+// Helper to map instrument types to the service-accepted union types
+type BondFeeInstrumentType = 'gsec' | 'tbill' | 'sdl' | 'sgb' | 'corporate_bond' | 'ncd' | 'infrastructure_bond' | 'unlisted_bond' | 'tax_free_bond';
+
+function mapToFeeInstrumentType(rawType: string, isGovernment: boolean): BondFeeInstrumentType {
+  const typeMap: Record<string, BondFeeInstrumentType> = {
+    'g_sec': 'gsec',
+    'gsec': 'gsec',
+    'government': 'gsec',
+    't_bill': 'tbill',
+    'tbill': 'tbill',
+    'treasury_bill': 'tbill',
+    'sdl': 'sdl',
+    'state_development_loan': 'sdl',
+    'sgb': 'sgb',
+    'sovereign_gold_bond': 'sgb',
+    'corporate': 'corporate_bond',
+    'corporate_bond': 'corporate_bond',
+    'ncd': 'ncd',
+    'non_convertible_debenture': 'ncd',
+    'debenture': 'ncd',
+    'infrastructure': 'infrastructure_bond',
+    'infrastructure_bond': 'infrastructure_bond',
+    'unlisted': 'unlisted_bond',
+    'unlisted_bond': 'unlisted_bond',
+    'tax_free': 'tax_free_bond',
+    'tax_free_bond': 'tax_free_bond'
+  };
+  
+  const normalizedType = rawType?.toLowerCase().replace(/[- ]/g, '_');
+  if (typeMap[normalizedType]) {
+    return typeMap[normalizedType];
+  }
+  return isGovernment ? 'gsec' : 'corporate_bond';
+}
+
 /**
  * GET /api/bonds/net-yield/:isin
  * Get net yield calculation for a bond (investor segment based)
@@ -667,7 +703,8 @@ router.get('/net-yield/:isin', async (req: Request, res: Response) => {
 
     // Find the bond
     let bond: any = null;
-    let instrumentType = 'corporate_bond';
+    let rawInstrumentType = 'corporate_bond';
+    let isGovernment = false;
     let grossYield = 0;
     let minInvestment = 100000;
     let maturityDate: Date | null = null;
@@ -677,9 +714,10 @@ router.get('/net-yield/:isin', async (req: Request, res: Response) => {
     
     if (govBond) {
       bond = govBond;
-      instrumentType = govBond.securityType || 'gsec';
-      grossYield = parseFloat(govBond.indicativeYield || '0');
-      minInvestment = govBond.minimumBidAmount || 10000;
+      isGovernment = true;
+      rawInstrumentType = govBond.securityType || 'gsec';
+      grossYield = parseFloat(govBond.yieldToMaturity || '0');
+      minInvestment = parseInt(govBond.minimumInvestment || '10000');
       maturityDate = govBond.maturityDate ? new Date(govBond.maturityDate) : null;
     } else {
       const [corpBond] = await db.select().from(schema.corporateBonds)
@@ -687,8 +725,9 @@ router.get('/net-yield/:isin', async (req: Request, res: Response) => {
       
       if (corpBond) {
         bond = corpBond;
-        instrumentType = corpBond.bondType || 'corporate_bond';
-        grossYield = parseFloat(corpBond.yieldToMaturity || corpBond.currentYield || '0');
+        isGovernment = false;
+        rawInstrumentType = corpBond.bondType || 'corporate_bond';
+        grossYield = parseFloat(corpBond.yieldToMaturity || '0');
         minInvestment = corpBond.minimumLotSize || 10000;
         maturityDate = corpBond.maturityDate ? new Date(corpBond.maturityDate) : null;
       }
@@ -697,6 +736,9 @@ router.get('/net-yield/:isin', async (req: Request, res: Response) => {
     if (!bond) {
       return apiResponse.notFound(res, 'Bond not found');
     }
+
+    // Map to service-accepted instrument type
+    const instrumentType = mapToFeeInstrumentType(rawInstrumentType, isGovernment);
 
     // Calculate holding period
     const now = new Date();
@@ -714,7 +756,7 @@ router.get('/net-yield/:isin', async (req: Request, res: Response) => {
 
       return apiResponse.success(res, {
         isin,
-        bondName: bond.securityName || bond.bondName || bond.issuerName,
+        bondName: bond.securityName || bond.bondName || bond.issuer,
         instrumentType,
         ...netYieldResult,
         investorSegment
@@ -724,7 +766,7 @@ router.get('/net-yield/:isin', async (req: Request, res: Response) => {
       const estimatedFees = grossYield * 0.02; // 2% fee impact estimate
       return apiResponse.success(res, {
         isin,
-        bondName: bond.securityName || bond.bondName || bond.issuerName,
+        bondName: bond.securityName || bond.bondName || bond.issuer,
         instrumentType,
         grossYield,
         netYield: grossYield - estimatedFees,
@@ -759,13 +801,15 @@ router.get('/watchlist', requireAuth, async (req: Request, res: Response) => {
     const enrichedItems = await Promise.all(watchlistItems.map(async (item) => {
       let currentData: any = {};
       
+      if (!item.isin) return { ...item, ...currentData };
+      
       const [govBond] = await db.select().from(schema.governmentSecurities)
         .where(eq(schema.governmentSecurities.isin, item.isin));
       
       if (govBond) {
         currentData = {
-          currentYield: govBond.indicativeYield,
-          lastUpdated: govBond.updatedAt
+          currentYield: govBond.yieldToMaturity,
+          lastUpdated: govBond.lastUpdated
         };
       } else {
         const [corpBond] = await db.select().from(schema.corporateBonds)
@@ -773,9 +817,9 @@ router.get('/watchlist', requireAuth, async (req: Request, res: Response) => {
         
         if (corpBond) {
           currentData = {
-            currentYield: corpBond.yieldToMaturity || corpBond.currentYield,
+            currentYield: corpBond.yieldToMaturity,
             currentPrice: corpBond.lastTradedPrice || corpBond.currentPrice,
-            lastUpdated: corpBond.updatedAt
+            lastUpdated: corpBond.lastUpdated
           };
         }
       }
@@ -783,8 +827,8 @@ router.get('/watchlist', requireAuth, async (req: Request, res: Response) => {
       return {
         ...item,
         ...currentData,
-        yieldChange: currentData.currentYield && item.yieldAtAdd 
-          ? parseFloat(currentData.currentYield) - parseFloat(String(item.yieldAtAdd)) 
+        yieldChange: currentData.currentYield && item.targetBuyYield 
+          ? parseFloat(currentData.currentYield) - parseFloat(String(item.targetBuyYield)) 
           : null
       };
     }));
@@ -823,7 +867,8 @@ router.post('/watchlist', requireAuth, async (req: Request, res: Response) => {
     // Get bond details
     let bondName = isin;
     let instrumentType = 'unknown';
-    let yieldAtAdd: number | null = null;
+    let issuer = 'Unknown';
+    let targetBuyYield: string | null = null;
 
     const [govBond] = await db.select().from(schema.governmentSecurities)
       .where(eq(schema.governmentSecurities.isin, isin));
@@ -831,15 +876,17 @@ router.post('/watchlist', requireAuth, async (req: Request, res: Response) => {
     if (govBond) {
       bondName = govBond.securityName || isin;
       instrumentType = 'government';
-      yieldAtAdd = parseFloat(govBond.indicativeYield || '0');
+      issuer = govBond.issuer || 'Government of India';
+      targetBuyYield = govBond.yieldToMaturity || null;
     } else {
       const [corpBond] = await db.select().from(schema.corporateBonds)
         .where(eq(schema.corporateBonds.isin, isin));
       
       if (corpBond) {
-        bondName = corpBond.bondName || corpBond.issuerName || isin;
+        bondName = corpBond.bondName || isin;
         instrumentType = corpBond.bondType || 'corporate';
-        yieldAtAdd = parseFloat(corpBond.yieldToMaturity || corpBond.currentYield || '0');
+        issuer = corpBond.issuer || 'Unknown';
+        targetBuyYield = corpBond.yieldToMaturity || null;
       }
     }
 
@@ -847,13 +894,15 @@ router.post('/watchlist', requireAuth, async (req: Request, res: Response) => {
       userId,
       isin,
       bondName,
-      instrumentType,
-      yieldAtAdd,
+      bondType: instrumentType,
+      issuer,
       alertOnYieldChange,
-      yieldChangeThreshold: String(yieldChangeThreshold)
+      yieldAlertThreshold: String(yieldChangeThreshold),
+      targetBuyYield
     }).returning();
 
-    return apiResponse.success(res, watchlistItem, 201);
+    res.status(201);
+    return apiResponse.success(res, watchlistItem);
   } catch (error: any) {
     console.error('Error adding to watchlist:', error);
     return apiResponse.serverError(res, 'Failed to add to watchlist');
@@ -970,7 +1019,7 @@ router.get('/suitability/:isin', requireAuth, async (req: Request, res: Response
     if (govBond) {
       bond = govBond;
       instrumentType = 'government';
-      bondYield = parseFloat(govBond.indicativeYield || '0');
+      bondYield = parseFloat(govBond.yieldToMaturity || '0');
       maturityDate = govBond.maturityDate ? new Date(govBond.maturityDate) : null;
       creditRating = 'SOV';
       bondName = govBond.securityName || isin;
@@ -981,11 +1030,11 @@ router.get('/suitability/:isin', requireAuth, async (req: Request, res: Response
       if (corpBond) {
         bond = corpBond;
         instrumentType = corpBond.bondType || 'corporate';
-        bondYield = parseFloat(corpBond.yieldToMaturity || corpBond.currentYield || '0');
+        bondYield = parseFloat(corpBond.yieldToMaturity || '0');
         maturityDate = corpBond.maturityDate ? new Date(corpBond.maturityDate) : null;
-        creditRating = corpBond.creditRating || corpBond.rating || '';
-        isListed = corpBond.isListed !== false;
-        bondName = corpBond.bondName || corpBond.issuerName || isin;
+        creditRating = corpBond.creditRating || '';
+        isListed = corpBond.tradingStatus === 'active';
+        bondName = corpBond.bondName || corpBond.issuer || isin;
       }
     }
 
@@ -1052,7 +1101,7 @@ router.get('/suitable-for-me', requireAuth, async (req: Request, res: Response) 
     govBonds.forEach(bond => {
       const scores = calculateSuitabilityScores(riskProfile, {
         instrumentType: 'government',
-        yield: parseFloat(bond.indicativeYield || '0'),
+        yield: parseFloat(bond.yieldToMaturity || '0'),
         maturityDate: bond.maturityDate ? new Date(bond.maturityDate) : null,
         creditRating: 'SOV',
         isListed: true
@@ -1062,7 +1111,7 @@ router.get('/suitable-for-me', requireAuth, async (req: Request, res: Response) 
         isin: bond.isin,
         bondName: bond.securityName,
         instrumentType: 'government',
-        yield: bond.indicativeYield,
+        yield: bond.yieldToMaturity,
         maturityDate: bond.maturityDate,
         creditRating: 'SOV',
         suitabilityScore: scores.overall,
@@ -1073,19 +1122,19 @@ router.get('/suitable-for-me', requireAuth, async (req: Request, res: Response) 
     corpBonds.forEach(bond => {
       const scores = calculateSuitabilityScores(riskProfile, {
         instrumentType: bond.bondType || 'corporate',
-        yield: parseFloat(bond.yieldToMaturity || bond.currentYield || '0'),
+        yield: parseFloat(bond.yieldToMaturity || '0'),
         maturityDate: bond.maturityDate ? new Date(bond.maturityDate) : null,
-        creditRating: bond.creditRating || bond.rating || '',
-        isListed: bond.isListed !== false
+        creditRating: bond.creditRating || '',
+        isListed: bond.tradingStatus === 'active'
       });
 
       scoredBonds.push({
         isin: bond.isin,
-        bondName: bond.bondName || bond.issuerName,
+        bondName: bond.bondName || bond.issuer,
         instrumentType: bond.bondType || 'corporate',
-        yield: bond.yieldToMaturity || bond.currentYield,
+        yield: bond.yieldToMaturity,
         maturityDate: bond.maturityDate,
-        creditRating: bond.creditRating || bond.rating,
+        creditRating: bond.creditRating,
         suitabilityScore: scores.overall,
         suitabilityCategory: getSuitabilityCategory(scores.overall)
       });
@@ -1098,8 +1147,8 @@ router.get('/suitable-for-me', requireAuth, async (req: Request, res: Response) 
       hasSuitableRecommendations: true,
       recommendations: scoredBonds.slice(0, parseInt(limit as string)),
       riskProfileSummary: {
-        riskCategory: riskProfile.riskCategory,
-        investmentHorizon: riskProfile.investmentTimeHorizon
+        riskCategory: riskProfile.riskTolerance,
+        investmentHorizon: riskProfile.investmentHorizon
       }
     });
   } catch (error: any) {
