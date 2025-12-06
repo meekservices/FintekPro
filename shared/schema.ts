@@ -12185,3 +12185,218 @@ export const bondRiskDisclosureAcknowledgments = pgTable("bond_risk_disclosure_a
   index("idx_bond_disclosure_category").on(table.disclosureCategory),
   index("idx_bond_disclosure_isin").on(table.isin),
 ]);
+
+// ============================================
+// BOND FEE PROFILES - RBI/SEBI Compliant Fee Structure
+// ============================================
+
+// Instrument types for bond fee profiles
+export const bondInstrumentTypes = [
+  'gsec',           // Government Securities
+  'tbill',          // Treasury Bills
+  'sdl',            // State Development Loans
+  'sgb',            // Sovereign Gold Bonds
+  'corporate_bond', // Listed Corporate Bonds
+  'ncd',            // Non-Convertible Debentures
+  'infrastructure_bond', // Infrastructure Bonds (54EC, Tax-Free)
+  'unlisted_bond',  // Unlisted/Private Bonds
+  'tax_free_bond',  // Tax-Free Bonds
+] as const;
+
+export type BondInstrumentType = typeof bondInstrumentTypes[number];
+
+// Bond Fee Profiles - Category-level fee defaults with regulatory caps
+export const bondFeeProfiles = pgTable("bond_fee_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Instrument Classification
+  instrumentType: varchar("instrument_type").notNull(), // gsec, tbill, sdl, sgb, corporate_bond, ncd, infrastructure_bond, unlisted_bond
+  instrumentLabel: varchar("instrument_label").notNull(), // Display name
+  
+  // Platform Fee Structure
+  platformFeeType: varchar("platform_fee_type").default("percentage"), // percentage or flat
+  platformFeeValue: decimal("platform_fee_value", { precision: 10, scale: 4 }).default("0"),
+  platformFeeMin: decimal("platform_fee_min", { precision: 10, scale: 2 }),
+  platformFeeMax: decimal("platform_fee_max", { precision: 10, scale: 2 }),
+  
+  // Brokerage Fee Structure
+  brokerageFeeType: varchar("brokerage_fee_type").default("percentage"), // percentage or flat
+  brokerageFeeValue: decimal("brokerage_fee_value", { precision: 10, scale: 4 }).default("0"),
+  brokerageFeeMin: decimal("brokerage_fee_min", { precision: 10, scale: 2 }),
+  brokerageFeeMax: decimal("brokerage_fee_max", { precision: 10, scale: 2 }),
+  
+  // Transaction Charges
+  transactionCharges: decimal("transaction_charges", { precision: 10, scale: 4 }).default("0"),
+  transactionChargesType: varchar("transaction_charges_type").default("percentage"),
+  
+  // Regulatory Caps (RBI/SEBI mandated)
+  regulatoryMaxBrokerage: decimal("regulatory_max_brokerage", { precision: 10, scale: 4 }),
+  regulatoryMaxPlatformFee: decimal("regulatory_max_platform_fee", { precision: 10, scale: 4 }),
+  
+  // GST Configuration
+  gstApplicable: boolean("gst_applicable").default(true),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).default("18"),
+  
+  // Stamp Duty
+  stampDutyApplicable: boolean("stamp_duty_applicable").default(false),
+  stampDutyRate: decimal("stamp_duty_rate", { precision: 5, scale: 4 }).default("0"),
+  
+  // Investor Segment Multipliers
+  retailMultiplier: decimal("retail_multiplier", { precision: 5, scale: 2 }).default("1.00"),
+  hniMultiplier: decimal("hni_multiplier", { precision: 5, scale: 2 }).default("1.00"),
+  institutionalMultiplier: decimal("institutional_multiplier", { precision: 5, scale: 2 }).default("0.50"),
+  
+  // Transaction Type Differentiation
+  buyFeeMultiplier: decimal("buy_fee_multiplier", { precision: 5, scale: 2 }).default("1.00"),
+  sellFeeMultiplier: decimal("sell_fee_multiplier", { precision: 5, scale: 2 }).default("1.00"),
+  
+  // Regulatory Reference
+  regulatoryReference: varchar("regulatory_reference"),
+  regulatoryNotes: text("regulatory_notes"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveUntil: timestamp("effective_until"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_bond_fee_instrument").on(table.instrumentType),
+  index("idx_bond_fee_active").on(table.isActive),
+]);
+
+export type BondFeeProfile = typeof bondFeeProfiles.$inferSelect;
+export type InsertBondFeeProfile = typeof bondFeeProfiles.$inferInsert;
+export const insertBondFeeProfileSchema = createInsertSchema(bondFeeProfiles).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+
+// Bond Fee Overrides - Per-bond fee customization before publish
+export const bondFeeOverrides = pgTable("bond_fee_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Bond Reference
+  governmentSecurityId: varchar("government_security_id").references(() => governmentSecurities.id),
+  corporateBondId: varchar("corporate_bond_id").references(() => corporateBonds.id),
+  isin: varchar("isin"),
+  
+  // Override Values (null = use category default)
+  platformFeeOverride: decimal("platform_fee_override", { precision: 10, scale: 4 }),
+  brokerageFeeOverride: decimal("brokerage_fee_override", { precision: 10, scale: 4 }),
+  transactionChargesOverride: decimal("transaction_charges_override", { precision: 10, scale: 4 }),
+  
+  // Override Reason (for audit)
+  overrideReason: text("override_reason"),
+  
+  // Approval
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => [
+  index("idx_bond_override_gsec").on(table.governmentSecurityId),
+  index("idx_bond_override_corp").on(table.corporateBondId),
+  index("idx_bond_override_isin").on(table.isin),
+]);
+
+export type BondFeeOverride = typeof bondFeeOverrides.$inferSelect;
+export type InsertBondFeeOverride = typeof bondFeeOverrides.$inferInsert;
+export const insertBondFeeOverrideSchema = createInsertSchema(bondFeeOverrides).omit({ 
+  id: true, createdAt: true, updatedAt: true 
+});
+
+// Bond Catalog - unified table for admin seed workflow with publish status
+export const bondCatalog = pgTable("bond_catalog", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Source Identification
+  source: varchar("source").notNull(), // nse, bse, rbi_retail_direct, manual
+  sourceId: varchar("source_id"),
+  
+  // Bond Identification
+  isin: varchar("isin").notNull(),
+  bondName: varchar("bond_name").notNull(),
+  issuerName: varchar("issuer_name").notNull(),
+  
+  // Classification
+  instrumentType: varchar("instrument_type").notNull(), // gsec, tbill, sdl, sgb, corporate_bond, ncd, infrastructure_bond, unlisted_bond
+  isListed: boolean("is_listed").default(true),
+  exchange: varchar("exchange"), // NSE, BSE, null for unlisted
+  
+  // Bond Terms
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).default("1000"),
+  couponRate: decimal("coupon_rate", { precision: 8, scale: 4 }),
+  couponFrequency: varchar("coupon_frequency"), // annual, semi_annual, quarterly, monthly
+  issueDate: date("issue_date"),
+  maturityDate: date("maturity_date"),
+  
+  // Pricing
+  cleanPrice: decimal("clean_price", { precision: 15, scale: 4 }),
+  dirtyPrice: decimal("dirty_price", { precision: 15, scale: 4 }),
+  accruedInterest: decimal("accrued_interest", { precision: 15, scale: 4 }),
+  yieldToMaturity: decimal("yield_to_maturity", { precision: 8, scale: 4 }),
+  
+  // Credit Rating
+  creditRating: varchar("credit_rating"),
+  ratingAgency: varchar("rating_agency"),
+  
+  // Investment Details
+  minInvestment: decimal("min_investment", { precision: 15, scale: 2 }),
+  lotSize: integer("lot_size").default(1),
+  
+  // Tax Treatment
+  taxCategory: varchar("tax_category"), // taxable, tax_free, tax_saving
+  tdsApplicable: boolean("tds_applicable").default(true),
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }),
+  
+  // Fee Configuration
+  feeProfileId: varchar("fee_profile_id").references(() => bondFeeProfiles.id),
+  feeOverrideId: varchar("fee_override_id").references(() => bondFeeOverrides.id),
+  
+  // Calculated Net Yield
+  netYieldToMaturity: decimal("net_yield_to_maturity", { precision: 8, scale: 4 }),
+  
+  // Publish Workflow
+  status: varchar("status").default("draft").notNull(), // draft, pending_review, published, unpublished, archived
+  publishedAt: timestamp("published_at"),
+  publishedBy: varchar("published_by").references(() => users.id),
+  unpublishedAt: timestamp("unpublished_at"),
+  unpublishedBy: varchar("unpublished_by").references(() => users.id),
+  unpublishReason: text("unpublish_reason"),
+  
+  // Compliance
+  complianceApproved: boolean("compliance_approved").default(false),
+  complianceApprovedBy: varchar("compliance_approved_by").references(() => users.id),
+  complianceApprovedAt: timestamp("compliance_approved_at"),
+  
+  // Regulatory Tier
+  regulatoryTier: varchar("regulatory_tier"),
+  kycTierRequired: varchar("kyc_tier_required").default("basic"),
+  
+  // Metadata
+  lastSyncAt: timestamp("last_sync_at"),
+  syncErrors: text("sync_errors"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_bond_catalog_isin").on(table.isin),
+  index("idx_bond_catalog_source").on(table.source),
+  index("idx_bond_catalog_type").on(table.instrumentType),
+  index("idx_bond_catalog_status").on(table.status),
+  index("idx_bond_catalog_listed").on(table.isListed),
+  index("idx_bond_catalog_exchange").on(table.exchange),
+]);
+
+export type BondCatalogEntry = typeof bondCatalog.$inferSelect;
+export type InsertBondCatalogEntry = typeof bondCatalog.$inferInsert;
+export const insertBondCatalogSchema = createInsertSchema(bondCatalog).omit({ 
+  id: true, createdAt: true, updatedAt: true, publishedAt: true 
+});
