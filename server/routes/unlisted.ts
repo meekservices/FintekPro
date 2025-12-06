@@ -143,11 +143,11 @@ router.get('/companies/:id/data-quality', async (req: Request, res: Response) =>
 
 /**
  * POST /api/unlisted/companies
- * Create a new unlisted company (admin only)
+ * Create a new unlisted company (Admin only - no investor KYC required)
  */
-router.post('/companies', requireLevel2, async (req: Request, res: Response) => {
+router.post('/companies', requireAuth, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
+    // Admin-only operation
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
     }
@@ -796,10 +796,10 @@ router.get('/companies/:id/price-history', requireAuth, async (req: Request, res
 
 /**
  * POST /api/unlisted/companies/:id/price-history
- * Admin: Add price history entry for a company
+ * Admin: Add price history entry for a company (Admin only - no investor KYC required)
  * Since there's no public API for unlisted stock prices, this allows manual entry
  */
-router.post('/companies/:id/price-history', requireLevel2, async (req: Request, res: Response) => {
+router.post('/companies/:id/price-history', requireAuth, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -832,9 +832,9 @@ router.post('/companies/:id/price-history', requireLevel2, async (req: Request, 
 
 /**
  * POST /api/unlisted/companies/:id/price-history/bulk
- * Admin: Bulk upload price history from CSV/array data
+ * Admin: Bulk upload price history from CSV/array data (Admin only - no investor KYC required)
  */
-router.post('/companies/:id/price-history/bulk', requireLevel2, async (req: Request, res: Response) => {
+router.post('/companies/:id/price-history/bulk', requireAuth, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -890,9 +890,9 @@ router.post('/companies/:id/price-history/bulk', requireLevel2, async (req: Requ
 
 /**
  * GET /api/unlisted/moneycontrol/preview
- * Preview what companies would be matched and imported from MoneyControl
+ * Preview what companies would be matched and imported from MoneyControl (Admin only)
  */
-router.get('/moneycontrol/preview', requireLevel2, async (req: Request, res: Response) => {
+router.get('/moneycontrol/preview', requireAuth, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -910,9 +910,9 @@ router.get('/moneycontrol/preview', requireLevel2, async (req: Request, res: Res
 
 /**
  * POST /api/unlisted/moneycontrol/import
- * Execute import of prices from MoneyControl
+ * Execute import of prices from MoneyControl (Admin only)
  */
-router.post('/moneycontrol/import', requireLevel2, async (req: Request, res: Response) => {
+router.post('/moneycontrol/import', requireAuth, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
@@ -933,10 +933,10 @@ router.post('/moneycontrol/import', requireLevel2, async (req: Request, res: Res
 
 /**
  * POST /api/unlisted/moneycontrol/add-company
- * Add a missing company from MoneyControl with Probe42 enrichment
+ * Add a missing company from MoneyControl with Probe42 enrichment (Admin only)
  * Creates company -> Searches Probe42 -> Syncs data -> Imports MC price
  */
-router.post('/moneycontrol/add-company', requireLevel2, async (req: Request, res: Response) => {
+router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: Response) => {
   try {
     if (!req.user?.roles?.includes('admin')) {
       return apiResponse.forbidden(res, 'Admin access required');
