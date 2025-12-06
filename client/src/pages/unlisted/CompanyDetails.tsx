@@ -149,6 +149,9 @@ export default function CompanyDetails() {
   const financialsErrorData = financialsError as any;
   const isNotLoggedIn = financialsErrorData?.status === 401;
   
+  // KYC blocked status - financial data viewable by authenticated users for due diligence
+  const isKycBlocked = isNotLoggedIn;
+  
   // Trading eligibility (Enhanced KYC + risk acknowledgment required for orders)
   const canTrade = eligibilityData?.data?.eligible === true;
   const eligibilityReasons = eligibilityData?.data?.reasons || [];
