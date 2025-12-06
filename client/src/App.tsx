@@ -560,6 +560,13 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/bond-seed">
+        {() => (
+          <AdminLayout>
+            <BondSeedAdmin />
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/reports">
         {() => (
           <AdminLayout>

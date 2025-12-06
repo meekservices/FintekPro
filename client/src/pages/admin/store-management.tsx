@@ -458,7 +458,7 @@ export default function StoreManagement() {
                                   return '/admin/unlisted/seed';
                                 }
                                 if (slug === 'fixed-income' || cat.name === 'Fixed Income') {
-                                  return '/admin/bonds/dashboard';
+                                  return '/admin/bond-seed';
                                 }
                                 if (slug === 'mf-regular' || slug === 'mf-direct' || cat.name.includes('Mutual Funds')) {
                                   return '/admin/mutual-funds';
