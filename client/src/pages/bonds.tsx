@@ -301,6 +301,21 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
   );
 }
 
+// Eligibility Summary Hook for bond sections
+function useEligibilitySummary() {
+  return useQuery<{
+    currentTier: string;
+    tierDisplayName: string;
+    eligibleCategories: Array<{ id: string; name: string; tier: string }>;
+    restrictedCategories: Array<{ id: string; name: string; tier: string; requiredTier: string }>;
+    nextTier: string | null;
+    upgradeUrl: string;
+  }>({
+    queryKey: ['/api/bonds/my-eligibility-summary'],
+    staleTime: 300000,
+  });
+}
+
 // Government Securities Display Component
 function GovernmentSecurities() {
   const [selectedBond, setSelectedBond] = useState<any>(null);
@@ -315,6 +330,11 @@ function GovernmentSecurities() {
   });
 
   const { data: commissionData } = useCommissionConfig();
+  const { data: eligibilitySummary } = useEligibilitySummary();
+  
+  // Government securities eligibility - check for gsec, t_bill, sdl, or sgb
+  const govtSecurityIds = ['gsec', 't_bill', 'sdl', 'sgb'];
+  const isGSecEligible = eligibilitySummary?.eligibleCategories?.some(c => govtSecurityIds.includes(c.id)) ?? false;
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/gsec/orders", { method: "POST", body: JSON.stringify(orderData) }),
@@ -371,6 +391,11 @@ function GovernmentSecurities() {
                     <Badge variant="outline" className="bg-green-50 text-green-700">
                       {bond.securityType}
                     </Badge>
+                    <EligibilityBadge 
+                      eligible={isGSecEligible} 
+                      kycTierRequired="Basic" 
+                      onUpgradeClick={() => navigate('/kyc/upgrade')} 
+                    />
                     <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-finance-blue transition-colors ml-auto" />
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
@@ -513,6 +538,9 @@ function CorporateBonds() {
   });
 
   const { data: commissionData } = useCommissionConfig();
+  const { data: eligibilitySummary } = useEligibilitySummary();
+  
+  const isCorporateEligible = eligibilitySummary?.eligibleCategories?.some(c => c.id === 'corporate_listed') ?? false;
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/corporate/orders", { method: "POST", body: JSON.stringify(orderData) }),
@@ -565,7 +593,7 @@ function CorporateBonds() {
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
                       {bond.rating || bond.creditRating || 'NR'}
@@ -573,6 +601,11 @@ function CorporateBonds() {
                     <Badge variant="outline">
                       {bond.bondType || bond.type || 'Bond'}
                     </Badge>
+                    <EligibilityBadge 
+                      eligible={isCorporateEligible} 
+                      kycTierRequired="Tier 1" 
+                      onUpgradeClick={() => navigate('/kyc/upgrade')} 
+                    />
                     <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-finance-blue transition-colors ml-auto" />
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
@@ -727,6 +760,9 @@ function NCDBonds() {
   });
 
   const { data: commissionData } = useCommissionConfig();
+  const { data: eligibilitySummary } = useEligibilitySummary();
+  
+  const isNCDEligible = eligibilitySummary?.eligibleCategories?.some(c => c.id === 'ncd_listed') ?? false;
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/ncd/orders", { method: "POST", body: JSON.stringify(orderData) }),
@@ -780,7 +816,7 @@ function NCDBonds() {
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
                       {bond.rating}
@@ -788,6 +824,11 @@ function NCDBonds() {
                     <Badge variant="outline" className="bg-orange-50 text-orange-700">
                       NCD
                     </Badge>
+                    <EligibilityBadge 
+                      eligible={isNCDEligible} 
+                      kycTierRequired="Tier 1" 
+                      onUpgradeClick={() => navigate('/kyc/upgrade')} 
+                    />
                     <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-finance-blue transition-colors ml-auto" />
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
@@ -942,6 +983,9 @@ function TaxFreeBonds() {
   });
 
   const { data: commissionData } = useCommissionConfig();
+  const { data: eligibilitySummary } = useEligibilitySummary();
+  
+  const isTaxFreeEligible = eligibilitySummary?.eligibleCategories?.some(c => c.id === 'tax_free') ?? false;
 
   const placeOrderMutation = useMutation({
     mutationFn: (orderData: any) => apiRequest("/api/bonds/trading/tax-free/orders", { method: "POST", body: JSON.stringify(orderData) }),
@@ -995,7 +1039,7 @@ function TaxFreeBonds() {
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
                     <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
                       {bond.rating}
@@ -1003,6 +1047,11 @@ function TaxFreeBonds() {
                     <Badge variant="outline" className="bg-green-50 text-green-700">
                       Tax Free
                     </Badge>
+                    <EligibilityBadge 
+                      eligible={isTaxFreeEligible} 
+                      kycTierRequired="Tier 1" 
+                      onUpgradeClick={() => navigate('/kyc/upgrade')} 
+                    />
                     <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-finance-blue transition-colors ml-auto" />
                   </div>
                   <p className="text-sm text-gray-600 mb-3">ISIN: {bond.isin}</p>
