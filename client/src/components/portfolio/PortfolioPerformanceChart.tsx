@@ -34,6 +34,7 @@ const timePeriods: { label: string; value: TimePeriod }[] = [
   { label: "1W", value: "1W" },
   { label: "1M", value: "1M" },
   { label: "3M", value: "3M" },
+  { label: "6M", value: "6M" },
   { label: "YTD", value: "YTD" },
   { label: "1Y", value: "1Y" },
   { label: "2Y", value: "2Y" },
@@ -215,37 +216,35 @@ export function PortfolioPerformanceChart({
   return (
     <Card className="border-slate-200 dark:border-slate-800" data-testid="performance-chart">
       <CardHeader className="pb-2">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-lg font-semibold">Portfolio Performance</CardTitle>
-            <div className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium",
-              isPositive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-            )}>
-              {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-              <span>{isPositive ? "+" : ""}{periodChange.percent.toFixed(2)}%</span>
-            </div>
+        <div className="flex items-center justify-between mb-3">
+          <CardTitle className="text-lg font-semibold">Portfolio Performance</CardTitle>
+          <div className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium",
+            isPositive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+          )}>
+            {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+            <span>{isPositive ? "+" : ""}{periodChange.percent.toFixed(2)}%</span>
           </div>
-          
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-            {timePeriods.map((period) => (
-              <Button
-                key={period.value}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "h-7 px-3 text-xs font-medium transition-all",
-                  selectedPeriod === period.value
-                    ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                )}
-                onClick={() => setSelectedPeriod(period.value)}
-                data-testid={`period-${period.value}`}
-              >
-                {period.label}
-              </Button>
-            ))}
-          </div>
+        </div>
+        
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 overflow-x-auto">
+          {timePeriods.map((period) => (
+            <Button
+              key={period.value}
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-7 px-2 sm:px-3 text-xs font-medium transition-all flex-shrink-0",
+                selectedPeriod === period.value
+                  ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              )}
+              onClick={() => setSelectedPeriod(period.value)}
+              data-testid={`period-${period.value}`}
+            >
+              {period.label}
+            </Button>
+          ))}
         </div>
       </CardHeader>
       
