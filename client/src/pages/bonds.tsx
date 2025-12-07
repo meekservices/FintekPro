@@ -2483,154 +2483,12 @@ export default function Bonds() {
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-bonds">
             
-            {/* Filter Section */}
-            <div className="p-6 bg-white rounded-xl border border-gray-200">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Filter Bonds</h3>
-                {compareMode && (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="bg-blue-50">
-                      {selectedBonds.length} selected
-                    </Badge>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={clearComparison}
-                      data-testid="clear-comparison"
-                    >
-                      Clear
-                    </Button>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          disabled={selectedBonds.length < 2}
-                          data-testid="compare-bonds-button"
-                        >
-                          Compare ({selectedBonds.length})
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Bond Comparison</DialogTitle>
-                          <DialogDescription>
-                            Compare key features of selected bonds side-by-side
-                          </DialogDescription>
-                        </DialogHeader>
-                        <BondComparisonTable 
-                          selectedBonds={selectedBondsData}
-                          onRemove={(bondId) => {
-                            const bond = selectedBondsData.find(b => b.id === bondId);
-                            if (bond) {
-                              setSelectedBonds(prev => prev.filter(isin => isin !== bond.isin));
-                            }
-                          }}
-                        />
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <Select value={bondType} onValueChange={setBondType}>
-                  <SelectTrigger data-testid="bond-type-select">
-                    <SelectValue placeholder="Bond Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Bonds</SelectItem>
-                    <SelectItem value="government">Government Bonds</SelectItem>
-                    <SelectItem value="corporate">Corporate Bonds</SelectItem>
-                    <SelectItem value="ncd">NCDs</SelectItem>
-                    <SelectItem value="tax-free">Tax Free Bonds</SelectItem>
-                    <SelectItem value="sgb">Sovereign Gold Bonds</SelectItem>
-                    <SelectItem value="infrastructure">Infrastructure Bonds</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={yieldRange} onValueChange={setYieldRange}>
-                  <SelectTrigger data-testid="yield-range-select">
-                    <SelectValue placeholder="Yield Range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Yields</SelectItem>
-                    <SelectItem value="0-5">0% - 5%</SelectItem>
-                    <SelectItem value="5-7">5% - 7%</SelectItem>
-                    <SelectItem value="7-9">7% - 9%</SelectItem>
-                    <SelectItem value="9-12">9% - 12%</SelectItem>
-                    <SelectItem value="12+">12%+</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={tenureFilter} onValueChange={setTenureFilter}>
-                  <SelectTrigger data-testid="tenure-select">
-                    <SelectValue placeholder="Tenure" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Tenures</SelectItem>
-                    <SelectItem value="0-1">0-1 Year</SelectItem>
-                    <SelectItem value="1-2">1-2 Years</SelectItem>
-                    <SelectItem value="2-5">2-5 Years</SelectItem>
-                    <SelectItem value="5-10">5-10 Years</SelectItem>
-                    <SelectItem value="10+">10+ Years</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={ratingFilter} onValueChange={setRatingFilter}>
-                  <SelectTrigger data-testid="rating-select">
-                    <SelectValue placeholder="Credit Rating" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Ratings</SelectItem>
-                    <SelectItem value="AAA">AAA</SelectItem>
-                    <SelectItem value="AA">AA+/AA/AA-</SelectItem>
-                    <SelectItem value="A">A+/A/A-</SelectItem>
-                    <SelectItem value="BBB">BBB+/BBB/BBB-</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Button 
-                  variant={compareMode ? "default" : "outline"}
-                  onClick={() => setCompareMode(!compareMode)}
-                  data-testid="toggle-compare-mode"
-                  className="w-full"
-                >
-                  {compareMode ? "Exit Compare" : "Compare Bonds"}
-                </Button>
-              </div>
-              
-              <div className="flex justify-end mt-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  data-testid="toggle-advanced-filters"
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  {showAdvancedFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
-                </Button>
-              </div>
-              
-              {showAdvancedFilters && (
-                <div className="mt-4">
-                  <EnhancedBondFilters
-                    filters={enhancedFilters}
-                    onFiltersChange={setEnhancedFilters}
-                  />
-                </div>
-              )}
+            {/* Bond Categories - Click to explore */}
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Explore Bond Categories</h2>
+              <p className="text-gray-600">Click on a category to view available bonds</p>
             </div>
             
-            {/* Maturity Ladder Visualization */}
-            {unifiedBonds.length > 0 && (
-              <Card>
-                <CardContent className="p-6">
-                  <MaturityLadderView bonds={unifiedBonds} />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Bond Categories - Real-time data */}
             <BondCategoriesSection />
 
             {/* KYC Warning */}
@@ -2754,6 +2612,255 @@ export default function Bonds() {
           </TabsContent>
 
           <TabsContent value="marketplace" className="space-y-6" data-testid="bonds-marketplace">
+            {/* Filter Section with Apply Button */}
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Filter & Compare Bonds</h3>
+                {compareMode && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30">
+                      {selectedBonds.length} selected
+                    </Badge>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={clearComparison}
+                      data-testid="clear-comparison"
+                    >
+                      Clear
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          disabled={selectedBonds.length < 2}
+                          data-testid="compare-bonds-button"
+                        >
+                          Compare ({selectedBonds.length})
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Bond Comparison</DialogTitle>
+                          <DialogDescription>
+                            Compare key features of selected bonds side-by-side
+                          </DialogDescription>
+                        </DialogHeader>
+                        <BondComparisonTable 
+                          selectedBonds={selectedBondsData}
+                          onRemove={(bondId) => {
+                            const bond = selectedBondsData.find(b => b.id === bondId);
+                            if (bond) {
+                              setSelectedBonds(prev => prev.filter(isin => isin !== bond.isin));
+                            }
+                          }}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <Select value={bondType} onValueChange={setBondType}>
+                  <SelectTrigger data-testid="bond-type-select">
+                    <SelectValue placeholder="Bond Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Bonds</SelectItem>
+                    <SelectItem value="government">Government Bonds</SelectItem>
+                    <SelectItem value="corporate">Corporate Bonds</SelectItem>
+                    <SelectItem value="ncd">NCDs</SelectItem>
+                    <SelectItem value="tax-free">Tax Free Bonds</SelectItem>
+                    <SelectItem value="sgb">Sovereign Gold Bonds</SelectItem>
+                    <SelectItem value="infrastructure">Infrastructure Bonds</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={yieldRange} onValueChange={setYieldRange}>
+                  <SelectTrigger data-testid="yield-range-select">
+                    <SelectValue placeholder="Yield Range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Yields</SelectItem>
+                    <SelectItem value="0-5">0% - 5%</SelectItem>
+                    <SelectItem value="5-7">5% - 7%</SelectItem>
+                    <SelectItem value="7-9">7% - 9%</SelectItem>
+                    <SelectItem value="9-12">9% - 12%</SelectItem>
+                    <SelectItem value="12+">12%+</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={tenureFilter} onValueChange={setTenureFilter}>
+                  <SelectTrigger data-testid="tenure-select">
+                    <SelectValue placeholder="Tenure" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Tenures</SelectItem>
+                    <SelectItem value="0-1">0-1 Year</SelectItem>
+                    <SelectItem value="1-2">1-2 Years</SelectItem>
+                    <SelectItem value="2-5">2-5 Years</SelectItem>
+                    <SelectItem value="5-10">5-10 Years</SelectItem>
+                    <SelectItem value="10+">10+ Years</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={ratingFilter} onValueChange={setRatingFilter}>
+                  <SelectTrigger data-testid="rating-select">
+                    <SelectValue placeholder="Credit Rating" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Ratings</SelectItem>
+                    <SelectItem value="AAA">AAA</SelectItem>
+                    <SelectItem value="AA">AA+/AA/AA-</SelectItem>
+                    <SelectItem value="A">A+/A/A-</SelectItem>
+                    <SelectItem value="BBB">BBB+/BBB/BBB-</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Advanced Filters Toggle */}
+              <div className="flex justify-between items-center mt-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  data-testid="toggle-advanced-filters"
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  {showAdvancedFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
+                </Button>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    variant={compareMode ? "default" : "outline"}
+                    onClick={() => setCompareMode(!compareMode)}
+                    data-testid="toggle-compare-mode"
+                    size="sm"
+                  >
+                    {compareMode ? "Exit Compare" : "Compare Bonds"}
+                  </Button>
+                </div>
+              </div>
+              
+              {showAdvancedFilters && (
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                  <EnhancedBondFilters
+                    filters={enhancedFilters}
+                    onFiltersChange={setEnhancedFilters}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Maturity Ladder Visualization */}
+            {unifiedBonds.length > 0 && (
+              <Card>
+                <CardContent className="p-6">
+                  <MaturityLadderView bonds={unifiedBonds} />
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Filtered Bonds List with Checkboxes */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Available Bonds ({unifiedBonds.length})</span>
+                  {compareMode && (
+                    <span className="text-sm font-normal text-gray-500">
+                      Select bonds using checkboxes to compare
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {unifiedBonds.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium">No bonds match your filters</p>
+                    <p className="text-sm">Try adjusting your filter criteria</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {unifiedBonds.map((bond: any) => (
+                      <div 
+                        key={bond.isin || bond.id}
+                        className={`p-4 border rounded-lg hover:shadow-md transition-shadow ${
+                          selectedBonds.includes(bond.isin) 
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                            : 'border-gray-200 dark:border-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          {/* Checkbox for comparison */}
+                          {compareMode && (
+                            <input
+                              type="checkbox"
+                              checked={selectedBonds.includes(bond.isin)}
+                              onChange={() => toggleBondSelection(bond.isin)}
+                              className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              data-testid={`checkbox-bond-${bond.isin}`}
+                            />
+                          )}
+                          
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                                  {bond.issuerName || bond.bondName}
+                                </h4>
+                                <p className="text-sm text-gray-500">{bond.isin}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Badge className={getCreditRatingColors(bond.creditRating)}>
+                                  {bond.creditRating || 'NR'}
+                                </Badge>
+                                <Badge className={getBondTypeColors(bond.bondType)}>
+                                  {bond.bondType}
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                              <div>
+                                <span className="text-xs text-gray-500">Coupon Rate</span>
+                                <p className="font-semibold text-green-600">{bond.couponRate}%</p>
+                              </div>
+                              <div>
+                                <span className="text-xs text-gray-500">YTM</span>
+                                <p className="font-semibold text-blue-600">{bond.ytm || bond.couponRate}%</p>
+                              </div>
+                              <div>
+                                <span className="text-xs text-gray-500">Maturity</span>
+                                <p className="font-semibold">{bond.maturityDate ? new Date(bond.maturityDate).toLocaleDateString() : 'N/A'}</p>
+                              </div>
+                              <div>
+                                <span className="text-xs text-gray-500">Min Investment</span>
+                                <p className="font-semibold">₹{(bond.minInvestment || bond.faceValue || 10000).toLocaleString()}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 mt-4">
+                              {bond.riskLevel && (
+                                <Badge className={getRiskLevelColors(bond.riskLevel)}>
+                                  {bond.riskLevel} Risk
+                                </Badge>
+                              )}
+                              <Button variant="outline" size="sm" data-testid={`view-bond-${bond.isin}`}>
+                                View Details
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Buy/Sell Marketplace Section */}
             <BondMarketplace />
           </TabsContent>
 
