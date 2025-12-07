@@ -2369,7 +2369,7 @@ export default function Bonds() {
     staleTime: 60000,
   });
   
-  const unifiedBonds = catalogData?.bonds ?? [];
+  const unifiedBonds = (catalogData as any)?.data?.bonds ?? catalogData?.bonds ?? [];
   
   // Get selected bonds for comparison
   const selectedBondsData = useMemo(() => {
