@@ -34,51 +34,56 @@ const categoryConfig: Record<string, {
   description: string; 
   icon: any; 
   headerClass: string;
-  apiEndpoint: string;
-  bondTypeFilter?: string;
+  instrumentTypes: string[];
 }> = {
   government: {
     title: "Government Securities",
     description: "Risk-free investments backed by the Government of India including G-Secs, T-Bills, and SDLs",
     icon: Shield,
     headerClass: "bg-gradient-to-r from-blue-600 to-blue-700",
-    apiEndpoint: "/api/bonds/government"
+    instrumentTypes: ["gsec", "tbill", "sdl"]
   },
   corporate: {
     title: "Corporate Bonds",
     description: "Higher yield bonds issued by leading corporations with various credit ratings",
     icon: Building2,
     headerClass: "bg-gradient-to-r from-green-600 to-green-700",
-    apiEndpoint: "/api/bonds/corporate"
+    instrumentTypes: ["corporate_bond", "debenture"]
   },
   ncd: {
     title: "Non-Convertible Debentures (NCDs)",
     description: "Fixed-income instruments issued by corporations that cannot be converted to equity",
     icon: TrendingUp,
     headerClass: "bg-gradient-to-r from-purple-600 to-purple-700",
-    apiEndpoint: "/api/bonds/ncd"
+    instrumentTypes: ["ncd"]
   },
   "tax-free": {
     title: "Tax-Free Bonds",
     description: "Government-backed bonds with tax-exempt interest income under Section 10(15)",
     icon: IndianRupee,
     headerClass: "bg-gradient-to-r from-orange-600 to-orange-700",
-    apiEndpoint: "/api/bonds/tax-free"
+    instrumentTypes: ["tax_free_bond"]
   },
   sgb: {
     title: "Sovereign Gold Bonds",
     description: "Government securities denominated in grams of gold with additional interest",
     icon: Star,
     headerClass: "bg-gradient-to-r from-yellow-500 to-yellow-600",
-    apiEndpoint: "/api/bonds/sgb"
+    instrumentTypes: ["sgb"]
   },
   "t-bill": {
     title: "Treasury Bills",
     description: "Short-term zero-coupon government securities with maturities up to 364 days",
     icon: Clock,
     headerClass: "bg-gradient-to-r from-cyan-600 to-cyan-700",
-    apiEndpoint: "/api/bonds/government",
-    bondTypeFilter: "t_bill"
+    instrumentTypes: ["tbill"]
+  },
+  infrastructure: {
+    title: "Infrastructure Bonds",
+    description: "Bonds issued by infrastructure companies with tax benefits",
+    icon: Building2,
+    headerClass: "bg-gradient-to-r from-teal-600 to-teal-700",
+    instrumentTypes: ["infrastructure_bond"]
   }
 };
 
@@ -95,27 +100,40 @@ export default function BondCategoryPage() {
   const config = categoryConfig[category] || categoryConfig.government;
   const Icon = config.icon;
 
+  // Use the public enhanced-catalog endpoint which doesn't require KYC for viewing
   const { data: bondsResponse, isLoading, error } = useQuery({
-    queryKey: [config.apiEndpoint],
+    queryKey: ['/api/bonds/enhanced-catalog'],
     refetchInterval: 60000,
   });
 
-  const bonds: any[] = (bondsResponse as any)?.data || bondsResponse || [];
+  const allBonds: any[] = (bondsResponse as any)?.data?.bonds || (bondsResponse as any)?.bonds || [];
+  
+  // Filter bonds by instrument type for this category
+  const categoryBonds = allBonds.filter((bond: any) => {
+    const bondType = (bond.instrumentType || bond.bondType || "").toLowerCase();
+    return config.instrumentTypes.some(type => bondType.includes(type) || type.includes(bondType));
+  });
+  
+  // Deduplicate by ISIN
+  const seenIsins = new Set<string>();
+  const bonds = categoryBonds.filter((bond: any) => {
+    const isin = bond.isin || bond.id;
+    if (seenIsins.has(isin)) return false;
+    seenIsins.add(isin);
+    return true;
+  });
 
   // Filter and sort bonds
   const filteredBonds = bonds
     .filter((bond: any) => {
       const matchesSearch = 
-        (bond.name || bond.bondName || bond.issuer || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (bond.name || bond.bondName || bond.issuerName || bond.issuer || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (bond.isin || "").toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesRating = ratingFilter === "all" || 
         (bond.rating || bond.creditRating || "").includes(ratingFilter);
       
-      const matchesType = !config.bondTypeFilter || 
-        (bond.bondType || bond.type || "").toLowerCase().includes(config.bondTypeFilter);
-      
-      return matchesSearch && matchesRating && matchesType;
+      return matchesSearch && matchesRating;
     })
     .sort((a: any, b: any) => {
       let aVal, bVal;
