@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type CSSProperties } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -577,6 +577,33 @@ const getFilterCreditRatingColors = (rating: string, isSelected: boolean): strin
   }
 };
 
+// Progressive color utility for sliders - interpolates from green → yellow → orange → red
+// Returns HSL color string for dynamic inline styling
+const getProgressiveColor = (value: number, min: number, max: number): string => {
+  const percentage = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  // Hue: 120 (green) → 60 (yellow) → 30 (orange) → 0 (red)
+  const hue = 120 - (percentage * 120);
+  // Saturation: stays high (70-80%)
+  const saturation = 70 + (percentage * 10);
+  // Lightness: 45-50% for good visibility
+  const lightness = 45;
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+};
+
+// Get lighter version for track background
+const getProgressiveColorLight = (value: number, min: number, max: number): string => {
+  const percentage = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const hue = 120 - (percentage * 120);
+  return `hsl(${hue}, 60%, 90%)`;
+};
+
+// Get label color based on value (darker version)
+const getProgressiveLabelColor = (value: number, min: number, max: number): string => {
+  const percentage = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const hue = 120 - (percentage * 120);
+  return `hsl(${hue}, 70%, 35%)`;
+};
+
 // Instrument type color utility - returns explicit Tailwind classes (purge-safe)
 const getFilterInstrumentTypeColors = (type: string, isSelected: boolean): string => {
   const t = type.toLowerCase();
@@ -667,33 +694,57 @@ export function EnhancedBondFilters({
         </div>
 
         <div>
-          <Label className="text-sm font-medium mb-2 block text-blue-700 dark:text-blue-300">
+          <Label 
+            className="text-sm font-medium mb-2 block transition-colors"
+            style={{ color: getProgressiveLabelColor(filters.maturityRange?.[1] || 30, 0, 30) }}
+          >
             Maturity Range: <span className="font-bold">{filters.maturityRange?.[0] || 0} - {filters.maturityRange?.[1] || 30} years</span>
           </Label>
-          <Slider
-            value={filters.maturityRange || [0, 30]}
-            onValueChange={(value) => onFiltersChange({ ...filters, maturityRange: value as [number, number] })}
-            min={0}
-            max={30}
-            step={1}
-            className="py-4 [&_[data-radix-slider-track]]:bg-blue-100 [&_[data-radix-slider-range]]:bg-blue-500 [&_[data-radix-slider-thumb]]:border-blue-500 [&_[data-radix-slider-thumb]]:bg-white"
-            data-testid="filter-maturity-slider"
-          />
+          <div 
+            className="py-4"
+            style={{
+              '--slider-track-bg': getProgressiveColorLight(filters.maturityRange?.[1] || 30, 0, 30),
+              '--slider-range-bg': getProgressiveColor(filters.maturityRange?.[1] || 30, 0, 30),
+              '--slider-thumb-border': getProgressiveColor(filters.maturityRange?.[1] || 30, 0, 30),
+            } as CSSProperties}
+          >
+            <Slider
+              value={filters.maturityRange || [0, 30]}
+              onValueChange={(value) => onFiltersChange({ ...filters, maturityRange: value as [number, number] })}
+              min={0}
+              max={30}
+              step={1}
+              className="[&_[data-radix-slider-track]]:bg-[var(--slider-track-bg)] [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:bg-white"
+              data-testid="filter-maturity-slider"
+            />
+          </div>
         </div>
 
         <div>
-          <Label className="text-sm font-medium mb-2 block text-green-700 dark:text-green-300">
+          <Label 
+            className="text-sm font-medium mb-2 block transition-colors"
+            style={{ color: getProgressiveLabelColor(filters.yieldRange?.[1] || 15, 0, 15) }}
+          >
             Yield Range: <span className="font-bold">{filters.yieldRange?.[0] || 0}% - {filters.yieldRange?.[1] || 15}%</span>
           </Label>
-          <Slider
-            value={filters.yieldRange || [0, 15]}
-            onValueChange={(value) => onFiltersChange({ ...filters, yieldRange: value as [number, number] })}
-            min={0}
-            max={15}
-            step={0.25}
-            className="py-4 [&_[data-radix-slider-track]]:bg-green-100 [&_[data-radix-slider-range]]:bg-green-500 [&_[data-radix-slider-thumb]]:border-green-500 [&_[data-radix-slider-thumb]]:bg-white"
-            data-testid="filter-yield-slider"
-          />
+          <div 
+            className="py-4"
+            style={{
+              '--slider-track-bg': getProgressiveColorLight(filters.yieldRange?.[1] || 15, 0, 15),
+              '--slider-range-bg': getProgressiveColor(filters.yieldRange?.[1] || 15, 0, 15),
+              '--slider-thumb-border': getProgressiveColor(filters.yieldRange?.[1] || 15, 0, 15),
+            } as CSSProperties}
+          >
+            <Slider
+              value={filters.yieldRange || [0, 15]}
+              onValueChange={(value) => onFiltersChange({ ...filters, yieldRange: value as [number, number] })}
+              min={0}
+              max={15}
+              step={0.25}
+              className="[&_[data-radix-slider-track]]:bg-[var(--slider-track-bg)] [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:bg-white"
+              data-testid="filter-yield-slider"
+            />
+          </div>
         </div>
 
         <div>
