@@ -701,11 +701,12 @@ export function EnhancedBondFilters({
             Maturity Range: <span className="font-bold">{filters.maturityRange?.[0] || 0} - {filters.maturityRange?.[1] || 30} years</span>
           </Label>
           <div 
-            className="py-4 px-1"
+            className="py-4 px-2 rounded-lg"
             style={{
               '--slider-track-bg': getProgressiveColorLight(filters.maturityRange?.[1] || 30, 0, 30),
               '--slider-range-bg': getProgressiveColor(filters.maturityRange?.[1] || 30, 0, 30),
               '--slider-thumb-border': getProgressiveColor(filters.maturityRange?.[1] || 30, 0, 30),
+              background: `linear-gradient(to right, hsl(120, 60%, 92%), hsl(60, 60%, 92%), hsl(30, 60%, 92%), hsl(0, 60%, 92%))`,
             } as CSSProperties}
           >
             <Slider
@@ -714,7 +715,7 @@ export function EnhancedBondFilters({
               min={0}
               max={30}
               step={1}
-              className="[&_[data-radix-slider-track]]:bg-[var(--slider-track-bg)] [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-300 [&_[data-radix-slider-track]]:shadow-inner [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-md [&_[data-radix-slider-thumb]]:ring-2 [&_[data-radix-slider-thumb]]:ring-white"
+              className="[&_[data-radix-slider-track]]:bg-gray-200 [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-400 [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
               data-testid="filter-maturity-slider"
             />
           </div>
@@ -728,11 +729,12 @@ export function EnhancedBondFilters({
             Yield Range: <span className="font-bold">{filters.yieldRange?.[0] || 0}% - {filters.yieldRange?.[1] || 15}%</span>
           </Label>
           <div 
-            className="py-4 px-1"
+            className="py-4 px-2 rounded-lg"
             style={{
               '--slider-track-bg': getProgressiveColorLight(filters.yieldRange?.[1] || 15, 0, 15),
               '--slider-range-bg': getProgressiveColor(filters.yieldRange?.[1] || 15, 0, 15),
               '--slider-thumb-border': getProgressiveColor(filters.yieldRange?.[1] || 15, 0, 15),
+              background: `linear-gradient(to right, hsl(120, 60%, 92%), hsl(60, 60%, 92%), hsl(30, 60%, 92%), hsl(0, 60%, 92%))`,
             } as CSSProperties}
           >
             <Slider
@@ -741,7 +743,7 @@ export function EnhancedBondFilters({
               min={0}
               max={15}
               step={0.25}
-              className="[&_[data-radix-slider-track]]:bg-[var(--slider-track-bg)] [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-300 [&_[data-radix-slider-track]]:shadow-inner [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-md [&_[data-radix-slider-thumb]]:ring-2 [&_[data-radix-slider-thumb]]:ring-white"
+              className="[&_[data-radix-slider-track]]:bg-gray-200 [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-400 [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
               data-testid="filter-yield-slider"
             />
           </div>
