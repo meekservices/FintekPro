@@ -2424,7 +2424,17 @@ export default function Bonds() {
     staleTime: 60000,
   });
   
-  const unifiedBonds = (catalogData as any)?.data?.bonds ?? catalogData?.bonds ?? [];
+  const rawBonds = (catalogData as any)?.data?.bonds ?? catalogData?.bonds ?? [];
+  // Deduplicate bonds by ISIN to prevent duplicate key warnings
+  const unifiedBonds = useMemo(() => {
+    const seen = new Set<string>();
+    return rawBonds.filter((bond: any) => {
+      const key = bond.isin || bond.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [rawBonds]);
   
   // Get selected bonds for comparison
   const selectedBondsData = useMemo(() => {
@@ -2783,9 +2793,9 @@ export default function Bonds() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {unifiedBonds.map((bond: any) => (
+                    {unifiedBonds.map((bond: any, index: number) => (
                       <div 
-                        key={bond.isin || bond.id}
+                        key={`${bond.isin || bond.id}-${index}`}
                         className={`p-4 border rounded-lg hover:shadow-md transition-shadow ${
                           selectedBonds.includes(bond.isin) 
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
