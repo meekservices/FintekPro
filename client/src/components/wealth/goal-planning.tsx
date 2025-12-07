@@ -23,7 +23,8 @@ import {
   Star,
   Crown,
   Shield,
-  Briefcase
+  Briefcase,
+  Pencil
 } from "lucide-react";
 
 interface FinancialGoal {
@@ -99,6 +100,17 @@ export function GoalPlanning() {
   });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    type: "medium_term" as const,
+    targetAmount: "",
+    currentAmount: "",
+    targetDate: "",
+    priority: "medium" as const,
+    riskProfile: "moderate" as const
+  });
 
   const calculateProgress = (current: number, target: number) => {
     return Math.min((current / target) * 100, 100);
@@ -197,6 +209,42 @@ export function GoalPlanning() {
       riskProfile: "moderate"
     });
     setIsDialogOpen(false);
+  };
+
+  const handleStartEdit = (goal: FinancialGoal) => {
+    setEditingGoal(goal);
+    setEditFormData({
+      name: goal.name,
+      type: goal.type,
+      targetAmount: goal.targetAmount.toString(),
+      currentAmount: goal.currentAmount.toString(),
+      targetDate: goal.targetDate,
+      priority: goal.priority,
+      riskProfile: goal.riskProfile
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateGoal = () => {
+    if (!editingGoal || !editFormData.name || !editFormData.targetAmount || !editFormData.targetDate) return;
+
+    const updatedGoal: FinancialGoal = {
+      ...editingGoal,
+      name: editFormData.name,
+      type: editFormData.type,
+      targetAmount: parseInt(editFormData.targetAmount),
+      currentAmount: parseInt(editFormData.currentAmount) || 0,
+      targetDate: editFormData.targetDate,
+      priority: editFormData.priority,
+      riskProfile: editFormData.riskProfile,
+      recommendedInvestments: []
+    };
+
+    updatedGoal.recommendedInvestments = getInvestmentRecommendations(updatedGoal);
+    
+    setGoals(goals.map(g => g.id === editingGoal.id ? updatedGoal : g));
+    setEditingGoal(null);
+    setIsEditDialogOpen(false);
   };
 
   return (
@@ -306,6 +354,112 @@ export function GoalPlanning() {
         </Dialog>
       </div>
 
+      {/* Edit Goal Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Goal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-goal-name">Goal Name</Label>
+              <Input
+                id="edit-goal-name"
+                data-testid="input-edit-goal-name"
+                placeholder="e.g., Dream Home, Child Education"
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-goal-type">Goal Type</Label>
+                <Select value={editFormData.type} onValueChange={(value: any) => setEditFormData({...editFormData, type: value})}>
+                  <SelectTrigger data-testid="select-edit-goal-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="short_term">Short Term (1-3 years)</SelectItem>
+                    <SelectItem value="medium_term">Medium Term (3-7 years)</SelectItem>
+                    <SelectItem value="long_term">Long Term (7+ years)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-goal-priority">Priority</Label>
+                <Select value={editFormData.priority} onValueChange={(value: any) => setEditFormData({...editFormData, priority: value})}>
+                  <SelectTrigger data-testid="select-edit-goal-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-target-amount">Target Amount (₹)</Label>
+                <Input
+                  id="edit-target-amount"
+                  data-testid="input-edit-target-amount"
+                  type="number"
+                  placeholder="1000000"
+                  value={editFormData.targetAmount}
+                  onChange={(e) => setEditFormData({...editFormData, targetAmount: e.target.value})}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-current-amount">Current Amount (₹)</Label>
+                <Input
+                  id="edit-current-amount"
+                  data-testid="input-edit-current-amount"
+                  type="number"
+                  placeholder="0"
+                  value={editFormData.currentAmount}
+                  onChange={(e) => setEditFormData({...editFormData, currentAmount: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-target-date">Target Date</Label>
+              <Input
+                id="edit-target-date"
+                data-testid="input-edit-target-date"
+                type="date"
+                value={editFormData.targetDate}
+                onChange={(e) => setEditFormData({...editFormData, targetDate: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-risk-profile">Risk Profile</Label>
+              <Select value={editFormData.riskProfile} onValueChange={(value: any) => setEditFormData({...editFormData, riskProfile: value})}>
+                <SelectTrigger data-testid="select-edit-risk-profile">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="conservative">Conservative (Low Risk)</SelectItem>
+                  <SelectItem value="moderate">Moderate (Medium Risk)</SelectItem>
+                  <SelectItem value="aggressive">Aggressive (High Risk)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button onClick={handleUpdateGoal} className="w-full" data-testid="button-update-goal">
+              Update Goal
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {goals.map((goal) => {
           const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
@@ -340,6 +494,15 @@ export function GoalPlanning() {
                       </CardDescription>
                     </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleStartEdit(goal)}
+                    data-testid={`button-edit-goal-${goal.id}`}
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                 </div>
               </CardHeader>
               
