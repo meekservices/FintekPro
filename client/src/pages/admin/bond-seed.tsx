@@ -376,16 +376,16 @@ export default function BondSeedAdmin() {
   };
 
   const handleSelectAll = (bonds: BondCatalogItem[], checked: boolean) => {
-    const draftBonds = bonds.filter(b => b.status === 'draft');
+    const publishableBonds = bonds.filter(b => b.status === 'draft' || b.status === 'unpublished');
     if (checked) {
-      setSelectedBonds(new Set(draftBonds.map(b => b.id)));
+      setSelectedBonds(new Set(publishableBonds.map(b => b.id)));
     } else {
       setSelectedBonds(new Set());
     }
   };
 
   const handlePublishSelected = () => {
-    const selectedBondItems = bonds.filter(b => selectedBonds.has(b.id) && b.status === 'draft');
+    const selectedBondItems = bonds.filter(b => selectedBonds.has(b.id) && (b.status === 'draft' || b.status === 'unpublished'));
     if (selectedBondItems.length > 0) {
       setPublishDialog({ open: true, bonds: selectedBondItems });
       // Fetch net yields for selected bonds
@@ -422,7 +422,7 @@ export default function BondSeedAdmin() {
 
   const renderBondTable = (bondsList: BondCatalogItem[], showSync: 'nse' | 'bse' | 'none') => {
     const filtered = filteredBonds(bondsList);
-    const draftBonds = filtered.filter(b => b.status === 'draft');
+    const publishableBonds = filtered.filter(b => b.status === 'draft' || b.status === 'unpublished');
 
     return (
       <Card>
@@ -475,7 +475,7 @@ export default function BondSeedAdmin() {
                   Add Unlisted Bond
                 </Button>
               )}
-              {selectedBonds.size > 0 && draftBonds.length > 0 && (
+              {selectedBonds.size > 0 && publishableBonds.length > 0 && (
                 <Button onClick={handlePublishSelected} variant="default" data-testid="button-publish-selected">
                   <Check className="h-4 w-4 mr-2" />
                   Publish Selected ({selectedBonds.size})
@@ -491,7 +491,7 @@ export default function BondSeedAdmin() {
                 <TableRow>
                   <TableHead className="w-[50px]">
                     <Checkbox 
-                      checked={draftBonds.length > 0 && selectedBonds.size === draftBonds.length}
+                      checked={publishableBonds.length > 0 && selectedBonds.size === publishableBonds.length}
                       onCheckedChange={(checked) => handleSelectAll(filtered, !!checked)}
                     />
                   </TableHead>
@@ -527,7 +527,7 @@ export default function BondSeedAdmin() {
                         <Checkbox 
                           checked={selectedBonds.has(bond.id)}
                           onCheckedChange={(checked) => handleSelectBond(bond.id, !!checked)}
-                          disabled={bond.status !== 'draft'}
+                          disabled={bond.status !== 'draft' && bond.status !== 'unpublished'}
                         />
                       </TableCell>
                       <TableCell>
@@ -568,7 +568,7 @@ export default function BondSeedAdmin() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {bond.status === 'draft' && (
+                          {(bond.status === 'draft' || bond.status === 'unpublished') && (
                             <Button 
                               size="sm" 
                               variant="outline"
@@ -582,7 +582,7 @@ export default function BondSeedAdmin() {
                               data-testid={`button-publish-${bond.id}`}
                             >
                               <Eye className="h-3 w-3 mr-1" />
-                              Publish
+                              {bond.status === 'unpublished' ? 'Republish' : 'Publish'}
                             </Button>
                           )}
                           <Button 
