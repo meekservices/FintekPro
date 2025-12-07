@@ -2,6 +2,7 @@ import { MarketChart } from "@/components/dashboard/market-chart";
 import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { MarketMovers } from "@/components/dashboard/market-movers";
 import { MarketNews } from "@/components/dashboard/market-news";
+import { YieldCurveChart } from "@/components/dashboard/yield-curve-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -513,6 +514,26 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Government Securities Yield Curve Section */}
+        <section className="py-16 bg-white" data-testid="yield-curve-section">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">Fixed Income Market Insights</h2>
+              <p className="text-lg text-gray-600">Track government securities yields and compare historical trends</p>
+            </div>
+            <YieldCurveChart />
+            <div className="mt-8 text-center">
+              <Link href="/bonds">
+                <Button variant="outline" size="lg" className="px-6">
+                  <Receipt className="w-5 h-5 mr-2" />
+                  Explore Bonds & NCDs
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
             </div>
           </div>
         </section>
