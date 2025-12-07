@@ -701,7 +701,7 @@ export function EnhancedBondFilters({
             Maturity Range: <span className="font-bold">{filters.maturityRange?.[0] || 0} - {filters.maturityRange?.[1] || 30} years</span>
           </Label>
           <div 
-            className="py-4"
+            className="py-4 px-1"
             style={{
               '--slider-track-bg': getProgressiveColorLight(filters.maturityRange?.[1] || 30, 0, 30),
               '--slider-range-bg': getProgressiveColor(filters.maturityRange?.[1] || 30, 0, 30),
@@ -714,7 +714,7 @@ export function EnhancedBondFilters({
               min={0}
               max={30}
               step={1}
-              className="[&_[data-radix-slider-track]]:bg-[var(--slider-track-bg)] [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:bg-white"
+              className="[&_[data-radix-slider-track]]:bg-[var(--slider-track-bg)] [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-300 [&_[data-radix-slider-track]]:shadow-inner [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-md [&_[data-radix-slider-thumb]]:ring-2 [&_[data-radix-slider-thumb]]:ring-white"
               data-testid="filter-maturity-slider"
             />
           </div>
@@ -728,7 +728,7 @@ export function EnhancedBondFilters({
             Yield Range: <span className="font-bold">{filters.yieldRange?.[0] || 0}% - {filters.yieldRange?.[1] || 15}%</span>
           </Label>
           <div 
-            className="py-4"
+            className="py-4 px-1"
             style={{
               '--slider-track-bg': getProgressiveColorLight(filters.yieldRange?.[1] || 15, 0, 15),
               '--slider-range-bg': getProgressiveColor(filters.yieldRange?.[1] || 15, 0, 15),
@@ -741,7 +741,7 @@ export function EnhancedBondFilters({
               min={0}
               max={15}
               step={0.25}
-              className="[&_[data-radix-slider-track]]:bg-[var(--slider-track-bg)] [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:bg-white"
+              className="[&_[data-radix-slider-track]]:bg-[var(--slider-track-bg)] [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-300 [&_[data-radix-slider-track]]:shadow-inner [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-md [&_[data-radix-slider-thumb]]:ring-2 [&_[data-radix-slider-thumb]]:ring-white"
               data-testid="filter-yield-slider"
             />
           </div>
