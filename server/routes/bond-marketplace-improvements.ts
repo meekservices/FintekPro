@@ -114,6 +114,58 @@ router.get('/enhanced-catalog', async (req: Request, res: Response) => {
       }));
     }
 
+    // Fetch published bonds from admin-managed bond catalog
+    const catalogBonds = await db.select().from(schema.bondCatalog)
+      .where(eq(schema.bondCatalog.status, 'published'))
+      .limit(parseInt(limit as string));
+
+    bonds.push(...catalogBonds.map(b => {
+      const maturityDate = b.maturityDate ? new Date(b.maturityDate) : null;
+      const yearsToMaturity = maturityDate ? Math.max(0, (maturityDate.getTime() - now.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+      
+      const instrumentTypeMap: Record<string, string> = {
+        'gsec': 'Government Security',
+        'sgb': 'Sovereign Gold Bond',
+        'treasury_bill': 'Treasury Bill',
+        'state_development_loan': 'State Development Loan',
+        'corporate_bond': 'Corporate Bond',
+        'ncd': 'NCD',
+        'infrastructure_bond': 'Infrastructure Bond',
+        'tax_free_bond': 'Tax Free Bond',
+        'psu_bond': 'PSU Bond',
+        'perpetual_bond': 'Perpetual Bond',
+        'zero_coupon_bond': 'Zero Coupon Bond',
+        'floating_rate_bond': 'Floating Rate Bond',
+      };
+      
+      return {
+        id: b.id,
+        isin: b.isin,
+        bondName: b.bondName,
+        issuerName: b.issuerName || 'Unknown Issuer',
+        instrumentType: b.instrumentType || 'corporate_bond',
+        displayType: instrumentTypeMap[b.instrumentType || 'corporate_bond'] || 'Bond',
+        couponRate: b.couponRate,
+        yieldToMaturity: b.yieldToMaturity,
+        netYieldToMaturity: b.netYieldToMaturity,
+        maturityDate: b.maturityDate,
+        yearsToMaturity: yearsToMaturity ? Math.round(yearsToMaturity * 10) / 10 : null,
+        creditRating: b.creditRating,
+        ratingAgency: b.ratingAgency || 'CRISIL/ICRA',
+        minInvestment: b.minimumInvestment ? parseInt(b.minimumInvestment) : 10000,
+        faceValue: b.faceValue ? parseInt(b.faceValue) : 1000,
+        taxCategory: b.instrumentType === 'tax_free_bond' ? 'tax_free' : 'taxable',
+        isTaxFree: b.instrumentType === 'tax_free_bond',
+        isListed: b.isListed,
+        exchange: b.exchange || 'NSE/BSE',
+        lastUpdated: b.updatedAt,
+        cleanPrice: b.cleanPrice,
+        kycTierRequired: b.kycTierRequired,
+        source: 'bond_catalog',
+        publishedAt: b.publishedAt
+      };
+    }));
+
     // Apply client-side filters
     let filteredBonds = bonds;
 
