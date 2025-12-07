@@ -667,8 +667,8 @@ export function EnhancedBondFilters({
         </div>
 
         <div>
-          <Label className="text-sm font-medium mb-2 block">
-            Maturity Range: {filters.maturityRange?.[0] || 0} - {filters.maturityRange?.[1] || 30} years
+          <Label className="text-sm font-medium mb-2 block text-blue-700 dark:text-blue-300">
+            Maturity Range: <span className="font-bold">{filters.maturityRange?.[0] || 0} - {filters.maturityRange?.[1] || 30} years</span>
           </Label>
           <Slider
             value={filters.maturityRange || [0, 30]}
@@ -676,14 +676,14 @@ export function EnhancedBondFilters({
             min={0}
             max={30}
             step={1}
-            className="py-4"
+            className="py-4 [&_[data-radix-slider-track]]:bg-blue-100 [&_[data-radix-slider-range]]:bg-blue-500 [&_[data-radix-slider-thumb]]:border-blue-500 [&_[data-radix-slider-thumb]]:bg-white"
             data-testid="filter-maturity-slider"
           />
         </div>
 
         <div>
-          <Label className="text-sm font-medium mb-2 block">
-            Yield Range: {filters.yieldRange?.[0] || 0}% - {filters.yieldRange?.[1] || 15}%
+          <Label className="text-sm font-medium mb-2 block text-green-700 dark:text-green-300">
+            Yield Range: <span className="font-bold">{filters.yieldRange?.[0] || 0}% - {filters.yieldRange?.[1] || 15}%</span>
           </Label>
           <Slider
             value={filters.yieldRange || [0, 15]}
@@ -691,7 +691,7 @@ export function EnhancedBondFilters({
             min={0}
             max={15}
             step={0.25}
-            className="py-4"
+            className="py-4 [&_[data-radix-slider-track]]:bg-green-100 [&_[data-radix-slider-range]]:bg-green-500 [&_[data-radix-slider-thumb]]:border-green-500 [&_[data-radix-slider-thumb]]:bg-white"
             data-testid="filter-yield-slider"
           />
         </div>
