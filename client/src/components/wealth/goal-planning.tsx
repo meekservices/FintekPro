@@ -102,14 +102,22 @@ export function GoalPlanning() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
-  const [editFormData, setEditFormData] = useState({
+  const [editFormData, setEditFormData] = useState<{
+    name: string;
+    type: 'short_term' | 'medium_term' | 'long_term';
+    targetAmount: string;
+    currentAmount: string;
+    targetDate: string;
+    priority: 'high' | 'medium' | 'low';
+    riskProfile: 'conservative' | 'moderate' | 'aggressive';
+  }>({
     name: "",
-    type: "medium_term" as const,
+    type: "medium_term",
     targetAmount: "",
     currentAmount: "",
     targetDate: "",
-    priority: "medium" as const,
-    riskProfile: "moderate" as const
+    priority: "medium",
+    riskProfile: "moderate"
   });
 
   const calculateProgress = (current: number, target: number) => {
