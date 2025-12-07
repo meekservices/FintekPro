@@ -1517,21 +1517,27 @@ function BondMarketplace() {
   
   const requiredRiskCategories = ['credit', 'liquidity', 'interest_rate', 'default', 'regulatory'];
   
-  const { data: sellListings, isLoading: loadingSell } = useQuery<any[]>({
+  const { data: sellListingsRaw, isLoading: loadingSell } = useQuery<any>({
     queryKey: ['/api/bonds/sell-listings'],
   });
   
-  const { data: myListings, isLoading: loadingMyListings } = useQuery<any[]>({
+  const { data: myListingsRaw, isLoading: loadingMyListings } = useQuery<any>({
     queryKey: ['/api/bonds/sell-listings/my'],
   });
   
-  const { data: myRequests, isLoading: loadingMyRequests } = useQuery<any[]>({
+  const { data: myRequestsRaw, isLoading: loadingMyRequests } = useQuery<any>({
     queryKey: ['/api/bonds/buy-requests/my'],
   });
   
-  const { data: eligibility } = useQuery<{ eligible: boolean; tier?: string; reason?: string }>({
+  const { data: eligibilityRaw } = useQuery<any>({
     queryKey: ['/api/bonds/trading-eligibility'],
   });
+  
+  // Extract data from API response wrapper
+  const sellListings = Array.isArray(sellListingsRaw) ? sellListingsRaw : (sellListingsRaw?.data || []);
+  const myListings = Array.isArray(myListingsRaw) ? myListingsRaw : (myListingsRaw?.data || []);
+  const myRequests = Array.isArray(myRequestsRaw) ? myRequestsRaw : (myRequestsRaw?.data || []);
+  const eligibility = eligibilityRaw?.data || eligibilityRaw;
 
   const allSellRisksAcknowledged = requiredRiskCategories.every(cat => sellRiskAcknowledgments[cat]);
 
