@@ -557,6 +557,54 @@ interface BondFilters {
   sortBy?: string;
 }
 
+// Credit rating color utility - returns explicit Tailwind classes (purge-safe)
+const getFilterCreditRatingColors = (rating: string, isSelected: boolean): string => {
+  const r = rating.toUpperCase();
+  if (isSelected) {
+    // Selected state - darker, more prominent colors
+    if (r === 'SOV' || r === 'AAA') return 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700';
+    if (r.startsWith('AA')) return 'bg-green-600 text-white border-green-700 hover:bg-green-700';
+    if (r.startsWith('A')) return 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700';
+    if (r.startsWith('BBB')) return 'bg-yellow-500 text-white border-yellow-600 hover:bg-yellow-600';
+    return 'bg-gray-600 text-white border-gray-700 hover:bg-gray-700';
+  } else {
+    // Unselected state - lighter background with colored text/border
+    if (r === 'SOV' || r === 'AAA') return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
+    if (r.startsWith('AA')) return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100';
+    if (r.startsWith('A')) return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
+    if (r.startsWith('BBB')) return 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100';
+    return 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100';
+  }
+};
+
+// Instrument type color utility - returns explicit Tailwind classes (purge-safe)
+const getFilterInstrumentTypeColors = (type: string, isSelected: boolean): string => {
+  const t = type.toLowerCase();
+  if (isSelected) {
+    // Selected state - darker, more prominent colors
+    if (t === 'gsec' || t === 'government') return 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700';
+    if (t === 'sdl' || t === 'state') return 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700';
+    if (t === 'tbill') return 'bg-sky-600 text-white border-sky-700 hover:bg-sky-700';
+    if (t === 'sgb' || t === 'gold') return 'bg-amber-600 text-white border-amber-700 hover:bg-amber-700';
+    if (t === 'corporate') return 'bg-purple-600 text-white border-purple-700 hover:bg-purple-700';
+    if (t === 'ncd') return 'bg-orange-600 text-white border-orange-700 hover:bg-orange-700';
+    if (t === 'infrastructure') return 'bg-teal-600 text-white border-teal-700 hover:bg-teal-700';
+    if (t === 'tax_free') return 'bg-green-600 text-white border-green-700 hover:bg-green-700';
+    return 'bg-gray-600 text-white border-gray-700 hover:bg-gray-700';
+  } else {
+    // Unselected state - lighter background with colored text/border
+    if (t === 'gsec' || t === 'government') return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
+    if (t === 'sdl' || t === 'state') return 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100';
+    if (t === 'tbill') return 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100';
+    if (t === 'sgb' || t === 'gold') return 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100';
+    if (t === 'corporate') return 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100';
+    if (t === 'ncd') return 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100';
+    if (t === 'infrastructure') return 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100';
+    if (t === 'tax_free') return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100';
+    return 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100';
+  }
+};
+
 export function EnhancedBondFilters({
   filters,
   onFiltersChange
@@ -601,21 +649,20 @@ export function EnhancedBondFilters({
         <div>
           <Label className="text-sm font-medium mb-2 block">Credit Rating</Label>
           <div className="flex flex-wrap gap-2">
-            {creditRatings.map(rating => (
-              <Badge
-                key={rating}
-                variant={filters.creditRating?.includes(rating) ? "default" : "outline"}
-                className={`cursor-pointer transition-colors ${
-                  filters.creditRating?.includes(rating) 
-                    ? 'bg-blue-500 text-white' 
-                    : 'hover:bg-blue-50'
-                }`}
-                onClick={() => toggleCreditRating(rating)}
-                data-testid={`filter-rating-${rating}`}
-              >
-                {rating}
-              </Badge>
-            ))}
+            {creditRatings.map(rating => {
+              const isSelected = filters.creditRating?.includes(rating) || false;
+              return (
+                <Badge
+                  key={rating}
+                  variant="outline"
+                  className={`cursor-pointer transition-colors ${getFilterCreditRatingColors(rating, isSelected)}`}
+                  onClick={() => toggleCreditRating(rating)}
+                  data-testid={`filter-rating-${rating}`}
+                >
+                  {rating}
+                </Badge>
+              );
+            })}
           </div>
         </div>
 
@@ -674,21 +721,20 @@ export function EnhancedBondFilters({
         <div>
           <Label className="text-sm font-medium mb-2 block">Instrument Types</Label>
           <div className="flex flex-wrap gap-2">
-            {instrumentTypes.map(type => (
-              <Badge
-                key={type}
-                variant={filters.instrumentType?.includes(type) ? "default" : "outline"}
-                className={`cursor-pointer transition-colors capitalize ${
-                  filters.instrumentType?.includes(type) 
-                    ? 'bg-purple-500 text-white' 
-                    : 'hover:bg-purple-50'
-                }`}
-                onClick={() => toggleInstrumentType(type)}
-                data-testid={`filter-type-${type}`}
-              >
-                {type.replace('_', ' ')}
-              </Badge>
-            ))}
+            {instrumentTypes.map(type => {
+              const isSelected = filters.instrumentType?.includes(type) || false;
+              return (
+                <Badge
+                  key={type}
+                  variant="outline"
+                  className={`cursor-pointer transition-colors capitalize ${getFilterInstrumentTypeColors(type, isSelected)}`}
+                  onClick={() => toggleInstrumentType(type)}
+                  data-testid={`filter-type-${type}`}
+                >
+                  {type.replace('_', ' ')}
+                </Badge>
+              );
+            })}
           </div>
         </div>
 
