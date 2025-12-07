@@ -58,6 +58,47 @@ interface FeeBreakdown {
   grandTotal: number;
 }
 
+// Credit rating color utility for consistent badge styling
+const getCreditRatingColors = (rating: string | null | undefined): string => {
+  if (!rating) return 'bg-gray-100 text-gray-700 border-gray-200';
+  const r = rating.toUpperCase();
+  if (r === 'SOV' || r === 'AAA') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+  if (r.startsWith('AA')) return 'bg-green-100 text-green-700 border-green-200';
+  if (r.startsWith('A')) return 'bg-blue-100 text-blue-700 border-blue-200';
+  if (r.startsWith('BBB')) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  if (r.startsWith('BB') || r.startsWith('B')) return 'bg-orange-100 text-orange-700 border-orange-200';
+  if (r.startsWith('C') || r.startsWith('D')) return 'bg-red-100 text-red-700 border-red-200';
+  return 'bg-gray-100 text-gray-700 border-gray-200';
+};
+
+// Bond type display colors (includes border for outline badges)
+const getBondTypeColors = (type: string | null | undefined): string => {
+  if (!type) return 'bg-gray-100 text-gray-700 border-gray-200';
+  const t = type.toLowerCase();
+  if (t.includes('gsec') || t.includes('government')) return 'bg-blue-100 text-blue-700 border-blue-200';
+  if (t.includes('corporate')) return 'bg-purple-100 text-purple-700 border-purple-200';
+  if (t.includes('ncd')) return 'bg-orange-100 text-orange-700 border-orange-200';
+  if (t.includes('tax') && t.includes('free')) return 'bg-green-100 text-green-700 border-green-200';
+  if (t.includes('infrastructure')) return 'bg-teal-100 text-teal-700 border-teal-200';
+  if (t.includes('sgb') || t.includes('gold')) return 'bg-amber-100 text-amber-700 border-amber-200';
+  if (t.includes('sdl') || t.includes('state')) return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+  if (t.includes('debenture')) return 'bg-purple-100 text-purple-700 border-purple-200';
+  if (t.includes('perpetual')) return 'bg-rose-100 text-rose-700 border-rose-200';
+  if (t.includes('floating')) return 'bg-cyan-100 text-cyan-700 border-cyan-200';
+  if (t.includes('zero')) return 'bg-slate-100 text-slate-700 border-slate-200';
+  return 'bg-gray-100 text-gray-700 border-gray-200';
+};
+
+// Risk level colors (includes border for outline badges)
+const getRiskLevelColors = (level: string | null | undefined): string => {
+  if (!level) return 'bg-gray-100 text-gray-700 border-gray-200';
+  const l = level.toLowerCase();
+  if (l.includes('low') || l === 'conservative') return 'bg-green-100 text-green-700 border-green-200';
+  if (l.includes('medium') || l.includes('moderate') || l === 'balanced') return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  if (l.includes('high') || l === 'aggressive') return 'bg-red-100 text-red-700 border-red-200';
+  return 'bg-gray-100 text-gray-700 border-gray-200';
+};
+
 // Stamp duty rates as per Indian Stamp Act 1899 (amended 2019)
 const STAMP_DUTY_RATES: Record<string, { rate: number; isExempt: boolean; reason?: string; payerSide: string }> = {
   g_sec: { rate: 0, isExempt: true, reason: 'Government Securities exempt under Section 9', payerSide: 'buyer' },
@@ -244,32 +285,46 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
     return icons[iconName as keyof typeof icons] || Shield;
   };
 
+  const getCategoryColors = (color: string) => {
+    const colorMap: Record<string, { bg: string; text: string; border: string }> = {
+      blue: { bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
+      green: { bg: 'bg-green-100', text: 'text-green-600', border: 'border-green-200' },
+      purple: { bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200' },
+      orange: { bg: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-200' },
+      indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200' },
+      teal: { bg: 'bg-teal-100', text: 'text-teal-600', border: 'border-teal-200' },
+      amber: { bg: 'bg-amber-100', text: 'text-amber-600', border: 'border-amber-200' },
+      rose: { bg: 'bg-rose-100', text: 'text-rose-600', border: 'border-rose-200' },
+    };
+    return colorMap[color] || { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' };
+  };
+
   const handleCategoryClick = (categoryId: string) => {
     if (onCategoryClick) {
       onCategoryClick(categoryId);
     } else {
-      // Navigate to dedicated category page
       navigate(`/bonds/category/${categoryId}`);
     }
   };
 
   return (
     <section>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Bond Categories</h2>
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Bond Categories</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {bondCategories.map((category: any) => {
           const IconComponent = getIcon(category.icon);
+          const colors = getCategoryColors(category.color);
           return (
             <Card 
               key={category.id} 
-              className="hover:shadow-lg transition-all cursor-pointer hover:border-finance-blue group" 
+              className={`hover:shadow-lg transition-all cursor-pointer hover:border-finance-blue group ${colors.border}`}
               data-testid={`${category.id}-bonds`}
               onClick={() => handleCategoryClick(category.id)}
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
-                  <div className={`w-12 h-12 bg-${category.color}-100 rounded-lg flex items-center justify-center mb-4`}>
-                    <IconComponent className={`h-6 w-6 text-${category.color === 'blue' ? 'finance-blue' : category.color === 'green' ? 'finance-green' : category.color}-600`} />
+                  <div className={`w-12 h-12 ${colors.bg} rounded-lg flex items-center justify-center mb-4`}>
+                    <IconComponent className={`h-6 w-6 ${colors.text}`} />
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-finance-blue transition-colors" />
                 </div>
@@ -290,7 +345,7 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
                     <span>Available:</span>
                     <span className="font-semibold text-finance-blue">{category.count} bonds</span>
                   </div>
-                  <Badge variant="outline" className="w-full justify-center mt-2">
+                  <Badge variant="outline" className={`w-full justify-center mt-2 ${getRiskLevelColors(category.riskLevel)}`}>
                     {category.riskLevel} Risk
                   </Badge>
                 </div>
@@ -706,10 +761,10 @@ function CorporateBonds() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
-                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
+                    <Badge variant="outline" className={getCreditRatingColors(bond.rating || bond.creditRating)}>
                       {bond.rating || bond.creditRating || 'NR'}
                     </Badge>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className={getBondTypeColors(bond.bondType || bond.type)}>
                       {bond.bondType || bond.type || 'Bond'}
                     </Badge>
                     <EligibilityBadge 
@@ -998,10 +1053,10 @@ function NCDBonds() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
-                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
-                      {bond.rating}
+                    <Badge variant="outline" className={getCreditRatingColors(bond.rating)}>
+                      {bond.rating || 'NR'}
                     </Badge>
-                    <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                    <Badge variant="outline" className={getBondTypeColors('ncd')}>
                       NCD
                     </Badge>
                     <EligibilityBadge 
@@ -1290,10 +1345,10 @@ function TaxFreeBonds() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h4 className="font-semibold text-gray-900 group-hover:text-finance-blue transition-colors">{bond.name || bond.issuerName || bond.issuer || bond.bondName || 'Unknown Bond'}</h4>
-                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
-                      {bond.rating}
+                    <Badge variant="outline" className={getCreditRatingColors(bond.rating)}>
+                      {bond.rating || 'NR'}
                     </Badge>
-                    <Badge variant="outline" className="bg-green-50 text-green-700">
+                    <Badge variant="outline" className={getBondTypeColors('tax_free')}>
                       Tax Free
                     </Badge>
                     <EligibilityBadge 
