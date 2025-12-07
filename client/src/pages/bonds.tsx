@@ -2364,11 +2364,8 @@ export default function Bonds() {
   const [tenureFilter, setTenureFilter] = useState<string>("");
   const [ratingFilter, setRatingFilter] = useState<string>("");
   
-  // Enhanced filters state
-  const [enhancedFilters, setEnhancedFilters] = useState<BondFiltersState>({
-    maturityRange: [5, 10],
-    yieldRange: [4, 8]
-  });
+  // Enhanced filters state - no default filters so all bonds are shown initially
+  const [enhancedFilters, setEnhancedFilters] = useState<BondFiltersState>({});
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   // Comparison state
