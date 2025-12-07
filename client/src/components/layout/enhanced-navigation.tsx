@@ -162,10 +162,9 @@ export function EnhancedNavigation() {
           description: "AI-powered investment planning and portfolio management",
           subItems: [
             { name: "My Portfolio", href: "/portfolio", description: "Holdings and performance tracking" },
+            { name: "Asset Allocation", href: "/wealth-management?tab=dashboard", description: "Core, Alternative, Premium investments" },
             { name: "AI Recommendations", href: "/wealth-management?tab=recommendations", description: "Smart allocation system", badge: "AI POWERED" },
             { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting" },
-            { name: "Risk Assessment", href: "/wealth-management?tab=risk", description: "Portfolio risk analysis" },
-            { name: "Asset Allocation", href: "/wealth-management?tab=dashboard", description: "Core, Alternative, Premium" },
             { name: "Retirement Planning", href: "/wealth-management?tab=retirement", description: "Retirement corpus planning" },
             { name: "Obligations", href: "/wealth-management?tab=obligations", description: "Track loans, EMIs & recurring payments" }
           ]
