@@ -33,6 +33,7 @@ import {
   RiskDisclosureModal,
   useEnhancedBondMarketplace
 } from "@/components/BondMarketplaceEnhancements";
+import { InvestorClassificationCard, TransactionCostCalculator } from "@/components/regulatory/InvestorClassificationCard";
 
 // Fee calculation hook for bond orders
 interface CommissionConfig {
@@ -2438,7 +2439,7 @@ export default function Bonds() {
   
   // Get selected bonds for comparison
   const selectedBondsData = useMemo(() => {
-    return unifiedBonds.filter(bond => selectedBonds.includes(bond.isin));
+    return unifiedBonds.filter((bond: any) => selectedBonds.includes(bond.isin));
   }, [unifiedBonds, selectedBonds]);
 
   const calculateReturns = () => {
@@ -2659,7 +2660,7 @@ export default function Bonds() {
                         <BondComparisonTable 
                           selectedBonds={selectedBondsData}
                           onRemove={(bondId) => {
-                            const bond = selectedBondsData.find(b => b.id === bondId);
+                            const bond = selectedBondsData.find((b: any) => b.id === bondId);
                             if (bond) {
                               setSelectedBonds(prev => prev.filter(isin => isin !== bond.isin));
                             }
@@ -2870,8 +2871,15 @@ export default function Bonds() {
               </CardContent>
             </Card>
             
-            {/* Buy/Sell Marketplace Section */}
-            <BondMarketplace />
+            {/* Investor Classification & Eligibility */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <BondMarketplace />
+              </div>
+              <div className="space-y-6">
+                <InvestorClassificationCard />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="portfolio" className="space-y-6" data-testid="bonds-portfolio">
