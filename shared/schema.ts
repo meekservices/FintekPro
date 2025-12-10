@@ -12573,3 +12573,478 @@ export const bondComparisonSessions = pgTable("bond_comparison_sessions", {
   index("idx_comparison_user").on(table.userId),
   index("idx_comparison_session").on(table.sessionToken),
 ]);
+
+// =============================================================================
+// SEBI/RBI REGULATORY FRAMEWORK FOR FIXED INCOME
+// =============================================================================
+
+// Investor Classification Types (SEBI Guidelines 2024)
+export const investorClassificationTypes = ["retail", "sHNI", "bHNI", "qib", "anchor"] as const;
+export type InvestorClassificationType = typeof investorClassificationTypes[number];
+
+// Investor Classification Rules (auto-classification based on investment/net worth)
+export const investorClassificationRules = pgTable("investor_classification_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Classification Type
+  classificationType: varchar("classification_type").notNull(), // retail, sHNI, bHNI, qib, anchor
+  displayName: varchar("display_name").notNull(),
+  description: text("description"),
+  
+  // Investment Amount Thresholds (SEBI 2024)
+  minInvestmentAmount: decimal("min_investment_amount", { precision: 18, scale: 2 }).notNull(),
+  maxInvestmentAmount: decimal("max_investment_amount", { precision: 18, scale: 2 }), // null = no limit
+  
+  // Net Worth Thresholds (for QIB classification)
+  minNetWorth: decimal("min_net_worth", { precision: 18, scale: 2 }),
+  minAum: decimal("min_aum", { precision: 18, scale: 2 }), // Assets Under Management for institutions
+  
+  // KYC Requirements
+  requiredKycTier: varchar("required_kyc_tier").notNull().default("basic"), // basic, enhanced, accredited_investor
+  requiresSEBIRegistration: boolean("requires_sebi_registration").default(false),
+  requiresProfessionalQualification: boolean("requires_professional_qualification").default(false),
+  
+  // Eligible Entity Types
+  eligibleEntityTypes: text("eligible_entity_types").array().default(sql`'{}'::text[]`), // individual, company, trust, partnership, huf, llp, fpi, mf, insurance, pension
+  
+  // Allotment Rules
+  allotmentMethod: varchar("allotment_method").notNull(), // lottery, proportionate, direct
+  ipoQuotaPercentage: decimal("ipo_quota_percentage", { precision: 5, scale: 2 }),
+  canBidAtCutoff: boolean("can_bid_at_cutoff").default(false),
+  canWithdrawBid: boolean("can_withdraw_bid").default(true),
+  
+  // Lock-in Requirements
+  lockInPeriodDays: integer("lock_in_period_days").default(0),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_classification_type").on(table.classificationType),
+  index("idx_classification_active").on(table.isActive),
+]);
+
+export const insertInvestorClassificationRuleSchema = createInsertSchema(investorClassificationRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InvestorClassificationRule = typeof investorClassificationRules.$inferSelect;
+export type InsertInvestorClassificationRule = z.infer<typeof insertInvestorClassificationRuleSchema>;
+
+// User Investor Classification (recorded in profile)
+export const userInvestorClassifications = pgTable("user_investor_classifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Current Classification
+  classificationType: varchar("classification_type").notNull(), // retail, sHNI, bHNI, qib, anchor
+  classificationRuleId: varchar("classification_rule_id").references(() => investorClassificationRules.id),
+  
+  // Classification Basis
+  classificationBasis: varchar("classification_basis").notNull(), // investment_amount, net_worth, aum, professional, sebi_registration
+  
+  // Values at Classification Time
+  investmentAmountAtClassification: decimal("investment_amount_at_classification", { precision: 18, scale: 2 }),
+  netWorthAtClassification: decimal("net_worth_at_classification", { precision: 18, scale: 2 }),
+  aumAtClassification: decimal("aum_at_classification", { precision: 18, scale: 2 }),
+  
+  // Classification Status
+  classificationStatus: varchar("classification_status").default("active"), // active, expired, upgraded, downgraded
+  classifiedAt: timestamp("classified_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Annual review for QIB/accredited
+  
+  // Verification
+  verifiedBy: varchar("verified_by").references(() => users.id), // Admin/Compliance officer
+  verificationMethod: varchar("verification_method"), // auto, manual, document_based
+  verificationNotes: text("verification_notes"),
+  
+  // Supporting Documents
+  supportingDocuments: jsonb("supporting_documents").default([]),
+  
+  // Audit
+  previousClassification: varchar("previous_classification"),
+  classificationChangeReason: text("classification_change_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_user_classification").on(table.userId),
+  index("idx_classification_status").on(table.classificationStatus),
+  index("idx_classification_type_user").on(table.classificationType),
+]);
+
+export const insertUserInvestorClassificationSchema = createInsertSchema(userInvestorClassifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type UserInvestorClassification = typeof userInvestorClassifications.$inferSelect;
+export type InsertUserInvestorClassification = z.infer<typeof insertUserInvestorClassificationSchema>;
+
+// Brokerage and Transaction Fee Structures by Investor Type
+export const investorBrokerageStructures = pgTable("investor_brokerage_structures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Investor Type
+  investorType: varchar("investor_type").notNull(), // retail, sHNI, bHNI, qib, anchor
+  
+  // Product Category
+  productCategory: varchar("product_category").notNull(), // bonds, ncds, gsec, sgb, cp, mld, structured_products
+  productSubCategory: varchar("product_sub_category"), // corporate_bond, tax_free_bond, psu_bond, etc.
+  
+  // Brokerage Fees (percentage of transaction)
+  brokerageFeePercent: decimal("brokerage_fee_percent", { precision: 8, scale: 4 }).notNull(),
+  minBrokerageFee: decimal("min_brokerage_fee", { precision: 12, scale: 2 }).default("0"),
+  maxBrokerageFee: decimal("max_brokerage_fee", { precision: 12, scale: 2 }),
+  
+  // Platform Fees
+  platformFeePercent: decimal("platform_fee_percent", { precision: 8, scale: 4 }).default("0"),
+  flatPlatformFee: decimal("flat_platform_fee", { precision: 12, scale: 2 }).default("0"),
+  
+  // Transaction Charges (exchange, clearing, settlement)
+  exchangeChargePercent: decimal("exchange_charge_percent", { precision: 8, scale: 6 }).default("0.0001"),
+  clearingChargePercent: decimal("clearing_charge_percent", { precision: 8, scale: 6 }).default("0.00005"),
+  sebiFeePercent: decimal("sebi_fee_percent", { precision: 8, scale: 6 }).default("0.00001"),
+  stampDutyPercent: decimal("stamp_duty_percent", { precision: 8, scale: 4 }).default("0.0001"),
+  gstPercent: decimal("gst_percent", { precision: 5, scale: 2 }).default("18.00"),
+  
+  // Custody/Demat Charges
+  depository: varchar("depository"), // NSDL, CDSL
+  dematChargePercent: decimal("demat_charge_percent", { precision: 8, scale: 6 }).default("0"),
+  flatDematCharge: decimal("flat_demat_charge", { precision: 10, scale: 2 }).default("0"),
+  
+  // Net Yield Impact Display
+  typicalYieldImpactBps: integer("typical_yield_impact_bps").default(0), // Basis points reduction from gross yield
+  
+  // Volume Discounts
+  volumeDiscountTiers: jsonb("volume_discount_tiers").default([]), // [{minAmount, maxAmount, discountPercent}]
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  
+  // Regulatory Reference
+  regulatoryReference: varchar("regulatory_reference"), // SEBI circular reference
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_brokerage_investor").on(table.investorType),
+  index("idx_brokerage_product").on(table.productCategory),
+  index("idx_brokerage_active").on(table.isActive),
+]);
+
+export const insertInvestorBrokerageStructureSchema = createInsertSchema(investorBrokerageStructures).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InvestorBrokerageStructure = typeof investorBrokerageStructures.$inferSelect;
+export type InsertInvestorBrokerageStructure = z.infer<typeof insertInvestorBrokerageStructureSchema>;
+
+// Product Eligibility Rules (KYC tier + investor type gating)
+export const productEligibilityRules = pgTable("product_eligibility_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Product Identification
+  productCategory: varchar("product_category").notNull(), // bonds, ncds, gsec, sgb, mld, aif, pms
+  productSubCategory: varchar("product_sub_category"),
+  isin: varchar("isin"), // Specific ISIN if rule is product-specific
+  
+  // Investor Type Requirements
+  allowedInvestorTypes: text("allowed_investor_types").array().default(sql`'{}'::text[]`), // retail, sHNI, bHNI, qib
+  
+  // KYC Tier Requirements
+  minKycTier: varchar("min_kyc_tier").notNull().default("basic"), // basic, enhanced, accredited_investor
+  
+  // Risk Profile Requirements
+  allowedRiskProfiles: text("allowed_risk_profiles").array().default(sql`'{}'::text[]`), // conservative, moderate, aggressive
+  
+  // Investment Limits
+  minInvestment: decimal("min_investment", { precision: 18, scale: 2 }).notNull(),
+  maxInvestment: decimal("max_investment", { precision: 18, scale: 2 }), // null = no limit
+  minInvestmentLotSize: decimal("min_investment_lot_size", { precision: 18, scale: 2 }), // Face value lot
+  
+  // Accredited Investor Requirements (for complex products)
+  requiresAccreditedInvestor: boolean("requires_accredited_investor").default(false),
+  minNetWorth: decimal("min_net_worth", { precision: 18, scale: 2 }),
+  minAnnualIncome: decimal("min_annual_income", { precision: 18, scale: 2 }),
+  minPortfolioValue: decimal("min_portfolio_value", { precision: 18, scale: 2 }),
+  
+  // Age/Experience Requirements
+  minAge: integer("min_age"),
+  maxAge: integer("max_age"),
+  minInvestmentExperienceYears: integer("min_investment_experience_years"),
+  
+  // Credit Rating Requirements
+  minCreditRating: varchar("min_credit_rating"), // AAA, AA+, AA, A+, A, BBB, etc.
+  
+  // Risk Disclosure Requirements
+  requiresRiskDisclosure: boolean("requires_risk_disclosure").default(true),
+  riskDisclosureType: varchar("risk_disclosure_type").default("standard"), // standard, enhanced, complex_product
+  
+  // Suitability Assessment
+  requiresSuitabilityAssessment: boolean("requires_suitability_assessment").default(false),
+  suitabilityScoreThreshold: integer("suitability_score_threshold"),
+  
+  // Cooling-off Period (days to cancel)
+  coolingOffPeriodDays: integer("cooling_off_period_days").default(0),
+  
+  // Regulatory Constraints
+  regulatoryBody: varchar("regulatory_body"), // SEBI, RBI, IRDAI
+  regulatoryCircular: varchar("regulatory_circular"), // Reference to circular
+  complianceNotes: text("compliance_notes"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_eligibility_product").on(table.productCategory),
+  index("idx_eligibility_kyc").on(table.minKycTier),
+  index("idx_eligibility_isin").on(table.isin),
+  index("idx_eligibility_active").on(table.isActive),
+]);
+
+export const insertProductEligibilityRuleSchema = createInsertSchema(productEligibilityRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type ProductEligibilityRule = typeof productEligibilityRules.$inferSelect;
+export type InsertProductEligibilityRule = z.infer<typeof insertProductEligibilityRuleSchema>;
+
+// Investment Limit Override Proposals (Admin/Partner/Agent can propose)
+export const investmentLimitOverrideProposals = pgTable("investment_limit_override_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Target User
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Product/Category
+  productCategory: varchar("product_category").notNull(),
+  productSubCategory: varchar("product_sub_category"),
+  isin: varchar("isin"), // Specific product if applicable
+  
+  // Override Type
+  overrideType: varchar("override_type").notNull(), // investment_limit, investor_type, kyc_tier, risk_profile
+  
+  // Current vs Proposed Values
+  currentInvestorType: varchar("current_investor_type"),
+  proposedInvestorType: varchar("proposed_investor_type"),
+  
+  currentMinInvestment: decimal("current_min_investment", { precision: 18, scale: 2 }),
+  proposedMinInvestment: decimal("proposed_min_investment", { precision: 18, scale: 2 }),
+  
+  currentMaxInvestment: decimal("current_max_investment", { precision: 18, scale: 2 }),
+  proposedMaxInvestment: decimal("proposed_max_investment", { precision: 18, scale: 2 }),
+  
+  currentBrokeragePercent: decimal("current_brokerage_percent", { precision: 8, scale: 4 }),
+  proposedBrokeragePercent: decimal("proposed_brokerage_percent", { precision: 8, scale: 4 }),
+  
+  // Justification
+  justification: text("justification").notNull(),
+  supportingDocuments: jsonb("supporting_documents").default([]),
+  
+  // Risk Assessment
+  riskAssessmentNotes: text("risk_assessment_notes"),
+  complianceReviewNotes: text("compliance_review_notes"),
+  
+  // Validity Period
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  
+  // Proposer Details
+  proposedBy: varchar("proposed_by").references(() => users.id).notNull(),
+  proposerRole: varchar("proposer_role").notNull(), // admin, partner, agent
+  proposedAt: timestamp("proposed_at").defaultNow(),
+  
+  // Approval Workflow
+  status: varchar("status").default("pending"), // pending, under_review, approved, rejected, expired, revoked
+  
+  // Level 1 Review (Compliance)
+  level1ReviewedBy: varchar("level1_reviewed_by").references(() => users.id),
+  level1ReviewedAt: timestamp("level1_reviewed_at"),
+  level1Status: varchar("level1_status"), // approved, rejected, escalated
+  level1Notes: text("level1_notes"),
+  
+  // Level 2 Review (Senior Management)
+  level2ReviewedBy: varchar("level2_reviewed_by").references(() => users.id),
+  level2ReviewedAt: timestamp("level2_reviewed_at"),
+  level2Status: varchar("level2_status"), // approved, rejected
+  level2Notes: text("level2_notes"),
+  
+  // Final Approval
+  finalApprovedBy: varchar("final_approved_by").references(() => users.id),
+  finalApprovedAt: timestamp("final_approved_at"),
+  finalApprovalNotes: text("final_approval_notes"),
+  
+  // Rejection/Revocation
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  revokedBy: varchar("revoked_by").references(() => users.id),
+  revokedAt: timestamp("revoked_at"),
+  revocationReason: text("revocation_reason"),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_override_user").on(table.userId),
+  index("idx_override_status").on(table.status),
+  index("idx_override_proposer").on(table.proposedBy),
+  index("idx_override_product").on(table.productCategory),
+]);
+
+export const insertInvestmentLimitOverrideProposalSchema = createInsertSchema(investmentLimitOverrideProposals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InvestmentLimitOverrideProposal = typeof investmentLimitOverrideProposals.$inferSelect;
+export type InsertInvestmentLimitOverrideProposal = z.infer<typeof insertInvestmentLimitOverrideProposalSchema>;
+
+// Active Investment Limit Overrides (approved and currently in effect)
+export const activeInvestmentLimitOverrides = pgTable("active_investment_limit_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to Proposal
+  proposalId: varchar("proposal_id").references(() => investmentLimitOverrideProposals.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Override Details
+  productCategory: varchar("product_category").notNull(),
+  productSubCategory: varchar("product_sub_category"),
+  isin: varchar("isin"),
+  
+  overrideType: varchar("override_type").notNull(),
+  overrideValue: jsonb("override_value").notNull(), // Flexible JSON for different override types
+  
+  // Validity
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_active_override_user").on(table.userId),
+  index("idx_active_override_product").on(table.productCategory),
+  index("idx_active_override_active").on(table.isActive),
+]);
+
+export type ActiveInvestmentLimitOverride = typeof activeInvestmentLimitOverrides.$inferSelect;
+
+// Risk Disclosure Templates (by product type)
+export const riskDisclosureTemplates = pgTable("risk_disclosure_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Template Identification
+  templateCode: varchar("template_code").notNull().unique(),
+  templateName: varchar("template_name").notNull(),
+  
+  // Product Category
+  productCategory: varchar("product_category").notNull(),
+  productSubCategory: varchar("product_sub_category"),
+  
+  // Disclosure Type
+  disclosureType: varchar("disclosure_type").notNull(), // standard, enhanced, complex_product, mld, aif
+  
+  // Content (supports i18n)
+  disclosureTitle: varchar("disclosure_title").notNull(),
+  disclosureContent: text("disclosure_content").notNull(), // HTML/Markdown content
+  disclosureContentHindi: text("disclosure_content_hindi"), // Hindi translation
+  
+  // Risk Factors
+  riskFactors: jsonb("risk_factors").default([]), // Array of specific risks
+  
+  // Regulatory Requirements
+  regulatoryBody: varchar("regulatory_body"), // SEBI, RBI
+  regulatoryReference: varchar("regulatory_reference"),
+  mandatoryForInvestorTypes: text("mandatory_for_investor_types").array().default(sql`'{}'::text[]`),
+  
+  // Acknowledgment Requirements
+  requiresExplicitAcknowledgment: boolean("requires_explicit_acknowledgment").default(true),
+  requiresDigitalSignature: boolean("requires_digital_signature").default(false),
+  acknowledgmentValidityDays: integer("acknowledgment_validity_days").default(365),
+  
+  // Status
+  version: integer("version").default(1),
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_disclosure_template_code").on(table.templateCode),
+  index("idx_disclosure_product").on(table.productCategory),
+  index("idx_disclosure_type").on(table.disclosureType),
+]);
+
+export const insertRiskDisclosureTemplateSchema = createInsertSchema(riskDisclosureTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type RiskDisclosureTemplate = typeof riskDisclosureTemplates.$inferSelect;
+export type InsertRiskDisclosureTemplate = z.infer<typeof insertRiskDisclosureTemplateSchema>;
+
+// Regulatory Constraint Violations Log
+export const regulatoryViolationLogs = pgTable("regulatory_violation_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User/Transaction
+  userId: varchar("user_id").references(() => users.id),
+  transactionId: varchar("transaction_id"),
+  orderId: varchar("order_id"),
+  
+  // Violation Details
+  violationType: varchar("violation_type").notNull(), // kyc_insufficient, investment_limit_exceeded, product_ineligible, risk_profile_mismatch
+  violationCode: varchar("violation_code").notNull(),
+  violationDescription: text("violation_description").notNull(),
+  
+  // Product Context
+  productCategory: varchar("product_category"),
+  isin: varchar("isin"),
+  
+  // Attempted Values
+  attemptedAmount: decimal("attempted_amount", { precision: 18, scale: 2 }),
+  allowedLimit: decimal("allowed_limit", { precision: 18, scale: 2 }),
+  
+  // Regulatory Reference
+  regulatoryRule: varchar("regulatory_rule"),
+  
+  // Resolution
+  resolutionStatus: varchar("resolution_status").default("blocked"), // blocked, overridden, resolved
+  resolutionNotes: text("resolution_notes"),
+  overrideProposalId: varchar("override_proposal_id").references(() => investmentLimitOverrideProposals.id),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+}, (table) => [
+  index("idx_violation_user").on(table.userId),
+  index("idx_violation_type").on(table.violationType),
+  index("idx_violation_date").on(table.createdAt),
+]);
+
+export type RegulatoryViolationLog = typeof regulatoryViolationLogs.$inferSelect;

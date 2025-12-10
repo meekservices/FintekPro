@@ -264,6 +264,10 @@ app.use((req, res, next) => {
   const bondMarketplaceImprovements = await import('./routes/bond-marketplace-improvements');
   app.use('/api/bonds', bondMarketplaceImprovements.default);
   
+  // Register Regulatory Framework routes (SEBI/RBI Investor Classification, Brokerage, Eligibility, Overrides)
+  const regulatoryFrameworkRoutes = await import('./routes/regulatory-framework-routes');
+  app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
+  
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');
