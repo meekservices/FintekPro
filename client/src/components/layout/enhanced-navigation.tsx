@@ -170,7 +170,7 @@ export function EnhancedNavigation() {
           ]
         },
         {
-          name: "Tools & Calculators",
+          name: "Tools & Reports",
           icon: Calculator,
           description: "Financial planning and analysis tools",
           subItems: [
