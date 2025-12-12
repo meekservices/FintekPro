@@ -175,6 +175,21 @@ const reportCategories: ReportCategory[] = [
       { name: 'CAMS CAS', url: 'https://www.camsonline.com/', description: 'Capital Gains Report' },
     ]
   },
+  {
+    id: 'transactions',
+    title: 'Order History',
+    description: 'All mutual fund buy/sell orders, SIPs, switches, and settlement status',
+    icon: Receipt,
+    color: 'purple',
+    reports: [
+      { id: 'mf-orders', name: 'MF Order History', description: 'All mutual fund transactions with settlement status', apiSource: 'FintekPro Order Management', requiresKYC: false, kycLevel: 0, formats: ['PDF', 'XLSX'], status: 'available' },
+      { id: 'sip-orders', name: 'SIP Order History', description: 'Systematic Investment Plan orders and installments', apiSource: 'FintekPro SIP Module', requiresKYC: false, kycLevel: 0, formats: ['PDF', 'XLSX'], status: 'available' },
+      { id: 'contract-notes', name: 'Contract Notes', description: 'Digital contract notes for executed orders', apiSource: 'BSE STAR MF', requiresKYC: true, kycLevel: 1, formats: ['PDF'], status: 'available' },
+    ],
+    externalSources: [
+      { name: 'BSE STAR MF', url: 'https://www.bsestarmf.in/', description: 'Order Status & Contract Notes' },
+    ]
+  },
 ];
 
 const colorClasses: Record<string, { bg: string; border: string; text: string; iconBg: string }> = {
@@ -211,6 +226,12 @@ export default function ReportsHub() {
   });
 
   const portfolioId = (portfolios && Array.isArray(portfolios) && portfolios.length > 0) ? portfolios[0]?.id : '';
+
+  // Fetch MF Orders for transactions tab
+  const { data: mfOrders, isLoading: isLoadingOrders } = useQuery({
+    queryKey: ['/api/mf-orders'],
+    enabled: !!user?.id && activeCategory === 'transactions',
+  });
 
   // Extract KYC data from correct API response structure
   const kycData = (kycStatus as any)?.data;
@@ -472,6 +493,73 @@ export default function ReportsHub() {
                       </div>
                     );
                   })}
+
+                  {/* Live Transactions Table for Transactions Category */}
+                  {activeCategory === 'transactions' && (
+                    <div className="mt-6 pt-6 border-t">
+                      <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Receipt className="w-5 h-5 text-purple-600" />
+                        Recent Transactions
+                      </h4>
+                      {isLoadingOrders ? (
+                        <div className="space-y-3">
+                          {[1, 2, 3].map((i) => (
+                            <Skeleton key={i} className="h-16 w-full" />
+                          ))}
+                        </div>
+                      ) : (mfOrders as any)?.orders?.length > 0 ? (
+                        <div className="space-y-3">
+                          {((mfOrders as any)?.orders || []).slice(0, 10).map((order: any) => (
+                            <div key={order.id} className="p-4 rounded-lg border bg-white hover:bg-gray-50 transition-colors" data-testid={`order-${order.id}`}>
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant={
+                                      order.orderType === 'buy' || order.orderType === 'lumpsum' ? 'default' :
+                                      order.orderType === 'sell' || order.orderType === 'redemption' ? 'destructive' :
+                                      order.orderType === 'sip' ? 'secondary' : 'outline'
+                                    } className="text-xs">
+                                      {order.orderType?.toUpperCase()}
+                                    </Badge>
+                                    <Badge variant="outline" className={
+                                      order.status === 'executed' || order.status === 'settled' ? 'border-green-300 text-green-700' :
+                                      order.status === 'failed' || order.status === 'rejected' ? 'border-red-300 text-red-700' :
+                                      order.status === 'processing' || order.status === 'placed' ? 'border-blue-300 text-blue-700' :
+                                      'border-gray-300 text-gray-700'
+                                    }>
+                                      {order.status}
+                                    </Badge>
+                                  </div>
+                                  <p className="font-medium text-gray-900 text-sm">{order.schemeName || 'Mutual Fund Order'}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {order.folioNumber && `Folio: ${order.folioNumber} • `}
+                                    {new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-bold text-gray-900">
+                                    ₹{parseFloat(order.amount || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  </p>
+                                  {order.units && (
+                                    <p className="text-xs text-muted-foreground">{parseFloat(order.units).toFixed(3)} units</p>
+                                  )}
+                                  {order.navApplied && (
+                                    <p className="text-xs text-muted-foreground">NAV: ₹{parseFloat(order.navApplied).toFixed(4)}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                          <p>No transactions found</p>
+                          <p className="text-sm mt-1">Your mutual fund orders will appear here</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

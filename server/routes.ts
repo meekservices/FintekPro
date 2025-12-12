@@ -10,7 +10,7 @@ declare global {
     }
   }
 }
-import { sql, eq, and, or, like } from "drizzle-orm";
+import { sql, eq, and, or, like, desc, asc, count } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
@@ -13473,7 +13473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds", async (req, res) => {
     try {
       const { 
         category, 
@@ -13574,7 +13574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/popular", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/popular", async (req, res) => {
     try {
       console.log("📈 Fetching best performing mutual funds with MultiSource service...");
       
@@ -13728,7 +13728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/:schemeCode", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/:schemeCode", async (req, res) => {
     try {
       const { schemeCode } = req.params;
       console.log(`📊 Fetching fund details for scheme: ${schemeCode} with MultiSource service`);
@@ -13908,7 +13908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/mutual-funds/search/:query", requireLevel2, async (req, res) => {
+  app.get("/api/mutual-funds/search/:query", async (req, res) => {
     try {
       const { query } = req.params;
       console.log(`🔍 Searching funds with query: ${query}`);
