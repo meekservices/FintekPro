@@ -264,6 +264,17 @@ app.use((req, res, next) => {
   const bondMarketplaceImprovements = await import('./routes/bond-marketplace-improvements');
   app.use('/api/bonds', bondMarketplaceImprovements.default);
   
+  // Register Bond Financial Calendar routes (Issuances, Maturities, Auctions)
+  const bondCalendarRoutes = await import('./routes/bond-calendar-routes');
+  app.use('/api/bond-calendar', bondCalendarRoutes.default);
+  
+  // Initialize Financial Calendar Service
+  import('./services/financial-calendar-service').then(({ financialCalendarService }) => {
+    financialCalendarService.initialize().catch(err => {
+      console.error('Failed to initialize financial calendar service:', err);
+    });
+  });
+  
   // Register Regulatory Framework routes (SEBI/RBI Investor Classification, Brokerage, Eligibility, Overrides)
   const regulatoryFrameworkRoutes = await import('./routes/regulatory-framework-routes');
   app.use('/api/regulatory', regulatoryFrameworkRoutes.default);

@@ -13148,3 +13148,106 @@ export const regulatoryViolationLogs = pgTable("regulatory_violation_logs", {
 ]);
 
 export type RegulatoryViolationLog = typeof regulatoryViolationLogs.$inferSelect;
+
+// =============================================================================
+// BOND FINANCIAL CALENDAR - Issuances, Maturities, and Events
+// =============================================================================
+
+// Event types for the bond calendar
+export const bondCalendarEventTypes = [
+  "issuance",           // New bond being issued/offered
+  "maturity",           // Bond maturing
+  "coupon_payment",     // Interest payment date
+  "call_date",          // Callable bond call date
+  "put_date",           // Puttable bond put date
+  "record_date",        // Record date for coupon
+  "listing_date",       // Bond listing on exchange
+  "ipo_open",           // Bond IPO/NCD subscription opens
+  "ipo_close",          // Bond IPO/NCD subscription closes
+  "allotment_date",     // Allotment announcement
+  "refund_initiation",  // Refund process begins
+  "auction",            // RBI G-Sec auction
+] as const;
+export type BondCalendarEventType = typeof bondCalendarEventTypes[number];
+
+// Source types for calendar data
+export const bondCalendarSourceTypes = [
+  "rbi",                // RBI G-Sec auction calendar
+  "sebi",               // SEBI public issue calendar
+  "nse",                // NSE bond listings
+  "bse",                // BSE bond listings
+  "manual",             // Manually added events
+  "internal",           // Derived from existing bond data
+] as const;
+export type BondCalendarSourceType = typeof bondCalendarSourceTypes[number];
+
+// Bond Calendar Events table
+export const bondCalendarEvents = pgTable("bond_calendar_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Event Identification
+  eventType: varchar("event_type").notNull(), // issuance, maturity, coupon_payment, etc.
+  eventTitle: varchar("event_title").notNull(),
+  eventDescription: text("event_description"),
+  
+  // Timing
+  eventDate: date("event_date").notNull(),
+  eventTime: varchar("event_time"), // HH:MM format if specific time known
+  endDate: date("end_date"), // For events spanning multiple days (IPO open/close period)
+  
+  // Bond/Instrument Reference
+  isin: varchar("isin"),
+  instrumentName: varchar("instrument_name").notNull(),
+  instrumentType: varchar("instrument_type").notNull(), // gsec, tbill, sdl, sgb, corporate_bond, ncd, infrastructure_bond
+  
+  // Issuer Information
+  issuerName: varchar("issuer_name"),
+  issuerType: varchar("issuer_type"), // government, psu, corporate, bank, nbfc
+  
+  // Financial Details
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }),
+  issueSize: decimal("issue_size", { precision: 18, scale: 2 }), // Total issue amount in crores
+  couponRate: decimal("coupon_rate", { precision: 6, scale: 3 }),
+  yieldIndicative: decimal("yield_indicative", { precision: 8, scale: 4 }),
+  creditRating: varchar("credit_rating"), // AAA, AA+, etc.
+  
+  // For IPO/NCD issuances
+  minInvestment: decimal("min_investment", { precision: 15, scale: 2 }),
+  maxInvestment: decimal("max_investment", { precision: 18, scale: 2 }),
+  lotSize: integer("lot_size"),
+  retailQuota: decimal("retail_quota", { precision: 5, scale: 2 }), // Percentage for retail investors
+  
+  // Source and External Reference
+  source: varchar("source").notNull(), // rbi, sebi, nse, bse, manual, internal
+  sourceUrl: text("source_url"), // Link to official announcement
+  externalId: varchar("external_id"), // ID from source system
+  
+  // Status
+  status: varchar("status").default("upcoming"), // upcoming, ongoing, completed, cancelled
+  isHighlighted: boolean("is_highlighted").default(false), // Feature on dashboard
+  
+  // Metadata
+  tags: text("tags").array().default(sql`'{}'::text[]`), // tax-free, green-bond, sovereign, etc.
+  additionalInfo: jsonb("additional_info").default({}), // Flexible additional data
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastSyncedAt: timestamp("last_synced_at"),
+}, (table) => [
+  index("idx_bond_calendar_date").on(table.eventDate),
+  index("idx_bond_calendar_type").on(table.eventType),
+  index("idx_bond_calendar_instrument").on(table.instrumentType),
+  index("idx_bond_calendar_status").on(table.status),
+  index("idx_bond_calendar_source").on(table.source),
+  index("idx_bond_calendar_isin").on(table.isin),
+]);
+
+export const insertBondCalendarEventSchema = createInsertSchema(bondCalendarEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BondCalendarEvent = typeof bondCalendarEvents.$inferSelect;
+export type InsertBondCalendarEvent = z.infer<typeof insertBondCalendarEventSchema>;
