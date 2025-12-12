@@ -244,16 +244,40 @@ function MfCartTab({ onCheckout }: { onCheckout: () => void }) {
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('/api/cart/checkout', { method: 'POST' });
+      const results = [];
+      for (const item of cartItems) {
+        if (item.proposalId) {
+          const result = await apiRequest(`/api/proposals/${item.proposalId}/complete-order`, { 
+            method: 'POST',
+            body: JSON.stringify({ orderType: 'LUMPSUM' })
+          });
+          results.push(result);
+          await apiRequest(`/api/cart/items/${item.id}`, { method: 'DELETE' });
+        } else if (item.productId) {
+          const orderData = {
+            productId: item.productId,
+            amount: item.investmentAmount || item.quantity,
+            orderType: 'LUMPSUM'
+          };
+          await apiRequest('/api/store/orders', { method: 'POST', body: JSON.stringify(orderData) });
+          await apiRequest(`/api/cart/items/${item.id}`, { method: 'DELETE' });
+        }
+      }
+      return results;
     },
     onSuccess: () => {
-      toast({ title: "Order Placed!", description: "Your mutual fund order has been submitted" });
+      toast({ title: "Order Placed!", description: "Your mutual fund order has been submitted for processing" });
       queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
       queryClient.invalidateQueries({ queryKey: ['/api/mf/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
       onCheckout();
     },
-    onError: () => {
-      toast({ title: "Checkout Failed", description: "Please try again or contact support", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ 
+        title: "Checkout Error", 
+        description: error?.message || "Some items could not be processed. Please try again.", 
+        variant: "destructive" 
+      });
     }
   });
 
