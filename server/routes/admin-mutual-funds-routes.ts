@@ -1020,4 +1020,46 @@ router.post("/amcs/sync", async (req: Request, res: Response) => {
   }
 });
 
+// AMFI Data Import Endpoints
+router.post("/amfi-import", async (req: Request, res: Response) => {
+  try {
+    const { amfiImportService } = await import('../services/amfi-import-service');
+    
+    const currentProgress = amfiImportService.getImportProgress();
+    if (currentProgress.status === 'fetching' || currentProgress.status === 'parsing' || currentProgress.status === 'importing') {
+      return res.status(409).json({
+        success: false,
+        error: 'Import already in progress',
+        progress: currentProgress,
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'AMFI import started',
+    });
+    
+    amfiImportService.importAmfiData().then((result) => {
+      console.log('[Admin MF] AMFI Import completed:', result);
+    }).catch((error) => {
+      console.error('[Admin MF] AMFI Import failed:', error);
+    });
+    
+  } catch (error: any) {
+    console.error("[Admin MF] Error starting AMFI import:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/amfi-import/progress", async (req: Request, res: Response) => {
+  try {
+    const { amfiImportService } = await import('../services/amfi-import-service');
+    const progress = amfiImportService.getImportProgress();
+    res.json({ success: true, progress });
+  } catch (error: any) {
+    console.error("[Admin MF] Error getting import progress:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;
