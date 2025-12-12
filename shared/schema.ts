@@ -4510,8 +4510,61 @@ export const storeCategories: any = pgTable("store_categories", {
   parentCategoryId: varchar("parent_category_id"),
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
+  // Category availability controls
+  isEnabled: boolean("is_enabled").default(true), // Master toggle for category visibility
+  comingSoonMessage: text("coming_soon_message"), // Message shown when category is disabled
+  comingSoonExpectedDate: date("coming_soon_expected_date"), // Expected availability date
+  // Direct fund controls for this category
+  directFundsEnabled: boolean("direct_funds_enabled").default(false), // Toggle for Direct plan visibility
+  requiresAdvisorySubscription: boolean("requires_advisory_subscription").default(true), // Whether Direct funds need advisory subscription
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Advisory Subscription Plans - Track client subscriptions for Direct fund access
+export const advisorySubscriptions = pgTable("advisory_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Client information
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Plan details
+  planName: varchar("plan_name").notNull(), // 'basic', 'premium', 'elite', 'family'
+  planType: varchar("plan_type").notNull(), // 'individual', 'family', 'corporate'
+  
+  // Subscription status
+  status: varchar("status").notNull().default("active"), // 'active', 'expired', 'cancelled', 'pending', 'suspended'
+  
+  // Validity period
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  
+  // Fee structure
+  subscriptionFee: decimal("subscription_fee", { precision: 15, scale: 2 }),
+  feeFrequency: varchar("fee_frequency").default("annual"), // 'monthly', 'quarterly', 'annual'
+  lastPaymentDate: date("last_payment_date"),
+  nextPaymentDate: date("next_payment_date"),
+  
+  // Direct fund access
+  directFundsAccess: boolean("direct_funds_access").default(true), // Whether this plan includes Direct fund access
+  maxDirectFundInvestment: decimal("max_direct_fund_investment", { precision: 15, scale: 2 }), // Optional investment limit
+  
+  // Categories included (null means all enabled categories)
+  includedCategories: text("included_categories").array(), // Array of category slugs
+  
+  // Enrolled by
+  enrolledBy: varchar("enrolled_by").references(() => users.id), // Admin/Partner/Agent who enrolled the client
+  enrolledByRole: varchar("enrolled_by_role"), // 'admin', 'partner', 'agent'
+  
+  // Additional metadata
+  notes: text("notes"),
+  metadata: jsonb("metadata"), // Additional plan-specific data
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
 });
 
 export const storeProducts = pgTable("store_products", {
@@ -4635,6 +4688,12 @@ export const insertStoreCategorySchema = createInsertSchema(storeCategories).omi
   updatedAt: true,
 });
 
+export const insertAdvisorySubscriptionSchema = createInsertSchema(advisorySubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertStoreProductSchema = createInsertSchema(storeProducts).omit({
   id: true,
   createdAt: true,
@@ -4684,6 +4743,8 @@ export const insertUserCartItemSchema = createInsertSchema(userCartItems).omit({
 // Export types for Product Store
 export type StoreCategory = typeof storeCategories.$inferSelect;
 export type InsertStoreCategory = z.infer<typeof insertStoreCategorySchema>;
+export type AdvisorySubscription = typeof advisorySubscriptions.$inferSelect;
+export type InsertAdvisorySubscription = z.infer<typeof insertAdvisorySubscriptionSchema>;
 export type StoreProduct = typeof storeProducts.$inferSelect;
 export type InsertStoreProduct = z.infer<typeof insertStoreProductSchema>;
 export type StoreProductImage = typeof storeProductImages.$inferSelect;
