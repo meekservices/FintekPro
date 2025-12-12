@@ -8,7 +8,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle } from "lucide-react";
+import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle, Store, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type MutualFundData } from "@/hooks/use-mutual-funds";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNSEIndices, useMarketMovers, useMarketStatus } from "@/hooks/use-market-data";
@@ -127,7 +127,7 @@ export default function MutualFunds() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilterCategory, setSelectedFilterCategory] = useState("All");
   const [selectedRisk, setSelectedRisk] = useState("all");
-  const [activeTab, setActiveTab] = useState("explore");
+  const [activeTab, setActiveTab] = useState("store");
   const allFundsRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -139,6 +139,32 @@ export default function MutualFunds() {
   const { data: sebiMutualFunds, isLoading: isSEBILoading } = useQuery({
     queryKey: ["/api/sebi/mutual-funds"],
     refetchInterval: 3600000, // Refresh every hour
+  });
+
+  // Store tab state
+  const [storeSearchTerm, setStoreSearchTerm] = useState("");
+  const [storeCategory, setStoreCategory] = useState("all");
+  const [storeFundHouse, setStoreFundHouse] = useState("all");
+  const [storePlanType, setStorePlanType] = useState("regular");
+  const [storePage, setStorePage] = useState(1);
+  
+  // Fetch published mutual funds from store (public API - no auth required)
+  const { data: publishedFundsData, isLoading: isLoadingPublished, error: publishedError, refetch: refetchPublished } = useQuery({
+    queryKey: ["/api/public/mutual-funds", storeCategory, storeFundHouse, storePlanType, storeSearchTerm, storePage],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: storePage.toString(),
+        limit: '24',
+        planType: storePlanType,
+        ...(storeCategory !== 'all' && { category: storeCategory }),
+        ...(storeFundHouse !== 'all' && { fundHouse: storeFundHouse }),
+        ...(storeSearchTerm && { search: storeSearchTerm })
+      });
+      const res = await fetch(`/api/public/mutual-funds?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch published funds');
+      return res.json();
+    },
+    staleTime: 60000, // 1 minute
   });
 
   // Market data hooks with dataUpdatedAt for accurate timestamps
@@ -1048,7 +1074,15 @@ export default function MutualFunds() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <ScrollableTabsList className="grid w-full grid-cols-5 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+          <ScrollableTabsList className="grid w-full grid-cols-6 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+            <TabsTrigger 
+              value="store" 
+              data-testid="tab-store"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+            >
+              <Store className="w-4 h-4" />
+              Store
+            </TabsTrigger>
             <TabsTrigger 
               value="explore" 
               data-testid="tab-explore"
@@ -1090,6 +1124,275 @@ export default function MutualFunds() {
               Tools
             </TabsTrigger>
           </ScrollableTabsList>
+
+          {/* Store Tab - Published Funds from Database */}
+          <TabsContent value="store" className="space-y-6" data-testid="store-funds">
+            {/* Store Header & Filters */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Store className="w-6 h-6 text-finance-blue" />
+                    Mutual Fund Store
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1">
+                    Browse and invest in SEBI-registered mutual fund schemes
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-900/20">
+                    <Shield className="w-3 h-3 mr-1" />
+                    AMFI Registered
+                  </Badge>
+                  <Badge variant="secondary">
+                    {publishedFundsData?.pagination?.total || 0} Schemes
+                  </Badge>
+                </div>
+              </div>
+              
+              {/* Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search schemes..."
+                    value={storeSearchTerm}
+                    onChange={(e) => {
+                      setStoreSearchTerm(e.target.value);
+                      setStorePage(1);
+                    }}
+                    className="pl-10"
+                    data-testid="store-search-input"
+                  />
+                </div>
+                
+                <Select value={storePlanType} onValueChange={(v) => { setStorePlanType(v); setStorePage(1); }}>
+                  <SelectTrigger data-testid="store-plan-type-select">
+                    <SelectValue placeholder="Plan Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="regular">Regular Plans</SelectItem>
+                    <SelectItem value="direct">Direct Plans</SelectItem>
+                    <SelectItem value="all">All Plans</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={storeFundHouse} onValueChange={(v) => { setStoreFundHouse(v); setStorePage(1); }}>
+                  <SelectTrigger data-testid="store-fund-house-select">
+                    <SelectValue placeholder="Fund House" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Fund Houses</SelectItem>
+                    {publishedFundsData?.filters?.fundHouses?.map((house: string) => (
+                      <SelectItem key={house} value={house}>{house}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={storeCategory} onValueChange={(v) => { setStoreCategory(v); setStorePage(1); }}>
+                  <SelectTrigger data-testid="store-category-select">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {publishedFundsData?.filters?.categories?.map((cat: string) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Funds Grid */}
+            {isLoadingPublished ? (
+              <LoadingState variant="card" count={6} />
+            ) : publishedError ? (
+              <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+                  <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">No Published Funds Yet</h3>
+                  <p className="text-amber-700 dark:text-amber-300 text-center max-w-md">
+                    Mutual fund schemes will appear here once they are published by the admin. 
+                    Please import funds from AMFI and enable AMC publishing in the admin portal.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => refetchPublished()}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : publishedFundsData?.funds?.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {publishedFundsData.funds.map((fund: any) => (
+                    <Card 
+                      key={fund.id} 
+                      className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border border-gray-200 dark:border-gray-700"
+                      data-testid={`store-fund-card-${fund.schemeCode}`}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <h3 className="font-bold text-gray-900 dark:text-white line-clamp-2 group-hover:text-finance-blue transition-colors">
+                              {fund.schemeName}
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-1">
+                              <Building2 className="w-3 h-3" />
+                              {fund.fundHouse}
+                            </p>
+                          </div>
+                          <Badge 
+                            variant={fund.planType === 'direct' ? 'default' : 'secondary'}
+                            className={fund.planType === 'direct' ? 'bg-green-600' : ''}
+                          >
+                            {fund.planType === 'direct' ? 'Direct' : 'Regular'}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 mb-4">
+                          {fund.category && (
+                            <Badge variant="outline" className="text-xs">
+                              {fund.category}
+                            </Badge>
+                          )}
+                          {fund.riskLevel && (
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                fund.riskLevel === 'low' ? 'text-green-600 border-green-300' :
+                                fund.riskLevel === 'medium' ? 'text-amber-600 border-amber-300' :
+                                'text-red-600 border-red-300'
+                              }`}
+                            >
+                              {fund.riskLevel} risk
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">NAV</p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              ₹{parseFloat(fund.nav || '0').toFixed(2)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">1Y Returns</p>
+                            <p className={`text-lg font-bold ${
+                              parseFloat(fund.returns1y || '0') >= 0 
+                                ? 'text-green-600 dark:text-green-400' 
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {parseFloat(fund.returns1y || '0') >= 0 ? '+' : ''}
+                              {parseFloat(fund.returns1y || '0').toFixed(2)}%
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {fund.rating && (
+                          <div className="flex items-center gap-1 mb-4">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`w-4 h-4 ${star <= fund.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                              />
+                            ))}
+                            <span className="text-xs text-gray-500 ml-1">FintekPro Rating</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            className="flex-1 bg-finance-blue hover:bg-blue-600"
+                            onClick={() => handleInvestClick({
+                              schemeCode: fund.schemeCode,
+                              schemeName: fund.schemeName,
+                              fundHouse: fund.fundHouse,
+                              category: fund.category,
+                              nav: fund.nav,
+                              change: fund.change || '0',
+                              changePercent: fund.changePercent || '0'
+                            } as MutualFundData)}
+                            data-testid={`store-invest-${fund.schemeCode}`}
+                          >
+                            Invest Now
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            data-testid={`store-details-${fund.schemeCode}`}
+                          >
+                            Details
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                {/* Pagination */}
+                {publishedFundsData.pagination?.totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 pt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={storePage <= 1}
+                      onClick={() => setStorePage(p => Math.max(1, p - 1))}
+                      data-testid="store-prev-page"
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Page {storePage} of {publishedFundsData.pagination.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={storePage >= publishedFundsData.pagination.totalPages}
+                      onClick={() => setStorePage(p => p + 1)}
+                      data-testid="store-next-page"
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <Card className="border-dashed border-2 border-gray-300 dark:border-gray-600">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <Store className="h-16 w-16 text-gray-400 mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    No Published Funds
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-4">
+                    {storeSearchTerm || storeCategory !== 'all' || storeFundHouse !== 'all'
+                      ? 'No funds match your current filters. Try adjusting your search criteria.'
+                      : 'Mutual fund schemes will appear here once they are imported and published by the admin.'}
+                  </p>
+                  {(storeSearchTerm || storeCategory !== 'all' || storeFundHouse !== 'all') && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setStoreSearchTerm('');
+                        setStoreCategory('all');
+                        setStoreFundHouse('all');
+                        setStorePage(1);
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-funds">
             
