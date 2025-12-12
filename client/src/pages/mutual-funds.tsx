@@ -1077,11 +1077,11 @@ export default function MutualFunds() {
           <ScrollableTabsList className="grid w-full grid-cols-6 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
             <TabsTrigger 
               value="store" 
-              data-testid="tab-store"
+              data-testid="tab-marketplace"
               className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
             >
               <Store className="w-4 h-4" />
-              Store
+              Marketplace
             </TabsTrigger>
             <TabsTrigger 
               value="explore" 
@@ -1133,7 +1133,7 @@ export default function MutualFunds() {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Store className="w-6 h-6 text-finance-blue" />
-                    Mutual Fund Store
+                    Mutual Fund Marketplace
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400 mt-1">
                     Browse and invest in SEBI-registered mutual fund schemes
