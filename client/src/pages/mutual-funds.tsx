@@ -8,7 +8,9 @@ import { LoadingState } from "@/components/LoadingState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle, Store, ChevronLeft, ChevronRight } from "lucide-react";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle, Store, ChevronLeft, ChevronRight, ShoppingCart, ClipboardList, Wallet, IndianRupee, ArrowUpRight, ArrowDownRight, Package, FileText, CheckCircle2, AlertTriangle, Banknote } from "lucide-react";
 import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type MutualFundData } from "@/hooks/use-mutual-funds";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNSEIndices, useMarketMovers, useMarketStatus } from "@/hooks/use-market-data";
@@ -1074,7 +1076,7 @@ export default function MutualFunds() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <ScrollableTabsList className="grid w-full grid-cols-6 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+          <ScrollableTabsList className="grid w-full grid-cols-7 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
             <TabsTrigger 
               value="store" 
               data-testid="tab-marketplace"
@@ -1082,6 +1084,14 @@ export default function MutualFunds() {
             >
               <Store className="w-4 h-4" />
               Marketplace
+            </TabsTrigger>
+            <TabsTrigger 
+              value="orders" 
+              data-testid="tab-orders"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-green transition-all duration-300"
+            >
+              <ClipboardList className="w-4 h-4" />
+              Orders
             </TabsTrigger>
             <TabsTrigger 
               value="explore" 
@@ -1392,6 +1402,343 @@ export default function MutualFunds() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Orders Tab - Order Execution Platform with Two-Column Layout */}
+          <TabsContent value="orders" className="space-y-4" data-testid="orders-section">
+            {/* Order Execution Header */}
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <ClipboardList className="w-5 h-5 text-emerald-600" />
+                    Mutual Fund Order Execution
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                    Place buy/sell orders with SEBI/RBI compliant pre-trade checks
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-900/20">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    KYC Verified
+                  </Badge>
+                  <Badge variant="outline" className="text-blue-600 border-blue-300 bg-blue-50 dark:bg-blue-900/20">
+                    <Shield className="w-3 h-3 mr-1" />
+                    SEBI Compliant
+                  </Badge>
+                  <Badge variant="secondary">
+                    T+3 Settlement
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Two-Column Resizable Layout */}
+            <ResizablePanelGroup direction="horizontal" className="min-h-[700px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              {/* Left Panel - Portfolio Holdings (40%) */}
+              <ResizablePanel defaultSize={40} minSize={30} maxSize={50}>
+                <div className="h-full flex flex-col">
+                  {/* Holdings Header */}
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="w-5 h-5 text-finance-blue" />
+                        <h3 className="font-semibold text-gray-900 dark:text-white">My Holdings</h3>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-xs">
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Sync
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Total Investment</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-1">
+                          <IndianRupee className="w-4 h-4" />
+                          5,45,200
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Current Value</p>
+                        <p className="text-lg font-bold text-emerald-600 flex items-center gap-1">
+                          <IndianRupee className="w-4 h-4" />
+                          6,12,340
+                          <ArrowUpRight className="w-4 h-4" />
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Holdings Table */}
+                  <div className="flex-1 overflow-auto p-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Scheme</TableHead>
+                          <TableHead className="text-xs text-right">Units</TableHead>
+                          <TableHead className="text-xs text-right">Value</TableHead>
+                          <TableHead className="text-xs text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {/* Sample Holdings - Will be replaced with actual data */}
+                        {[
+                          { name: "HDFC Flexi Cap Fund", units: "245.892", value: "₹1,24,500", nav: "506.37", gain: "+12.4%" },
+                          { name: "SBI Blue Chip Fund", units: "189.341", value: "₹98,200", nav: "518.62", gain: "+8.2%" },
+                          { name: "Axis Midcap Fund", units: "156.234", value: "₹1,42,670", nav: "913.21", gain: "+18.6%" },
+                          { name: "ICICI Pru Technology", units: "78.562", value: "₹89,450", nav: "1138.45", gain: "+22.1%" },
+                          { name: "Parag Parikh Flexi", units: "112.893", value: "₹86,320", nav: "764.62", gain: "+15.3%" },
+                        ].map((holding, idx) => (
+                          <TableRow key={idx} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" data-testid={`holding-row-${idx}`}>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-sm text-gray-900 dark:text-white line-clamp-1">{holding.name}</p>
+                                <p className="text-xs text-gray-500">NAV: ₹{holding.nav}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <p className="text-sm font-medium">{holding.units}</p>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{holding.value}</p>
+                              <p className="text-xs text-emerald-600">{holding.gain}</p>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex gap-1 justify-end">
+                                <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-emerald-600 border-emerald-300 hover:bg-emerald-50" data-testid={`buy-btn-${idx}`}>
+                                  <ArrowUpRight className="w-3 h-3 mr-1" />
+                                  Buy
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-red-600 border-red-300 hover:bg-red-50" data-testid={`sell-btn-${idx}`}>
+                                  <ArrowDownRight className="w-3 h-3 mr-1" />
+                                  Sell
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    
+                    {/* Pending Orders Section */}
+                    <div className="mt-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        <h4 className="font-medium text-gray-900 dark:text-white text-sm">Pending Orders</h4>
+                        <Badge variant="secondary" className="text-xs">2</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {[
+                          { scheme: "HDFC Flexi Cap", type: "Buy", amount: "₹25,000", status: "Processing", time: "2 hrs ago" },
+                          { scheme: "Axis Midcap Fund", type: "SIP", amount: "₹10,000/mo", status: "Active", time: "1st of month" },
+                        ].map((order, idx) => (
+                          <div key={idx} className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800" data-testid={`pending-order-${idx}`}>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">{order.scheme}</p>
+                                <p className="text-xs text-gray-500">{order.time}</p>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant={order.type === "Buy" ? "default" : "secondary"} className="text-xs mb-1">
+                                  {order.type}
+                                </Badge>
+                                <p className="text-sm font-medium">{order.amount}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ResizablePanel>
+
+              {/* Resizable Handle */}
+              <ResizableHandle withHandle />
+
+              {/* Right Panel - Order Action Panel (60%) */}
+              <ResizablePanel defaultSize={60} minSize={50} maxSize={70}>
+                <div className="h-full flex flex-col">
+                  {/* Action Panel Header */}
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="w-5 h-5 text-emerald-600" />
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Place Order</h3>
+                    </div>
+                  </div>
+
+                  {/* Order Type Selector */}
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex gap-2">
+                      <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="order-type-buy">
+                        <ArrowUpRight className="w-4 h-4 mr-2" />
+                        Buy / Lumpsum
+                      </Button>
+                      <Button variant="outline" className="flex-1 text-red-600 border-red-300 hover:bg-red-50" data-testid="order-type-sell">
+                        <ArrowDownRight className="w-4 h-4 mr-2" />
+                        Sell / Redeem
+                      </Button>
+                      <Button variant="outline" className="flex-1 text-blue-600 border-blue-300 hover:bg-blue-50" data-testid="order-type-sip">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Start SIP
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Order Form */}
+                  <div className="flex-1 overflow-auto p-4">
+                    <Card className="border-0 shadow-none">
+                      <CardContent className="space-y-4 pt-0">
+                        {/* Scheme Search */}
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                            Search Scheme
+                          </label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <Input
+                              placeholder="Type to search mutual funds..."
+                              className="pl-10"
+                              data-testid="order-scheme-search"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Folio Selection */}
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                            Folio
+                          </label>
+                          <Select>
+                            <SelectTrigger data-testid="order-folio-select">
+                              <SelectValue placeholder="Select or create new folio" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="new">Create New Folio</SelectItem>
+                              <SelectItem value="123456789">123456789 - HDFC AMC</SelectItem>
+                              <SelectItem value="987654321">987654321 - SBI AMC</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Amount Input */}
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                            Investment Amount
+                          </label>
+                          <div className="relative">
+                            <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <Input
+                              type="number"
+                              placeholder="Min. ₹100"
+                              className="pl-10"
+                              data-testid="order-amount-input"
+                            />
+                          </div>
+                          <div className="flex gap-2 mt-2">
+                            {['1,000', '5,000', '10,000', '25,000', '50,000'].map((amt) => (
+                              <Button key={amt} variant="outline" size="sm" className="text-xs flex-1" data-testid={`quick-amount-${amt}`}>
+                                ₹{amt}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Payment Method */}
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                            Payment Method
+                          </label>
+                          <Select>
+                            <SelectTrigger data-testid="order-payment-method">
+                              <SelectValue placeholder="Select payment method" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="netbanking">Net Banking</SelectItem>
+                              <SelectItem value="upi">UPI</SelectItem>
+                              <SelectItem value="neft">NEFT / RTGS</SelectItem>
+                              <SelectItem value="nach">NACH Mandate (SIP)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Compliance Check Card */}
+                        <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800">
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
+                              <div>
+                                <h4 className="font-medium text-emerald-800 dark:text-emerald-200 text-sm">Pre-Trade Compliance</h4>
+                                <ul className="text-xs text-emerald-700 dark:text-emerald-300 mt-2 space-y-1">
+                                  <li className="flex items-center gap-2">
+                                    <CheckCircle2 className="w-3 h-3" /> KYC Status: Verified
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <CheckCircle2 className="w-3 h-3" /> FATCA Declaration: Complete
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <CheckCircle2 className="w-3 h-3" /> Bank Account: Linked
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <CheckCircle2 className="w-3 h-3" /> Risk Profile: Matched
+                                  </li>
+                                </ul>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Order Summary */}
+                        <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                          <CardContent className="p-4">
+                            <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-3">Order Summary</h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Investment Amount</span>
+                                <span className="font-medium">₹10,000.00</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
+                                <span className="font-medium text-emerald-600">₹0.00</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Stamp Duty (0.005%)</span>
+                                <span className="font-medium">₹0.50</span>
+                              </div>
+                              <div className="flex justify-between border-t pt-2 mt-2">
+                                <span className="font-semibold text-gray-900 dark:text-white">Total Payable</span>
+                                <span className="font-bold text-gray-900 dark:text-white">₹10,000.50</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Order Action Footer */}
+                  <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <div className="flex gap-3">
+                      <Button variant="outline" className="flex-1" data-testid="order-cancel">
+                        Cancel
+                      </Button>
+                      <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="order-preview">
+                        <FileText className="w-4 h-4 mr-2" />
+                        Preview Order
+                      </Button>
+                      <Button className="flex-1 bg-finance-blue hover:bg-blue-700 text-white" data-testid="order-submit">
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Place Order
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 text-center mt-3">
+                      By placing this order, you agree to the scheme's Terms & Conditions and KIM/SID documents.
+                    </p>
+                  </div>
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </TabsContent>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-funds">
