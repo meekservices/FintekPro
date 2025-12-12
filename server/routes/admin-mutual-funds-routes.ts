@@ -927,6 +927,43 @@ router.put("/schemes/:schemeCode/publish", async (req: Request, res: Response) =
   }
 });
 
+// Check for missing AMCs (not yet synced to mutual_fund_amcs)
+router.get("/amcs/missing", async (req: Request, res: Response) => {
+  try {
+    // Get all distinct fund houses from mutual_funds
+    const fundHousesInMutualFunds = await db.select({
+      fundHouse: mutualFunds.fundHouse,
+      schemeCount: sql<number>`count(*)`
+    })
+      .from(mutualFunds)
+      .where(sql`fund_house IS NOT NULL AND fund_house != ''`)
+      .groupBy(mutualFunds.fundHouse);
+    
+    // Get all AMCs already in mutual_fund_amcs
+    const existingAmcs = await db.select({ name: mutualFundAmcs.name }).from(mutualFundAmcs);
+    const existingAmcNames = new Set(existingAmcs.map(a => a.name));
+    
+    // Find missing AMCs
+    const missingAmcs = fundHousesInMutualFunds.filter(fh => 
+      fh.fundHouse && !existingAmcNames.has(fh.fundHouse)
+    );
+    
+    res.json({
+      success: true,
+      missingCount: missingAmcs.length,
+      missingAmcs: missingAmcs.map(a => ({
+        name: a.fundHouse,
+        schemeCount: Number(a.schemeCount)
+      })),
+      totalInDatabase: fundHousesInMutualFunds.length,
+      totalSynced: existingAmcs.length
+    });
+  } catch (error: any) {
+    console.error("[Admin MF] Error checking missing AMCs:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Sync AMC list from mutual_funds table (admin utility)
 router.post("/amcs/sync", async (req: Request, res: Response) => {
   try {
@@ -941,6 +978,7 @@ router.post("/amcs/sync", async (req: Request, res: Response) => {
     
     let created = 0;
     let updated = 0;
+    const newAmcs: string[] = [];
     
     for (const fh of fundHouses) {
       if (!fh.fundHouse) continue;
@@ -954,6 +992,7 @@ router.post("/amcs/sync", async (req: Request, res: Response) => {
           totalSchemes: Number(fh.count),
         });
         created++;
+        newAmcs.push(fh.fundHouse);
       } else {
         await db.update(mutualFundAmcs)
           .set({ totalSchemes: Number(fh.count), updatedAt: new Date() })
@@ -962,10 +1001,18 @@ router.post("/amcs/sync", async (req: Request, res: Response) => {
       }
     }
     
+    console.log(`[Admin MF] AMC Sync complete: ${created} created, ${updated} updated`);
+    if (newAmcs.length > 0) {
+      console.log(`[Admin MF] New AMCs added: ${newAmcs.join(', ')}`);
+    }
+    
     res.json({ 
       success: true, 
-      message: `Synced AMCs: ${created} created, ${updated} updated`,
-      total: fundHouses.length
+      message: `Synced AMCs: ${created} new, ${updated} updated`,
+      total: fundHouses.length,
+      created,
+      updated,
+      newAmcs
     });
   } catch (error: any) {
     console.error("[Admin MF] Error syncing AMCs:", error);

@@ -16,9 +16,16 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Building2, Search, Loader2, ArrowLeft, 
   Shield, TrendingUp, CheckCircle2, XCircle, RefreshCw,
-  Eye, EyeOff, FileText
+  Eye, EyeOff, FileText, AlertTriangle, Plus
 } from "lucide-react";
 import { Link } from "wouter";
+
+interface MissingAmcsData {
+  missingCount: number;
+  missingAmcs: Array<{ name: string; schemeCount: number }>;
+  totalInDatabase: number;
+  totalSynced: number;
+}
 
 interface Amc {
   id: string;
@@ -63,6 +70,11 @@ export default function MutualFundsSeeding() {
   // Fetch AMCs
   const { data: amcsData, isLoading: isLoadingAmcs } = useQuery<{ amcs: Amc[] }>({
     queryKey: ['/api/admin/amcs'],
+  });
+
+  // Check for missing AMCs (not yet synced)
+  const { data: missingAmcsData } = useQuery<MissingAmcsData>({
+    queryKey: ['/api/admin/amcs/missing'],
   });
 
   // Fetch Regular schemes
@@ -152,12 +164,22 @@ export default function MutualFundsSeeding() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/amcs'] });
-      toast({ title: "Sync Complete", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/amcs/missing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/regular-schemes'] });
+      const newCount = data.created || 0;
+      toast({ 
+        title: "Sync Complete", 
+        description: newCount > 0 
+          ? `${newCount} new AMC(s) added: ${data.newAmcs?.join(', ')}`
+          : data.message 
+      });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to sync AMCs", variant: "destructive" });
     },
   });
+
+  const missingCount = missingAmcsData?.missingCount || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
@@ -237,6 +259,31 @@ export default function MutualFundsSeeding() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Missing AMCs Alert */}
+        {missingCount > 0 && (
+          <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20" data-testid="alert-missing-amcs">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="flex items-center justify-between">
+              <div>
+                <strong className="text-amber-700 dark:text-amber-400">{missingCount} new AMC(s) detected</strong>
+                <span className="text-amber-600 dark:text-amber-500 ml-2">
+                  {missingAmcsData?.missingAmcs?.map(a => a.name).join(', ')}
+                </span>
+              </div>
+              <Button 
+                size="sm" 
+                onClick={() => syncAmcsMutation.mutate()}
+                disabled={syncAmcsMutation.isPending}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                data-testid="button-add-missing-amcs"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add to List
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Info Alert */}
         <Alert>
