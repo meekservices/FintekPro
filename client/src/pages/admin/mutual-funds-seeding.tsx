@@ -81,6 +81,150 @@ interface Category {
   comingSoonMessage?: string;
 }
 
+
+interface Subscription {
+  id: string;
+  userId: string;
+  planName: string;
+  planType: string;
+  status: string;
+  startDate: string;
+  endDate: string | null;
+  subscriptionFee: string | null;
+  directFundsAccess: boolean;
+  createdAt: string;
+}
+
+function AdvisorySubscriptionsTab() {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  const { data: subscriptionsData, isLoading } = useQuery<{ subscriptions: Subscription[] }>({
+    queryKey: ["/api/admin/advisory-subscriptions"],
+  });
+
+  const subscriptions = subscriptionsData?.subscriptions || [];
+
+  const filteredSubscriptions = subscriptions.filter(
+    (s) =>
+      s.userId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.planName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/api/admin/advisory-subscriptions/${id}/cancel`, {
+        method: "PUT",
+        body: JSON.stringify({ reason: "Admin cancelled" }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/advisory-subscriptions"] });
+      toast({ title: "Subscription Cancelled", description: "Advisory subscription has been cancelled" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to cancel subscription", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Advisory Subscriptions</CardTitle>
+            <CardDescription>Manage client advisory subscriptions for Direct fund access</CardDescription>
+          </div>
+          <Button onClick={() => setIsAddDialogOpen(true)} data-testid="button-add-subscription">
+            <Plus className="h-4 w-4 mr-2" />
+            Enroll Client
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by user ID or plan name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-subscriptions"
+            />
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          </div>
+        ) : filteredSubscriptions.length === 0 ? (
+          <div className="text-center py-12">
+            <Shield className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-500">No advisory subscriptions found</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-[400px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User ID</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>End Date</TableHead>
+                  <TableHead>Direct Access</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSubscriptions.map((sub) => (
+                  <TableRow key={sub.id} data-testid={`row-subscription-${sub.id}`}>
+                    <TableCell className="font-mono text-sm">{sub.userId.slice(0, 8)}...</TableCell>
+                    <TableCell>{sub.planName || sub.planType}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={sub.status === "active" ? "default" : "secondary"}
+                        className={sub.status === "active" ? "bg-green-100 text-green-700" : ""}
+                      >
+                        {sub.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{sub.startDate ? new Date(sub.startDate).toLocaleDateString() : "-"}</TableCell>
+                    <TableCell>{sub.endDate ? new Date(sub.endDate).toLocaleDateString() : "Ongoing"}</TableCell>
+                    <TableCell>
+                      {sub.directFundsAccess ? (
+                        <Badge className="bg-blue-100 text-blue-700"><Lock className="h-3 w-3 mr-1" />Yes</Badge>
+                      ) : (
+                        <Badge variant="secondary">No</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {sub.status === "active" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => cancelMutation.mutate(sub.id)}
+                          disabled={cancelMutation.isPending}
+                          className="text-red-600 hover:text-red-700"
+                          data-testid={`button-cancel-subscription-${sub.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function MutualFundsSeeding() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("funds");
@@ -319,6 +463,10 @@ export default function MutualFundsSeeding() {
             <TabsTrigger value="categories" data-testid="tab-categories">
               <PieChart className="h-4 w-4 mr-2" />
               Category Controls
+            </TabsTrigger>
+            <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">
+              <Shield className="h-4 w-4 mr-2" />
+              Advisory Subscriptions
             </TabsTrigger>
           </TabsList>
 
@@ -847,6 +995,10 @@ export default function MutualFundsSeeding() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="subscriptions" className="space-y-4">
+            <AdvisorySubscriptionsTab />
           </TabsContent>
         </Tabs>
 
