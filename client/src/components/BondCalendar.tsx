@@ -477,7 +477,7 @@ export function BondCalendar() {
 
   const syncExternalMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/bond-calendar/sync/external");
+      const res = await apiRequest("/api/bond-calendar/sync/external", { method: "POST" });
       return res.json();
     },
     onSuccess: (data) => {
