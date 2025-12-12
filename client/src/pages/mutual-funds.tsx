@@ -520,6 +520,36 @@ export default function MutualFunds() {
   const [selectedFund, setSelectedFund] = useState<MutualFundData | null>(null);
   const [isInvestmentModalOpen, setIsInvestmentModalOpen] = useState(false);
 
+  // Order execution state
+  const [orderType, setOrderType] = useState<'buy' | 'sell' | 'sip'>('buy');
+  const [selectedHolding, setSelectedHolding] = useState<any>(null);
+  const [orderAmount, setOrderAmount] = useState('');
+  const [orderUnits, setOrderUnits] = useState('');
+  const [redeemAllUnits, setRedeemAllUnits] = useState(false);
+  const [orderFolio, setOrderFolio] = useState('');
+  const [orderPaymentMethod, setOrderPaymentMethod] = useState('');
+  const [orderSchemeSearch, setOrderSchemeSearch] = useState('');
+
+  // Calculate estimated value for sell orders
+  const calculateSellValue = () => {
+    if (!selectedHolding) return 0;
+    const nav = parseFloat(selectedHolding.currentNav || selectedHolding.nav || '0');
+    if (redeemAllUnits) {
+      return parseFloat(selectedHolding.units || '0') * nav;
+    }
+    const units = parseFloat(orderUnits || '0');
+    return units * nav;
+  };
+
+  // Handle holding selection for sell order
+  const handleHoldingSelectForSell = (holding: any) => {
+    setSelectedHolding(holding);
+    setOrderType('sell');
+    setOrderFolio(holding.folioNumber || holding.folioId || '');
+    setOrderUnits('');
+    setRedeemAllUnits(false);
+  };
+
   // Handle invest button click
   const handleInvestClick = (fund: MutualFundData) => {
     setSelectedFund(fund);
@@ -1484,33 +1514,50 @@ export default function MutualFunds() {
                       <TableBody>
                         {/* Sample Holdings - Will be replaced with actual data */}
                         {[
-                          { name: "HDFC Flexi Cap Fund", units: "245.892", value: "₹1,24,500", nav: "506.37", gain: "+12.4%" },
-                          { name: "SBI Blue Chip Fund", units: "189.341", value: "₹98,200", nav: "518.62", gain: "+8.2%" },
-                          { name: "Axis Midcap Fund", units: "156.234", value: "₹1,42,670", nav: "913.21", gain: "+18.6%" },
-                          { name: "ICICI Pru Technology", units: "78.562", value: "₹89,450", nav: "1138.45", gain: "+22.1%" },
-                          { name: "Parag Parikh Flexi", units: "112.893", value: "₹86,320", nav: "764.62", gain: "+15.3%" },
+                          { id: "1", schemeName: "HDFC Flexi Cap Fund", units: "245.892", currentValue: "124500", currentNav: "506.37", folioNumber: "1234567890", gain: "+12.4%" },
+                          { id: "2", schemeName: "SBI Blue Chip Fund", units: "189.341", currentValue: "98200", currentNav: "518.62", folioNumber: "9876543210", gain: "+8.2%" },
+                          { id: "3", schemeName: "Axis Midcap Fund", units: "156.234", currentValue: "142670", currentNav: "913.21", folioNumber: "1234567891", gain: "+18.6%" },
+                          { id: "4", schemeName: "ICICI Pru Technology", units: "78.562", currentValue: "89450", currentNav: "1138.45", folioNumber: "9876543211", gain: "+22.1%" },
+                          { id: "5", schemeName: "Parag Parikh Flexi", units: "112.893", currentValue: "86320", currentNav: "764.62", folioNumber: "1234567892", gain: "+15.3%" },
                         ].map((holding, idx) => (
-                          <TableRow key={idx} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" data-testid={`holding-row-${idx}`}>
+                          <TableRow 
+                            key={idx} 
+                            className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${selectedHolding?.id === holding.id ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500' : ''}`}
+                            onClick={() => handleHoldingSelectForSell(holding)}
+                            data-testid={`holding-row-${idx}`}
+                          >
                             <TableCell>
                               <div>
-                                <p className="font-medium text-sm text-gray-900 dark:text-white line-clamp-1">{holding.name}</p>
-                                <p className="text-xs text-gray-500">NAV: ₹{holding.nav}</p>
+                                <p className="font-medium text-sm text-gray-900 dark:text-white line-clamp-1">{holding.schemeName}</p>
+                                <p className="text-xs text-gray-500">NAV: ₹{holding.currentNav}</p>
                               </div>
                             </TableCell>
                             <TableCell className="text-right">
                               <p className="text-sm font-medium">{holding.units}</p>
                             </TableCell>
                             <TableCell className="text-right">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">{holding.value}</p>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">₹{parseFloat(holding.currentValue).toLocaleString('en-IN')}</p>
                               <p className="text-xs text-emerald-600">{holding.gain}</p>
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex gap-1 justify-end">
-                                <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-emerald-600 border-emerald-300 hover:bg-emerald-50" data-testid={`buy-btn-${idx}`}>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-7 text-xs px-2 text-emerald-600 border-emerald-300 hover:bg-emerald-50" 
+                                  onClick={(e) => { e.stopPropagation(); setOrderType('buy'); }}
+                                  data-testid={`buy-btn-${idx}`}
+                                >
                                   <ArrowUpRight className="w-3 h-3 mr-1" />
                                   Buy
                                 </Button>
-                                <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-red-600 border-red-300 hover:bg-red-50" data-testid={`sell-btn-${idx}`}>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-7 text-xs px-2 text-red-600 border-red-300 hover:bg-red-50" 
+                                  onClick={(e) => { e.stopPropagation(); handleHoldingSelectForSell(holding); }}
+                                  data-testid={`sell-btn-${idx}`}
+                                >
                                   <ArrowDownRight className="w-3 h-3 mr-1" />
                                   Sell
                                 </Button>
@@ -1571,170 +1618,450 @@ export default function MutualFunds() {
                   {/* Order Type Selector */}
                   <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                     <div className="flex gap-2">
-                      <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="order-type-buy">
+                      <Button 
+                        className={`flex-1 ${orderType === 'buy' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-transparent text-emerald-600 border-emerald-300 hover:bg-emerald-50'}`}
+                        variant={orderType === 'buy' ? 'default' : 'outline'}
+                        onClick={() => { setOrderType('buy'); setSelectedHolding(null); }}
+                        data-testid="order-type-buy"
+                      >
                         <ArrowUpRight className="w-4 h-4 mr-2" />
                         Buy / Lumpsum
                       </Button>
-                      <Button variant="outline" className="flex-1 text-red-600 border-red-300 hover:bg-red-50" data-testid="order-type-sell">
+                      <Button 
+                        className={`flex-1 ${orderType === 'sell' ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-red-600 border-red-300 hover:bg-red-50'}`}
+                        variant={orderType === 'sell' ? 'default' : 'outline'}
+                        onClick={() => setOrderType('sell')}
+                        data-testid="order-type-sell"
+                      >
                         <ArrowDownRight className="w-4 h-4 mr-2" />
                         Sell / Redeem
                       </Button>
-                      <Button variant="outline" className="flex-1 text-blue-600 border-blue-300 hover:bg-blue-50" data-testid="order-type-sip">
+                      <Button 
+                        className={`flex-1 ${orderType === 'sip' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'text-blue-600 border-blue-300 hover:bg-blue-50'}`}
+                        variant={orderType === 'sip' ? 'default' : 'outline'}
+                        onClick={() => { setOrderType('sip'); setSelectedHolding(null); }}
+                        data-testid="order-type-sip"
+                      >
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Start SIP
                       </Button>
                     </div>
                   </div>
 
-                  {/* Order Form */}
+                  {/* Order Form - Conditional based on order type */}
                   <div className="flex-1 overflow-auto p-4">
                     <Card className="border-0 shadow-none">
                       <CardContent className="space-y-4 pt-0">
-                        {/* Scheme Search */}
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                            Search Scheme
-                          </label>
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <Input
-                              placeholder="Type to search mutual funds..."
-                              className="pl-10"
-                              data-testid="order-scheme-search"
-                            />
-                          </div>
-                        </div>
+                        {/* SELL ORDER FORM */}
+                        {orderType === 'sell' && (
+                          <>
+                            {/* Selected Holding Display */}
+                            {selectedHolding ? (
+                              <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                                <CardContent className="p-4">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                                        {selectedHolding.schemeName || selectedHolding.scheme}
+                                      </h4>
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        Folio: {selectedHolding.folioNumber || selectedHolding.folioId || 'N/A'}
+                                      </p>
+                                    </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => setSelectedHolding(null)}
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      Change
+                                    </Button>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-4 mt-3 text-center">
+                                    <div>
+                                      <p className="text-xs text-gray-500">Available Units</p>
+                                      <p className="font-bold text-gray-900 dark:text-white">
+                                        {parseFloat(selectedHolding.units || '0').toFixed(3)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Current NAV</p>
+                                      <p className="font-bold text-gray-900 dark:text-white">
+                                        ₹{parseFloat(selectedHolding.currentNav || selectedHolding.nav || '0').toFixed(2)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-500">Current Value</p>
+                                      <p className="font-bold text-emerald-600">
+                                        ₹{parseFloat(selectedHolding.currentValue || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ) : (
+                              <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 border-dashed">
+                                <CardContent className="p-6 text-center">
+                                  <ArrowDownRight className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                                  <h4 className="font-medium text-amber-800 dark:text-amber-200">Select a Holding to Redeem</h4>
+                                  <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">
+                                    Click on a holding from the left panel to start redemption
+                                  </p>
+                                </CardContent>
+                              </Card>
+                            )}
 
-                        {/* Folio Selection */}
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                            Folio
-                          </label>
-                          <Select>
-                            <SelectTrigger data-testid="order-folio-select">
-                              <SelectValue placeholder="Select or create new folio" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="new">Create New Folio</SelectItem>
-                              <SelectItem value="123456789">123456789 - HDFC AMC</SelectItem>
-                              <SelectItem value="987654321">987654321 - SBI AMC</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            {/* Redemption Options */}
+                            {selectedHolding && (
+                              <>
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                    Redemption Type
+                                  </label>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant={!redeemAllUnits ? "default" : "outline"}
+                                      className={`flex-1 ${!redeemAllUnits ? 'bg-red-600 hover:bg-red-700 text-white' : ''}`}
+                                      onClick={() => setRedeemAllUnits(false)}
+                                      data-testid="redeem-partial"
+                                    >
+                                      Partial Redemption
+                                    </Button>
+                                    <Button
+                                      variant={redeemAllUnits ? "default" : "outline"}
+                                      className={`flex-1 ${redeemAllUnits ? 'bg-red-600 hover:bg-red-700 text-white' : ''}`}
+                                      onClick={() => { setRedeemAllUnits(true); setOrderUnits(''); }}
+                                      data-testid="redeem-all"
+                                    >
+                                      Redeem All Units
+                                    </Button>
+                                  </div>
+                                </div>
 
-                        {/* Amount Input */}
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                            Investment Amount
-                          </label>
-                          <div className="relative">
-                            <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <Input
-                              type="number"
-                              placeholder="Min. ₹100"
-                              className="pl-10"
-                              data-testid="order-amount-input"
-                            />
-                          </div>
-                          <div className="flex gap-2 mt-2">
-                            {['1,000', '5,000', '10,000', '25,000', '50,000'].map((amt) => (
-                              <Button key={amt} variant="outline" size="sm" className="text-xs flex-1" data-testid={`quick-amount-${amt}`}>
-                                ₹{amt}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
+                                {/* Units Input for Partial Redemption */}
+                                {!redeemAllUnits && (
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                      Units to Redeem
+                                    </label>
+                                    <Input
+                                      type="number"
+                                      placeholder="Enter units"
+                                      value={orderUnits}
+                                      onChange={(e) => setOrderUnits(e.target.value)}
+                                      max={parseFloat(selectedHolding.units || '0')}
+                                      step="0.001"
+                                      data-testid="redeem-units-input"
+                                    />
+                                    <div className="flex gap-2 mt-2">
+                                      {[25, 50, 75, 100].map((pct) => (
+                                        <Button 
+                                          key={pct} 
+                                          variant="outline" 
+                                          size="sm" 
+                                          className="text-xs flex-1"
+                                          onClick={() => {
+                                            const totalUnits = parseFloat(selectedHolding.units || '0');
+                                            setOrderUnits((totalUnits * pct / 100).toFixed(3));
+                                            if (pct === 100) setRedeemAllUnits(true);
+                                          }}
+                                          data-testid={`redeem-pct-${pct}`}
+                                        >
+                                          {pct}%
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
 
-                        {/* Payment Method */}
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                            Payment Method
-                          </label>
-                          <Select>
-                            <SelectTrigger data-testid="order-payment-method">
-                              <SelectValue placeholder="Select payment method" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="netbanking">Net Banking</SelectItem>
-                              <SelectItem value="upi">UPI</SelectItem>
-                              <SelectItem value="neft">NEFT / RTGS</SelectItem>
-                              <SelectItem value="nach">NACH Mandate (SIP)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                                {/* Payout Bank Selection */}
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                    Credit Proceeds To
+                                  </label>
+                                  <Select value={orderPaymentMethod} onValueChange={setOrderPaymentMethod}>
+                                    <SelectTrigger data-testid="payout-bank-select">
+                                      <SelectValue placeholder="Select bank account" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="primary">Primary Bank - XXXX1234</SelectItem>
+                                      <SelectItem value="secondary">Secondary Bank - XXXX5678</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
 
-                        {/* Compliance Check Card */}
-                        <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800">
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
-                              <div>
-                                <h4 className="font-medium text-emerald-800 dark:text-emerald-200 text-sm">Pre-Trade Compliance</h4>
-                                <ul className="text-xs text-emerald-700 dark:text-emerald-300 mt-2 space-y-1">
-                                  <li className="flex items-center gap-2">
-                                    <CheckCircle2 className="w-3 h-3" /> KYC Status: Verified
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <CheckCircle2 className="w-3 h-3" /> FATCA Declaration: Complete
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <CheckCircle2 className="w-3 h-3" /> Bank Account: Linked
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <CheckCircle2 className="w-3 h-3" /> Risk Profile: Matched
-                                  </li>
-                                </ul>
+                                {/* Redemption Summary */}
+                                <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                                  <CardContent className="p-4">
+                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-3">Redemption Summary</h4>
+                                    <div className="space-y-2 text-sm">
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Units to Redeem</span>
+                                        <span className="font-medium">
+                                          {redeemAllUnits 
+                                            ? parseFloat(selectedHolding.units || '0').toFixed(3)
+                                            : parseFloat(orderUnits || '0').toFixed(3)
+                                          }
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Current NAV</span>
+                                        <span className="font-medium">
+                                          ₹{parseFloat(selectedHolding.currentNav || selectedHolding.nav || '0').toFixed(4)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Exit Load</span>
+                                        <span className="font-medium text-amber-600">TBD at NAV date</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">STT (0.001%)</span>
+                                        <span className="font-medium">~₹{(calculateSellValue() * 0.00001).toFixed(2)}</span>
+                                      </div>
+                                      <div className="flex justify-between border-t pt-2 mt-2">
+                                        <span className="font-semibold text-gray-900 dark:text-white">Estimated Proceeds</span>
+                                        <span className="font-bold text-emerald-600">
+                                          ₹{calculateSellValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-3">
+                                      * Final amount will be calculated at applicable NAV date (T+1/T+2)
+                                    </p>
+                                  </CardContent>
+                                </Card>
+                              </>
+                            )}
+                          </>
+                        )}
+
+                        {/* BUY ORDER FORM */}
+                        {orderType === 'buy' && (
+                          <>
+                            {/* Scheme Search */}
+                            <div>
+                              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                Search Scheme
+                              </label>
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <Input
+                                  placeholder="Type to search mutual funds..."
+                                  className="pl-10"
+                                  value={orderSchemeSearch}
+                                  onChange={(e) => setOrderSchemeSearch(e.target.value)}
+                                  data-testid="order-scheme-search"
+                                />
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
 
-                        {/* Order Summary */}
-                        <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-                          <CardContent className="p-4">
-                            <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-3">Order Summary</h4>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Investment Amount</span>
-                                <span className="font-medium">₹10,000.00</span>
+                            {/* Folio Selection */}
+                            <div>
+                              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                Folio
+                              </label>
+                              <Select value={orderFolio} onValueChange={setOrderFolio}>
+                                <SelectTrigger data-testid="order-folio-select">
+                                  <SelectValue placeholder="Select or create new folio" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="new">Create New Folio</SelectItem>
+                                  <SelectItem value="existing1">123456789 - HDFC AMC</SelectItem>
+                                  <SelectItem value="existing2">987654321 - SBI AMC</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Amount Input */}
+                            <div>
+                              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                Investment Amount
+                              </label>
+                              <div className="relative">
+                                <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <Input
+                                  type="number"
+                                  placeholder="Min. ₹100"
+                                  className="pl-10"
+                                  value={orderAmount}
+                                  onChange={(e) => setOrderAmount(e.target.value)}
+                                  data-testid="order-amount-input"
+                                />
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
-                                <span className="font-medium text-emerald-600">₹0.00</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Stamp Duty (0.005%)</span>
-                                <span className="font-medium">₹0.50</span>
-                              </div>
-                              <div className="flex justify-between border-t pt-2 mt-2">
-                                <span className="font-semibold text-gray-900 dark:text-white">Total Payable</span>
-                                <span className="font-bold text-gray-900 dark:text-white">₹10,000.50</span>
+                              <div className="flex gap-2 mt-2">
+                                {[1000, 5000, 10000, 25000, 50000].map((amt) => (
+                                  <Button 
+                                    key={amt} 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="text-xs flex-1"
+                                    onClick={() => setOrderAmount(amt.toString())}
+                                    data-testid={`quick-amount-${amt}`}
+                                  >
+                                    ₹{amt.toLocaleString()}
+                                  </Button>
+                                ))}
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
+
+                            {/* Payment Method */}
+                            <div>
+                              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                Payment Method
+                              </label>
+                              <Select value={orderPaymentMethod} onValueChange={setOrderPaymentMethod}>
+                                <SelectTrigger data-testid="order-payment-method">
+                                  <SelectValue placeholder="Select payment method" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="netbanking">Net Banking</SelectItem>
+                                  <SelectItem value="upi">UPI</SelectItem>
+                                  <SelectItem value="neft">NEFT / RTGS</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Compliance Check Card */}
+                            <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800">
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                  <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
+                                  <div>
+                                    <h4 className="font-medium text-emerald-800 dark:text-emerald-200 text-sm">Pre-Trade Compliance</h4>
+                                    <ul className="text-xs text-emerald-700 dark:text-emerald-300 mt-2 space-y-1">
+                                      <li className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3" /> KYC Status: Verified
+                                      </li>
+                                      <li className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3" /> FATCA Declaration: Complete
+                                      </li>
+                                      <li className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3" /> Bank Account: Linked
+                                      </li>
+                                      <li className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3" /> Risk Profile: Matched
+                                      </li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            {/* Order Summary */}
+                            <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                              <CardContent className="p-4">
+                                <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-3">Order Summary</h4>
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600 dark:text-gray-400">Investment Amount</span>
+                                    <span className="font-medium">₹{parseFloat(orderAmount || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
+                                    <span className="font-medium text-emerald-600">₹0.00</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600 dark:text-gray-400">Stamp Duty (0.005%)</span>
+                                    <span className="font-medium">₹{(parseFloat(orderAmount || '0') * 0.00005).toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between border-t pt-2 mt-2">
+                                    <span className="font-semibold text-gray-900 dark:text-white">Total Payable</span>
+                                    <span className="font-bold text-gray-900 dark:text-white">
+                                      ₹{(parseFloat(orderAmount || '0') * 1.00005).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </>
+                        )}
+
+                        {/* SIP ORDER FORM */}
+                        {orderType === 'sip' && (
+                          <>
+                            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                              <CardContent className="p-6 text-center">
+                                <RefreshCw className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                                <h4 className="font-medium text-blue-800 dark:text-blue-200">Start a New SIP</h4>
+                                <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                                  SIP setup requires bank mandate registration. Use the Start SIP tab for full SIP creation flow.
+                                </p>
+                                <Button 
+                                  className="mt-4 bg-blue-600 hover:bg-blue-700"
+                                  onClick={() => setActiveTab('sip')}
+                                >
+                                  Go to SIP Setup
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          </>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
 
                   {/* Order Action Footer */}
                   <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                    <div className="flex gap-3">
-                      <Button variant="outline" className="flex-1" data-testid="order-cancel">
-                        Cancel
-                      </Button>
-                      <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="order-preview">
-                        <FileText className="w-4 h-4 mr-2" />
-                        Preview Order
-                      </Button>
-                      <Button className="flex-1 bg-finance-blue hover:bg-blue-700 text-white" data-testid="order-submit">
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Place Order
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 text-center mt-3">
-                      By placing this order, you agree to the scheme's Terms & Conditions and KIM/SID documents.
-                    </p>
+                    {orderType === 'sell' ? (
+                      <>
+                        <div className="flex gap-3">
+                          <Button 
+                            variant="outline" 
+                            className="flex-1" 
+                            onClick={() => { setSelectedHolding(null); setOrderUnits(''); setRedeemAllUnits(false); }}
+                            data-testid="order-cancel"
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-50" 
+                            disabled={!selectedHolding || (!redeemAllUnits && !orderUnits)}
+                            data-testid="order-submit-sell"
+                          >
+                            <ArrowDownRight className="w-4 h-4 mr-2" />
+                            Confirm Redemption
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 text-center mt-3">
+                          Redemption proceeds will be credited to your registered bank account within T+3 working days.
+                        </p>
+                      </>
+                    ) : orderType === 'buy' ? (
+                      <>
+                        <div className="flex gap-3">
+                          <Button 
+                            variant="outline" 
+                            className="flex-1" 
+                            onClick={() => { setOrderAmount(''); setOrderSchemeSearch(''); }}
+                            data-testid="order-cancel"
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" 
+                            data-testid="order-preview"
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Preview Order
+                          </Button>
+                          <Button 
+                            className="flex-1 bg-finance-blue hover:bg-blue-700 text-white disabled:opacity-50" 
+                            disabled={!orderAmount || parseFloat(orderAmount) < 100}
+                            data-testid="order-submit-buy"
+                          >
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Place Order
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 text-center mt-3">
+                          By placing this order, you agree to the scheme's Terms & Conditions and KIM/SID documents.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="text-center py-2">
+                        <p className="text-sm text-gray-500">Select an order type to continue</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </ResizablePanel>
