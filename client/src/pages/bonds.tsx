@@ -2235,9 +2235,119 @@ function BondHoldings() {
 }
 
 // Bond Orders Component
+function OrderProgressTracker({ status, settlementDate }: { status: string; settlementDate?: string }) {
+  const steps = [
+    { key: 'placed', label: 'Order Placed', icon: Clock },
+    { key: 'processing', label: 'Processing', icon: TrendingUp },
+    { key: 'settlement', label: 'Settlement', icon: Building2 },
+    { key: 'credited', label: 'Credited', icon: CheckCircle2 },
+  ];
+
+  const getStepIndex = (s: string): number => {
+    switch (s?.toLowerCase()) {
+      case 'placed':
+      case 'pending':
+        return 0;
+      case 'processing':
+      case 'confirmed':
+        return 1;
+      case 'settlement':
+      case 'awaiting_settlement':
+        return 2;
+      case 'credited':
+      case 'executed':
+      case 'allotted':
+        return 3;
+      case 'rejected':
+      case 'failed':
+      case 'cancelled':
+        return -1;
+      default:
+        return 0;
+    }
+  };
+
+  const currentStep = getStepIndex(status);
+  const isFailed = currentStep === -1;
+
+  if (isFailed) {
+    return (
+      <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
+        <AlertCircle className="h-5 w-5 text-red-600" />
+        <span className="text-sm font-medium text-red-700">
+          Order {status === 'cancelled' ? 'Cancelled' : 'Failed'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-3">
+      <div className="flex items-center justify-between relative">
+        <div className="absolute top-4 left-0 right-0 h-0.5 bg-gray-200" />
+        <div 
+          className="absolute top-4 left-0 h-0.5 bg-green-500 transition-all duration-500"
+          style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+        />
+        
+        {steps.map((step, index) => {
+          const StepIcon = step.icon;
+          const isCompleted = index <= currentStep;
+          const isCurrent = index === currentStep;
+
+          return (
+            <div key={step.key} className="relative flex flex-col items-center z-10">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                isCompleted 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-gray-200 text-gray-500'
+              } ${isCurrent ? 'ring-2 ring-green-300 ring-offset-2' : ''}`}>
+                <StepIcon className="h-4 w-4" />
+              </div>
+              <span className={`text-xs mt-2 font-medium ${
+                isCompleted ? 'text-green-700' : 'text-gray-500'
+              }`}>
+                {step.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      
+      {settlementDate && currentStep < 3 && (
+        <p className="text-xs text-center text-gray-500 mt-3">
+          Expected settlement: {new Date(settlementDate).toLocaleDateString()}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BondOrders() {
+  const { toast } = useToast();
   const { data: orders, isLoading } = useQuery({
     queryKey: ["/api/bonds/orders"],
+  });
+
+  const cancelOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const res = await apiRequest(`/api/bonds/orders/${orderId}/cancel`, { method: "POST" });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Order Cancelled",
+        description: "Your bond order has been cancelled successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/bonds/orders"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Cancel Failed",
+        description: error.message || "Could not cancel the order.",
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -2252,67 +2362,111 @@ function BondOrders() {
         <CardContent className="flex flex-col items-center justify-center py-8">
           <Clock className="h-10 w-10 text-gray-400 mb-3" />
           <p className="text-gray-500">No recent orders</p>
+          <p className="text-xs text-gray-400 mt-1">Your bond orders will appear here</p>
         </CardContent>
       </Card>
     );
   }
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'executed': return 'bg-green-50 text-green-700 border-green-200';
-      case 'pending': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-      case 'rejected': return 'bg-red-50 text-red-700 border-red-200';
+    switch (status?.toLowerCase()) {
+      case 'executed':
+      case 'credited':
+      case 'allotted':
+        return 'bg-green-50 text-green-700 border-green-200';
+      case 'pending':
+      case 'placed':
+        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+      case 'processing':
+      case 'confirmed':
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'settlement':
+      case 'awaiting_settlement':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'rejected':
+      case 'failed':
+        return 'bg-red-50 text-red-700 border-red-200';
+      case 'cancelled':
+        return 'bg-gray-50 text-gray-700 border-gray-200';
       default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'executed': return <CheckCircle2 className="h-4 w-4" />;
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'rejected': return <AlertCircle className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
-    }
+  const canCancel = (status: string) => {
+    return ['pending', 'placed'].includes(status?.toLowerCase());
   };
 
   return (
     <div className="space-y-4 mt-6">
-      <h3 className="text-lg font-semibold text-gray-900">Recent Orders</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Recent Orders</h3>
+        <Badge variant="outline">{orderList.length} Orders</Badge>
+      </div>
       
       {orderList.map((order: any) => (
-        <Card key={order.id} data-testid={`order-${order.id}`}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <p className="font-medium text-gray-900">{order.bondName}</p>
-                  <Badge variant="outline" className={getStatusColor(order.status)}>
-                    <span className="flex items-center gap-1">
-                      {getStatusIcon(order.status)}
-                      {order.status}
-                    </span>
+        <Card key={order.id} data-testid={`order-${order.id}`} className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="p-4 border-b bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <p className="font-semibold text-gray-900">{order.bondName}</p>
+                  <Badge variant="outline" className={getStatusColor(order.orderStatus || order.status)}>
+                    {order.orderStatus || order.status}
                   </Badge>
                 </div>
-                
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">Type</p>
-                    <p className="font-medium">{order.orderType}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Quantity</p>
-                    <p className="font-medium">{order.quantity}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Amount</p>
-                    <p className="font-medium">₹{order.orderAmount?.toLocaleString()}</p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  {canCancel(order.orderStatus || order.status) && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => cancelOrderMutation.mutate(order.id)}
+                      disabled={cancelOrderMutation.isPending}
+                      data-testid={`cancel-order-${order.id}`}
+                    >
+                      {cancelOrderMutation.isPending ? "Cancelling..." : "Cancel"}
+                    </Button>
+                  )}
+                  <span className="text-xs text-gray-500">
+                    #{order.orderNumber || order.id.slice(0, 8)}
+                  </span>
                 </div>
-
-                <p className="text-xs text-gray-500 mt-2">
-                  Placed on {new Date(order.orderDate).toLocaleString()}
-                </p>
               </div>
+            </div>
+            
+            <div className="px-4 py-2">
+              <OrderProgressTracker 
+                status={order.orderStatus || order.status} 
+                settlementDate={order.settlementDate}
+              />
+            </div>
+            
+            <div className="p-4 pt-0">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-500">Order Type</p>
+                  <p className="font-medium capitalize">{order.orderType}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Quantity</p>
+                  <p className="font-medium">{order.quantity} units</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Total Amount</p>
+                  <p className="font-medium text-green-600">₹{parseFloat(order.netAmount || order.grossAmount || order.orderAmount || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Order Date</p>
+                  <p className="font-medium">{new Date(order.orderDate || order.createdAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+              
+              {order.settlementDate && (
+                <div className="mt-3 pt-3 border-t text-xs text-gray-500 flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Settlement expected by {new Date(order.settlementDate).toLocaleDateString()}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

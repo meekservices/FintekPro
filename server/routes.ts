@@ -86,6 +86,7 @@ import { bseBondApi } from './bseBondApi';
 import { bseDirectApi } from './bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
+import { bondOrderNotificationService } from "./services/bond-order-notification-service";
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
@@ -6761,6 +6762,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         status: "error",
         error: "Failed to fetch order status"
+      });
+    }
+  });
+
+  // Cancel bond order (only for pending orders)
+  app.post("/api/bonds/orders/:orderId/cancel", async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { orderId } = req.params;
+      
+      const [order] = await db.select().from(bondOrders).where(eq(bondOrders.id, orderId));
+      
+      if (!order) {
+        return res.status(404).json({
+          status: "error",
+          error: "Order not found"
+        });
+      }
+
+      if (order.userId !== userId) {
+        return res.status(403).json({
+          status: "error",
+          error: "Not authorized to cancel this order"
+        });
+      }
+
+      const cancellableStatuses = ["pending", "placed"];
+      if (!cancellableStatuses.includes(order.orderStatus?.toLowerCase() || "")) {
+        return res.status(400).json({
+          status: "error",
+          error: `Cannot cancel order with status: ${order.orderStatus}. Only pending orders can be cancelled.`
+        });
+      }
+
+      await db.update(bondOrders)
+        .set({
+          orderStatus: "cancelled",
+          lastUpdated: new Date(),
+        })
+        .where(eq(bondOrders.id, orderId));
+
+      // Send cancellation notification
+      bondOrderNotificationService.sendOrderCancellation({
+        orderId,
+        orderNumber: order.orderNumber || orderId.slice(0, 8),
+        userId,
+        bondName: order.bondName || "Bond Order",
+        bondType: order.bondType || "bond",
+        quantity: order.quantity || 0,
+        amount: order.netAmount || order.grossAmount || "0",
+        status: "cancelled",
+        previousStatus: order.orderStatus,
+      }).catch(err => console.error("[Bond Notification] Cancel notification error:", err));
+      console.log(`[Bond Order] Order ${orderId} cancelled by user ${userId}`);
+
+      res.json({
+        status: "success",
+        message: "Order cancelled successfully",
+        data: { orderId, orderStatus: "cancelled" }
+      });
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      res.status(500).json({
+        status: "error",
+        error: "Failed to cancel order"
       });
     }
   });
