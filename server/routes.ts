@@ -6411,6 +6411,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           orderPlacedBy: 'client'
         }).returning();
 
+        // Send order confirmation notification
+        bondOrderNotificationService.sendOrderConfirmation({
+          orderId: bondOrder[0].id,
+          orderNumber: bondOrder[0].orderNumber,
+          userId: userId,
+          bondName: bondOrder[0].bondName || "G-Sec Bond",
+          bondType: "government",
+          quantity: bondOrder[0].quantity || 0,
+          amount: bondOrder[0].netAmount || bondOrder[0].grossAmount || "0",
+          status: "placed",
+          settlementDate: bondOrder[0].settlementDate,
+        }).catch(err => console.error("[Bond Notification] Order confirmation error:", err));
+
         res.json({
           status: "success",
           ...response,
@@ -6540,6 +6553,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...response,
           bondOrderId: bondOrder[0].id
         });
+        // Send order confirmation notification for corporate bond
+        bondOrderNotificationService.sendOrderConfirmation({
+          orderId: bondOrder[0].id,
+          orderNumber: bondOrder[0].orderNumber,
+          userId: userId,
+          bondName: bondOrder[0].bondName || "Corporate Bond",
+          bondType: "corporate",
+          quantity: bondOrder[0].quantity || 0,
+          amount: bondOrder[0].netAmount || bondOrder[0].grossAmount || "0",
+          status: "placed",
+          settlementDate: bondOrder[0].settlementDate,
+        }).catch(err => console.error("[Bond Notification] Order confirmation error:", err));
       } else {
         res.status(400).json({
           status: "error",
