@@ -568,6 +568,12 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/mutual-funds">
+        {() => {
+          window.location.href = "/admin/mutual-funds-seeding";
+          return null;
+        }}
+      </Route>
       <Route path="/admin/mutual-funds-seeding">
         {() => (
           <AdminLayout>
