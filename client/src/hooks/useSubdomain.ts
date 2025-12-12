@@ -9,9 +9,9 @@ export function useSubdomain() {
     const hostname = currentHostname;
     const parts = hostname.split('.');
     
-    // Development-only override - NEVER allow in production
+    // Development/Replit override via query params
     const urlParams = new URLSearchParams(currentSearch);
-    const isDev = import.meta.env.DEV;
+    const isDev = import.meta.env.DEV || hostname.includes('replit.dev') || hostname.includes('replit.app');
     if (isDev) {
       if (urlParams.get('admin') === 'true') {
         return 'admin';
@@ -20,6 +20,12 @@ export function useSubdomain() {
       } else if (urlParams.get('agent') === 'true') {
         return 'agent';
       }
+    }
+    
+    // Also check for /admin routes in the pathname for Replit dev environment
+    const pathname = window.location.pathname;
+    if ((hostname.includes('replit.dev') || hostname.includes('replit.app')) && pathname.startsWith('/admin')) {
+      return 'admin';
     }
     
     // For localhost development (admin.localhost, partner.localhost, agent.localhost, or just localhost)
