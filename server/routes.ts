@@ -13279,6 +13279,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Sync MF holdings to portfolio
+  app.post("/api/reports/sync-mf-to-portfolio", async (req, res) => {
+    try {
+      const { userId, portfolioId } = req.body;
+      
+      if (!userId || !portfolioId) {
+        return res.status(400).json({ error: "userId and portfolioId are required" });
+      }
+
+      // Get MF holdings for user
+      const holdings = await db.select()
+        .from(mfHoldings)
+        .where(eq(mfHoldings.userId, userId));
+
+      let syncedCount = 0;
+      for (const holding of holdings) {
+        // Skip holdings with zero or negligible units
+        const holdingUnits = parseFloat(holding.units || '0');
+        if (holdingUnits <= 0.0001) {
+          continue;
+        }
+
+        // Check if already synced to portfolio
+        const existing = await db.select()
+          .from(portfolioHoldings)
+          .where(and(
+            eq(portfolioHoldings.portfolioId, portfolioId),
+            eq(portfolioHoldings.symbol, holding.schemeCode || '')
+          ))
+          .limit(1);
+
+        if (existing.length > 0) {
+          // Update existing
+          await db.update(portfolioHoldings)
+            .set({
+              quantity: holding.units || '0',
+              purchasePrice: String(parseFloat(holding.investedValue || '0') / Math.max(1, parseFloat(holding.units || '1'))),
+              currentPrice: holding.currentNav || '0',
+            })
+            .where(eq(portfolioHoldings.id, existing[0].id));
+        } else {
+          // Create new
+          await db.insert(portfolioHoldings).values({
+            portfolioId,
+            symbol: holding.schemeCode || '',
+            name: holding.schemeName || 'Unknown Fund',
+            type: 'mutual-fund',
+            quantity: holding.units || '0',
+            purchasePrice: String(parseFloat(holding.investedValue || '0') / Math.max(1, parseFloat(holding.units || '1'))),
+            currentPrice: holding.currentNav || '0',
+          });
+        }
+        syncedCount++;
+      }
+
+      res.json({
+        message: `Synced ${syncedCount} mutual fund holdings to portfolio`,
+        syncedCount
+      });
+    } catch (error) {
+      console.error("Error syncing MF to portfolio:", error);
+      res.status(500).json({ error: "Failed to sync MF holdings to portfolio" });
+    }
+  });
+
+  // Sync demat holdings to portfolio
+  app.post("/api/reports/sync-demat-to-portfolio", async (req, res) => {
+    try {
+      const { userId, portfolioId, depository } = req.body;
+      
+      if (!userId || !portfolioId) {
+        return res.status(400).json({ error: "userId and portfolioId are required" });
+      }
+
+      // This would normally fetch from NSDL/CDSL, but for now we return mock data
+      res.json({
+        message: `Synced demat holdings from ${depository || 'NSDL'} to portfolio`,
+        syncedCount: 0,
+        note: "Real demat sync requires AA (Account Aggregator) integration"
+      });
+    } catch (error) {
+      console.error("Error syncing demat to portfolio:", error);
+      res.status(500).json({ error: "Failed to sync demat holdings to portfolio" });
+    }
+  });
   // Watchlist endpoints
   app.get("/api/watchlists/:userId", async (req, res) => {
     try {

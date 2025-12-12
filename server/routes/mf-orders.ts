@@ -1267,6 +1267,87 @@ router.post('/api/admin/mf-orders/:id/mark-settled', isAuthenticated, async (req
       req
     );
 
+    // Create/update mfHoldings when order is settled
+    if (['buy', 'lumpsum', 'sip'].includes(existingOrder.orderType || '')) {
+      const finalUnits = parseFloat(unitsAllotted || existingOrder.units || '0');
+      const finalNav = parseFloat(navApplied || existingOrder.navApplied || '0');
+      const investedValue = parseFloat(existingOrder.amount || '0');
+      
+      // Check if holding exists for this scheme
+      const [existingHolding] = await db.select()
+        .from(mfHoldings)
+        .where(and(
+          eq(mfHoldings.userId, existingOrder.userId),
+          eq(mfHoldings.schemeCode, existingOrder.schemeCode || '')
+        ))
+        .limit(1);
+      
+      if (existingHolding) {
+        // Update existing holding
+        const newUnits = parseFloat(existingHolding.units || '0') + finalUnits;
+        const newInvested = parseFloat(existingHolding.investedValue || '0') + investedValue;
+        const newCurrent = newUnits * finalNav;
+        
+        await db.update(mfHoldings)
+          .set({
+            units: String(newUnits),
+            investedValue: String(newInvested),
+            currentValue: String(newCurrent),
+            currentNav: String(finalNav),
+            navDate: new Date().toISOString().split('T')[0],
+          })
+          .where(eq(mfHoldings.id, existingHolding.id));
+      } else if (existingOrder.folioId) {
+        // Create new holding only if we have a valid folio
+        // Derive option type from scheme name (IDCW, Growth, Dividend)
+        const schemeName = existingOrder.schemeName?.toLowerCase() || '';
+        let derivedOptionType = 'growth';
+        if (schemeName.includes('idcw') || schemeName.includes('dividend')) {
+          derivedOptionType = 'idcw';
+        }
+        
+        await db.insert(mfHoldings).values({
+          userId: existingOrder.userId,
+          folioId: existingOrder.folioId,
+          schemeCode: existingOrder.schemeCode || '',
+          schemeName: existingOrder.schemeName || 'Unknown Fund',
+          planType: existingOrder.planType || 'regular',
+          optionType: derivedOptionType,
+          units: String(finalUnits),
+          investedValue: String(investedValue),
+          currentValue: String(finalUnits * finalNav),
+          currentNav: String(finalNav),
+          navDate: new Date().toISOString().split('T')[0],
+        });
+      }
+    } else if (['sell', 'redemption'].includes(existingOrder.orderType || '')) {
+      // Reduce units for sell orders
+      const unitsToReduce = parseFloat(unitsAllotted || existingOrder.units || '0');
+      
+      const [existingHolding] = await db.select()
+        .from(mfHoldings)
+        .where(and(
+          eq(mfHoldings.userId, existingOrder.userId),
+          eq(mfHoldings.schemeCode, existingOrder.schemeCode || '')
+        ))
+        .limit(1);
+      
+      if (existingHolding) {
+        const newUnits = Math.max(0, parseFloat(existingHolding.units || '0') - unitsToReduce);
+        const finalNav = parseFloat(navApplied || existingOrder.navApplied || existingHolding.currentNav || '0');
+        const newCurrent = newUnits * finalNav;
+        
+        await db.update(mfHoldings)
+          .set({
+            units: String(newUnits),
+            currentValue: String(newCurrent),
+            currentNav: String(finalNav),
+            navDate: new Date().toISOString().split('T')[0],
+          })
+          .where(eq(mfHoldings.id, existingHolding.id));
+      }
+    }
+
     res.json({ order: updatedOrder, message: 'Order marked as settled successfully' });
   } catch (error) {
     console.error('[MF Orders] Error marking order as settled:', error);
