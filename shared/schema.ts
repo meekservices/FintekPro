@@ -2639,8 +2639,47 @@ export const mutualFunds = pgTable("mutual_funds", {
   // Extended fund data (stores currentNav, navDate, returns, returnStrings, rating, minInvestment, exitLoad, etc.)
   extendedData: jsonb("extended_data"),
   
+  // Publishing controls for seeding workflow
+  planType: varchar("plan_type").default("regular"), // 'direct' or 'regular'
+  isPublished: boolean("is_published").default(false), // Whether scheme is published/visible
+  publishedAt: timestamp("published_at"), // When scheme was published
+  publishedBy: varchar("published_by"), // Admin who published
+  
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
+
+// AMC (Asset Management Company) control table for bulk publishing
+export const mutualFundAmcs = pgTable("mutual_fund_amcs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(), // AMC name (fund_house in mutualFunds)
+  displayName: varchar("display_name"), // User-friendly name
+  logoUrl: varchar("logo_url"),
+  
+  // Publishing controls
+  regularPlansEnabled: boolean("regular_plans_enabled").default(false), // Master toggle for Regular schemes
+  directPlansEnabled: boolean("direct_plans_enabled").default(false), // Master toggle for Direct schemes
+  
+  // Metadata
+  totalSchemes: integer("total_schemes").default(0), // Total schemes from this AMC
+  publishedRegularSchemes: integer("published_regular_schemes").default(0), // Count of published Regular schemes
+  publishedDirectSchemes: integer("published_direct_schemes").default(0), // Count of published Direct schemes
+  
+  // Audit
+  lastToggledAt: timestamp("last_toggled_at"),
+  lastToggledBy: varchar("last_toggled_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMutualFundAmcSchema = createInsertSchema(mutualFundAmcs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MutualFundAmc = typeof mutualFundAmcs.$inferSelect;
+export type InsertMutualFundAmc = z.infer<typeof insertMutualFundAmcSchema>;
 
 // AIF (Alternative Investment Fund) comprehensive schema
 export const aifFunds = pgTable("aif_funds", {
