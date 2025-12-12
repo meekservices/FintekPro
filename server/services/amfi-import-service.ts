@@ -72,9 +72,12 @@ function detectPlanType(schemeName: string): 'direct' | 'regular' {
 function detectOption(schemeName: string): string {
   const nameLower = schemeName.toLowerCase();
   if (nameLower.includes('growth')) return 'growth';
+  if (nameLower.includes('idcw payout') || nameLower.includes('dividend payout') || nameLower.includes('payout')) return 'idcw-payout';
+  if (nameLower.includes('idcw reinvestment') || nameLower.includes('dividend reinvestment') || nameLower.includes('reinvestment')) return 'idcw-reinvestment';
   if (nameLower.includes('idcw') || nameLower.includes('dividend')) return 'idcw';
   if (nameLower.includes('bonus')) return 'bonus';
-  return 'growth';
+  if (nameLower.includes('monthly') || nameLower.includes('quarterly') || nameLower.includes('annual')) return 'periodic';
+  return 'other';
 }
 
 function categorizeScheme(schemeName: string, fundHouse: string): string | null {
@@ -464,7 +467,8 @@ async function syncAmcSchemeCounts(): Promise<void> {
       }
     }
     
-    for (const [fundHouse, count] of counts) {
+    const entries = Array.from(counts.entries());
+    for (const [fundHouse, count] of entries) {
       await db.update(mutualFundAmcs)
         .set({
           totalSchemes: count.total,

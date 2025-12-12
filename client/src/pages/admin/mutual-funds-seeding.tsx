@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,8 +16,9 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Building2, Search, Loader2, ArrowLeft, 
   Shield, TrendingUp, CheckCircle2, XCircle, RefreshCw,
-  Eye, EyeOff, FileText, AlertTriangle, Plus
+  Eye, EyeOff, FileText, AlertTriangle, Plus, Download, Database
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { Link } from "wouter";
 
 interface MissingAmcsData {
@@ -58,6 +59,15 @@ interface Scheme {
   publishedBy?: string;
 }
 
+interface ImportProgress {
+  status: 'idle' | 'fetching' | 'parsing' | 'importing' | 'completed' | 'error';
+  currentStep: string;
+  totalSchemes: number;
+  processedSchemes: number;
+  errors: string[];
+  startedAt: string | null;
+}
+
 export default function MutualFundsSeeding() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("amcs");
@@ -66,6 +76,8 @@ export default function MutualFundsSeeding() {
   const [selectedAmcId, setSelectedAmcId] = useState<string>("all");
   const [publishedFilter, setPublishedFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importPolling, setImportPolling] = useState(false);
 
   // Fetch AMCs
   const { data: amcsData, isLoading: isLoadingAmcs } = useQuery<{ amcs: Amc[] }>({
@@ -179,6 +191,63 @@ export default function MutualFundsSeeding() {
     },
   });
 
+  // AMFI Import progress query
+  const { data: importProgressData, refetch: refetchProgress } = useQuery<{ success: boolean; progress: ImportProgress }>({
+    queryKey: ['/api/admin/amfi-import/progress'],
+    enabled: importPolling,
+    refetchInterval: importPolling ? 2000 : false,
+  });
+
+  const importProgress = importProgressData?.progress;
+
+  // Stop polling when import completes - use useEffect to avoid state updates during render
+  useEffect(() => {
+    if (!importProgress || !importPolling) return;
+    
+    const isTerminal = importProgress.status === 'completed' || importProgress.status === 'error';
+    
+    if (isTerminal) {
+      setImportPolling(false);
+      setIsImporting(false);
+      
+      if (importProgress.status === 'completed') {
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/amcs'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/amcs/missing'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/regular-schemes'] });
+        toast({
+          title: "AMFI Import Complete",
+          description: `Successfully imported ${importProgress.processedSchemes} mutual fund schemes`,
+        });
+      } else if (importProgress.status === 'error') {
+        toast({
+          title: "Import Failed",
+          description: importProgress.currentStep,
+          variant: "destructive",
+        });
+      }
+    }
+  }, [importProgress, importPolling, toast]);
+
+  // AMFI Import mutation
+  const amfiImportMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('/api/admin/amfi-import', { method: 'POST' });
+      return res;
+    },
+    onSuccess: () => {
+      setIsImporting(true);
+      setImportPolling(true);
+      toast({
+        title: "AMFI Import Started",
+        description: "Fetching mutual fund data from AMFI. This may take a few minutes...",
+      });
+    },
+    onError: (error: any) => {
+      setIsImporting(false);
+      toast({ title: "Error", description: error.message || "Failed to start AMFI import", variant: "destructive" });
+    },
+  });
+
   const missingCount = missingAmcsData?.missingCount || 0;
 
   return (
@@ -198,17 +267,55 @@ export default function MutualFundsSeeding() {
               <p className="text-gray-500 dark:text-gray-400">Seed and manage Regular Plans for Mutual Funds. Direct plans managed separately.</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => syncAmcsMutation.mutate()}
-            disabled={syncAmcsMutation.isPending}
-            data-testid="button-sync-amcs"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${syncAmcsMutation.isPending ? 'animate-spin' : ''}`} />
-            Sync AMCs
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => syncAmcsMutation.mutate()}
+              disabled={syncAmcsMutation.isPending}
+              data-testid="button-sync-amcs"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncAmcsMutation.isPending ? 'animate-spin' : ''}`} />
+              Sync AMCs
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => amfiImportMutation.mutate()}
+              disabled={isImporting || amfiImportMutation.isPending}
+              data-testid="button-amfi-import"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Database className={`h-4 w-4 mr-2 ${isImporting ? 'animate-pulse' : ''}`} />
+              {isImporting ? 'Importing...' : 'Import from AMFI'}
+            </Button>
+          </div>
         </div>
+
+        {/* AMFI Import Progress */}
+        {isImporting && importProgress && (
+          <Card className="border-blue-200 bg-blue-50 dark:bg-blue-900/20" data-testid="card-import-progress">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                AMFI Data Import in Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-blue-600 dark:text-blue-400">{importProgress.currentStep}</p>
+              {importProgress.totalSchemes > 0 && (
+                <>
+                  <Progress 
+                    value={(importProgress.processedSchemes / importProgress.totalSchemes) * 100} 
+                    className="h-2"
+                  />
+                  <p className="text-xs text-blue-500">
+                    {importProgress.processedSchemes.toLocaleString()} / {importProgress.totalSchemes.toLocaleString()} schemes processed
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
