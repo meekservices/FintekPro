@@ -13251,3 +13251,469 @@ export const insertBondCalendarEventSchema = createInsertSchema(bondCalendarEven
 
 export type BondCalendarEvent = typeof bondCalendarEvents.$inferSelect;
 export type InsertBondCalendarEvent = z.infer<typeof insertBondCalendarEventSchema>;
+
+// =============================================================================
+// MUTUAL FUND ORDER EXECUTION SYSTEM
+// Regulatory-compliant buy/sell order management for mutual funds
+// =============================================================================
+
+// Order status enum values
+export const mfOrderStatusValues = [
+  "created",           // Order created, awaiting submission
+  "pending_payment",   // Awaiting payment confirmation
+  "placed",            // Order placed with AMC/RTA
+  "confirmed",         // Order confirmed by AMC/RTA
+  "processing",        // Units being allotted
+  "settled",           // Units allotted/redeemed, payment settled
+  "reconciled",        // Fully reconciled with RTA/AMC
+  "rejected",          // Order rejected by AMC/RTA
+  "cancelled",         // Order cancelled by user
+  "failed",            // Order failed (payment or processing)
+  "partial",           // Partial execution (rare for MF)
+] as const;
+export type MfOrderStatus = typeof mfOrderStatusValues[number];
+
+// Order type values
+export const mfOrderTypeValues = [
+  "buy",               // Lumpsum purchase
+  "sell",              // Redemption
+  "sip",               // Systematic Investment Plan
+  "stp",               // Systematic Transfer Plan
+  "swp",               // Systematic Withdrawal Plan
+  "switch",            // Switch between schemes
+] as const;
+export type MfOrderType = typeof mfOrderTypeValues[number];
+
+// Payment method values
+export const mfPaymentMethodValues = [
+  "netbanking",        // Net banking
+  "upi",               // UPI payment
+  "nach",              // NACH mandate
+  "neft",              // NEFT transfer
+  "rtgs",              // RTGS transfer
+  "debit_card",        // Debit card
+  "wallet",            // Wallet payment
+] as const;
+export type MfPaymentMethod = typeof mfPaymentMethodValues[number];
+
+// Bank mandate status values
+export const bankMandateStatusValues = [
+  "pending",           // Mandate creation initiated
+  "active",            // Mandate active and usable
+  "paused",            // Mandate temporarily paused
+  "cancelled",         // Mandate cancelled
+  "expired",           // Mandate expired
+  "rejected",          // Mandate rejected by bank
+] as const;
+export type BankMandateStatus = typeof bankMandateStatusValues[number];
+
+// Mutual Fund Folios - Track client folios with AMCs
+export const mfFolios = pgTable("mf_folios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  // Folio Details
+  folioNumber: varchar("folio_number").notNull(),
+  amcCode: varchar("amc_code").notNull(), // AMC identifier
+  amcName: varchar("amc_name").notNull(),
+  
+  // Holder Details
+  holderName: varchar("holder_name").notNull(),
+  holderPan: varchar("holder_pan"),
+  jointHolder1Name: varchar("joint_holder1_name"),
+  jointHolder2Name: varchar("joint_holder2_name"),
+  holdingMode: varchar("holding_mode").default("single"), // single, joint, anyone_or_survivor
+  
+  // Bank Account linked to folio
+  bankAccountId: varchar("bank_account_id").references(() => userBankAccounts.id),
+  bankAccountNumber: varchar("bank_account_number"),
+  bankIfsc: varchar("bank_ifsc"),
+  bankName: varchar("bank_name"),
+  
+  // KYC & Compliance
+  kycStatus: varchar("kyc_status").default("pending"), // pending, verified, rejected
+  fatcaStatus: varchar("fatca_status").default("pending"),
+  nomineeRegistered: boolean("nominee_registered").default(false),
+  
+  // Source
+  dataSource: varchar("data_source").default("manual"), // cams, kfintech, bse_star, manual
+  sourceReference: varchar("source_reference"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_folios_user").on(table.userId),
+  index("idx_mf_folios_number").on(table.folioNumber),
+  index("idx_mf_folios_amc").on(table.amcCode),
+]);
+
+// Mutual Fund Holdings - Current holdings in a folio
+export const mfHoldings = pgTable("mf_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  folioId: varchar("folio_id").notNull().references(() => mfFolios.id),
+  
+  // Scheme Details
+  schemeCode: varchar("scheme_code").notNull(),
+  schemeName: varchar("scheme_name").notNull(),
+  isin: varchar("isin"),
+  planType: varchar("plan_type").default("regular"), // regular, direct
+  optionType: varchar("option_type"), // growth, dividend, idcw
+  
+  // Holding Details
+  units: decimal("units", { precision: 15, scale: 4 }).notNull(),
+  avgNav: decimal("avg_nav", { precision: 12, scale: 4 }),
+  currentNav: decimal("current_nav", { precision: 12, scale: 4 }),
+  navDate: date("nav_date"),
+  investedValue: decimal("invested_value", { precision: 15, scale: 2 }),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  
+  // Lock-in & Exit Load
+  lockInEndDate: date("lock_in_end_date"),
+  exitLoadApplicable: boolean("exit_load_applicable").default(false),
+  exitLoadPercent: decimal("exit_load_percent", { precision: 5, scale: 2 }),
+  exitLoadEndDate: date("exit_load_end_date"),
+  
+  // Pledge/Lien Status
+  pledgeStatus: varchar("pledge_status").default("none"), // none, pledged, lien
+  pledgedUnits: decimal("pledged_units", { precision: 15, scale: 4 }),
+  pledgeReference: varchar("pledge_reference"),
+  
+  // Last Transaction
+  lastTransactionDate: date("last_transaction_date"),
+  lastTransactionType: varchar("last_transaction_type"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_holdings_user").on(table.userId),
+  index("idx_mf_holdings_folio").on(table.folioId),
+  index("idx_mf_holdings_scheme").on(table.schemeCode),
+]);
+
+// Bank Mandates for SIP/Recurring Payments
+export const bankMandates = pgTable("bank_mandates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  bankAccountId: varchar("bank_account_id").references(() => userBankAccounts.id),
+  
+  // Mandate Details
+  umrn: varchar("umrn"), // Unique Mandate Reference Number
+  mandateType: varchar("mandate_type").notNull(), // nach, e_mandate, upi_autopay, one_time
+  
+  // Bank Details
+  bankAccountNumber: varchar("bank_account_number").notNull(),
+  bankIfsc: varchar("bank_ifsc").notNull(),
+  bankName: varchar("bank_name"),
+  accountHolderName: varchar("account_holder_name"),
+  
+  // Amount Limits
+  maxAmount: decimal("max_amount", { precision: 15, scale: 2 }).notNull(),
+  frequency: varchar("frequency").default("monthly"), // monthly, quarterly, weekly, as_presented
+  
+  // Validity
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  
+  // Status
+  status: varchar("status").default("pending"), // pending, active, paused, cancelled, expired, rejected
+  
+  // Verification
+  verificationReference: varchar("verification_reference"),
+  verifiedAt: timestamp("verified_at"),
+  
+  // Purpose
+  purpose: varchar("purpose").default("mutual_fund_sip"), // mutual_fund_sip, loan_emi, insurance_premium
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bank_mandates_user").on(table.userId),
+  index("idx_bank_mandates_status").on(table.status),
+  index("idx_bank_mandates_umrn").on(table.umrn),
+]);
+
+// Mutual Fund Orders - Buy/Sell/SIP order records
+export const mfOrders = pgTable("mf_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Order Reference
+  orderReference: varchar("order_reference").notNull().unique(), // FTX-MF-{TYPE}-{timestamp}
+  
+  // User & Advisor
+  userId: varchar("user_id").notNull().references(() => users.id),
+  advisorId: varchar("advisor_id").references(() => users.id),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Folio & Scheme
+  folioId: varchar("folio_id").references(() => mfFolios.id),
+  schemeCode: varchar("scheme_code").notNull(),
+  schemeName: varchar("scheme_name").notNull(),
+  isin: varchar("isin"),
+  planType: varchar("plan_type").default("regular"), // regular, direct
+  
+  // Order Details
+  orderType: varchar("order_type").notNull(), // buy, sell, sip, stp, swp, switch
+  
+  // Amount/Units
+  amount: decimal("amount", { precision: 15, scale: 2 }), // For lumpsum buy
+  units: decimal("units", { precision: 15, scale: 4 }), // For sell by units
+  allUnits: boolean("all_units").default(false), // Redeem all units flag
+  
+  // For SIP orders
+  sipAmount: decimal("sip_amount", { precision: 15, scale: 2 }),
+  sipFrequency: varchar("sip_frequency"), // monthly, quarterly, weekly
+  sipStartDate: date("sip_start_date"),
+  sipEndDate: date("sip_end_date"),
+  sipInstallments: integer("sip_installments"),
+  mandateId: varchar("mandate_id").references(() => bankMandates.id),
+  
+  // Payment
+  paymentMethod: varchar("payment_method"), // netbanking, upi, nach, neft
+  paymentReference: varchar("payment_reference"),
+  paymentStatus: varchar("payment_status").default("pending"),
+  paymentCompletedAt: timestamp("payment_completed_at"),
+  
+  // NAV & Execution
+  navDate: date("nav_date"),
+  navApplied: decimal("nav_applied", { precision: 12, scale: 4 }),
+  unitsAllotted: decimal("units_allotted", { precision: 15, scale: 4 }),
+  
+  // For Redemption
+  payoutBankId: varchar("payout_bank_id").references(() => userBankAccounts.id),
+  payoutAmount: decimal("payout_amount", { precision: 15, scale: 2 }),
+  exitLoadApplied: decimal("exit_load_applied", { precision: 15, scale: 2 }),
+  tdsApplied: decimal("tds_applied", { precision: 15, scale: 2 }),
+  
+  // Settlement
+  settlementDate: date("settlement_date"),
+  settlementReference: varchar("settlement_reference"),
+  
+  // Status
+  status: varchar("status").default("created"), // created, pending_payment, placed, confirmed, settled, reconciled, rejected, cancelled, failed
+  statusMessage: text("status_message"),
+  
+  // AMC/RTA Reference
+  rtaReference: varchar("rta_reference"),
+  amcReference: varchar("amc_reference"),
+  bseOrderId: varchar("bse_order_id"), // BSE Star MF order ID if applicable
+  
+  // Compliance
+  complianceFlags: jsonb("compliance_flags").default({}), // KYC, AML, suitability checks
+  suitabilityAckRequired: boolean("suitability_ack_required").default(false),
+  suitabilityAckProvided: boolean("suitability_ack_provided").default(false),
+  
+  // Charges
+  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }),
+  transactionCharges: decimal("transaction_charges", { precision: 10, scale: 2 }),
+  gst: decimal("gst", { precision: 10, scale: 2 }),
+  stampDuty: decimal("stamp_duty", { precision: 10, scale: 2 }),
+  
+  // Actor & IP
+  initiatedBy: varchar("initiated_by").references(() => users.id),
+  initiatedByRole: varchar("initiated_by_role"), // client, advisor, admin
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timestamps
+  placedAt: timestamp("placed_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  settledAt: timestamp("settled_at"),
+  reconciledAt: timestamp("reconciled_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_orders_user").on(table.userId),
+  index("idx_mf_orders_status").on(table.status),
+  index("idx_mf_orders_scheme").on(table.schemeCode),
+  index("idx_mf_orders_reference").on(table.orderReference),
+  index("idx_mf_orders_created").on(table.createdAt),
+]);
+
+// Order Audit Log - Track every action on orders
+export const mfOrderAuditLog = pgTable("mf_order_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => mfOrders.id),
+  
+  // Actor
+  actorId: varchar("actor_id").references(() => users.id),
+  actorRole: varchar("actor_role").notNull(), // client, advisor, admin, system
+  
+  // Action
+  action: varchar("action").notNull(), // created, submitted, payment_initiated, payment_completed, confirmed, status_changed, cancelled, etc.
+  previousStatus: varchar("previous_status"),
+  newStatus: varchar("new_status"),
+  
+  // Details
+  details: jsonb("details").default({}), // Additional action-specific data
+  notes: text("notes"),
+  
+  // Context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_order_audit_order").on(table.orderId),
+  index("idx_mf_order_audit_actor").on(table.actorId),
+  index("idx_mf_order_audit_action").on(table.action),
+]);
+
+// Suitability Acknowledgements - Client consent for mismatched risk profiles
+export const suitabilityAcknowledgements = pgTable("suitability_acknowledgements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => mfOrders.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  advisorId: varchar("advisor_id").references(() => users.id),
+  
+  // Risk Assessment
+  clientRiskProfile: varchar("client_risk_profile").notNull(), // conservative, moderate, aggressive
+  schemeRiskLevel: varchar("scheme_risk_level").notNull(), // low, moderate, high, very_high
+  riskMismatch: boolean("risk_mismatch").default(true),
+  
+  // Acknowledgement
+  acknowledgementText: text("acknowledgement_text").notNull(),
+  signatureType: varchar("signature_type").default("checkbox"), // checkbox, otp, esign
+  signatureReference: varchar("signature_reference"),
+  
+  // Context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  acknowledgedAt: timestamp("acknowledged_at").defaultNow(),
+}, (table) => [
+  index("idx_suitability_ack_order").on(table.orderId),
+  index("idx_suitability_ack_user").on(table.userId),
+]);
+
+// Reconciliation Entries - Track settlement reconciliation
+export const mfReconciliationEntries = pgTable("mf_reconciliation_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => mfOrders.id),
+  
+  // RTA/AMC Reference
+  rtaReference: varchar("rta_reference"),
+  amcReference: varchar("amc_reference"),
+  
+  // Expected vs Actual
+  expectedUnits: decimal("expected_units", { precision: 15, scale: 4 }),
+  actualUnits: decimal("actual_units", { precision: 15, scale: 4 }),
+  expectedAmount: decimal("expected_amount", { precision: 15, scale: 2 }),
+  actualAmount: decimal("actual_amount", { precision: 15, scale: 2 }),
+  variance: decimal("variance", { precision: 15, scale: 4 }),
+  
+  // NAV Details
+  navDate: date("nav_date"),
+  navApplied: decimal("nav_applied", { precision: 12, scale: 4 }),
+  
+  // Status
+  reconciliationStatus: varchar("reconciliation_status").default("pending"), // pending, matched, variance, exception
+  exceptionReason: text("exception_reason"),
+  
+  // Resolution
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  // Raw Response
+  rawRtaResponse: jsonb("raw_rta_response"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_recon_order").on(table.orderId),
+  index("idx_mf_recon_status").on(table.reconciliationStatus),
+]);
+
+// Contract Notes - Generated contract notes for orders
+export const mfContractNotes = pgTable("mf_contract_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => mfOrders.id),
+  
+  // Contract Note Details
+  contractNoteNumber: varchar("contract_note_number").notNull().unique(),
+  tradeDate: date("trade_date").notNull(),
+  settlementDate: date("settlement_date"),
+  
+  // Document
+  pdfUrl: text("pdf_url"),
+  pdfHash: varchar("pdf_hash"), // SHA256 hash for integrity
+  storageReference: varchar("storage_reference"), // Object storage reference
+  
+  // Delivery
+  emailSentAt: timestamp("email_sent_at"),
+  emailDeliveredAt: timestamp("email_delivered_at"),
+  smsSentAt: timestamp("sms_sent_at"),
+  
+  generatedAt: timestamp("generated_at").defaultNow(),
+}, (table) => [
+  index("idx_mf_contract_order").on(table.orderId),
+  index("idx_mf_contract_number").on(table.contractNoteNumber),
+]);
+
+// Insert schemas and types for MF Order System
+export const insertMfFolioSchema = createInsertSchema(mfFolios).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MfFolio = typeof mfFolios.$inferSelect;
+export type InsertMfFolio = z.infer<typeof insertMfFolioSchema>;
+
+export const insertMfHoldingSchema = createInsertSchema(mfHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MfHolding = typeof mfHoldings.$inferSelect;
+export type InsertMfHolding = z.infer<typeof insertMfHoldingSchema>;
+
+export const insertBankMandateSchema = createInsertSchema(bankMandates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type BankMandate = typeof bankMandates.$inferSelect;
+export type InsertBankMandate = z.infer<typeof insertBankMandateSchema>;
+
+export const insertMfOrderSchema = createInsertSchema(mfOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MfOrder = typeof mfOrders.$inferSelect;
+export type InsertMfOrder = z.infer<typeof insertMfOrderSchema>;
+
+export const insertMfOrderAuditLogSchema = createInsertSchema(mfOrderAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type MfOrderAuditLog = typeof mfOrderAuditLog.$inferSelect;
+export type InsertMfOrderAuditLog = z.infer<typeof insertMfOrderAuditLogSchema>;
+
+export const insertSuitabilityAcknowledgementSchema = createInsertSchema(suitabilityAcknowledgements).omit({
+  id: true,
+  acknowledgedAt: true,
+});
+export type SuitabilityAcknowledgement = typeof suitabilityAcknowledgements.$inferSelect;
+export type InsertSuitabilityAcknowledgement = z.infer<typeof insertSuitabilityAcknowledgementSchema>;
+
+export const insertMfReconciliationEntrySchema = createInsertSchema(mfReconciliationEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MfReconciliationEntry = typeof mfReconciliationEntries.$inferSelect;
+export type InsertMfReconciliationEntry = z.infer<typeof insertMfReconciliationEntrySchema>;
+
+export const insertMfContractNoteSchema = createInsertSchema(mfContractNotes).omit({
+  id: true,
+  generatedAt: true,
+});
+export type MfContractNote = typeof mfContractNotes.$inferSelect;
+export type InsertMfContractNote = z.infer<typeof insertMfContractNoteSchema>;
