@@ -14,7 +14,7 @@ import { sql, eq, and, or, like } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, mutualFunds, mutualFundAmcs } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -13307,6 +13307,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Mutual Fund API endpoints with MultiSource integration
+
+  // ==========================================
+  // PUBLIC Mutual Fund API - Published funds from store
+  // ==========================================
+  
+  // Fetch published mutual funds for public /mutual-funds page (no auth required)
+  app.get("/api/public/mutual-funds", async (req, res) => {
+    try {
+      const { 
+        category,
+        fundHouse,
+        planType,
+        search,
+        sortBy = 'schemeName',
+        sortOrder = 'asc',
+        page = '1',
+        limit = '50'
+      } = req.query;
+      
+      console.log('📊 Fetching published mutual funds from store...');
+      
+      // Build conditions for query
+      let conditions: any[] = [
+        eq(mutualFunds.isPublished, true)
+      ];
+      
+      if (planType && planType !== 'all') {
+        conditions.push(eq(mutualFunds.planType, planType as string));
+      }
+      
+      if (category && category !== 'all') {
+        conditions.push(ilike(mutualFunds.category, `%${category}%`));
+      }
+      
+      if (fundHouse && fundHouse !== 'all') {
+        conditions.push(ilike(mutualFunds.fundHouse, `%${fundHouse}%`));
+      }
+      
+      if (search) {
+        conditions.push(
+          or(
+            ilike(mutualFunds.schemeName, `%${search}%`),
+            ilike(mutualFunds.fundHouse, `%${search}%`),
+            ilike(mutualFunds.schemeCode, `%${search}%`)
+          )
+        );
+      }
+      
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      
+      // Get sorting
+      let orderBy: any = desc(mutualFunds.schemeName);
+      if (sortBy === 'nav') {
+        orderBy = sortOrder === 'asc' ? asc(mutualFunds.nav) : desc(mutualFunds.nav);
+      } else if (sortBy === 'returns1y') {
+        orderBy = sortOrder === 'asc' ? asc(mutualFunds.returns1y) : desc(mutualFunds.returns1y);
+      } else if (sortBy === 'fundHouse') {
+        orderBy = sortOrder === 'asc' ? asc(mutualFunds.fundHouse) : desc(mutualFunds.fundHouse);
+      } else {
+        orderBy = sortOrder === 'asc' ? asc(mutualFunds.schemeName) : desc(mutualFunds.schemeName);
+      }
+      
+      const funds = await db.select()
+        .from(mutualFunds)
+        .where(and(...conditions))
+        .orderBy(orderBy)
+        .limit(limitNum)
+        .offset(offset);
+      
+      const countResult = await db.select({ count: sql<number>`count(*)` })
+        .from(mutualFunds)
+        .where(and(...conditions));
+      
+      const total = Number(countResult[0]?.count || 0);
+      
+      // Get unique fund houses for filter dropdown
+      const fundHouses = await db.selectDistinct({ fundHouse: mutualFunds.fundHouse })
+        .from(mutualFunds)
+        .where(eq(mutualFunds.isPublished, true));
+      
+      // Get unique categories for filter dropdown
+      const categories = await db.selectDistinct({ category: mutualFunds.category })
+        .from(mutualFunds)
+        .where(eq(mutualFunds.isPublished, true));
+      
+      console.log(`✅ Found ${total} published mutual funds`);
+      
+      res.json({
+        success: true,
+        funds: funds.map(fund => ({
+          id: fund.id,
+          schemeCode: fund.schemeCode,
+          schemeName: fund.schemeName,
+          category: fund.category,
+          fundHouse: fund.fundHouse,
+          nav: fund.nav,
+          change: fund.change,
+          changePercent: fund.changePercent,
+          expenseRatio: fund.expenseRatio,
+          aum: fund.aum,
+          riskLevel: fund.riskLevel,
+          returns1y: fund.returns1y,
+          returns3y: fund.returns3y,
+          returns5y: fund.returns5y,
+          planType: fund.planType,
+          rating: fund.crisilRating,
+          extendedData: fund.extendedData,
+          lastUpdated: fund.lastUpdated
+        })),
+        filters: {
+          fundHouses: fundHouses.map(f => f.fundHouse).filter(Boolean),
+          categories: categories.map(c => c.category).filter(Boolean)
+        },
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum)
+        }
+      });
+    } catch (error: any) {
+      console.error("[Public MF API] Error fetching published funds:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message,
+        funds: [],
+        pagination: { page: 1, limit: 50, total: 0, totalPages: 0 }
+      });
+    }
+  });
+
+  // Get AMCs with their published scheme counts for public display
+  app.get("/api/public/mutual-funds/amcs", async (req, res) => {
+    try {
+      const amcs = await db.select()
+        .from(mutualFundAmcs)
+        .where(
+          or(
+            eq(mutualFundAmcs.regularPlansEnabled, true),
+            eq(mutualFundAmcs.directPlansEnabled, true)
+          )
+        )
+        .orderBy(asc(mutualFundAmcs.name));
+      
+      res.json({
+        success: true,
+        amcs: amcs.map(amc => ({
+          id: amc.id,
+          name: amc.name,
+          displayName: amc.displayName || amc.name,
+          logoUrl: amc.logoUrl,
+          regularPlansEnabled: amc.regularPlansEnabled,
+          directPlansEnabled: amc.directPlansEnabled,
+          totalSchemes: amc.totalSchemes,
+          publishedRegularSchemes: amc.publishedRegularSchemes,
+          publishedDirectSchemes: amc.publishedDirectSchemes
+        }))
+      });
+    } catch (error: any) {
+      console.error("[Public MF API] Error fetching AMCs:", error);
+      res.status(500).json({ success: false, error: error.message, amcs: [] });
+    }
+  });
+
   app.get("/api/mutual-funds", requireLevel2, async (req, res) => {
     try {
       const { 
