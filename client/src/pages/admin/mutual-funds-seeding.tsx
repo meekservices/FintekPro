@@ -264,7 +264,7 @@ export default function MutualFundsSeeding() {
   });
 
   const { data: categoriesData } = useQuery<{ categories: Category[] }>({
-    queryKey: ['/api/admin/mutual-funds/categories'],
+    queryKey: ['/api/admin/categories'],
   });
 
   const funds: MutualFund[] = fundsData?.funds || [];
@@ -331,12 +331,12 @@ export default function MutualFundsSeeding() {
 
   const toggleCategoryMutation = useMutation({
     mutationFn: ({ id, isEnabled, comingSoonMessage }: { id: string; isEnabled: boolean; comingSoonMessage?: string }) =>
-      apiRequest(`/api/admin/mutual-funds/categories/${id}/toggle`, {
+      apiRequest(`/api/admin/categories/${id}/toggle`, {
         method: 'PUT',
         body: JSON.stringify({ isEnabled, comingSoonMessage }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/mutual-funds/categories'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/categories'] });
       toast({ title: "Category Updated", description: "Category visibility has been updated" });
     },
     onError: (error: any) => {
