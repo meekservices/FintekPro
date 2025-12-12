@@ -27567,11 +27567,8 @@ System Security Data:`;
         req.params.productType
       );
       
-      if (!preference) {
-        return res.status(404).json({ error: "Preference not found for this product type" });
-      }
-
-      res.json(preference);
+      // Return null with 200 status when no preference exists (expected for new users)
+      res.json(preference || null);
     } catch (error) {
       console.error("Error fetching product account preference:", error);
       res.status(500).json({ error: "Failed to fetch product account preference" });
