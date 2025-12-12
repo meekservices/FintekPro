@@ -1,8 +1,8 @@
-import { smsService } from './sms-service';
 import { db } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import nodemailer from 'nodemailer';
+import twilio from 'twilio';
 
 interface MfOrderNotificationData {
   orderId: string;
@@ -33,9 +33,48 @@ class MfOrderNotificationService {
   private emailTransporter: nodemailer.Transporter | null = null;
   private isEmailConfigured: boolean = false;
   private fromEmail: string = 'noreply@fintekpro.com';
+  private twilioClient: any = null;
+  private twilioFromNumber: string = '';
+  private isSmsConfigured: boolean = false;
 
   constructor() {
     this.initializeEmailService();
+    this.initializeSmsService();
+  }
+
+  private initializeSmsService() {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+    if (accountSid && authToken && fromNumber) {
+      this.twilioClient = twilio(accountSid, authToken);
+      this.twilioFromNumber = fromNumber;
+      this.isSmsConfigured = true;
+      console.log('✅ MF Order Notification SMS service configured');
+    } else {
+      console.log('⚠️ MF Order Notification SMS not configured - missing Twilio credentials');
+    }
+  }
+
+  private async sendSms(mobile: string, message: string): Promise<boolean> {
+    if (!this.isSmsConfigured || !this.twilioClient) {
+      console.log(`📱 MF SMS (mock): ${message.substring(0, 50)}... to ${mobile}`);
+      return false;
+    }
+
+    try {
+      const formattedMobile = mobile.startsWith('+') ? mobile : `+91${mobile}`;
+      await this.twilioClient.messages.create({
+        body: message,
+        from: this.twilioFromNumber,
+        to: formattedMobile,
+      });
+      return true;
+    } catch (error) {
+      console.error('[MF Notification] SMS send error:', error);
+      return false;
+    }
   }
 
   private initializeEmailService() {
@@ -182,8 +221,7 @@ class MfOrderNotificationService {
       if (user.mobile) {
         try {
           const smsMessage = `${statusInfo.emoji} FintekPro: ${statusInfo.title} - ${data.schemeName}, Amount: ₹${data.amount}. Order: ${data.orderReference}`;
-          await smsService.sendSMS(user.mobile, smsMessage);
-          results.sms = true;
+          results.sms = await this.sendSms(user.mobile, smsMessage);
         } catch (smsError) {
           console.error('Failed to send MF order SMS:', smsError);
         }
@@ -223,8 +261,7 @@ class MfOrderNotificationService {
         try {
           const sourceLabel = data.proposalSource === 'ai' ? '🤖 AI' : data.proposalSource === 'agent' ? '👤 Agent' : '📊';
           const smsMessage = `${statusInfo.emoji} FintekPro: ${statusInfo.title} - ${sourceLabel} Proposal: ${data.proposalTitle}. Amount: ₹${data.totalAmount}`;
-          await smsService.sendSMS(user.mobile, smsMessage);
-          results.sms = true;
+          results.sms = await this.sendSms(user.mobile, smsMessage);
         } catch (smsError) {
           console.error('Failed to send proposal SMS:', smsError);
         }

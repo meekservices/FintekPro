@@ -12,12 +12,497 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, TrendingUp, TrendingDown, Star, Filter, Calculator, RefreshCw, ArrowRight, Shield, Building2, Award, Clock, AlertCircle, Store, ChevronLeft, ChevronRight, ShoppingCart, ClipboardList, Wallet, IndianRupee, ArrowUpRight, ArrowDownRight, Package, FileText, CheckCircle2, AlertTriangle, Banknote } from "lucide-react";
 import { useMutualFunds, usePopularMutualFunds, useSearchMutualFunds, type MutualFundData } from "@/hooks/use-mutual-funds";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useNSEIndices, useMarketMovers, useMarketStatus } from "@/hooks/use-market-data";
 import { usePortfolios, usePortfolioPerformance, useEnhancedPortfolioHoldings } from "@/hooks/use-portfolio";
 import { InvestmentModal } from "@/components/InvestmentModal";
 import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Sparkles, ThumbsUp, ThumbsDown, Edit2, Bot, UserCheck, Trash2, CreditCard, AlertOctagon } from "lucide-react";
+
+// Proposals Tab Component
+function ProposalsTab({ onApprove }: { onApprove: () => void }) {
+  const { toast } = useToast();
+  
+  const { data: proposals, isLoading, refetch } = useQuery<any[]>({
+    queryKey: ['/api/proposals'],
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return apiRequest(`/api/proposals/${proposalId}/approve`, { method: 'POST' });
+    },
+    onSuccess: () => {
+      toast({ title: "Proposal Approved", description: "Added to your investment cart" });
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+      onApprove();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to approve proposal", variant: "destructive" });
+    }
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return apiRequest(`/api/proposals/${proposalId}/reject`, { method: 'POST' });
+    },
+    onSuccess: () => {
+      toast({ title: "Proposal Rejected", description: "The proposal has been declined" });
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to reject proposal", variant: "destructive" });
+    }
+  });
+
+  const pendingProposals = proposals?.filter(p => p.status === 'pending') || [];
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="w-8 h-8 animate-spin text-purple-600" />
+        <span className="ml-2 text-gray-600">Loading proposals...</span>
+      </div>
+    );
+  }
+
+  if (pendingProposals.length === 0) {
+    return (
+      <Card className="border-dashed border-2 border-purple-200 bg-purple-50/50 dark:bg-purple-900/10">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <Bot className="w-16 h-16 text-purple-400 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            No Pending Proposals
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-4">
+            AI-generated and agent recommendations will appear here based on your risk profile and investment goals.
+          </p>
+          <Button 
+            variant="outline" 
+            onClick={() => refetch()}
+            className="border-purple-300 text-purple-600 hover:bg-purple-50"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh Proposals
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {pendingProposals.map((proposal) => (
+        <Card key={proposal.id} className="overflow-hidden hover:shadow-lg transition-shadow" data-testid={`proposal-card-${proposal.id}`}>
+          <CardContent className="p-0">
+            <div className="flex">
+              {/* Proposal Source Indicator */}
+              <div className={`w-2 ${proposal.proposalSource === 'ai' ? 'bg-gradient-to-b from-purple-500 to-indigo-600' : 'bg-gradient-to-b from-blue-500 to-cyan-600'}`} />
+              
+              <div className="flex-1 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      {proposal.proposalSource === 'ai' ? (
+                        <Badge className="bg-purple-100 text-purple-700 border-purple-200">
+                          <Bot className="w-3 h-3 mr-1" />
+                          AI Generated
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                          <UserCheck className="w-3 h-3 mr-1" />
+                          Agent Recommended
+                        </Badge>
+                      )}
+                      {proposal.riskProfile && (
+                        <Badge variant="outline" className="text-xs">
+                          {proposal.riskProfile.charAt(0).toUpperCase() + proposal.riskProfile.slice(1)} Risk
+                        </Badge>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {proposal.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {proposal.description}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
+                      <IndianRupee className="w-5 h-5" />
+                      {parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-sm text-gray-500">Total Investment</p>
+                  </div>
+                </div>
+
+                {/* AI/Agent Insights */}
+                {(proposal.analysisRationale) && (
+                  <div className="mb-4 p-4 rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-100 dark:border-purple-800">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="w-5 h-5 text-purple-500 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-purple-800 dark:text-purple-300 text-sm">
+                          {proposal.proposalSource === 'ai' ? 'AI Insight' : 'Agent Note'}
+                        </p>
+                        <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">
+                          {proposal.analysisRationale}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expected Outcomes */}
+                <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Expected Return</p>
+                    <p className="text-lg font-bold text-emerald-600">
+                      {proposal.expectedReturns ? `${proposal.expectedReturns}%` : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Time Horizon</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {proposal.timeHorizon?.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'N/A'}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Projected Value</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white flex items-center justify-center">
+                      <IndianRupee className="w-4 h-4" />
+                      {proposal.projectedValue ? parseFloat(proposal.projectedValue).toLocaleString('en-IN') : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => approveMutation.mutate(proposal.id)}
+                    disabled={approveMutation.isPending}
+                    data-testid={`approve-${proposal.id}`}
+                  >
+                    {approveMutation.isPending ? (
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <ThumbsUp className="w-4 h-4 mr-2" />
+                    )}
+                    Approve & Add to Cart
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                    onClick={() => rejectMutation.mutate(proposal.id)}
+                    disabled={rejectMutation.isPending}
+                    data-testid={`reject-${proposal.id}`}
+                  >
+                    <ThumbsDown className="w-4 h-4 mr-2" />
+                    Reject
+                  </Button>
+                  <Button 
+                    variant="ghost"
+                    className="text-gray-600"
+                    data-testid={`edit-${proposal.id}`}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// MF Cart Tab Component
+function MfCartTab({ onCheckout }: { onCheckout: () => void }) {
+  const { toast } = useToast();
+  
+  const { data: cartData, isLoading } = useQuery<any>({
+    queryKey: ['/api/cart'],
+  });
+
+  const removeFromCartMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return apiRequest(`/api/cart/items/${itemId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      toast({ title: "Removed from Cart", description: "Item removed successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to remove item", variant: "destructive" });
+    }
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/cart/checkout', { method: 'POST' });
+    },
+    onSuccess: () => {
+      toast({ title: "Order Placed!", description: "Your mutual fund order has been submitted" });
+      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/mf/orders'] });
+      onCheckout();
+    },
+    onError: () => {
+      toast({ title: "Checkout Failed", description: "Please try again or contact support", variant: "destructive" });
+    }
+  });
+
+  const cartItems = cartData?.items || [];
+  const totalValue = cartData?.totalValue || 0;
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="w-8 h-8 animate-spin text-orange-600" />
+        <span className="ml-2 text-gray-600">Loading cart...</span>
+      </div>
+    );
+  }
+
+  if (cartItems.length === 0) {
+    return (
+      <Card className="border-dashed border-2 border-orange-200 bg-orange-50/50 dark:bg-orange-900/10">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <ShoppingCart className="w-16 h-16 text-orange-400 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            Your Cart is Empty
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-4">
+            Approve investment proposals to add them to your cart for checkout.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Cart Items List */}
+      <div className="lg:col-span-2 space-y-4">
+        {cartItems.map((item: any, index: number) => (
+          <Card key={item.id || index} className="overflow-hidden" data-testid={`cart-item-${index}`}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-5 h-5 text-orange-600" />
+                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                      {item.productName || item.schemeName || 'Investment Item'}
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    {item.category && (
+                      <Badge variant="outline" className="text-xs">
+                        {item.category}
+                      </Badge>
+                    )}
+                    {item.orderType && (
+                      <span className="capitalize">{item.orderType}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
+                    <IndianRupee className="w-4 h-4" />
+                    {parseFloat(item.amount || item.quantity || '0').toLocaleString('en-IN')}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 mt-2"
+                    onClick={() => removeFromCartMutation.mutate(item.id)}
+                    disabled={removeFromCartMutation.isPending}
+                    data-testid={`remove-${index}`}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Checkout Summary */}
+      <div className="lg:col-span-1">
+        <Card className="sticky top-4 border-2 border-orange-200 bg-gradient-to-b from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-orange-600" />
+              Order Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Total Items</span>
+                <span className="font-medium">{cartItems.length}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Subtotal</span>
+                <span className="font-medium flex items-center">
+                  <IndianRupee className="w-3 h-3" />
+                  {parseFloat(totalValue || '0').toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Platform Fee</span>
+                <span className="font-medium text-green-600">FREE</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Stamp Duty (0.005%)</span>
+                <span className="font-medium flex items-center">
+                  <IndianRupee className="w-3 h-3" />
+                  {(parseFloat(totalValue || '0') * 0.00005).toFixed(2)}
+                </span>
+              </div>
+            </div>
+            
+            <div className="border-t pt-4">
+              <div className="flex justify-between text-lg font-bold">
+                <span>Total Payable</span>
+                <span className="flex items-center text-orange-600">
+                  <IndianRupee className="w-4 h-4" />
+                  {(parseFloat(totalValue || '0') * 1.00005).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertOctagon className="w-4 h-4 text-amber-600 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-300">NAV Cutoff</p>
+                  <p className="text-amber-700 dark:text-amber-400 text-xs">
+                    Orders before 3 PM get same-day NAV. After 3 PM, next business day NAV applies.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Button 
+              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-6"
+              onClick={() => checkoutMutation.mutate()}
+              disabled={checkoutMutation.isPending || cartItems.length === 0}
+              data-testid="checkout-btn"
+            >
+              {checkoutMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Proceed to Payment
+                </>
+              )}
+            </Button>
+
+            <p className="text-xs text-center text-gray-500">
+              Secure payment powered by Cashfree
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// MF Order Progress Tracker Component
+function MfOrderProgressTracker({ order }: { order: any }) {
+  const stages = [
+    { key: 'placed', label: 'Order Placed', icon: ClipboardList },
+    { key: 'confirmed', label: 'Payment Confirmed', icon: CheckCircle2 },
+    { key: 'settled', label: 'Units Allotted', icon: Package },
+    { key: 'reconciled', label: 'Completed', icon: Award },
+  ];
+
+  const getCurrentStageIndex = (status: string) => {
+    const statusMap: Record<string, number> = {
+      'created': 0, 'pending_payment': 0, 'placed': 1,
+      'confirmed': 2, 'settled': 3, 'reconciled': 4,
+      'failed': -1, 'cancelled': -1, 'rejected': -1,
+    };
+    return statusMap[status?.toLowerCase()] ?? 0;
+  };
+
+  const currentIndex = getCurrentStageIndex(order.status);
+  const isFailed = currentIndex === -1;
+
+  if (isFailed) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div className="flex items-center gap-2 text-red-600">
+          <AlertTriangle className="w-5 h-5" />
+          <span className="font-medium">Order {order.status}</span>
+        </div>
+        {order.statusMessage && (
+          <p className="text-sm text-red-500 mt-1">{order.statusMessage}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        {/* Progress Bar Background */}
+        <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 rounded-full" />
+        {/* Progress Bar Fill */}
+        <div 
+          className="absolute top-5 left-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+          style={{ width: `${(currentIndex / (stages.length - 1)) * 100}%` }}
+        />
+
+        {/* Stages */}
+        <div className="relative flex justify-between">
+          {stages.map((stage, index) => {
+            const StageIcon = stage.icon;
+            const isComplete = index < currentIndex;
+            const isCurrent = index === currentIndex;
+
+            return (
+              <div key={stage.key} className="flex flex-col items-center">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                    isComplete
+                      ? 'bg-emerald-500 text-white'
+                      : isCurrent
+                      ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600 border-2 border-emerald-500 animate-pulse'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                  }`}
+                >
+                  <StageIcon className="w-5 h-5" />
+                </div>
+                <span className={`text-xs mt-2 text-center ${isCurrent ? 'font-medium text-emerald-600' : 'text-gray-500'}`}>
+                  {stage.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {order.settlementDate && (
+        <div className="text-sm text-gray-500 text-center">
+          Expected settlement: {new Date(order.settlementDate).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function FundCard({ fund, sebiData, onInvestClick }: { fund: MutualFundData; sebiData?: any[]; onInvestClick: (fund: MutualFundData) => void }) {
   const navValue = parseFloat(fund.nav || "0");
@@ -1106,7 +1591,7 @@ export default function MutualFunds() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <ScrollableTabsList className="grid w-full grid-cols-7 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+          <ScrollableTabsList className="grid w-full grid-cols-9 h-14 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
             <TabsTrigger 
               value="store" 
               data-testid="tab-marketplace"
@@ -1114,6 +1599,22 @@ export default function MutualFunds() {
             >
               <Store className="w-4 h-4" />
               Marketplace
+            </TabsTrigger>
+            <TabsTrigger 
+              value="proposals" 
+              data-testid="tab-proposals"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-purple-600 transition-all duration-300"
+            >
+              <FileText className="w-4 h-4" />
+              Proposals
+            </TabsTrigger>
+            <TabsTrigger 
+              value="cart" 
+              data-testid="tab-cart"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-orange-600 transition-all duration-300"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Cart
             </TabsTrigger>
             <TabsTrigger 
               value="orders" 
@@ -1432,6 +1933,66 @@ export default function MutualFunds() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Proposals Tab - AI/Agent Investment Proposals */}
+          <TabsContent value="proposals" className="space-y-4" data-testid="proposals-section">
+            {/* Proposals Header */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-purple-600" />
+                    Investment Proposals
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                    Review AI-generated and agent recommendations tailored to your risk profile
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-purple-600 border-purple-300 bg-purple-50 dark:bg-purple-900/20">
+                    <Star className="w-3 h-3 mr-1" />
+                    AI Powered
+                  </Badge>
+                  <Badge variant="secondary">
+                    Risk-Matched
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Proposals Content */}
+            <ProposalsTab onApprove={() => setActiveTab('cart')} />
+          </TabsContent>
+
+          {/* Cart Tab - Approved Proposals Ready for Checkout */}
+          <TabsContent value="cart" className="space-y-4" data-testid="cart-section">
+            {/* Cart Header */}
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <ShoppingCart className="w-5 h-5 text-orange-600" />
+                    Investment Cart
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                    Review your approved investments and proceed to payment
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-900/20">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Pre-approved
+                  </Badge>
+                  <Badge variant="secondary">
+                    Ready to Execute
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Cart Content */}
+            <MfCartTab onCheckout={() => setActiveTab('orders')} />
           </TabsContent>
 
           {/* Orders Tab - Order Execution Platform with Two-Column Layout */}
