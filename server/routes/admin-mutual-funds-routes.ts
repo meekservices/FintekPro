@@ -95,6 +95,50 @@ router.get("/mutual-funds", async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// Simple create endpoint for admin UI
+router.post("/mutual-funds", async (req: Request, res: Response) => {
+  try {
+    const data = req.body;
+    
+    const [newFund] = await db.insert(storeProducts).values({
+      name: data.name,
+      shortDescription: data.shortDescription,
+      fullDescription: data.description,
+      categoryId: data.category || "mutual-funds",
+      productType: "mutual_fund",
+      planType: data.planType,
+      schemeCode: data.amfiCode,
+      amfiCode: data.amfiCode,
+      isinCode: data.isinCode,
+      price: data.nav,
+      expenseRatio: data.expenseRatio,
+      trailCommission: data.trailCommission,
+      minimumInvestment: data.minInvestment,
+      exitLoad: data.exitLoad,
+      riskLevel: data.riskLevel,
+      expectedReturns: data.returns1y,
+      provider: data.fundHouse,
+      regulatory: {
+        returns1y: data.returns1y,
+        returns3y: data.returns3y,
+        returns5y: data.returns5y,
+        nav: data.nav,
+        aum: data.aum,
+      },
+      isActive: true,
+      visibleToClients: true,
+      visibleToPartners: true,
+      visibleToAgents: true,
+      visibleToGuests: data.planType === "regular",
+    }).returning();
+    
+    res.json({ success: true, fund: newFund });
+  } catch (error: any) {
+    console.error("[Admin MF] Error creating mutual fund:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 router.post("/mutual-funds/seed", async (req: Request, res: Response) => {
   try {

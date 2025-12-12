@@ -527,6 +527,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
+  // Advisory Subscription Check endpoint
+  app.get("/api/user/advisory-subscription", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { advisorySubscriptions } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      
+      const activeSubscription = await db.select()
+        .from(advisorySubscriptions)
+        .where(
+          and(
+            eq(advisorySubscriptions.userId, userId),
+            eq(advisorySubscriptions.status, "active")
+          )
+        )
+        .limit(1);
+      
+      const hasAdvisory = activeSubscription.length > 0;
+      const subscription = hasAdvisory ? activeSubscription[0] : null;
+      
+      res.json({
+        success: true,
+        hasAdvisorySubscription: hasAdvisory,
+        subscription,
+        directFundsAccess: hasAdvisory && subscription?.directFundsAccess
+      });
+    } catch (error) {
+      console.error("Error checking advisory subscription:", error);
+      res.status(500).json({ success: false, error: "Failed to check advisory subscription" });
+    }
+  });
+
 
   // KYC Status endpoint - returns comprehensive KYC info and transaction readiness
   app.get("/api/profile/kyc-status", requireClientOrHigher, async (req, res) => {
@@ -32132,7 +32164,7 @@ System Security Data:`;
   });
 
   // Get active store products for client store page
-  app.get('/api/store/products', async (req, res) => {
+  app.get('/api/store/products', async (req: any, res: any) => {
     try {
       const { category, subcategory } = req.query;
       
@@ -32159,6 +32191,31 @@ System Security Data:`;
       if (subcategory) {
         activeProducts = activeProducts.filter(p => p.subcategoryId === subcategory);
       }
+      
+      // Visibility gating for Direct funds based on advisory subscription
+      let hasDirectFundsAccess = false;
+      if (req.user?.id) {
+        try {
+          const userAdvisory = await db.select()
+            .from(advisorySubscriptions)
+            .where(
+              and(
+                eq(advisorySubscriptions.userId, req.user.id),
+                eq(advisorySubscriptions.status, "active")
+              )
+            )
+            .limit(1);
+          hasDirectFundsAccess = userAdvisory.length > 0 && userAdvisory[0]?.directFundsAccess;
+        } catch (e) {
+          console.error("Error checking advisory subscription:", e);
+        }
+      }
+      
+      // Filter out Direct funds for users without advisory subscription
+      if (!hasDirectFundsAccess) {
+        activeProducts = activeProducts.filter(p => p.planType !== "direct");
+      }
+
       
       // Get category and subcategory names for each product
       const categoryMap = Object.fromEntries(allCategories.map(c => [c.id, c.name]));

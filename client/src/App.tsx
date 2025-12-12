@@ -67,6 +67,7 @@ import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
 import ZohoLogsPage from "@/pages/admin/zoho-logs";
 import StoreManagement from "@/pages/admin/store-management";
 import BondSeedAdmin from "@/pages/admin/bond-seed";
+import MutualFundsSeeding from "@/pages/admin/mutual-funds-seeding";
 import SeedUnlistedPage from "@/pages/admin/seed-unlisted";
 import UnlistedPreviewPage from "@/pages/admin/unlisted-preview";
 import UnlistedPricingPreviewPage from "@/pages/admin/unlisted-pricing-preview";
@@ -564,6 +565,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <BondSeedAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mutual-funds-seeding">
+        {() => (
+          <AdminLayout>
+            <MutualFundsSeeding />
           </AdminLayout>
         )}
       </Route>
