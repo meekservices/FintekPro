@@ -93,5 +93,23 @@ export function initializeCronJobs(): void {
     }
   });
 
+  // Bond Financial Calendar Refresh - Run daily at 6 AM IST (12:30 AM UTC)
+  cron.schedule('30 0 * * *', async () => {
+    console.log('[CRON] Starting bond calendar refresh...');
+    try {
+      const { financialCalendarService } = await import('./services/financial-calendar-service');
+      const result = await financialCalendarService.refreshCalendar();
+      
+      console.log(
+        `[CRON] Bond calendar refreshed: ${result.synced} events synced`
+      );
+      if (result.errors.length > 0) {
+        console.warn('[CRON] Bond calendar errors:', result.errors);
+      }
+    } catch (error: any) {
+      console.error('[CRON] Bond calendar refresh failed:', error.message);
+    }
+  });
+
   console.log('✓ Cron jobs initialized successfully');
 }

@@ -34,6 +34,7 @@ import {
   useEnhancedBondMarketplace
 } from "@/components/BondMarketplaceEnhancements";
 import { InvestorClassificationCard, TransactionCostCalculator } from "@/components/regulatory/InvestorClassificationCard";
+import { BondCalendar } from "@/components/BondCalendar";
 
 // Fee calculation hook for bond orders
 interface CommissionConfig {
@@ -2486,6 +2487,7 @@ export default function Bonds() {
         <Tabs defaultValue="explore" className="space-y-8">
           <ScrollableTabsList>
             <TabsTrigger value="explore" data-testid="tab-explore" className="flex-shrink-0">Explore Bonds</TabsTrigger>
+            <TabsTrigger value="calendar" data-testid="tab-calendar" className="flex-shrink-0">Calendar</TabsTrigger>
             <TabsTrigger value="marketplace" data-testid="tab-marketplace" className="flex-shrink-0">Marketplace</TabsTrigger>
             <TabsTrigger value="calculator" data-testid="tab-calculator" className="flex-shrink-0">Bond Calculator</TabsTrigger>
             <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="flex-shrink-0">My Bonds</TabsTrigger>
@@ -2525,6 +2527,10 @@ export default function Bonds() {
               <TaxFreeBonds />
             </div>
 
+          </TabsContent>
+
+          <TabsContent value="calendar" className="space-y-6" data-testid="bond-calendar">
+            <BondCalendar />
           </TabsContent>
 
           <TabsContent value="calculator" className="space-y-6" data-testid="bond-calculator">
