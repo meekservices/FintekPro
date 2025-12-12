@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Calendar, 
   CalendarDays,
@@ -23,7 +25,9 @@ import {
   Coins,
   FileText,
   AlertCircle,
-  Banknote
+  Banknote,
+  RefreshCw,
+  Globe
 } from "lucide-react";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO, isAfter, isBefore } from "date-fns";
 
@@ -77,7 +81,9 @@ const eventTypeConfig: Record<string, { label: string; icon: typeof Calendar; co
 
 const instrumentTypeConfig: Record<string, { label: string; color: string }> = {
   gsec: { label: "G-Sec", color: "bg-blue-500" },
+  g_sec: { label: "G-Sec", color: "bg-blue-500" },
   tbill: { label: "T-Bill", color: "bg-sky-500" },
+  t_bill: { label: "T-Bill", color: "bg-sky-500" },
   sdl: { label: "SDL", color: "bg-indigo-500" },
   sgb: { label: "SGB", color: "bg-amber-500" },
   corporate_bond: { label: "Corporate", color: "bg-purple-500" },
@@ -85,6 +91,26 @@ const instrumentTypeConfig: Record<string, { label: string; color: string }> = {
   infrastructure_bond: { label: "Infra Bond", color: "bg-teal-500" },
   tax_free_bond: { label: "Tax-Free", color: "bg-green-500" },
 };
+
+const sourceConfig: Record<string, { label: string; color: string; icon: string }> = {
+  rbi: { label: "RBI", color: "bg-blue-600", icon: "RBI" },
+  rbi_external: { label: "RBI", color: "bg-blue-600", icon: "RBI" },
+  sebi: { label: "SEBI", color: "bg-green-600", icon: "SEBI" },
+  sebi_external: { label: "SEBI", color: "bg-green-600", icon: "SEBI" },
+  internal: { label: "Internal", color: "bg-gray-500", icon: "INT" },
+};
+
+function SourceBadge({ source }: { source: string }) {
+  const srcConfig = sourceConfig[source] || { label: source, color: "bg-gray-500", icon: source };
+  const isExternal = source.includes('external');
+  
+  return (
+    <Badge className={`${srcConfig.color} text-white text-xs flex items-center gap-1`}>
+      {isExternal && <Globe className="h-2.5 w-2.5" />}
+      {srcConfig.label}
+    </Badge>
+  );
+}
 
 function EventCard({ event, compact = false }: { event: BondCalendarEvent; compact?: boolean }) {
   const config = eventTypeConfig[event.eventType] || { 
@@ -127,6 +153,7 @@ function EventCard({ event, compact = false }: { event: BondCalendarEvent; compa
               {event.creditRating && (
                 <Badge variant="secondary" className="text-xs">{event.creditRating}</Badge>
               )}
+              <SourceBadge source={event.source} />
             </div>
           </div>
           <div className="text-right flex-shrink-0">
@@ -138,9 +165,9 @@ function EventCard({ event, compact = false }: { event: BondCalendarEvent; compa
           </div>
         </div>
         
-        {(event.issueSize || event.minInvestment) && (
+        {(event.issueSize || event.minInvestment || event.issuerName) && (
           <div className="mt-3 pt-3 border-t flex items-center gap-4 text-xs text-muted-foreground">
-            {event.issueSize && (
+            {event.issueSize && parseFloat(event.issueSize) > 0 && (
               <span className="flex items-center gap-1">
                 <IndianRupee className="h-3 w-3" />
                 {parseFloat(event.issueSize).toLocaleString()} Cr
@@ -431,6 +458,7 @@ export function BondCalendar() {
   const [eventTypeFilter, setEventTypeFilter] = useState<string>("all");
   const [instrumentTypeFilter, setInstrumentTypeFilter] = useState<string>("all");
   const [view, setView] = useState<"calendar" | "list">("list");
+  const { toast } = useToast();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
@@ -445,6 +473,27 @@ export function BondCalendar() {
 
   const { data: eventsData, isLoading: eventsLoading } = useQuery<{ success: boolean; events: BondCalendarEvent[]; year: number; month: number }>({
     queryKey: ["/api/bond-calendar/events/month", year, month],
+  });
+
+  const syncExternalMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/bond-calendar/sync/external");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "External Calendars Synced",
+        description: `Synced ${data.synced?.total || 0} events from RBI and SEBI calendars`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/bond-calendar"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Failed to sync external calendars",
+        variant: "destructive",
+      });
+    },
   });
 
   const filteredEvents = useMemo(() => {
@@ -486,19 +535,32 @@ export function BondCalendar() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
-                <ChevronLeft className="h-4 w-4" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => syncExternalMutation.mutate()}
+                disabled={syncExternalMutation.isPending}
+                data-testid="button-sync-external"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${syncExternalMutation.isPending ? "animate-spin" : ""}`} />
+                {syncExternalMutation.isPending ? "Syncing..." : "Sync RBI/SEBI"}
               </Button>
-              <Button variant="outline" size="sm" onClick={goToToday}>
-                Today
-              </Button>
-              <span className="text-sm font-medium min-w-[120px] text-center">
-                {format(currentDate, "MMMM yyyy")}
-              </span>
-              <Button variant="outline" size="sm" onClick={goToNextMonth}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              
+              <div className="flex items-center gap-1 border-l pl-2 ml-1">
+                <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToToday}>
+                  Today
+                </Button>
+                <span className="text-sm font-medium min-w-[120px] text-center">
+                  {format(currentDate, "MMMM yyyy")}
+                </span>
+                <Button variant="outline" size="sm" onClick={goToNextMonth}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>

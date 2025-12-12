@@ -231,4 +231,65 @@ router.post("/initialize", async (req, res) => {
   }
 });
 
+router.post("/sync/rbi", async (req, res) => {
+  try {
+    const count = await financialCalendarService.syncExternalRBICalendar();
+    
+    res.json({
+      success: true,
+      message: `Synced ${count} events from RBI auction calendar`,
+      synced: count,
+      source: "rbi",
+    });
+  } catch (error) {
+    console.error("Error syncing RBI calendar:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to sync RBI calendar",
+    });
+  }
+});
+
+router.post("/sync/sebi", async (req, res) => {
+  try {
+    const count = await financialCalendarService.syncExternalSEBICalendar();
+    
+    res.json({
+      success: true,
+      message: `Synced ${count} events from SEBI public issues calendar`,
+      synced: count,
+      source: "sebi",
+    });
+  } catch (error) {
+    console.error("Error syncing SEBI calendar:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to sync SEBI calendar",
+    });
+  }
+});
+
+router.post("/sync/external", async (req, res) => {
+  try {
+    const rbiCount = await financialCalendarService.syncExternalRBICalendar();
+    const sebiCount = await financialCalendarService.syncExternalSEBICalendar();
+    
+    res.json({
+      success: true,
+      message: `Synced ${rbiCount + sebiCount} events from external calendars`,
+      synced: {
+        rbi: rbiCount,
+        sebi: sebiCount,
+        total: rbiCount + sebiCount,
+      },
+    });
+  } catch (error) {
+    console.error("Error syncing external calendars:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to sync external calendars",
+    });
+  }
+});
+
 export default router;
