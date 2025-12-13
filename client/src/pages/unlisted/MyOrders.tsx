@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingState } from "@/components/LoadingState";
 import { UnlistedOrderTracker } from "@/components/UnlistedOrderTracker";
+import { SettlementDashboard } from "@/components/SettlementDashboard";
 import { 
   ArrowLeft, ShoppingCart, TrendingUp, Clock, CheckCircle2, 
-  XCircle, AlertTriangle, Building2, IndianRupee, Eye, RefreshCw 
+  XCircle, AlertTriangle, Building2, IndianRupee, Eye, RefreshCw, Wallet
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -150,6 +151,10 @@ export default function MyOrders() {
               <TabsTrigger value="sell" className="flex items-center gap-2" data-testid="tab-sell">
                 <TrendingUp className="h-4 w-4" />
                 Sell Listings ({sellListings.length})
+              </TabsTrigger>
+              <TabsTrigger value="settlements" className="flex items-center gap-2" data-testid="tab-settlements">
+                <Wallet className="h-4 w-4" />
+                Settlements
               </TabsTrigger>
             </TabsList>
 
@@ -339,6 +344,13 @@ export default function MyOrders() {
                 </Card>
               ))
             )}
+          </TabsContent>
+
+          <TabsContent value="settlements" className="space-y-4">
+            <SettlementDashboard 
+              userRole={sellListings.length > buyRequests.length ? 'seller' : 'buyer'}
+              userId={user?.id}
+            />
           </TabsContent>
         </Tabs>
       </div>

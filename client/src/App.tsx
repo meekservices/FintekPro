@@ -145,6 +145,7 @@ import CompanyDetails from "@/pages/unlisted/CompanyDetails";
 import CreateSellListing from "@/pages/unlisted/CreateSellListing";
 import CreateBuyRequest from "@/pages/unlisted/CreateBuyRequest";
 import MyOrders from "@/pages/unlisted/MyOrders";
+import UnlistedCartPage from "@/pages/unlisted/Cart";
 import CASupportDashboard from "@/pages/ca-support-dashboard";
 import CASupportDetail from "@/pages/ca-support-detail";
 import TDSCompliance from "@/pages/tds-compliance";
@@ -174,6 +175,7 @@ function UserProtectedRoutes() {
         <Route path="/unlisted/sell" component={CreateSellListing} />
         <Route path="/unlisted/buy" component={CreateBuyRequest} />
         <Route path="/unlisted/my-orders" component={MyOrders} />
+        <Route path="/unlisted/cart" component={UnlistedCartPage} />
         <Route path="/bonds" component={Bonds} />
         <Route path="/bonds/category/:category" component={BondCategoryPage} />
         <Route path="/bonds/detail/:isin" component={BondDetailPage} />

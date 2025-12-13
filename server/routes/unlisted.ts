@@ -13,7 +13,7 @@ import { storage } from '../storage';
 import { db } from '../db';
 import { apiResponse } from '../utils/responses';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { probe42Service } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import { priceAggregationService } from '../services/price-aggregation';
@@ -30,13 +30,16 @@ import {
   insertSellListingSchema,
   insertBuyRequestSchema,
   insertUnlistedDealSchema,
+  insertUnlistedCartSchema,
   sellListings,
   buyRequests,
   unlistedDeals,
+  unlistedCart,
   userProfiles,
   type UnlistedCompany,
   type SellListing,
   type BuyRequest,
+  type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
 import { requireAuth } from '../middleware/roleMiddleware';
@@ -1482,6 +1485,356 @@ router.get('/my-sell-listings', requireAuth, async (req: Request, res: Response)
   } catch (error: any) {
     console.error('Error fetching user sell listings:', error);
     return apiResponse.serverError(res, 'Failed to fetch your sell listings');
+  }
+});
+
+// ===================================================================
+// CART ROUTES - Batch buy requests before checkout
+// ===================================================================
+
+/**
+ * GET /api/unlisted/cart
+ * Get current user's cart items with company details
+ */
+router.get('/cart', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const items = await db.select().from(unlistedCart)
+      .where(eq(unlistedCart.userId, req.user.id))
+      .orderBy(unlistedCart.createdAt);
+
+    // Enrich with company details and current prices
+    const enrichedItems = await Promise.all(
+      items.map(async (item) => {
+        const company = await storage.getUnlistedCompanyById(item.companyId);
+        return {
+          ...item,
+          companyName: company?.name || 'Unknown Company',
+          companySector: company?.sector,
+          currentPrice: company?.currentPrice,
+          companyLogo: company?.logoUrl,
+        };
+      })
+    );
+
+    // Calculate cart summary
+    const totalItems = enrichedItems.length;
+    const totalValue = enrichedItems.reduce((sum, item) => {
+      const price = parseFloat(item.maxPrice) || 0;
+      return sum + (item.quantity * price);
+    }, 0);
+
+    return apiResponse.success(res, {
+      items: enrichedItems,
+      summary: {
+        totalItems,
+        totalValue,
+        estimatedFees: totalValue * 0.02, // 2% total fees (platform + buyer)
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching cart:', error);
+    return apiResponse.serverError(res, 'Failed to fetch cart');
+  }
+});
+
+/**
+ * POST /api/unlisted/cart
+ * Add item to cart
+ */
+router.post('/cart', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const validatedData = insertUnlistedCartSchema.parse({
+      ...req.body,
+      userId: req.user.id,
+    });
+
+    // Check if company exists
+    const company = await storage.getUnlistedCompanyById(validatedData.companyId);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+
+    // Check if already in cart - update instead of adding duplicate
+    const existing = await db.select().from(unlistedCart)
+      .where(and(
+        eq(unlistedCart.userId, req.user.id),
+        eq(unlistedCart.companyId, validatedData.companyId)
+      ));
+
+    if (existing.length > 0) {
+      // Update existing cart item
+      const updated = await db.update(unlistedCart)
+        .set({
+          quantity: validatedData.quantity,
+          maxPrice: validatedData.maxPrice,
+          targetPrice: validatedData.targetPrice,
+          notes: validatedData.notes,
+          updatedAt: new Date(),
+        })
+        .where(eq(unlistedCart.id, existing[0].id))
+        .returning();
+      
+      return apiResponse.success(res, updated[0], 'Cart item updated');
+    }
+
+    // Insert new cart item
+    const inserted = await db.insert(unlistedCart)
+      .values(validatedData)
+      .returning();
+
+    return apiResponse.created(res, inserted[0], 'Added to cart');
+  } catch (error: any) {
+    console.error('Error adding to cart:', error);
+    if (error instanceof z.ZodError) {
+      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
+    }
+    return apiResponse.serverError(res, 'Failed to add to cart');
+  }
+});
+
+/**
+ * PATCH /api/unlisted/cart/:id
+ * Update cart item quantity or price
+ */
+router.patch('/cart/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const { id } = req.params;
+    const { quantity, maxPrice, targetPrice, notes } = req.body;
+
+    // Verify ownership
+    const existing = await db.select().from(unlistedCart)
+      .where(and(
+        eq(unlistedCart.id, id),
+        eq(unlistedCart.userId, req.user.id)
+      ));
+
+    if (existing.length === 0) {
+      return apiResponse.notFound(res, 'Cart item not found');
+    }
+
+    const updateData: Partial<UnlistedCartItem> = { updatedAt: new Date() };
+    if (quantity !== undefined) updateData.quantity = quantity;
+    if (maxPrice !== undefined) updateData.maxPrice = maxPrice;
+    if (targetPrice !== undefined) updateData.targetPrice = targetPrice;
+    if (notes !== undefined) updateData.notes = notes;
+
+    const updated = await db.update(unlistedCart)
+      .set(updateData)
+      .where(eq(unlistedCart.id, id))
+      .returning();
+
+    return apiResponse.success(res, updated[0], 'Cart item updated');
+  } catch (error: any) {
+    console.error('Error updating cart item:', error);
+    return apiResponse.serverError(res, 'Failed to update cart item');
+  }
+});
+
+/**
+ * DELETE /api/unlisted/cart/:id
+ * Remove item from cart
+ */
+router.delete('/cart/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const { id } = req.params;
+
+    // Verify ownership and delete
+    const deleted = await db.delete(unlistedCart)
+      .where(and(
+        eq(unlistedCart.id, id),
+        eq(unlistedCart.userId, req.user.id)
+      ))
+      .returning();
+
+    if (deleted.length === 0) {
+      return apiResponse.notFound(res, 'Cart item not found');
+    }
+
+    return apiResponse.success(res, { deleted: true }, 'Removed from cart');
+  } catch (error: any) {
+    console.error('Error removing from cart:', error);
+    return apiResponse.serverError(res, 'Failed to remove from cart');
+  }
+});
+
+/**
+ * DELETE /api/unlisted/cart
+ * Clear entire cart
+ */
+router.delete('/cart', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    await db.delete(unlistedCart)
+      .where(eq(unlistedCart.userId, req.user.id));
+
+    return apiResponse.success(res, { cleared: true }, 'Cart cleared');
+  } catch (error: any) {
+    console.error('Error clearing cart:', error);
+    return apiResponse.serverError(res, 'Failed to clear cart');
+  }
+});
+
+/**
+ * POST /api/unlisted/cart/checkout
+ * Convert all cart items to buy requests (batch checkout)
+ * Regulatory Requirements:
+ * - Enhanced KYC (Level 2) required
+ * - Risk disclosure acknowledgment required for each company
+ * - Accredited investor check for high-value transactions
+ */
+router.post('/cart/checkout', requireLevel2, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const { acknowledgedDisclosureIds } = req.body;
+
+    // Get cart items
+    const cartItems = await db.select().from(unlistedCart)
+      .where(eq(unlistedCart.userId, req.user.id));
+
+    if (cartItems.length === 0) {
+      return apiResponse.badRequest(res, 'Cart is empty');
+    }
+
+    // Calculate total transaction value
+    const totalValue = cartItems.reduce((sum, item) => {
+      const price = parseFloat(item.maxPrice) || 0;
+      return sum + (item.quantity * price);
+    }, 0);
+
+    const ACCREDITED_INVESTOR_THRESHOLD = 5000000; // ₹50 lakhs
+
+    // For high-value transactions, verify accredited investor status
+    if (totalValue >= ACCREDITED_INVESTOR_THRESHOLD) {
+      const profile = await db.query.userProfiles.findFirst({
+        where: eq(userProfiles.userId, req.user.id),
+      });
+      
+      if (!profile?.accreditedInvestorType) {
+        console.log(`[COMPLIANCE] cart_checkout_blocked: High-value transaction (₹${totalValue}) requires accredited investor status | userId: ${req.user.id}`);
+        return apiResponse.forbidden(res, 
+          `Cart total of ₹${(totalValue / 100000).toFixed(2)} lakhs exceeds the limit for non-accredited investors. Please complete your accredited investor verification.`
+        );
+      }
+    }
+
+    // Validate risk disclosure acknowledgment
+    if (!acknowledgedDisclosureIds || !Array.isArray(acknowledgedDisclosureIds)) {
+      return apiResponse.badRequest(res, 'Risk disclosure acknowledgment is required for batch checkout');
+    }
+
+    // Create buy requests for each cart item
+    const createdRequests: BuyRequest[] = [];
+    const errors: { companyId: string; error: string }[] = [];
+
+    for (const item of cartItems) {
+      try {
+        // Validate disclosure for this company
+        const disclosureValidation = unlistedRiskDisclosureService.validateAcknowledgment({
+          acknowledgedDisclosureIds,
+          userId: req.user.id,
+          companyId: item.companyId,
+          tradeType: 'buy',
+        });
+
+        if (!disclosureValidation.valid) {
+          errors.push({
+            companyId: item.companyId,
+            error: 'Missing risk disclosure acknowledgment',
+          });
+          continue;
+        }
+
+        // Create buy request
+        const buyRequest = await storage.createBuyRequest({
+          buyerUserId: req.user.id,
+          companyId: item.companyId,
+          quantity: item.quantity,
+          maxPrice: item.maxPrice,
+          targetPrice: item.targetPrice,
+          notes: item.notes,
+          status: 'pending',
+        });
+
+        createdRequests.push(buyRequest);
+
+        // Log compliance event
+        console.log(`[COMPLIANCE] cart_checkout_buy_request: { userId: '${req.user.id}', companyId: '${item.companyId}', quantity: ${item.quantity}, buyRequestId: '${buyRequest.id}' }`);
+      } catch (itemError: any) {
+        errors.push({
+          companyId: item.companyId,
+          error: itemError.message || 'Failed to create buy request',
+        });
+      }
+    }
+
+    // Clear successful items from cart
+    if (createdRequests.length > 0) {
+      const successCompanyIds = createdRequests.map(r => r.companyId);
+      for (const companyId of successCompanyIds) {
+        await db.delete(unlistedCart)
+          .where(and(
+            eq(unlistedCart.userId, req.user.id),
+            eq(unlistedCart.companyId, companyId)
+          ));
+      }
+    }
+
+    console.log(`[COMPLIANCE] cart_checkout_complete: { userId: '${req.user.id}', successCount: ${createdRequests.length}, errorCount: ${errors.length}, totalValue: ${totalValue} }`);
+
+    return apiResponse.success(res, {
+      createdRequests,
+      errors,
+      summary: {
+        total: cartItems.length,
+        successful: createdRequests.length,
+        failed: errors.length,
+      },
+    }, `Checkout complete: ${createdRequests.length} buy request(s) created`);
+  } catch (error: any) {
+    console.error('Error during cart checkout:', error);
+    return apiResponse.serverError(res, 'Failed to complete checkout');
+  }
+});
+
+/**
+ * GET /api/unlisted/cart/count
+ * Get cart item count for badge display
+ */
+router.get('/cart/count', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const items = await db.select({ id: unlistedCart.id }).from(unlistedCart)
+      .where(eq(unlistedCart.userId, req.user.id));
+
+    return apiResponse.success(res, { count: items.length });
+  } catch (error: any) {
+    console.error('Error fetching cart count:', error);
+    return apiResponse.serverError(res, 'Failed to fetch cart count');
   }
 });
 
@@ -5316,6 +5669,332 @@ router.get('/companies/:companyId/audit-log', requireAdmin, async (req: Request,
   } catch (error: any) {
     console.error('Error fetching audit log:', error);
     return apiResponse.serverError(res, 'Failed to fetch audit log');
+  }
+});
+
+// ===================================================================
+// ESCROW PAYMENT ROUTES
+// ===================================================================
+
+import { unlistedEscrowService } from '../services/unlisted-escrow-service';
+import { ObjectStorageService } from '../objectStorage';
+
+const objectStorage = new ObjectStorageService();
+
+/**
+ * POST /api/unlisted/deals/:dealId/initiate-payment
+ * Buyer initiates escrow payment for a confirmed deal
+ */
+router.post('/deals/:dealId/initiate-payment', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { dealId } = req.params;
+    const user = req.user as any;
+    const { returnUrl } = req.body;
+
+    const result = await unlistedEscrowService.initiateEscrowPayment({
+      dealId,
+      buyerUserId: user.id,
+      buyerEmail: user.email,
+      buyerPhone: user.phone,
+      buyerName: user.name || user.firstName,
+      returnUrl
+    });
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.message || 'Failed to initiate payment');
+    }
+
+    return apiResponse.success(res, result, 'Payment initiated successfully');
+  } catch (error: any) {
+    console.error('Error initiating escrow payment:', error);
+    return apiResponse.serverError(res, 'Failed to initiate payment');
+  }
+});
+
+/**
+ * GET /api/unlisted/deals/:dealId/payment-status
+ * Get escrow payment status for a deal
+ */
+router.get('/deals/:dealId/payment-status', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { dealId } = req.params;
+    const user = req.user as any;
+
+    const deal = await storage.getUnlistedDealById(dealId);
+    if (!deal) {
+      return apiResponse.notFound(res, 'Deal not found');
+    }
+
+    if (deal.buyerUserId !== user.id && deal.sellerUserId !== user.id) {
+      return apiResponse.forbidden(res, 'Not authorized to view this deal');
+    }
+
+    const status = await unlistedEscrowService.getEscrowStatus(dealId);
+    return apiResponse.success(res, status);
+  } catch (error: any) {
+    console.error('Error fetching payment status:', error);
+    return apiResponse.serverError(res, 'Failed to fetch payment status');
+  }
+});
+
+/**
+ * GET /api/unlisted/deals/:dealId/fee-breakdown
+ * Get fee breakdown for a deal before payment
+ */
+router.get('/deals/:dealId/fee-breakdown', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { dealId } = req.params;
+    const user = req.user as any;
+
+    const deal = await storage.getUnlistedDealById(dealId);
+    if (!deal) {
+      return apiResponse.notFound(res, 'Deal not found');
+    }
+
+    if (deal.buyerUserId !== user.id && deal.sellerUserId !== user.id) {
+      return apiResponse.forbidden(res, 'Not authorized to view this deal');
+    }
+
+    const totalValue = parseFloat(deal.totalValue);
+    const fees = unlistedEscrowService.calculateFees(totalValue);
+
+    return apiResponse.success(res, {
+      dealId,
+      quantity: deal.quantity,
+      pricePerShare: parseFloat(deal.agreedPrice),
+      totalValue,
+      ...fees
+    });
+  } catch (error: any) {
+    console.error('Error calculating fees:', error);
+    return apiResponse.serverError(res, 'Failed to calculate fees');
+  }
+});
+
+/**
+ * POST /api/unlisted/deals/:dealId/mark-transfer-pending
+ * Seller marks share transfer as initiated
+ */
+router.post('/deals/:dealId/mark-transfer-pending', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { dealId } = req.params;
+    const user = req.user as any;
+    const { disSlipId } = req.body;
+
+    const result = await unlistedEscrowService.markTransferPending(dealId, user.id, disSlipId);
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.message);
+    }
+
+    return apiResponse.success(res, result, 'Transfer marked as pending');
+  } catch (error: any) {
+    console.error('Error marking transfer pending:', error);
+    return apiResponse.serverError(res, 'Failed to update transfer status');
+  }
+});
+
+/**
+ * GET /api/unlisted/payment/callback
+ * Handle payment gateway callback
+ */
+router.get('/payment/callback', async (req: Request, res: Response) => {
+  try {
+    const { order_id, escrow_id, deal_id } = req.query;
+
+    if (!order_id || !escrow_id || !deal_id) {
+      return res.redirect('/unlisted/my-orders?payment=error&message=Invalid callback parameters');
+    }
+
+    const result = await unlistedEscrowService.handlePaymentCallback(
+      order_id as string,
+      escrow_id as string,
+      deal_id as string
+    );
+
+    if (result.success && result.status === 'escrowed') {
+      return res.redirect(`/unlisted/my-orders?payment=success&deal=${deal_id}`);
+    } else {
+      return res.redirect(`/unlisted/my-orders?payment=failed&deal=${deal_id}&status=${result.status}`);
+    }
+  } catch (error: any) {
+    console.error('Payment callback error:', error);
+    return res.redirect('/unlisted/my-orders?payment=error');
+  }
+});
+
+/**
+ * POST /api/unlisted/payment/webhook
+ * Handle Cashfree webhook for payment status updates
+ */
+router.post('/payment/webhook', async (req: Request, res: Response) => {
+  try {
+    const { order_id, order_status, cf_order_id } = req.body?.data || req.body;
+    
+    console.log('Received Cashfree webhook:', { order_id, order_status, cf_order_id });
+
+    if (order_id && order_id.includes('escrow_')) {
+      const parts = order_id.split('_');
+      const dealId = parts[1];
+      
+      if (dealId) {
+        await unlistedEscrowService.handlePaymentCallback(
+          order_id,
+          order_id,
+          dealId
+        );
+      }
+    }
+
+    return res.status(200).json({ status: 'ok' });
+  } catch (error: any) {
+    console.error('Webhook processing error:', error);
+    return res.status(200).json({ status: 'ok' });
+  }
+});
+
+// ===================================================================
+// ADMIN ESCROW MANAGEMENT ROUTES
+// ===================================================================
+
+/**
+ * POST /api/unlisted/admin/deals/:dealId/release-escrow
+ * Admin releases escrow after verifying share transfer
+ */
+router.post('/admin/deals/:dealId/release-escrow', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { dealId } = req.params;
+    const adminUser = req.user as any;
+    const { transferConfirmationId } = req.body;
+
+    const result = await unlistedEscrowService.releaseEscrow(
+      dealId,
+      adminUser.id,
+      transferConfirmationId
+    );
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.message || 'Failed to release escrow');
+    }
+
+    return apiResponse.success(res, result, 'Escrow released successfully');
+  } catch (error: any) {
+    console.error('Error releasing escrow:', error);
+    return apiResponse.serverError(res, 'Failed to release escrow');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/deals/:dealId/refund-escrow
+ * Admin refunds escrow to buyer (dispute resolution or failed transfer)
+ */
+router.post('/admin/deals/:dealId/refund-escrow', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { dealId } = req.params;
+    const adminUser = req.user as any;
+    const { reason } = req.body;
+
+    if (!reason || typeof reason !== 'string') {
+      return apiResponse.badRequest(res, 'Refund reason is required');
+    }
+
+    const result = await unlistedEscrowService.refundEscrow(dealId, adminUser.id, reason);
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.message || 'Failed to refund escrow');
+    }
+
+    return apiResponse.success(res, result, 'Escrow refunded successfully');
+  } catch (error: any) {
+    console.error('Error refunding escrow:', error);
+    return apiResponse.serverError(res, 'Failed to refund escrow');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/deals/pending-escrow
+ * Get all deals pending escrow release (admin view)
+ */
+router.get('/admin/deals/pending-escrow', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const deals = await db.select()
+      .from(unlistedDeals)
+      .where(eq(unlistedDeals.status, 'transfer_pending'));
+
+    return apiResponse.success(res, deals);
+  } catch (error: any) {
+    console.error('Error fetching pending escrow deals:', error);
+    return apiResponse.serverError(res, 'Failed to fetch pending deals');
+  }
+});
+
+// ===================================================================
+// DOCUMENT UPLOAD ROUTES
+// ===================================================================
+
+/**
+ * POST /api/unlisted/documents/upload
+ * Upload document for deal verification (DIS slip, transfer confirmation)
+ */
+router.post('/documents/upload', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    
+    const uploadUrl = await objectStorage.getObjectEntityUploadURL();
+    
+    return apiResponse.success(res, {
+      uploadUrl,
+      message: 'Upload URL generated. Use PUT request to upload file.'
+    });
+  } catch (error: any) {
+    console.error('Error generating upload URL:', error);
+    return apiResponse.serverError(res, 'Failed to generate upload URL');
+  }
+});
+
+/**
+ * POST /api/unlisted/deals/:dealId/documents
+ * Register uploaded document for a deal
+ */
+router.post('/deals/:dealId/documents', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { dealId } = req.params;
+    const user = req.user as any;
+    const { objectPath, documentType, fileName } = req.body;
+
+    const deal = await storage.getUnlistedDealById(dealId);
+    if (!deal) {
+      return apiResponse.notFound(res, 'Deal not found');
+    }
+
+    if (deal.sellerUserId !== user.id && deal.buyerUserId !== user.id) {
+      return apiResponse.forbidden(res, 'Not authorized');
+    }
+
+    const normalizedPath = await objectStorage.trySetObjectEntityAclPolicy(objectPath, {
+      visibility: 'private',
+      allowedUsers: [deal.sellerUserId, deal.buyerUserId]
+    });
+
+    const document = {
+      id: `doc_${Date.now()}`,
+      dealId,
+      documentType,
+      fileName,
+      objectPath: normalizedPath,
+      uploadedBy: user.id,
+      uploadedAt: new Date().toISOString(),
+      status: 'pending'
+    };
+
+    if (documentType === 'dis_slip' && deal.status === 'escrowed') {
+      await unlistedEscrowService.markTransferPending(dealId, user.id, document.id);
+    }
+
+    return apiResponse.success(res, { document }, 'Document registered successfully');
+  } catch (error: any) {
+    console.error('Error registering document:', error);
+    return apiResponse.serverError(res, 'Failed to register document');
   }
 });
 

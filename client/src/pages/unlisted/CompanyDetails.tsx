@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
+import { AddToCartButton } from '@/components/UnlistedCart';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
 
@@ -340,7 +341,7 @@ export default function CompanyDetails() {
       )}
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button 
           size="lg" 
           onClick={() => setLocation(`/unlisted/buy?company=${company.id}`)}
@@ -350,6 +351,11 @@ export default function CompanyDetails() {
           <ShoppingCart className="w-5 h-5 mr-2" />
           {canTrade ? 'Place Buy Request' : 'Complete Verification to Buy'}
         </Button>
+        <AddToCartButton 
+          companyId={company.id} 
+          companyName={company.name}
+          className="h-11"
+        />
         <Button 
           size="lg" 
           variant="outline"

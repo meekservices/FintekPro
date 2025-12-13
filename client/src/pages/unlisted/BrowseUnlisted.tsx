@@ -12,9 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, Search, TrendingUp, BarChart3, Eye } from 'lucide-react';
+import { Building2, Search, TrendingUp, BarChart3, Eye, ShoppingCart } from 'lucide-react';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
+import { CartBadge } from '@/components/UnlistedCart';
+import { Link } from 'wouter';
 
 type UnlistedCompany = {
   id: string;
@@ -64,11 +66,20 @@ export default function BrowseUnlisted() {
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Unlisted Companies Marketplace</h1>
-        <p className="text-muted-foreground">
-          Browse and trade shares of unlisted companies with verified financial data
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Unlisted Companies Marketplace</h1>
+          <p className="text-muted-foreground">
+            Browse and trade shares of unlisted companies with verified financial data
+          </p>
+        </div>
+        <Link href="/unlisted/cart">
+          <Button variant="outline" className="relative" data-testid="button-view-cart">
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            Cart
+            <CartBadge />
+          </Button>
+        </Link>
       </div>
 
       {/* Filters */}

@@ -10697,6 +10697,34 @@ export const insertBuyRequestSchema = createInsertSchema(buyRequests).omit({
 export type BuyRequest = typeof buyRequests.$inferSelect;
 export type InsertBuyRequest = z.infer<typeof insertBuyRequestSchema>;
 
+// Unlisted Cart table - for batching multiple buy requests
+export const unlistedCart = pgTable("unlisted_cart", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  
+  // Cart Item Details
+  quantity: bigint("quantity", { mode: "number" }).notNull(),
+  maxPrice: decimal("max_price", { precision: 20, scale: 2 }).notNull(),
+  targetPrice: decimal("target_price", { precision: 20, scale: 2 }),
+  notes: text("notes"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_unlisted_cart_user").on(table.userId),
+  index("idx_unlisted_cart_company").on(table.companyId),
+]);
+
+export const insertUnlistedCartSchema = createInsertSchema(unlistedCart).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UnlistedCartItem = typeof unlistedCart.$inferSelect;
+export type InsertUnlistedCartItem = z.infer<typeof insertUnlistedCartSchema>;
+
 export const insertUnlistedDealSchema = createInsertSchema(unlistedDeals).omit({
   id: true,
   createdAt: true,
