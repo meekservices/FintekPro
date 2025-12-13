@@ -938,10 +938,9 @@ export default function Cart() {
               </Card>
             ) : (
               <div className="space-y-6">
-                {/* Group items by category */}
-                {(['mutual_fund', 'bond', 'ncd', 'ipo', 'unlisted', 'store'] as ProductCategory[]).map((category) => {
+                {/* Group items by category - dynamically from actual data */}
+                {Array.from(new Set(unifiedCartItems.map(item => item.productCategory))).map((category) => {
                   const categoryItems = unifiedCartItems.filter(item => item.productCategory === category);
-                  if (categoryItems.length === 0) return null;
                   
                   const getCategoryIcon = (cat: ProductCategory) => {
                     switch (cat) {
@@ -998,7 +997,7 @@ export default function Cart() {
                             >
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="font-semibold">{item.displayName || 'Investment Item'}</h3>
+                                  <h3 className="font-semibold" data-testid={`text-name-${item.id}`}>{item.displayName || 'Investment Item'}</h3>
                                   {/* Source Badge */}
                                   <Badge 
                                     className={`text-xs ${
@@ -1021,24 +1020,25 @@ export default function Cart() {
                                       item.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
                                       ''
                                     }
+                                    data-testid={`badge-status-${item.id}`}
                                   >
-                                    {item.status}
+                                    {item.status || 'active'}
                                   </Badge>
                                 </div>
-                                {item.metadata && (
-                                  <p className="text-sm text-gray-600">
-                                    {(item.metadata as any)?.description || (item.metadata as any)?.fundHouse || ''}
+                                {item.metadata && Object.keys(item.metadata).length > 0 && (
+                                  <p className="text-sm text-gray-600" data-testid={`text-description-${item.id}`}>
+                                    {(item.metadata as any)?.description || (item.metadata as any)?.fundHouse || (item.metadata as any)?.companyName || ''}
                                   </p>
                                 )}
                                 <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                                  <span>Qty: {item.quantity || 1}</span>
-                                  <span>₹{Number(item.amount || 0).toLocaleString()}</span>
+                                  <span data-testid={`text-qty-${item.id}`}>Qty: {item.quantity || 1}</span>
+                                  <span data-testid={`text-price-${item.id}`}>₹{Number(item.amount || 0).toLocaleString()}</span>
                                 </div>
                               </div>
                               
                               <div className="flex items-center gap-4">
                                 <div className="text-right">
-                                  <div className="text-lg font-bold">
+                                  <div className="text-lg font-bold" data-testid={`text-total-${item.id}`}>
                                     ₹{(Number(item.amount || 0) * (item.quantity || 1)).toLocaleString()}
                                   </div>
                                   <p className="text-xs text-gray-500">Total</p>
@@ -1089,7 +1089,7 @@ export default function Cart() {
                 })}
                 
                 {/* Summary Card */}
-                <Card>
+                <Card data-testid="card-investment-summary">
                   <CardHeader>
                     <CardTitle>Investment Summary</CardTitle>
                   </CardHeader>
@@ -1097,24 +1097,24 @@ export default function Cart() {
                     <div className="space-y-3">
                       <div className="flex justify-between">
                         <span>Total Items:</span>
-                        <span className="font-medium">{unifiedCartItems.length}</span>
+                        <span className="font-medium" data-testid="text-summary-total-items">{unifiedCartItems.length}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Approved Items:</span>
-                        <span className="font-medium text-green-600">
+                        <span className="font-medium text-green-600" data-testid="text-summary-approved">
                           {unifiedCartItems.filter(i => i.status === 'approved').length}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Pending Approval:</span>
-                        <span className="font-medium text-yellow-600">
+                        <span className="font-medium text-yellow-600" data-testid="text-summary-pending">
                           {unifiedCartItems.filter(i => i.status === 'pending').length}
                         </span>
                       </div>
                       <div className="border-t pt-3">
                         <div className="flex justify-between text-lg font-semibold">
                           <span>Total Value:</span>
-                          <span>₹{unifiedCartItems.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0).toLocaleString()}</span>
+                          <span data-testid="text-summary-total-value">₹{unifiedCartItems.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
