@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useUnifiedCart } from "@/contexts/UnifiedCartContext";
 import { 
   ShoppingCart, 
   Trash2, 
@@ -391,16 +392,19 @@ export function CartBadge() {
 export function AddToCartButton({ 
   companyId, 
   companyName,
+  companySector,
   suggestedPrice,
   className 
 }: { 
   companyId: string; 
   companyName: string;
+  companySector?: string;
   suggestedPrice?: string;
   className?: string;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { addItem: addToUnifiedCart } = useUnifiedCart();
   const [quantity, setQuantity] = useState(10);
 
   const addMutation = useMutation({
@@ -414,13 +418,38 @@ export function AddToCartButton({
         }),
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/cart'] });
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/cart/count'] });
-      toast({ 
-        title: "Added to Cart", 
-        description: `${quantity} shares of ${companyName} added to cart`,
-      });
+      
+      try {
+        const priceStr = suggestedPrice || '1000';
+        const priceNum = parseFloat(priceStr);
+        const validPrice = isNaN(priceNum) ? 1000 : priceNum;
+        const totalAmount = (quantity * validPrice).toString();
+        const cartItem = {
+          productCategory: 'unlisted' as const,
+          unlistedCompanyId: companyId,
+          displayName: companyName,
+          amount: totalAmount,
+          quantity: quantity,
+          source: 'client' as const,
+          status: 'active' as const,
+        };
+        await addToUnifiedCart(cartItem);
+        queryClient.invalidateQueries({ queryKey: ['/api/unified-cart'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/unified-cart/count'] });
+        toast({ 
+          title: "Added to Cart", 
+          description: `${quantity} shares of ${companyName} added to cart`,
+        });
+      } catch (error) {
+        console.error('Failed to add to unified cart:', error);
+        toast({ 
+          title: "Partially Added", 
+          description: `${quantity} shares added to unlisted cart, but unified tracking failed.`,
+        });
+      }
     },
     onError: () => {
       toast({ 

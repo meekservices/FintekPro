@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUnifiedCart } from "@/contexts/UnifiedCartContext";
+import { queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoanOffersCard } from "@/components/LoanOffersCard";
 import { 
@@ -311,6 +313,7 @@ export default function StorePage() {
   const [inquiryProduct, setInquiryProduct] = useState<Product | null>(null);
   
   const { addToCart, isAddingToCart } = useCart();
+  const { addItem: addToUnifiedCart } = useUnifiedCart();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   
@@ -554,11 +557,31 @@ export default function StorePage() {
       quantity: 1,
       investmentAmount: product.minimumInvestment.toString()
     }, {
-      onSuccess: () => {
-        toast({
-          title: "Added to Cart",
-          description: `${product.name} has been added to your cart.`,
-        });
+      onSuccess: async () => {
+        try {
+          const cartItem = {
+            productCategory: 'store' as const,
+            storeProductId: product.id,
+            displayName: product.name,
+            amount: product.minimumInvestment.toString(),
+            quantity: 1,
+            source: 'client' as const,
+            status: 'active' as const,
+          };
+          await addToUnifiedCart(cartItem);
+          queryClient.invalidateQueries({ queryKey: ['/api/unified-cart'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/unified-cart/count'] });
+          toast({
+            title: "Added to Cart",
+            description: `${product.name} has been added to your cart.`,
+          });
+        } catch (error) {
+          console.error('Failed to add to unified cart:', error);
+          toast({
+            title: "Partially Added",
+            description: `${product.name} added to cart, but unified tracking failed.`,
+          });
+        }
       },
       onError: () => {
         toast({
