@@ -1399,6 +1399,93 @@ router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) 
 });
 
 // ===================================================================
+// USER ORDER TRACKING ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/my-buy-requests
+ * Get current user's buy requests with company names
+ */
+router.get('/my-buy-requests', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const requests = await db.select({
+      id: buyRequests.id,
+      companyId: buyRequests.companyId,
+      quantity: buyRequests.quantity,
+      maxPrice: buyRequests.maxPrice,
+      targetPrice: buyRequests.targetPrice,
+      status: buyRequests.status,
+      validUntil: buyRequests.validUntil,
+      createdAt: buyRequests.createdAt,
+    }).from(buyRequests)
+      .where(eq(buyRequests.buyerUserId, req.user.id))
+      .orderBy(buyRequests.createdAt);
+
+    // Enrich with company names
+    const enrichedRequests = await Promise.all(
+      requests.map(async (request) => {
+        const company = await storage.getUnlistedCompanyById(request.companyId);
+        return {
+          ...request,
+          companyName: company?.name || 'Unknown Company',
+        };
+      })
+    );
+
+    return apiResponse.success(res, enrichedRequests);
+  } catch (error: any) {
+    console.error('Error fetching user buy requests:', error);
+    return apiResponse.serverError(res, 'Failed to fetch your buy requests');
+  }
+});
+
+/**
+ * GET /api/unlisted/my-sell-listings
+ * Get current user's sell listings with company names
+ */
+router.get('/my-sell-listings', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const listings = await db.select({
+      id: sellListings.id,
+      companyId: sellListings.companyId,
+      quantity: sellListings.quantity,
+      askPrice: sellListings.askPrice,
+      floorPrice: sellListings.floorPrice,
+      status: sellListings.status,
+      validUntil: sellListings.validUntil,
+      createdAt: sellListings.createdAt,
+    }).from(sellListings)
+      .where(eq(sellListings.sellerUserId, req.user.id))
+      .orderBy(sellListings.createdAt);
+
+    // Enrich with company names
+    const enrichedListings = await Promise.all(
+      listings.map(async (listing) => {
+        const company = await storage.getUnlistedCompanyById(listing.companyId);
+        return {
+          ...listing,
+          minPrice: listing.floorPrice,
+          companyName: company?.name || 'Unknown Company',
+        };
+      })
+    );
+
+    return apiResponse.success(res, enrichedListings);
+  } catch (error: any) {
+    console.error('Error fetching user sell listings:', error);
+    return apiResponse.serverError(res, 'Failed to fetch your sell listings');
+  }
+});
+
+// ===================================================================
 // ELIGIBILITY ROUTES
 // ===================================================================
 
