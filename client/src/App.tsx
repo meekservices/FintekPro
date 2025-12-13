@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GDPRConsent } from "@/components/gdpr-consent";
 import { ThemeProvider } from "@/contexts/theme-context";
+import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
 import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
@@ -713,11 +714,13 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <Toaster />
-            <GDPRConsent />
-            <Router />
-          </TooltipProvider>
+          <UnifiedCartProvider>
+            <TooltipProvider>
+              <Toaster />
+              <GDPRConsent />
+              <Router />
+            </TooltipProvider>
+          </UnifiedCartProvider>
         </QueryClientProvider>
       </ThemeProvider>
     </ErrorBoundary>

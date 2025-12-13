@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCart } from "@/hooks/use-cart";
+import { useUnifiedCart } from "@/contexts/UnifiedCartContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -30,9 +31,16 @@ import {
   Lightbulb,
   Clock,
   Zap,
-  AlertTriangle
+  AlertTriangle,
+  TrendingUp,
+  Building2,
+  Coins,
+  FileText,
+  Landmark,
+  Package
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import type { UnifiedCartItem, ProductCategory } from "@shared/schema";
 
 interface InvestmentProposal {
   id: string;
@@ -82,6 +90,13 @@ interface BondOrder {
 
 export default function Cart() {
   const { cart, isLoading, updateCartItem, removeFromCart, clearCart, isUpdatingCartItem, isRemovingFromCart } = useCart();
+  const { 
+    items: unifiedCartItems, 
+    isLoading: unifiedCartLoading, 
+    removeItem: removeUnifiedItem,
+    approveItem: approveUnifiedItem,
+    isRemovingItem: isRemovingUnifiedItem
+  } = useUnifiedCart();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
@@ -649,10 +664,14 @@ export default function Cart() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <ScrollableTabsList className="grid w-full grid-cols-2">
+          <ScrollableTabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="cart" className="flex items-center gap-2" data-testid="tab-cart">
               <ShoppingCart className="w-4 h-4" />
               Cart ({cart?.totalItems || 0})
+            </TabsTrigger>
+            <TabsTrigger value="investments" className="flex items-center gap-2" data-testid="tab-investments">
+              <TrendingUp className="w-4 h-4" />
+              Investments ({unifiedCartItems.length})
             </TabsTrigger>
             <TabsTrigger value="proposals" className="flex items-center gap-2" data-testid="tab-proposals">
               <Lightbulb className="w-4 h-4" />
@@ -873,6 +892,231 @@ export default function Cart() {
                           Continue Shopping
                         </Button>
                       </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Investments Tab */}
+          <TabsContent value="investments" className="space-y-6">
+            {unifiedCartLoading ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading investments...</p>
+                </CardContent>
+              </Card>
+            ) : unifiedCartItems.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">No investment items</h2>
+                  <p className="text-gray-600 mb-6">Add investments from mutual funds, bonds, NCDs, IPOs, or unlisted shares</p>
+                  <div className="flex gap-4 justify-center flex-wrap">
+                    <Link href="/mutual-funds">
+                      <Button variant="outline" data-testid="button-browse-mf">
+                        <Coins className="w-4 h-4 mr-2" />
+                        Mutual Funds
+                      </Button>
+                    </Link>
+                    <Link href="/bonds">
+                      <Button variant="outline" data-testid="button-browse-bonds">
+                        <FileText className="w-4 h-4 mr-2" />
+                        Bonds
+                      </Button>
+                    </Link>
+                    <Link href="/unlisted">
+                      <Button variant="outline" data-testid="button-browse-unlisted">
+                        <Building2 className="w-4 h-4 mr-2" />
+                        Unlisted
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {/* Group items by category */}
+                {(['mutual_fund', 'bond', 'ncd', 'ipo', 'unlisted', 'store'] as ProductCategory[]).map((category) => {
+                  const categoryItems = unifiedCartItems.filter(item => item.productCategory === category);
+                  if (categoryItems.length === 0) return null;
+                  
+                  const getCategoryIcon = (cat: ProductCategory) => {
+                    switch (cat) {
+                      case 'mutual_fund': return <Coins className="w-5 h-5" />;
+                      case 'bond': return <FileText className="w-5 h-5" />;
+                      case 'ncd': return <Landmark className="w-5 h-5" />;
+                      case 'ipo': return <TrendingUp className="w-5 h-5" />;
+                      case 'unlisted': return <Building2 className="w-5 h-5" />;
+                      case 'store': return <Package className="w-5 h-5" />;
+                      default: return <ShoppingCart className="w-5 h-5" />;
+                    }
+                  };
+                  
+                  const getCategoryLabel = (cat: ProductCategory) => {
+                    switch (cat) {
+                      case 'mutual_fund': return 'Mutual Funds';
+                      case 'bond': return 'Bonds';
+                      case 'ncd': return 'NCDs';
+                      case 'ipo': return 'IPOs';
+                      case 'unlisted': return 'Unlisted Shares';
+                      case 'store': return 'Store Products';
+                      default: return cat;
+                    }
+                  };
+
+                  const getCategoryColor = (cat: ProductCategory) => {
+                    switch (cat) {
+                      case 'mutual_fund': return 'border-l-blue-500';
+                      case 'bond': return 'border-l-green-500';
+                      case 'ncd': return 'border-l-purple-500';
+                      case 'ipo': return 'border-l-orange-500';
+                      case 'unlisted': return 'border-l-amber-500';
+                      case 'store': return 'border-l-gray-500';
+                      default: return 'border-l-primary';
+                    }
+                  };
+
+                  return (
+                    <Card key={category} className={`border-l-4 ${getCategoryColor(category)}`}>
+                      <CardHeader>
+                        <div className="flex items-center gap-3">
+                          {getCategoryIcon(category)}
+                          <CardTitle>{getCategoryLabel(category)}</CardTitle>
+                          <Badge variant="secondary">{categoryItems.length} items</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {categoryItems.map((item) => (
+                            <div 
+                              key={item.id}
+                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                              data-testid={`unified-cart-item-${item.id}`}
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-semibold">{item.displayName || 'Investment Item'}</h3>
+                                  {/* Source Badge */}
+                                  <Badge 
+                                    className={`text-xs ${
+                                      item.source === 'ai' ? 'bg-purple-100 text-purple-700' :
+                                      item.source === 'agent' ? 'bg-blue-100 text-blue-700' :
+                                      'bg-green-100 text-green-700'
+                                    }`}
+                                    data-testid={`badge-source-${item.id}`}
+                                  >
+                                    {item.source === 'ai' && <Bot className="w-3 h-3 mr-1" />}
+                                    {item.source === 'agent' && <Users className="w-3 h-3 mr-1" />}
+                                    {item.source === 'client' && <User className="w-3 h-3 mr-1" />}
+                                    {item.source.toUpperCase()}
+                                  </Badge>
+                                  {/* Status Badge */}
+                                  <Badge 
+                                    variant={item.status === 'approved' ? 'default' : 'outline'}
+                                    className={
+                                      item.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                      item.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                                      ''
+                                    }
+                                  >
+                                    {item.status}
+                                  </Badge>
+                                </div>
+                                {item.metadata && (
+                                  <p className="text-sm text-gray-600">
+                                    {(item.metadata as any)?.description || (item.metadata as any)?.fundHouse || ''}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                                  <span>Qty: {item.quantity || 1}</span>
+                                  <span>₹{Number(item.amount || 0).toLocaleString()}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <div className="text-lg font-bold">
+                                    ₹{(Number(item.amount || 0) * (item.quantity || 1)).toLocaleString()}
+                                  </div>
+                                  <p className="text-xs text-gray-500">Total</p>
+                                </div>
+                                
+                                {/* Approve button for agent/AI items */}
+                                {item.status === 'pending' && (item.source === 'ai' || item.source === 'agent') && (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => {
+                                      approveUnifiedItem(item.id);
+                                      toast({
+                                        title: "Approved",
+                                        description: "Investment item approved for checkout",
+                                      });
+                                    }}
+                                    data-testid={`button-approve-${item.id}`}
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Approve
+                                  </Button>
+                                )}
+                                
+                                {/* Remove button */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    removeUnifiedItem(item.id);
+                                    toast({
+                                      title: "Removed",
+                                      description: "Item removed from investments",
+                                    });
+                                  }}
+                                  disabled={isRemovingUnifiedItem}
+                                  data-testid={`button-remove-unified-${item.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                
+                {/* Summary Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Investment Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>Total Items:</span>
+                        <span className="font-medium">{unifiedCartItems.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Approved Items:</span>
+                        <span className="font-medium text-green-600">
+                          {unifiedCartItems.filter(i => i.status === 'approved').length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Pending Approval:</span>
+                        <span className="font-medium text-yellow-600">
+                          {unifiedCartItems.filter(i => i.status === 'pending').length}
+                        </span>
+                      </div>
+                      <div className="border-t pt-3">
+                        <div className="flex justify-between text-lg font-semibold">
+                          <span>Total Value:</span>
+                          <span>₹{unifiedCartItems.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0).toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

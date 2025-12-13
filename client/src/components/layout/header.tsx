@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, User as UserIcon, HelpCircle, LogOut, Shield, Store, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
+import { useUnifiedCartCount } from "@/contexts/UnifiedCartContext";
 import { type User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { MobileNavCards } from "./MobileNavCards";
@@ -15,6 +16,9 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
   const { cart } = useCart();
+  const unifiedCartCount = useUnifiedCartCount();
+  
+  const totalCartCount = (cart?.totalItems || 0) + unifiedCartCount;
 
   const handleLogout = async () => {
     try {
@@ -126,9 +130,9 @@ export function Header() {
                 >
                   <ShoppingCart className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Cart</span>
-                  {cart && cart.totalItems > 0 && (
+                  {totalCartCount > 0 && (
                     <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {cart.totalItems}
+                      {totalCartCount}
                     </span>
                   )}
                 </Button>
@@ -209,7 +213,7 @@ export function Header() {
                         name: "Cart", 
                         href: "/cart",
                         tone: 'cart' as const,
-                        badge: cart?.totalItems || 0
+                        badge: totalCartCount
                       }] : []),
                       ...adminNavigation.map(item => ({ 
                         name: item.name, 
@@ -219,7 +223,7 @@ export function Header() {
                     ]}
                     onNavigate={() => setIsOpen(false)}
                     isAuthenticated={isAuthenticated}
-                    cartCount={cart?.totalItems || 0}
+                    cartCount={totalCartCount}
                     isAdmin={isAdmin}
                   />
 
