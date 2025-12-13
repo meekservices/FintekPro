@@ -1163,6 +1163,8 @@ export interface IStorage {
   createUnlistedDeal(data: InsertUnlistedDeal): Promise<UnlistedDeal>;
   getUnlistedDealById(id: string): Promise<UnlistedDeal | null>;
   getUnlistedDealsByCompany(companyId: string): Promise<UnlistedDeal[]>;
+  getUnlistedDealsByUser(userId: string): Promise<UnlistedDeal[]>;
+  getUnlistedDealsPendingAcceptance(userId: string): Promise<UnlistedDeal[]>;
   updateUnlistedDeal(id: string, data: Partial<InsertUnlistedDeal>): Promise<UnlistedDeal>;
   
   // Probe42 Sync Log
@@ -8474,6 +8476,34 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.unlistedDeals.id, id))
       .returning();
     return updated;
+  }
+
+  async getUnlistedDealsByUser(userId: string): Promise<UnlistedDeal[]> {
+    const deals = await db.select()
+      .from(schema.unlistedDeals)
+      .where(or(
+        eq(schema.unlistedDeals.buyerUserId, userId),
+        eq(schema.unlistedDeals.sellerUserId, userId)
+      ))
+      .orderBy(desc(schema.unlistedDeals.matchedAt));
+    return deals;
+  }
+
+  async getUnlistedDealsPendingAcceptance(userId: string): Promise<UnlistedDeal[]> {
+    const deals = await db.select()
+      .from(schema.unlistedDeals)
+      .where(and(
+        or(
+          eq(schema.unlistedDeals.buyerUserId, userId),
+          eq(schema.unlistedDeals.sellerUserId, userId)
+        ),
+        or(
+          eq(schema.unlistedDeals.status, 'pending'),
+          eq(schema.unlistedDeals.status, 'awaiting_acceptance')
+        )
+      ))
+      .orderBy(desc(schema.unlistedDeals.matchedAt));
+    return deals;
   }
 
   // Probe42 Sync Log

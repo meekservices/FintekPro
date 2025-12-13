@@ -10569,7 +10569,14 @@ export const unlistedDeals = pgTable("unlisted_deals", {
   totalValue: decimal("total_value", { precision: 20, scale: 2 }).notNull(),
   
   // Deal Status
-  status: varchar("status").default("pending").notNull(), // pending, escrowed, completed, cancelled, failed
+  status: varchar("status").default("pending").notNull(), // pending, awaiting_acceptance, confirmed, escrowed, transfer_pending, completed, cancelled, failed
+  
+  // Buyer/Seller Acceptance
+  buyerAccepted: boolean("buyer_accepted").default(false),
+  buyerAcceptedAt: timestamp("buyer_accepted_at"),
+  sellerAccepted: boolean("seller_accepted").default(false),
+  sellerAcceptedAt: timestamp("seller_accepted_at"),
+  acceptanceDeadline: timestamp("acceptance_deadline"),
   
   // Payment & Transfer
   escrowId: varchar("escrow_id"),

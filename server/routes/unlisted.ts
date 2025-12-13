@@ -1721,6 +1721,275 @@ router.get('/deals/:id', requireLevel2, async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/unlisted/my-deals
+ * Get all deals for the current user (as buyer or seller)
+ */
+router.get('/my-deals', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'User not authenticated');
+    }
+    
+    const deals = await storage.getUnlistedDealsByUser(userId);
+    
+    // Enrich deals with company information
+    const enrichedDeals = await Promise.all(deals.map(async (deal) => {
+      const company = await storage.getUnlistedCompanyById(deal.companyId);
+      return {
+        ...deal,
+        company: company ? { id: company.id, name: company.name, symbol: company.symbol } : null,
+        userRole: deal.buyerUserId === userId ? 'buyer' : 'seller',
+      };
+    }));
+    
+    return apiResponse.success(res, enrichedDeals);
+  } catch (error: any) {
+    console.error('Error fetching user deals:', error);
+    return apiResponse.serverError(res, 'Failed to fetch deals');
+  }
+});
+
+/**
+ * GET /api/unlisted/deals-pending-acceptance
+ * Get deals awaiting user's acceptance
+ */
+router.get('/deals-pending-acceptance', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'User not authenticated');
+    }
+    
+    const deals = await storage.getUnlistedDealsPendingAcceptance(userId);
+    
+    // Enrich with company info and determine if user has accepted
+    const enrichedDeals = await Promise.all(deals.map(async (deal) => {
+      const company = await storage.getUnlistedCompanyById(deal.companyId);
+      const isBuyer = deal.buyerUserId === userId;
+      const userHasAccepted = isBuyer ? deal.buyerAccepted : deal.sellerAccepted;
+      
+      return {
+        ...deal,
+        company: company ? { id: company.id, name: company.name, symbol: company.symbol } : null,
+        userRole: isBuyer ? 'buyer' : 'seller',
+        userHasAccepted,
+        counterpartyAccepted: isBuyer ? deal.sellerAccepted : deal.buyerAccepted,
+      };
+    }));
+    
+    return apiResponse.success(res, enrichedDeals);
+  } catch (error: any) {
+    console.error('Error fetching pending deals:', error);
+    return apiResponse.serverError(res, 'Failed to fetch pending deals');
+  }
+});
+
+/**
+ * POST /api/unlisted/deals/:id/accept
+ * Accept a matched deal (buyer or seller)
+ */
+router.post('/deals/:id/accept', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'User not authenticated');
+    }
+    
+    // Get the deal
+    const deal = await storage.getUnlistedDealById(id);
+    if (!deal) {
+      return apiResponse.notFound(res, 'Deal not found');
+    }
+    
+    // Check if user is part of this deal
+    const isBuyer = deal.buyerUserId === userId;
+    const isSeller = deal.sellerUserId === userId;
+    
+    if (!isBuyer && !isSeller) {
+      return apiResponse.forbidden(res, 'You are not authorized to accept this deal');
+    }
+    
+    // Check if deal is in acceptable state
+    if (deal.status !== 'pending' && deal.status !== 'awaiting_acceptance') {
+      return apiResponse.badRequest(res, `Deal cannot be accepted in current status: ${deal.status}`);
+    }
+    
+    // Check if user already accepted
+    if (isBuyer && deal.buyerAccepted) {
+      return apiResponse.badRequest(res, 'You have already accepted this deal');
+    }
+    if (isSeller && deal.sellerAccepted) {
+      return apiResponse.badRequest(res, 'You have already accepted this deal');
+    }
+    
+    // Check acceptance deadline
+    if (deal.acceptanceDeadline && new Date() > new Date(deal.acceptanceDeadline)) {
+      return apiResponse.badRequest(res, 'Acceptance deadline has passed');
+    }
+    
+    // Update the deal with acceptance
+    const updateData: any = {
+      status: 'awaiting_acceptance',
+    };
+    
+    if (isBuyer) {
+      updateData.buyerAccepted = true;
+      updateData.buyerAcceptedAt = new Date();
+    } else {
+      updateData.sellerAccepted = true;
+      updateData.sellerAcceptedAt = new Date();
+    }
+    
+    // Check if both parties have now accepted
+    const otherPartyAccepted = isBuyer ? deal.sellerAccepted : deal.buyerAccepted;
+    if (otherPartyAccepted) {
+      updateData.status = 'confirmed';
+    }
+    
+    const updatedDeal = await storage.updateUnlistedDeal(id, updateData);
+    
+    // If both accepted, trigger payment flow notification
+    if (updateData.status === 'confirmed') {
+      console.log(`[Deal ${id}] Both parties accepted - deal confirmed, ready for payment`);
+      // TODO: Trigger payment flow notification via notification service
+    }
+    
+    return apiResponse.success(res, {
+      deal: updatedDeal,
+      message: otherPartyAccepted 
+        ? 'Deal confirmed! Both parties have accepted. Proceed to payment.'
+        : `You have accepted the deal. Waiting for ${isBuyer ? 'seller' : 'buyer'} confirmation.`,
+      bothAccepted: updateData.status === 'confirmed',
+    });
+  } catch (error: any) {
+    console.error('Error accepting deal:', error);
+    return apiResponse.serverError(res, 'Failed to accept deal');
+  }
+});
+
+/**
+ * POST /api/unlisted/deals/:id/reject
+ * Reject a matched deal (buyer or seller)
+ */
+router.post('/deals/:id/reject', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'User not authenticated');
+    }
+    
+    // Get the deal
+    const deal = await storage.getUnlistedDealById(id);
+    if (!deal) {
+      return apiResponse.notFound(res, 'Deal not found');
+    }
+    
+    // Check if user is part of this deal
+    const isBuyer = deal.buyerUserId === userId;
+    const isSeller = deal.sellerUserId === userId;
+    
+    if (!isBuyer && !isSeller) {
+      return apiResponse.forbidden(res, 'You are not authorized to reject this deal');
+    }
+    
+    // Check if deal can be rejected
+    if (deal.status !== 'pending' && deal.status !== 'awaiting_acceptance') {
+      return apiResponse.badRequest(res, `Deal cannot be rejected in current status: ${deal.status}`);
+    }
+    
+    // Update the deal status to cancelled
+    const updatedDeal = await storage.updateUnlistedDeal(id, {
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      cancellationReason: reason || `Rejected by ${isBuyer ? 'buyer' : 'seller'}`,
+    });
+    
+    // Revert the buy request and sell listing status back to active
+    await storage.updateBuyRequest(deal.buyRequestId, { status: 'active' });
+    await storage.updateSellListing(deal.sellListingId, { status: 'active' });
+    
+    console.log(`[Deal ${id}] Rejected by ${isBuyer ? 'buyer' : 'seller'}`);
+    
+    return apiResponse.success(res, {
+      deal: updatedDeal,
+      message: 'Deal rejected. The listing and request have been restored.',
+    });
+  } catch (error: any) {
+    console.error('Error rejecting deal:', error);
+    return apiResponse.serverError(res, 'Failed to reject deal');
+  }
+});
+
+/**
+ * POST /api/unlisted/deals/:id/counter-offer
+ * Propose a counter offer for price negotiation
+ */
+router.post('/deals/:id/counter-offer', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { proposedPrice, message } = req.body;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'User not authenticated');
+    }
+    
+    if (!proposedPrice || isNaN(parseFloat(proposedPrice))) {
+      return apiResponse.badRequest(res, 'Valid proposed price is required');
+    }
+    
+    // Get the deal
+    const deal = await storage.getUnlistedDealById(id);
+    if (!deal) {
+      return apiResponse.notFound(res, 'Deal not found');
+    }
+    
+    // Check if user is part of this deal
+    const isBuyer = deal.buyerUserId === userId;
+    const isSeller = deal.sellerUserId === userId;
+    
+    if (!isBuyer && !isSeller) {
+      return apiResponse.forbidden(res, 'You are not authorized to make a counter offer');
+    }
+    
+    // Check if deal is in negotiable state
+    if (deal.status !== 'pending' && deal.status !== 'awaiting_acceptance') {
+      return apiResponse.badRequest(res, `Counter offers not allowed in current status: ${deal.status}`);
+    }
+    
+    // Reset acceptances and update price
+    const updatedDeal = await storage.updateUnlistedDeal(id, {
+      agreedPrice: proposedPrice.toString(),
+      totalValue: (parseFloat(proposedPrice) * deal.quantity).toString(),
+      buyerAccepted: false,
+      sellerAccepted: false,
+      buyerAcceptedAt: null,
+      sellerAcceptedAt: null,
+      status: 'awaiting_acceptance',
+      complianceNotes: deal.complianceNotes 
+        ? `${deal.complianceNotes}\n[Counter-offer] ${isBuyer ? 'Buyer' : 'Seller'} proposed ₹${proposedPrice}: ${message || 'No message'}`
+        : `[Counter-offer] ${isBuyer ? 'Buyer' : 'Seller'} proposed ₹${proposedPrice}: ${message || 'No message'}`,
+    });
+    
+    console.log(`[Deal ${id}] Counter-offer: ${isBuyer ? 'Buyer' : 'Seller'} proposed ₹${proposedPrice}`);
+    
+    return apiResponse.success(res, {
+      deal: updatedDeal,
+      message: `Counter-offer of ₹${proposedPrice} sent. Both parties need to accept the new price.`,
+    });
+  } catch (error: any) {
+    console.error('Error making counter offer:', error);
+    return apiResponse.serverError(res, 'Failed to make counter offer');
+  }
+});
+
 // ===================================================================
 // PRICE SUGGESTION ROUTES
 // ===================================================================
