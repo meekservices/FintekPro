@@ -277,3 +277,250 @@ export const ERROR_MESSAGES: Record<number, string> = {
 export function getUserMessage(status: number, customMessage?: string): string {
   return customMessage || ERROR_MESSAGES[status] || ERROR_MESSAGES[500];
 }
+
+// ==================== UNLISTED MARKETPLACE ERRORS ====================
+
+/**
+ * KYC Eligibility Error (403)
+ * Used when user doesn't meet KYC requirements for unlisted trading
+ */
+export class KycEligibilityError extends AppError {
+  public readonly requiredTier: string;
+  public readonly currentTier: string;
+
+  constructor(
+    requiredTier: string,
+    currentTier: string,
+    context?: ErrorContext
+  ) {
+    super(
+      `KYC tier ${requiredTier} required, user has ${currentTier}`,
+      403,
+      undefined,
+      false,
+      context
+    );
+    this.requiredTier = requiredTier;
+    this.currentTier = currentTier;
+  }
+
+  protected getDefaultUserMessage(): string {
+    const tierMap: Record<string, string> = {
+      'basic': 'Basic KYC',
+      'enhanced': 'Enhanced KYC',
+      'accredited': 'Accredited Investor status'
+    };
+    return `You need ${tierMap[this.requiredTier] || this.requiredTier} to access this feature. Complete your KYC verification to continue.`;
+  }
+}
+
+/**
+ * Unlisted Trading Error (400)
+ * Used for unlisted marketplace trading-related issues
+ */
+export class UnlistedTradingError extends AppError {
+  public readonly errorCode: UnlistedErrorCode;
+
+  constructor(
+    errorCode: UnlistedErrorCode,
+    message: string,
+    context?: ErrorContext
+  ) {
+    super(message, 400, undefined, false, context);
+    this.errorCode = errorCode;
+  }
+
+  protected getDefaultUserMessage(): string {
+    return UNLISTED_ERROR_MESSAGES[this.errorCode] || 'Unable to complete this trading action. Please try again.';
+  }
+}
+
+export type UnlistedErrorCode =
+  | 'COMPANY_SUSPENDED'
+  | 'INSUFFICIENT_QUANTITY'
+  | 'PRICE_MISMATCH'
+  | 'LISTING_EXPIRED'
+  | 'LISTING_NOT_FOUND'
+  | 'DEAL_ALREADY_MATCHED'
+  | 'DEAL_CANCELLED'
+  | 'SELF_TRADING_BLOCKED'
+  | 'COMPLIANCE_BLOCK'
+  | 'HIGH_RISK_COMPANY'
+  | 'CART_LIMIT_EXCEEDED'
+  | 'DUPLICATE_CART_ITEM'
+  | 'INVALID_PRICE_RANGE'
+  | 'MIN_QUANTITY_REQUIRED'
+  | 'MAX_QUANTITY_EXCEEDED';
+
+export const UNLISTED_ERROR_MESSAGES: Record<UnlistedErrorCode, string> = {
+  COMPANY_SUSPENDED: 'Trading is temporarily suspended for this company. Check back later or contact support.',
+  INSUFFICIENT_QUANTITY: 'Not enough shares available to complete your order. Try reducing the quantity.',
+  PRICE_MISMATCH: 'The price has changed since you started. Please refresh and try again.',
+  LISTING_EXPIRED: 'This listing has expired. Please browse other available listings.',
+  LISTING_NOT_FOUND: 'This listing is no longer available. It may have been sold or cancelled.',
+  DEAL_ALREADY_MATCHED: 'This deal has already been matched with another party.',
+  DEAL_CANCELLED: 'This deal has been cancelled and cannot be modified.',
+  SELF_TRADING_BLOCKED: 'You cannot trade with yourself. Use a different account for selling.',
+  COMPLIANCE_BLOCK: 'This transaction requires additional verification. Please contact support.',
+  HIGH_RISK_COMPANY: 'This company has elevated risk factors. Please review the risk disclosures.',
+  CART_LIMIT_EXCEEDED: 'You can add up to 10 companies to your cart at once.',
+  DUPLICATE_CART_ITEM: 'This company is already in your cart. Update the existing item instead.',
+  INVALID_PRICE_RANGE: 'Your price is outside the acceptable range. Check current market prices.',
+  MIN_QUANTITY_REQUIRED: 'Minimum order quantity is 1 share.',
+  MAX_QUANTITY_EXCEEDED: 'Order quantity exceeds the maximum allowed limit.',
+};
+
+/**
+ * Escrow Error (400/500)
+ * Used for payment and escrow-related issues
+ */
+export class EscrowError extends AppError {
+  public readonly errorCode: EscrowErrorCode;
+
+  constructor(
+    errorCode: EscrowErrorCode,
+    message: string,
+    isRetryable: boolean = false,
+    context?: ErrorContext
+  ) {
+    const status = ['GATEWAY_ERROR', 'TIMEOUT', 'PROCESSING_ERROR'].includes(errorCode) ? 503 : 400;
+    super(message, status, undefined, isRetryable, context);
+    this.errorCode = errorCode;
+  }
+
+  protected getDefaultUserMessage(): string {
+    return ESCROW_ERROR_MESSAGES[this.errorCode] || 'Payment processing issue. Please try again or use a different payment method.';
+  }
+}
+
+export type EscrowErrorCode =
+  | 'PAYMENT_FAILED'
+  | 'INSUFFICIENT_FUNDS'
+  | 'ESCROW_NOT_FOUND'
+  | 'ESCROW_ALREADY_RELEASED'
+  | 'ESCROW_EXPIRED'
+  | 'TRANSFER_NOT_CONFIRMED'
+  | 'GATEWAY_ERROR'
+  | 'TIMEOUT'
+  | 'PROCESSING_ERROR'
+  | 'REFUND_FAILED'
+  | 'INVALID_AMOUNT';
+
+export const ESCROW_ERROR_MESSAGES: Record<EscrowErrorCode, string> = {
+  PAYMENT_FAILED: 'Payment could not be processed. Please check your payment details and try again.',
+  INSUFFICIENT_FUNDS: 'Insufficient funds in your account. Please add funds and try again.',
+  ESCROW_NOT_FOUND: 'Payment record not found. Please contact support if you believe this is an error.',
+  ESCROW_ALREADY_RELEASED: 'Payment has already been released to the seller.',
+  ESCROW_EXPIRED: 'Payment window has expired. Please create a new order.',
+  TRANSFER_NOT_CONFIRMED: 'Share transfer has not been confirmed yet. Please wait for seller confirmation.',
+  GATEWAY_ERROR: 'Payment gateway is temporarily unavailable. Please try again in a few minutes.',
+  TIMEOUT: 'Payment request timed out. Please try again.',
+  PROCESSING_ERROR: 'Payment is being processed. Please wait and do not retry.',
+  REFUND_FAILED: 'Refund could not be processed. Our team will manually process it within 3-5 business days.',
+  INVALID_AMOUNT: 'Invalid payment amount. Please refresh and try again.',
+};
+
+/**
+ * Document Error (400)
+ * Used for document upload and verification issues
+ */
+export class DocumentError extends AppError {
+  public readonly errorCode: DocumentErrorCode;
+
+  constructor(
+    errorCode: DocumentErrorCode,
+    message: string,
+    context?: ErrorContext
+  ) {
+    super(message, 400, undefined, false, context);
+    this.errorCode = errorCode;
+  }
+
+  protected getDefaultUserMessage(): string {
+    return DOCUMENT_ERROR_MESSAGES[this.errorCode] || 'Document upload issue. Please try again.';
+  }
+}
+
+export type DocumentErrorCode =
+  | 'FILE_TOO_LARGE'
+  | 'INVALID_FORMAT'
+  | 'UPLOAD_FAILED'
+  | 'DOCUMENT_EXPIRED'
+  | 'DOCUMENT_REJECTED'
+  | 'VERIFICATION_PENDING'
+  | 'DUPLICATE_DOCUMENT';
+
+export const DOCUMENT_ERROR_MESSAGES: Record<DocumentErrorCode, string> = {
+  FILE_TOO_LARGE: 'File is too large. Maximum size is 10MB.',
+  INVALID_FORMAT: 'Invalid file format. Please upload PDF, JPG, or PNG files.',
+  UPLOAD_FAILED: 'Upload failed. Please check your connection and try again.',
+  DOCUMENT_EXPIRED: 'This document has expired. Please upload a current version.',
+  DOCUMENT_REJECTED: 'Document was rejected. Please upload a clearer copy.',
+  VERIFICATION_PENDING: 'Document is being verified. You will be notified once complete.',
+  DUPLICATE_DOCUMENT: 'This document has already been uploaded.',
+};
+
+/**
+ * Deal Lifecycle Error (400/409)
+ * Used for deal state transition issues
+ */
+export class DealLifecycleError extends AppError {
+  public readonly currentStatus: string;
+  public readonly attemptedAction: string;
+
+  constructor(
+    currentStatus: string,
+    attemptedAction: string,
+    context?: ErrorContext
+  ) {
+    super(
+      `Cannot ${attemptedAction} deal in ${currentStatus} status`,
+      409,
+      undefined,
+      false,
+      context
+    );
+    this.currentStatus = currentStatus;
+    this.attemptedAction = attemptedAction;
+  }
+
+  protected getDefaultUserMessage(): string {
+    const statusMessages: Record<string, string> = {
+      'matched': 'This deal is awaiting confirmation from both parties.',
+      'payment_pending': 'This deal is awaiting payment from the buyer.',
+      'paid': 'Payment received. Awaiting share transfer confirmation.',
+      'shares_transferred': 'Shares have been transferred. Awaiting final confirmation.',
+      'completed': 'This deal has already been completed.',
+      'cancelled': 'This deal has been cancelled and cannot be modified.',
+      'disputed': 'This deal is under review by our team.',
+    };
+    return statusMessages[this.currentStatus] || `Deal is currently ${this.currentStatus} and cannot be modified.`;
+  }
+}
+
+/**
+ * Helper function to create unlisted trading error
+ */
+export function createUnlistedError(
+  code: UnlistedErrorCode,
+  additionalInfo?: string,
+  context?: ErrorContext
+): UnlistedTradingError {
+  const baseMessage = UNLISTED_ERROR_MESSAGES[code];
+  const message = additionalInfo ? `${baseMessage} ${additionalInfo}` : baseMessage;
+  return new UnlistedTradingError(code, message, context);
+}
+
+/**
+ * Helper function to create escrow error
+ */
+export function createEscrowError(
+  code: EscrowErrorCode,
+  additionalInfo?: string,
+  context?: ErrorContext
+): EscrowError {
+  const baseMessage = ESCROW_ERROR_MESSAGES[code];
+  const message = additionalInfo ? `${baseMessage} ${additionalInfo}` : baseMessage;
+  const isRetryable = ['GATEWAY_ERROR', 'TIMEOUT'].includes(code);
+  return new EscrowError(code, message, isRetryable, context);
+}
