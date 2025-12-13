@@ -242,3 +242,213 @@ I confirm that I am making this trade voluntarily and understand all associated 
 }
 
 export const unlistedRiskDisclosureService = new UnlistedRiskDisclosureService();
+
+// Middleware for risk disclosure enforcement
+import { Request, Response, NextFunction } from 'express';
+import { db } from '../db';
+import { unlistedRiskDisclosureAcknowledgments } from '../../shared/schema';
+import { eq, and, gte } from 'drizzle-orm';
+
+export interface RiskDisclosureRequest extends Request {
+  riskDisclosureAcknowledged?: boolean;
+  riskDisclosureRecord?: any;
+}
+
+/**
+ * Check if user has valid risk disclosure acknowledgment for a company
+ */
+export async function hasValidRiskAcknowledgment(
+  userId: string,
+  companyId: string,
+  tradeType: 'buy' | 'sell'
+): Promise<{ valid: boolean; record?: any; reason?: string }> {
+  const currentVersion = DISCLOSURE_VERSION;
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [record] = await db
+    .select()
+    .from(unlistedRiskDisclosureAcknowledgments)
+    .where(and(
+      eq(unlistedRiskDisclosureAcknowledgments.userId, userId),
+      eq(unlistedRiskDisclosureAcknowledgments.companyId, companyId),
+      eq(unlistedRiskDisclosureAcknowledgments.tradeType, tradeType),
+      eq(unlistedRiskDisclosureAcknowledgments.disclosureVersion, currentVersion),
+      eq(unlistedRiskDisclosureAcknowledgments.allMandatoryAcknowledged, true),
+      gte(unlistedRiskDisclosureAcknowledgments.acknowledgedAt, twentyFourHoursAgo)
+    ))
+    .limit(1);
+
+  if (!record) {
+    return { valid: false, reason: 'No valid risk disclosure acknowledgment found for this company' };
+  }
+
+  if (record.expiresAt && new Date(record.expiresAt) < new Date()) {
+    return { valid: false, reason: 'Risk disclosure acknowledgment has expired', record };
+  }
+
+  return { valid: true, record };
+}
+
+/**
+ * Save risk disclosure acknowledgment
+ */
+export async function saveRiskAcknowledgment(data: {
+  userId: string;
+  companyId: string;
+  tradeType: 'buy' | 'sell';
+  tradeEntityId?: string;
+  tradeEntityType?: string;
+  acknowledgedDisclosureIds: string[];
+  companySpecificRisksAcknowledged?: string[];
+  acknowledgmentStatement?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}): Promise<{ success: boolean; record?: any; error?: string }> {
+  const mandatoryIds = unlistedRiskDisclosureService.getMandatoryDisclosures().map(d => d.id);
+  const allMandatoryAcknowledged = mandatoryIds.every(id => data.acknowledgedDisclosureIds.includes(id));
+
+  if (!allMandatoryAcknowledged) {
+    const missing = mandatoryIds.filter(id => !data.acknowledgedDisclosureIds.includes(id));
+    return { 
+      success: false, 
+      error: `Missing mandatory disclosures: ${missing.join(', ')}` 
+    };
+  }
+
+  const [record] = await db
+    .insert(unlistedRiskDisclosureAcknowledgments)
+    .values({
+      userId: data.userId,
+      companyId: data.companyId,
+      tradeType: data.tradeType,
+      tradeEntityId: data.tradeEntityId,
+      tradeEntityType: data.tradeEntityType,
+      disclosureVersion: DISCLOSURE_VERSION,
+      acknowledgedDisclosureIds: data.acknowledgedDisclosureIds,
+      allMandatoryAcknowledged: true,
+      companySpecificRisksAcknowledged: data.companySpecificRisksAcknowledged || [],
+      acknowledgmentStatement: data.acknowledgmentStatement || unlistedRiskDisclosureService.getAcknowledgmentText(),
+      acknowledgedFullText: true,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+    })
+    .returning();
+
+  return { success: true, record };
+}
+
+/**
+ * Resolve companyId from various entity types (deal, listing, buy-request, cart)
+ * Used by middleware when companyId is not directly provided in request
+ */
+async function resolveCompanyIdFromEntity(req: Request): Promise<string | null> {
+  const { storage } = await import('../storage');
+  const { unlistedCart } = await import('../../shared/schema');
+  
+  // Try to get from deal
+  const dealId = req.params.dealId || req.params.id;
+  if (dealId && (req.path.includes('/deals/') || req.path.includes('/deal'))) {
+    try {
+      const deal = await storage.getUnlistedDealById(dealId);
+      if (deal?.companyId) return deal.companyId;
+    } catch (e) {
+      console.warn('Failed to resolve company from deal:', e);
+    }
+  }
+  
+  // Try to get from listing
+  const listingId = req.params.listingId || req.body.listingId;
+  if (listingId) {
+    try {
+      const listing = await storage.getSellListingById(listingId);
+      if (listing?.companyId) return listing.companyId;
+    } catch (e) {
+      console.warn('Failed to resolve company from listing:', e);
+    }
+  }
+  
+  // Try to get from buy request
+  const buyRequestId = req.params.buyRequestId || req.body.buyRequestId;
+  if (buyRequestId) {
+    try {
+      const buyRequest = await storage.getBuyRequestById(buyRequestId);
+      if (buyRequest?.companyId) return buyRequest.companyId;
+    } catch (e) {
+      console.warn('Failed to resolve company from buy request:', e);
+    }
+  }
+  
+  // Try to get from cart item (using direct db query since no storage method exists)
+  const cartId = req.params.cartId || req.params.id;
+  if (cartId && req.path.includes('/cart')) {
+    try {
+      const [cartItem] = await db
+        .select({ companyId: unlistedCart.companyId })
+        .from(unlistedCart)
+        .where(eq(unlistedCart.id, cartId))
+        .limit(1);
+      if (cartItem?.companyId) return cartItem.companyId;
+    } catch (e) {
+      console.warn('Failed to resolve company from cart:', e);
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Middleware: Require risk disclosure acknowledgment before trade operations
+ * Resolves companyId from deal/listing/buy-request if not directly provided
+ */
+export const requireRiskDisclosure = (tradeType: 'buy' | 'sell') => {
+  return async (req: RiskDisclosureRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Authentication required' 
+        });
+      }
+
+      // Try direct companyId first, then resolve from entity
+      let companyId = req.body.companyId || req.params.companyId;
+      
+      if (!companyId) {
+        companyId = await resolveCompanyIdFromEntity(req);
+      }
+      
+      // If still no companyId, we cannot enforce - fail closed for safety
+      if (!companyId) {
+        console.warn(`[RiskDisclosure] Could not resolve companyId for ${req.method} ${req.path}`);
+        return res.status(400).json({
+          success: false,
+          error: 'COMPANY_RESOLUTION_FAILED',
+          message: 'Could not determine company for risk disclosure verification',
+        });
+      }
+
+      const { valid, record, reason } = await hasValidRiskAcknowledgment(userId, companyId, tradeType);
+
+      if (!valid) {
+        return res.status(403).json({
+          success: false,
+          error: 'RISK_DISCLOSURE_REQUIRED',
+          message: 'You must acknowledge risk disclosures before placing this order',
+          reason,
+          disclosures: unlistedRiskDisclosureService.formatDisclosuresForDisplay(),
+          requiresAcknowledgment: true,
+          tradeType,
+          companyId,
+        });
+      }
+
+      req.riskDisclosureAcknowledged = true;
+      req.riskDisclosureRecord = record;
+      next();
+    } catch (error) {
+      console.error('Risk disclosure middleware error:', error);
+      next(error);
+    }
+  };
+};

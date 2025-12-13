@@ -5,6 +5,8 @@ import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { complianceService } from './compliance-service';
+import { pmlaAuditService } from './pmla-audit-service';
+import { auditLogArchivalService } from './audit-log-archival';
 
 export interface MatchResult {
   matched: boolean;
@@ -342,6 +344,89 @@ export class DealMatcherService {
           sourceType: 'DEAL',
           sourceDealId: deal.id,
         });
+
+      // PMLA Transaction Monitoring for AML compliance
+      // Monitor both buyer and seller transactions
+      const totalValueNum = parseFloat(totalValue);
+      
+      // Monitor buyer's transaction
+      const buyerPmlaResult = await pmlaAuditService.monitorTransaction({
+        userId: buyRequest.buyerUserId,
+        transactionId: deal.id,
+        amount: totalValueNum,
+        currency: 'INR',
+        transactionType: 'unlisted_share_purchase',
+        sourceCountry: 'IN',
+        destinationCountry: 'IN',
+        metadata: {
+          dealId: deal.id,
+          companyId: sellListing.companyId,
+          quantity,
+          pricePerShare: finalPrice,
+          tradeType: 'buy',
+          sellListingId: sellListing.id,
+          buyRequestId: buyRequest.id,
+        },
+      });
+      
+      // Monitor seller's transaction
+      const sellerPmlaResult = await pmlaAuditService.monitorTransaction({
+        userId: sellListing.sellerUserId,
+        transactionId: deal.id,
+        amount: totalValueNum,
+        currency: 'INR',
+        transactionType: 'unlisted_share_sale',
+        sourceCountry: 'IN',
+        destinationCountry: 'IN',
+        metadata: {
+          dealId: deal.id,
+          companyId: sellListing.companyId,
+          quantity,
+          pricePerShare: finalPrice,
+          tradeType: 'sell',
+          sellListingId: sellListing.id,
+          buyRequestId: buyRequest.id,
+        },
+      });
+      
+      // If either party's transaction is blocked, throw error
+      if (!buyerPmlaResult.allowed) {
+        console.error(`[PMLA] Buyer transaction blocked for deal ${deal.id}: ${buyerPmlaResult.flags.join(', ')}`);
+        throw new Error(`Transaction blocked by AML compliance: Buyer failed PMLA checks. Risk score: ${buyerPmlaResult.riskScore}`);
+      }
+      
+      if (!sellerPmlaResult.allowed) {
+        console.error(`[PMLA] Seller transaction blocked for deal ${deal.id}: ${sellerPmlaResult.flags.join(', ')}`);
+        throw new Error(`Transaction blocked by AML compliance: Seller failed PMLA checks. Risk score: ${sellerPmlaResult.riskScore}`);
+      }
+      
+      // Log if transaction requires FIU reporting
+      if (buyerPmlaResult.requiresFIUReport || sellerPmlaResult.requiresFIUReport) {
+        console.log(`[PMLA] Deal ${deal.id} flagged for FIU reporting. Buyer report: ${buyerPmlaResult.reportType || 'none'}, Seller report: ${sellerPmlaResult.reportType || 'none'}`);
+      }
+
+      // Archive deal creation event to immutable audit log
+      await auditLogArchivalService.archiveUnlistedMarketplaceEvent({
+        eventType: 'deal_created',
+        userId: buyRequest.buyerUserId,
+        dealId: deal.id,
+        companyId: sellListing.companyId,
+        action: 'Deal created from match',
+        details: {
+          sellListingId: sellListing.id,
+          buyRequestId: buyRequest.id,
+          sellerUserId: sellListing.sellerUserId,
+          buyerUserId: buyRequest.buyerUserId,
+          quantity,
+          agreedPrice: finalPrice,
+          totalValue: totalValueNum,
+          platformFee,
+          matchScore: match.matchScore,
+          buyerPmlaRiskScore: buyerPmlaResult.riskScore,
+          sellerPmlaRiskScore: sellerPmlaResult.riskScore,
+        },
+        riskLevel: Math.max(buyerPmlaResult.riskScore, sellerPmlaResult.riskScore) >= 60 ? 'high' : 'low',
+      });
 
       // Return deal ID
       return deal.id;

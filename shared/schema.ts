@@ -10725,6 +10725,129 @@ export const insertUnlistedCartSchema = createInsertSchema(unlistedCart).omit({
 export type UnlistedCartItem = typeof unlistedCart.$inferSelect;
 export type InsertUnlistedCartItem = z.infer<typeof insertUnlistedCartSchema>;
 
+// Unlisted Risk Disclosure Acknowledgments - SEBI compliance for unlisted securities trading
+export const unlistedRiskDisclosureAcknowledgments = pgTable("unlisted_risk_disclosure_acknowledgments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id),
+  
+  // Trade context
+  tradeType: varchar("trade_type").notNull(), // buy, sell
+  tradeEntityId: varchar("trade_entity_id"), // buy_request_id, sell_listing_id, or deal_id
+  tradeEntityType: varchar("trade_entity_type"), // buy_request, sell_listing, deal
+  
+  // Disclosure acknowledgment
+  disclosureVersion: varchar("disclosure_version").notNull(),
+  acknowledgedDisclosureIds: jsonb("acknowledged_disclosure_ids").notNull().default([]),
+  allMandatoryAcknowledged: boolean("all_mandatory_acknowledged").notNull().default(false),
+  
+  // Company-specific risks acknowledged
+  companySpecificRisksAcknowledged: jsonb("company_specific_risks_acknowledged").default([]),
+  
+  // Acknowledgment statement
+  acknowledgmentStatement: text("acknowledgment_statement"),
+  acknowledgedFullText: boolean("acknowledged_full_text").notNull().default(false),
+  
+  // Request context for audit
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timestamps
+  acknowledgedAt: timestamp("acknowledged_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"), // Some acknowledgments may need renewal
+}, (table) => [
+  index("idx_unlisted_risk_disclosure_user").on(table.userId),
+  index("idx_unlisted_risk_disclosure_company").on(table.companyId),
+  index("idx_unlisted_risk_disclosure_trade").on(table.tradeEntityId),
+  index("idx_unlisted_risk_disclosure_version").on(table.disclosureVersion),
+]);
+
+export const insertUnlistedRiskDisclosureAcknowledgmentSchema = createInsertSchema(unlistedRiskDisclosureAcknowledgments).omit({
+  id: true,
+  acknowledgedAt: true,
+});
+export type UnlistedRiskDisclosureAcknowledgment = typeof unlistedRiskDisclosureAcknowledgments.$inferSelect;
+export type InsertUnlistedRiskDisclosureAcknowledgment = z.infer<typeof insertUnlistedRiskDisclosureAcknowledgmentSchema>;
+
+// Escrow Release Approval - Maker-Checker workflow for compliance (dual approval required)
+export const unlistedEscrowApprovals = pgTable("unlisted_escrow_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dealId: varchar("deal_id").references(() => unlistedDeals.id).notNull(),
+  
+  // Request details
+  requestType: varchar("request_type").notNull(), // release, refund
+  requestedAmount: decimal("requested_amount", { precision: 20, scale: 2 }).notNull(),
+  sellerPayout: decimal("seller_payout", { precision: 20, scale: 2 }),
+  platformFee: decimal("platform_fee", { precision: 20, scale: 2 }),
+  
+  // Maker (first approver)
+  makerUserId: varchar("maker_user_id").references(() => users.id).notNull(),
+  makerName: varchar("maker_name"),
+  makerApprovedAt: timestamp("maker_approved_at").defaultNow().notNull(),
+  makerNotes: text("maker_notes"),
+  makerVerificationDocuments: jsonb("maker_verification_documents").default([]), // Document IDs verified
+  
+  // Checker (second approver)
+  checkerUserId: varchar("checker_user_id").references(() => users.id),
+  checkerName: varchar("checker_name"),
+  checkerApprovedAt: timestamp("checker_approved_at"),
+  checkerNotes: text("checker_notes"),
+  checkerAction: varchar("checker_action"), // approved, rejected, requested_info
+  
+  // Workflow status
+  status: varchar("status").notNull().default("pending_checker"), // pending_checker, approved, rejected, expired
+  expiresAt: timestamp("expires_at"), // Approval requests expire after 24 hours
+  
+  // Compliance context
+  transferConfirmationId: varchar("transfer_confirmation_id"),
+  disSlipVerified: boolean("dis_slip_verified").default(false),
+  shareTransferVerified: boolean("share_transfer_verified").default(false),
+  complianceChecks: jsonb("compliance_checks").default([]), // List of checks performed
+  
+  // Rejection details
+  rejectionReason: text("rejection_reason"),
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  
+  // Final execution
+  executedAt: timestamp("executed_at"),
+  executionResult: jsonb("execution_result"),
+  
+  // Audit trail
+  ipAddressMaker: varchar("ip_address_maker"),
+  ipAddressChecker: varchar("ip_address_checker"),
+  userAgentMaker: text("user_agent_maker"),
+  userAgentChecker: text("user_agent_checker"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_escrow_approval_deal").on(table.dealId),
+  index("idx_escrow_approval_maker").on(table.makerUserId),
+  index("idx_escrow_approval_checker").on(table.checkerUserId),
+  index("idx_escrow_approval_status").on(table.status),
+]);
+
+export const insertUnlistedEscrowApprovalSchema = createInsertSchema(unlistedEscrowApprovals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  checkerUserId: true,
+  checkerName: true,
+  checkerApprovedAt: true,
+  checkerNotes: true,
+  checkerAction: true,
+  rejectionReason: true,
+  rejectedBy: true,
+  rejectedAt: true,
+  executedAt: true,
+  executionResult: true,
+  ipAddressChecker: true,
+  userAgentChecker: true,
+});
+export type UnlistedEscrowApproval = typeof unlistedEscrowApprovals.$inferSelect;
+export type InsertUnlistedEscrowApproval = z.infer<typeof insertUnlistedEscrowApprovalSchema>;
+
 export const insertUnlistedDealSchema = createInsertSchema(unlistedDeals).omit({
   id: true,
   createdAt: true,

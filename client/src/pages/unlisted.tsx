@@ -5,10 +5,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock } from "lucide-react";
+import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock, Store, ShoppingCart, Search } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
+import { CartBadge } from "@/components/UnlistedCart";
 
 // Unlisted Securities Categories Component
 function UnlistedCategoriesSection() {
@@ -120,6 +123,123 @@ function UnlistedCategoriesSection() {
   );
 }
 
+// Marketplace Section - Shows published sell listings
+function MarketplaceSection() {
+  const [, setLocation] = useLocation();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: listings, isLoading } = useQuery<any[]>({
+    queryKey: ['/api/unlisted/listings/published'],
+    queryFn: async () => {
+      const response = await fetch('/api/unlisted/listings/published');
+      if (!response.ok) throw new Error('Failed to fetch listings');
+      const result = await response.json();
+      // API returns { data: { listings: [...], pagination: {...} } }
+      return result.data?.listings || [];
+    },
+  });
+
+  const filteredListings = listings?.filter(listing => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return listing.companyName?.toLowerCase().includes(query) ||
+           listing.company?.name?.toLowerCase().includes(query);
+  }) || [];
+
+  if (isLoading) {
+    return <LoadingState />;
+  }
+
+  if (!listings || listings.length === 0) {
+    return (
+      <EmptyState
+        icon={Store}
+        title="No Listings Available"
+        description="There are currently no published sell listings in the marketplace. Check back later for new opportunities."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search listings..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-marketplace-search"
+          />
+        </div>
+        <Link href="/unlisted/cart">
+          <Button variant="outline" className="relative" data-testid="button-view-cart">
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            Cart
+            <CartBadge />
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredListings.map((listing) => (
+          <Card key={listing.id} className="hover:shadow-md transition-shadow" data-testid={`listing-card-${listing.id}`}>
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h4 className="font-semibold text-lg">{listing.companyName || listing.company?.name}</h4>
+                  <p className="text-sm text-muted-foreground">{listing.company?.sector || 'Technology'}</p>
+                </div>
+                <Badge variant={listing.orderType === 'sell' ? 'destructive' : 'default'}>
+                  {listing.orderType === 'sell' ? 'For Sale' : 'Buy Request'}
+                </Badge>
+              </div>
+              
+              <div className="space-y-2 text-sm mb-4">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Price per share:</span>
+                  <span className="font-semibold text-green-600">
+                    ₹{parseFloat(listing.pricePerShare || 0).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Quantity:</span>
+                  <span className="font-medium">{listing.quantity?.toLocaleString('en-IN')} shares</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Value:</span>
+                  <span className="font-semibold">
+                    ₹{(parseFloat(listing.pricePerShare || 0) * (listing.quantity || 0)).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => setLocation(`/unlisted/company/${listing.companyId}`)}
+                  data-testid={`button-view-listing-${listing.id}`}
+                >
+                  <Eye className="w-4 h-4 mr-1" />
+                  View Details
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredListings.length === 0 && searchQuery && (
+        <div className="text-center py-8 text-muted-foreground">
+          No listings found matching "{searchQuery}"
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Main Unlisted Securities Page
 export default function Unlisted() {
   const [, setLocation] = useLocation();
@@ -159,12 +279,20 @@ export default function Unlisted() {
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <ScrollableTabsList className="grid w-full grid-cols-4">
+          <ScrollableTabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="explore" data-testid="tab-explore">Explore</TabsTrigger>
+            <TabsTrigger value="marketplace" data-testid="tab-marketplace">
+              <Store className="w-4 h-4 mr-1" />
+              Marketplace
+            </TabsTrigger>
             <TabsTrigger value="portfolio" data-testid="tab-portfolio">My Investments</TabsTrigger>
             <TabsTrigger value="watchlist" data-testid="tab-watchlist">Watchlist</TabsTrigger>
             <TabsTrigger value="education" data-testid="tab-education">Learn</TabsTrigger>
           </ScrollableTabsList>
+
+          <TabsContent value="marketplace" className="space-y-6" data-testid="marketplace-unlisted">
+            <MarketplaceSection />
+          </TabsContent>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-unlisted">
             <UnlistedCategoriesSection />

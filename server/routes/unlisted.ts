@@ -23,7 +23,7 @@ import { unifiedCompanyDataService } from '../services/unified-company-data-serv
 import { valuationService } from '../services/valuation-service';
 import { unlistedPricingWorkflowService } from '../services/unlisted-pricing-workflow';
 import { unlistedEligibilityService } from '../services/unlisted-eligibility';
-import { unlistedRiskDisclosureService } from '../services/unlisted-risk-disclosures';
+import { unlistedRiskDisclosureService, saveRiskAcknowledgment, requireRiskDisclosure } from '../services/unlisted-risk-disclosures';
 import {
   insertUnlistedCompanySchema,
   insertUnlistedPriceHistorySchema,
@@ -1176,6 +1176,83 @@ router.post('/nsdl/refresh-cache', async (req: Request, res: Response) => {
 // TRADING ROUTES - SELL LISTINGS
 // ===================================================================
 
+import { regulatoryReportingService } from '../services/regulatory-reporting-service';
+import { auditLogArchivalService } from '../services/audit-log-archival';
+
+/**
+ * GET /api/unlisted/listings/published
+ * Get active sell listings for the public Marketplace tab (no company filter required)
+ * Returns all published sell listings with company information
+ */
+router.get('/listings/published', async (req: Request, res: Response) => {
+  try {
+    const { page = '1', limit = '20', sector } = req.query;
+    const pageNum = Math.max(1, parseInt(page as string) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit as string) || 20));
+    
+    // Get all active sell listings
+    const allListings = await db.select({
+      id: sellListings.id,
+      companyId: sellListings.companyId,
+      quantity: sellListings.quantity,
+      askPrice: sellListings.askPrice,
+      floorPrice: sellListings.floorPrice,
+      landingPrice: sellListings.landingPrice,
+      status: sellListings.status,
+      validUntil: sellListings.validUntil,
+      createdAt: sellListings.createdAt,
+      minimumLotSize: sellListings.minimumLotSize,
+    }).from(sellListings)
+      .where(eq(sellListings.status, 'active'))
+      .orderBy(sellListings.createdAt);
+
+    // Enrich with company details and filter by sector if needed
+    const enrichedListings = await Promise.all(
+      allListings.map(async (listing) => {
+        const company = await storage.getUnlistedCompanyById(listing.companyId);
+        return {
+          ...listing,
+          company: company ? {
+            id: company.id,
+            name: company.name,
+            symbol: company.symbol,
+            sector: company.sector,
+            industry: company.industry,
+            logoUrl: company.logoUrl,
+            currentPrice: company.currentPrice,
+          } : null,
+        };
+      })
+    );
+
+    // Filter by sector if provided
+    let filteredListings = enrichedListings.filter(l => l.company !== null);
+    if (sector && typeof sector === 'string') {
+      filteredListings = filteredListings.filter(l => 
+        l.company?.sector?.toLowerCase() === sector.toLowerCase()
+      );
+    }
+
+    // Paginate
+    const totalCount = filteredListings.length;
+    const startIndex = (pageNum - 1) * limitNum;
+    const paginatedListings = filteredListings.slice(startIndex, startIndex + limitNum);
+
+    return apiResponse.success(res, {
+      listings: paginatedListings,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limitNum),
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching published listings:', error);
+    return apiResponse.serverError(res, 'Failed to fetch marketplace listings');
+  }
+});
+
 /**
  * GET /api/unlisted/listings
  * Get active sell listings
@@ -1238,6 +1315,16 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
         missingDisclosures: disclosureValidation.missingDisclosures,
       });
     }
+    
+    // Persist risk disclosure acknowledgment for audit trail
+    await saveRiskAcknowledgment({
+      userId: req.user.id,
+      companyId: validatedData.companyId,
+      tradeType: 'sell',
+      acknowledgedDisclosureIds,
+      ipAddress: req.ip || req.socket?.remoteAddress,
+      userAgent: req.headers['user-agent'],
+    });
     
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(validatedData.companyId);
@@ -1353,6 +1440,16 @@ router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) 
         missingDisclosures: disclosureValidation.missingDisclosures,
       });
     }
+    
+    // Persist risk disclosure acknowledgment for audit trail
+    await saveRiskAcknowledgment({
+      userId: req.user.id,
+      companyId: validatedData.companyId,
+      tradeType: 'buy',
+      acknowledgedDisclosureIds,
+      ipAddress: req.ip || req.socket?.remoteAddress,
+      userAgent: req.headers['user-agent'],
+    });
     
     // Verify company exists
     const company = await storage.getUnlistedCompanyById(validatedData.companyId);
@@ -1545,7 +1642,7 @@ router.get('/cart', requireAuth, async (req: Request, res: Response) => {
  * POST /api/unlisted/cart
  * Add item to cart
  */
-router.post('/cart', requireAuth, async (req: Request, res: Response) => {
+router.post('/cart', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return apiResponse.unauthorized(res, 'Authentication required');
@@ -1604,7 +1701,7 @@ router.post('/cart', requireAuth, async (req: Request, res: Response) => {
  * PATCH /api/unlisted/cart/:id
  * Update cart item quantity or price
  */
-router.patch('/cart/:id', requireAuth, async (req: Request, res: Response) => {
+router.patch('/cart/:id', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return apiResponse.unauthorized(res, 'Authentication required');
@@ -1646,7 +1743,7 @@ router.patch('/cart/:id', requireAuth, async (req: Request, res: Response) => {
  * DELETE /api/unlisted/cart/:id
  * Remove item from cart
  */
-router.delete('/cart/:id', requireAuth, async (req: Request, res: Response) => {
+router.delete('/cart/:id', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return apiResponse.unauthorized(res, 'Authentication required');
@@ -1677,7 +1774,7 @@ router.delete('/cart/:id', requireAuth, async (req: Request, res: Response) => {
  * DELETE /api/unlisted/cart
  * Clear entire cart
  */
-router.delete('/cart', requireAuth, async (req: Request, res: Response) => {
+router.delete('/cart', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return apiResponse.unauthorized(res, 'Authentication required');
@@ -1765,6 +1862,16 @@ router.post('/cart/checkout', requireLevel2, async (req: Request, res: Response)
           });
           continue;
         }
+
+        // Persist risk disclosure acknowledgment for audit trail
+        await saveRiskAcknowledgment({
+          userId: req.user.id,
+          companyId: item.companyId,
+          tradeType: 'buy',
+          acknowledgedDisclosureIds,
+          ipAddress: req.ip || req.socket?.remoteAddress,
+          userAgent: req.headers['user-agent'],
+        });
 
         // Create buy request
         const buyRequest = await storage.createBuyRequest({
@@ -2142,8 +2249,9 @@ router.get('/deals-pending-acceptance', requireAuth, async (req: Request, res: R
 /**
  * POST /api/unlisted/deals/:id/accept
  * Accept a matched deal (buyer or seller)
+ * Regulatory: Requires KYC Level 2 as per SEBI regulations for unlisted securities
  */
-router.post('/deals/:id/accept', requireAuth, async (req: Request, res: Response) => {
+router.post('/deals/:id/accept', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
@@ -2184,6 +2292,45 @@ router.post('/deals/:id/accept', requireAuth, async (req: Request, res: Response
       return apiResponse.badRequest(res, 'Acceptance deadline has passed');
     }
     
+    // Require risk disclosure acknowledgment before deal acceptance
+    const tradeType = isBuyer ? 'buy' : 'sell';
+    const { acknowledgedDisclosureIds } = req.body;
+    
+    if (!acknowledgedDisclosureIds || !Array.isArray(acknowledgedDisclosureIds)) {
+      return apiResponse.badRequest(res, 'Risk disclosure acknowledgment is required before accepting a deal', {
+        requiresAcknowledgment: true,
+        tradeType,
+        companyId: deal.companyId,
+        disclosures: unlistedRiskDisclosureService.formatDisclosuresForDisplay(),
+      });
+    }
+    
+    const disclosureValidation = unlistedRiskDisclosureService.validateAcknowledgment({
+      acknowledgedDisclosureIds,
+      userId,
+      companyId: deal.companyId,
+      tradeType,
+    });
+    
+    if (!disclosureValidation.valid) {
+      console.log(`[COMPLIANCE] deal_accept_blocked: Missing risk disclosures | userId: ${userId} | dealId: ${id} | missing: ${disclosureValidation.missingDisclosures.join(', ')}`);
+      return apiResponse.badRequest(res, 'All mandatory risk disclosures must be acknowledged before accepting the deal.', {
+        missingDisclosures: disclosureValidation.missingDisclosures,
+      });
+    }
+    
+    // Persist risk disclosure acknowledgment for audit trail
+    await saveRiskAcknowledgment({
+      userId,
+      companyId: deal.companyId,
+      tradeType,
+      tradeEntityId: id,
+      tradeEntityType: 'deal_acceptance',
+      acknowledgedDisclosureIds,
+      ipAddress: req.ip || req.socket?.remoteAddress,
+      userAgent: req.headers['user-agent'],
+    });
+    
     // Update the deal with acceptance
     const updateData: any = {
       status: 'awaiting_acceptance',
@@ -2205,10 +2352,46 @@ router.post('/deals/:id/accept', requireAuth, async (req: Request, res: Response
     
     const updatedDeal = await storage.updateUnlistedDeal(id, updateData);
     
+    // Archive deal acceptance event for immutable audit log
+    const totalValue = parseFloat(deal.totalValue || '0');
+    await auditLogArchivalService.archiveUnlistedMarketplaceEvent({
+      eventType: 'deal_accepted',
+      userId,
+      dealId: id,
+      companyId: deal.companyId,
+      action: `Deal accepted by ${isBuyer ? 'buyer' : 'seller'}`,
+      details: {
+        role: isBuyer ? 'buyer' : 'seller',
+        agreedPrice: deal.agreedPrice,
+        quantity: deal.quantity,
+        totalValue,
+        bothAccepted: updateData.status === 'confirmed',
+      },
+      riskLevel: totalValue >= 5000000 ? 'high' : 'low',
+    });
+    
+    // Register regulatory event for high-value deals
+    if (totalValue >= 1000000) {
+      await regulatoryReportingService.registerReportableEvent({
+        eventType: 'deal_acceptance',
+        triggeredBy: 'user_action',
+        userId,
+        dealId: id,
+        amount: totalValue,
+        currency: 'INR',
+        riskIndicators: totalValue >= 5000000 ? ['high_value_transaction'] : [],
+        riskScore: totalValue >= 5000000 ? 40 : 20,
+        metadata: {
+          role: isBuyer ? 'buyer' : 'seller',
+          companyId: deal.companyId,
+          bothAccepted: updateData.status === 'confirmed',
+        },
+      });
+    }
+    
     // If both accepted, trigger payment flow notification
     if (updateData.status === 'confirmed') {
       console.log(`[Deal ${id}] Both parties accepted - deal confirmed, ready for payment`);
-      // TODO: Trigger payment flow notification via notification service
     }
     
     return apiResponse.success(res, {
@@ -2227,8 +2410,9 @@ router.post('/deals/:id/accept', requireAuth, async (req: Request, res: Response
 /**
  * POST /api/unlisted/deals/:id/reject
  * Reject a matched deal (buyer or seller)
+ * Regulatory: Requires KYC Level 2 as per SEBI regulations for unlisted securities
  */
-router.post('/deals/:id/reject', requireAuth, async (req: Request, res: Response) => {
+router.post('/deals/:id/reject', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -2283,8 +2467,9 @@ router.post('/deals/:id/reject', requireAuth, async (req: Request, res: Response
 /**
  * POST /api/unlisted/deals/:id/counter-offer
  * Propose a counter offer for price negotiation
+ * Regulatory: Requires KYC Level 2 as per SEBI regulations for unlisted securities
  */
-router.post('/deals/:id/counter-offer', requireAuth, async (req: Request, res: Response) => {
+router.post('/deals/:id/counter-offer', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { proposedPrice, message } = req.body;
@@ -5673,6 +5858,105 @@ router.get('/companies/:companyId/audit-log', requireAdmin, async (req: Request,
 });
 
 // ===================================================================
+// RISK DISCLOSURE ROUTES
+// ===================================================================
+
+/**
+ * GET /api/unlisted/risk-disclosures
+ * Get all risk disclosures for display to user
+ */
+router.get('/risk-disclosures', async (req: Request, res: Response) => {
+  try {
+    const disclosures = unlistedRiskDisclosureService.formatDisclosuresForDisplay();
+    return apiResponse.success(res, disclosures);
+  } catch (error: any) {
+    console.error('Error fetching risk disclosures:', error);
+    return apiResponse.serverError(res, 'Failed to fetch risk disclosures');
+  }
+});
+
+/**
+ * GET /api/unlisted/risk-disclosures/:companyId
+ * Get risk disclosures with company-specific risks
+ */
+router.get('/risk-disclosures/:companyId', async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(companyId);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const financialsList = await storage.getCompanyFinancials(companyId);
+    const financials = financialsList && financialsList.length > 0 ? financialsList[0] : null;
+    
+    const disclosures = unlistedRiskDisclosureService.formatDisclosuresForDisplay();
+    const companySpecificRisks = unlistedRiskDisclosureService.getCompanySpecificRisks({
+      netWorth: financials?.netWorth ? parseFloat(financials.netWorth) : undefined,
+      debtEquityRatio: financials?.debtEquityRatio ? parseFloat(financials.debtEquityRatio) : undefined,
+      profitMargin: financials?.profitMargin ? parseFloat(financials.profitMargin) : undefined,
+    });
+    
+    return apiResponse.success(res, {
+      ...disclosures,
+      companySpecificRisks,
+      company: { id: company.id, name: company.name },
+    });
+  } catch (error: any) {
+    console.error('Error fetching company risk disclosures:', error);
+    return apiResponse.serverError(res, 'Failed to fetch risk disclosures');
+  }
+});
+
+/**
+ * POST /api/unlisted/risk-disclosures/acknowledge
+ * Submit risk disclosure acknowledgment
+ * Regulatory: Required before any unlisted securities trade
+ */
+router.post('/risk-disclosures/acknowledge', requireAuth, requireLevel2, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    const { companyId, tradeType, acknowledgedDisclosureIds, companySpecificRisksAcknowledged } = req.body;
+    
+    if (!companyId || !tradeType || !acknowledgedDisclosureIds) {
+      return apiResponse.badRequest(res, 'companyId, tradeType, and acknowledgedDisclosureIds are required');
+    }
+    
+    if (!['buy', 'sell'].includes(tradeType)) {
+      return apiResponse.badRequest(res, 'tradeType must be "buy" or "sell"');
+    }
+    
+    const result = await saveRiskAcknowledgment({
+      userId,
+      companyId,
+      tradeType,
+      acknowledgedDisclosureIds,
+      companySpecificRisksAcknowledged,
+      ipAddress: req.ip || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent'],
+    });
+    
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.error || 'Failed to save acknowledgment');
+    }
+    
+    return apiResponse.success(res, {
+      acknowledged: true,
+      record: result.record,
+      message: 'Risk disclosures acknowledged successfully. You may now proceed with your order.',
+    });
+  } catch (error: any) {
+    console.error('Error saving risk disclosure acknowledgment:', error);
+    return apiResponse.serverError(res, 'Failed to save acknowledgment');
+  }
+});
+
+// ===================================================================
 // ESCROW PAYMENT ROUTES
 // ===================================================================
 
@@ -5684,12 +5968,18 @@ const objectStorage = new ObjectStorageService();
 /**
  * POST /api/unlisted/deals/:dealId/initiate-payment
  * Buyer initiates escrow payment for a confirmed deal
+ * Regulatory: Requires KYC Level 2 as per SEBI regulations for unlisted securities
  */
-router.post('/deals/:dealId/initiate-payment', requireAuth, async (req: Request, res: Response) => {
+router.post('/deals/:dealId/initiate-payment', requireAuth, requireLevel2, requireRiskDisclosure('buy'), async (req: Request, res: Response) => {
   try {
     const { dealId } = req.params;
     const user = req.user as any;
     const { returnUrl } = req.body;
+
+    const deal = await storage.getUnlistedDealById(dealId);
+    if (!deal) {
+      return apiResponse.notFound(res, 'Deal not found');
+    }
 
     const result = await unlistedEscrowService.initiateEscrowPayment({
       dealId,
@@ -5702,6 +5992,41 @@ router.post('/deals/:dealId/initiate-payment', requireAuth, async (req: Request,
 
     if (!result.success) {
       return apiResponse.badRequest(res, result.message || 'Failed to initiate payment');
+    }
+
+    // Archive payment initiation event for immutable audit log
+    const totalValue = parseFloat(deal.totalValue || '0');
+    await auditLogArchivalService.archiveUnlistedMarketplaceEvent({
+      eventType: 'payment_initiated',
+      userId: user.id,
+      dealId,
+      companyId: deal.companyId,
+      action: 'Buyer initiated escrow payment',
+      details: {
+        totalValue,
+        quantity: deal.quantity,
+        agreedPrice: deal.agreedPrice,
+        orderId: result.orderId,
+      },
+      riskLevel: totalValue >= 5000000 ? 'high' : 'low',
+    });
+
+    // Register regulatory event for high-value payments
+    if (totalValue >= 1000000) {
+      await regulatoryReportingService.registerReportableEvent({
+        eventType: 'payment_initiation',
+        triggeredBy: 'user_action',
+        userId: user.id,
+        dealId,
+        amount: totalValue,
+        currency: 'INR',
+        riskIndicators: totalValue >= 5000000 ? ['high_value_transaction'] : [],
+        riskScore: totalValue >= 5000000 ? 45 : 25,
+        metadata: {
+          companyId: deal.companyId,
+          orderId: result.orderId,
+        },
+      });
     }
 
     return apiResponse.success(res, result, 'Payment initiated successfully');
@@ -5774,17 +6099,57 @@ router.get('/deals/:dealId/fee-breakdown', requireAuth, async (req: Request, res
 /**
  * POST /api/unlisted/deals/:dealId/mark-transfer-pending
  * Seller marks share transfer as initiated
+ * Regulatory: Requires KYC Level 2 as per SEBI regulations for unlisted securities
  */
-router.post('/deals/:dealId/mark-transfer-pending', requireAuth, async (req: Request, res: Response) => {
+router.post('/deals/:dealId/mark-transfer-pending', requireAuth, requireLevel2, requireRiskDisclosure('sell'), async (req: Request, res: Response) => {
   try {
     const { dealId } = req.params;
     const user = req.user as any;
     const { disSlipId } = req.body;
 
+    const deal = await storage.getUnlistedDealById(dealId);
+    if (!deal) {
+      return apiResponse.notFound(res, 'Deal not found');
+    }
+
     const result = await unlistedEscrowService.markTransferPending(dealId, user.id, disSlipId);
 
     if (!result.success) {
       return apiResponse.badRequest(res, result.message);
+    }
+
+    // Archive transfer pending event for immutable audit log
+    const totalValue = parseFloat(deal.totalValue || '0');
+    await auditLogArchivalService.archiveUnlistedMarketplaceEvent({
+      eventType: 'transfer_pending',
+      userId: user.id,
+      dealId,
+      companyId: deal.companyId,
+      action: 'Seller marked share transfer as pending',
+      details: {
+        totalValue,
+        quantity: deal.quantity,
+        disSlipId,
+      },
+      riskLevel: totalValue >= 5000000 ? 'high' : 'low',
+    });
+
+    // Register regulatory event for high-value transfers
+    if (totalValue >= 1000000) {
+      await regulatoryReportingService.registerReportableEvent({
+        eventType: 'transfer_initiated',
+        triggeredBy: 'user_action',
+        userId: user.id,
+        dealId,
+        amount: totalValue,
+        currency: 'INR',
+        riskIndicators: totalValue >= 5000000 ? ['high_value_transaction'] : [],
+        riskScore: totalValue >= 5000000 ? 45 : 25,
+        metadata: {
+          companyId: deal.companyId,
+          disSlipId,
+        },
+      });
     }
 
     return apiResponse.success(res, result, 'Transfer marked as pending');
@@ -5865,22 +6230,57 @@ router.post('/admin/deals/:dealId/release-escrow', requireAdmin, async (req: Req
   try {
     const { dealId } = req.params;
     const adminUser = req.user as any;
-    const { transferConfirmationId } = req.body;
+    const { transferConfirmationId, notes, disSlipVerified, shareTransferVerified } = req.body;
 
-    const result = await unlistedEscrowService.releaseEscrow(
+    // Compliance: Route through maker-checker workflow for dual approval
+    // This initiates the approval request - a second admin must approve it
+    const result = await escrowMakerCheckerService.initiateApproval({
       dealId,
-      adminUser.id,
-      transferConfirmationId
-    );
+      makerUserId: adminUser.id,
+      makerName: adminUser.name || adminUser.email,
+      requestType: 'release',
+      notes: notes || 'Escrow release requested',
+      transferConfirmationId,
+      disSlipVerified: disSlipVerified || false,
+      shareTransferVerified: shareTransferVerified || false,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     if (!result.success) {
-      return apiResponse.badRequest(res, result.message || 'Failed to release escrow');
+      return apiResponse.badRequest(res, result.error || 'Failed to initiate release approval');
     }
 
-    return apiResponse.success(res, result, 'Escrow released successfully');
+    // Compliance: Archive audit log for approval initiation
+    try {
+      const deal = await storage.getUnlistedDealById(dealId);
+      if (deal) {
+        await auditLogArchivalService.archiveUnlistedMarketplaceEvent({
+          eventType: 'escrow_release_initiated',
+          dealId,
+          userId: adminUser.id,
+          amount: parseFloat(deal.totalAmount || '0'),
+          metadata: { transferConfirmationId, approvalId: result.approvalId, makerAction: true }
+        });
+        
+        const amount = parseFloat(deal.totalAmount || '0');
+        if (amount >= 1000000) {
+          await regulatoryReportingService.registerReportableEvent({
+            eventType: 'high_value_release_initiated',
+            dealId,
+            amount,
+            parties: { buyer: deal.buyerUserId, seller: deal.sellerUserId, maker: adminUser.id }
+          });
+        }
+      }
+    } catch (complianceError) {
+      console.error('Compliance logging failed for escrow release initiation:', complianceError);
+    }
+
+    return apiResponse.success(res, result, 'Release approval initiated. Awaiting second admin approval.');
   } catch (error: any) {
-    console.error('Error releasing escrow:', error);
-    return apiResponse.serverError(res, 'Failed to release escrow');
+    console.error('Error initiating escrow release:', error);
+    return apiResponse.serverError(res, 'Failed to initiate release');
   }
 });
 
@@ -5892,22 +6292,59 @@ router.post('/admin/deals/:dealId/refund-escrow', requireAdmin, async (req: Requ
   try {
     const { dealId } = req.params;
     const adminUser = req.user as any;
-    const { reason } = req.body;
+    const { reason, notes } = req.body;
 
     if (!reason || typeof reason !== 'string') {
       return apiResponse.badRequest(res, 'Refund reason is required');
     }
 
-    const result = await unlistedEscrowService.refundEscrow(dealId, adminUser.id, reason);
+    // Compliance: Route through maker-checker workflow for dual approval
+    // This initiates the approval request - a second admin must approve it
+    const result = await escrowMakerCheckerService.initiateApproval({
+      dealId,
+      makerUserId: adminUser.id,
+      makerName: adminUser.name || adminUser.email,
+      requestType: 'refund',
+      notes: notes || reason,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     if (!result.success) {
-      return apiResponse.badRequest(res, result.message || 'Failed to refund escrow');
+      return apiResponse.badRequest(res, result.error || 'Failed to initiate refund approval');
     }
 
-    return apiResponse.success(res, result, 'Escrow refunded successfully');
+    // Compliance: Archive audit log for approval initiation
+    try {
+      const deal = await storage.getUnlistedDealById(dealId);
+      if (deal) {
+        await auditLogArchivalService.archiveUnlistedMarketplaceEvent({
+          eventType: 'escrow_refund_initiated',
+          dealId,
+          userId: adminUser.id,
+          amount: parseFloat(deal.totalAmount || '0'),
+          metadata: { reason, approvalId: result.approvalId, makerAction: true }
+        });
+        
+        const amount = parseFloat(deal.totalAmount || '0');
+        if (amount >= 1000000) {
+          await regulatoryReportingService.registerReportableEvent({
+            eventType: 'high_value_refund_initiated',
+            dealId,
+            amount,
+            parties: { buyer: deal.buyerUserId, seller: deal.sellerUserId, maker: adminUser.id },
+            reason
+          });
+        }
+      }
+    } catch (complianceError) {
+      console.error('Compliance logging failed for escrow refund initiation:', complianceError);
+    }
+
+    return apiResponse.success(res, result, 'Refund approval initiated. Awaiting second admin approval.');
   } catch (error: any) {
-    console.error('Error refunding escrow:', error);
-    return apiResponse.serverError(res, 'Failed to refund escrow');
+    console.error('Error initiating escrow refund:', error);
+    return apiResponse.serverError(res, 'Failed to initiate refund');
   }
 });
 
@@ -5935,8 +6372,9 @@ router.get('/admin/deals/pending-escrow', requireAdmin, async (req: Request, res
 /**
  * POST /api/unlisted/documents/upload
  * Upload document for deal verification (DIS slip, transfer confirmation)
+ * Regulatory: Requires KYC Level 2 as per SEBI regulations for unlisted securities
  */
-router.post('/documents/upload', requireAuth, async (req: Request, res: Response) => {
+router.post('/documents/upload', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     
@@ -5955,8 +6393,9 @@ router.post('/documents/upload', requireAuth, async (req: Request, res: Response
 /**
  * POST /api/unlisted/deals/:dealId/documents
  * Register uploaded document for a deal
+ * Regulatory: Requires KYC Level 2 as per SEBI regulations for unlisted securities
  */
-router.post('/deals/:dealId/documents', requireAuth, async (req: Request, res: Response) => {
+router.post('/deals/:dealId/documents', requireAuth, requireLevel2, async (req: Request, res: Response) => {
   try {
     const { dealId } = req.params;
     const user = req.user as any;
@@ -5995,6 +6434,423 @@ router.post('/deals/:dealId/documents', requireAuth, async (req: Request, res: R
   } catch (error: any) {
     console.error('Error registering document:', error);
     return apiResponse.serverError(res, 'Failed to register document');
+  }
+});
+
+// ===================================================================
+// MAKER-CHECKER ESCROW APPROVAL ROUTES (Admin Only)
+// ===================================================================
+
+import { escrowMakerCheckerService } from '../services/escrow-maker-checker';
+
+/**
+ * POST /api/unlisted/admin/escrow/initiate-approval
+ * Maker (Admin 1) initiates an escrow release/refund request
+ */
+router.post('/admin/escrow/initiate-approval', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { dealId, requestType, notes, verificationDocuments, disSlipVerified, shareTransferVerified, transferConfirmationId } = req.body;
+
+    if (!dealId || !requestType) {
+      return apiResponse.badRequest(res, 'dealId and requestType are required');
+    }
+
+    if (!['release', 'refund'].includes(requestType)) {
+      return apiResponse.badRequest(res, 'requestType must be "release" or "refund"');
+    }
+
+    const result = await escrowMakerCheckerService.initiateApproval({
+      dealId,
+      makerUserId: user.id,
+      makerName: user.name || user.email,
+      requestType,
+      notes,
+      verificationDocuments,
+      disSlipVerified,
+      shareTransferVerified,
+      transferConfirmationId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.error || 'Failed to initiate approval');
+    }
+
+    return apiResponse.success(res, result, 'Approval request created. Awaiting second admin approval.');
+  } catch (error: any) {
+    console.error('Error initiating escrow approval:', error);
+    return apiResponse.serverError(res, 'Failed to initiate approval');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/escrow/process-approval
+ * Checker (Admin 2) approves or rejects the escrow request
+ */
+router.post('/admin/escrow/process-approval', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { approvalId, action, notes } = req.body;
+
+    if (!approvalId || !action) {
+      return apiResponse.badRequest(res, 'approvalId and action are required');
+    }
+
+    if (!['approved', 'rejected', 'requested_info'].includes(action)) {
+      return apiResponse.badRequest(res, 'action must be "approved", "rejected", or "requested_info"');
+    }
+
+    const result = await escrowMakerCheckerService.processCheckerAction({
+      approvalId,
+      checkerUserId: user.id,
+      checkerName: user.name || user.email,
+      action,
+      notes,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.error || 'Failed to process approval');
+    }
+
+    return apiResponse.success(res, result);
+  } catch (error: any) {
+    console.error('Error processing escrow approval:', error);
+    return apiResponse.serverError(res, 'Failed to process approval');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/escrow/pending-approvals
+ * Get pending approval requests for checker dashboard (excludes own requests)
+ */
+router.get('/admin/escrow/pending-approvals', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const approvals = await escrowMakerCheckerService.getPendingApprovals(user.id);
+    return apiResponse.success(res, approvals);
+  } catch (error: any) {
+    console.error('Error fetching pending approvals:', error);
+    return apiResponse.serverError(res, 'Failed to fetch pending approvals');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/escrow/deal/:dealId/history
+ * Get approval history for a specific deal
+ */
+router.get('/admin/escrow/deal/:dealId/history', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { dealId } = req.params;
+    const history = await escrowMakerCheckerService.getDealApprovalHistory(dealId);
+    return apiResponse.success(res, history);
+  } catch (error: any) {
+    console.error('Error fetching deal approval history:', error);
+    return apiResponse.serverError(res, 'Failed to fetch approval history');
+  }
+});
+
+// ===================================================================
+// SEBI/RBI REGULATORY REPORTING ROUTES (Admin Only)
+// ===================================================================
+
+import { regulatoryReportingService } from '../services/regulatory-reporting-service';
+
+/**
+ * GET /api/unlisted/admin/regulatory/reports
+ * Get all regulatory reports with optional filters
+ */
+router.get('/admin/regulatory/reports', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { status, reportType, authority, startDate, endDate, userId } = req.query;
+    
+    const filters: any = {};
+    if (status && typeof status === 'string') filters.status = status;
+    if (reportType && typeof reportType === 'string') filters.reportType = reportType;
+    if (authority && typeof authority === 'string') filters.authority = authority;
+    if (userId && typeof userId === 'string') filters.userId = userId;
+    if (startDate && typeof startDate === 'string') filters.startDate = new Date(startDate);
+    if (endDate && typeof endDate === 'string') filters.endDate = new Date(endDate);
+
+    const reports = await regulatoryReportingService.getAllReports(filters);
+    return apiResponse.success(res, reports);
+  } catch (error: any) {
+    console.error('Error fetching regulatory reports:', error);
+    return apiResponse.serverError(res, 'Failed to fetch reports');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/regulatory/reports/pending
+ * Get reports pending review
+ */
+router.get('/admin/regulatory/reports/pending', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const reports = await regulatoryReportingService.getPendingReports();
+    return apiResponse.success(res, reports);
+  } catch (error: any) {
+    console.error('Error fetching pending reports:', error);
+    return apiResponse.serverError(res, 'Failed to fetch pending reports');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/regulatory/reports/stats
+ * Get regulatory report statistics
+ */
+router.get('/admin/regulatory/reports/stats', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const stats = await regulatoryReportingService.getReportStats();
+    return apiResponse.success(res, stats);
+  } catch (error: any) {
+    console.error('Error fetching report stats:', error);
+    return apiResponse.serverError(res, 'Failed to fetch stats');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/regulatory/reports/:reportId
+ * Get a specific regulatory report
+ */
+router.get('/admin/regulatory/reports/:reportId', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { reportId } = req.params;
+    const report = await regulatoryReportingService.getReport(reportId);
+    
+    if (!report) {
+      return apiResponse.notFound(res, 'Report not found');
+    }
+    
+    return apiResponse.success(res, report);
+  } catch (error: any) {
+    console.error('Error fetching report:', error);
+    return apiResponse.serverError(res, 'Failed to fetch report');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/regulatory/reports/str
+ * Create a new Suspicious Transaction Report (STR)
+ */
+router.post('/admin/regulatory/reports/str', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { userId, dealId, transactionIds, amount, currency, suspicionIndicators, narrative, metadata } = req.body;
+
+    if (!userId || !suspicionIndicators || !narrative) {
+      return apiResponse.badRequest(res, 'userId, suspicionIndicators, and narrative are required');
+    }
+
+    const report = await regulatoryReportingService.createSTR({
+      userId,
+      dealId,
+      transactionIds: transactionIds || [],
+      amount: amount || 0,
+      currency,
+      suspicionIndicators,
+      narrative,
+      createdBy: user.id,
+      metadata,
+    });
+
+    return apiResponse.created(res, report, 'STR created successfully');
+  } catch (error: any) {
+    console.error('Error creating STR:', error);
+    return apiResponse.serverError(res, 'Failed to create STR');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/regulatory/reports/ctr
+ * Create a new Cash Transaction Report (CTR)
+ */
+router.post('/admin/regulatory/reports/ctr', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { userId, dealId, transactionIds, amount, currency, narrative, metadata } = req.body;
+
+    if (!userId || !amount || !narrative) {
+      return apiResponse.badRequest(res, 'userId, amount, and narrative are required');
+    }
+
+    const report = await regulatoryReportingService.createCTR({
+      userId,
+      dealId,
+      transactionIds: transactionIds || [],
+      amount,
+      currency,
+      narrative,
+      createdBy: user.id,
+      metadata,
+    });
+
+    return apiResponse.created(res, report, 'CTR created successfully');
+  } catch (error: any) {
+    console.error('Error creating CTR:', error);
+    return apiResponse.serverError(res, 'Failed to create CTR');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/regulatory/reports/:reportId/submit-for-review
+ * Submit a report for review (draft -> pending_review)
+ */
+router.post('/admin/regulatory/reports/:reportId/submit-for-review', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { reportId } = req.params;
+
+    const report = await regulatoryReportingService.submitForReview(reportId, user.id);
+    return apiResponse.success(res, report, 'Report submitted for review');
+  } catch (error: any) {
+    console.error('Error submitting report for review:', error);
+    if (error.message.includes('not found')) {
+      return apiResponse.notFound(res, error.message);
+    }
+    return apiResponse.badRequest(res, error.message);
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/regulatory/reports/:reportId/approve
+ * Approve a report (pending_review -> approved)
+ */
+router.post('/admin/regulatory/reports/:reportId/approve', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { reportId } = req.params;
+    const { reviewNotes } = req.body;
+
+    const report = await regulatoryReportingService.approveReport(reportId, user.id, reviewNotes);
+    return apiResponse.success(res, report, 'Report approved');
+  } catch (error: any) {
+    console.error('Error approving report:', error);
+    if (error.message.includes('not found')) {
+      return apiResponse.notFound(res, error.message);
+    }
+    return apiResponse.badRequest(res, error.message);
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/regulatory/reports/:reportId/reject
+ * Reject a report (pending_review -> rejected)
+ */
+router.post('/admin/regulatory/reports/:reportId/reject', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { reportId } = req.params;
+    const { reviewNotes } = req.body;
+
+    if (!reviewNotes) {
+      return apiResponse.badRequest(res, 'reviewNotes is required when rejecting a report');
+    }
+
+    const report = await regulatoryReportingService.rejectReport(reportId, user.id, reviewNotes);
+    return apiResponse.success(res, report, 'Report rejected');
+  } catch (error: any) {
+    console.error('Error rejecting report:', error);
+    if (error.message.includes('not found')) {
+      return apiResponse.notFound(res, error.message);
+    }
+    return apiResponse.badRequest(res, error.message);
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/regulatory/reports/:reportId/submit
+ * Submit an approved report to the regulatory authority
+ */
+router.post('/admin/regulatory/reports/:reportId/submit', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { reportId } = req.params;
+
+    const report = await regulatoryReportingService.submitToAuthority(reportId, user.id);
+    return apiResponse.success(res, report, `Report submitted to ${report.authority}`);
+  } catch (error: any) {
+    console.error('Error submitting report to authority:', error);
+    if (error.message.includes('not found')) {
+      return apiResponse.notFound(res, error.message);
+    }
+    return apiResponse.badRequest(res, error.message);
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/regulatory/reports/:reportId/acknowledge
+ * Mark a submitted report as acknowledged by authority
+ */
+router.post('/admin/regulatory/reports/:reportId/acknowledge', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { reportId } = req.params;
+    const { referenceNumber } = req.body;
+
+    const report = await regulatoryReportingService.acknowledgeReport(reportId, referenceNumber);
+    return apiResponse.success(res, report, 'Report acknowledged');
+  } catch (error: any) {
+    console.error('Error acknowledging report:', error);
+    if (error.message.includes('not found')) {
+      return apiResponse.notFound(res, error.message);
+    }
+    return apiResponse.badRequest(res, error.message);
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/regulatory/events
+ * Manually register a reportable event
+ */
+router.post('/admin/regulatory/events', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { eventType, userId, dealId, amount, currency, riskIndicators, riskScore, metadata } = req.body;
+
+    if (!eventType || !riskIndicators || riskScore === undefined) {
+      return apiResponse.badRequest(res, 'eventType, riskIndicators, and riskScore are required');
+    }
+
+    const event = await regulatoryReportingService.registerReportableEvent({
+      eventType,
+      triggeredBy: user.id,
+      userId,
+      dealId,
+      amount,
+      currency,
+      riskIndicators,
+      riskScore,
+      metadata,
+    });
+
+    return apiResponse.created(res, event, event.requiresReporting 
+      ? `Event registered and auto-generated ${event.reportType} report` 
+      : 'Event registered (does not require reporting)');
+  } catch (error: any) {
+    console.error('Error registering event:', error);
+    return apiResponse.serverError(res, 'Failed to register event');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/regulatory/events
+ * Get reportable event queue
+ */
+router.get('/admin/regulatory/events', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { requiresReporting, processed } = req.query;
+    
+    const filters: any = {};
+    if (requiresReporting !== undefined) filters.requiresReporting = requiresReporting === 'true';
+    if (processed !== undefined) filters.processed = processed === 'true';
+
+    const events = await regulatoryReportingService.getEventQueue(filters);
+    return apiResponse.success(res, events);
+  } catch (error: any) {
+    console.error('Error fetching event queue:', error);
+    return apiResponse.serverError(res, 'Failed to fetch events');
   }
 });
 
