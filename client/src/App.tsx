@@ -38,6 +38,7 @@ import IBTradingPage from "@/pages/ib-trading";
 import StorePage from "@/pages/store";
 import GiftCity from "@/pages/gift-city";
 import Cart from "@/pages/cart";
+import Orders from "@/pages/orders";
 import ApiMonitorDemo from "@/pages/api-monitor-demo";
 import ICICILoans from "@/pages/icici-loans";
 import HDFCLoans from "@/pages/hdfc-loans";
@@ -235,6 +236,7 @@ function UserProtectedRoutes() {
         <Route path="/domestic-trading" component={DomesticTrading} />
         <Route path="/global-trading" component={GlobalTrading} />
         <Route path="/cart" component={Cart} />
+        <Route path="/orders" component={Orders} />
         <Route path="/api-monitor" component={ApiMonitorDemo} />
         <Route path="/icici-loans" component={ICICILoans} />
         <Route path="/hdfc-loans" component={HDFCLoans} />
