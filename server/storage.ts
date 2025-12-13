@@ -1,6 +1,6 @@
 import { type User, type UpsertUser, type Portfolio, type InsertPortfolio, type PortfolioHolding, type InsertPortfolioHolding, type Watchlist, type InsertWatchlist, type MarketData, type AssetAllocation, type InsertAssetAllocation, type MutualFund, type InsertMutualFund, type OtpVerification, type InsertOtpVerification, type UserProfile, type InsertUserProfile, type CapitalGainsReport, type InsertCapitalGainsReport, type TransactionReport, type InsertTransactionReport, type TransactionRecord, type InsertTransactionRecord, type CustomerCareAgent, type InsertCustomerCareAgent, type AgentPartnerMapping, type InsertAgentPartnerMapping, type CkycRecord, type InsertCkycRecord, type CkycDocument, type InsertCkycDocument, type CkycStatusHistory, type InsertCkycStatusHistory, type ClientAgentRelationship, type InsertClientAgentRelationship, type InvestmentProposal, type InsertInvestmentProposal, type InvestmentProposalItem, type InsertInvestmentProposalItem, type ProposalPayment, type InsertProposalPayment, type IBAccount, type InsertIBAccount, type IBOrder, type InsertIBOrder, type IBPosition, type InsertIBPosition, type IBAccountSummary, type InsertIBAccountSummary, type IBMarketDataSubscription, type InsertIBMarketDataSubscription, type IBTradingSession, type InsertIBTradingSession, type Partner, type InsertPartner, type Agent, type InsertAgent, type Supplier, type InsertSupplier, type EpfHolding, type PpfHolding, type EpsHolding, type GovernmentSchemeConsent, type InsertGovernmentSchemeConsent, type InsuranceHolding, type InsertInsuranceHolding, type UserBankAccount, type InsertUserBankAccount, type UserDematAccount, type InsertUserDematAccount, type AchievementCategory, type InsertAchievementCategory, type Achievement, type InsertAchievement, type UserAchievement, type InsertUserAchievement, type LearningProgress, type InsertLearningProgress, type SocialShare, type InsertSocialShare, type FinancialGoal, type InsertFinancialGoal, type TaxDocument, type InsertTaxDocument, type StructuredTaxData, type InsertStructuredTaxData, type UserAlert, type InsertUserAlert, type AlertHistory, type InsertAlertHistory, type AlertTemplate, type InsertAlertTemplate, type FamilyGroup, type InsertFamilyGroup, type FamilyMember, type InsertFamilyMember, type FamilyGoal, type InsertFamilyGoal, type FamilyGoalContribution, type InsertFamilyGoalContribution, type FamilyActivityLog, type InsertFamilyActivityLog, type FamilyDiscussion, type InsertFamilyDiscussion, type FamilyBudget, type InsertFamilyBudget, type FamilyPortfolioPermission, type InsertFamilyPortfolioPermission, type TaxCalculation, type InsertTaxCalculation, type TaxDocumentAccessLog, type InsertTaxDocumentAccessLog, type TaxSession, type InsertTaxSession, type TaxDataSource, type InsertTaxDataSource, type ValidationIssue, type InsertValidationIssue, type FilingRecord, type InsertFilingRecord, type AiOptimizationSuggestion, type InsertAiOptimizationSuggestion, type FundExtended, type Provenance, type FundSearchParams, type FundListResponse, type SourceStatus, type MultiSourceStatus, type LoanProduct, type InsertLoanProduct, type LoanProvider, type InsertLoanProvider, type ProviderProduct, type InsertProviderProduct, type CreditProfile, type InsertCreditProfile, type LoanRequest, type InsertLoanRequest, type LoanOffer, type InsertLoanOffer, type LoanApplicationMarketplace, type InsertLoanApplicationMarketplace, type ProviderIntegration, type InsertProviderIntegration, type PartnerApplicationDocument, type InsertPartnerApplicationDocument, type InvestmentIdea, type InsertInvestmentIdea, type InvestmentIdeaTracking, type InsertInvestmentIdeaTracking, type InvestmentIdeaAlert, type InsertInvestmentIdeaAlert, type YieldTracker, type InsertYieldTracker, type PartnerApplication, type InsertPartnerApplication, type TaxRule, type InsertTaxRule, type TaxReminderSubscription, type InsertTaxReminderSubscription, type CapitalGainsTaxReminder, type InsertCapitalGainsTaxReminder, type UserExpense, type InsertUserExpense, type UserBudget, type InsertUserBudget, type ExpenseInsight, type InsertExpenseInsight, type FinancialObligation, type InsertFinancialObligation, type NpsAccount, type ApyAccount } from "@shared/schema";
 import { type CashfreeTransaction, type InsertCashfreeTransaction, type PhonePeTransaction, type InsertPhonePeTransaction, type AgentDocument, type InsertAgentDocument, type AgentCommissionSplit, type InsertAgentCommissionSplit, type AgentCommission, type InsertAgentCommission, type AmfiVerificationLog, type InsertAmfiVerificationLog } from "@shared/schema";
-import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument, type UnlistedCompany, type InsertUnlistedCompany, type CompanyFinancials, type InsertCompanyFinancials, type CompanyRatios, type InsertCompanyRatios, type UnlistedPriceHistory, type InsertUnlistedPriceHistory, type SellListing, type InsertSellListing, type BuyRequest, type InsertBuyRequest, type UnlistedDeal, type InsertUnlistedDeal, type Probe42SyncLog, type InsertProbe42SyncLog, type SupportTemplate, type InsertSupportTemplate, type SupportStep, type InsertSupportStep, type SupportStepComment, type InsertSupportStepComment } from "@shared/schema";
+import { type Product, type InsertProduct, type ApplicationDocument, type InsertApplicationDocument, type ProductAccountPreference, type InsertProductAccountPreference, type ICICILoanApplication, type InsertICICILoanApplication, type ICICICreditScore, type InsertICICICreditScore, type PortfolioComparison, type InsertPortfolioComparison, type ChatSession, type InsertChatSession, type ChatMessage, type InsertChatMessage, type ChatAction, type InsertChatAction, type ChatFunction, type InsertChatFunction, type CurrencyRate, type InsertCurrencyRate, type CkycNotificationTrigger, type InsertCkycNotificationTrigger, type KycVerificationSession, type InsertKycVerificationSession, type ManualKycSubmission, type InsertManualKycSubmission, type ManualKycDocument, type InsertManualKycDocument, type UnlistedCompany, type InsertUnlistedCompany, type CompanyFinancials, type InsertCompanyFinancials, type CompanyRatios, type InsertCompanyRatios, type UnlistedPriceHistory, type InsertUnlistedPriceHistory, type SellListing, type InsertSellListing, type BuyRequest, type InsertBuyRequest, type UnlistedDeal, type InsertUnlistedDeal, type Probe42SyncLog, type InsertProbe42SyncLog, type SupportTemplate, type InsertSupportTemplate, type SupportStep, type InsertSupportStep, type SupportStepComment, type InsertSupportStepComment, type UnifiedCartItem, type InsertUnifiedCartItem } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, or, desc, asc, gte, lte, like, ilike, sql, isNotNull, inArray } from "drizzle-orm";
@@ -1193,6 +1193,17 @@ export interface IStorage {
   
   // Transaction Support
   withTransaction<T>(callback: (tx: any) => Promise<T>): Promise<T>;
+  
+  // Unified Cart methods
+  getUnifiedCartItems(userId: string): Promise<UnifiedCartItem[]>;
+  getUnifiedCartItem(id: string): Promise<UnifiedCartItem | undefined>;
+  createUnifiedCartItem(item: InsertUnifiedCartItem): Promise<UnifiedCartItem>;
+  updateUnifiedCartItem(id: string, updates: Partial<UnifiedCartItem>): Promise<UnifiedCartItem | undefined>;
+  deleteUnifiedCartItem(id: string): Promise<boolean>;
+  getUnifiedCartByCategory(userId: string, category: string): Promise<UnifiedCartItem[]>;
+  clearUnifiedCart(userId: string): Promise<boolean>;
+  getUnifiedCartCount(userId: string): Promise<number>;
+  approveCartItem(id: string): Promise<UnifiedCartItem | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8641,6 +8652,89 @@ export class DatabaseStorage implements IStorage {
   // Transaction Support
   async withTransaction<T>(callback: (tx: any) => Promise<T>): Promise<T> {
     return await db.transaction(callback);
+  }
+
+  // Unified Cart methods
+  async getUnifiedCartItems(userId: string): Promise<UnifiedCartItem[]> {
+    return await db.select()
+      .from(schema.unifiedCartItems)
+      .where(and(
+        eq(schema.unifiedCartItems.userId, userId),
+        eq(schema.unifiedCartItems.status, 'active')
+      ))
+      .orderBy(desc(schema.unifiedCartItems.createdAt));
+  }
+
+  async getUnifiedCartItem(id: string): Promise<UnifiedCartItem | undefined> {
+    const [item] = await db.select()
+      .from(schema.unifiedCartItems)
+      .where(eq(schema.unifiedCartItems.id, id));
+    return item || undefined;
+  }
+
+  async createUnifiedCartItem(item: InsertUnifiedCartItem): Promise<UnifiedCartItem> {
+    const [newItem] = await db.insert(schema.unifiedCartItems)
+      .values({
+        ...item,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return newItem;
+  }
+
+  async updateUnifiedCartItem(id: string, updates: Partial<UnifiedCartItem>): Promise<UnifiedCartItem | undefined> {
+    const [updated] = await db.update(schema.unifiedCartItems)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.unifiedCartItems.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteUnifiedCartItem(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.unifiedCartItems)
+      .where(eq(schema.unifiedCartItems.id, id))
+      .returning();
+    return !!deleted;
+  }
+
+  async getUnifiedCartByCategory(userId: string, category: string): Promise<UnifiedCartItem[]> {
+    return await db.select()
+      .from(schema.unifiedCartItems)
+      .where(and(
+        eq(schema.unifiedCartItems.userId, userId),
+        eq(schema.unifiedCartItems.productCategory, category),
+        eq(schema.unifiedCartItems.status, 'active')
+      ))
+      .orderBy(desc(schema.unifiedCartItems.createdAt));
+  }
+
+  async clearUnifiedCart(userId: string): Promise<boolean> {
+    await db.delete(schema.unifiedCartItems)
+      .where(eq(schema.unifiedCartItems.userId, userId));
+    return true;
+  }
+
+  async getUnifiedCartCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(schema.unifiedCartItems)
+      .where(and(
+        eq(schema.unifiedCartItems.userId, userId),
+        eq(schema.unifiedCartItems.status, 'active')
+      ));
+    return Number(result[0]?.count || 0);
+  }
+
+  async approveCartItem(id: string): Promise<UnifiedCartItem | undefined> {
+    const [updated] = await db.update(schema.unifiedCartItems)
+      .set({ 
+        clientApproved: true, 
+        approvedAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.unifiedCartItems.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 
