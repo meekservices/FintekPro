@@ -10740,6 +10740,102 @@ export const insertProbe42SyncLogSchema = createInsertSchema(probe42SyncLog).omi
 export type Probe42SyncLog = typeof probe42SyncLog.$inferSelect;
 export type InsertProbe42SyncLog = z.infer<typeof insertProbe42SyncLogSchema>;
 
+// Unlisted Marketplace Regulatory Audit Log - 7-year retention for SEBI compliance
+export const unlistedRegulatoryAuditLog = pgTable("unlisted_regulatory_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Actor Information
+  userId: varchar("user_id").references(() => users.id),
+  userEmail: varchar("user_email"),
+  userName: varchar("user_name"),
+  userRole: varchar("user_role"), // admin, investor, seller, compliance_officer
+  userKycTier: varchar("user_kyc_tier"), // basic, enhanced, accredited
+  userPan: varchar("user_pan"), // For regulatory tracing
+  
+  // Action Details
+  action: varchar("action").notNull(), // create_sell_listing, create_buy_request, match_deal, accept_deal, reject_deal, initiate_payment, complete_payment, transfer_shares, release_escrow, refund_escrow, cancel_deal, compliance_override, trading_suspended, trading_resumed, document_upload, document_verify, price_change, etc.
+  actionCategory: varchar("action_category").notNull(), // listing, order, deal, payment, transfer, compliance, document, price
+  entityType: varchar("entity_type").notNull(), // sell_listing, buy_request, deal, company, document, payment
+  entityId: varchar("entity_id").notNull(),
+  
+  // Company Context
+  companyId: varchar("company_id").references(() => unlistedCompanies.id),
+  companyCin: varchar("company_cin"),
+  companyName: varchar("company_name"),
+  
+  // Deal Context (for transaction-related events)
+  dealId: varchar("deal_id"),
+  counterpartyUserId: varchar("counterparty_user_id"),
+  counterpartyPan: varchar("counterparty_pan"),
+  
+  // Financial Details
+  quantity: bigint("quantity", { mode: "number" }),
+  pricePerShare: decimal("price_per_share", { precision: 20, scale: 2 }),
+  totalValue: decimal("total_value", { precision: 20, scale: 2 }),
+  platformFee: decimal("platform_fee", { precision: 20, scale: 2 }),
+  gstAmount: decimal("gst_amount", { precision: 20, scale: 2 }),
+  escrowAmount: decimal("escrow_amount", { precision: 20, scale: 2 }),
+  
+  // Change Tracking
+  beforeState: jsonb("before_state"),
+  afterState: jsonb("after_state"),
+  changeDescription: text("change_description"),
+  
+  // Compliance Context
+  complianceRelated: boolean("compliance_related").default(false),
+  complianceFlags: jsonb("compliance_flags").default([]), // Any red flags present
+  riskLevel: varchar("risk_level"), // low, medium, high, critical
+  complianceOfficer: varchar("compliance_officer"), // Officer who approved/reviewed
+  complianceNotes: text("compliance_notes"),
+  
+  // Regulatory Reporting
+  sebiReportable: boolean("sebi_reportable").default(false),
+  sebiReportedAt: timestamp("sebi_reported_at"),
+  sebiReportRef: varchar("sebi_report_ref"),
+  rbiReportable: boolean("rbi_reportable").default(false),
+  rbiReportedAt: timestamp("rbi_reported_at"),
+  rbiReportRef: varchar("rbi_report_ref"),
+  
+  // Request Context (for forensic analysis)
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  deviceFingerprint: varchar("device_fingerprint"),
+  geoLocation: varchar("geo_location"),
+  
+  // Document References
+  documentIds: jsonb("document_ids").default([]), // Related document IDs
+  
+  // Timestamps
+  timestamp: timestamp("timestamp").defaultNow(),
+  
+  // Retention Policy (7 years per SEBI regulations)
+  retentionExpiresAt: timestamp("retention_expires_at"),
+  archived: boolean("archived").default(false),
+  archivedAt: timestamp("archived_at"),
+  
+  // Metadata
+  metadata: jsonb("metadata").default({}),
+}, (table) => [
+  index("idx_unlisted_reg_audit_user").on(table.userId),
+  index("idx_unlisted_reg_audit_action").on(table.action),
+  index("idx_unlisted_reg_audit_category").on(table.actionCategory),
+  index("idx_unlisted_reg_audit_entity").on(table.entityType, table.entityId),
+  index("idx_unlisted_reg_audit_company").on(table.companyId),
+  index("idx_unlisted_reg_audit_deal").on(table.dealId),
+  index("idx_unlisted_reg_audit_timestamp").on(table.timestamp),
+  index("idx_unlisted_reg_audit_retention").on(table.retentionExpiresAt),
+  index("idx_unlisted_reg_audit_compliance").on(table.complianceRelated),
+  index("idx_unlisted_reg_audit_sebi").on(table.sebiReportable),
+]);
+
+export const insertUnlistedRegulatoryAuditLogSchema = createInsertSchema(unlistedRegulatoryAuditLog).omit({
+  id: true,
+  timestamp: true,
+});
+export type UnlistedRegulatoryAuditLog = typeof unlistedRegulatoryAuditLog.$inferSelect;
+export type InsertUnlistedRegulatoryAuditLog = z.infer<typeof insertUnlistedRegulatoryAuditLogSchema>;
+
 
 // ============================================
 // Financial Obligations Schema
