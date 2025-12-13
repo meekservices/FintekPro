@@ -13971,3 +13971,73 @@ export const insertMfContractNoteSchema = createInsertSchema(mfContractNotes).om
 });
 export type MfContractNote = typeof mfContractNotes.$inferSelect;
 export type InsertMfContractNote = z.infer<typeof insertMfContractNoteSchema>;
+
+// ===================================================================
+// UNIFIED CART SYSTEM - Central cart for all product categories
+// ===================================================================
+
+export const unifiedCartItems = pgTable("unified_cart_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Product Category
+  productCategory: varchar("product_category").notNull(), // 'store' | 'unlisted' | 'mutual_fund' | 'bond' | 'ncd' | 'ipo'
+  
+  // Reference IDs (one will be set based on category)
+  storeProductId: varchar("store_product_id").references(() => storeProducts.id),
+  unlistedCompanyId: varchar("unlisted_company_id").references(() => unlistedCompanies.id),
+  mutualFundSchemeCode: varchar("mutual_fund_scheme_code"),
+  bondIsin: varchar("bond_isin"),
+  ncdIsin: varchar("ncd_isin"),
+  ipoId: varchar("ipo_id"),
+  
+  // Source Tracking (who added the item)
+  source: varchar("source").notNull().default('client'), // 'client' | 'agent' | 'ai'
+  sourceUserId: varchar("source_user_id").references(() => users.id), // agent or AI context user ID
+  sourceProposalId: varchar("source_proposal_id"), // if from a proposal
+  
+  // Item Details
+  quantity: integer("quantity").default(1),
+  amount: decimal("amount", { precision: 20, scale: 2 }),
+  targetPrice: decimal("target_price", { precision: 20, scale: 2 }),
+  
+  // Metadata for category-specific info
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  displayName: varchar("display_name"), // computed display name for UI
+  displayImageUrl: text("display_image_url"),
+  
+  // Status
+  status: varchar("status").default('active'), // 'active' | 'pending_approval' | 'removed'
+  clientApproved: boolean("client_approved").default(false), // for agent/AI proposals
+  approvedAt: timestamp("approved_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_unified_cart_user").on(table.userId),
+  index("idx_unified_cart_category").on(table.productCategory),
+  index("idx_unified_cart_source").on(table.source),
+  index("idx_unified_cart_status").on(table.status),
+]);
+
+// Insert schema and types for Unified Cart
+export const insertUnifiedCartItemSchema = createInsertSchema(unifiedCartItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UnifiedCartItem = typeof unifiedCartItems.$inferSelect;
+export type InsertUnifiedCartItem = z.infer<typeof insertUnifiedCartItemSchema>;
+
+// Product category enum for type safety
+export const ProductCategoryEnum = z.enum(['store', 'unlisted', 'mutual_fund', 'bond', 'ncd', 'ipo']);
+export type ProductCategory = z.infer<typeof ProductCategoryEnum>;
+
+// Source enum for type safety
+export const CartItemSourceEnum = z.enum(['client', 'agent', 'ai']);
+export type CartItemSource = z.infer<typeof CartItemSourceEnum>;
+
+// Cart item status enum
+export const CartItemStatusEnum = z.enum(['active', 'pending_approval', 'removed']);
+export type CartItemStatus = z.infer<typeof CartItemStatusEnum>;
