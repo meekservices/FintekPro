@@ -45,12 +45,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useUnifiedCart } from "@/contexts/UnifiedCartContext";
 
 export default function BondDetailPage() {
   const [, params] = useRoute("/bonds/detail/:isin");
   const [, navigate] = useLocation();
   const isin = params?.isin || "";
   const { toast } = useToast();
+  const { addItem: addToUnifiedCart, isAddingItem } = useUnifiedCart();
   
   const [quantity, setQuantity] = useState("1");
   const [orderType, setOrderType] = useState("market");
@@ -175,6 +177,56 @@ export default function BondDetailPage() {
     orderMutation.mutate(orderData);
   };
 
+  const handleAddToCart = async () => {
+    if (!bond) return;
+    
+    const price = parseFloat(limitPrice) || bond.currentPrice || bond.lastPrice || bond.lastTradedPrice || 0;
+    const qty = parseInt(quantity) || 1;
+    const orderAmount = price * qty;
+    
+    // Determine if this is NCD or bond based on type
+    const bondType = (bond.bondType || bond.type || 'corporate').toLowerCase();
+    const isNcd = bondType.includes('ncd') || bondType.includes('debenture');
+    const productCategory = isNcd ? 'ncd' : 'bond';
+    
+    try {
+      await addToUnifiedCart({
+        bondIsin: isNcd ? undefined : bond.isin,
+        ncdIsin: isNcd ? bond.isin : undefined,
+        displayName: bond.name || bond.bondName || bond.securityName || bond.issuer || 'Bond Investment',
+        amount: orderAmount.toString(),
+        quantity: qty,
+        productCategory: productCategory,
+        source: 'client',
+        metadata: {
+          isin: bond.isin,
+          bondType: bond.bondType || bond.type,
+          rating: bond.rating || bond.creditRating,
+          yieldToMaturity: bond.yieldToMaturity || bond.ytm,
+          faceValue: bond.faceValue,
+          maturityDate: bond.maturityDate,
+          couponRate: bond.couponRate,
+          issuer: bond.issuer,
+          orderType,
+          unitPrice: price,
+        } as Record<string, any>,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/unified-cart"] });
+      toast({
+        title: "Added to Cart",
+        description: `${bond.name || bond.bondName || 'Bond'} added to your cart successfully`,
+      });
+    } catch (err) {
+      console.error("Failed to add to cart:", err);
+      toast({
+        title: "Error",
+        description: "Failed to add to cart. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
@@ -265,14 +317,15 @@ export default function BondDetailPage() {
                 </p>
               </div>
               
-              <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
-                <DialogTrigger asChild>
-                  <Button className="w-full mt-4 bg-white text-blue-600 hover:bg-gray-100" size="lg" data-testid="buy-bond-btn">
-                    <ShoppingCart className="h-5 w-5 mr-2" />
-                    Buy Now
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
+              <div className="flex flex-col gap-2 mt-4">
+                <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full bg-white text-blue-600 hover:bg-gray-100" size="lg" data-testid="buy-bond-btn">
+                      <ShoppingCart className="h-5 w-5 mr-2" />
+                      Buy Now
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>Place Bond Order</DialogTitle>
                     <DialogDescription>
@@ -390,7 +443,20 @@ export default function BondDetailPage() {
                     </Button>
                   </div>
                 </DialogContent>
-              </Dialog>
+                </Dialog>
+                
+                <Button 
+                  variant="outline"
+                  className="w-full border-white text-white hover:bg-white/10" 
+                  size="lg" 
+                  onClick={handleAddToCart}
+                  disabled={isAddingItem}
+                  data-testid="add-bond-to-cart-btn"
+                >
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                  {isAddingItem ? "Adding..." : "Add to Cart"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

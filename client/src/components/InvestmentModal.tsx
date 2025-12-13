@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { MutualFundData } from "@/hooks/use-mutual-funds";
 import { AccountSelectionWidget } from "@/components/AccountSelectionWidget";
+import { useUnifiedCart } from "@/contexts/UnifiedCartContext";
 
 interface InvestmentModalProps {
   fund: MutualFundData | null;
@@ -26,6 +27,7 @@ interface InvestmentModalProps {
 
 export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps) {
   const { toast } = useToast();
+  const { addItem: addToUnifiedCart } = useUnifiedCart();
   const [investmentType, setInvestmentType] = useState<"SIP" | "LUMPSUM">("SIP");
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState("MONTHLY");
@@ -39,8 +41,41 @@ export function InvestmentModal({ fund, isOpen, onClose }: InvestmentModalProps)
         body: JSON.stringify(cartItem),
       });
     },
-    onSuccess: () => {
+    onSuccess: async (_, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      
+      // Also add to unified cart for consolidated tracking
+      try {
+        const amountValue = variables.investmentAmount || 0;
+        const mfMetadata = variables.metadata || {};
+        await addToUnifiedCart({
+          mutualFundSchemeCode: variables.investmentId?.toString() || fund?.schemeCode?.toString() || '',
+          displayName: fund?.schemeName || 'Mutual Fund Investment',
+          amount: String(amountValue),
+          quantity: 1,
+          productCategory: 'mutual_fund',
+          source: 'client',
+          metadata: {
+            ...mfMetadata,
+            investmentType: mfMetadata.investmentType || 'LUMPSUM',
+            frequency: mfMetadata.frequency,
+            duration: mfMetadata.duration,
+            fundHouse: fund?.fundHouse,
+            category: fund?.category,
+            nav: fund?.nav,
+            schemeCode: fund?.schemeCode,
+          } as Record<string, any>,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/unified-cart"] });
+      } catch (err) {
+        console.error("Failed to add to unified cart:", err);
+        toast({
+          title: "Partially Added",
+          description: "Added to cart but unified tracking failed. Please try again.",
+          variant: "default",
+        });
+      }
+      
       toast({
         title: "Added to Cart",
         description: "Investment plan added to your cart successfully",
