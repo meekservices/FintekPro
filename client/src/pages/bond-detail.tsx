@@ -46,6 +46,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useUnifiedCart } from "@/contexts/UnifiedCartContext";
+import { OneClickBondInvest } from "@/components/OneClickBondInvest";
 
 export default function BondDetailPage() {
   const [, params] = useRoute("/bonds/detail/:isin");
@@ -318,11 +319,16 @@ export default function BondDetailPage() {
               </div>
               
               <div className="flex flex-col gap-2 mt-4">
+                <OneClickBondInvest 
+                  bond={bond} 
+                  size="lg" 
+                  className="w-full bg-white text-green-600 hover:bg-gray-100" 
+                />
                 <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
                   <DialogTrigger asChild>
-                    <Button className="w-full bg-white text-blue-600 hover:bg-gray-100" size="lg" data-testid="buy-bond-btn">
+                    <Button variant="outline" className="w-full border-white text-white hover:bg-white/10" size="lg" data-testid="buy-bond-btn">
                       <ShoppingCart className="h-5 w-5 mr-2" />
-                      Buy Now
+                      Advanced Order
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[500px]">

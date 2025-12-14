@@ -35,6 +35,7 @@ import {
 } from "@/components/BondMarketplaceEnhancements";
 import { InvestorClassificationCard, TransactionCostCalculator } from "@/components/regulatory/InvestorClassificationCard";
 import { BondCalendar } from "@/components/BondCalendar";
+import { OneClickBondInvest } from "@/components/OneClickBondInvest";
 
 // Fee calculation hook for bond orders
 interface CommissionConfig {
@@ -803,12 +804,14 @@ function CorporateBonds() {
                   </div>
                 </div>
 
-                <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); } }}>
-                  <DialogTrigger asChild>
-                    <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); setSelectedBond(bond); }} size="sm" data-testid={`buy-${bond.isin}`}>
-                      Buy
-                    </Button>
-                  </DialogTrigger>
+                <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                  <OneClickBondInvest bond={bond} size="sm" />
+                  <Dialog open={selectedBond?.isin === bond.isin} onOpenChange={(open) => { if (!open) { setSelectedBond(null); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); } }}>
+                    <DialogTrigger asChild>
+                      <Button onClick={(e) => { e.stopPropagation(); setOrderError(null); setShowRiskDisclosure(false); setRiskAcknowledged(false); setSelectedBond(bond); }} size="sm" variant="outline" data-testid={`buy-${bond.isin}`}>
+                        Details
+                      </Button>
+                    </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Place Corporate Bond Order</DialogTitle>
@@ -947,6 +950,7 @@ function CorporateBonds() {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
             </CardContent>
           </Card>
