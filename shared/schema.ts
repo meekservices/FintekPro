@@ -14039,5 +14039,5 @@ export const CartItemSourceEnum = z.enum(['client', 'agent', 'ai']);
 export type CartItemSource = z.infer<typeof CartItemSourceEnum>;
 
 // Cart item status enum
-export const CartItemStatusEnum = z.enum(['active', 'pending_approval', 'removed']);
+export const CartItemStatusEnum = z.enum(['active', 'pending_approval', 'removed', 'ordered']);
 export type CartItemStatus = z.infer<typeof CartItemStatusEnum>;

@@ -3,6 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { UnifiedCartItem, InsertUnifiedCartItem, ProductCategory } from "@shared/schema";
 
+interface CheckoutResult {
+  message: string;
+  orders: any[];
+  count: number;
+}
+
 interface UnifiedCartContextType {
   items: UnifiedCartItem[];
   isLoading: boolean;
@@ -14,9 +20,11 @@ interface UnifiedCartContextType {
   removeItem: (id: string) => Promise<void>;
   clearCart: () => Promise<void>;
   approveItem: (id: string) => Promise<UnifiedCartItem>;
+  checkout: (cartItemIds: string[]) => Promise<CheckoutResult>;
   isAddingItem: boolean;
   isUpdatingItem: boolean;
   isRemovingItem: boolean;
+  isCheckingOut: boolean;
   refetch: () => void;
 }
 
@@ -96,6 +104,20 @@ export function UnifiedCartProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const checkoutMutation = useMutation({
+    mutationFn: async (cartItemIds: string[]) => {
+      const response = await apiRequest("/api/unified-cart/checkout", {
+        method: "POST",
+        body: JSON.stringify({ cartItemIds }),
+      });
+      return response as CheckoutResult;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/unified-cart"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/unified-orders"] });
+    },
+  });
+
   const addItem = async (item: Omit<InsertUnifiedCartItem, "userId">) => {
     return addItemMutation.mutateAsync(item);
   };
@@ -116,6 +138,10 @@ export function UnifiedCartProvider({ children }: { children: ReactNode }) {
     return approveItemMutation.mutateAsync(id);
   };
 
+  const checkout = async (cartItemIds: string[]) => {
+    return checkoutMutation.mutateAsync(cartItemIds);
+  };
+
   return (
     <UnifiedCartContext.Provider
       value={{
@@ -129,9 +155,11 @@ export function UnifiedCartProvider({ children }: { children: ReactNode }) {
         removeItem,
         clearCart,
         approveItem,
+        checkout,
         isAddingItem: addItemMutation.isPending,
         isUpdatingItem: updateItemMutation.isPending,
         isRemovingItem: removeItemMutation.isPending,
+        isCheckingOut: checkoutMutation.isPending,
         refetch,
       }}
     >

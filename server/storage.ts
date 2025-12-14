@@ -1205,6 +1205,7 @@ export interface IStorage {
   getUnifiedCartCount(userId: string): Promise<number>;
   approveCartItem(id: string): Promise<UnifiedCartItem | undefined>;
   getAllUnifiedCartItemsForAdmin(filters?: { userId?: string; category?: string; source?: string; status?: string }): Promise<UnifiedCartItem[]>;
+  checkoutCartItems(userId: string, cartItemIds: string[]): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8764,6 +8765,66 @@ export class DatabaseStorage implements IStorage {
       .from(schema.unifiedCartItems)
       .where(and(...conditions))
       .orderBy(desc(schema.unifiedCartItems.createdAt));
+  }
+
+  async checkoutCartItems(userId: string, cartItemIds: string[]): Promise<any[]> {
+    const createdOrders: any[] = [];
+    
+    for (const cartItemId of cartItemIds) {
+      const cartItem = await this.getUnifiedCartItem(cartItemId);
+      
+      if (!cartItem || cartItem.userId !== userId || cartItem.status !== 'active') {
+        continue;
+      }
+      
+      const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      
+      const productTypeMap: Record<string, string> = {
+        'store': 'store',
+        'unlisted': 'unlisted',
+        'mutual_fund': 'mutual_fund',
+        'bond': 'bond',
+        'ncd': 'ncd',
+        'ipo': 'ipo'
+      };
+      
+      const [order] = await db.insert(schema.unifiedOrders)
+        .values({
+          orderNumber,
+          userId: cartItem.userId,
+          productType: productTypeMap[cartItem.productCategory] || cartItem.productCategory,
+          productId: cartItem.storeProductId || cartItem.unlistedCompanyId || cartItem.mutualFundSchemeCode || cartItem.bondIsin || cartItem.ncdIsin || cartItem.ipoId || undefined,
+          productName: cartItem.displayName || `${cartItem.productCategory} Item`,
+          orderType: 'buy',
+          quantity: cartItem.quantity?.toString() || '1',
+          amount: cartItem.amount || '0',
+          currency: 'INR',
+          cartId: cartItem.id,
+          status: 'initiated',
+          paymentStatus: 'pending',
+          executionStatus: 'pending',
+          metadata: {
+            source: cartItem.source,
+            sourceUserId: cartItem.sourceUserId,
+            sourceProposalId: cartItem.sourceProposalId,
+            originalCartItem: cartItem.metadata
+          },
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      
+      await db.update(schema.unifiedCartItems)
+        .set({ 
+          status: 'ordered',
+          updatedAt: new Date()
+        })
+        .where(eq(schema.unifiedCartItems.id, cartItemId));
+      
+      createdOrders.push(order);
+    }
+    
+    return createdOrders;
   }
 }
 

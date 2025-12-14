@@ -331,4 +331,30 @@ router.get("/admin/all", requireAuth, requireAdmin, async (req: Request, res: Re
   }
 });
 
+router.post("/checkout", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { cartItemIds } = req.body;
+    
+    if (!cartItemIds || !Array.isArray(cartItemIds) || cartItemIds.length === 0) {
+      return res.status(400).json({ error: "cartItemIds array is required" });
+    }
+    
+    const orders = await storage.checkoutCartItems(userId, cartItemIds);
+    
+    if (orders.length === 0) {
+      return res.status(400).json({ error: "No valid cart items to checkout" });
+    }
+    
+    res.status(201).json({
+      message: "Checkout successful",
+      orders,
+      count: orders.length
+    });
+  } catch (error) {
+    console.error("Error during checkout:", error);
+    res.status(500).json({ error: "Failed to process checkout" });
+  }
+});
+
 export default router;

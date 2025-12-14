@@ -95,7 +95,9 @@ export default function Cart() {
     isLoading: unifiedCartLoading, 
     removeItem: removeUnifiedItem,
     approveItem: approveUnifiedItem,
-    isRemovingItem: isRemovingUnifiedItem
+    checkout: checkoutUnifiedItems,
+    isRemovingItem: isRemovingUnifiedItem,
+    isCheckingOut: isCheckingOutUnified
   } = useUnifiedCart();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
@@ -979,11 +981,11 @@ export default function Cart() {
                   };
 
                   return (
-                    <Card key={category} className={`border-l-4 ${getCategoryColor(category)}`}>
+                    <Card key={category} className={`border-l-4 ${getCategoryColor(category as ProductCategory)}`}>
                       <CardHeader>
                         <div className="flex items-center gap-3">
-                          {getCategoryIcon(category)}
-                          <CardTitle>{getCategoryLabel(category)}</CardTitle>
+                          {getCategoryIcon(category as ProductCategory)}
+                          <CardTitle>{getCategoryLabel(category as ProductCategory)}</CardTitle>
                           <Badge variant="secondary">{categoryItems.length} items</Badge>
                         </div>
                       </CardHeader>
@@ -1116,6 +1118,42 @@ export default function Cart() {
                           <span>Total Value:</span>
                           <span data-testid="text-summary-total-value">₹{unifiedCartItems.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0).toLocaleString()}</span>
                         </div>
+                      </div>
+                      <div className="pt-4">
+                        <Button
+                          className="w-full bg-finance-blue hover:bg-finance-blue/90"
+                          size="lg"
+                          onClick={async () => {
+                            const activeItems = unifiedCartItems.filter(i => i.status === 'active');
+                            if (activeItems.length === 0) {
+                              toast({
+                                title: "No items to checkout",
+                                description: "Add or approve items before checkout",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            try {
+                              const result = await checkoutUnifiedItems(activeItems.map(i => i.id));
+                              toast({
+                                title: "Checkout Successful",
+                                description: `${result.count} order(s) created. View them in Portfolio.`,
+                              });
+                              setLocation('/portfolio?tab=fintekpro');
+                            } catch (error) {
+                              toast({
+                                title: "Checkout Failed",
+                                description: "Failed to process checkout",
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                          disabled={isCheckingOutUnified || unifiedCartItems.filter(i => i.status === 'active').length === 0}
+                          data-testid="button-checkout-investments"
+                        >
+                          <CreditCard className="h-5 w-5 mr-2" />
+                          {isCheckingOutUnified ? "Processing..." : `Checkout ${unifiedCartItems.filter(i => i.status === 'active').length} Investment(s)`}
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
