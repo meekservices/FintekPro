@@ -30,9 +30,12 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
-  Search
+  Search,
+  FileDown
 } from "lucide-react";
 import { Link } from "wouter";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import type { UnifiedOrder } from "@shared/schema";
 
 type TransactionSource = 'all' | 'fintekpro' | 'cashfree' | 'phonepe';
@@ -380,7 +383,7 @@ export default function TransactionReports() {
     refetchPhonePe();
   };
 
-  const handleExport = () => {
+  const handleExportCSV = () => {
     const csvData = filteredTransactions.map(tx => ({
       'Order Number': tx.orderNumber,
       'Source': tx.source,
@@ -404,6 +407,97 @@ export default function TransactionReports() {
     a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    doc.setFontSize(20);
+    doc.setTextColor(59, 130, 246);
+    doc.text('FintekPro', 14, 20);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Transaction Report', 14, 30);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN', { 
+      day: '2-digit', 
+      month: 'long', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`, 14, 38);
+
+    doc.setDrawColor(200, 200, 200);
+    doc.line(14, 42, pageWidth - 14, 42);
+
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Summary', 14, 52);
+    
+    doc.setFontSize(9);
+    doc.setTextColor(60, 60, 60);
+    const summaryY = 60;
+    doc.text(`Total Transactions: ${stats.total}`, 14, summaryY);
+    doc.text(`Completed: ${stats.completed}`, 70, summaryY);
+    doc.text(`Pending: ${stats.pending}`, 120, summaryY);
+    doc.text(`Total Value: ₹${stats.completedAmount.toLocaleString('en-IN')}`, 14, summaryY + 7);
+
+    const tableData = filteredTransactions.map(tx => [
+      tx.orderNumber,
+      tx.source === 'fintekpro' ? 'FintekPro' : tx.source === 'cashfree' ? 'Cashfree' : 'PhonePe',
+      productLabels[tx.productType as ProductFilter] || tx.productType?.replace(/_/g, ' '),
+      tx.productName.length > 25 ? tx.productName.substring(0, 25) + '...' : tx.productName,
+      `₹${Number(tx.amount).toLocaleString('en-IN')}`,
+      tx.status,
+      new Date(tx.createdAt).toLocaleDateString('en-IN')
+    ]);
+
+    autoTable(doc, {
+      startY: 75,
+      head: [['Order #', 'Source', 'Product Type', 'Product Name', 'Amount', 'Status', 'Date']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 8
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [50, 50, 50]
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250]
+      },
+      columnStyles: {
+        0: { cellWidth: 28 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 35 },
+        4: { cellWidth: 25, halign: 'right' },
+        5: { cellWidth: 22 },
+        6: { cellWidth: 22 }
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: (data) => {
+        const pageCount = doc.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Page ${data.pageNumber} of ${pageCount}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+    });
+
+    doc.save(`transactions_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const clearFilters = () => {
@@ -445,12 +539,21 @@ export default function TransactionReports() {
               Refresh
             </Button>
             <Button 
-              onClick={handleExport}
+              variant="outline"
+              onClick={handleExportCSV}
               disabled={filteredTransactions.length === 0}
-              data-testid="button-export"
+              data-testid="button-export-csv"
             >
               <Download className="h-4 w-4 mr-2" />
-              Export CSV
+              CSV
+            </Button>
+            <Button 
+              onClick={handleExportPDF}
+              disabled={filteredTransactions.length === 0}
+              data-testid="button-export-pdf"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              PDF
             </Button>
           </div>
         </div>
