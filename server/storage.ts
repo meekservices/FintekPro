@@ -1204,6 +1204,7 @@ export interface IStorage {
   clearUnifiedCart(userId: string): Promise<boolean>;
   getUnifiedCartCount(userId: string): Promise<number>;
   approveCartItem(id: string): Promise<UnifiedCartItem | undefined>;
+  getAllUnifiedCartItemsForAdmin(filters?: { userId?: string; category?: string; source?: string; status?: string }): Promise<UnifiedCartItem[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8735,6 +8736,34 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.unifiedCartItems.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async getAllUnifiedCartItemsForAdmin(filters?: { userId?: string; category?: string; source?: string; status?: string }): Promise<UnifiedCartItem[]> {
+    const conditions: any[] = [];
+    
+    if (filters?.userId) {
+      conditions.push(eq(schema.unifiedCartItems.userId, filters.userId));
+    }
+    if (filters?.category) {
+      conditions.push(eq(schema.unifiedCartItems.productCategory, filters.category));
+    }
+    if (filters?.source) {
+      conditions.push(eq(schema.unifiedCartItems.source, filters.source));
+    }
+    if (filters?.status) {
+      conditions.push(eq(schema.unifiedCartItems.status, filters.status));
+    }
+    
+    if (conditions.length === 0) {
+      return await db.select()
+        .from(schema.unifiedCartItems)
+        .orderBy(desc(schema.unifiedCartItems.createdAt));
+    }
+    
+    return await db.select()
+      .from(schema.unifiedCartItems)
+      .where(and(...conditions))
+      .orderBy(desc(schema.unifiedCartItems.createdAt));
   }
 }
 

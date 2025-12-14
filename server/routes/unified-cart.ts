@@ -305,20 +305,13 @@ router.get("/admin/all", requireAuth, requireAdmin, async (req: Request, res: Re
   try {
     const { userId, category, source, status, page = '1', limit = '50' } = req.query;
     
-    let items: Awaited<ReturnType<typeof storage.getUnifiedCartItems>> = [];
-    if (userId && typeof userId === 'string') {
-      items = await storage.getUnifiedCartItems(userId);
-    }
+    const filters: { userId?: string; category?: string; source?: string; status?: string } = {};
+    if (userId && typeof userId === 'string') filters.userId = userId;
+    if (category && typeof category === 'string') filters.category = category;
+    if (source && typeof source === 'string') filters.source = source;
+    if (status && typeof status === 'string') filters.status = status;
     
-    if (category && typeof category === 'string') {
-      items = items.filter(item => item.productCategory === category);
-    }
-    if (source && typeof source === 'string') {
-      items = items.filter(item => item.source === source);
-    }
-    if (status && typeof status === 'string') {
-      items = items.filter(item => item.status === status);
-    }
+    const items = await storage.getAllUnifiedCartItemsForAdmin(filters);
     
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);

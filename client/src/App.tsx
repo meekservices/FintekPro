@@ -138,6 +138,7 @@ import UnlistedNegotiations from "@/pages/admin/UnlistedNegotiations";
 import UnlistedDashboard from "@/pages/admin/unlisted-dashboard";
 import BondMarketplaceDashboard from "@/pages/admin/bond-marketplace-dashboard";
 import UnlistedOrders from "@/pages/admin/unlisted-orders";
+import OrderAuditDashboard from "@/pages/admin/order-audit";
 import UnlistedAuditLog from "@/pages/admin/unlisted-audit-log";
 import UnlistedComplianceAlerts from "@/pages/admin/unlisted-compliance-alerts";
 import FixedIncomeAdmin from "@/pages/admin/FixedIncomeAdmin";
@@ -432,6 +433,13 @@ function AdminRoutes() {
               <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>
               <p className="text-gray-400">Coming soon...</p>
             </div>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/order-audit">
+        {() => (
+          <AdminLayout>
+            <OrderAuditDashboard />
           </AdminLayout>
         )}
       </Route>
