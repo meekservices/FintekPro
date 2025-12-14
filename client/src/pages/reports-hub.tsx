@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -369,6 +369,28 @@ export default function ReportsHub() {
             <span className="font-semibold">SEBI & PMLA Compliant:</span> All reports are encrypted, audit-logged, and stored securely for 7 years as per regulatory requirements.
           </AlertDescription>
         </Alert>
+
+        <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Transaction Reports</h3>
+                  <p className="text-sm text-muted-foreground">View all FintekPro orders and payment transactions</p>
+                </div>
+              </div>
+              <Link href="/transaction-reports">
+                <Button className="bg-purple-600 hover:bg-purple-700" data-testid="link-transaction-reports">
+                  <ChevronRight className="w-4 h-4 mr-1" />
+                  View Transactions
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {reportCategories.map((category) => {
