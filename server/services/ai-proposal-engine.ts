@@ -9,6 +9,7 @@ import {
   mfFolios,
   userProfiles,
   users,
+  unifiedCartItems,
   type PortfolioDiagnostics,
   type AiProposal,
   type AiProposalItem,
@@ -17,6 +18,7 @@ import {
   type InsertAiProposal,
   type InsertAiProposalItem,
   type InsertAiAuditLog,
+  type InsertUnifiedCartItem,
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 // GoogleGenerativeAI imported from gemini service if needed
@@ -905,10 +907,121 @@ export class AIProposalEngine {
     return updated;
   }
 
+  private async addItemToCart(
+    item: AiProposalItem,
+    clientId: string,
+    proposalId: string,
+    skipStatusUpdate: boolean = false
+  ): Promise<{ success: boolean; cartItemId?: string; error?: string }> {
+    try {
+      let productCategory = "mutual_fund";
+      if (item.assetClass?.toLowerCase().includes("bond")) {
+        productCategory = "bond";
+      } else if (item.assetClass?.toLowerCase().includes("ncd")) {
+        productCategory = "ncd";
+      } else if (item.assetClass?.toLowerCase().includes("unlisted")) {
+        productCategory = "unlisted";
+      }
+
+      const cartItemData: any = {
+        userId: clientId,
+        productCategory,
+        source: "ai",
+        sourceProposalId: proposalId,
+        amount: item.amount || undefined,
+        displayName: item.schemeName,
+        metadata: {
+          proposalItemId: item.id,
+          recommendationType: item.recommendationType,
+          isin: item.isin,
+          amcName: item.amcName,
+          rationale: item.rationale,
+        },
+        status: "active",
+      };
+
+      if (productCategory === "mutual_fund" && item.isin) {
+        cartItemData.mutualFundSchemeCode = item.isin;
+      } else if (productCategory === "bond" && item.isin) {
+        cartItemData.bondIsin = item.isin;
+      }
+
+      const [cartItem] = await db.insert(unifiedCartItems).values(cartItemData).returning();
+
+      if (!skipStatusUpdate) {
+        await db.update(aiProposalItems).set({
+          status: "executed",
+          executedAt: new Date(),
+          cartItemId: cartItem.id,
+          updatedAt: new Date(),
+        }).where(eq(aiProposalItems.id, item.id));
+      }
+
+      return { success: true, cartItemId: cartItem.id };
+    } catch (error: any) {
+      console.error(`Failed to add proposal item ${item.id} to cart:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  private async markItemExecuted(
+    itemId: string,
+    cartItemIds: string[]
+  ): Promise<void> {
+    await db.update(aiProposalItems).set({
+      status: "executed",
+      executedAt: new Date(),
+      cartItemId: cartItemIds.join(","),
+      updatedAt: new Date(),
+    }).where(eq(aiProposalItems.id, itemId));
+  }
+
+  private async rollbackCartItem(cartItemId: string): Promise<void> {
+    try {
+      await db.delete(unifiedCartItems).where(eq(unifiedCartItems.id, cartItemId));
+    } catch (error) {
+      console.error(`Failed to rollback cart item ${cartItemId}:`, error);
+    }
+  }
+
+  private async addSwitchSellToCart(
+    item: AiProposalItem,
+    clientId: string,
+    proposalId: string
+  ): Promise<{ success: boolean; cartItemId?: string; error?: string }> {
+    try {
+      const cartItemData: any = {
+        userId: clientId,
+        productCategory: "mutual_fund",
+        source: "ai",
+        sourceProposalId: proposalId,
+        amount: item.currentValue || item.amount || undefined,
+        displayName: `SELL: ${item.switchFromSchemeName || "Switch Source Fund"}`,
+        mutualFundSchemeCode: item.switchFromIsin || undefined,
+        metadata: {
+          proposalItemId: item.id,
+          recommendationType: "SELL",
+          isin: item.switchFromIsin,
+          originalRecommendationType: "SWITCH",
+          switchToSchemeName: item.schemeName,
+          rationale: `Sell leg of switch recommendation: ${item.rationale}`,
+        },
+        status: "active",
+      };
+
+      const [cartItem] = await db.insert(unifiedCartItems).values(cartItemData).returning();
+      return { success: true, cartItemId: cartItem.id };
+    } catch (error: any) {
+      console.error(`Failed to add switch sell leg for item ${item.id}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
   async finalizeProposalApproval(proposalId: string, clientId: string): Promise<AiProposal> {
     const items = await db.select().from(aiProposalItems).where(eq(aiProposalItems.proposalId, proposalId));
     
-    const approvedCount = items.filter(i => i.status === "approved").length;
+    const approvedItems = items.filter(i => i.status === "approved");
+    const approvedCount = approvedItems.length;
     const rejectedCount = items.filter(i => i.status === "rejected").length;
     const totalCount = items.length;
 
@@ -924,6 +1037,74 @@ export class AIProposalEngine {
     }
 
     const [proposal] = await db.select().from(aiProposals).where(eq(aiProposals.id, proposalId)).limit(1);
+    
+    // Add approved items to the unified cart with proper audit logging
+    const cartItemsAdded: string[] = [];
+    const failedItems: string[] = [];
+
+    for (const item of approvedItems) {
+      // Handle BUY items - add purchase to cart
+      if (item.recommendationType === "BUY") {
+        const result = await this.addItemToCart(item, clientId, proposalId);
+        if (result.success && result.cartItemId) {
+          cartItemsAdded.push(result.cartItemId);
+        } else {
+          failedItems.push(item.id);
+        }
+      }
+      // Handle SWITCH items - add both sell (old fund) and buy (new fund) atomically
+      else if (item.recommendationType === "SWITCH") {
+        // Add BUY for the new fund (skip status update until both legs succeed)
+        const buyResult = await this.addItemToCart(item, clientId, proposalId, true);
+        if (!buyResult.success || !buyResult.cartItemId) {
+          failedItems.push(item.id);
+          continue;
+        }
+
+        // Add SELL for the switch-from fund (if specified)
+        if (item.switchFromIsin || item.switchFromSchemeName) {
+          const sellResult = await this.addSwitchSellToCart(item, clientId, proposalId);
+          if (!sellResult.success || !sellResult.cartItemId) {
+            // Rollback the BUY leg since SELL failed - atomic operation
+            await this.rollbackCartItem(buyResult.cartItemId);
+            failedItems.push(item.id);
+            continue;
+          }
+          // Both legs succeeded - mark item as executed with both cart IDs
+          await this.markItemExecuted(item.id, [buyResult.cartItemId, sellResult.cartItemId]);
+          cartItemsAdded.push(buyResult.cartItemId, sellResult.cartItemId);
+        } else {
+          // No switch-from specified, just mark the BUY as executed
+          await this.markItemExecuted(item.id, [buyResult.cartItemId]);
+          cartItemsAdded.push(buyResult.cartItemId);
+        }
+      }
+      // Handle SELL items
+      else if (item.recommendationType === "SELL") {
+        const result = await this.addItemToCart(item, clientId, proposalId);
+        if (result.success && result.cartItemId) {
+          cartItemsAdded.push(result.cartItemId);
+        } else {
+          failedItems.push(item.id);
+        }
+      }
+    }
+
+    // Log cart additions
+    if (cartItemsAdded.length > 0) {
+      await this.logAuditEntry({
+        proposalId,
+        actorId: clientId,
+        actorRole: "client",
+        action: "items_added_to_cart",
+        actionCategory: "execution",
+        newState: {
+          cartItemIds: cartItemsAdded,
+          itemCount: cartItemsAdded.length,
+          failedCount: failedItems.length,
+        },
+      });
+    }
     
     const [updated] = await db.update(aiProposals).set({
       status: finalStatus,
@@ -944,6 +1125,8 @@ export class AIProposalEngine {
         status: finalStatus,
         approvedItems: approvedCount,
         rejectedItems: rejectedCount,
+        cartItemsAdded: cartItemsAdded.length,
+        cartItemIds: cartItemsAdded,
       },
     });
 

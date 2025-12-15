@@ -153,6 +153,8 @@ import UnlistedCartPage from "@/pages/unlisted/Cart";
 import CASupportDashboard from "@/pages/ca-support-dashboard";
 import CASupportDetail from "@/pages/ca-support-detail";
 import TDSCompliance from "@/pages/tds-compliance";
+import AIProposalsPage from "@/pages/ai-proposals";
+import AIProposalReviewPage from "@/pages/ai-proposal-review";
 
 function UserProtectedRoutes() {
   return (
@@ -268,6 +270,9 @@ function UserProtectedRoutes() {
         <Route path="/professional-services" component={ProfessionalServicesPage} />
         <Route path="/auto-populate" component={AutoPopulationDashboard} />
         <Route path="/government-schemes" component={GovernmentSchemes} />
+        <Route path="/ai-proposals" component={AIProposalsPage} />
+        <Route path="/ai-proposal-review" component={AIProposalReviewPage} />
+        <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
       </Switch>
     </ProfileCompletionGuard>
   );
