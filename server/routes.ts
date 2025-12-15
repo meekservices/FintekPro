@@ -94,6 +94,7 @@ import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import * as schema from "@shared/schema";
 import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import unifiedCartRoutes from "./routes/unified-cart";
+import aiProposalRoutes from "./routes/ai-proposal-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -308,6 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin", requireAdmin, adminMutualFundsRoutes);
   app.use("/api/unified-cart", unifiedCartRoutes);
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
+  // AI Proposal Engine Routes
+  app.use("/api/ai-proposals", aiProposalRoutes);
     try {
       const count = await seedProducts(storage as any);
       res.json({ 

@@ -14041,3 +14041,440 @@ export type CartItemSource = z.infer<typeof CartItemSourceEnum>;
 // Cart item status enum
 export const CartItemStatusEnum = z.enum(['active', 'pending_approval', 'removed', 'ordered']);
 export type CartItemStatus = z.infer<typeof CartItemStatusEnum>;
+
+// ============================================================================
+// AI PROPOSAL ENGINE SCHEMAS
+// SEBI-compliant AI-assisted investment proposal system
+// ============================================================================
+
+// Recommendation type values
+export const aiRecommendationTypeValues = [
+  "BUY",      // New purchase recommendation
+  "SELL",     // Exit recommendation
+  "SWITCH",   // Replace one product with another
+  "HOLD",     // Keep current position
+] as const;
+export type AIRecommendationType = typeof aiRecommendationTypeValues[number];
+
+// Asset class values for recommendations
+export const aiAssetClassValues = [
+  "equity",           // Stocks
+  "mutual_fund",      // Mutual Funds (Regular Plans)
+  "bond",             // Bonds / NCDs
+  "mld",              // Market Linked Debentures
+  "reit",             // REITs
+  "invit",            // InvITs
+  "pms",              // Portfolio Management Services
+  "aif",              // Alternative Investment Funds
+  "cash",             // Cash & equivalents
+  "fd",               // Fixed Deposits
+  "gold",             // Gold/SGBs
+] as const;
+export type AIAssetClass = typeof aiAssetClassValues[number];
+
+// Proposal status values
+export const aiProposalStatusValues = [
+  "draft",            // AI generated, not yet reviewed by agent
+  "pending_review",   // Agent submitted for client review
+  "approved",         // Client approved all/some items
+  "partially_approved", // Client approved some items
+  "rejected",         // Client rejected entire proposal
+  "executed",         // Approved items moved to cart/executed
+  "expired",          // Proposal validity expired
+  "cancelled",        // Agent cancelled the proposal
+] as const;
+export type AIProposalStatus = typeof aiProposalStatusValues[number];
+
+// Proposal item status values
+export const aiProposalItemStatusValues = [
+  "pending",          // Awaiting client decision
+  "approved",         // Client approved this item
+  "rejected",         // Client rejected this item
+  "modified",         // Agent modified the AI suggestion
+  "removed",          // Agent removed from proposal
+  "executed",         // Added to cart/order placed
+] as const;
+export type AIProposalItemStatus = typeof aiProposalItemStatusValues[number];
+
+// Risk category values
+export const riskCategoryValues = [
+  "conservative",     // Low risk tolerance
+  "moderate",         // Medium risk tolerance
+  "aggressive",       // High risk tolerance
+] as const;
+export type RiskCategory = typeof riskCategoryValues[number];
+
+// Portfolio Diagnostics - Portfolio health analysis results
+export const portfolioDiagnostics = pgTable("portfolio_diagnostics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  // Analysis Timestamp
+  analysisDate: timestamp("analysis_date").defaultNow(),
+  
+  // Current Portfolio Snapshot (at time of analysis)
+  portfolioSnapshot: jsonb("portfolio_snapshot").$type<{
+    totalValue: number;
+    assetAllocation: Record<string, { value: number; percentage: number }>;
+    holdings: Array<{
+      assetType: string;
+      isin?: string;
+      schemeName: string;
+      currentValue: number;
+      weightPercent: number;
+      riskScore: number;
+      lockIn?: boolean;
+    }>;
+  }>().notNull(),
+  
+  // Risk Analysis
+  portfolioRiskScore: decimal("portfolio_risk_score", { precision: 5, scale: 2 }).notNull(), // 0-10 scale
+  clientRiskTolerance: varchar("client_risk_tolerance").notNull(), // conservative/moderate/aggressive
+  riskMismatchPercent: decimal("risk_mismatch_percent", { precision: 5, scale: 2 }), // deviation from ideal
+  
+  // Asset Allocation Analysis
+  idealAllocation: jsonb("ideal_allocation").$type<Record<string, { min: number; max: number; target: number }>>(),
+  allocationDeviation: jsonb("allocation_deviation").$type<Record<string, { current: number; target: number; deviation: number }>>(),
+  
+  // Concentration Analysis
+  concentrationIssues: jsonb("concentration_issues").$type<Array<{
+    type: "single_stock" | "single_amc" | "sector" | "issuer";
+    name: string;
+    currentPercent: number;
+    limitPercent: number;
+    severity: "warning" | "critical";
+  }>>().default([]),
+  
+  // MF Overlap Analysis
+  mfOverlapPercent: decimal("mf_overlap_percent", { precision: 5, scale: 2 }),
+  mfOverlapDetails: jsonb("mf_overlap_details").$type<Array<{
+    scheme1: string;
+    scheme2: string;
+    overlapPercent: number;
+    commonStocks: string[];
+  }>>().default([]),
+  
+  // Duration Mismatch (for debt)
+  durationMismatch: jsonb("duration_mismatch").$type<{
+    clientHorizon: number; // in years
+    portfolioDuration: number; // weighted avg duration
+    mismatchSeverity: "none" | "minor" | "major";
+  }>(),
+  
+  // Liquidity Analysis
+  liquidityIssues: jsonb("liquidity_issues").$type<Array<{
+    holding: string;
+    lockInEndDate?: string;
+    exitLoadApplicable: boolean;
+    liquidityRisk: "low" | "medium" | "high";
+  }>>().default([]),
+  
+  // Underperformers
+  underperformers: jsonb("underperformers").$type<Array<{
+    scheme: string;
+    benchmark: string;
+    underperformancePercent: number;
+    period: string;
+  }>>().default([]),
+  
+  // Tax Inefficiencies
+  taxIssues: jsonb("tax_issues").$type<Array<{
+    holding: string;
+    issue: string;
+    potentialTaxSaving?: number;
+  }>>().default([]),
+  
+  // Overall Health Score
+  healthScore: integer("health_score").notNull(), // 0-100
+  healthSummary: text("health_summary"), // AI-generated summary
+  
+  // Issues Summary
+  issueCount: jsonb("issue_count").$type<{
+    critical: number;
+    warning: number;
+    info: number;
+  }>().default({ critical: 0, warning: 0, info: 0 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_portfolio_diagnostics_user").on(table.userId),
+  index("idx_portfolio_diagnostics_date").on(table.analysisDate),
+]);
+
+// AI Proposals - Main proposal entity
+export const aiProposals = pgTable("ai_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Client & Agent
+  clientId: varchar("client_id").notNull().references(() => users.id),
+  agentId: varchar("agent_id").references(() => users.id), // Agent who is managing the proposal
+  
+  // Associated Diagnostics
+  diagnosticsId: varchar("diagnostics_id").references(() => portfolioDiagnostics.id),
+  
+  // Proposal Details
+  proposalNumber: varchar("proposal_number").notNull().unique(), // Human-readable proposal ID
+  title: varchar("title").notNull(),
+  description: text("description"),
+  
+  // Status
+  status: varchar("status").notNull().default("draft"),
+  
+  // Validity
+  validUntil: timestamp("valid_until"),
+  
+  // Portfolio Impact Summary
+  beforeAllocation: jsonb("before_allocation").$type<Record<string, number>>(),
+  afterAllocation: jsonb("after_allocation").$type<Record<string, number>>(),
+  riskScoreBefore: decimal("risk_score_before", { precision: 5, scale: 2 }),
+  riskScoreAfter: decimal("risk_score_after", { precision: 5, scale: 2 }),
+  expectedRiskImpact: varchar("expected_risk_impact"), // e.g., "-12%"
+  
+  // Investment Summary
+  totalInvestmentAmount: decimal("total_investment_amount", { precision: 20, scale: 2 }),
+  totalRedemptionAmount: decimal("total_redemption_amount", { precision: 20, scale: 2 }),
+  netCashFlow: decimal("net_cash_flow", { precision: 20, scale: 2 }),
+  
+  // AI Engine Metadata
+  aiEngineVersion: varchar("ai_engine_version").default("1.0.0"),
+  aiModelUsed: varchar("ai_model_used"), // e.g., "gemini-1.5-pro"
+  aiGeneratedAt: timestamp("ai_generated_at"),
+  
+  // SEBI Compliance
+  sebiDisclaimer: text("sebi_disclaimer").notNull().default(
+    "This investment proposal is generated using an AI-assisted analytical system based on information provided by the client and available market data. The recommendations are not investment advice, do not assure returns, and are subject to market risks. Final investment decisions shall be taken by the client after independent evaluation."
+  ),
+  disclaimerAcknowledged: boolean("disclaimer_acknowledged").default(false),
+  disclaimerAcknowledgedAt: timestamp("disclaimer_acknowledged_at"),
+  
+  // Agent Notes & Modifications
+  agentNotes: text("agent_notes"),
+  agentModifiedAt: timestamp("agent_modified_at"),
+  
+  // Client Decision
+  clientDecision: varchar("client_decision"), // approved/rejected/partial
+  clientDecisionAt: timestamp("client_decision_at"),
+  clientNotes: text("client_notes"),
+  
+  // Execution
+  executedAt: timestamp("executed_at"),
+  cartReferenceIds: jsonb("cart_reference_ids").$type<string[]>().default([]),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_proposals_client").on(table.clientId),
+  index("idx_ai_proposals_agent").on(table.agentId),
+  index("idx_ai_proposals_status").on(table.status),
+  index("idx_ai_proposals_number").on(table.proposalNumber),
+]);
+
+// AI Proposal Items - Individual recommendations
+export const aiProposalItems = pgTable("ai_proposal_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").notNull().references(() => aiProposals.id),
+  
+  // Recommendation Type
+  recommendationType: varchar("recommendation_type").notNull(), // BUY/SELL/SWITCH/HOLD
+  
+  // Asset Details
+  assetClass: varchar("asset_class").notNull(), // equity/mutual_fund/bond/etc.
+  productId: varchar("product_id"), // Reference to product in store
+  isin: varchar("isin"),
+  schemeName: varchar("scheme_name").notNull(),
+  amcName: varchar("amc_name"),
+  
+  // For SWITCH recommendations
+  switchFromProductId: varchar("switch_from_product_id"),
+  switchFromIsin: varchar("switch_from_isin"),
+  switchFromSchemeName: varchar("switch_from_scheme_name"),
+  
+  // Amount/Units
+  amount: decimal("amount", { precision: 20, scale: 2 }),
+  units: decimal("units", { precision: 15, scale: 4 }),
+  currentValue: decimal("current_value", { precision: 20, scale: 2 }), // For SELL/SWITCH
+  
+  // Rationale (Explainability - CRITICAL)
+  rationale: text("rationale").notNull(), // AI-generated explanation
+  problemIdentified: text("problem_identified"), // What issue does this solve
+  riskInvolved: text("risk_involved"), // Risks associated
+  portfolioImpactSummary: text("portfolio_impact_summary"), // Before vs after impact
+  
+  // Risk Impact
+  riskImpactPercent: varchar("risk_impact_percent"), // e.g., "-12%"
+  
+  // Product-level disclaimers
+  productDisclaimer: text("product_disclaimer"), // MLDs, AIFs, etc. specific disclaimers
+  
+  // Priority/Order
+  priority: integer("priority").default(1), // For ordering recommendations
+  
+  // Status
+  status: varchar("status").notNull().default("pending"),
+  
+  // Agent Modifications
+  agentModified: boolean("agent_modified").default(false),
+  originalAmount: decimal("original_amount", { precision: 20, scale: 2 }), // Original AI suggestion
+  originalRationale: text("original_rationale"),
+  agentModificationReason: text("agent_modification_reason"),
+  
+  // Client Decision
+  clientDecision: varchar("client_decision"), // approved/rejected
+  clientDecisionAt: timestamp("client_decision_at"),
+  clientRejectionReason: text("client_rejection_reason"),
+  
+  // Execution
+  executedAt: timestamp("executed_at"),
+  cartItemId: varchar("cart_item_id"),
+  orderId: varchar("order_id"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_proposal_items_proposal").on(table.proposalId),
+  index("idx_ai_proposal_items_type").on(table.recommendationType),
+  index("idx_ai_proposal_items_status").on(table.status),
+  index("idx_ai_proposal_items_asset_class").on(table.assetClass),
+]);
+
+// AI Audit Logs - SEBI compliance audit trail
+export const aiAuditLogs = pgTable("ai_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Reference
+  proposalId: varchar("proposal_id").references(() => aiProposals.id),
+  proposalItemId: varchar("proposal_item_id").references(() => aiProposalItems.id),
+  diagnosticsId: varchar("diagnostics_id").references(() => portfolioDiagnostics.id),
+  
+  // Actor
+  actorId: varchar("actor_id").references(() => users.id),
+  actorRole: varchar("actor_role").notNull(), // client/agent/admin/system/ai
+  
+  // Action
+  action: varchar("action").notNull(), // created/modified/approved/rejected/executed/viewed/etc.
+  actionCategory: varchar("action_category").notNull(), // proposal/item/diagnostics/system
+  
+  // Details
+  previousState: jsonb("previous_state"), // State before action
+  newState: jsonb("new_state"), // State after action
+  changeDetails: jsonb("change_details").$type<{
+    field?: string;
+    oldValue?: any;
+    newValue?: any;
+    reason?: string;
+  }>(),
+  
+  // AI Context (for AI-generated entries)
+  aiEngineVersion: varchar("ai_engine_version"),
+  aiInputSnapshot: jsonb("ai_input_snapshot"), // What data was fed to AI
+  aiOutputSnapshot: jsonb("ai_output_snapshot"), // What AI produced
+  aiModelUsed: varchar("ai_model_used"),
+  
+  // Client Context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  
+  // Compliance Markers
+  isRegulatorAuditable: boolean("is_regulator_auditable").default(true),
+  complianceNote: text("compliance_note"),
+  
+  // Timestamps
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("idx_ai_audit_proposal").on(table.proposalId),
+  index("idx_ai_audit_actor").on(table.actorId),
+  index("idx_ai_audit_action").on(table.action),
+  index("idx_ai_audit_timestamp").on(table.timestamp),
+  index("idx_ai_audit_category").on(table.actionCategory),
+]);
+
+// Client Risk Profiles - Enhanced risk profile for AI recommendations
+export const clientRiskProfiles = pgTable("client_risk_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
+  
+  // Risk Assessment
+  riskCategory: varchar("risk_category").notNull().default("moderate"), // conservative/moderate/aggressive
+  riskScore: integer("risk_score"), // 1-10 scale from questionnaire
+  
+  // Time Horizon
+  timeHorizonYears: integer("time_horizon_years").default(5),
+  
+  // Liquidity Needs
+  liquidityNeed: varchar("liquidity_need").default("medium"), // low/medium/high
+  
+  // Tax Information
+  taxBracket: varchar("tax_bracket"), // 0%/5%/10%/15%/20%/30%
+  
+  // Investment Objectives (can select multiple)
+  investmentObjectives: jsonb("investment_objectives").$type<string[]>().default([]), // growth/income/capital_protection/tax_saving
+  
+  // Constraints
+  productRestrictions: jsonb("product_restrictions").$type<string[]>().default([]), // Products client doesn't want
+  maxEquityExposure: integer("max_equity_exposure"), // Max % in equity
+  maxSingleStockExposure: integer("max_single_stock_exposure").default(15), // Max % in single stock
+  maxSingleAmcExposure: integer("max_single_amc_exposure").default(25), // Max % in single AMC
+  
+  // Regulatory Limits
+  isAccreditedInvestor: boolean("is_accredited_investor").default(false),
+  isPmsEligible: boolean("is_pms_eligible").default(false), // Min 50L net worth
+  isAifEligible: boolean("is_aif_eligible").default(false), // Min 1Cr investment
+  
+  // Last Assessment
+  lastAssessedAt: timestamp("last_assessed_at").defaultNow(),
+  assessmentMethod: varchar("assessment_method").default("questionnaire"), // questionnaire/advisor/self_declared
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_client_risk_profiles_user").on(table.userId),
+  index("idx_client_risk_profiles_category").on(table.riskCategory),
+]);
+
+// Insert schemas and types for AI Proposal Engine
+export const insertPortfolioDiagnosticsSchema = createInsertSchema(portfolioDiagnostics).omit({
+  id: true,
+  createdAt: true,
+});
+export type PortfolioDiagnostics = typeof portfolioDiagnostics.$inferSelect;
+export type InsertPortfolioDiagnostics = z.infer<typeof insertPortfolioDiagnosticsSchema>;
+
+export const insertAiProposalSchema = createInsertSchema(aiProposals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiProposal = typeof aiProposals.$inferSelect;
+export type InsertAiProposal = z.infer<typeof insertAiProposalSchema>;
+
+export const insertAiProposalItemSchema = createInsertSchema(aiProposalItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiProposalItem = typeof aiProposalItems.$inferSelect;
+export type InsertAiProposalItem = z.infer<typeof insertAiProposalItemSchema>;
+
+export const insertAiAuditLogSchema = createInsertSchema(aiAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+export type AiAuditLog = typeof aiAuditLogs.$inferSelect;
+export type InsertAiAuditLog = z.infer<typeof insertAiAuditLogSchema>;
+
+export const insertClientRiskProfileSchema = createInsertSchema(clientRiskProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ClientRiskProfile = typeof clientRiskProfiles.$inferSelect;
+export type InsertClientRiskProfile = z.infer<typeof insertClientRiskProfileSchema>;
+
+// Zod enums for type safety
+export const AIRecommendationTypeEnum = z.enum(['BUY', 'SELL', 'SWITCH', 'HOLD']);
+export const AIAssetClassEnum = z.enum(['equity', 'mutual_fund', 'bond', 'mld', 'reit', 'invit', 'pms', 'aif', 'cash', 'fd', 'gold']);
+export const AIProposalStatusEnum = z.enum(['draft', 'pending_review', 'approved', 'partially_approved', 'rejected', 'executed', 'expired', 'cancelled']);
+export const AIProposalItemStatusEnum = z.enum(['pending', 'approved', 'rejected', 'modified', 'removed', 'executed']);
+export const RiskCategoryEnum = z.enum(['conservative', 'moderate', 'aggressive']);
