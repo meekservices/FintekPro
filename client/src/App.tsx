@@ -155,6 +155,7 @@ import CASupportDetail from "@/pages/ca-support-detail";
 import TDSCompliance from "@/pages/tds-compliance";
 import AIProposalsPage from "@/pages/ai-proposals";
 import AIProposalReviewPage from "@/pages/ai-proposal-review";
+import GoalsPage from "@/pages/goals";
 
 function UserProtectedRoutes() {
   return (
@@ -272,6 +273,7 @@ function UserProtectedRoutes() {
         <Route path="/government-schemes" component={GovernmentSchemes} />
         <Route path="/ai-proposals" component={AIProposalsPage} />
         <Route path="/ai-proposal-review" component={AIProposalReviewPage} />
+        <Route path="/goals" component={GoalsPage} />
         <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
       </Switch>
     </ProfileCompletionGuard>

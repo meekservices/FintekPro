@@ -2540,13 +2540,33 @@ export const financialGoals = pgTable("financial_goals", {
   name: varchar("name").notNull(),
   description: text("description"),
   goalType: varchar("goal_type").notNull(), // short_term, medium_term, long_term
-  category: varchar("category").notNull(), // home_purchase, education, retirement, emergency, travel, wedding
+  category: varchar("category").notNull(), // home_purchase, education, retirement, emergency, travel, wedding, car, wealth_building, child_marriage, custom
+  icon: varchar("icon").default("target"), // lucide icon name
+  color: varchar("color").default("#3b82f6"), // hex color for UI
   
   // Financial targets
   targetAmount: decimal("target_amount", { precision: 15, scale: 2 }).notNull(),
   currentAmount: decimal("current_amount", { precision: 15, scale: 2 }).default("0"),
   monthlyContribution: decimal("monthly_contribution", { precision: 10, scale: 2 }).default("0"),
   targetDate: timestamp("target_date").notNull(),
+  startDate: timestamp("start_date").defaultNow(),
+  
+  // Inflation adjustment
+  inflationRate: decimal("inflation_rate", { precision: 5, scale: 2 }).default("6"), // Default 6% inflation
+  inflationAdjustedTarget: decimal("inflation_adjusted_target", { precision: 15, scale: 2 }),
+  
+  // SIP recommendations
+  suggestedSipAmount: decimal("suggested_sip_amount", { precision: 10, scale: 2 }),
+  suggestedLumpsum: decimal("suggested_lumpsum", { precision: 15, scale: 2 }),
+  expectedReturnRate: decimal("expected_return_rate", { precision: 5, scale: 2 }).default("12"), // Expected annual return %
+  
+  // Asset allocation suggestion
+  suggestedAllocation: jsonb("suggested_allocation").$type<{
+    equity: number;
+    debt: number;
+    gold: number;
+    cash: number;
+  }>(),
   
   // Risk and investment preferences
   riskProfile: varchar("risk_profile").notNull(), // conservative, moderate, aggressive
@@ -2555,7 +2575,11 @@ export const financialGoals = pgTable("financial_goals", {
   // Recommendations and tracking
   recommendedInvestments: text("recommended_investments").array(),
   currentProgress: decimal("current_progress", { precision: 5, scale: 2 }).default("0"), // Percentage
+  projectedValue: decimal("projected_value", { precision: 15, scale: 2 }),
+  onTrackStatus: varchar("on_track_status").default("on_track"), // on_track, ahead, behind, at_risk
   isActive: boolean("is_active").default(true),
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
   
   // Metadata
   tags: text("tags").array(),
@@ -2564,7 +2588,103 @@ export const financialGoals = pgTable("financial_goals", {
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_financial_goals_user").on(table.userId),
+  index("idx_financial_goals_category").on(table.category),
+  index("idx_financial_goals_status").on(table.onTrackStatus),
+]);
+
+// Goal Milestones - Track progress checkpoints
+export const goalMilestones = pgTable("goal_milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  goalId: varchar("goal_id").references(() => financialGoals.id, { onDelete: "cascade" }).notNull(),
+  
+  // Milestone details
+  name: varchar("name").notNull(),
+  description: text("description"),
+  targetPercentage: decimal("target_percentage", { precision: 5, scale: 2 }).notNull(), // e.g., 25%, 50%, 75%, 100%
+  targetAmount: decimal("target_amount", { precision: 15, scale: 2 }).notNull(),
+  targetDate: timestamp("target_date"),
+  
+  // Status
+  isAchieved: boolean("is_achieved").default(false),
+  achievedAt: timestamp("achieved_at"),
+  achievedAmount: decimal("achieved_amount", { precision: 15, scale: 2 }),
+  
+  // Celebration/notification settings
+  notifyOnAchieve: boolean("notify_on_achieve").default(true),
+  celebrationType: varchar("celebration_type").default("confetti"), // confetti, badge, notification
+  
+  // Order
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_goal_milestones_goal").on(table.goalId),
+]);
+
+// Goal Investment Links - Connect investments/SIPs to goals
+export const goalInvestmentLinks = pgTable("goal_investment_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  goalId: varchar("goal_id").references(() => financialGoals.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Investment reference (can be various types)
+  investmentType: varchar("investment_type").notNull(), // mutual_fund_sip, mutual_fund_lumpsum, fd, ppf, nps, stocks, bonds, gold
+  investmentId: varchar("investment_id"), // Reference to specific investment record
+  isin: varchar("isin"),
+  schemeName: varchar("scheme_name"),
+  folioNumber: varchar("folio_number"),
+  
+  // Allocation
+  allocationPercentage: decimal("allocation_percentage", { precision: 5, scale: 2 }).default("100"), // % of this investment for this goal
+  allocatedAmount: decimal("allocated_amount", { precision: 15, scale: 2 }),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  
+  // SIP details (if applicable)
+  sipAmount: decimal("sip_amount", { precision: 10, scale: 2 }),
+  sipFrequency: varchar("sip_frequency"), // monthly, quarterly, yearly
+  sipStartDate: timestamp("sip_start_date"),
+  sipEndDate: timestamp("sip_end_date"),
+  
+  // Returns tracking
+  totalInvested: decimal("total_invested", { precision: 15, scale: 2 }).default("0"),
+  absoluteReturns: decimal("absolute_returns", { precision: 15, scale: 2 }),
+  xirr: decimal("xirr", { precision: 8, scale: 4 }),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_goal_investment_links_goal").on(table.goalId),
+  index("idx_goal_investment_links_user").on(table.userId),
+  index("idx_goal_investment_links_type").on(table.investmentType),
+]);
+
+// Goal Progress Snapshots - Historical tracking
+export const goalProgressSnapshots = pgTable("goal_progress_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  goalId: varchar("goal_id").references(() => financialGoals.id, { onDelete: "cascade" }).notNull(),
+  
+  // Snapshot data
+  snapshotDate: timestamp("snapshot_date").defaultNow(),
+  currentAmount: decimal("current_amount", { precision: 15, scale: 2 }).notNull(),
+  targetAmount: decimal("target_amount", { precision: 15, scale: 2 }).notNull(),
+  progressPercentage: decimal("progress_percentage", { precision: 5, scale: 2 }).notNull(),
+  projectedValue: decimal("projected_value", { precision: 15, scale: 2 }),
+  onTrackStatus: varchar("on_track_status").notNull(),
+  
+  // Contributing investments value at snapshot
+  investmentsValue: jsonb("investments_value").$type<{
+    investmentId: string;
+    value: number;
+  }[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_goal_progress_snapshots_goal").on(table.goalId),
+  index("idx_goal_progress_snapshots_date").on(table.snapshotDate),
+]);
 
 export const proposalPayments = pgTable("proposal_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -5560,6 +5680,47 @@ export const insertFinancialGoalSchema = createInsertSchema(financialGoals).omit
 
 export type FinancialGoal = typeof financialGoals.$inferSelect;
 export type InsertFinancialGoal = z.infer<typeof insertFinancialGoalSchema>;
+
+// Goal Milestones types and schema
+export const insertGoalMilestoneSchema = createInsertSchema(goalMilestones).omit({
+  id: true,
+  createdAt: true,
+});
+export type GoalMilestone = typeof goalMilestones.$inferSelect;
+export type InsertGoalMilestone = z.infer<typeof insertGoalMilestoneSchema>;
+
+// Goal Investment Links types and schema
+export const insertGoalInvestmentLinkSchema = createInsertSchema(goalInvestmentLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type GoalInvestmentLink = typeof goalInvestmentLinks.$inferSelect;
+export type InsertGoalInvestmentLink = z.infer<typeof insertGoalInvestmentLinkSchema>;
+
+// Goal Progress Snapshots types and schema
+export const insertGoalProgressSnapshotSchema = createInsertSchema(goalProgressSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+export type GoalProgressSnapshot = typeof goalProgressSnapshots.$inferSelect;
+export type InsertGoalProgressSnapshot = z.infer<typeof insertGoalProgressSnapshotSchema>;
+
+// Goal category definitions with defaults
+export const GOAL_CATEGORIES = {
+  retirement: { icon: "umbrella-off", color: "#f97316", name: "Retirement", defaultReturn: 10, defaultInflation: 6 },
+  education: { icon: "graduation-cap", color: "#8b5cf6", name: "Child Education", defaultReturn: 12, defaultInflation: 8 },
+  home_purchase: { icon: "home", color: "#22c55e", name: "Home Purchase", defaultReturn: 12, defaultInflation: 7 },
+  car: { icon: "car", color: "#3b82f6", name: "Car Purchase", defaultReturn: 10, defaultInflation: 5 },
+  wedding: { icon: "heart", color: "#ec4899", name: "Wedding", defaultReturn: 10, defaultInflation: 8 },
+  child_marriage: { icon: "gem", color: "#d946ef", name: "Child Marriage", defaultReturn: 10, defaultInflation: 8 },
+  emergency: { icon: "shield", color: "#ef4444", name: "Emergency Fund", defaultReturn: 6, defaultInflation: 6 },
+  travel: { icon: "plane", color: "#06b6d4", name: "Dream Vacation", defaultReturn: 8, defaultInflation: 5 },
+  wealth_building: { icon: "trending-up", color: "#10b981", name: "Wealth Building", defaultReturn: 12, defaultInflation: 6 },
+  custom: { icon: "target", color: "#6b7280", name: "Custom Goal", defaultReturn: 10, defaultInflation: 6 },
+} as const;
+
+export type GoalCategory = keyof typeof GOAL_CATEGORIES;
 
 // Zoho Commerce Integration Tables
 export const zohoCommerceConfig = pgTable("zoho_commerce_config", {
