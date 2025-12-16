@@ -98,6 +98,7 @@ import aiProposalRoutes from "./routes/ai-proposal-routes";
 import goalPlanningRoutes from "./routes/goal-planning-routes";
 import investableSurplusRoutes from "./routes/investable-surplus-routes";
 import riskSuitabilityRoutes from "./routes/risk-suitability-routes";
+import returnForecastingRoutes from "./routes/return-forecasting-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -316,6 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/goals", goalPlanningRoutes);
   app.use("/api/surplus", investableSurplusRoutes);
   app.use("/api/risk", riskSuitabilityRoutes);
+  app.use("/api/returns", returnForecastingRoutes);
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
