@@ -97,6 +97,7 @@ import unifiedCartRoutes from "./routes/unified-cart";
 import aiProposalRoutes from "./routes/ai-proposal-routes";
 import goalPlanningRoutes from "./routes/goal-planning-routes";
 import investableSurplusRoutes from "./routes/investable-surplus-routes";
+import riskSuitabilityRoutes from "./routes/risk-suitability-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -310,11 +311,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin Mutual Funds Management Routes
   app.use("/api/admin", requireAdmin, adminMutualFundsRoutes);
   app.use("/api/unified-cart", unifiedCartRoutes);
-  app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
   // AI Proposal Engine Routes
   app.use("/api/ai-proposals", aiProposalRoutes);
   app.use("/api/goals", goalPlanningRoutes);
   app.use("/api/surplus", investableSurplusRoutes);
+  app.use("/api/risk", riskSuitabilityRoutes);
+
+  app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
       const count = await seedProducts(storage as any);
       res.json({ 
