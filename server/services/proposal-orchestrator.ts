@@ -8,7 +8,9 @@ import {
   portfolios,
   portfolioHoldings,
   clientRiskProfiles,
-  agentComplianceAuditLogs
+  agentComplianceAuditLogs,
+  unifiedCartItems,
+  proposalShares
 } from '@shared/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -740,8 +742,15 @@ export class ProposalOrchestrator {
 
     let proposalStatus: string;
     let workflowState: string;
+    let cartItemsCreated = 0;
     
     if (action === 'approve') {
+      cartItemsCreated = await this.generateCartFromProposal(
+        proposalId, 
+        session.clientId, 
+        session.agentId
+      );
+      
       proposalStatus = 'approved';
       workflowState = 'execution';
     } else if (action === 'reject') {
@@ -783,7 +792,7 @@ export class ProposalOrchestrator {
       proposalId,
       actionCategory: 'proposal',
       actionType: `client_action_${action}`,
-      actionDescription: `System processed client ${action}${action === 'request_clarification' ? `: ${clarificationNote}` : ''}`,
+      actionDescription: `System processed client ${action}${action === 'request_clarification' ? `: ${clarificationNote}` : ''}${action === 'approve' ? `, generated ${cartItemsCreated} cart items` : ''}`,
       previousState: { 
         proposalStatus: proposal.status, 
         workflowState: session.workflowState,
@@ -794,7 +803,8 @@ export class ProposalOrchestrator {
       newState: { 
         proposalStatus, 
         workflowState,
-        clientApproved: action === 'approve'
+        clientApproved: action === 'approve',
+        cartItemsGenerated: action === 'approve' ? cartItemsCreated : 0
       }
     });
 
@@ -802,11 +812,198 @@ export class ProposalOrchestrator {
       success: true,
       newState: workflowState,
       message: action === 'approve' 
-        ? 'Proposal approved. System will execute investments.'
+        ? `Proposal approved. ${cartItemsCreated} investment items added to cart for execution.`
         : action === 'reject'
         ? 'Proposal rejected and session closed.'
         : 'Clarification requested. Agent will revise proposal.'
     };
+  }
+
+  private static async generateCartFromProposal(
+    proposalId: string,
+    clientId: string,
+    agentId: string
+  ): Promise<number> {
+    try {
+      const proposalItems = await db
+        .select()
+        .from(investmentProposalItems)
+        .where(eq(investmentProposalItems.proposalId, proposalId));
+
+      if (!proposalItems || proposalItems.length === 0) {
+        console.log('[Cart Generation] No proposal items found');
+        throw new Error('No proposal items found - cannot execute empty proposal');
+      }
+
+      const cartItems = [];
+
+      for (const item of proposalItems) {
+        if (item.isAddedToCart) {
+          console.log(`[Cart Generation] Skipping already-carted item: ${item.id}`);
+          continue;
+        }
+
+        const productCategory = this.mapProductTypeToCategory(item.productType);
+        
+        if (!productCategory) {
+          console.log(`[Cart Generation] Skipping unrecognized product type: ${item.productType}`);
+          continue;
+        }
+
+        const cartItemId = nanoid();
+        const cartItem: any = {
+          id: cartItemId,
+          userId: clientId,
+          productCategory,
+          source: 'agent',
+          sourceUserId: agentId,
+          sourceProposalId: proposalId,
+          quantity: 1,
+          amount: item.recommendedAmount?.toString() || '0',
+          displayName: item.productName,
+          metadata: {
+            productCode: item.productCode,
+            amc: item.amc,
+            category: item.category,
+            subCategory: item.subCategory,
+            allocationPercentage: item.allocationPercentage,
+            investmentType: item.investmentType,
+            sipAmount: item.sipAmount,
+            sipFrequency: item.sipFrequency,
+            riskRating: item.riskRating,
+            selectionReason: item.selectionReason,
+            expectedOutcome: item.expectedOutcome,
+            suitabilityScore: item.suitabilityScore,
+            proposalItemId: item.id,
+            oneYearReturns: item.oneYearReturns,
+            threeYearReturns: item.threeYearReturns,
+            fiveYearReturns: item.fiveYearReturns
+          },
+          status: 'active',
+          clientApproved: true,
+          approvedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        if (productCategory === 'mutual_fund') {
+          cartItem.mutualFundSchemeCode = item.productCode;
+        } else if (productCategory === 'bond') {
+          cartItem.bondIsin = item.productCode;
+        } else if (productCategory === 'ncd') {
+          cartItem.ncdIsin = item.productCode;
+        }
+
+        cartItems.push({ cartItem, proposalItemId: item.id });
+      }
+
+      if (cartItems.length === 0) {
+        throw new Error('No valid proposal items could be converted to cart - cannot execute proposal');
+      }
+
+      await db.insert(unifiedCartItems).values(cartItems.map(c => c.cartItem));
+
+      for (const { cartItem, proposalItemId } of cartItems) {
+        await db
+          .update(investmentProposalItems)
+          .set({ 
+            isAddedToCart: true, 
+            cartItemId: cartItem.id,
+            updatedAt: new Date()
+          })
+          .where(eq(investmentProposalItems.id, proposalItemId));
+      }
+
+      await logSystemAction({
+        agentId,
+        clientId,
+        proposalId,
+        actionCategory: 'execution',
+        actionType: 'cart_generation',
+        actionDescription: `System generated ${cartItems.length} cart items from approved proposal items`,
+        previousState: { proposalStatus: 'approved' },
+        newState: { 
+          cartItemsCreated: cartItems.length,
+          categories: [...new Set(cartItems.map(i => i.cartItem.productCategory))],
+          itemIds: cartItems.map(i => i.cartItem.id)
+        }
+      });
+
+      return cartItems.length;
+    } catch (error) {
+      console.error('[Cart Generation] Error generating cart items:', error);
+      await logSystemAction({
+        agentId,
+        clientId,
+        proposalId,
+        actionCategory: 'execution',
+        actionType: 'cart_generation_error',
+        actionDescription: `System failed to generate cart items: ${error}`,
+        previousState: { proposalStatus: 'approved' },
+        newState: { error: true }
+      });
+      throw error;
+    }
+  }
+
+  private static mapProductTypeToCategory(productType: string): string | null {
+    const type = productType?.toLowerCase()?.replace(/[_\s-]/g, '_');
+    const mapping: Record<string, string> = {
+      'mutual_fund': 'mutual_fund',
+      'etf': 'mutual_fund',
+      'bond': 'bond',
+      'ncd': 'ncd',
+      'equity': 'unlisted',
+      'stock': 'unlisted',
+      'ulip': 'mutual_fund',
+      'pms': 'mutual_fund',
+      'aif': 'mutual_fund',
+      'mld': 'bond',
+      'gold': 'bond',
+      'sgb': 'bond',
+      'ipo': 'ipo',
+      'fd': 'bond',
+      'reit': 'bond',
+      'invit': 'bond',
+      'liquid_fund': 'mutual_fund',
+      'flexi_cap_fund': 'mutual_fund',
+      'mid_cap_fund': 'mutual_fund',
+      'large_cap_fund': 'mutual_fund',
+      'small_cap_fund': 'mutual_fund',
+      'multi_cap_fund': 'mutual_fund',
+      'elss_fund': 'mutual_fund',
+      'elss': 'mutual_fund',
+      'debt_fund': 'mutual_fund',
+      'hybrid_fund': 'mutual_fund',
+      'balanced_fund': 'mutual_fund',
+      'index_fund': 'mutual_fund',
+      'sectoral_fund': 'mutual_fund',
+      'gilt_fund': 'mutual_fund',
+      'overnight_fund': 'mutual_fund',
+      'money_market_fund': 'mutual_fund',
+      'credit_risk_fund': 'mutual_fund',
+      'corporate_bond_fund': 'mutual_fund',
+      'banking_psu_fund': 'mutual_fund',
+      'dynamic_bond_fund': 'mutual_fund',
+      'short_duration_fund': 'mutual_fund',
+      'medium_duration_fund': 'mutual_fund',
+      'long_duration_fund': 'mutual_fund',
+      'arbitrage_fund': 'mutual_fund',
+      'aggressive_hybrid_fund': 'mutual_fund',
+      'conservative_hybrid_fund': 'mutual_fund',
+      'focused_fund': 'mutual_fund',
+      'value_fund': 'mutual_fund',
+      'contra_fund': 'mutual_fund',
+      'dividend_yield_fund': 'mutual_fund',
+      'thematic_fund': 'mutual_fund',
+      'fof': 'mutual_fund',
+      'fund_of_funds': 'mutual_fund',
+      'sovereign_gold_bond': 'bond',
+      'government_bond': 'bond',
+      'corporate_bond': 'bond',
+      'tax_free_bond': 'bond'
+    };
+    return mapping[type] || 'mutual_fund';
   }
 
   static async getWorkflowStatus(sessionId: string) {
