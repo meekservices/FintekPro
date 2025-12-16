@@ -141,14 +141,7 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "My Profile", href: "/profile", description: "Personal info, KYC status & verification", badge: "UNIFIED" },
             { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
-            { 
-              name: "Client Onboarding", 
-              description: "Choose your KYC type inside",
-              subItems: [
-                { name: "Smart Mode", href: "/onboarding", description: "AI-assisted wizard (Individual/Corporate/NRI)" },
-                { name: "Manual Mode", href: "/manual-kyc", description: "Document upload (Individual/Corporate/NRI)" }
-              ]
-            }
+            { name: "Onboarding", href: "/onboarding", description: "PAN-based intelligent KYC for all entity types" }
           ]
         }
       ]
