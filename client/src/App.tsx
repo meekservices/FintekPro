@@ -57,6 +57,8 @@ import Profile from "@/pages/profile";
 import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
 import { AppLayout } from "@/components/layout/app-layout";
 import { AdminLayout } from "@/components/layout/admin-layout";
+import { AgentLayout } from "@/components/layout/agent-layout";
+import { PartnerLayout } from "@/components/layout/partner-layout";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -644,29 +646,108 @@ function AdminRoutes() {
 
 function PartnerRoutes() {
   return (
-    <AppLayout>
-      <Switch>
-        <Route path="/" component={DistributionPartnerPortal} />
-        <Route path="/partner-portal" component={DistributionPartnerPortal} />
-        <Route path="/agents" component={AgentPortal} />
-        <Route path="/auth" component={AuthPage} />
-        <Route component={NotFound} />
-      </Switch>
-    </AppLayout>
+    <Switch>
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/">
+        {() => (
+          <PartnerLayout>
+            <DistributionPartnerPortal />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner-portal">
+        {() => (
+          <PartnerLayout>
+            <DistributionPartnerPortal />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/products">
+        {() => (
+          <PartnerLayout>
+            <PartnerPortal />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/agents">
+        {() => (
+          <PartnerLayout>
+            <AgentPortal />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/ca-support">
+        {() => (
+          <PartnerLayout>
+            <CASupportDashboard />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/ca-support/:id">
+        {() => (
+          <PartnerLayout>
+            <CASupportDetail />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route>
+        {() => (
+          <PartnerLayout>
+            <NotFound />
+          </PartnerLayout>
+        )}
+      </Route>
+    </Switch>
   );
 }
 
 function AgentRoutes() {
   return (
-    <AppLayout>
-      <Switch>
-        <Route path="/" component={FieldAgentPortal} />
-        <Route path="/agent-portal" component={FieldAgentPortal} />
-        <Route path="/clients" component={AgentPortal} />
-        <Route path="/auth" component={AuthPage} />
-        <Route component={NotFound} />
-      </Switch>
-    </AppLayout>
+    <Switch>
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/">
+        {() => (
+          <AgentLayout>
+            <FieldAgentPortal />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent-portal">
+        {() => (
+          <AgentLayout>
+            <FieldAgentPortal />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/clients">
+        {() => (
+          <AgentLayout>
+            <AgentPortal />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/dashboard">
+        {() => (
+          <AgentLayout>
+            <AgentDashboard />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/proposals">
+        {() => (
+          <AgentLayout>
+            <ProposalsPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route>
+        {() => (
+          <AgentLayout>
+            <NotFound />
+          </AgentLayout>
+        )}
+      </Route>
+    </Switch>
   );
 }
 
