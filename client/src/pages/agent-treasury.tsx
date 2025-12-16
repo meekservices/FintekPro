@@ -12,11 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Building2, Search, Plus, DollarSign, TrendingUp, Shield, Clock, 
   CheckCircle2, XCircle, AlertTriangle, FileText, Users, Eye,
-  ArrowRight, Lock, Unlock, Calendar, PieChart
+  ArrowRight, Lock, Unlock, Calendar, PieChart, UserPlus
 } from "lucide-react";
 
 interface CorporateClient {
@@ -28,6 +29,16 @@ interface CorporateClient {
   status: string;
   makerCheckerEnabled: boolean;
   mandateId?: string;
+}
+
+interface EligibleClient {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  kycStatus: string;
+  kycTier: string;
+  hasTreasuryMandate: boolean;
 }
 
 interface TreasuryProposal {
@@ -84,6 +95,23 @@ export default function AgentTreasuryPage() {
   const [selectedProposal, setSelectedProposal] = useState<TreasuryProposal | null>(null);
   const [approvalAction, setApprovalAction] = useState<"approve" | "reject">("approve");
   const [rejectionReason, setRejectionReason] = useState("");
+  const [onboardingDialogOpen, setOnboardingDialogOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(1);
+  const [onboardingForm, setOnboardingForm] = useState({
+    clientId: "",
+    entityName: "",
+    cin: "",
+    gstNumber: "",
+    totalCashAvailable: "",
+    capitalProtection: true,
+    liquidityManagement: false,
+    yieldEnhancement: false,
+    liabilityMatching: false,
+    maxCreditRisk: "AAA",
+    maxDurationDays: "365",
+    maxSingleCounterparty: "10",
+    makerCheckerEnabled: true
+  });
 
   const { data: corporateClients, isLoading: loadingClients } = useQuery<CorporateClient[]>({
     queryKey: ["/api/agent/treasury/clients"]
@@ -99,6 +127,50 @@ export default function AgentTreasuryPage() {
 
   const { data: objectives } = useQuery({
     queryKey: ["/api/treasury/objectives"]
+  });
+
+  const { data: eligibleClients } = useQuery<EligibleClient[]>({
+    queryKey: ["/api/agent/treasury/eligible-clients"],
+    enabled: onboardingDialogOpen
+  });
+
+  const createMandateMutation = useMutation({
+    mutationFn: async (data: typeof onboardingForm) => {
+      return apiRequest("/api/agent/treasury/mandates", {
+        method: "POST",
+        body: JSON.stringify({
+          ...data,
+          totalCashAvailable: parseFloat(data.totalCashAvailable),
+          maxDurationDays: parseInt(data.maxDurationDays),
+          maxSingleCounterparty: parseInt(data.maxSingleCounterparty)
+        })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/treasury/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/treasury/eligible-clients"] });
+      setOnboardingDialogOpen(false);
+      setOnboardingStep(1);
+      setOnboardingForm({
+        clientId: "",
+        entityName: "",
+        cin: "",
+        gstNumber: "",
+        totalCashAvailable: "",
+        capitalProtection: true,
+        liquidityManagement: false,
+        yieldEnhancement: false,
+        liabilityMatching: false,
+        maxCreditRisk: "AAA",
+        maxDurationDays: "365",
+        maxSingleCounterparty: "10",
+        makerCheckerEnabled: true
+      });
+      toast({ title: "Client Onboarded", description: "Treasury mandate has been created successfully." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   });
 
   const generateProposalMutation = useMutation({
@@ -588,6 +660,10 @@ export default function AgentTreasuryPage() {
             Manage treasury mandates, proposals, and approvals for corporate clients
           </p>
         </div>
+        <Button onClick={() => setOnboardingDialogOpen(true)} data-testid="button-onboard-client">
+          <UserPlus className="h-4 w-4 mr-2" />
+          Onboard Client
+        </Button>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -775,6 +851,301 @@ export default function AgentTreasuryPage() {
             >
               {approvalAction === "approve" ? "Confirm Approval" : "Confirm Rejection"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={onboardingDialogOpen} onOpenChange={(open) => {
+        setOnboardingDialogOpen(open);
+        if (!open) {
+          setOnboardingStep(1);
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              Onboard Corporate Treasury Client
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="mb-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className={onboardingStep >= 1 ? "text-primary font-medium" : "text-muted-foreground"}>
+                1. Select Client
+              </span>
+              <span className={onboardingStep >= 2 ? "text-primary font-medium" : "text-muted-foreground"}>
+                2. Entity Details
+              </span>
+              <span className={onboardingStep >= 3 ? "text-primary font-medium" : "text-muted-foreground"}>
+                3. Risk Parameters
+              </span>
+            </div>
+            <Progress value={(onboardingStep / 3) * 100} className="h-2" />
+          </div>
+
+          {onboardingStep === 1 && (
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Select Client</Label>
+                <Select
+                  value={onboardingForm.clientId}
+                  onValueChange={(value) => setOnboardingForm({ ...onboardingForm, clientId: value })}
+                >
+                  <SelectTrigger data-testid="select-client">
+                    <SelectValue placeholder="Choose a client to onboard" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eligibleClients?.filter(c => !c.hasTreasuryMandate).map((client) => {
+                      const isEligible = ["enhanced", "accredited"].includes(client.kycTier?.toLowerCase() || "");
+                      return (
+                        <SelectItem 
+                          key={client.id} 
+                          value={client.id}
+                          disabled={!isEligible}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>{client.name}</span>
+                            <Badge variant={isEligible ? "default" : "secondary"} className="text-xs">
+                              {client.kycTier || "Basic"}
+                            </Badge>
+                            {!isEligible && (
+                              <span className="text-xs text-muted-foreground">(Requires Enhanced KYC)</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only clients with Enhanced or Accredited KYC tier can use treasury services
+                </p>
+              </div>
+
+              {eligibleClients?.filter(c => !c.hasTreasuryMandate).length === 0 && (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    No eligible clients available. Clients must have Enhanced or Accredited KYC tier 
+                    and not already have an active treasury mandate.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {onboardingStep === 2 && (
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Corporate Entity Name</Label>
+                <Input
+                  placeholder="Enter registered company name"
+                  value={onboardingForm.entityName}
+                  onChange={(e) => setOnboardingForm({ ...onboardingForm, entityName: e.target.value })}
+                  data-testid="input-entity-name"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>CIN (Corporate Identity Number)</Label>
+                  <Input
+                    placeholder="e.g., U12345MH2020PLC123456"
+                    value={onboardingForm.cin}
+                    onChange={(e) => setOnboardingForm({ ...onboardingForm, cin: e.target.value.toUpperCase() })}
+                    data-testid="input-cin"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Optional - 21 character format</p>
+                </div>
+                <div>
+                  <Label>GST Number</Label>
+                  <Input
+                    placeholder="e.g., 27AABCU9603R1ZM"
+                    value={onboardingForm.gstNumber}
+                    onChange={(e) => setOnboardingForm({ ...onboardingForm, gstNumber: e.target.value.toUpperCase() })}
+                    data-testid="input-gst"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Optional - 15 character GSTIN</p>
+                </div>
+              </div>
+
+              <div>
+                <Label>Total Cash Available for Treasury (INR)</Label>
+                <Input
+                  type="number"
+                  placeholder="Enter amount in INR"
+                  value={onboardingForm.totalCashAvailable}
+                  onChange={(e) => setOnboardingForm({ ...onboardingForm, totalCashAvailable: e.target.value })}
+                  data-testid="input-cash-available"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This is the total idle cash corpus to be managed
+                </p>
+              </div>
+
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm font-medium text-blue-800 mb-2">Investment Objectives</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="capital-protection"
+                      checked={onboardingForm.capitalProtection}
+                      onCheckedChange={(checked) => setOnboardingForm({ ...onboardingForm, capitalProtection: !!checked })}
+                    />
+                    <Label htmlFor="capital-protection" className="text-sm">Capital Protection</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="liquidity-management"
+                      checked={onboardingForm.liquidityManagement}
+                      onCheckedChange={(checked) => setOnboardingForm({ ...onboardingForm, liquidityManagement: !!checked })}
+                    />
+                    <Label htmlFor="liquidity-management" className="text-sm">Liquidity Management</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="yield-enhancement"
+                      checked={onboardingForm.yieldEnhancement}
+                      onCheckedChange={(checked) => setOnboardingForm({ ...onboardingForm, yieldEnhancement: !!checked })}
+                    />
+                    <Label htmlFor="yield-enhancement" className="text-sm">Yield Enhancement</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="liability-matching"
+                      checked={onboardingForm.liabilityMatching}
+                      onCheckedChange={(checked) => setOnboardingForm({ ...onboardingForm, liabilityMatching: !!checked })}
+                    />
+                    <Label htmlFor="liability-matching" className="text-sm">Liability Matching</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {onboardingStep === 3 && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Maximum Credit Risk</Label>
+                  <Select
+                    value={onboardingForm.maxCreditRisk}
+                    onValueChange={(value) => setOnboardingForm({ ...onboardingForm, maxCreditRisk: value })}
+                  >
+                    <SelectTrigger data-testid="select-credit-risk">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AAA">AAA - Highest Safety</SelectItem>
+                      <SelectItem value="AA+">AA+ - Very High Safety</SelectItem>
+                      <SelectItem value="AA">AA - High Safety</SelectItem>
+                      <SelectItem value="AA-">AA- - High Safety</SelectItem>
+                      <SelectItem value="A+">A+ - Adequate Safety</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Maximum Duration (Days)</Label>
+                  <Select
+                    value={onboardingForm.maxDurationDays}
+                    onValueChange={(value) => setOnboardingForm({ ...onboardingForm, maxDurationDays: value })}
+                  >
+                    <SelectTrigger data-testid="select-duration">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30 Days</SelectItem>
+                      <SelectItem value="90">90 Days</SelectItem>
+                      <SelectItem value="180">180 Days</SelectItem>
+                      <SelectItem value="365">365 Days (1 Year)</SelectItem>
+                      <SelectItem value="730">730 Days (2 Years)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label>Maximum Single Counterparty Exposure (%)</Label>
+                <Select
+                  value={onboardingForm.maxSingleCounterparty}
+                  onValueChange={(value) => setOnboardingForm({ ...onboardingForm, maxSingleCounterparty: value })}
+                >
+                  <SelectTrigger data-testid="select-counterparty">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5% - Very Conservative</SelectItem>
+                    <SelectItem value="10">10% - Conservative</SelectItem>
+                    <SelectItem value="15">15% - Moderate</SelectItem>
+                    <SelectItem value="20">20% - Liberal</SelectItem>
+                    <SelectItem value="25">25% - Aggressive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base">Maker-Checker Approval</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Require dual approval for treasury allocations
+                    </p>
+                  </div>
+                  <Switch
+                    checked={onboardingForm.makerCheckerEnabled}
+                    onCheckedChange={(checked) => setOnboardingForm({ ...onboardingForm, makerCheckerEnabled: checked })}
+                    data-testid="switch-maker-checker"
+                  />
+                </div>
+                {!onboardingForm.makerCheckerEnabled && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                    <AlertTriangle className="h-4 w-4 inline mr-1" />
+                    Single approval mode: Proposals will be executed immediately upon first approval.
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm font-medium text-green-800 mb-2">Summary</p>
+                <div className="grid grid-cols-2 gap-2 text-sm text-green-700">
+                  <p>Entity: {onboardingForm.entityName || "Not set"}</p>
+                  <p>Corpus: ₹{onboardingForm.totalCashAvailable ? parseFloat(onboardingForm.totalCashAvailable).toLocaleString('en-IN') : "0"}</p>
+                  <p>Max Risk: {onboardingForm.maxCreditRisk}</p>
+                  <p>Max Duration: {onboardingForm.maxDurationDays} days</p>
+                  <p>Approval: {onboardingForm.makerCheckerEnabled ? "Maker-Checker" : "Single"}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {onboardingStep > 1 && (
+              <Button variant="outline" onClick={() => setOnboardingStep(onboardingStep - 1)}>
+                Back
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setOnboardingDialogOpen(false)}>
+              Cancel
+            </Button>
+            {onboardingStep < 3 ? (
+              <Button 
+                onClick={() => setOnboardingStep(onboardingStep + 1)}
+                disabled={(onboardingStep === 1 && !onboardingForm.clientId) || 
+                         (onboardingStep === 2 && (!onboardingForm.entityName || !onboardingForm.totalCashAvailable))}
+                data-testid="button-next-step"
+              >
+                Next
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => createMandateMutation.mutate(onboardingForm)}
+                disabled={createMandateMutation.isPending}
+                data-testid="button-create-mandate"
+              >
+                {createMandateMutation.isPending ? "Creating..." : "Create Mandate"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

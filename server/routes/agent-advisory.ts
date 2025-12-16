@@ -914,6 +914,281 @@ export function registerAgentAdvisoryRoutes(app: Express) {
     }
   });
 
+  app.get("/api/agent/treasury/eligible-clients", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      
+      const eligibleClients = await db.execute(sql`
+        SELECT 
+          u.id,
+          CONCAT(u.first_name, ' ', u.last_name) as name,
+          u.email,
+          u.mobile,
+          u.kyc_status as "kycStatus",
+          u.kyc_tier as "kycTier",
+          CASE 
+            WHEN tm.id IS NOT NULL THEN true 
+            ELSE false 
+          END as "hasTreasuryMandate"
+        FROM client_agent_relationships car
+        INNER JOIN users u ON u.id = car.client_id
+        LEFT JOIN treasury_mandates tm ON tm.user_id = u.id AND tm.status = 'active'
+        WHERE car.agent_id = ${agentId}
+          AND car.status = 'active'
+        ORDER BY u.first_name, u.last_name
+      `);
+
+      res.json(eligibleClients.rows || []);
+    } catch (error) {
+      console.error("Error fetching eligible clients:", error);
+      res.status(500).json({ error: "Failed to fetch eligible clients" });
+    }
+  });
+
+  app.post("/api/agent/treasury/mandates", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const {
+        clientId,
+        entityName,
+        cin,
+        gstNumber,
+        totalCashAvailable,
+        capitalProtection,
+        liquidityManagement,
+        yieldEnhancement,
+        liabilityMatching,
+        maxCreditRisk,
+        maxDurationDays,
+        maxSingleCounterparty,
+        makerCheckerEnabled
+      } = req.body;
+
+      if (!clientId || !entityName || !totalCashAvailable) {
+        return res.status(400).json({ 
+          error: "Client ID, entity name, and total cash available are required" 
+        });
+      }
+
+      const [relationship] = await db.execute(sql`
+        SELECT id FROM client_agent_relationships 
+        WHERE agent_id = ${agentId} 
+          AND client_id = ${clientId}
+          AND status = 'active'
+      `).then(r => r.rows as any[]);
+
+      if (!relationship) {
+        return res.status(403).json({ error: "Client is not assigned to you" });
+      }
+
+      const [client] = await db.execute(sql`
+        SELECT id, kyc_status, kyc_tier FROM users WHERE id = ${clientId}
+      `).then(r => r.rows as any[]);
+
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      const eligibleTiers = ['enhanced', 'accredited'];
+      if (!eligibleTiers.includes(client.kyc_tier?.toLowerCase())) {
+        return res.status(400).json({ 
+          error: "Client requires Enhanced or Accredited KYC tier for treasury services",
+          currentTier: client.kyc_tier
+        });
+      }
+
+      const [existingMandate] = await db.execute(sql`
+        SELECT id FROM treasury_mandates 
+        WHERE user_id = ${clientId} AND status = 'active'
+      `).then(r => r.rows as any[]);
+
+      if (existingMandate) {
+        return res.status(400).json({ 
+          error: "Client already has an active treasury mandate",
+          existingMandateId: existingMandate.id
+        });
+      }
+
+      if (cin && !/^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(cin)) {
+        return res.status(400).json({ error: "Invalid CIN format" });
+      }
+
+      if (gstNumber && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstNumber)) {
+        return res.status(400).json({ error: "Invalid GST number format" });
+      }
+
+      const mandateId = nanoid();
+
+      await db.execute(sql`
+        INSERT INTO treasury_mandates (
+          id, user_id, entity_name, cin, gst_number, total_cash_available,
+          capital_protection, liquidity_management, yield_enhancement, liability_matching,
+          max_credit_risk, max_duration_days, max_single_counterparty,
+          maker_checker_enabled, status, created_at, updated_at
+        ) VALUES (
+          ${mandateId}, ${clientId}, ${entityName}, ${cin || null}, ${gstNumber || null}, 
+          ${totalCashAvailable},
+          ${capitalProtection !== false}, ${liquidityManagement || false}, 
+          ${yieldEnhancement || false}, ${liabilityMatching || false},
+          ${maxCreditRisk || 'AAA'}, ${maxDurationDays || 365}, 
+          ${maxSingleCounterparty || 10},
+          ${makerCheckerEnabled !== false}, 'active', NOW(), NOW()
+        )
+      `);
+
+      await logAgentAction({
+        agentId,
+        clientId,
+        actionCategory: 'treasury',
+        actionType: 'mandate_created',
+        actionDescription: `Created treasury mandate for ${entityName} with corpus ₹${totalCashAvailable}`,
+        newState: { 
+          mandateId, 
+          entityName, 
+          totalCashAvailable,
+          makerCheckerEnabled: makerCheckerEnabled !== false 
+        }
+      });
+
+      res.status(201).json({
+        success: true,
+        mandateId,
+        message: `Treasury mandate created for ${entityName}`
+      });
+    } catch (error) {
+      console.error("Error creating treasury mandate:", error);
+      res.status(500).json({ error: "Failed to create treasury mandate" });
+    }
+  });
+
+  app.patch("/api/agent/treasury/mandates/:mandateId", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { mandateId } = req.params;
+      const {
+        totalCashAvailable,
+        maxCreditRisk,
+        maxDurationDays,
+        maxSingleCounterparty,
+        capitalProtection,
+        liquidityManagement,
+        yieldEnhancement,
+        liabilityMatching,
+        makerCheckerEnabled
+      } = req.body;
+
+      const [mandate] = await db.execute(sql`
+        SELECT tm.*, car.agent_id
+        FROM treasury_mandates tm
+        INNER JOIN client_agent_relationships car ON car.client_id = tm.user_id
+        WHERE tm.id = ${mandateId}
+          AND car.agent_id = ${agentId}
+          AND car.status = 'active'
+      `).then(r => r.rows as any[]);
+
+      if (!mandate) {
+        return res.status(404).json({ error: "Mandate not found or not accessible" });
+      }
+
+      const updates: string[] = [];
+      if (totalCashAvailable !== undefined) updates.push(`total_cash_available = ${totalCashAvailable}`);
+      if (maxCreditRisk !== undefined) updates.push(`max_credit_risk = '${maxCreditRisk}'`);
+      if (maxDurationDays !== undefined) updates.push(`max_duration_days = ${maxDurationDays}`);
+      if (maxSingleCounterparty !== undefined) updates.push(`max_single_counterparty = ${maxSingleCounterparty}`);
+      if (capitalProtection !== undefined) updates.push(`capital_protection = ${capitalProtection}`);
+      if (liquidityManagement !== undefined) updates.push(`liquidity_management = ${liquidityManagement}`);
+      if (yieldEnhancement !== undefined) updates.push(`yield_enhancement = ${yieldEnhancement}`);
+      if (liabilityMatching !== undefined) updates.push(`liability_matching = ${liabilityMatching}`);
+      if (makerCheckerEnabled !== undefined) updates.push(`maker_checker_enabled = ${makerCheckerEnabled}`);
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: "No fields to update" });
+      }
+
+      await db.execute(sql`
+        UPDATE treasury_mandates 
+        SET ${sql.raw(updates.join(', '))}, updated_at = NOW()
+        WHERE id = ${mandateId}
+      `);
+
+      await logAgentAction({
+        agentId,
+        clientId: mandate.user_id,
+        actionCategory: 'treasury',
+        actionType: 'mandate_updated',
+        actionDescription: `Updated treasury mandate for ${mandate.entity_name}`,
+        previousState: { mandate },
+        newState: req.body
+      });
+
+      res.json({
+        success: true,
+        message: "Treasury mandate updated successfully"
+      });
+    } catch (error) {
+      console.error("Error updating treasury mandate:", error);
+      res.status(500).json({ error: "Failed to update treasury mandate" });
+    }
+  });
+
+  app.post("/api/agent/treasury/mandates/:mandateId/deactivate", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { mandateId } = req.params;
+      const { reason } = req.body;
+
+      const [mandate] = await db.execute(sql`
+        SELECT tm.*, car.agent_id
+        FROM treasury_mandates tm
+        INNER JOIN client_agent_relationships car ON car.client_id = tm.user_id
+        WHERE tm.id = ${mandateId}
+          AND car.agent_id = ${agentId}
+          AND car.status = 'active'
+          AND tm.status = 'active'
+      `).then(r => r.rows as any[]);
+
+      if (!mandate) {
+        return res.status(404).json({ error: "Active mandate not found or not accessible" });
+      }
+
+      const [pendingProposals] = await db.execute(sql`
+        SELECT COUNT(*) as count FROM treasury_proposals 
+        WHERE mandate_id = ${mandateId} 
+          AND status IN ('pending_maker', 'pending_checker', 'pending_approval')
+      `).then(r => r.rows as any[]);
+
+      if (parseInt(pendingProposals.count) > 0) {
+        return res.status(400).json({ 
+          error: "Cannot deactivate mandate with pending proposals. Please resolve pending proposals first."
+        });
+      }
+
+      await db.execute(sql`
+        UPDATE treasury_mandates 
+        SET status = 'inactive', updated_at = NOW()
+        WHERE id = ${mandateId}
+      `);
+
+      await logAgentAction({
+        agentId,
+        clientId: mandate.user_id,
+        actionCategory: 'treasury',
+        actionType: 'mandate_deactivated',
+        actionDescription: `Deactivated treasury mandate for ${mandate.entity_name}${reason ? `: ${reason}` : ''}`,
+        previousState: { status: 'active' },
+        newState: { status: 'inactive', reason }
+      });
+
+      res.json({
+        success: true,
+        message: "Treasury mandate deactivated successfully"
+      });
+    } catch (error) {
+      console.error("Error deactivating treasury mandate:", error);
+      res.status(500).json({ error: "Failed to deactivate treasury mandate" });
+    }
+  });
+
   app.get("/api/agent/treasury/clients", requireAgent, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
