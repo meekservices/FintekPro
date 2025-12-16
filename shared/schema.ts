@@ -15169,3 +15169,385 @@ export const AIAssetClassEnum = z.enum(['equity', 'mutual_fund', 'bond', 'mld', 
 export const AIProposalStatusEnum = z.enum(['draft', 'pending_review', 'approved', 'partially_approved', 'rejected', 'executed', 'expired', 'cancelled']);
 export const AIProposalItemStatusEnum = z.enum(['pending', 'approved', 'rejected', 'modified', 'removed', 'executed']);
 export const RiskCategoryEnum = z.enum(['conservative', 'moderate', 'aggressive']);
+
+// ============================================
+// AGENT PORTAL - CONTROLLED ADVISORY SYSTEM
+// ============================================
+
+// Advisory Sessions - Track controlled advisory workflow sessions
+export const advisorySessions = pgTable("advisory_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationships
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id),
+  
+  // Session Purpose
+  sessionPurpose: varchar("session_purpose").notNull(), // fresh_investment, rebalancing, goal_review, retirement_review, corporate_treasury
+  sessionType: varchar("session_type").default("advisory"), // advisory, review, execution
+  
+  // Workflow State (enforced progression)
+  workflowState: varchar("workflow_state").notNull().default("purpose_selection"), 
+  // States: purpose_selection -> suitability_check -> optimization -> draft_review -> client_sharing -> client_action -> execution
+  workflowStateUpdatedAt: timestamp("workflow_state_updated_at").defaultNow(),
+  
+  // Gate Validations (must pass each gate to progress)
+  suitabilityCheckPassed: boolean("suitability_check_passed").default(false),
+  suitabilityCheckId: varchar("suitability_check_id"),
+  optimizationCompleted: boolean("optimization_completed").default(false),
+  optimizationVersion: varchar("optimization_version"), // Version of optimizer used
+  
+  // Agent Compliance
+  agentArnCode: varchar("agent_arn_code"),
+  agentEuinNumber: varchar("agent_euin_number"),
+  agentDeclarationAcknowledged: boolean("agent_declaration_acknowledged").default(false),
+  agentDeclarationTimestamp: timestamp("agent_declaration_timestamp"),
+  
+  // Client Interaction
+  clientViewedAt: timestamp("client_viewed_at"),
+  clientActionStatus: varchar("client_action_status"), // pending, approved, rejected, clarification_requested
+  clientActionTimestamp: timestamp("client_action_timestamp"),
+  clientActionNote: text("client_action_note"),
+  
+  // Investment Parameters (agent-adjustable within limits)
+  investmentAmount: decimal("investment_amount", { precision: 15, scale: 2 }),
+  investableSuprlusAmount: decimal("investable_surplus_amount", { precision: 15, scale: 2 }), // System-calculated limit
+  
+  // Session Metadata
+  isActive: boolean("is_active").default(true),
+  completedAt: timestamp("completed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_advisory_sessions_agent").on(table.agentId),
+  index("idx_advisory_sessions_client").on(table.clientId),
+  index("idx_advisory_sessions_state").on(table.workflowState),
+]);
+
+// Suitability Checks - Track all suitability assessments for audit
+export const suitabilityChecks = pgTable("suitability_checks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationships
+  sessionId: varchar("session_id").references(() => advisorySessions.id),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Check Type
+  checkType: varchar("check_type").notNull(), // pre_investment, periodic_review, goal_change
+  
+  // Client Assessment Snapshot (point-in-time record)
+  clientCategory: varchar("client_category"), // retail, hni, shni, bhni, corporate
+  riskProfile: varchar("risk_profile"),
+  timeHorizon: integer("time_horizon_years"),
+  investableAmount: decimal("investable_amount", { precision: 15, scale: 2 }),
+  existingPortfolioValue: decimal("existing_portfolio_value", { precision: 15, scale: 2 }),
+  
+  // Suitability Assessment Results
+  overallSuitabilityScore: integer("overall_suitability_score"), // 0-100
+  suitabilityPassed: boolean("suitability_passed").notNull(),
+  suitabilityReason: text("suitability_reason"),
+  
+  // Individual Check Results (JSONB for flexibility)
+  riskToleranceCheck: jsonb("risk_tolerance_check"), // { passed: boolean, score: number, details: string }
+  timeHorizonCheck: jsonb("time_horizon_check"),
+  liquidityNeedCheck: jsonb("liquidity_need_check"),
+  concentrationCheck: jsonb("concentration_check"),
+  productEligibilityCheck: jsonb("product_eligibility_check"),
+  regulatoryComplianceCheck: jsonb("regulatory_compliance_check"),
+  
+  // Red Flags
+  redFlags: jsonb("red_flags").$type<string[]>().default([]),
+  warningsGenerated: jsonb("warnings_generated").$type<string[]>().default([]),
+  
+  // System Metadata
+  engineVersion: varchar("engine_version"), // Version of suitability engine
+  processingTimeMs: integer("processing_time_ms"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_suitability_checks_session").on(table.sessionId),
+  index("idx_suitability_checks_client").on(table.clientId),
+  index("idx_suitability_checks_passed").on(table.suitabilityPassed),
+]);
+
+// Proposal Notes - Agent editable commentary (ALLOWED modifications)
+export const proposalNotes = pgTable("proposal_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationships
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  sessionId: varchar("session_id").references(() => advisorySessions.id),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Note Content
+  noteType: varchar("note_type").notNull(), // introduction, explanation, goal_context, market_outlook, disclaimer_addition
+  notePosition: varchar("note_position").default("general"), // header, goal_section, product_section, footer
+  content: text("content").notNull(),
+  
+  // Goal Association (if applicable)
+  goalId: varchar("goal_id"),
+  goalPriority: integer("goal_priority"), // Agent can reorder goal priorities
+  
+  // Version Control
+  version: integer("version").default(1),
+  previousVersionId: varchar("previous_version_id"),
+  
+  // Moderation
+  isApproved: boolean("is_approved").default(true), // For compliance review if needed
+  approvedBy: varchar("approved_by"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_proposal_notes_proposal").on(table.proposalId),
+  index("idx_proposal_notes_agent").on(table.agentId),
+]);
+
+// Proposal Shares - Track proposal sharing and client interactions
+export const proposalShares = pgTable("proposal_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationships
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
+  sessionId: varchar("session_id").references(() => advisorySessions.id),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Share Details
+  shareMethod: varchar("share_method").notNull(), // secure_link, pdf, email, whatsapp
+  shareToken: varchar("share_token").unique(), // Secure view-only token
+  shareTokenExpiresAt: timestamp("share_token_expires_at"),
+  shareUrl: text("share_url"),
+  
+  // PDF/Document Details
+  documentPath: text("document_path"),
+  documentHash: varchar("document_hash"), // For integrity verification
+  
+  // Client Interaction Tracking
+  viewCount: integer("view_count").default(0),
+  firstViewedAt: timestamp("first_viewed_at"),
+  lastViewedAt: timestamp("last_viewed_at"),
+  
+  // Client Response
+  clientAction: varchar("client_action"), // viewed, approved, rejected, clarification_requested
+  clientActionTimestamp: timestamp("client_action_timestamp"),
+  clientComment: text("client_comment"),
+  clientSignature: text("client_signature"), // Digital signature or acknowledgment
+  
+  // Email/Communication Tracking
+  emailSentAt: timestamp("email_sent_at"),
+  emailDeliveredAt: timestamp("email_delivered_at"),
+  emailOpenedAt: timestamp("email_opened_at"),
+  
+  // Compliance
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_proposal_shares_proposal").on(table.proposalId),
+  index("idx_proposal_shares_client").on(table.clientId),
+  index("idx_proposal_shares_token").on(table.shareToken),
+]);
+
+// Portfolio Uploads - Track portfolio ingestion with client confirmation
+export const portfolioUploads = pgTable("portfolio_uploads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Relationships
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id), // Target portfolio after confirmation
+  
+  // Upload Details
+  uploadType: varchar("upload_type").notNull(), // pdf, excel, csv, api_sync
+  fileName: varchar("file_name"),
+  filePath: text("file_path"),
+  fileSize: integer("file_size"),
+  fileHash: varchar("file_hash"),
+  
+  // Parsing Status
+  parsingStatus: varchar("parsing_status").default("pending"), // pending, processing, parsed, failed
+  parsingError: text("parsing_error"),
+  parsedAt: timestamp("parsed_at"),
+  
+  // Parsed Data (temporary storage before confirmation)
+  parsedHoldings: jsonb("parsed_holdings"), // Array of parsed holdings
+  parsedSummary: jsonb("parsed_summary"), // { totalValue, holdingsCount, assetBreakdown }
+  parsingConfidence: integer("parsing_confidence"), // 0-100 confidence score
+  
+  // Client Confirmation (MANDATORY before analysis)
+  confirmationRequired: boolean("confirmation_required").default(true),
+  confirmationStatus: varchar("confirmation_status").default("pending"), // pending, confirmed, rejected, expired
+  confirmationMethod: varchar("confirmation_method"), // otp, email, in_app
+  confirmationOtp: varchar("confirmation_otp"),
+  confirmationOtpExpiresAt: timestamp("confirmation_otp_expires_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  confirmedByClientId: varchar("confirmed_by_client_id"),
+  
+  // Post-Confirmation Processing
+  mergedToPortfolioAt: timestamp("merged_to_portfolio_at"),
+  analysisTriggeredAt: timestamp("analysis_triggered_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Auto-expire unconfirmed uploads
+}, (table) => [
+  index("idx_portfolio_uploads_agent").on(table.agentId),
+  index("idx_portfolio_uploads_client").on(table.clientId),
+  index("idx_portfolio_uploads_status").on(table.confirmationStatus),
+]);
+
+// Agent Compliance Audit Logs - Comprehensive immutable audit trail (8-year retention)
+export const agentComplianceAuditLogs = pgTable("agent_compliance_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Core Relationships
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id),
+  sessionId: varchar("session_id").references(() => advisorySessions.id),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id),
+  
+  // Agent Identification (immutable snapshot)
+  agentArnCode: varchar("agent_arn_code"),
+  agentEuinNumber: varchar("agent_euin_number"),
+  agentName: varchar("agent_name"),
+  
+  // Action Details
+  actionCategory: varchar("action_category").notNull(), // session, proposal, portfolio, execution, compliance
+  actionType: varchar("action_type").notNull(), // create, update, approve, reject, share, execute, note_added, etc.
+  actionDescription: text("action_description").notNull(),
+  
+  // Before/After State (for change tracking)
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  changedFields: jsonb("changed_fields").$type<string[]>(),
+  
+  // Suitability Evidence
+  suitabilityCheckId: varchar("suitability_check_id"),
+  suitabilityPassed: boolean("suitability_passed"),
+  
+  // System Metadata
+  optimizerVersion: varchar("optimizer_version"),
+  rebalancerVersion: varchar("rebalancer_version"),
+  explainabilityVersion: varchar("explainability_version"),
+  
+  // Client Consent/Approval
+  clientConsentObtained: boolean("client_consent_obtained"),
+  clientConsentTimestamp: timestamp("client_consent_timestamp"),
+  clientConsentMethod: varchar("client_consent_method"), // otp, signature, email
+  
+  // Request Context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprint: varchar("device_fingerprint"),
+  
+  // Regulatory Flags
+  isSebiReportable: boolean("is_sebi_reportable").default(false),
+  regulatoryReportId: varchar("regulatory_report_id"),
+  
+  // Retention (8 years per SEBI requirement)
+  retentionEndDate: timestamp("retention_end_date"), // createdAt + 8 years
+  isArchived: boolean("is_archived").default(false),
+  archivedAt: timestamp("archived_at"),
+  archiveLocation: varchar("archive_location"), // Object storage path for archived logs
+  
+  // Immutable timestamp
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_compliance_audit_agent").on(table.agentId),
+  index("idx_agent_compliance_audit_client").on(table.clientId),
+  index("idx_agent_compliance_audit_session").on(table.sessionId),
+  index("idx_agent_compliance_audit_proposal").on(table.proposalId),
+  index("idx_agent_compliance_audit_action").on(table.actionType),
+  index("idx_agent_compliance_audit_timestamp").on(table.timestamp),
+  index("idx_agent_compliance_audit_category").on(table.actionCategory),
+]);
+
+// Insert schemas and types for Agent Portal
+export const insertAdvisorySessionSchema = createInsertSchema(advisorySessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  workflowStateUpdatedAt: true,
+});
+export type AdvisorySession = typeof advisorySessions.$inferSelect;
+export type InsertAdvisorySession = z.infer<typeof insertAdvisorySessionSchema>;
+
+export const insertSuitabilityCheckSchema = createInsertSchema(suitabilityChecks).omit({
+  id: true,
+  createdAt: true,
+});
+export type SuitabilityCheck = typeof suitabilityChecks.$inferSelect;
+export type InsertSuitabilityCheck = z.infer<typeof insertSuitabilityCheckSchema>;
+
+export const insertProposalNoteSchema = createInsertSchema(proposalNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ProposalNote = typeof proposalNotes.$inferSelect;
+export type InsertProposalNote = z.infer<typeof insertProposalNoteSchema>;
+
+export const insertProposalShareSchema = createInsertSchema(proposalShares).omit({
+  id: true,
+  createdAt: true,
+});
+export type ProposalShare = typeof proposalShares.$inferSelect;
+export type InsertProposalShare = z.infer<typeof insertProposalShareSchema>;
+
+export const insertPortfolioUploadSchema = createInsertSchema(portfolioUploads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PortfolioUpload = typeof portfolioUploads.$inferSelect;
+export type InsertPortfolioUpload = z.infer<typeof insertPortfolioUploadSchema>;
+
+export const insertAgentComplianceAuditLogSchema = createInsertSchema(agentComplianceAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+export type AgentComplianceAuditLog = typeof agentComplianceAuditLogs.$inferSelect;
+export type InsertAgentComplianceAuditLog = z.infer<typeof insertAgentComplianceAuditLogSchema>;
+
+// Workflow state enum for type safety
+export const AdvisoryWorkflowStateEnum = z.enum([
+  'purpose_selection',
+  'suitability_check',
+  'optimization',
+  'draft_review',
+  'client_sharing',
+  'client_action',
+  'execution',
+  'completed',
+  'cancelled'
+]);
+
+// Session purpose enum
+export const AdvisorySessionPurposeEnum = z.enum([
+  'fresh_investment',
+  'rebalancing',
+  'goal_review',
+  'retirement_review',
+  'corporate_treasury'
+]);
+
+// Client action enum
+export const ClientActionEnum = z.enum([
+  'pending',
+  'viewed',
+  'approved',
+  'rejected',
+  'clarification_requested'
+]);
