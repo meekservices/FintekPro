@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { assetAllocationOptimizer } from "../services/asset-allocation-optimizer";
+import { rebalancingEngine, RebalanceInput } from "../services/rebalancing-engine";
 
 const router = Router();
 
@@ -169,6 +170,121 @@ router.get("/risk-profiles", async (_req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: "Failed to fetch risk profiles"
+    });
+  }
+});
+
+const comprehensiveRebalanceSchema = z.object({
+  currentAllocations: z.record(z.string(), z.number()),
+  currentValues: z.record(z.string(), z.number()).optional(),
+  totalPortfolioValue: z.number().positive(),
+  riskScore: z.number().min(0).max(100),
+  segment: z.enum(['retail', 'hni', 'shni', 'bhni', 'corporate']),
+  investmentHorizon: z.number().min(1).max(50),
+  goalType: z.enum(['growth', 'income', 'preservation', 'balanced']).optional(),
+  driftThreshold: z.number().min(0).max(50).optional(),
+  taxBracket: z.number().min(0).max(40).optional(),
+  holdingPeriods: z.record(z.string(), z.number()).optional(),
+  cashInflow: z.number().min(0).optional(),
+  cashOutflow: z.number().min(0).optional(),
+  rebalanceReason: z.enum([
+    'DRIFT_THRESHOLD_EXCEEDED', 'RISK_PROFILE_CHANGED', 'GOAL_TIMELINE_CHANGED',
+    'MARKET_CONDITIONS_SHIFT', 'TAX_LOSS_HARVESTING', 'CASH_INFLOW', 'CASH_OUTFLOW',
+    'REBALANCE_SCHEDULE', 'CONSTRAINT_VIOLATION', 'CONCENTRATION_RISK'
+  ]).optional(),
+  targetAllocations: z.record(z.string(), z.number()).optional()
+});
+
+router.post("/rebalance/analyze", async (req: Request, res: Response) => {
+  try {
+    const input = comprehensiveRebalanceSchema.parse(req.body);
+    
+    const rebalanceInput: RebalanceInput = {
+      ...input,
+      currentValues: input.currentValues ?? Object.fromEntries(
+        Object.entries(input.currentAllocations).map(([type, alloc]) => 
+          [type, input.totalPortfolioValue * alloc / 100]
+        )
+      )
+    };
+    
+    const analysis = rebalancingEngine.analyzeAndRebalance(rebalanceInput);
+    
+    res.json({
+      success: true,
+      data: analysis
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation failed",
+        details: error.errors
+      });
+    }
+    console.error("Rebalancing analysis error:", error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Rebalancing analysis failed"
+    });
+  }
+});
+
+router.post("/rebalance/simulate", async (req: Request, res: Response) => {
+  try {
+    const input = comprehensiveRebalanceSchema.parse(req.body);
+    
+    const rebalanceInput: RebalanceInput = {
+      ...input,
+      currentValues: input.currentValues ?? Object.fromEntries(
+        Object.entries(input.currentAllocations).map(([type, alloc]) => 
+          [type, input.totalPortfolioValue * alloc / 100]
+        )
+      )
+    };
+    
+    const simulation = rebalancingEngine.simulateRebalance(rebalanceInput);
+    
+    res.json({
+      success: true,
+      data: simulation
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation failed",
+        details: error.errors
+      });
+    }
+    console.error("Rebalancing simulation error:", error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Rebalancing simulation failed"
+    });
+  }
+});
+
+router.get("/rebalance/reason-codes", async (_req: Request, res: Response) => {
+  try {
+    const reasonCodes = [
+      { code: 'DRIFT_THRESHOLD_EXCEEDED', label: 'Drift Threshold Exceeded', description: 'Allocation has drifted beyond acceptable threshold' },
+      { code: 'RISK_PROFILE_CHANGED', label: 'Risk Profile Changed', description: 'Your risk profile has changed' },
+      { code: 'GOAL_TIMELINE_CHANGED', label: 'Goal Timeline Changed', description: 'Your investment timeline has changed' },
+      { code: 'MARKET_CONDITIONS_SHIFT', label: 'Market Conditions Shift', description: 'Market conditions warrant adjustment' },
+      { code: 'TAX_LOSS_HARVESTING', label: 'Tax Loss Harvesting', description: 'Opportunity for tax-loss harvesting' },
+      { code: 'CASH_INFLOW', label: 'Cash Inflow', description: 'New cash available for investment' },
+      { code: 'CASH_OUTFLOW', label: 'Cash Outflow', description: 'Cash withdrawal required' },
+      { code: 'REBALANCE_SCHEDULE', label: 'Scheduled Rebalance', description: 'Scheduled periodic rebalancing' },
+      { code: 'CONSTRAINT_VIOLATION', label: 'Constraint Violation', description: 'Portfolio constraints are violated' },
+      { code: 'CONCENTRATION_RISK', label: 'Concentration Risk', description: 'Position exceeds concentration limits' }
+    ];
+    res.json({ success: true, data: reasonCodes });
+  } catch (error) {
+    console.error("Error fetching reason codes:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch reason codes"
     });
   }
 });

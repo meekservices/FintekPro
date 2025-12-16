@@ -1,0 +1,636 @@
+import { 
+  assetAllocationOptimizer, 
+  ASSET_CLASSES, 
+  EQUITY_TYPES, 
+  DEBT_TYPES, 
+  ALTERNATIVE_TYPES, 
+  LIQUID_TYPES,
+  OptimizationInput
+} from './asset-allocation-optimizer';
+
+export type RebalanceReason = 
+  | 'DRIFT_THRESHOLD_EXCEEDED'
+  | 'RISK_PROFILE_CHANGED'
+  | 'GOAL_TIMELINE_CHANGED'
+  | 'MARKET_CONDITIONS_SHIFT'
+  | 'TAX_LOSS_HARVESTING'
+  | 'CASH_INFLOW'
+  | 'CASH_OUTFLOW'
+  | 'REBALANCE_SCHEDULE'
+  | 'CONSTRAINT_VIOLATION'
+  | 'CONCENTRATION_RISK';
+
+export type TradeAction = 'buy' | 'sell' | 'hold';
+
+export interface RebalanceTrade {
+  assetType: string;
+  assetName: string;
+  action: TradeAction;
+  currentAllocation: number;
+  targetAllocation: number;
+  allocationDiff: number;
+  currentValue: number;
+  targetValue: number;
+  tradeValue: number;
+  priority: number;
+  reasonCodes: RebalanceReason[];
+  taxImpact: TaxImpact;
+  rationale: string;
+}
+
+export interface TaxImpact {
+  shortTermGains: number;
+  longTermGains: number;
+  taxableAmount: number;
+  estimatedTax: number;
+  taxEfficiency: 'high' | 'medium' | 'low';
+}
+
+export interface RebalanceAnalysis {
+  needsRebalance: boolean;
+  urgency: 'immediate' | 'recommended' | 'optional' | 'none';
+  driftAnalysis: DriftAnalysis;
+  trades: RebalanceTrade[];
+  summary: RebalanceSummary;
+  constraints: ConstraintAnalysis;
+  recommendations: string[];
+}
+
+export interface DriftAnalysis {
+  maxDrift: number;
+  averageDrift: number;
+  assetDrifts: { assetType: string; drift: number; direction: 'over' | 'under' | 'neutral' }[];
+  equityDrift: number;
+  debtDrift: number;
+  portfolioRiskDrift: number;
+}
+
+export interface RebalanceSummary {
+  totalBuyValue: number;
+  totalSellValue: number;
+  netCashFlow: number;
+  numberOfTrades: number;
+  estimatedTotalTax: number;
+  portfolioTurnover: number;
+}
+
+export interface ConstraintAnalysis {
+  equityRange: { min: number; max: number; current: number; target: number; inRange: boolean };
+  debtRange: { min: number; max: number; current: number; target: number; inRange: boolean };
+  liquidityRange: { min: number; max: number; current: number; target: number; inRange: boolean };
+  singleAssetLimit: { max: number; violations: string[] };
+}
+
+export interface RebalanceInput {
+  currentAllocations: { [assetType: string]: number };
+  currentValues: { [assetType: string]: number };
+  totalPortfolioValue: number;
+  riskScore: number;
+  segment: string;
+  investmentHorizon: number;
+  goalType?: string;
+  driftThreshold?: number;
+  taxBracket?: number;
+  holdingPeriods?: { [assetType: string]: number };
+  cashInflow?: number;
+  cashOutflow?: number;
+  rebalanceReason?: RebalanceReason;
+  targetAllocations?: { [assetType: string]: number };
+}
+
+const SHORT_TERM_TAX_RATE: { [bracket: string]: number } = {
+  '10': 0.10,
+  '20': 0.20,
+  '30': 0.30,
+  'default': 0.30
+};
+
+const LONG_TERM_TAX_RATE = {
+  equity: 0.10,
+  debt: 0.20,
+  others: 0.20
+};
+
+class RebalancingEngine {
+  private readonly DEFAULT_DRIFT_THRESHOLD = 5;
+  private readonly URGENT_DRIFT_THRESHOLD = 10;
+  private readonly CONCENTRATION_THRESHOLD = 30;
+
+  analyzeAndRebalance(input: RebalanceInput): RebalanceAnalysis {
+    const driftThreshold = input.driftThreshold ?? this.DEFAULT_DRIFT_THRESHOLD;
+
+    let targetAllocations = input.targetAllocations;
+    if (!targetAllocations) {
+      const optimizationResult = assetAllocationOptimizer.optimize({
+        riskScore: input.riskScore,
+        segment: input.segment as 'retail' | 'hni' | 'shni' | 'bhni' | 'corporate',
+        investableAmount: input.totalPortfolioValue + (input.cashInflow ?? 0) - (input.cashOutflow ?? 0),
+        investmentHorizon: input.investmentHorizon,
+        goalType: input.goalType as 'growth' | 'income' | 'preservation' | 'balanced' | undefined
+      });
+      targetAllocations = {};
+      for (const alloc of optimizationResult.allocations) {
+        targetAllocations[alloc.assetType] = alloc.allocation;
+      }
+    }
+
+    const constraints = assetAllocationOptimizer.getConstraints(input.riskScore, input.segment);
+    const driftAnalysis = this.analyzeDrift(input.currentAllocations, targetAllocations, constraints);
+    const constraintAnalysis = this.analyzeConstraints(input.currentAllocations, targetAllocations, constraints);
+    const needsRebalance = this.determineRebalanceNeed(driftAnalysis, constraintAnalysis, driftThreshold);
+    const urgency = this.determineUrgency(driftAnalysis, constraintAnalysis);
+    const trades = this.generateTrades(input, targetAllocations, driftAnalysis, constraints);
+    const summary = this.calculateSummary(trades, input.totalPortfolioValue);
+    const recommendations = this.generateRecommendations(driftAnalysis, constraintAnalysis, trades, input);
+
+    return {
+      needsRebalance,
+      urgency,
+      driftAnalysis,
+      trades,
+      summary,
+      constraints: constraintAnalysis,
+      recommendations
+    };
+  }
+
+  private analyzeDrift(
+    current: { [type: string]: number },
+    target: { [type: string]: number },
+    constraints: { minEquity: number; maxEquity: number; minDebt: number; maxDebt: number }
+  ): DriftAnalysis {
+    const allTypes = Array.from(new Set([...Object.keys(current), ...Object.keys(target)]));
+    const assetDrifts: { assetType: string; drift: number; direction: 'over' | 'under' | 'neutral' }[] = [];
+    let totalDrift = 0;
+    let maxDrift = 0;
+
+    for (const type of allTypes) {
+      const currentVal = current[type] ?? 0;
+      const targetVal = target[type] ?? 0;
+      const drift = currentVal - targetVal;
+
+      assetDrifts.push({
+        assetType: type,
+        drift: Math.round(drift * 100) / 100,
+        direction: drift > 0.5 ? 'over' : drift < -0.5 ? 'under' : 'neutral'
+      });
+
+      totalDrift += Math.abs(drift);
+      maxDrift = Math.max(maxDrift, Math.abs(drift));
+    }
+
+    const currentEquity = this.getGroupSum(current, EQUITY_TYPES);
+    const targetEquity = this.getGroupSum(target, EQUITY_TYPES);
+    const currentDebt = this.getGroupSum(current, DEBT_TYPES);
+    const targetDebt = this.getGroupSum(target, DEBT_TYPES);
+
+    const equityDrift = currentEquity - targetEquity;
+    const debtDrift = currentDebt - targetDebt;
+
+    const portfolioRiskDrift = this.calculatePortfolioRiskDrift(current, target);
+
+    return {
+      maxDrift: Math.round(maxDrift * 100) / 100,
+      averageDrift: Math.round((totalDrift / allTypes.length) * 100) / 100,
+      assetDrifts: assetDrifts.filter(d => Math.abs(d.drift) > 0.1),
+      equityDrift: Math.round(equityDrift * 100) / 100,
+      debtDrift: Math.round(debtDrift * 100) / 100,
+      portfolioRiskDrift: Math.round(portfolioRiskDrift * 100) / 100
+    };
+  }
+
+  private calculatePortfolioRiskDrift(
+    current: { [type: string]: number },
+    target: { [type: string]: number }
+  ): number {
+    let currentRisk = 0;
+    let targetRisk = 0;
+
+    for (const asset of ASSET_CLASSES) {
+      const currentWeight = (current[asset.type] ?? 0) / 100;
+      const targetWeight = (target[asset.type] ?? 0) / 100;
+      currentRisk += currentWeight * asset.volatility;
+      targetRisk += targetWeight * asset.volatility;
+    }
+
+    return currentRisk - targetRisk;
+  }
+
+  private analyzeConstraints(
+    current: { [type: string]: number },
+    target: { [type: string]: number },
+    constraints: { minEquity: number; maxEquity: number; minDebt: number; maxDebt: number; minLiquidity: number; maxSingleAsset: number }
+  ): ConstraintAnalysis {
+    const currentEquity = this.getGroupSum(current, EQUITY_TYPES);
+    const targetEquity = this.getGroupSum(target, EQUITY_TYPES);
+    const currentDebt = this.getGroupSum(current, DEBT_TYPES);
+    const targetDebt = this.getGroupSum(target, DEBT_TYPES);
+    const currentLiquidity = this.getGroupSum(current, LIQUID_TYPES);
+    const targetLiquidity = this.getGroupSum(target, LIQUID_TYPES);
+
+    const violations: string[] = [];
+    for (const [type, allocation] of Object.entries(current)) {
+      if (allocation > constraints.maxSingleAsset) {
+        violations.push(type);
+      }
+    }
+
+    return {
+      equityRange: {
+        min: constraints.minEquity,
+        max: constraints.maxEquity,
+        current: Math.round(currentEquity * 100) / 100,
+        target: Math.round(targetEquity * 100) / 100,
+        inRange: currentEquity >= constraints.minEquity - 0.5 && currentEquity <= constraints.maxEquity + 0.5
+      },
+      debtRange: {
+        min: constraints.minDebt,
+        max: constraints.maxDebt,
+        current: Math.round(currentDebt * 100) / 100,
+        target: Math.round(targetDebt * 100) / 100,
+        inRange: currentDebt >= constraints.minDebt - 0.5 && currentDebt <= constraints.maxDebt + 0.5
+      },
+      liquidityRange: {
+        min: constraints.minLiquidity,
+        max: 100,
+        current: Math.round(currentLiquidity * 100) / 100,
+        target: Math.round(targetLiquidity * 100) / 100,
+        inRange: currentLiquidity >= constraints.minLiquidity - 0.5
+      },
+      singleAssetLimit: {
+        max: constraints.maxSingleAsset,
+        violations
+      }
+    };
+  }
+
+  private determineRebalanceNeed(
+    drift: DriftAnalysis,
+    constraints: ConstraintAnalysis,
+    threshold: number
+  ): boolean {
+    if (drift.maxDrift >= threshold) return true;
+    if (!constraints.equityRange.inRange) return true;
+    if (!constraints.debtRange.inRange) return true;
+    if (!constraints.liquidityRange.inRange) return true;
+    if (constraints.singleAssetLimit.violations.length > 0) return true;
+    if (Math.abs(drift.portfolioRiskDrift) > 2) return true;
+    return false;
+  }
+
+  private determineUrgency(
+    drift: DriftAnalysis,
+    constraints: ConstraintAnalysis
+  ): 'immediate' | 'recommended' | 'optional' | 'none' {
+    if (!constraints.equityRange.inRange || !constraints.debtRange.inRange) return 'immediate';
+    if (constraints.singleAssetLimit.violations.length > 0) return 'immediate';
+    if (drift.maxDrift >= this.URGENT_DRIFT_THRESHOLD) return 'immediate';
+    if (drift.maxDrift >= this.DEFAULT_DRIFT_THRESHOLD) return 'recommended';
+    if (drift.maxDrift >= 2) return 'optional';
+    return 'none';
+  }
+
+  private generateTrades(
+    input: RebalanceInput,
+    targetAllocations: { [type: string]: number },
+    drift: DriftAnalysis,
+    constraints: { minEquity: number; maxEquity: number; minDebt: number; maxDebt: number; minLiquidity: number; maxSingleAsset: number }
+  ): RebalanceTrade[] {
+    const trades: RebalanceTrade[] = [];
+    const allTypes = Array.from(new Set([...Object.keys(input.currentAllocations), ...Object.keys(targetAllocations)]));
+    const effectiveValue = input.totalPortfolioValue + (input.cashInflow ?? 0) - (input.cashOutflow ?? 0);
+
+    for (const type of allTypes) {
+      const currentAlloc = input.currentAllocations[type] ?? 0;
+      const targetAlloc = targetAllocations[type] ?? 0;
+      const diff = targetAlloc - currentAlloc;
+
+      if (Math.abs(diff) < 0.5) continue;
+
+      const currentValue = input.currentValues[type] ?? (input.totalPortfolioValue * currentAlloc / 100);
+      const targetValue = effectiveValue * targetAlloc / 100;
+      const tradeValue = Math.abs(targetValue - currentValue);
+
+      const action: TradeAction = diff > 0 ? 'buy' : diff < 0 ? 'sell' : 'hold';
+      const reasonCodes = this.determineReasonCodes(type, currentAlloc, targetAlloc, drift, constraints, input);
+      const priority = this.calculateTradePriority(type, action, diff, reasonCodes, constraints);
+      const taxImpact = action === 'sell' 
+        ? this.calculateTaxImpact(type, tradeValue, input.holdingPeriods?.[type], input.taxBracket)
+        : { shortTermGains: 0, longTermGains: 0, taxableAmount: 0, estimatedTax: 0, taxEfficiency: 'high' as const };
+
+      const assetInfo = ASSET_CLASSES.find(a => a.type === type);
+
+      trades.push({
+        assetType: type,
+        assetName: assetInfo?.name ?? type,
+        action,
+        currentAllocation: Math.round(currentAlloc * 100) / 100,
+        targetAllocation: Math.round(targetAlloc * 100) / 100,
+        allocationDiff: Math.round(diff * 100) / 100,
+        currentValue: Math.round(currentValue),
+        targetValue: Math.round(targetValue),
+        tradeValue: Math.round(tradeValue),
+        priority,
+        reasonCodes,
+        taxImpact,
+        rationale: this.generateTradeRationale(type, action, diff, reasonCodes)
+      });
+    }
+
+    return trades.sort((a, b) => b.priority - a.priority);
+  }
+
+  private determineReasonCodes(
+    assetType: string,
+    current: number,
+    target: number,
+    drift: DriftAnalysis,
+    constraints: { minEquity: number; maxEquity: number; minDebt: number; maxDebt: number; maxSingleAsset: number },
+    input: RebalanceInput
+  ): RebalanceReason[] {
+    const reasons: RebalanceReason[] = [];
+
+    if (Math.abs(current - target) >= (input.driftThreshold ?? this.DEFAULT_DRIFT_THRESHOLD)) {
+      reasons.push('DRIFT_THRESHOLD_EXCEEDED');
+    }
+
+    if (input.rebalanceReason) {
+      reasons.push(input.rebalanceReason);
+    }
+
+    if (current > constraints.maxSingleAsset) {
+      reasons.push('CONCENTRATION_RISK');
+    }
+
+    if (EQUITY_TYPES.includes(assetType)) {
+      const currentEquity = this.getGroupSum(input.currentAllocations, EQUITY_TYPES);
+      if (currentEquity < constraints.minEquity - 0.5 || currentEquity > constraints.maxEquity + 0.5) {
+        reasons.push('CONSTRAINT_VIOLATION');
+      }
+    }
+
+    if (DEBT_TYPES.includes(assetType)) {
+      const currentDebt = this.getGroupSum(input.currentAllocations, DEBT_TYPES);
+      if (currentDebt < constraints.minDebt - 0.5 || currentDebt > constraints.maxDebt + 0.5) {
+        reasons.push('CONSTRAINT_VIOLATION');
+      }
+    }
+
+    if (input.cashInflow && input.cashInflow > 0) {
+      reasons.push('CASH_INFLOW');
+    }
+
+    if (input.cashOutflow && input.cashOutflow > 0) {
+      reasons.push('CASH_OUTFLOW');
+    }
+
+    if (reasons.length === 0) {
+      reasons.push('REBALANCE_SCHEDULE');
+    }
+
+    return reasons;
+  }
+
+  private calculateTradePriority(
+    assetType: string,
+    action: TradeAction,
+    diff: number,
+    reasons: RebalanceReason[],
+    constraints: { maxSingleAsset: number }
+  ): number {
+    let priority = 0;
+
+    priority += Math.abs(diff) * 2;
+
+    if (reasons.includes('CONSTRAINT_VIOLATION')) priority += 30;
+    if (reasons.includes('CONCENTRATION_RISK')) priority += 25;
+    if (reasons.includes('DRIFT_THRESHOLD_EXCEEDED')) priority += 15;
+    if (reasons.includes('TAX_LOSS_HARVESTING')) priority += 10;
+    if (reasons.includes('CASH_INFLOW')) priority += 5;
+    if (reasons.includes('CASH_OUTFLOW')) priority += 5;
+
+    if (LIQUID_TYPES.includes(assetType) && action === 'sell') {
+      priority += 10;
+    }
+
+    if (ALTERNATIVE_TYPES.includes(assetType) && action === 'buy') {
+      priority -= 5;
+    }
+
+    return Math.round(priority);
+  }
+
+  private calculateTaxImpact(
+    assetType: string,
+    tradeValue: number,
+    holdingPeriodMonths?: number,
+    taxBracket?: number
+  ): TaxImpact {
+    const assumedGainPercentage = 0.15;
+    const taxableAmount = tradeValue * assumedGainPercentage;
+
+    const isEquity = EQUITY_TYPES.includes(assetType);
+    const holdingPeriod = holdingPeriodMonths ?? 6;
+    const longTermThreshold = isEquity ? 12 : 36;
+    const isLongTerm = holdingPeriod >= longTermThreshold;
+
+    const shortTermRate = SHORT_TERM_TAX_RATE[String(taxBracket)] ?? SHORT_TERM_TAX_RATE.default;
+    const longTermRate = isEquity ? LONG_TERM_TAX_RATE.equity : LONG_TERM_TAX_RATE.debt;
+
+    let shortTermGains = 0;
+    let longTermGains = 0;
+    let estimatedTax = 0;
+
+    if (isLongTerm) {
+      longTermGains = taxableAmount;
+      estimatedTax = taxableAmount * longTermRate;
+    } else {
+      shortTermGains = taxableAmount;
+      estimatedTax = taxableAmount * shortTermRate;
+    }
+
+    const taxEfficiency: 'high' | 'medium' | 'low' = 
+      estimatedTax === 0 ? 'high' :
+      estimatedTax / tradeValue < 0.02 ? 'high' :
+      estimatedTax / tradeValue < 0.05 ? 'medium' : 'low';
+
+    return {
+      shortTermGains: Math.round(shortTermGains),
+      longTermGains: Math.round(longTermGains),
+      taxableAmount: Math.round(taxableAmount),
+      estimatedTax: Math.round(estimatedTax),
+      taxEfficiency
+    };
+  }
+
+  private generateTradeRationale(
+    assetType: string,
+    action: TradeAction,
+    diff: number,
+    reasons: RebalanceReason[]
+  ): string {
+    const assetInfo = ASSET_CLASSES.find(a => a.type === assetType);
+    const assetName = assetInfo?.name ?? assetType;
+    const absChange = Math.abs(diff).toFixed(1);
+
+    const reasonDescriptions: { [key in RebalanceReason]: string } = {
+      'DRIFT_THRESHOLD_EXCEEDED': 'allocation has drifted beyond acceptable threshold',
+      'RISK_PROFILE_CHANGED': 'your risk profile has changed',
+      'GOAL_TIMELINE_CHANGED': 'your investment timeline has changed',
+      'MARKET_CONDITIONS_SHIFT': 'market conditions warrant adjustment',
+      'TAX_LOSS_HARVESTING': 'opportunity for tax-loss harvesting',
+      'CASH_INFLOW': 'new cash available for investment',
+      'CASH_OUTFLOW': 'cash withdrawal required',
+      'REBALANCE_SCHEDULE': 'scheduled periodic rebalancing',
+      'CONSTRAINT_VIOLATION': 'portfolio constraints are violated',
+      'CONCENTRATION_RISK': 'position exceeds concentration limits'
+    };
+
+    const primaryReason = reasons[0];
+    const reasonText = reasonDescriptions[primaryReason];
+
+    if (action === 'buy') {
+      return `Increase ${assetName} by ${absChange}% because ${reasonText}.`;
+    } else if (action === 'sell') {
+      return `Reduce ${assetName} by ${absChange}% because ${reasonText}.`;
+    } else {
+      return `Maintain ${assetName} position.`;
+    }
+  }
+
+  private calculateSummary(trades: RebalanceTrade[], totalValue: number): RebalanceSummary {
+    let totalBuyValue = 0;
+    let totalSellValue = 0;
+    let estimatedTotalTax = 0;
+
+    for (const trade of trades) {
+      if (trade.action === 'buy') {
+        totalBuyValue += trade.tradeValue;
+      } else if (trade.action === 'sell') {
+        totalSellValue += trade.tradeValue;
+        estimatedTotalTax += trade.taxImpact.estimatedTax;
+      }
+    }
+
+    const numberOfTrades = trades.filter(t => t.action !== 'hold').length;
+    const portfolioTurnover = ((totalBuyValue + totalSellValue) / 2) / totalValue * 100;
+
+    return {
+      totalBuyValue: Math.round(totalBuyValue),
+      totalSellValue: Math.round(totalSellValue),
+      netCashFlow: Math.round(totalSellValue - totalBuyValue),
+      numberOfTrades,
+      estimatedTotalTax: Math.round(estimatedTotalTax),
+      portfolioTurnover: Math.round(portfolioTurnover * 100) / 100
+    };
+  }
+
+  private generateRecommendations(
+    drift: DriftAnalysis,
+    constraints: ConstraintAnalysis,
+    trades: RebalanceTrade[],
+    input: RebalanceInput
+  ): string[] {
+    const recommendations: string[] = [];
+
+    if (!constraints.equityRange.inRange) {
+      if (constraints.equityRange.current < constraints.equityRange.min) {
+        recommendations.push(`Equity allocation (${constraints.equityRange.current}%) is below minimum (${constraints.equityRange.min}%). Consider increasing equity exposure to match your risk profile.`);
+      } else {
+        recommendations.push(`Equity allocation (${constraints.equityRange.current}%) exceeds maximum (${constraints.equityRange.max}%). Consider reducing equity exposure to manage risk.`);
+      }
+    }
+
+    if (!constraints.debtRange.inRange) {
+      if (constraints.debtRange.current < constraints.debtRange.min) {
+        recommendations.push(`Debt allocation (${constraints.debtRange.current}%) is below minimum (${constraints.debtRange.min}%). Consider adding fixed income for stability.`);
+      } else {
+        recommendations.push(`Debt allocation (${constraints.debtRange.current}%) exceeds maximum (${constraints.debtRange.max}%). Consider reducing fixed income to improve returns.`);
+      }
+    }
+
+    if (constraints.singleAssetLimit.violations.length > 0) {
+      const violators = constraints.singleAssetLimit.violations.join(', ');
+      recommendations.push(`Concentration risk detected in: ${violators}. Diversify to reduce single-asset exposure.`);
+    }
+
+    if (drift.maxDrift > 10) {
+      recommendations.push(`Significant portfolio drift detected (max ${drift.maxDrift}%). Immediate rebalancing recommended.`);
+    }
+
+    const highTaxTrades = trades.filter(t => t.taxImpact.taxEfficiency === 'low');
+    if (highTaxTrades.length > 0) {
+      recommendations.push(`Some trades have high tax impact. Consider timing trades to minimize tax liability or using tax-advantaged accounts.`);
+    }
+
+    if (input.cashInflow && input.cashInflow > 0) {
+      recommendations.push(`Deploy new cash across underweight positions to minimize selling and associated taxes.`);
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push(`Portfolio is well-balanced. Continue periodic monitoring.`);
+    }
+
+    return recommendations;
+  }
+
+  private getGroupSum(allocations: { [type: string]: number }, types: string[]): number {
+    return types.reduce((sum, type) => sum + (allocations[type] ?? 0), 0);
+  }
+
+  simulateRebalance(
+    input: RebalanceInput,
+    executeTrades: boolean = false
+  ): { beforeMetrics: PortfolioMetrics; afterMetrics: PortfolioMetrics; improvement: PortfolioMetrics } {
+    const analysis = this.analyzeAndRebalance(input);
+
+    const beforeMetrics = this.calculatePortfolioMetrics(input.currentAllocations);
+
+    const afterAllocations: { [type: string]: number } = { ...input.currentAllocations };
+    for (const trade of analysis.trades) {
+      afterAllocations[trade.assetType] = trade.targetAllocation;
+    }
+
+    const afterMetrics = this.calculatePortfolioMetrics(afterAllocations);
+
+    return {
+      beforeMetrics,
+      afterMetrics,
+      improvement: {
+        expectedReturn: afterMetrics.expectedReturn - beforeMetrics.expectedReturn,
+        volatility: afterMetrics.volatility - beforeMetrics.volatility,
+        sharpeRatio: afterMetrics.sharpeRatio - beforeMetrics.sharpeRatio
+      }
+    };
+  }
+
+  private calculatePortfolioMetrics(allocations: { [type: string]: number }): PortfolioMetrics {
+    let expectedReturn = 0;
+    let volatility = 0;
+
+    for (const [type, weight] of Object.entries(allocations)) {
+      const asset = ASSET_CLASSES.find(a => a.type === type);
+      if (asset) {
+        expectedReturn += (weight / 100) * asset.expectedReturn;
+        volatility += (weight / 100) * asset.volatility;
+      }
+    }
+
+    const riskFreeRate = 5;
+    const sharpeRatio = volatility > 0 ? (expectedReturn - riskFreeRate) / volatility : 0;
+
+    return {
+      expectedReturn: Math.round(expectedReturn * 100) / 100,
+      volatility: Math.round(volatility * 100) / 100,
+      sharpeRatio: Math.round(sharpeRatio * 100) / 100
+    };
+  }
+}
+
+interface PortfolioMetrics {
+  expectedReturn: number;
+  volatility: number;
+  sharpeRatio: number;
+}
+
+export const rebalancingEngine = new RebalancingEngine();

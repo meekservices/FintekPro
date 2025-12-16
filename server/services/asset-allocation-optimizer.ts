@@ -85,7 +85,7 @@ interface AssetBounds {
   max: number;
 }
 
-const ASSET_CLASSES: AssetClass[] = [
+export const ASSET_CLASSES: AssetClass[] = [
   { type: 'large_cap_equity', name: 'Large Cap Equity', expectedReturn: 12, volatility: 16, minAllocation: 0, maxAllocation: 60, liquidityScore: 9, taxEfficiency: 7 },
   { type: 'mid_cap_equity', name: 'Mid Cap Equity', expectedReturn: 14, volatility: 22, minAllocation: 0, maxAllocation: 40, liquidityScore: 8, taxEfficiency: 7 },
   { type: 'small_cap_equity', name: 'Small Cap Equity', expectedReturn: 16, volatility: 28, minAllocation: 0, maxAllocation: 30, liquidityScore: 6, taxEfficiency: 7 },
@@ -111,10 +111,10 @@ const CORRELATION_MATRIX: CorrelationMatrix = {
   alternatives: { large_cap_equity: 0.60, mid_cap_equity: 0.65, small_cap_equity: 0.70, international_equity: 0.50, government_bonds: -0.10, corporate_bonds: 0.10, money_market: 0.00, gold: 0.10, real_estate: 0.40, alternatives: 1.0 }
 };
 
-const EQUITY_TYPES = ['large_cap_equity', 'mid_cap_equity', 'small_cap_equity', 'international_equity'];
-const DEBT_TYPES = ['government_bonds', 'corporate_bonds', 'money_market'];
-const ALTERNATIVE_TYPES = ['alternatives'];
-const LIQUID_TYPES = ['money_market', 'government_bonds'];
+export const EQUITY_TYPES = ['large_cap_equity', 'mid_cap_equity', 'small_cap_equity', 'international_equity'];
+export const DEBT_TYPES = ['government_bonds', 'corporate_bonds', 'money_market'];
+export const ALTERNATIVE_TYPES = ['alternatives'];
+export const LIQUID_TYPES = ['money_market', 'government_bonds'];
 
 class AssetAllocationOptimizer {
   private riskFreeRate = 5.5;
