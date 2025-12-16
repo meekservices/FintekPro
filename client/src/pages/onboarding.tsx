@@ -3,10 +3,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,14 +31,56 @@ import {
   Clock,
   Info,
   FileText,
-  Pen
+  Pen,
+  Building2,
+  Users,
+  Briefcase,
+  Scale,
+  Globe,
+  UserCircle,
+  Zap,
+  ClipboardList,
+  Upload,
+  TrendingUp,
+  ShieldCheck,
+  Building,
+  HandshakeIcon
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem} from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  validatePanFormat, 
+  getPanTypeInfo, 
+  extractPanTypeCode,
+  getOnboardableEntityTypes,
+  maskPanNumber,
+  type PanTypeInfo,
+  type PanEntityType 
+} from "@shared/pan-utils";
 
-type WizardStep = 'pan_verification' | 'aadhaar_otp' | 'aadhaar_verification' | 'data_collection' | 'risk_profiling' | 'compliance_signoff' | 'completed';
+type OnboardingMode = 'smart' | 'manual';
+type EntitySelectionStep = 'pan_entry' | 'type_confirmation' | 'entity_selection';
+
+type WizardStep = 
+  | 'pan_entry'
+  | 'type_detection' 
+  | 'pan_verification' 
+  | 'aadhaar_otp' 
+  | 'aadhaar_verification' 
+  | 'data_collection' 
+  | 'risk_profiling' 
+  | 'compliance_signoff' 
+  | 'huf_details'
+  | 'corporate_details'
+  | 'firm_llp_details'
+  | 'trust_details'
+  | 'document_upload'
+  | 'signatory_verification'
+  | 'bank_verification'
+  | 'treasury_setup'
+  | 'completed';
 
 interface SessionData {
   id: string;
@@ -68,9 +113,15 @@ interface SessionData {
 
 export default function SmartKYCOnboarding() {
   const { toast } = useToast();
-  const [currentStep, setCurrentStep] = useState<WizardStep>('pan_verification');
+  const [currentStep, setCurrentStep] = useState<WizardStep>('pan_entry');
   const [sessionId, setSessionId] = useState<string>('');
   const [sessionError, setSessionError] = useState<string>('');
+  
+  // Onboarding Mode State
+  const [onboardingMode, setOnboardingMode] = useState<OnboardingMode>('smart');
+  const [detectedPanType, setDetectedPanType] = useState<PanTypeInfo | null>(null);
+  const [selectedEntityType, setSelectedEntityType] = useState<string | null>(null);
+  const [panValidationError, setPanValidationError] = useState<string>('');
   
   // Resume Session Dialog State
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -88,6 +139,30 @@ export default function SmartKYCOnboarding() {
   const [panFullName, setPanFullName] = useState('');
   const [panDob, setPanDob] = useState('');
   const [panData, setPanData] = useState<any>(null);
+  
+  // HUF State
+  const [kartaPanNumber, setKartaPanNumber] = useState('');
+  const [kartaName, setKartaName] = useState('');
+  const [hufMemberCount, setHufMemberCount] = useState('');
+  const [hufBankAccount, setHufBankAccount] = useState('');
+  
+  // Corporate/Firm State
+  const [entityName, setEntityName] = useState('');
+  const [cin, setCin] = useState('');
+  const [llpin, setLlpin] = useState('');
+  const [gstNumber, setGstNumber] = useState('');
+  const [authorizedSignatoryPan, setAuthorizedSignatoryPan] = useState('');
+  const [authorizedSignatoryName, setAuthorizedSignatoryName] = useState('');
+  const [treasuryMode, setTreasuryMode] = useState(false);
+  const [makerCheckerEnabled, setMakerCheckerEnabled] = useState(true);
+  
+  // Trust State
+  const [trustName, setTrustName] = useState('');
+  const [trustRegistrationNumber, setTrustRegistrationNumber] = useState('');
+  const [trusteePans, setTrusteePans] = useState<string[]>(['']);
+  
+  // Document Upload State
+  const [uploadedDocuments, setUploadedDocuments] = useState<{[key: string]: File | null}>({});
   
   // Aadhaar Verification State
   const [aadhaarNumber, setAadhaarNumber] = useState('');
@@ -488,11 +563,6 @@ export default function SmartKYCOnboarding() {
     }
   });
   
-  // Start session on mount
-  useEffect(() => {
-    startSessionMutation.mutate(false);
-  }, []);
-  
   // Session countdown timer
   useEffect(() => {
     if (!sessionExpiresAt || currentStep === 'completed') return;
@@ -600,10 +670,115 @@ export default function SmartKYCOnboarding() {
     };
   }, [currentStep]);
   
+  // Compute effective entity type from detectedPanType or selectedEntityType (Manual Mode)
+  const getEffectiveEntityType = (): PanEntityType | null => {
+    if (detectedPanType) {
+      return detectedPanType.entityType;
+    }
+    // For Manual Mode, convert selectedEntityType (code like 'P', 'C', 'H') to entityType
+    if (selectedEntityType) {
+      const typeInfo = getPanTypeInfo(selectedEntityType);
+      return typeInfo?.entityType || null;
+    }
+    return null;
+  };
+  
+  const getStepsForEntityType = (): WizardStep[] => {
+    const entityType = getEffectiveEntityType();
+    
+    if (!entityType) {
+      return ['pan_entry', 'pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
+    }
+    
+    switch (entityType) {
+      case 'individual':
+        return ['pan_entry', 'type_detection', 'pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
+      case 'huf':
+        return ['pan_entry', 'type_detection', 'huf_details', 'pan_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
+      case 'company':
+        return ['pan_entry', 'type_detection', 'corporate_details', 'document_upload', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
+      case 'firm_llp':
+        return ['pan_entry', 'type_detection', 'firm_llp_details', 'document_upload', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
+      case 'trust':
+      case 'aop':
+      case 'boi':
+        return ['pan_entry', 'type_detection', 'trust_details', 'document_upload', 'signatory_verification', 'bank_verification', 'treasury_setup', 'completed'];
+      default:
+        return ['pan_entry', 'type_detection', 'document_upload', 'compliance_signoff', 'completed'];
+    }
+  };
+  
   const getStepProgress = () => {
-    const steps: WizardStep[] = ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'];
+    const steps = getStepsForEntityType();
     const currentIndex = steps.indexOf(currentStep);
     return ((currentIndex + 1) / steps.length) * 100;
+  };
+  
+  const handlePanInputChange = (value: string) => {
+    const upperValue = value.toUpperCase();
+    setPanNumber(upperValue);
+    setPanValidationError('');
+    
+    if (upperValue.length === 10) {
+      const validation = validatePanFormat(upperValue);
+      if (validation.valid) {
+        const typeInfo = getPanTypeInfo(upperValue);
+        setDetectedPanType(typeInfo);
+      } else {
+        setPanValidationError(validation.error || 'Invalid PAN format');
+        setDetectedPanType(null);
+      }
+    } else {
+      setDetectedPanType(null);
+    }
+  };
+  
+  const handleProceedWithDetectedType = () => {
+    if (!detectedPanType) return;
+    
+    setSelectedEntityType(detectedPanType.code);
+    setCurrentStep('type_detection');
+  };
+  
+  const handleConfirmEntityType = () => {
+    const entityType = getEffectiveEntityType();
+    if (!entityType) return;
+    
+    switch (entityType) {
+      case 'individual':
+        startSessionMutation.mutate(false);
+        setCurrentStep('pan_verification');
+        break;
+      case 'huf':
+        setCurrentStep('huf_details');
+        break;
+      case 'company':
+        setCurrentStep('corporate_details');
+        break;
+      case 'firm_llp':
+        setCurrentStep('firm_llp_details');
+        break;
+      case 'trust':
+      case 'aop':
+      case 'boi':
+        setCurrentStep('trust_details');
+        break;
+      default:
+        setCurrentStep('document_upload');
+    }
+  };
+  
+  const getEntityIcon = (entityType: PanEntityType) => {
+    switch (entityType) {
+      case 'individual': return <UserCircle className="h-8 w-8" />;
+      case 'company': return <Building2 className="h-8 w-8" />;
+      case 'huf': return <Users className="h-8 w-8" />;
+      case 'firm_llp': return <Briefcase className="h-8 w-8" />;
+      case 'trust': return <Scale className="h-8 w-8" />;
+      case 'aop': 
+      case 'boi': return <HandshakeIcon className="h-8 w-8" />;
+      default: return <Building className="h-8 w-8" />;
+    }
   };
   
   const formatTimeRemaining = () => {
@@ -633,6 +808,400 @@ export default function SmartKYCOnboarding() {
           </span>
         </AlertDescription>
       </Alert>
+    );
+  };
+  
+  const renderPanEntryStep = () => {
+    const entityTypes = getOnboardableEntityTypes();
+    
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="h-6 w-6 text-primary" />
+                <CardTitle>PAN-Driven Smart Onboarding</CardTitle>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="mode-toggle" className="text-sm text-muted-foreground">
+                  {onboardingMode === 'smart' ? 'Smart Mode' : 'Manual Mode'}
+                </Label>
+                <Switch
+                  id="mode-toggle"
+                  checked={onboardingMode === 'smart'}
+                  onCheckedChange={(checked) => setOnboardingMode(checked ? 'smart' : 'manual')}
+                  data-testid="switch-onboarding-mode"
+                />
+              </div>
+            </div>
+            <CardDescription>
+              {onboardingMode === 'smart' 
+                ? "Enter your PAN and we'll automatically detect your entity type and guide you through the right onboarding process"
+                : "Select your entity type manually and proceed with document-based verification"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={onboardingMode} onValueChange={(v) => setOnboardingMode(v as OnboardingMode)}>
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="smart" className="flex items-center gap-2" data-testid="tab-smart-mode">
+                  <Zap className="h-4 w-4" />
+                  Smart Mode
+                </TabsTrigger>
+                <TabsTrigger value="manual" className="flex items-center gap-2" data-testid="tab-manual-mode">
+                  <ClipboardList className="h-4 w-4" />
+                  Manual Mode
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="smart" className="space-y-6">
+                <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                  <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertDescription className="text-blue-800 dark:text-blue-300">
+                    <strong>Auto-Detection:</strong> We'll read your PAN's 4th character to identify if you're an Individual, Company, HUF, LLP, or Trust - and route you to the correct onboarding flow automatically.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pan-smart">Enter PAN Number</Label>
+                    <Input
+                      id="pan-smart"
+                      data-testid="input-pan-smart"
+                      placeholder="ABCDE1234F"
+                      value={panNumber}
+                      onChange={(e) => handlePanInputChange(e.target.value)}
+                      maxLength={10}
+                      className={`uppercase text-lg font-mono ${panValidationError ? 'border-red-500' : detectedPanType ? 'border-green-500' : ''}`}
+                    />
+                    {panValidationError && (
+                      <p className="text-sm text-red-500 flex items-center gap-1">
+                        <AlertCircle className="h-4 w-4" />
+                        {panValidationError}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {detectedPanType && (
+                    <Card className="border-2 border-green-500 bg-green-50 dark:bg-green-950">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg text-green-700 dark:text-green-300">
+                            {getEntityIcon(detectedPanType.entityType)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-lg text-green-800 dark:text-green-200">
+                                {detectedPanType.displayName} Detected
+                              </h3>
+                              <Badge variant="secondary" className="bg-green-200 text-green-800">
+                                PAN Type: {detectedPanType.code}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-green-700 dark:text-green-300 mb-3">
+                              {detectedPanType.description}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {detectedPanType.canInvest && (
+                                <Badge variant="outline" className="text-green-700 border-green-300">
+                                  <TrendingUp className="h-3 w-3 mr-1" />
+                                  Can Invest
+                                </Badge>
+                              )}
+                              {detectedPanType.canTrade && (
+                                <Badge variant="outline" className="text-green-700 border-green-300">
+                                  <TrendingUp className="h-3 w-3 mr-1" />
+                                  Can Trade
+                                </Badge>
+                              )}
+                              {detectedPanType.onboardingMode === 'treasury_only' && (
+                                <Badge variant="outline" className="text-orange-700 border-orange-300">
+                                  <Building2 className="h-3 w-3 mr-1" />
+                                  Treasury Only
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-green-600 dark:text-green-400">
+                              <strong>Products:</strong> {detectedPanType.productsAllowed.join(', ')}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  <Button
+                    onClick={handleProceedWithDetectedType}
+                    disabled={!detectedPanType || !!panValidationError}
+                    className="w-full"
+                    size="lg"
+                    data-testid="button-proceed-smart"
+                  >
+                    {detectedPanType ? (
+                      <>
+                        Proceed as {detectedPanType.displayName}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    ) : (
+                      'Enter valid PAN to continue'
+                    )}
+                  </Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="manual" className="space-y-6">
+                <Alert>
+                  <ClipboardList className="h-4 w-4" />
+                  <AlertDescription>
+                    Select your entity type below. You'll need to upload supporting documents for verification.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {entityTypes.map((type) => (
+                    <Card 
+                      key={type.code}
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        selectedEntityType === type.code 
+                          ? 'border-2 border-primary ring-2 ring-primary/20' 
+                          : 'hover:border-primary/50'
+                      }`}
+                      onClick={() => {
+                        setSelectedEntityType(type.code);
+                        setDetectedPanType(type);
+                      }}
+                      data-testid={`card-entity-${type.code.toLowerCase()}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex flex-col items-center text-center">
+                          <div className={`p-3 rounded-lg mb-3 ${
+                            selectedEntityType === type.code 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-muted'
+                          }`}>
+                            {getEntityIcon(type.entityType)}
+                          </div>
+                          <h3 className="font-semibold">{type.displayName}</h3>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {type.description}
+                          </p>
+                          {type.onboardingMode === 'treasury_only' && (
+                            <Badge variant="secondary" className="mt-2 text-xs">
+                              Treasury Only
+                            </Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                {selectedEntityType && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="pan-manual">Enter {detectedPanType?.displayName} PAN Number</Label>
+                      <Input
+                        id="pan-manual"
+                        data-testid="input-pan-manual"
+                        placeholder="ABCDE1234F"
+                        value={panNumber}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setPanNumber(val);
+                          if (val.length === 10) {
+                            const validation = validatePanFormat(val);
+                            if (!validation.valid) {
+                              setPanValidationError(validation.error || 'Invalid PAN');
+                            } else {
+                              const typeCode = extractPanTypeCode(val);
+                              if (typeCode !== selectedEntityType) {
+                                setPanValidationError(`PAN type mismatch. Expected ${selectedEntityType} but found ${typeCode}`);
+                              } else {
+                                setPanValidationError('');
+                              }
+                            }
+                          } else {
+                            setPanValidationError('');
+                          }
+                        }}
+                        maxLength={10}
+                        className="uppercase text-lg font-mono"
+                      />
+                      {panValidationError && (
+                        <p className="text-sm text-red-500 flex items-center gap-1">
+                          <AlertCircle className="h-4 w-4" />
+                          {panValidationError}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <Button
+                      onClick={() => setCurrentStep('type_detection')}
+                      disabled={panNumber.length !== 10 || !!panValidationError}
+                      className="w-full"
+                      size="lg"
+                      data-testid="button-proceed-manual"
+                    >
+                      Continue with {detectedPanType?.displayName} Onboarding
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-muted/50">
+          <CardContent className="p-4">
+            <h4 className="font-medium mb-2 flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              How PAN-Based Detection Works
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">P</Badge>
+                <span>Individual</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">C</Badge>
+                <span>Company</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">H</Badge>
+                <span>HUF</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">F</Badge>
+                <span>Firm/LLP</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">T</Badge>
+                <span>Trust</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">A</Badge>
+                <span>AOP</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">B</Badge>
+                <span>BOI</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">G/L/J</Badge>
+                <span>Govt/Institutional</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+  
+  const renderTypeDetectionStep = () => {
+    if (!detectedPanType) return null;
+    
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-6 w-6 text-primary" />
+            <CardTitle>Confirm Your Entity Type</CardTitle>
+          </div>
+          <CardDescription>
+            We've identified your entity type from your PAN. Please confirm to proceed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
+            <div className="p-3 bg-primary/10 rounded-lg text-primary">
+              {getEntityIcon(detectedPanType.entityType)}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg">{detectedPanType.displayName}</h3>
+              <p className="text-sm text-muted-foreground">{detectedPanType.description}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                PAN: <span className="font-mono">{maskPanNumber(panNumber)}</span>
+              </p>
+            </div>
+            <Badge className="bg-green-100 text-green-800">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Verified
+            </Badge>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-muted-foreground mb-1">Investment Access</p>
+              <p className="font-medium flex items-center gap-1">
+                {detectedPanType.canInvest ? (
+                  <><CheckCircle className="h-4 w-4 text-green-600" /> Allowed</>
+                ) : (
+                  <><AlertCircle className="h-4 w-4 text-orange-600" /> Restricted</>
+                )}
+              </p>
+            </div>
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-muted-foreground mb-1">Trading Access</p>
+              <p className="font-medium flex items-center gap-1">
+                {detectedPanType.canTrade ? (
+                  <><CheckCircle className="h-4 w-4 text-green-600" /> Allowed</>
+                ) : (
+                  <><AlertCircle className="h-4 w-4 text-orange-600" /> Not Available</>
+                )}
+              </p>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+              Products Available for {detectedPanType.displayName}:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {detectedPanType.productsAllowed.map((product) => (
+                <Badge key={product} variant="secondary">
+                  {product}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          
+          {detectedPanType.requiresApproval && (
+            <Alert className="bg-orange-50 border-orange-200">
+              <Info className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                <strong>Note:</strong> {detectedPanType.displayName} accounts require additional verification and admin approval before activation.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCurrentStep('pan_entry');
+                setPanNumber('');
+                setDetectedPanType(null);
+                setSelectedEntityType(null);
+              }}
+              className="flex-1"
+              data-testid="button-back-pan-entry"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Change PAN
+            </Button>
+            <Button
+              onClick={handleConfirmEntityType}
+              className="flex-1"
+              data-testid="button-confirm-entity"
+            >
+              Confirm & Continue
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   };
   
@@ -1357,32 +1926,707 @@ export default function SmartKYCOnboarding() {
     );
   };
   
+  const renderHufDetailsStep = () => (
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Users className="h-6 w-6 text-primary" />
+          <CardTitle>HUF Details</CardTitle>
+        </div>
+        <CardDescription>
+          Enter details about your Hindu Undivided Family
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            HUF PAN detected: <span className="font-mono font-bold">{maskPanNumber(panNumber)}</span>
+          </AlertDescription>
+        </Alert>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="karta-pan">Karta's PAN Number</Label>
+            <Input
+              id="karta-pan"
+              data-testid="input-karta-pan"
+              placeholder="ABCDE1234F"
+              value={kartaPanNumber}
+              onChange={(e) => setKartaPanNumber(e.target.value.toUpperCase())}
+              maxLength={10}
+              className="uppercase font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              The Karta (head of HUF) must have an Individual PAN
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="karta-name">Karta's Full Name</Label>
+            <Input
+              id="karta-name"
+              data-testid="input-karta-name"
+              placeholder="Full name as per PAN"
+              value={kartaName}
+              onChange={(e) => setKartaName(e.target.value)}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="member-count">Number of Coparceners</Label>
+            <Select value={hufMemberCount} onValueChange={setHufMemberCount}>
+              <SelectTrigger data-testid="select-member-count">
+                <SelectValue placeholder="Select member count" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2-5">2-5 members</SelectItem>
+                <SelectItem value="6-10">6-10 members</SelectItem>
+                <SelectItem value="11-20">11-20 members</SelectItem>
+                <SelectItem value="20+">More than 20 members</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentStep('type_detection')}
+            className="flex-1"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            onClick={() => {
+              startSessionMutation.mutate(false);
+              setCurrentStep('pan_verification');
+            }}
+            disabled={!kartaPanNumber || kartaPanNumber.length !== 10 || !kartaName}
+            className="flex-1"
+            data-testid="button-proceed-huf"
+          >
+            Continue with Karta Verification
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+  
+  const renderCorporateDetailsStep = () => (
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Building2 className="h-6 w-6 text-primary" />
+          <CardTitle>Corporate Entity Details</CardTitle>
+        </div>
+        <CardDescription>
+          Enter your company's registration details
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            Company PAN detected: <span className="font-mono font-bold">{maskPanNumber(panNumber)}</span>
+          </AlertDescription>
+        </Alert>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="entity-name">Registered Company Name</Label>
+            <Input
+              id="entity-name"
+              data-testid="input-entity-name"
+              placeholder="As per Certificate of Incorporation"
+              value={entityName}
+              onChange={(e) => setEntityName(e.target.value)}
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="cin">CIN (Corporate Identity Number)</Label>
+              <Input
+                id="cin"
+                data-testid="input-cin"
+                placeholder="L12345MH2020PLC123456"
+                value={cin}
+                onChange={(e) => setCin(e.target.value.toUpperCase())}
+                maxLength={21}
+                className="uppercase font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gst">GST Number (Optional)</Label>
+              <Input
+                id="gst"
+                data-testid="input-gst"
+                placeholder="27AABCU9603R1ZM"
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                maxLength={15}
+                className="uppercase font-mono"
+              />
+            </div>
+          </div>
+          
+          <div className="p-4 bg-muted rounded-lg space-y-3">
+            <Label className="font-medium">Authorized Signatory Details</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="signatory-pan" className="text-sm">Signatory PAN</Label>
+                <Input
+                  id="signatory-pan"
+                  data-testid="input-signatory-pan"
+                  placeholder="Individual PAN"
+                  value={authorizedSignatoryPan}
+                  onChange={(e) => setAuthorizedSignatoryPan(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  className="uppercase font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signatory-name" className="text-sm">Signatory Name</Label>
+                <Input
+                  id="signatory-name"
+                  data-testid="input-signatory-name"
+                  placeholder="As per PAN"
+                  value={authorizedSignatoryName}
+                  onChange={(e) => setAuthorizedSignatoryName(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <p className="text-sm text-orange-800">
+              <strong>Note:</strong> Corporate accounts are restricted to Treasury products only. 
+              A Board Resolution authorizing investments will be required.
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentStep('type_detection')}
+            className="flex-1"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            onClick={() => setCurrentStep('document_upload')}
+            disabled={!entityName || !cin || cin.length !== 21}
+            className="flex-1"
+            data-testid="button-proceed-corporate"
+          >
+            Continue to Document Upload
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+  
+  const renderFirmLlpDetailsStep = () => (
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Briefcase className="h-6 w-6 text-primary" />
+          <CardTitle>Firm / LLP Details</CardTitle>
+        </div>
+        <CardDescription>
+          Enter your partnership or LLP registration details
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            Firm/LLP PAN detected: <span className="font-mono font-bold">{maskPanNumber(panNumber)}</span>
+          </AlertDescription>
+        </Alert>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="firm-name">Firm/LLP Name</Label>
+            <Input
+              id="firm-name"
+              data-testid="input-firm-name"
+              placeholder="As per registration"
+              value={entityName}
+              onChange={(e) => setEntityName(e.target.value)}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="llpin">LLPIN (for LLP) or Registration Number</Label>
+            <Input
+              id="llpin"
+              data-testid="input-llpin"
+              placeholder="AAA-1234"
+              value={llpin}
+              onChange={(e) => setLlpin(e.target.value.toUpperCase())}
+              className="uppercase font-mono"
+            />
+          </div>
+          
+          <div className="p-4 bg-muted rounded-lg space-y-3">
+            <Label className="font-medium">Designated Partner Details</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="partner-pan" className="text-sm">Partner PAN</Label>
+                <Input
+                  id="partner-pan"
+                  data-testid="input-partner-pan"
+                  placeholder="Individual PAN"
+                  value={authorizedSignatoryPan}
+                  onChange={(e) => setAuthorizedSignatoryPan(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  className="uppercase font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partner-name" className="text-sm">Partner Name</Label>
+                <Input
+                  id="partner-name"
+                  data-testid="input-partner-name"
+                  placeholder="As per PAN"
+                  value={authorizedSignatoryName}
+                  onChange={(e) => setAuthorizedSignatoryName(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentStep('type_detection')}
+            className="flex-1"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            onClick={() => setCurrentStep('document_upload')}
+            disabled={!entityName || !llpin}
+            className="flex-1"
+            data-testid="button-proceed-firm"
+          >
+            Continue to Document Upload
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+  
+  const renderTrustDetailsStep = () => (
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Scale className="h-6 w-6 text-primary" />
+          <CardTitle>Trust / AOP / BOI Details</CardTitle>
+        </div>
+        <CardDescription>
+          Enter your trust or association registration details
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            {detectedPanType?.displayName} PAN detected: <span className="font-mono font-bold">{maskPanNumber(panNumber)}</span>
+          </AlertDescription>
+        </Alert>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="trust-name">Trust/Association Name</Label>
+            <Input
+              id="trust-name"
+              data-testid="input-trust-name"
+              placeholder="As per Trust Deed"
+              value={trustName}
+              onChange={(e) => setTrustName(e.target.value)}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="trust-reg">Registration Number</Label>
+            <Input
+              id="trust-reg"
+              data-testid="input-trust-reg"
+              placeholder="Trust registration number"
+              value={trustRegistrationNumber}
+              onChange={(e) => setTrustRegistrationNumber(e.target.value)}
+            />
+          </div>
+          
+          <div className="p-4 bg-muted rounded-lg space-y-3">
+            <Label className="font-medium">Trustee/Managing Person Details</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="trustee-pan" className="text-sm">Trustee PAN</Label>
+                <Input
+                  id="trustee-pan"
+                  data-testid="input-trustee-pan"
+                  placeholder="Individual PAN"
+                  value={authorizedSignatoryPan}
+                  onChange={(e) => setAuthorizedSignatoryPan(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  className="uppercase font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="trustee-name" className="text-sm">Trustee Name</Label>
+                <Input
+                  id="trustee-name"
+                  data-testid="input-trustee-name"
+                  placeholder="As per PAN"
+                  value={authorizedSignatoryName}
+                  onChange={(e) => setAuthorizedSignatoryName(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <Alert className="bg-orange-50 border-orange-200">
+            <Info className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              Trust accounts are restricted to Treasury products only and require admin approval.
+            </AlertDescription>
+          </Alert>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentStep('type_detection')}
+            className="flex-1"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            onClick={() => setCurrentStep('document_upload')}
+            disabled={!trustName || !trustRegistrationNumber}
+            className="flex-1"
+            data-testid="button-proceed-trust"
+          >
+            Continue to Document Upload
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+  
+  const renderDocumentUploadStep = () => {
+    const getRequiredDocuments = () => {
+      switch (detectedPanType?.entityType) {
+        case 'company':
+          return [
+            { key: 'coi', name: 'Certificate of Incorporation', required: true },
+            { key: 'board_resolution', name: 'Board Resolution', required: true },
+            { key: 'moa', name: 'Memorandum of Association', required: false },
+            { key: 'aoa', name: 'Articles of Association', required: false },
+          ];
+        case 'firm_llp':
+          return [
+            { key: 'partnership_deed', name: 'Partnership Deed / LLP Agreement', required: true },
+            { key: 'llp_certificate', name: 'LLP Incorporation Certificate', required: true },
+          ];
+        case 'trust':
+        case 'aop':
+        case 'boi':
+          return [
+            { key: 'trust_deed', name: 'Trust Deed / Registration Certificate', required: true },
+            { key: 'trustee_authorization', name: 'Trustee Authorization', required: true },
+          ];
+        default:
+          return [];
+      }
+    };
+    
+    const docs = getRequiredDocuments();
+    const allRequiredUploaded = docs.filter(d => d.required).every(d => uploadedDocuments[d.key]);
+    
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Upload className="h-6 w-6 text-primary" />
+            <CardTitle>Document Upload</CardTitle>
+          </div>
+          <CardDescription>
+            Upload the required documents for verification
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            {docs.map((doc) => (
+              <div key={doc.key} className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="font-medium">
+                    {doc.name}
+                    {doc.required && <span className="text-red-500 ml-1">*</span>}
+                  </Label>
+                  {uploadedDocuments[doc.key] && (
+                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Uploaded
+                    </Badge>
+                  )}
+                </div>
+                <Input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setUploadedDocuments(prev => ({ ...prev, [doc.key]: file }));
+                  }}
+                  data-testid={`input-upload-${doc.key}`}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  PDF, JPG, or PNG (max 5MB)
+                </p>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                switch (detectedPanType?.entityType) {
+                  case 'company': setCurrentStep('corporate_details'); break;
+                  case 'firm_llp': setCurrentStep('firm_llp_details'); break;
+                  default: setCurrentStep('trust_details');
+                }
+              }}
+              className="flex-1"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <Button
+              onClick={() => setCurrentStep('bank_verification')}
+              disabled={!allRequiredUploaded}
+              className="flex-1"
+              data-testid="button-proceed-docs"
+            >
+              Continue to Bank Verification
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+  
+  const renderBankVerificationStep = () => (
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Building className="h-6 w-6 text-primary" />
+          <CardTitle>Bank Account Verification</CardTitle>
+        </div>
+        <CardDescription>
+          Verify your entity's bank account for transactions
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Bank account must be in the name of the {detectedPanType?.displayName}. 
+            We'll perform a penny drop verification.
+          </AlertDescription>
+        </Alert>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="bank-account">Bank Account Number</Label>
+            <Input
+              id="bank-account"
+              data-testid="input-bank-account"
+              placeholder="Enter account number"
+              value={hufBankAccount}
+              onChange={(e) => setHufBankAccount(e.target.value)}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="ifsc">IFSC Code</Label>
+            <Input
+              id="ifsc"
+              data-testid="input-ifsc"
+              placeholder="ABCD0001234"
+              className="uppercase font-mono"
+            />
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentStep('document_upload')}
+            className="flex-1"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            onClick={() => setCurrentStep('treasury_setup')}
+            disabled={!hufBankAccount}
+            className="flex-1"
+            data-testid="button-proceed-bank"
+          >
+            Continue to Treasury Setup
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+  
+  const renderTreasurySetupStep = () => (
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Building2 className="h-6 w-6 text-primary" />
+          <CardTitle>Treasury Configuration</CardTitle>
+        </div>
+        <CardDescription>
+          Configure treasury management settings for your entity
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            {detectedPanType?.displayName} accounts are configured for Treasury products including 
+            Liquid Funds, Debt Funds, and Short-term Bonds.
+          </AlertDescription>
+        </Alert>
+        
+        <div className="p-4 bg-muted rounded-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="font-medium">Maker-Checker Approval</Label>
+              <p className="text-sm text-muted-foreground">
+                Require dual approval for all treasury transactions
+              </p>
+            </div>
+            <Switch
+              checked={makerCheckerEnabled}
+              onCheckedChange={setMakerCheckerEnabled}
+              data-testid="switch-maker-checker"
+            />
+          </div>
+          
+          {!makerCheckerEnabled && (
+            <Alert className="bg-orange-50 border-orange-200">
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                Single approval mode: Transactions will execute immediately upon first approval.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+        
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+          <h4 className="font-medium text-green-800 mb-2">Available Products</h4>
+          <div className="flex flex-wrap gap-2">
+            {detectedPanType?.productsAllowed.map((product) => (
+              <Badge key={product} variant="secondary" className="bg-green-100 text-green-800">
+                {product}
+              </Badge>
+            ))}
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentStep('bank_verification')}
+            className="flex-1"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            onClick={() => setCurrentStep('completed')}
+            className="flex-1"
+            data-testid="button-complete-treasury"
+          >
+            Complete Onboarding
+            <CheckCircle className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+  
   const renderCompletedStep = () => (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
         <div className="flex items-center gap-2">
           <CheckCircle className="h-8 w-8 text-green-600" />
-          <CardTitle>KYC Completed Successfully!</CardTitle>
+          <CardTitle>
+            {detectedPanType?.entityType === 'individual' 
+              ? 'KYC Completed Successfully!' 
+              : 'Onboarding Submitted for Approval'}
+          </CardTitle>
         </div>
         <CardDescription>
-          Your Smart KYC verification is now complete
+          {detectedPanType?.entityType === 'individual'
+            ? 'Your Smart KYC verification is now complete'
+            : 'Your application has been submitted and is pending admin review'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert className="bg-green-50 border-green-200">
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800">
-            <strong>Congratulations!</strong> Your account is now fully verified and you can access all FintekPro services.
+            {detectedPanType?.requiresApproval ? (
+              <>
+                <strong>Submission Received!</strong> Your {detectedPanType?.displayName} onboarding 
+                is under review. You'll be notified once approved.
+              </>
+            ) : (
+              <>
+                <strong>Congratulations!</strong> Your account is now fully verified and you can 
+                access all FintekPro services.
+              </>
+            )}
           </AlertDescription>
         </Alert>
         
         <div className="space-y-2">
           <h3 className="font-semibold">What's Next?</h3>
           <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-            <li>Explore investment products and portfolios</li>
-            <li>Set up your investment preferences</li>
-            <li>Connect your bank accounts</li>
-            <li>Start building your wealth</li>
+            {detectedPanType?.requiresApproval ? (
+              <>
+                <li>Admin will review your documents</li>
+                <li>You'll receive email notification on approval</li>
+                <li>Once approved, you can access Treasury products</li>
+              </>
+            ) : (
+              <>
+                <li>Explore investment products and portfolios</li>
+                <li>Set up your investment preferences</li>
+                <li>Connect your bank accounts</li>
+                <li>Start building your wealth</li>
+              </>
+            )}
           </ul>
         </div>
         
@@ -1397,8 +2641,10 @@ export default function SmartKYCOnboarding() {
     </Card>
   );
   
-  // Show loading state while session initializes
-  if (startSessionMutation.isPending) {
+  // Show loading state while session initializes (only for steps that need session)
+  const needsSession = ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff'].includes(currentStep);
+  
+  if (needsSession && startSessionMutation.isPending) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1408,7 +2654,7 @@ export default function SmartKYCOnboarding() {
   }
   
   // Show error state if session failed to initialize
-  if (sessionError && !startSessionMutation.isPending) {
+  if (needsSession && sessionError && !startSessionMutation.isPending) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
         <Alert variant="destructive" className="max-w-md">
@@ -1427,8 +2673,8 @@ export default function SmartKYCOnboarding() {
     );
   }
   
-  // Show loading if session hasn't been created yet
-  if (!sessionId && !sessionError) {
+  // Show loading if session hasn't been created yet (only for steps that need session)
+  if (needsSession && !sessionId && !sessionError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1436,6 +2682,15 @@ export default function SmartKYCOnboarding() {
       </div>
     );
   }
+  
+  const getCurrentStepNumber = () => {
+    const steps = getStepsForEntityType();
+    return steps.indexOf(currentStep) + 1;
+  };
+  
+  const getTotalSteps = () => {
+    return getStepsForEntityType().length;
+  };
   
   return (
     <div className="container mx-auto py-8 px-4">
@@ -1459,29 +2714,57 @@ export default function SmartKYCOnboarding() {
         </AlertDialogContent>
       </AlertDialog>
       
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Smart KYC Onboarding</h1>
-        <p className="text-muted-foreground">
-          Complete your KYC verification in just a few simple steps
-        </p>
-      </div>
-      
-      <div className="mb-8">
-        <Progress value={getStepProgress()} className="h-2" />
-        <div className="flex justify-between mt-2 text-sm text-muted-foreground">
-          <span>Step {['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'data_collection', 'risk_profiling', 'compliance_signoff', 'completed'].indexOf(currentStep) + 1} of 7</span>
-          <span>{Math.round(getStepProgress())}% Complete</span>
-        </div>
-      </div>
+      {currentStep !== 'pan_entry' && (
+        <>
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">
+                  {detectedPanType ? `${detectedPanType.displayName} Onboarding` : 'Smart KYC Onboarding'}
+                </h1>
+                <p className="text-muted-foreground">
+                  {detectedPanType 
+                    ? `Complete your ${detectedPanType.displayName} verification`
+                    : 'Complete your KYC verification in just a few simple steps'
+                  }
+                </p>
+              </div>
+              {detectedPanType && (
+                <Badge variant="outline" className="text-sm">
+                  {getEntityIcon(detectedPanType.entityType)}
+                  <span className="ml-2">{detectedPanType.displayName}</span>
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          <div className="mb-8">
+            <Progress value={getStepProgress()} className="h-2" />
+            <div className="flex justify-between mt-2 text-sm text-muted-foreground">
+              <span>Step {getCurrentStepNumber()} of {getTotalSteps()}</span>
+              <span>{Math.round(getStepProgress())}% Complete</span>
+            </div>
+          </div>
+        </>
+      )}
       
       {renderSessionTimer()}
       
+      {currentStep === 'pan_entry' && renderPanEntryStep()}
+      {currentStep === 'type_detection' && renderTypeDetectionStep()}
       {currentStep === 'pan_verification' && renderPanVerificationStep()}
       {currentStep === 'aadhaar_otp' && renderAadhaarOtpStep()}
       {currentStep === 'aadhaar_verification' && renderAadhaarVerificationStep()}
       {currentStep === 'data_collection' && renderDataCollectionStep()}
       {currentStep === 'risk_profiling' && renderRiskProfilingStep()}
       {currentStep === 'compliance_signoff' && renderComplianceSignoffStep()}
+      {currentStep === 'huf_details' && renderHufDetailsStep()}
+      {currentStep === 'corporate_details' && renderCorporateDetailsStep()}
+      {currentStep === 'firm_llp_details' && renderFirmLlpDetailsStep()}
+      {currentStep === 'trust_details' && renderTrustDetailsStep()}
+      {currentStep === 'document_upload' && renderDocumentUploadStep()}
+      {currentStep === 'bank_verification' && renderBankVerificationStep()}
+      {currentStep === 'treasury_setup' && renderTreasurySetupStep()}
       {currentStep === 'completed' && renderCompletedStep()}
     </div>
   );

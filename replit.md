@@ -47,6 +47,21 @@ A SEBI-compliant Corporate Treasury module for managing corporate idle cash with
 -   **Frontend Gating**: UI correctly routes to single-approval vs maker/checker endpoints based on `isSingleApprovalMode(proposal)` helper that checks both status and `makerCheckerEnabled` field.
 -   **Compliance Controls**: Self-approval prevention (checker cannot be same as maker), bypass attempt logging, immutable audit trails.
 
+#### PAN-Driven Intelligent Onboarding
+A PAN-first intelligent onboarding system that auto-detects entity type and routes users to appropriate flows:
+-   **Entity Type Detection**: PAN 4th character determines entity type (P=Individual, C=Company, H=HUF, F=Firm/LLP, A=AOP, T=Trust, B=BOI, G=Government, L=Local Authority, J=Artificial Juridical Person).
+-   **Smart Mode**: Auto-detects entity type from PAN and routes to appropriate onboarding flow with entity-specific steps.
+-   **Manual Mode**: Allows users to manually select entity type with PAN validation to ensure 4th character matches selected type.
+-   **Entity-Specific Flows**: Different onboarding steps per entity type:
+    - Individual: PAN → Aadhaar → Data Collection → Risk Profiling → Compliance Signoff
+    - HUF: HUF Details (Karta verification) → PAN → Data Collection → Risk Profiling → Compliance Signoff
+    - Corporate: Corporate Details (CIN, Board Resolution) → Document Upload → Signatory Verification → Bank → Treasury Setup
+    - Firm/LLP: Firm Details (LLPIN) → Document Upload → Signatory Verification → Bank → Treasury Setup
+    - Trust/AOP/BOI: Trust Details → Document Upload → Signatory Verification → Bank → Treasury Setup
+-   **Product Eligibility Matrix**: Entity types have different product access (Individual: all products; Corporate/Firm/Trust: Treasury only).
+-   **Approval Workflow**: Non-individual entities require admin approval after document verification.
+-   **PAN Utilities**: Shared utilities in `shared/pan-utils.ts` for PAN validation, type detection, and entity classification.
+
 #### Feature Specifications
 Key features include real-time portfolio and market data tracking, various financial calculators, multi-asset support, and family collaboration with shared financial groups and permission-based access. An intelligent tiered KYC system (3-tier with SEBI Accredited Investor compliance) and an AI Chat Assistant powered by Google Gemini are integrated. Dynamic wealth management analysis, multi-currency support, and a customizable alert system enhance user experience. A financial product marketplace offers category tabs, filtering, wishlist, and cart functionalities, with KYC-based product eligibility gating. Robust payment processing is handled by Cashfree and PhonePe, with a unified order management system. Advanced features include an AI-powered expense tracking and budgeting system, BBPS-Expense integration for bill payments, and a regulation-compliant Client KYC Dashboard with a Product Eligibility Matrix and access control. A Partner Revenue Sharing System and an Agent Onboarding & Management System with tiered agents and secure Aadhaar verification are also implemented. Post-KYC, an Auto-Population System integrates with various data sources for automated financial data aggregation with multi-source consent management. A comprehensive Portfolio Analytics Engine provides XIRR/IRR calculations, CAGR analysis, automated asset allocation, algorithm-based risk profiling, and category performance tracking across multiple data sources. A 17-step KYC onboarding workflow orchestrator manages the complete compliance journey with auto-skip logic, dependency validation, comprehensive state machine, and SEBI-compliant risk profiling with manipulation prevention. The Unlisted Marketplace integrates with Probe42 for real-time financial analytics and multi-methodology price suggestions.
 
