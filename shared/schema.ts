@@ -2686,6 +2686,601 @@ export const goalProgressSnapshots = pgTable("goal_progress_snapshots", {
   index("idx_goal_progress_snapshots_date").on(table.snapshotDate),
 ]);
 
+// ============================================================
+// INVESTABLE SURPLUS ENGINE - PRD Section 5
+// ============================================================
+
+// Income Streams - All sources of income for surplus calculation
+export const incomeStreams = pgTable("income_streams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Income type classification
+  incomeType: varchar("income_type").notNull(), // salary/business/rental/interest/dividend/capital_gains/pension/other
+  sourceName: varchar("source_name").notNull(), // e.g., "ABC Company", "Shop Rental"
+  
+  // Amount details
+  grossAmount: decimal("gross_amount", { precision: 15, scale: 2 }).notNull(),
+  netAmount: decimal("net_amount", { precision: 15, scale: 2 }).notNull(), // After tax deductions
+  frequency: varchar("frequency").notNull().default("monthly"), // monthly/quarterly/annually/one_time
+  currency: varchar("currency").default("INR"),
+  
+  // Stability indicators
+  isGuaranteed: boolean("is_guaranteed").default(true), // Guaranteed vs variable income
+  stabilityScore: integer("stability_score").default(100), // 0-100 (100 = fully stable)
+  variabilityPercent: decimal("variability_percent", { precision: 5, scale: 2 }).default("0"), // Expected variation
+  
+  // Verification
+  isVerified: boolean("is_verified").default(false),
+  verificationMethod: varchar("verification_method"), // itr/bank_statement/employer_letter/self_declared
+  verificationDate: timestamp("verification_date"),
+  
+  // Validity period
+  startDate: date("start_date"),
+  endDate: date("end_date"), // null for ongoing income
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_income_streams_user").on(table.userId),
+  index("idx_income_streams_type").on(table.incomeType),
+]);
+
+// Financial Obligations - EMIs, loans, CIBIL obligations
+export const financialObligations = pgTable("financial_obligations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Obligation type
+  obligationType: varchar("obligation_type").notNull(), // home_loan/car_loan/personal_loan/credit_card/education_loan/other_emi/insurance_premium/rent/utility/maintenance
+  institutionName: varchar("institution_name"),
+  accountNumber: varchar("account_number"),
+  
+  // Amount details
+  monthlyAmount: decimal("monthly_amount", { precision: 15, scale: 2 }).notNull(),
+  totalOutstanding: decimal("total_outstanding", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
+  
+  // Duration
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  remainingTenure: integer("remaining_tenure"), // In months
+  
+  // Priority for surplus calculation
+  priority: varchar("priority").notNull().default("essential"), // essential/important/discretionary
+  isFixed: boolean("is_fixed").default(true), // Fixed vs variable obligation
+  
+  // Verification (CIBIL integration)
+  cibilReported: boolean("cibil_reported").default(false),
+  cibilAccountType: varchar("cibil_account_type"),
+  paymentHistory: varchar("payment_history"), // Payment pattern
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_financial_obligations_user").on(table.userId),
+  index("idx_financial_obligations_type").on(table.obligationType),
+]);
+
+// Emergency Fund Tracking - 6 months mandatory buffer
+export const emergencyFunds = pgTable("emergency_funds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Required emergency fund (6 months expenses)
+  monthlyExpenses: decimal("monthly_expenses", { precision: 15, scale: 2 }).notNull(),
+  requiredEmergencyFund: decimal("required_emergency_fund", { precision: 15, scale: 2 }).notNull(), // 6x monthly
+  
+  // Current emergency fund status
+  currentEmergencyFund: decimal("current_emergency_fund", { precision: 15, scale: 2 }).default("0"),
+  emergencyFundCoverage: decimal("emergency_fund_coverage", { precision: 5, scale: 2 }).default("0"), // In months
+  
+  // Fund location tracking
+  fundAllocation: jsonb("fund_allocation").$type<{
+    savings: number;
+    fd: number;
+    liquid_mf: number;
+    other: number;
+  }>(),
+  
+  // Status
+  isAdequate: boolean("is_adequate").default(false), // >= 6 months coverage
+  shortfall: decimal("shortfall", { precision: 15, scale: 2 }).default("0"),
+  
+  lastAssessedAt: timestamp("last_assessed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_emergency_funds_user").on(table.userId),
+]);
+
+// Investable Surplus Calculations - Core engine output
+export const investableSurplus = pgTable("investable_surplus", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Calculation period
+  calculationDate: timestamp("calculation_date").defaultNow(),
+  periodType: varchar("period_type").notNull().default("annual"), // monthly/quarterly/annual
+  
+  // Income breakdown
+  totalGrossIncome: decimal("total_gross_income", { precision: 15, scale: 2 }).notNull(),
+  totalNetIncome: decimal("total_net_income", { precision: 15, scale: 2 }).notNull(),
+  incomeBreakdown: jsonb("income_breakdown").$type<{
+    salary: number;
+    business: number;
+    rental: number;
+    interest: number;
+    dividend: number;
+    other: number;
+  }>(),
+  
+  // Obligations breakdown
+  totalObligations: decimal("total_obligations", { precision: 15, scale: 2 }).notNull(),
+  obligationsBreakdown: jsonb("obligations_breakdown").$type<{
+    loans: number;
+    insurance: number;
+    rent: number;
+    utilities: number;
+    other: number;
+  }>(),
+  
+  // Emergency buffer
+  emergencyBufferAmount: decimal("emergency_buffer_amount", { precision: 15, scale: 2 }).notNull(),
+  emergencyBufferStatus: varchar("emergency_buffer_status").notNull(), // adequate/partial/inadequate
+  
+  // Final surplus calculation
+  // Formula: Net Income - Obligations - Emergency Buffer = Investable Surplus
+  annualInvestableSurplus: decimal("annual_investable_surplus", { precision: 15, scale: 2 }).notNull(),
+  monthlyInvestableSurplus: decimal("monthly_investable_surplus", { precision: 15, scale: 2 }).notNull(),
+  
+  // Surplus quality indicators
+  surplusStability: varchar("surplus_stability").default("stable"), // stable/moderate/volatile
+  confidenceScore: integer("confidence_score").default(80), // 0-100
+  
+  // Recommendations
+  surplusRecommendations: jsonb("surplus_recommendations").$type<{
+    immediate: string[];
+    shortTerm: string[];
+    longTerm: string[];
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_investable_surplus_user").on(table.userId),
+  index("idx_investable_surplus_date").on(table.calculationDate),
+]);
+
+// Client Segmentation - System-derived segment (PRD Section 6)
+export const clientSegments = pgTable("client_segments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Client type (individual vs non-individual)
+  clientType: varchar("client_type").notNull().default("individual"), // individual/business/corporate/trust
+  
+  // Segment classification (system-derived from investable surplus)
+  segment: varchar("segment").notNull(), // retail/hni/shni/bhni/corporate
+  segmentThreshold: jsonb("segment_threshold").$type<{
+    min: number;
+    max: number | null;
+    currency: string;
+  }>(),
+  
+  // Segment criteria met
+  annualInvestableSurplus: decimal("annual_investable_surplus", { precision: 15, scale: 2 }).notNull(),
+  netWorth: decimal("net_worth", { precision: 20, scale: 2 }),
+  
+  // Product eligibility based on segment
+  eligibleProducts: jsonb("eligible_products").$type<string[]>(), // ['mutual_funds', 'stocks', 'pms', 'aif', etc.]
+  restrictedProducts: jsonb("restricted_products").$type<string[]>(),
+  
+  // Investment caps per segment
+  investmentCaps: jsonb("investment_caps").$type<{
+    pms: number | null;
+    aif_cat2: number | null;
+    aif_cat3: number | null;
+    mld: number | null;
+    unlisted: number | null;
+  }>(),
+  
+  // Segment history
+  previousSegment: varchar("previous_segment"),
+  segmentChangedAt: timestamp("segment_changed_at"),
+  segmentChangeReason: text("segment_change_reason"),
+  
+  // Assessment details
+  assessedAt: timestamp("assessed_at").defaultNow(),
+  assessedBy: varchar("assessed_by").default("system"), // system/manual
+  nextReviewDate: date("next_review_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_client_segments_user").on(table.userId),
+  index("idx_client_segments_segment").on(table.segment),
+]);
+
+// ============================================================
+// CORPORATE TREASURY MODULE - PRD Section 13
+// ============================================================
+
+// Treasury Mandates - Corporate treasury policy configuration
+export const treasuryMandates = pgTable("treasury_mandates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(), // Corporate user
+  entityName: varchar("entity_name").notNull(),
+  
+  // Treasury objectives (checkbox-based as per wireframe)
+  capitalProtection: boolean("capital_protection").default(true), // Mandatory
+  liquidityManagement: boolean("liquidity_management").default(false),
+  yieldEnhancement: boolean("yield_enhancement").default(false),
+  liabilityMatching: boolean("liability_matching").default(false),
+  
+  // Cash position
+  totalCashAvailable: decimal("total_cash_available", { precision: 20, scale: 2 }).notNull(),
+  cashDeployed: decimal("cash_deployed", { precision: 20, scale: 2 }).default("0"),
+  liquidityAvailableT0: decimal("liquidity_available_t0", { precision: 20, scale: 2 }).default("0"), // Same day
+  liquidityAvailableT1: decimal("liquidity_available_t1", { precision: 20, scale: 2 }).default("0"), // Next day
+  
+  // Risk parameters
+  maxCreditRisk: varchar("max_credit_risk").default("AAA"), // AAA/AA+/AA
+  maxDurationDays: integer("max_duration_days").default(365),
+  maxSingleCounterparty: decimal("max_single_counterparty", { precision: 5, scale: 2 }).default("10"), // Percentage
+  
+  // Approval configuration
+  makerCheckerEnabled: boolean("maker_checker_enabled").default(true),
+  authorizedSignatories: jsonb("authorized_signatories").$type<{
+    name: string;
+    designation: string;
+    email: string;
+    canApprove: boolean;
+    limit: number;
+  }[]>(),
+  boardResolutionUploaded: boolean("board_resolution_uploaded").default(false),
+  boardResolutionUrl: text("board_resolution_url"),
+  
+  // Status
+  status: varchar("status").default("active"), // active/suspended/closed
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_treasury_mandates_user").on(table.userId),
+  index("idx_treasury_mandates_status").on(table.status),
+]);
+
+// Treasury Allocations - Bucket-wise allocation for corporates
+export const treasuryAllocations = pgTable("treasury_allocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mandateId: varchar("mandate_id").references(() => treasuryMandates.id).notNull(),
+  
+  // Bucket classification
+  bucketType: varchar("bucket_type").notNull(), // operating_cash/liquidity_buffer/short_term_parking/yield_accrual
+  bucketName: varchar("bucket_name").notNull(),
+  
+  // Allocation
+  allocatedAmount: decimal("allocated_amount", { precision: 20, scale: 2 }).notNull(),
+  currentValue: decimal("current_value", { precision: 20, scale: 2 }).notNull(),
+  
+  // Target parameters
+  targetYield: decimal("target_yield", { precision: 5, scale: 2 }), // Percentage
+  maxDuration: integer("max_duration"), // Days
+  liquidityDays: integer("liquidity_days"), // T+0, T+1, etc.
+  
+  // Allowed instruments for this bucket
+  allowedInstruments: jsonb("allowed_instruments").$type<string[]>(), // ['overnight_mf', 'liquid_mf', 'tbill', 'cp', 'cd']
+  
+  // Current holdings summary
+  holdingsSummary: jsonb("holdings_summary").$type<{
+    instrumentType: string;
+    amount: number;
+    yield: number;
+    maturityDate?: string;
+  }[]>(),
+  
+  // Yield tracking
+  expectedAnnualisedYield: decimal("expected_annualised_yield", { precision: 5, scale: 2 }),
+  actualYieldMtd: decimal("actual_yield_mtd", { precision: 5, scale: 2 }),
+  actualYieldYtd: decimal("actual_yield_ytd", { precision: 5, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_treasury_allocations_mandate").on(table.mandateId),
+  index("idx_treasury_allocations_bucket").on(table.bucketType),
+]);
+
+// Treasury Proposals - Generated recommendations for corporates
+export const treasuryProposals = pgTable("treasury_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mandateId: varchar("mandate_id").references(() => treasuryMandates.id).notNull(),
+  
+  // Proposal details
+  proposalNumber: varchar("proposal_number").notNull(),
+  proposalType: varchar("proposal_type").notNull(), // initial_deployment/rebalancing/maturity_reinvestment
+  
+  // Current state analysis
+  currentIdleCash: decimal("current_idle_cash", { precision: 20, scale: 2 }).notNull(),
+  currentYield: decimal("current_yield", { precision: 5, scale: 2 }),
+  
+  // Recommended allocation
+  recommendedAllocation: jsonb("recommended_allocation").$type<{
+    bucket: string;
+    instrument: string;
+    instrumentName: string;
+    amount: number;
+    expectedYield: number;
+    maturityDays: number;
+    creditRating: string;
+  }[]>(),
+  
+  // Expected outcomes
+  expectedTotalYield: decimal("expected_total_yield", { precision: 5, scale: 2 }),
+  liquidityTimeline: jsonb("liquidity_timeline").$type<{
+    t0: number;
+    t1: number;
+    t7: number;
+    t30: number;
+  }>(),
+  
+  // Risk assessment
+  riskNotes: text("risk_notes"),
+  creditProfileSummary: text("credit_profile_summary"),
+  worstCaseNavImpactBps: integer("worst_case_nav_impact_bps"),
+  
+  // Approval workflow
+  status: varchar("status").default("draft"), // draft/pending_approval/approved/rejected/executed/expired
+  makerUserId: varchar("maker_user_id").references(() => users.id),
+  checkerUserId: varchar("checker_user_id").references(() => users.id),
+  makerApprovedAt: timestamp("maker_approved_at"),
+  checkerApprovedAt: timestamp("checker_approved_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Execution
+  executedAt: timestamp("executed_at"),
+  executionDetails: jsonb("execution_details"),
+  
+  validUntil: timestamp("valid_until"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_treasury_proposals_mandate").on(table.mandateId),
+  index("idx_treasury_proposals_status").on(table.status),
+]);
+
+// ============================================================
+// REBALANCING ENGINE - PRD Section 11
+// ============================================================
+
+// Rebalancing Recommendations with Reason Codes
+export const rebalancingRecommendations = pgTable("rebalancing_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Recommendation type
+  recommendationType: varchar("recommendation_type").notNull(), // buy/sell/hold/switch
+  priority: varchar("priority").notNull().default("medium"), // high/medium/low
+  
+  // Trigger reason (PRD Section 11)
+  triggerReason: varchar("trigger_reason").notNull(), // over_allocation/under_allocation/goal_deviation/risk_breach/better_alternative/credit_downgrade
+  reasonCode: varchar("reason_code").notNull(), // REQ_REBAL_001, etc.
+  reasonDescription: text("reason_description").notNull(),
+  
+  // Asset details
+  assetClass: varchar("asset_class").notNull(),
+  currentHoldingId: varchar("current_holding_id"),
+  productId: varchar("product_id"),
+  productName: varchar("product_name"),
+  isin: varchar("isin"),
+  
+  // Current vs Target
+  currentAllocation: decimal("current_allocation", { precision: 5, scale: 2 }), // Percentage
+  targetAllocation: decimal("target_allocation", { precision: 5, scale: 2 }), // Percentage
+  deviationPercent: decimal("deviation_percent", { precision: 5, scale: 2 }),
+  
+  // Recommendation amounts
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  recommendedAmount: decimal("recommended_amount", { precision: 15, scale: 2 }),
+  expectedImpact: jsonb("expected_impact").$type<{
+    returnImpact: number;
+    riskImpact: number;
+    goalImpact: string;
+  }>(),
+  
+  // For SWITCH recommendations
+  switchToProductId: varchar("switch_to_product_id"),
+  switchToProductName: varchar("switch_to_product_name"),
+  switchRationale: text("switch_rationale"),
+  
+  // Urgency for credit downgrades
+  isUrgent: boolean("is_urgent").default(false),
+  expiresAt: timestamp("expires_at"),
+  
+  // Status
+  status: varchar("status").default("pending"), // pending/approved/rejected/executed/expired
+  actionTakenAt: timestamp("action_taken_at"),
+  actionTakenBy: varchar("action_taken_by"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_rebalancing_recs_user").on(table.userId),
+  index("idx_rebalancing_recs_status").on(table.status),
+  index("idx_rebalancing_recs_trigger").on(table.triggerReason),
+]);
+
+// ============================================================
+// RETURN FORECASTING ENGINE - PRD Section 9
+// ============================================================
+
+// Product Return Forecasts - Metrics per product
+export const returnForecasts = pgTable("return_forecasts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Product identification
+  productType: varchar("product_type").notNull(), // mutual_fund/stock/bond/mld/pms/aif/treasury
+  productId: varchar("product_id").notNull(),
+  isin: varchar("isin"),
+  productName: varchar("product_name"),
+  
+  // Return metrics (PRD Section 9)
+  expectedReturnCagr: decimal("expected_return_cagr", { precision: 8, scale: 4 }),
+  expectedReturnIrr: decimal("expected_return_irr", { precision: 8, scale: 4 }),
+  expectedYield: decimal("expected_yield", { precision: 8, scale: 4 }),
+  
+  // Stress metrics
+  stressReturn: decimal("stress_return", { precision: 8, scale: 4 }), // 1-in-20 year scenario
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  
+  // Asset-specific metrics
+  assetSpecificMetrics: jsonb("asset_specific_metrics").$type<{
+    // Equity
+    earningsGrowth?: number;
+    valuationMultiple?: number;
+    // MF
+    rollingAlpha?: number;
+    // Debt
+    adjustedYtm?: number;
+    creditSpread?: number;
+    // MLD
+    probabilityWeightedPayoff?: number;
+    // PMS/AIF
+    rollingIrr?: number;
+    drawdownPenalty?: number;
+    // Treasury
+    postTaxYield?: number;
+  }>(),
+  
+  // Horizon-specific forecasts
+  forecastHorizons: jsonb("forecast_horizons").$type<{
+    horizon: string; // 1y/3y/5y/10y
+    expectedReturn: number;
+    probability: number;
+    rangeMin: number;
+    rangeMax: number;
+  }[]>(),
+  
+  // Calculation metadata
+  calculationDate: timestamp("calculation_date").defaultNow(),
+  dataAsOfDate: date("data_as_of_date"),
+  calculationMethod: varchar("calculation_method"),
+  confidenceLevel: integer("confidence_level").default(80), // Percentage
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_return_forecasts_product").on(table.productId),
+  index("idx_return_forecasts_type").on(table.productType),
+]);
+
+// ============================================================
+// EXPLAINABILITY & AUDIT - PRD Sections 15 & 17
+// ============================================================
+
+// Recommendation Explainability Log
+export const recommendationExplanations = pgTable("recommendation_explanations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Reference to recommendation
+  recommendationType: varchar("recommendation_type").notNull(), // proposal/rebalancing/treasury
+  recommendationId: varchar("recommendation_id").notNull(),
+  
+  // Explainability (PRD Section 15 - Mandatory)
+  whyThisProduct: text("why_this_product").notNull(),
+  whichGoalServed: varchar("which_goal_served"),
+  goalId: varchar("goal_id"),
+  
+  // Impact analysis
+  returnImpact: text("return_impact").notNull(),
+  riskImpact: text("risk_impact").notNull(),
+  portfolioImpactBefore: jsonb("portfolio_impact_before").$type<{
+    allocation: Record<string, number>;
+    expectedReturn: number;
+    riskScore: number;
+  }>(),
+  portfolioImpactAfter: jsonb("portfolio_impact_after").$type<{
+    allocation: Record<string, number>;
+    expectedReturn: number;
+    riskScore: number;
+  }>(),
+  
+  // Suitability justification
+  suitabilityCheck: jsonb("suitability_check").$type<{
+    riskProfileMatch: boolean;
+    horizonMatch: boolean;
+    liquidityMatch: boolean;
+    regulatoryCompliant: boolean;
+  }>(),
+  
+  // Alternative products considered
+  alternativesConsidered: jsonb("alternatives_considered").$type<{
+    productId: string;
+    productName: string;
+    reason: string;
+  }[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_recommendation_explanations_rec").on(table.recommendationId),
+  index("idx_recommendation_explanations_goal").on(table.goalId),
+]);
+
+// Insert schemas for new tables
+export const insertIncomeStreamSchema = createInsertSchema(incomeStreams).omit({ id: true, createdAt: true, updatedAt: true });
+export type IncomeStream = typeof incomeStreams.$inferSelect;
+export type InsertIncomeStream = z.infer<typeof insertIncomeStreamSchema>;
+
+export const insertFinancialObligationSchema = createInsertSchema(financialObligations).omit({ id: true, createdAt: true, updatedAt: true });
+export type FinancialObligation = typeof financialObligations.$inferSelect;
+export type InsertFinancialObligation = z.infer<typeof insertFinancialObligationSchema>;
+
+export const insertEmergencyFundSchema = createInsertSchema(emergencyFunds).omit({ id: true, createdAt: true, updatedAt: true });
+export type EmergencyFund = typeof emergencyFunds.$inferSelect;
+export type InsertEmergencyFund = z.infer<typeof insertEmergencyFundSchema>;
+
+export const insertInvestableSurplusSchema = createInsertSchema(investableSurplus).omit({ id: true, createdAt: true });
+export type InvestableSurplus = typeof investableSurplus.$inferSelect;
+export type InsertInvestableSurplus = z.infer<typeof insertInvestableSurplusSchema>;
+
+export const insertClientSegmentSchema = createInsertSchema(clientSegments).omit({ id: true, createdAt: true, updatedAt: true });
+export type ClientSegment = typeof clientSegments.$inferSelect;
+export type InsertClientSegment = z.infer<typeof insertClientSegmentSchema>;
+
+export const insertTreasuryMandateSchema = createInsertSchema(treasuryMandates).omit({ id: true, createdAt: true, updatedAt: true });
+export type TreasuryMandate = typeof treasuryMandates.$inferSelect;
+export type InsertTreasuryMandate = z.infer<typeof insertTreasuryMandateSchema>;
+
+export const insertTreasuryAllocationSchema = createInsertSchema(treasuryAllocations).omit({ id: true, createdAt: true, updatedAt: true });
+export type TreasuryAllocation = typeof treasuryAllocations.$inferSelect;
+export type InsertTreasuryAllocation = z.infer<typeof insertTreasuryAllocationSchema>;
+
+export const insertTreasuryProposalSchema = createInsertSchema(treasuryProposals).omit({ id: true, createdAt: true, updatedAt: true });
+export type TreasuryProposal = typeof treasuryProposals.$inferSelect;
+export type InsertTreasuryProposal = z.infer<typeof insertTreasuryProposalSchema>;
+
+export const insertRebalancingRecommendationSchema = createInsertSchema(rebalancingRecommendations).omit({ id: true, createdAt: true, updatedAt: true });
+export type RebalancingRecommendation = typeof rebalancingRecommendations.$inferSelect;
+export type InsertRebalancingRecommendation = z.infer<typeof insertRebalancingRecommendationSchema>;
+
+export const insertReturnForecastSchema = createInsertSchema(returnForecasts).omit({ id: true, createdAt: true, updatedAt: true });
+export type ReturnForecast = typeof returnForecasts.$inferSelect;
+export type InsertReturnForecast = z.infer<typeof insertReturnForecastSchema>;
+
+export const insertRecommendationExplanationSchema = createInsertSchema(recommendationExplanations).omit({ id: true, createdAt: true });
+export type RecommendationExplanation = typeof recommendationExplanations.$inferSelect;
+export type InsertRecommendationExplanation = z.infer<typeof insertRecommendationExplanationSchema>;
+
+// Segment classification enums
+export const ClientSegmentEnum = z.enum(['retail', 'hni', 'shni', 'bhni', 'corporate']);
+export const IncomeTypeEnum = z.enum(['salary', 'business', 'rental', 'interest', 'dividend', 'capital_gains', 'pension', 'other']);
+export const ObligationTypeEnum = z.enum(['home_loan', 'car_loan', 'personal_loan', 'credit_card', 'education_loan', 'other_emi', 'insurance_premium', 'rent', 'utility', 'maintenance']);
+export const TreasuryBucketEnum = z.enum(['operating_cash', 'liquidity_buffer', 'short_term_parking', 'yield_accrual']);
+export const RebalancingTriggerEnum = z.enum(['over_allocation', 'under_allocation', 'goal_deviation', 'risk_breach', 'better_alternative', 'credit_downgrade']);
+
 export const proposalPayments = pgTable("proposal_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   proposalId: varchar("proposal_id").references(() => investmentProposals.id).notNull(),
@@ -11121,72 +11716,7 @@ export type UnlistedRegulatoryAuditLog = typeof unlistedRegulatoryAuditLog.$infe
 export type InsertUnlistedRegulatoryAuditLog = z.infer<typeof insertUnlistedRegulatoryAuditLogSchema>;
 
 
-// ============================================
-// Financial Obligations Schema
-// ============================================
-
-export const financialObligations = pgTable("financial_obligations", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  
-  // Obligation Details
-  name: varchar("name").notNull(),
-  type: varchar("type").notNull(), // loan, emi, rent, insurance, subscription, tax, other
-  amount: numeric("amount").notNull(),
-  frequency: varchar("frequency").notNull(), // monthly, quarterly, annually
-  dueDate: date("due_date").notNull(),
-  priority: varchar("priority").notNull(), // critical, important, optional
-  status: varchar("status").notNull().default("active"), // active, upcoming, completed, cancelled
-  autoDebit: boolean("auto_debit").default(false),
-  
-  // Loan Specific Fields
-  remainingPayments: integer("remaining_payments"),
-  totalPayments: integer("total_payments"),
-  interestRate: numeric("interest_rate"),
-  principalAmount: numeric("principal_amount"),
-  
-  // Credit Card / Credit Facility Fields
-  creditLimit: numeric("credit_limit"),
-  utilizationRate: numeric("utilization_rate"),
-  minimumPayment: numeric("minimum_payment"),
-  
-  // Payment Tracking
-  lastPaymentDate: date("last_payment_date"),
-  lastPaymentAmount: numeric("last_payment_amount"),
-  paymentStatus: varchar("payment_status"), // paid, pending, overdue
-  
-  // Bank / Institution Details
-  bank: varchar("bank"),
-  accountNumber: varchar("account_number"),
-  accountType: varchar("account_type"),
-  
-  // CIBIL / Credit Report Sync
-  fromCibil: boolean("from_cibil").default(false),
-  cibilAccountId: varchar("cibil_account_id"),
-  lastSyncedAt: timestamp("last_synced_at"),
-  
-  // Notes and Tags
-  notes: text("notes"),
-  tags: text("tags").array(),
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_financial_obligations_user").on(table.userId),
-  index("idx_financial_obligations_type").on(table.type),
-  index("idx_financial_obligations_status").on(table.status),
-  index("idx_financial_obligations_due_date").on(table.dueDate),
-  index("idx_financial_obligations_priority").on(table.priority),
-]);
-
-export const insertFinancialObligationSchema = createInsertSchema(financialObligations).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type FinancialObligation = typeof financialObligations.$inferSelect;
-export type InsertFinancialObligation = z.infer<typeof insertFinancialObligationSchema>;
+// Financial Obligations - now defined in Investable Surplus Engine section
 
 // ============================================
 // Scheme Consents (OTP-based consent for government schemes)

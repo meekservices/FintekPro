@@ -96,6 +96,7 @@ import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import unifiedCartRoutes from "./routes/unified-cart";
 import aiProposalRoutes from "./routes/ai-proposal-routes";
 import goalPlanningRoutes from "./routes/goal-planning-routes";
+import investableSurplusRoutes from "./routes/investable-surplus-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -313,6 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Proposal Engine Routes
   app.use("/api/ai-proposals", aiProposalRoutes);
   app.use("/api/goals", goalPlanningRoutes);
+  app.use("/api/surplus", investableSurplusRoutes);
     try {
       const count = await seedProducts(storage as any);
       res.json({ 

@@ -156,6 +156,7 @@ import TDSCompliance from "@/pages/tds-compliance";
 import AIProposalsPage from "@/pages/ai-proposals";
 import AIProposalReviewPage from "@/pages/ai-proposal-review";
 import GoalsPage from "@/pages/goals";
+import InvestableSurplusPage from "@/pages/investable-surplus";
 
 function UserProtectedRoutes() {
   return (
@@ -274,6 +275,7 @@ function UserProtectedRoutes() {
         <Route path="/ai-proposals" component={AIProposalsPage} />
         <Route path="/ai-proposal-review" component={AIProposalReviewPage} />
         <Route path="/goals" component={GoalsPage} />
+        <Route path="/investable-surplus" component={InvestableSurplusPage} />
         <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
       </Switch>
     </ProfileCompletionGuard>
