@@ -88,6 +88,7 @@ import DistributionPartnerPortal from "@/pages/distribution-partner-portal";
 import FieldAgentPortal from "@/pages/field-agent-portal";
 import AgentClientsPage from "@/pages/agent-clients";
 import AgentProposalsPage from "@/pages/agent-proposals";
+import AgentTreasuryPage from "@/pages/agent-treasury";
 import OnboardingPage from "@/pages/onboarding";
 import ManualKYCPage from "@/pages/manual-kyc";
 import NetWorthPage from "@/pages/net-worth";
@@ -739,6 +740,13 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentProposalsPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/treasury">
+        {() => (
+          <AgentLayout>
+            <AgentTreasuryPage />
           </AgentLayout>
         )}
       </Route>

@@ -914,6 +914,416 @@ export function registerAgentAdvisoryRoutes(app: Express) {
     }
   });
 
+  app.get("/api/agent/treasury/clients", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      
+      const treasuryClients = await db.execute(sql`
+        SELECT 
+          u.id,
+          CONCAT(u.first_name, ' ', u.last_name) as name,
+          tm.entity_name as "entityName",
+          tm.total_cash_available as "totalCorpus",
+          tm.cash_deployed as "cashDeployed",
+          tm.status,
+          tm.maker_checker_enabled as "makerCheckerEnabled",
+          tm.id as "mandateId"
+        FROM client_agent_relationships car
+        INNER JOIN users u ON u.id = car.client_id
+        INNER JOIN treasury_mandates tm ON tm.user_id = u.id
+        WHERE car.agent_id = ${agentId}
+          AND car.status = 'active'
+          AND tm.status = 'active'
+        ORDER BY tm.created_at DESC
+      `);
+
+      res.json(treasuryClients.rows || []);
+    } catch (error) {
+      console.error("Error fetching treasury clients:", error);
+      res.status(500).json({ error: "Failed to fetch treasury clients" });
+    }
+  });
+
+  app.get("/api/agent/treasury/proposals", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      
+      const proposals = await db.execute(sql`
+        SELECT 
+          tp.id,
+          tp.proposal_number as "proposalNumber",
+          tp.proposal_type as "proposalType",
+          tm.entity_name as "entityName",
+          tp.current_idle_cash as "currentIdleCash",
+          tp.expected_total_yield as "expectedTotalYield",
+          tp.status,
+          tp.maker_user_id as "makerUserId",
+          tp.checker_user_id as "checkerUserId",
+          tp.maker_approved_at as "makerApprovedAt",
+          tp.checker_approved_at as "checkerApprovedAt",
+          tp.created_at as "createdAt",
+          tp.valid_until as "validUntil",
+          tp.recommended_allocation as "recommendedAllocation"
+        FROM treasury_proposals tp
+        INNER JOIN treasury_mandates tm ON tm.id = tp.mandate_id
+        INNER JOIN client_agent_relationships car ON car.client_id = tm.user_id
+        WHERE car.agent_id = ${agentId}
+          AND car.status = 'active'
+        ORDER BY tp.created_at DESC
+      `);
+
+      res.json(proposals.rows || []);
+    } catch (error) {
+      console.error("Error fetching treasury proposals:", error);
+      res.status(500).json({ error: "Failed to fetch treasury proposals" });
+    }
+  });
+
+  app.post("/api/agent/treasury/proposals/generate", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { mandateId, proposalType } = req.body;
+
+      if (!mandateId) {
+        return res.status(400).json({ error: "Mandate ID is required" });
+      }
+
+      const proposalId = nanoid();
+      const proposalNumber = `TP-${Date.now().toString(36).toUpperCase()}`;
+
+      const [mandate] = await db.execute(sql`
+        SELECT * FROM treasury_mandates WHERE id = ${mandateId}
+      `).then(r => r.rows as any[]);
+
+      if (!mandate) {
+        return res.status(404).json({ error: "Treasury mandate not found" });
+      }
+
+      const totalCash = parseFloat(mandate.total_cash_available) || 0;
+      const maxDuration = mandate.max_duration_days || 365;
+      const maxCredit = mandate.max_credit_risk || 'AAA';
+      const makerCheckerEnabled = mandate.maker_checker_enabled !== false;
+
+      const recommendedAllocation = [
+        {
+          bucket: "operating_cash",
+          instrument: "overnight_fund",
+          instrumentName: "Overnight Liquid Fund",
+          amount: Math.round(totalCash * 0.15),
+          expectedYield: 4.5,
+          maturityDays: 1,
+          creditRating: "AAA"
+        },
+        {
+          bucket: "liquidity_buffer",
+          instrument: "liquid_fund",
+          instrumentName: "Liquid Debt Fund",
+          amount: Math.round(totalCash * 0.25),
+          expectedYield: 5.2,
+          maturityDays: 7,
+          creditRating: "AAA"
+        },
+        {
+          bucket: "short_term_parking",
+          instrument: "ultra_short_term_fund",
+          instrumentName: "Ultra Short Term Bond Fund",
+          amount: Math.round(totalCash * 0.35),
+          expectedYield: 6.1,
+          maturityDays: Math.min(90, maxDuration),
+          creditRating: "AA+"
+        },
+        {
+          bucket: "yield_accrual",
+          instrument: "corporate_bond_fund",
+          instrumentName: "Corporate Bond Fund",
+          amount: Math.round(totalCash * 0.25),
+          expectedYield: 7.5,
+          maturityDays: Math.min(365, maxDuration),
+          creditRating: maxCredit === 'AAA' ? 'AAA' : 'AA'
+        }
+      ];
+
+      const expectedTotalYield = recommendedAllocation.reduce((sum, a) => 
+        sum + (a.expectedYield * a.amount / totalCash), 0
+      ).toFixed(2);
+
+      const initialStatus = makerCheckerEnabled ? 'pending_maker' : 'pending_approval';
+
+      await db.execute(sql`
+        INSERT INTO treasury_proposals (
+          id, mandate_id, proposal_number, proposal_type,
+          current_idle_cash, recommended_allocation, expected_total_yield,
+          status, maker_user_id, valid_until, created_at, updated_at
+        ) VALUES (
+          ${proposalId}, ${mandateId}, ${proposalNumber}, ${proposalType || 'initial_deployment'},
+          ${totalCash.toString()}, ${JSON.stringify(recommendedAllocation)}::jsonb, ${expectedTotalYield},
+          ${initialStatus}, ${agentId}, ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)}, NOW(), NOW()
+        )
+      `);
+
+      await logAgentAction({
+        agentId,
+        clientId: mandate.user_id,
+        actionCategory: 'treasury',
+        actionType: 'proposal_generated',
+        actionDescription: `Generated treasury proposal ${proposalNumber} for ${mandate.entity_name}`,
+        newState: { proposalId, proposalNumber, totalCash, expectedTotalYield, makerCheckerEnabled }
+      });
+
+      res.json({
+        success: true,
+        proposalId,
+        proposalNumber,
+        makerCheckerEnabled,
+        message: makerCheckerEnabled 
+          ? "Treasury proposal generated and awaiting maker approval"
+          : "Treasury proposal generated and awaiting approval"
+      });
+    } catch (error) {
+      console.error("Error generating treasury proposal:", error);
+      res.status(500).json({ error: "Failed to generate treasury proposal" });
+    }
+  });
+
+  app.post("/api/agent/treasury/proposals/:proposalId/maker-action", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { proposalId } = req.params;
+      const { action, reason } = req.body;
+
+      if (!action || !['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ error: "Valid action (approve/reject) is required" });
+      }
+
+      const [proposal] = await db.execute(sql`
+        SELECT * FROM treasury_proposals WHERE id = ${proposalId}
+      `).then(r => r.rows as any[]);
+
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+
+      if (proposal.status !== 'pending_maker') {
+        return res.status(400).json({ error: "Proposal is not pending maker approval" });
+      }
+
+      if (action === 'approve') {
+        await db.execute(sql`
+          UPDATE treasury_proposals 
+          SET status = 'pending_checker',
+              maker_user_id = ${agentId},
+              maker_approved_at = NOW(),
+              updated_at = NOW()
+          WHERE id = ${proposalId}
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE treasury_proposals 
+          SET status = 'rejected',
+              rejection_reason = ${reason || 'Rejected by maker'},
+              updated_at = NOW()
+          WHERE id = ${proposalId}
+        `);
+      }
+
+      await logAgentAction({
+        agentId,
+        actionCategory: 'treasury',
+        actionType: `maker_${action}`,
+        actionDescription: `Maker ${action}ed proposal ${proposal.proposal_number}${reason ? `: ${reason}` : ''}`,
+        previousState: { status: proposal.status },
+        newState: { status: action === 'approve' ? 'pending_checker' : 'rejected' }
+      });
+
+      res.json({
+        success: true,
+        message: action === 'approve' 
+          ? "Proposal approved by maker. Awaiting checker approval."
+          : "Proposal rejected by maker."
+      });
+    } catch (error) {
+      console.error("Error processing maker action:", error);
+      res.status(500).json({ error: "Failed to process maker action" });
+    }
+  });
+
+  app.post("/api/agent/treasury/proposals/:proposalId/single-approval", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { proposalId } = req.params;
+      const { action, reason } = req.body;
+
+      if (!action || !['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ error: "Valid action (approve/reject) is required" });
+      }
+
+      const [proposal] = await db.execute(sql`
+        SELECT tp.*, tm.entity_name, tm.user_id as client_id, tm.maker_checker_enabled
+        FROM treasury_proposals tp
+        INNER JOIN treasury_mandates tm ON tm.id = tp.mandate_id
+        WHERE tp.id = ${proposalId}
+      `).then(r => r.rows as any[]);
+
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+
+      const makerCheckerDisabled = proposal.maker_checker_enabled === false;
+      if (!makerCheckerDisabled) {
+        await logAgentAction({
+          agentId,
+          actionCategory: 'treasury',
+          actionType: 'single_approval_blocked',
+          actionDescription: `Blocked single approval attempt for ${proposal.proposal_number} - mandate requires maker-checker`,
+          previousState: { makerCheckerEnabled: proposal.maker_checker_enabled },
+          newState: { blocked: true, reason: 'maker_checker_required' }
+        });
+        return res.status(400).json({ 
+          error: "This mandate requires maker-checker approval. Use maker/checker endpoints.",
+          requiresMakerChecker: true
+        });
+      }
+
+      if (proposal.status !== 'pending_approval') {
+        return res.status(400).json({ error: "Proposal is not pending approval" });
+      }
+
+      if (action === 'approve') {
+        await db.execute(sql`
+          UPDATE treasury_proposals 
+          SET status = 'approved',
+              maker_user_id = ${agentId},
+              maker_approved_at = NOW(),
+              executed_at = NOW(),
+              execution_details = ${JSON.stringify({ executedBy: agentId, executedAt: new Date().toISOString(), singleApproval: true })}::jsonb,
+              updated_at = NOW()
+          WHERE id = ${proposalId}
+        `);
+
+        await db.execute(sql`
+          UPDATE treasury_mandates 
+          SET cash_deployed = total_cash_available,
+              updated_at = NOW()
+          WHERE id = ${proposal.mandate_id}
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE treasury_proposals 
+          SET status = 'rejected',
+              rejection_reason = ${reason || 'Rejected'},
+              updated_at = NOW()
+          WHERE id = ${proposalId}
+        `);
+      }
+
+      await logAgentAction({
+        agentId,
+        clientId: proposal.client_id,
+        actionCategory: 'treasury',
+        actionType: `single_approval_${action}`,
+        actionDescription: `Single approval ${action}ed proposal ${proposal.proposal_number} for ${proposal.entity_name}${reason ? `: ${reason}` : ''}`,
+        previousState: { status: proposal.status },
+        newState: { 
+          status: action === 'approve' ? 'approved' : 'rejected',
+          executed: action === 'approve'
+        }
+      });
+
+      res.json({
+        success: true,
+        message: action === 'approve' 
+          ? "Proposal approved and executed. Treasury allocation is now active."
+          : "Proposal rejected."
+      });
+    } catch (error) {
+      console.error("Error processing single approval:", error);
+      res.status(500).json({ error: "Failed to process approval" });
+    }
+  });
+
+  app.post("/api/agent/treasury/proposals/:proposalId/checker-action", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { proposalId } = req.params;
+      const { action, reason } = req.body;
+
+      if (!action || !['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ error: "Valid action (approve/reject) is required" });
+      }
+
+      const [proposal] = await db.execute(sql`
+        SELECT tp.*, tm.entity_name, tm.user_id as client_id
+        FROM treasury_proposals tp
+        INNER JOIN treasury_mandates tm ON tm.id = tp.mandate_id
+        WHERE tp.id = ${proposalId}
+      `).then(r => r.rows as any[]);
+
+      if (!proposal) {
+        return res.status(404).json({ error: "Proposal not found" });
+      }
+
+      if (proposal.status !== 'pending_checker') {
+        return res.status(400).json({ error: "Proposal is not pending checker approval" });
+      }
+
+      if (proposal.maker_user_id === agentId) {
+        return res.status(400).json({ error: "Checker cannot be the same as maker for maker-checker workflow" });
+      }
+
+      if (action === 'approve') {
+        await db.execute(sql`
+          UPDATE treasury_proposals 
+          SET status = 'approved',
+              checker_user_id = ${agentId},
+              checker_approved_at = NOW(),
+              executed_at = NOW(),
+              execution_details = ${JSON.stringify({ executedBy: agentId, executedAt: new Date().toISOString() })}::jsonb,
+              updated_at = NOW()
+          WHERE id = ${proposalId}
+        `);
+
+        await db.execute(sql`
+          UPDATE treasury_mandates 
+          SET cash_deployed = total_cash_available,
+              updated_at = NOW()
+          WHERE id = ${proposal.mandate_id}
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE treasury_proposals 
+          SET status = 'rejected',
+              checker_user_id = ${agentId},
+              rejection_reason = ${reason || 'Rejected by checker'},
+              updated_at = NOW()
+          WHERE id = ${proposalId}
+        `);
+      }
+
+      await logAgentAction({
+        agentId,
+        clientId: proposal.client_id,
+        actionCategory: 'treasury',
+        actionType: `checker_${action}`,
+        actionDescription: `Checker ${action}ed proposal ${proposal.proposal_number} for ${proposal.entity_name}${reason ? `: ${reason}` : ''}`,
+        previousState: { status: proposal.status },
+        newState: { 
+          status: action === 'approve' ? 'approved' : 'rejected',
+          executed: action === 'approve'
+        }
+      });
+
+      res.json({
+        success: true,
+        message: action === 'approve' 
+          ? "Proposal approved and executed. Treasury allocation is now active."
+          : "Proposal rejected by checker."
+      });
+    } catch (error) {
+      console.error("Error processing checker action:", error);
+      res.status(500).json({ error: "Failed to process checker action" });
+    }
+  });
+
   console.log("✅ Agent Advisory routes registered");
 }
 
