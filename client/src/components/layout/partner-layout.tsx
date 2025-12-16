@@ -8,25 +8,12 @@ import {
   Menu,
   X,
   Package,
-  MessageCircle,
-  BarChart3,
   Settings,
-  DollarSign,
-  TrendingUp,
   Users,
-  FileText,
-  ChevronDown,
-  ChevronRight,
   AlertCircle,
-  Building2,
-  ClipboardList,
-  Handshake,
-  PieChart,
-  Target,
-  Wallet,
   HelpCircle
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,113 +25,31 @@ interface PartnerLayoutProps {
 const partnerNavItems = [
   {
     title: "Dashboard",
-    href: "/partner",
+    href: "/",
     icon: Home,
     description: "Overview and key metrics"
   },
   {
     title: "Products",
-    href: "/partner/products",
+    href: "/products",
     icon: Package,
     description: "Manage your product catalog"
   },
   {
-    title: "Orders",
-    href: "/partner/orders",
-    icon: ClipboardList,
-    description: "Track customer orders"
-  },
-  {
-    title: "Revenue",
-    href: "/partner/revenue",
-    icon: DollarSign,
-    description: "Revenue and settlements",
-    children: [
-      {
-        title: "Earnings",
-        href: "/partner/revenue/earnings",
-        icon: TrendingUp,
-        description: "Revenue breakdown"
-      },
-      {
-        title: "Settlements",
-        href: "/partner/revenue/settlements",
-        icon: Wallet,
-        description: "Payment history"
-      },
-      {
-        title: "Commissions",
-        href: "/partner/revenue/commissions",
-        icon: Target,
-        description: "Commission structure"
-      }
-    ]
-  },
-  {
-    title: "Clients",
-    href: "/partner/clients",
+    title: "Agents",
+    href: "/agents",
     icon: Users,
-    description: "Customer relationships"
-  },
-  {
-    title: "Leads",
-    href: "/partner/leads",
-    icon: Handshake,
-    description: "Lead management"
-  },
-  {
-    title: "Analytics",
-    href: "/partner/analytics",
-    icon: BarChart3,
-    description: "Performance insights",
-    children: [
-      {
-        title: "Sales Analytics",
-        href: "/partner/analytics/sales",
-        icon: TrendingUp,
-        description: "Sales performance"
-      },
-      {
-        title: "Product Analytics",
-        href: "/partner/analytics/products",
-        icon: PieChart,
-        description: "Product performance"
-      },
-      {
-        title: "Client Analytics",
-        href: "/partner/analytics/clients",
-        icon: Users,
-        description: "Client insights"
-      }
-    ]
-  },
-  {
-    title: "Reports",
-    href: "/partner/reports",
-    icon: FileText,
-    description: "Download reports"
-  },
-  {
-    title: "Support",
-    href: "/partner/support",
-    icon: MessageCircle,
-    description: "Support tickets"
+    description: "Manage your agents"
   },
   {
     title: "CA Support",
-    href: "/partner/ca-support",
+    href: "/ca-support",
     icon: HelpCircle,
     description: "CA assistance requests"
   },
   {
-    title: "Company Profile",
-    href: "/partner/company",
-    icon: Building2,
-    description: "Business information"
-  },
-  {
     title: "Settings",
-    href: "/partner/settings",
+    href: "/partner-portal",
     icon: Settings,
     description: "Account preferences"
   }
@@ -152,36 +57,8 @@ const partnerNavItems = [
 
 export function PartnerLayout({ children }: PartnerLayoutProps) {
   const { user, isLoading } = useAuth();
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    partnerNavItems.forEach(item => {
-      if (item.children) {
-        const isChildActive = item.children.some(child => location === child.href || location.startsWith(child.href + '/'));
-        if (isChildActive) {
-          setExpandedMenus(prev => {
-            const next = new Set(Array.from(prev));
-            next.add(item.title);
-            return next;
-          });
-        }
-      }
-    });
-  }, [location]);
-
-  const toggleMenu = (title: string) => {
-    setExpandedMenus(prev => {
-      const next = new Set(prev);
-      if (next.has(title)) {
-        next.delete(title);
-      } else {
-        next.add(title);
-      }
-      return next;
-    });
-  };
 
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
@@ -279,80 +156,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
             <nav className="p-4 space-y-1">
               {partnerNavItems.map((item) => {
                 const Icon = item.icon;
-                const hasChildren = item.children && item.children.length > 0;
-                const isExpanded = expandedMenus.has(item.title);
                 const isActive = location === item.href;
-                const isChildActive = hasChildren && item.children?.some(
-                  child => location === child.href || location.startsWith(child.href + '/')
-                );
-
-                if (hasChildren) {
-                  return (
-                    <div key={item.title}>
-                      <button
-                        onClick={() => toggleMenu(item.title)}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group",
-                          isChildActive
-                            ? "bg-violet-600/20 text-violet-400"
-                            : "text-indigo-300 hover:bg-indigo-800 hover:text-white"
-                        )}
-                        data-testid={`button-partner-menu-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        <Icon className="h-5 w-5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0 text-left">
-                          <p className={cn(
-                            "text-sm font-medium",
-                            isChildActive ? "text-violet-400" : "text-indigo-200 group-hover:text-white"
-                          )}>
-                            {item.title}
-                          </p>
-                          <p className="text-xs mt-0.5 text-indigo-400">
-                            {item.description}
-                          </p>
-                        </div>
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 text-indigo-400" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-indigo-400" />
-                        )}
-                      </button>
-
-                      {isExpanded && (
-                        <div className="ml-4 mt-1 space-y-1 border-l border-indigo-700 pl-4">
-                          {item.children?.map((child) => {
-                            const ChildIcon = child.icon;
-                            const isChildItemActive = location === child.href;
-
-                            return (
-                              <Link
-                                key={child.href}
-                                href={child.href}
-                                className={cn(
-                                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                                  isChildItemActive
-                                    ? "bg-violet-600 text-white"
-                                    : "text-indigo-300 hover:bg-indigo-800 hover:text-white"
-                                )}
-                                data-testid={`link-partner-${child.href.split('/').pop()}`}
-                              >
-                                <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className={cn(
-                                    "text-sm",
-                                    isChildItemActive ? "text-white font-medium" : "text-indigo-200 group-hover:text-white"
-                                  )}>
-                                    {child.title}
-                                  </p>
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
 
                 return (
                   <Link
@@ -364,7 +168,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
                         ? "bg-violet-600 text-white"
                         : "text-indigo-300 hover:bg-indigo-800 hover:text-white"
                     )}
-                    data-testid={`link-partner-${item.href.split('/').pop()}`}
+                    data-testid={`link-partner-${item.href.split('/').pop() || 'home'}`}
                   >
                     <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
                     <div className="flex-1 min-w-0">

@@ -10,24 +10,10 @@ import {
   Menu,
   X,
   FileText,
-  Building2,
-  DollarSign,
   Settings,
-  UserPlus,
-  Briefcase,
-  TrendingUp,
-  PieChart,
-  ChevronDown,
-  ChevronRight,
-  AlertCircle,
-  Target,
-  ClipboardList,
-  CreditCard,
-  Shield,
-  Clock,
-  Wallet
+  AlertCircle
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -39,113 +25,31 @@ interface AgentLayoutProps {
 const agentNavItems = [
   {
     title: "Dashboard",
-    href: "/agent",
+    href: "/",
     icon: Home,
     description: "Overview and performance metrics"
   },
   {
     title: "My Clients",
-    href: "/agent/clients",
+    href: "/clients",
     icon: Users,
     description: "Manage your client portfolio"
   },
   {
-    title: "Lead Management",
-    href: "/agent/leads",
-    icon: UserPlus,
-    description: "Track and convert prospects"
-  },
-  {
     title: "Proposals",
-    href: "/agent/proposals",
+    href: "/proposals",
     icon: FileText,
     description: "Investment proposals and recommendations"
   },
   {
-    title: "Products",
-    href: "/agent/products",
-    icon: Briefcase,
-    description: "Browse & recommend products",
-    children: [
-      {
-        title: "Mutual Funds",
-        href: "/agent/products/mutual-funds",
-        icon: PieChart,
-        description: "MF schemes & SIPs"
-      },
-      {
-        title: "Insurance",
-        href: "/agent/products/insurance",
-        icon: Shield,
-        description: "Life & general insurance"
-      },
-      {
-        title: "Loans",
-        href: "/agent/products/loans",
-        icon: CreditCard,
-        description: "Personal & home loans"
-      },
-      {
-        title: "Fixed Income",
-        href: "/agent/products/fixed-income",
-        icon: Wallet,
-        description: "Bonds & fixed deposits"
-      }
-    ]
-  },
-  {
-    title: "Transactions",
-    href: "/agent/transactions",
-    icon: ClipboardList,
-    description: "View all transactions"
-  },
-  {
-    title: "Commission",
-    href: "/agent/commission",
-    icon: DollarSign,
-    description: "Earnings and payouts",
-    children: [
-      {
-        title: "Earnings",
-        href: "/agent/commission/earnings",
-        icon: TrendingUp,
-        description: "Commission breakdown"
-      },
-      {
-        title: "Payouts",
-        href: "/agent/commission/payouts",
-        icon: Wallet,
-        description: "Payout history"
-      },
-      {
-        title: "Pending",
-        href: "/agent/commission/pending",
-        icon: Clock,
-        description: "Pending commissions"
-      }
-    ]
-  },
-  {
     title: "Reports",
-    href: "/agent/reports",
+    href: "/dashboard",
     icon: BarChart3,
     description: "Performance analytics"
   },
   {
-    title: "Targets",
-    href: "/agent/targets",
-    icon: Target,
-    description: "Goals and achievements"
-  },
-  {
-    title: "Sub-Agents",
-    href: "/agent/sub-agents",
-    icon: Building2,
-    description: "Manage your team"
-  },
-  {
     title: "Settings",
-    href: "/agent/settings",
+    href: "/agent-portal",
     icon: Settings,
     description: "Profile and preferences"
   }
@@ -153,36 +57,8 @@ const agentNavItems = [
 
 export function AgentLayout({ children }: AgentLayoutProps) {
   const { user, isLoading } = useAuth();
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    agentNavItems.forEach(item => {
-      if (item.children) {
-        const isChildActive = item.children.some(child => location === child.href || location.startsWith(child.href + '/'));
-        if (isChildActive) {
-          setExpandedMenus(prev => {
-            const next = new Set(Array.from(prev));
-            next.add(item.title);
-            return next;
-          });
-        }
-      }
-    });
-  }, [location]);
-
-  const toggleMenu = (title: string) => {
-    setExpandedMenus(prev => {
-      const next = new Set(prev);
-      if (next.has(title)) {
-        next.delete(title);
-      } else {
-        next.add(title);
-      }
-      return next;
-    });
-  };
 
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
@@ -280,80 +156,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
             <nav className="p-4 space-y-1">
               {agentNavItems.map((item) => {
                 const Icon = item.icon;
-                const hasChildren = item.children && item.children.length > 0;
-                const isExpanded = expandedMenus.has(item.title);
                 const isActive = location === item.href;
-                const isChildActive = hasChildren && item.children?.some(
-                  child => location === child.href || location.startsWith(child.href + '/')
-                );
-
-                if (hasChildren) {
-                  return (
-                    <div key={item.title}>
-                      <button
-                        onClick={() => toggleMenu(item.title)}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group",
-                          isChildActive
-                            ? "bg-emerald-600/20 text-emerald-400"
-                            : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                        )}
-                        data-testid={`button-agent-menu-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        <Icon className="h-5 w-5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0 text-left">
-                          <p className={cn(
-                            "text-sm font-medium",
-                            isChildActive ? "text-emerald-400" : "text-slate-300 group-hover:text-white"
-                          )}>
-                            {item.title}
-                          </p>
-                          <p className="text-xs mt-0.5 text-slate-500">
-                            {item.description}
-                          </p>
-                        </div>
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 text-slate-500" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-slate-500" />
-                        )}
-                      </button>
-
-                      {isExpanded && (
-                        <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-4">
-                          {item.children?.map((child) => {
-                            const ChildIcon = child.icon;
-                            const isChildItemActive = location === child.href;
-
-                            return (
-                              <Link
-                                key={child.href}
-                                href={child.href}
-                                className={cn(
-                                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                                  isChildItemActive
-                                    ? "bg-emerald-600 text-white"
-                                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                                )}
-                                data-testid={`link-agent-${child.href.split('/').pop()}`}
-                              >
-                                <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className={cn(
-                                    "text-sm",
-                                    isChildItemActive ? "text-white font-medium" : "text-slate-300 group-hover:text-white"
-                                  )}>
-                                    {child.title}
-                                  </p>
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
 
                 return (
                   <Link
@@ -365,7 +168,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                         ? "bg-emerald-600 text-white"
                         : "text-slate-400 hover:bg-slate-800 hover:text-white"
                     )}
-                    data-testid={`link-agent-${item.href.split('/').pop()}`}
+                    data-testid={`link-agent-${item.href.split('/').pop() || 'home'}`}
                   >
                     <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
