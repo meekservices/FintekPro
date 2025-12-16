@@ -963,7 +963,8 @@ export function registerAgentAdvisoryRoutes(app: Express) {
           tp.checker_approved_at as "checkerApprovedAt",
           tp.created_at as "createdAt",
           tp.valid_until as "validUntil",
-          tp.recommended_allocation as "recommendedAllocation"
+          tp.recommended_allocation as "recommendedAllocation",
+          COALESCE(tm.maker_checker_enabled, true) as "makerCheckerEnabled"
         FROM treasury_proposals tp
         INNER JOIN treasury_mandates tm ON tm.id = tp.mandate_id
         INNER JOIN client_agent_relationships car ON car.client_id = tm.user_id

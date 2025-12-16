@@ -44,6 +44,7 @@ interface TreasuryProposal {
   checkerApprovedAt: string | null;
   createdAt: string;
   validUntil: string;
+  makerCheckerEnabled: boolean;
   recommendedAllocation: {
     bucket: string;
     instrument: string;
@@ -57,6 +58,7 @@ interface TreasuryProposal {
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-800",
+  pending_approval: "bg-yellow-100 text-yellow-800",
   pending_maker: "bg-yellow-100 text-yellow-800",
   pending_checker: "bg-orange-100 text-orange-800",
   approved: "bg-green-100 text-green-800",
@@ -150,21 +152,72 @@ export default function AgentTreasuryPage() {
     }
   });
 
+  const singleApprovalMutation = useMutation({
+    mutationFn: async (data: { proposalId: string; action: "approve" | "reject"; reason?: string }) => {
+      return apiRequest(`/api/agent/treasury/proposals/${data.proposalId}/single-approval`, {
+        method: "POST",
+        body: JSON.stringify({ action: data.action, reason: data.reason })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/treasury/proposals"] });
+      setApprovalDialogOpen(false);
+      toast({ title: "Action completed", description: "Proposal has been approved and executed." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
   const filteredClients = corporateClients?.filter(client =>
     client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.entityName?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   const pendingApprovals = proposals?.filter(p => 
-    p.status === "pending_maker" || p.status === "pending_checker"
+    p.status === "pending_maker" || p.status === "pending_checker" || p.status === "pending_approval"
   ) || [];
+
+  const isSingleApprovalMode = (proposal: TreasuryProposal) => {
+    return proposal.status === "pending_approval" || 
+           (proposal.makerCheckerEnabled === false && proposal.status !== "pending_checker");
+  };
+
+  const getApprovalMutation = (proposal: TreasuryProposal) => {
+    if (isSingleApprovalMode(proposal)) {
+      return singleApprovalMutation;
+    } else if (proposal.status === "pending_maker") {
+      return makerApprovalMutation;
+    } else {
+      return checkerApprovalMutation;
+    }
+  };
+
+  const getApprovalLabel = (proposal: TreasuryProposal) => {
+    if (isSingleApprovalMode(proposal)) {
+      return "Approve";
+    } else if (proposal.status === "pending_maker") {
+      return "Maker Action";
+    } else {
+      return "Checker Action";
+    }
+  };
+
+  const getApprovalDialogTitle = (proposal: TreasuryProposal | null) => {
+    if (!proposal) return "Approval";
+    if (isSingleApprovalMode(proposal)) {
+      return "Single Approval";
+    } else if (proposal.status === "pending_maker") {
+      return "Maker Approval";
+    } else {
+      return "Checker Approval";
+    }
+  };
 
   const handleApprovalSubmit = () => {
     if (!selectedProposal) return;
     
-    const mutation = selectedProposal.status === "pending_maker" 
-      ? makerApprovalMutation 
-      : checkerApprovalMutation;
+    const mutation = getApprovalMutation(selectedProposal);
     
     mutation.mutate({
       proposalId: selectedProposal.id,
@@ -378,7 +431,7 @@ export default function AgentTreasuryPage() {
                       <Button size="sm" variant="outline" data-testid={`button-view-${proposal.id}`}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {(proposal.status === "pending_maker" || proposal.status === "pending_checker") && (
+                      {(proposal.status === "pending_maker" || proposal.status === "pending_checker" || proposal.status === "pending_approval") && (
                         <Button 
                           size="sm"
                           onClick={() => {
@@ -387,7 +440,7 @@ export default function AgentTreasuryPage() {
                           }}
                           data-testid={`button-action-${proposal.id}`}
                         >
-                          {proposal.status === "pending_maker" ? "Maker Action" : "Checker Action"}
+                          {getApprovalLabel(proposal)}
                         </Button>
                       )}
                     </div>
@@ -457,52 +510,67 @@ export default function AgentTreasuryPage() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {pendingApprovals.map((proposal) => (
-            <Card key={proposal.id} className="border-l-4 border-l-orange-500">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium">{proposal.proposalNumber}</h3>
-                      <Badge className={proposal.status === "pending_maker" ? "bg-yellow-100 text-yellow-800" : "bg-orange-100 text-orange-800"}>
-                        {proposal.status === "pending_maker" ? "AWAITING MAKER" : "AWAITING CHECKER"}
-                      </Badge>
+          {pendingApprovals.map((proposal) => {
+            const singleMode = isSingleApprovalMode(proposal);
+            const statusBadge = singleMode
+              ? { class: "bg-blue-100 text-blue-800", text: "SINGLE APPROVAL" }
+              : proposal.status === "pending_maker"
+              ? { class: "bg-yellow-100 text-yellow-800", text: "AWAITING MAKER" }
+              : { class: "bg-orange-100 text-orange-800", text: "AWAITING CHECKER" };
+            
+            return (
+              <Card key={proposal.id} className={`border-l-4 ${singleMode ? "border-l-blue-500" : "border-l-orange-500"}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium">{proposal.proposalNumber}</h3>
+                        <Badge className={statusBadge.class}>
+                          {statusBadge.text}
+                        </Badge>
+                        {singleMode && (
+                          <Badge variant="secondary" className="gap-1">
+                            <Unlock className="h-3 w-3" />
+                            No Maker-Checker
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {proposal.entityName} • ₹{parseFloat(proposal.currentIdleCash).toLocaleString('en-IN')}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {proposal.entityName} • ₹{parseFloat(proposal.currentIdleCash).toLocaleString('en-IN')}
-                    </p>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProposal(proposal);
+                          setApprovalAction("reject");
+                          setApprovalDialogOpen(true);
+                        }}
+                        data-testid={`button-reject-${proposal.id}`}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Reject
+                      </Button>
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProposal(proposal);
+                          setApprovalAction("approve");
+                          setApprovalDialogOpen(true);
+                        }}
+                        data-testid={`button-approve-${proposal.id}`}
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setSelectedProposal(proposal);
-                        setApprovalAction("reject");
-                        setApprovalDialogOpen(true);
-                      }}
-                      data-testid={`button-reject-${proposal.id}`}
-                    >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      Reject
-                    </Button>
-                    <Button 
-                      size="sm"
-                      onClick={() => {
-                        setSelectedProposal(proposal);
-                        setApprovalAction("approve");
-                        setApprovalDialogOpen(true);
-                      }}
-                      data-testid={`button-approve-${proposal.id}`}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
@@ -617,12 +685,20 @@ export default function AgentTreasuryPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {selectedProposal?.status === "pending_maker" ? "Maker Approval" : "Checker Approval"}
+              {getApprovalDialogTitle(selectedProposal)}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="p-4 bg-muted rounded-lg">
-              <p className="font-medium">{selectedProposal?.proposalNumber}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium">{selectedProposal?.proposalNumber}</p>
+                {selectedProposal && isSingleApprovalMode(selectedProposal) && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Unlock className="h-3 w-3" />
+                    No Maker-Checker
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">{selectedProposal?.entityName}</p>
               <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -669,14 +745,23 @@ export default function AgentTreasuryPage() {
               </div>
             )}
 
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
-              <p className="font-medium text-yellow-800">Compliance Notice</p>
-              <p className="text-yellow-700">
-                {selectedProposal?.status === "pending_maker" 
-                  ? "As the Maker, your approval will submit this proposal for Checker review before execution."
-                  : "As the Checker, your approval will trigger immediate execution of this treasury allocation."}
-              </p>
-            </div>
+            {(() => {
+              const singleMode = selectedProposal ? isSingleApprovalMode(selectedProposal) : false;
+              return (
+                <div className={`p-3 rounded-lg text-sm ${singleMode ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}>
+                  <p className={`font-medium ${singleMode ? "text-blue-800" : "text-yellow-800"}`}>
+                    {singleMode ? "Single Approval Mode" : "Compliance Notice"}
+                  </p>
+                  <p className={singleMode ? "text-blue-700" : "text-yellow-700"}>
+                    {singleMode
+                      ? "This mandate does not require maker-checker approval. Your approval will immediately execute this treasury allocation."
+                      : selectedProposal?.status === "pending_maker" 
+                      ? "As the Maker, your approval will submit this proposal for Checker review before execution."
+                      : "As the Checker, your approval will trigger immediate execution of this treasury allocation."}
+                  </p>
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApprovalDialogOpen(false)}>
