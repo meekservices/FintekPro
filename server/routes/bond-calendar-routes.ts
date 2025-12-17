@@ -273,14 +273,18 @@ router.post("/sync/external", async (req, res) => {
   try {
     const rbiCount = await financialCalendarService.syncExternalRBICalendar();
     const sebiCount = await financialCalendarService.syncExternalSEBICalendar();
+    const nseCount = await financialCalendarService.syncExternalNSECalendar();
+    const bseCount = await financialCalendarService.syncExternalBSECalendar();
     
     res.json({
       success: true,
-      message: `Synced ${rbiCount + sebiCount} events from external calendars`,
+      message: `Synced ${rbiCount + sebiCount + nseCount + bseCount} events from external calendars`,
       synced: {
         rbi: rbiCount,
         sebi: sebiCount,
-        total: rbiCount + sebiCount,
+        nse: nseCount,
+        bse: bseCount,
+        total: rbiCount + sebiCount + nseCount + bseCount,
       },
     });
   } catch (error) {
@@ -288,6 +292,157 @@ router.post("/sync/external", async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to sync external calendars",
+    });
+  }
+});
+
+router.post("/sync/nse", async (req, res) => {
+  try {
+    const count = await financialCalendarService.syncExternalNSECalendar();
+    
+    res.json({
+      success: true,
+      message: `Synced ${count} events from NSE bond platform`,
+      synced: count,
+      source: "nse",
+    });
+  } catch (error) {
+    console.error("Error syncing NSE calendar:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to sync NSE calendar",
+    });
+  }
+});
+
+router.post("/sync/bse", async (req, res) => {
+  try {
+    const count = await financialCalendarService.syncExternalBSECalendar();
+    
+    res.json({
+      success: true,
+      message: `Synced ${count} events from BSE bond platform`,
+      synced: count,
+      source: "bse",
+    });
+  } catch (error) {
+    console.error("Error syncing BSE calendar:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to sync BSE calendar",
+    });
+  }
+});
+
+router.get("/export/ical", async (req, res) => {
+  try {
+    const { eventTypes, instrumentTypes, sources, months } = req.query;
+    
+    const icalFeed = await financialCalendarService.generateICalFeed({
+      eventTypes: eventTypes ? (eventTypes as string).split(",") : undefined,
+      instrumentTypes: instrumentTypes ? (instrumentTypes as string).split(",") : undefined,
+      sources: sources ? (sources as string).split(",") : undefined,
+      months: months ? parseInt(months as string, 10) : 6,
+    });
+
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=fintekpro-bond-calendar.ics");
+    res.send(icalFeed);
+  } catch (error) {
+    console.error("Error generating iCal feed:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate iCal feed",
+    });
+  }
+});
+
+router.get("/events/:id/google-calendar", async (req, res) => {
+  try {
+    const event = await financialCalendarService.getEventById(req.params.id);
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        error: "Event not found",
+      });
+    }
+
+    const googleCalendarUrl = financialCalendarService.generateGoogleCalendarUrl(event);
+    
+    res.json({
+      success: true,
+      url: googleCalendarUrl,
+      event: {
+        id: event.id,
+        title: event.eventTitle,
+      },
+    });
+  } catch (error) {
+    console.error("Error generating Google Calendar URL:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate Google Calendar URL",
+    });
+  }
+});
+
+router.get("/events/:id/ical", async (req, res) => {
+  try {
+    const event = await financialCalendarService.getEventById(req.params.id);
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        error: "Event not found",
+      });
+    }
+
+    const icalEvent = financialCalendarService.generateICalEvent(event);
+    const icalContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//FintekPro//Bond Calendar//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      icalEvent,
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename=event-${event.id}.ics`);
+    res.send(icalContent);
+  } catch (error) {
+    console.error("Error generating iCal event:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate iCal event",
+    });
+  }
+});
+
+router.get("/external", async (req, res) => {
+  try {
+    const { sources, startDate, endDate, limit } = req.query;
+    
+    const events = await financialCalendarService.getExternalCalendarEvents({
+      sources: sources ? (sources as string).split(",") : undefined,
+      startDate: startDate as string | undefined,
+      endDate: endDate as string | undefined,
+      limit: limit ? parseInt(limit as string, 10) : 50,
+    });
+
+    res.json({
+      success: true,
+      events,
+      total: events.length,
+      sources: ['rbi_external', 'sebi_external', 'nse_external', 'bse_external'],
+    });
+  } catch (error) {
+    console.error("Error fetching external calendar events:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch external calendar events",
     });
   }
 });

@@ -27,8 +27,11 @@ import {
   AlertCircle,
   Banknote,
   RefreshCw,
-  Globe
+  Globe,
+  Download,
+  CalendarPlus
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO, isAfter, isBefore } from "date-fns";
 
 interface BondCalendarEvent {
@@ -90,6 +93,7 @@ const instrumentTypeConfig: Record<string, { label: string; color: string }> = {
   ncd: { label: "NCD", color: "bg-orange-500" },
   infrastructure_bond: { label: "Infra Bond", color: "bg-teal-500" },
   tax_free_bond: { label: "Tax-Free", color: "bg-green-500" },
+  capital_gains_bond: { label: "54EC Bond", color: "bg-rose-500" },
 };
 
 const sourceConfig: Record<string, { label: string; color: string; icon: string }> = {
@@ -97,6 +101,10 @@ const sourceConfig: Record<string, { label: string; color: string; icon: string 
   rbi_external: { label: "RBI", color: "bg-blue-600", icon: "RBI" },
   sebi: { label: "SEBI", color: "bg-green-600", icon: "SEBI" },
   sebi_external: { label: "SEBI", color: "bg-green-600", icon: "SEBI" },
+  nse: { label: "NSE", color: "bg-orange-600", icon: "NSE" },
+  nse_external: { label: "NSE", color: "bg-orange-600", icon: "NSE" },
+  bse: { label: "BSE", color: "bg-red-600", icon: "BSE" },
+  bse_external: { label: "BSE", color: "bg-red-600", icon: "BSE" },
   internal: { label: "Internal", color: "bg-gray-500", icon: "INT" },
 };
 
@@ -457,8 +465,38 @@ export function BondCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [eventTypeFilter, setEventTypeFilter] = useState<string>("all");
   const [instrumentTypeFilter, setInstrumentTypeFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [view, setView] = useState<"calendar" | "list">("list");
   const { toast } = useToast();
+
+  const handleExportIcal = () => {
+    const url = "/api/bond-calendar/export/ical";
+    window.open(url, "_blank");
+    toast({
+      title: "Calendar Export",
+      description: "Downloading iCal file. You can import it into your calendar app.",
+    });
+  };
+
+  const handleAddToGoogleCalendar = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/bond-calendar/events/${eventId}/google-calendar`);
+      const data = await res.json();
+      if (data.success && data.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate Google Calendar link",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadEventIcal = (eventId: string) => {
+    window.open(`/api/bond-calendar/events/${eventId}/ical`, "_blank");
+  };
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
@@ -502,9 +540,14 @@ export function BondCalendar() {
     return eventsData.events.filter(event => {
       if (eventTypeFilter !== "all" && event.eventType !== eventTypeFilter) return false;
       if (instrumentTypeFilter !== "all" && event.instrumentType !== instrumentTypeFilter) return false;
+      if (sourceFilter !== "all") {
+        if (sourceFilter === "external" && !event.source.includes("external")) return false;
+        if (sourceFilter === "internal" && event.source.includes("external")) return false;
+        if (sourceFilter !== "external" && sourceFilter !== "internal" && !event.source.includes(sourceFilter)) return false;
+      }
       return true;
     });
-  }, [eventsData?.events, eventTypeFilter, instrumentTypeFilter]);
+  }, [eventsData?.events, eventTypeFilter, instrumentTypeFilter, sourceFilter]);
 
   const goToPreviousMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const goToNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -544,8 +587,38 @@ export function BondCalendar() {
                 data-testid="button-sync-external"
               >
                 <RefreshCw className={`h-4 w-4 mr-1.5 ${syncExternalMutation.isPending ? "animate-spin" : ""}`} />
-                {syncExternalMutation.isPending ? "Syncing..." : "Sync RBI/SEBI"}
+                {syncExternalMutation.isPending ? "Syncing..." : "Sync External"}
               </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" data-testid="button-export-calendar">
+                    <Download className="h-4 w-4 mr-1.5" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleExportIcal} data-testid="menu-export-ical">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download iCal (.ics)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/api/bond-calendar/export/ical`);
+                      toast({
+                        title: "Calendar URL Copied",
+                        description: "Subscribe to this URL in your calendar app for live updates",
+                      });
+                    }}
+                    data-testid="menu-copy-subscription"
+                  >
+                    <CalendarPlus className="h-4 w-4 mr-2" />
+                    Copy Subscription URL
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               <div className="flex items-center gap-1 border-l pl-2 ml-1">
                 <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
@@ -593,6 +666,23 @@ export function BondCalendar() {
                 <SelectItem value="ncd">NCD</SelectItem>
                 <SelectItem value="corporate_bond">Corporate Bond</SelectItem>
                 <SelectItem value="infrastructure_bond">Infrastructure Bond</SelectItem>
+                <SelectItem value="capital_gains_bond">54EC Capital Gains</SelectItem>
+                <SelectItem value="tax_free_bond">Tax-Free Bond</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[160px]" data-testid="select-source">
+                <SelectValue placeholder="Data Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="external">External Only</SelectItem>
+                <SelectItem value="internal">Internal Only</SelectItem>
+                <SelectItem value="rbi">RBI</SelectItem>
+                <SelectItem value="sebi">SEBI</SelectItem>
+                <SelectItem value="nse">NSE</SelectItem>
+                <SelectItem value="bse">BSE</SelectItem>
               </SelectContent>
             </Select>
 
