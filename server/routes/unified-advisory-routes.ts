@@ -15,6 +15,17 @@ router.get('/eligibility/:clientId', async (req: Request, res: Response) => {
     const { clientId } = req.params;
     
     const validation = await unifiedAdvisoryService.validateTriggerConditions(clientId);
+    
+    // Short-circuit if client not found
+    if (validation.missingConditions.includes('Client not found')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Client not found',
+        canProceed: false,
+        missingConditions: validation.missingConditions,
+        blockerReasons: validation.blockerReasons
+      });
+    }
     const eligibility = await unifiedAdvisoryService.getEligibleProducts(clientId);
     const profile = await unifiedAdvisoryService.getClientProfile(clientId);
     

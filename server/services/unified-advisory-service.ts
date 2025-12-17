@@ -118,7 +118,7 @@ class UnifiedAdvisoryService {
       riskProfileComplete: !!profile?.riskTolerance,
       horizonDefined: !!profile?.investmentExperience,
       portfolioAvailable: true,
-      clientCategoryValidated: true
+      clientCategoryValidated: !!profile?.riskTolerance && !!profile?.annualIncomeAmount
     };
 
     const [portfolio] = await db.select().from(portfolios).where(eq(portfolios.userId, clientId)).limit(1);
