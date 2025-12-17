@@ -1,10 +1,31 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { onboardingInvitations, onboardingInvitationEvents, users, agents, partners } from "@shared/schema";
-import { eq, and, desc, ilike, or, sql } from "drizzle-orm";
+import { eq, and, desc, ilike, or, sql, SQL } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { partnerService } from "../partner-service";
 
 const router = Router();
+
+function buildConditions(...conditions: (SQL | undefined)[]): SQL | undefined {
+  const validConditions = conditions.filter((c): c is SQL => c !== undefined);
+  if (validConditions.length === 0) return undefined;
+  if (validConditions.length === 1) return validConditions[0];
+  return and(...validConditions);
+}
+
+async function getPartnerFromAuth(req: Request): Promise<any | null> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Basic ')) return null;
+  
+  try {
+    const [email, password] = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+    const partner = await partnerService.authenticatePartner(email, password);
+    return partner;
+  } catch {
+    return null;
+  }
+}
 
 function generateReferralCode(): string {
   return `FTP-${nanoid(8).toUpperCase()}`;
@@ -96,21 +117,21 @@ router.get("/api/agent/onboarding-invitations", async (req: Request, res: Respon
 
     const { status, search } = req.query;
 
-    let query = db.select()
-      .from(onboardingInvitations)
-      .where(and(
-        eq(onboardingInvitations.inviterId, user.id),
-        eq(onboardingInvitations.inviterType, "agent"),
-        status ? eq(onboardingInvitations.status, status as string) : undefined,
-        search ? or(
-          ilike(onboardingInvitations.clientName, `%${search}%`),
-          ilike(onboardingInvitations.clientEmail, `%${search}%`),
-          ilike(onboardingInvitations.clientMobile, `%${search}%`)
-        ) : undefined
-      ))
-      .orderBy(desc(onboardingInvitations.createdAt));
+    const whereCondition = buildConditions(
+      eq(onboardingInvitations.inviterId, user.id),
+      eq(onboardingInvitations.inviterType, "agent"),
+      status ? eq(onboardingInvitations.status, status as string) : undefined,
+      search ? or(
+        ilike(onboardingInvitations.clientName, `%${search}%`),
+        ilike(onboardingInvitations.clientEmail, `%${search}%`),
+        ilike(onboardingInvitations.clientMobile, `%${search}%`)
+      ) : undefined
+    );
 
-    const invitations = await query;
+    const invitations = await db.select()
+      .from(onboardingInvitations)
+      .where(whereCondition)
+      .orderBy(desc(onboardingInvitations.createdAt));
 
     res.json({
       success: true,
@@ -222,9 +243,9 @@ router.get("/api/agent/onboarding-invitations/stats", async (req: Request, res: 
 // Create invitation (partner)
 router.post("/api/partner/onboarding-invitations", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
+    const partner = await getPartnerFromAuth(req);
+    if (!partner) {
+      return res.status(401).json({ error: "Partner authentication required" });
     }
 
     const { clientEmail, clientMobile, clientName, suggestedEntityType, suggestedMode, notes } = req.body;
@@ -239,9 +260,9 @@ router.post("/api/partner/onboarding-invitations", async (req: Request, res: Res
 
     const [invitation] = await db.insert(onboardingInvitations).values({
       referralCode,
-      inviterId: user.id,
+      inviterId: partner.id,
       inviterType: "partner",
-      inviterName: user.companyName || user.email,
+      inviterName: partner.companyName || partner.email,
       clientEmail,
       clientMobile,
       clientName,
@@ -255,7 +276,7 @@ router.post("/api/partner/onboarding-invitations", async (req: Request, res: Res
     await logInvitationEvent(
       invitation.id,
       "created",
-      user.id,
+      partner.id,
       "partner",
       { clientEmail, clientMobile, clientName },
       req.ip,
@@ -276,24 +297,26 @@ router.post("/api/partner/onboarding-invitations", async (req: Request, res: Res
 // List invitations (partner)
 router.get("/api/partner/onboarding-invitations", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
+    const partner = await getPartnerFromAuth(req);
+    if (!partner) {
+      return res.status(401).json({ error: "Partner authentication required" });
     }
 
     const { status, search } = req.query;
 
+    const whereCondition = buildConditions(
+      eq(onboardingInvitations.inviterId, partner.id),
+      eq(onboardingInvitations.inviterType, "partner"),
+      status ? eq(onboardingInvitations.status, status as string) : undefined,
+      search ? or(
+        ilike(onboardingInvitations.clientName, `%${search}%`),
+        ilike(onboardingInvitations.clientEmail, `%${search}%`)
+      ) : undefined
+    );
+
     const invitations = await db.select()
       .from(onboardingInvitations)
-      .where(and(
-        eq(onboardingInvitations.inviterId, user.id),
-        eq(onboardingInvitations.inviterType, "partner"),
-        status ? eq(onboardingInvitations.status, status as string) : undefined,
-        search ? or(
-          ilike(onboardingInvitations.clientName, `%${search}%`),
-          ilike(onboardingInvitations.clientEmail, `%${search}%`)
-        ) : undefined
-      ))
+      .where(whereCondition)
       .orderBy(desc(onboardingInvitations.createdAt));
 
     res.json({
@@ -310,9 +333,9 @@ router.get("/api/partner/onboarding-invitations", async (req: Request, res: Resp
 // Resend invitation (partner)
 router.post("/api/partner/onboarding-invitations/:id/resend", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
+    const partner = await getPartnerFromAuth(req);
+    if (!partner) {
+      return res.status(401).json({ error: "Partner authentication required" });
     }
 
     const { id } = req.params;
@@ -321,7 +344,7 @@ router.post("/api/partner/onboarding-invitations/:id/resend", async (req: Reques
       .from(onboardingInvitations)
       .where(and(
         eq(onboardingInvitations.id, id),
-        eq(onboardingInvitations.inviterId, user.id),
+        eq(onboardingInvitations.inviterId, partner.id),
         eq(onboardingInvitations.inviterType, "partner")
       ));
 
@@ -344,7 +367,7 @@ router.post("/api/partner/onboarding-invitations/:id/resend", async (req: Reques
     await logInvitationEvent(
       id,
       "resent",
-      user.id,
+      partner.id,
       "partner",
       { previousStatus: invitation.status },
       req.ip,
@@ -361,9 +384,9 @@ router.post("/api/partner/onboarding-invitations/:id/resend", async (req: Reques
 // Get invitation stats (partner)
 router.get("/api/partner/onboarding-invitations/stats", async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
+    const partner = await getPartnerFromAuth(req);
+    if (!partner) {
+      return res.status(401).json({ error: "Partner authentication required" });
     }
 
     const stats = await db.select({
@@ -372,7 +395,7 @@ router.get("/api/partner/onboarding-invitations/stats", async (req: Request, res
     })
       .from(onboardingInvitations)
       .where(and(
-        eq(onboardingInvitations.inviterId, user.id),
+        eq(onboardingInvitations.inviterId, partner.id),
         eq(onboardingInvitations.inviterType, "partner")
       ))
       .groupBy(onboardingInvitations.status);
