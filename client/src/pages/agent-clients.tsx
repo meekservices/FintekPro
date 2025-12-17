@@ -45,7 +45,11 @@ import {
   Send,
   AlertCircle,
   XCircle,
-  ChevronRight
+  ChevronRight,
+  Copy,
+  Link2,
+  Building2,
+  User
 } from "lucide-react";
 
 interface Client {
@@ -89,6 +93,43 @@ interface AdvisorySession {
   updatedAt: string;
 }
 
+interface OnboardingInvitation {
+  id: string;
+  referralCode: string;
+  inviterId: string;
+  inviterType: string;
+  inviterName: string | null;
+  clientEmail: string | null;
+  clientMobile: string | null;
+  clientName: string | null;
+  suggestedEntityType: string | null;
+  suggestedMode: string | null;
+  status: string;
+  currentStep: string | null;
+  completedSteps: string[];
+  progressPercentage: number;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+const INVITATION_STATUS_COLORS: Record<string, string> = {
+  pending: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  sent: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  opened: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+  started: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
+  in_progress: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300",
+  completed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  expired: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+};
+
+const ENTITY_TYPE_OPTIONS = [
+  { value: "individual", label: "Individual", icon: User },
+  { value: "company", label: "Company", icon: Building2 },
+  { value: "huf", label: "HUF", icon: Users },
+  { value: "firm", label: "Firm/LLP", icon: Building2 },
+  { value: "trust", label: "Trust/AOP", icon: Building2 },
+];
+
 const KYC_STATUS_COLORS: Record<string, string> = {
   pending: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   basic: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
@@ -125,6 +166,15 @@ export default function AgentClientsPage() {
   const [showStartSessionDialog, setShowStartSessionDialog] = useState(false);
   const [selectedSessionPurpose, setSelectedSessionPurpose] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteClientName, setInviteClientName] = useState("");
+  const [inviteClientEmail, setInviteClientEmail] = useState("");
+  const [inviteClientMobile, setInviteClientMobile] = useState("");
+  const [inviteEntityType, setInviteEntityType] = useState("");
+  const [inviteMode, setInviteMode] = useState("smart");
+  const [inviteNotes, setInviteNotes] = useState("");
+  const [generatedReferralLink, setGeneratedReferralLink] = useState("");
+  const [showInvitationsTab, setShowInvitationsTab] = useState(false);
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['/api/agent/clients'],
@@ -138,6 +188,64 @@ export default function AgentClientsPage() {
   const { data: clientSessions } = useQuery<AdvisorySession[]>({
     queryKey: ['/api/agent/advisory-sessions', selectedClient?.id],
     enabled: !!selectedClient,
+  });
+
+  const { data: invitationsData, isLoading: invitationsLoading } = useQuery<{ invitations: OnboardingInvitation[], total: number }>({
+    queryKey: ['/api/agent/onboarding-invitations'],
+  });
+
+  const { data: invitationStats } = useQuery<{ stats: Record<string, number> }>({
+    queryKey: ['/api/agent/onboarding-invitations/stats'],
+  });
+
+  const createInvitation = useMutation({
+    mutationFn: async (data: { 
+      clientName: string; 
+      clientEmail?: string; 
+      clientMobile?: string; 
+      suggestedEntityType?: string; 
+      suggestedMode?: string;
+      notes?: string;
+    }) => {
+      const response = await apiRequest('/api/agent/onboarding-invitations', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return response;
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "Invitation Created", description: "Client invitation has been generated" });
+      setGeneratedReferralLink(data.referralLink || `${window.location.origin}/onboarding?ref=${data.invitation.referralCode}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/onboarding-invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/onboarding-invitations/stats'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to create invitation", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const resendInvitation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/agent/onboarding-invitations/${id}/resend`, {
+        method: 'POST',
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation Resent", description: "The invitation has been resent" });
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/onboarding-invitations'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to resend invitation", 
+        variant: "destructive" 
+      });
+    }
   });
 
   const startAdvisorySession = useMutation({
@@ -226,6 +334,43 @@ export default function AgentClientsPage() {
     }).format(amount);
   };
 
+  const handleCreateInvitation = () => {
+    if (!inviteClientEmail && !inviteClientMobile) {
+      toast({
+        title: "Error",
+        description: "Please provide either email or mobile number",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    createInvitation.mutate({
+      clientName: inviteClientName,
+      clientEmail: inviteClientEmail || undefined,
+      clientMobile: inviteClientMobile || undefined,
+      suggestedEntityType: inviteEntityType || undefined,
+      suggestedMode: inviteMode,
+      notes: inviteNotes || undefined,
+    });
+  };
+
+  const handleCopyReferralLink = () => {
+    navigator.clipboard.writeText(generatedReferralLink);
+    toast({ title: "Copied!", description: "Referral link copied to clipboard" });
+  };
+
+  const resetInviteForm = () => {
+    setInviteClientName("");
+    setInviteClientEmail("");
+    setInviteClientMobile("");
+    setInviteEntityType("");
+    setInviteMode("smart");
+    setInviteNotes("");
+    setGeneratedReferralLink("");
+  };
+
+  const invitations = invitationsData?.invitations || [];
+
   if (clientsLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
@@ -252,10 +397,24 @@ export default function AgentClientsPage() {
               Manage your clients, portfolios, and advisory sessions
             </p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90" data-testid="button-add-client">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Onboard New Client
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => setShowInvitationsTab(true)}
+              data-testid="button-view-invitations"
+            >
+              <Link2 className="h-4 w-4 mr-2" />
+              Invitations ({invitationStats?.stats?.total || 0})
+            </Button>
+            <Button 
+              className="bg-primary hover:bg-primary/90" 
+              onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}
+              data-testid="button-add-client"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Onboard New Client
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -753,6 +912,323 @@ export default function AgentClientsPage() {
               Upload & Request Confirmation
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Onboard New Client Dialog */}
+      <Dialog open={showInviteDialog} onOpenChange={(open) => { if (!open) resetInviteForm(); setShowInviteDialog(open); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" />
+              Invite Client for Onboarding
+            </DialogTitle>
+            <DialogDescription>
+              Send a personalized onboarding link to your client. They'll complete KYC through our guided process.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!generatedReferralLink ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="clientName">Client Name</Label>
+                <Input
+                  id="clientName"
+                  placeholder="Enter client's full name"
+                  value={inviteClientName}
+                  onChange={(e) => setInviteClientName(e.target.value)}
+                  data-testid="input-invite-name"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="clientEmail">Email</Label>
+                  <Input
+                    id="clientEmail"
+                    type="email"
+                    placeholder="client@example.com"
+                    value={inviteClientEmail}
+                    onChange={(e) => setInviteClientEmail(e.target.value)}
+                    data-testid="input-invite-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientMobile">Mobile</Label>
+                  <Input
+                    id="clientMobile"
+                    placeholder="+91 9999999999"
+                    value={inviteClientMobile}
+                    onChange={(e) => setInviteClientMobile(e.target.value)}
+                    data-testid="input-invite-mobile"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label>Entity Type (Optional)</Label>
+                <Select value={inviteEntityType} onValueChange={setInviteEntityType}>
+                  <SelectTrigger data-testid="select-entity-type">
+                    <SelectValue placeholder="Select entity type (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENTITY_TYPE_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex items-center gap-2">
+                          <option.icon className="h-4 w-4" />
+                          {option.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Pre-select entity type to skip this step during onboarding
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Onboarding Mode</Label>
+                <Select value={inviteMode} onValueChange={setInviteMode}>
+                  <SelectTrigger data-testid="select-onboarding-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="smart">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        Smart Mode (Recommended)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="manual">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-blue-500" />
+                        Manual Mode
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Internal)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Add any internal notes about this client..."
+                  value={inviteNotes}
+                  onChange={(e) => setInviteNotes(e.target.value)}
+                  rows={2}
+                  data-testid="textarea-invite-notes"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800 dark:text-green-200">Invitation Created!</AlertTitle>
+                <AlertDescription className="text-green-700 dark:text-green-300">
+                  Share this link with {inviteClientName || "your client"} to start their onboarding.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <Label>Referral Link</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={generatedReferralLink}
+                    readOnly
+                    className="font-mono text-sm"
+                    data-testid="input-referral-link"
+                  />
+                  <Button onClick={handleCopyReferralLink} data-testid="button-copy-link">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    window.open(`mailto:${inviteClientEmail}?subject=Complete Your FintekPro Onboarding&body=Dear ${inviteClientName || "Client"},%0D%0A%0D%0APlease complete your onboarding by clicking the link below:%0D%0A${generatedReferralLink}%0D%0A%0D%0ABest regards`);
+                  }}
+                  disabled={!inviteClientEmail}
+                  data-testid="button-send-email"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Client
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    window.open(`https://wa.me/${inviteClientMobile?.replace(/[^0-9]/g, '')}?text=Dear ${inviteClientName || "Client"},%0A%0APlease complete your FintekPro onboarding:%0A${encodeURIComponent(generatedReferralLink)}`);
+                  }}
+                  disabled={!inviteClientMobile}
+                  data-testid="button-send-whatsapp"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  WhatsApp
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {!generatedReferralLink ? (
+              <>
+                <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleCreateInvitation}
+                  disabled={createInvitation.isPending || (!inviteClientEmail && !inviteClientMobile)}
+                  data-testid="button-create-invitation"
+                >
+                  {createInvitation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Link2 className="h-4 w-4 mr-2" />
+                  )}
+                  Generate Invitation Link
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => { resetInviteForm(); setShowInviteDialog(false); }}>
+                Done
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invitations Dashboard Dialog */}
+      <Dialog open={showInvitationsTab} onOpenChange={setShowInvitationsTab}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-primary" />
+              Client Onboarding Invitations
+            </DialogTitle>
+            <DialogDescription>
+              Track the progress of your client onboarding invitations
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <Card className="p-3">
+              <div className="text-2xl font-bold">{invitationStats?.stats?.total || 0}</div>
+              <div className="text-xs text-muted-foreground">Total</div>
+            </Card>
+            <Card className="p-3">
+              <div className="text-2xl font-bold text-yellow-600">{invitationStats?.stats?.pending || 0}</div>
+              <div className="text-xs text-muted-foreground">Pending</div>
+            </Card>
+            <Card className="p-3">
+              <div className="text-2xl font-bold text-blue-600">{invitationStats?.stats?.in_progress || 0}</div>
+              <div className="text-xs text-muted-foreground">In Progress</div>
+            </Card>
+            <Card className="p-3">
+              <div className="text-2xl font-bold text-green-600">{invitationStats?.stats?.completed || 0}</div>
+              <div className="text-xs text-muted-foreground">Completed</div>
+            </Card>
+          </div>
+
+          {invitationsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : invitations.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <UserPlus className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No invitations yet</p>
+              <Button 
+                variant="outline" 
+                className="mt-3"
+                onClick={() => { setShowInvitationsTab(false); setShowInviteDialog(true); }}
+              >
+                Create First Invitation
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Progress</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invitations.map((inv) => (
+                  <TableRow key={inv.id} data-testid={`row-invitation-${inv.id}`}>
+                    <TableCell className="font-medium">
+                      {inv.clientName || "—"}
+                      {inv.suggestedEntityType && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {inv.suggestedEntityType}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {inv.clientEmail && <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{inv.clientEmail}</div>}
+                        {inv.clientMobile && <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{inv.clientMobile}</div>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={INVITATION_STATUS_COLORS[inv.status] || ""}>
+                        {inv.status.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="w-24">
+                        <Progress value={inv.progressPercentage} className="h-2" />
+                        <span className="text-xs text-muted-foreground">{inv.progressPercentage}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(inv.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const link = `${window.location.origin}/onboarding?ref=${inv.referralCode}`;
+                            navigator.clipboard.writeText(link);
+                            toast({ title: "Copied!", description: "Link copied to clipboard" });
+                          }}
+                          data-testid={`button-copy-${inv.id}`}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        {(inv.status === "pending" || inv.status === "expired") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => resendInvitation.mutate(inv.id)}
+                            disabled={resendInvitation.isPending}
+                            data-testid={`button-resend-${inv.id}`}
+                          >
+                            <RefreshCw className={`h-4 w-4 ${resendInvitation.isPending ? "animate-spin" : ""}`} />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </DialogContent>
       </Dialog>
     </div>
