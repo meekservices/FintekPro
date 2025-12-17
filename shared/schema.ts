@@ -15673,3 +15673,348 @@ export const OnboardingInvitationEventTypeEnum = z.enum([
   'completed',
   'expired'
 ]);
+
+// ========================================
+// AI INVESTMENT ADVISORY SYSTEM
+// ========================================
+
+// AI Profit Picks - High probability profitable stock recommendations
+export const aiProfitPicks = pgTable("ai_profit_picks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  
+  // Stock identification
+  stockName: varchar("stock_name").notNull(),
+  symbol: varchar("symbol").notNull(),
+  isin: varchar("isin"),
+  exchange: varchar("exchange").default("NSE"), // NSE, BSE
+  
+  // Price analysis
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }).notNull(),
+  targetPrice: decimal("target_price", { precision: 15, scale: 2 }).notNull(),
+  stopLossPrice: decimal("stop_loss_price", { precision: 15, scale: 2 }),
+  upsidePercent: decimal("upside_percent", { precision: 8, scale: 2 }).notNull(),
+  downsidePercent: decimal("downside_percent", { precision: 8, scale: 2 }),
+  
+  // AI scoring
+  profitScore: integer("profit_score").notNull(), // 0-100 conviction score
+  confidenceLevel: varchar("confidence_level").default("medium"), // low, medium, high, very_high
+  signalType: varchar("signal_type").notNull().default("buy"), // buy, sell, hold
+  signalStrength: varchar("signal_strength").default("moderate"), // weak, moderate, strong
+  
+  // Time horizon
+  timeHorizon: varchar("time_horizon").notNull(), // ultra_short, short, medium, long
+  timeHorizonDays: integer("time_horizon_days"), // Specific days estimate
+  
+  // Risk assessment
+  riskLevel: varchar("risk_level").notNull(), // low, moderate, high, very_high
+  riskScore: integer("risk_score"), // 0-100
+  volatilityRating: varchar("volatility_rating"), // low, medium, high
+  
+  // Sector analysis
+  sector: varchar("sector"),
+  industry: varchar("industry"),
+  sectorTrend: varchar("sector_trend"), // bullish, neutral, bearish
+  sectorRank: integer("sector_rank"), // Rank within sector
+  
+  // Fundamentals
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
+  eps: decimal("eps", { precision: 15, scale: 2 }),
+  roe: decimal("roe", { precision: 8, scale: 2 }),
+  debtToEquity: decimal("debt_to_equity", { precision: 10, scale: 2 }),
+  marketCap: decimal("market_cap", { precision: 20, scale: 0 }),
+  dividendYield: decimal("dividend_yield", { precision: 8, scale: 2 }),
+  
+  // Technicals
+  rsiValue: decimal("rsi_value", { precision: 8, scale: 2 }),
+  macdSignal: varchar("macd_signal"), // bullish, bearish, neutral
+  movingAverage50: decimal("moving_average_50", { precision: 15, scale: 2 }),
+  movingAverage200: decimal("moving_average_200", { precision: 15, scale: 2 }),
+  supportLevel: decimal("support_level", { precision: 15, scale: 2 }),
+  resistanceLevel: decimal("resistance_level", { precision: 15, scale: 2 }),
+  
+  // AI reasoning
+  aiReason: text("ai_reason").notNull(), // Primary reason for recommendation
+  aiAnalysis: text("ai_analysis"), // Detailed analysis
+  keyFactors: jsonb("key_factors").$type<string[]>(), // Array of key factors
+  riskFactors: jsonb("risk_factors").$type<string[]>(), // Array of risk factors
+  
+  // Agent interaction
+  agentApproved: boolean("agent_approved").default(false),
+  agentModified: boolean("agent_modified").default(false),
+  agentNotes: text("agent_notes"),
+  agentOverrideReason: text("agent_override_reason"),
+  modifiedTargetPrice: decimal("modified_target_price", { precision: 15, scale: 2 }),
+  modifiedQuantity: integer("modified_quantity"),
+  
+  // Proposal tracking
+  addedToProposal: boolean("added_to_proposal").default(false),
+  proposalId: varchar("proposal_id").references(() => investmentProposals.id),
+  proposedQuantity: integer("proposed_quantity"),
+  proposedAmount: decimal("proposed_amount", { precision: 15, scale: 2 }),
+  
+  // Status
+  status: varchar("status").default("active"), // active, expired, executed, cancelled
+  expiresAt: timestamp("expires_at"),
+  executedAt: timestamp("executed_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_profit_picks_client").on(table.clientId),
+  index("idx_ai_profit_picks_agent").on(table.agentId),
+  index("idx_ai_profit_picks_status").on(table.status),
+  index("idx_ai_profit_picks_signal").on(table.signalType),
+  index("idx_ai_profit_picks_horizon").on(table.timeHorizon),
+]);
+
+// Portfolio Alerts - Benchmark and risk trigger alerts
+export const portfolioAlerts = pgTable("portfolio_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  holdingId: varchar("holding_id").references(() => portfolioHoldings.id),
+  
+  // Alert classification
+  alertType: varchar("alert_type").notNull(), // concentration, loss_trigger, profit_trigger, sector_overweight, risk_mismatch, horizon_mismatch, benchmark_breach, valuation_warning, rebalancing_needed
+  alertCategory: varchar("alert_category").notNull(), // risk, performance, compliance, rebalancing
+  severity: varchar("severity").notNull().default("medium"), // low, medium, high, critical
+  
+  // Alert details
+  alertTitle: varchar("alert_title").notNull(),
+  alertMessage: text("alert_message").notNull(),
+  alertDescription: text("alert_description"),
+  
+  // Trigger information
+  triggerMetric: varchar("trigger_metric"), // The metric that triggered the alert
+  triggerValue: decimal("trigger_value", { precision: 15, scale: 4 }), // Current value of the metric
+  triggerThreshold: decimal("trigger_threshold", { precision: 15, scale: 4 }), // Threshold that was breached
+  triggerDirection: varchar("trigger_direction"), // above, below, equals
+  
+  // Benchmark data
+  benchmarkName: varchar("benchmark_name"), // NIFTY50, SENSEX, sector index
+  benchmarkValue: decimal("benchmark_value", { precision: 15, scale: 4 }),
+  benchmarkChange: decimal("benchmark_change", { precision: 8, scale: 4 }),
+  
+  // Stock/Holding specific
+  symbol: varchar("symbol"),
+  stockName: varchar("stock_name"),
+  currentWeight: decimal("current_weight", { precision: 8, scale: 4 }),
+  recommendedWeight: decimal("recommended_weight", { precision: 8, scale: 4 }),
+  
+  // Recommended action
+  recommendedAction: varchar("recommended_action"), // buy, sell, hold, rebalance, review
+  actionUrgency: varchar("action_urgency").default("normal"), // immediate, urgent, normal, low
+  actionDescription: text("action_description"),
+  
+  // AI analysis
+  aiInsight: text("ai_insight"),
+  aiRecommendation: text("ai_recommendation"),
+  
+  // Agent interaction
+  agentViewed: boolean("agent_viewed").default(false),
+  agentViewedAt: timestamp("agent_viewed_at"),
+  agentAction: varchar("agent_action"), // acknowledged, acted, dismissed, deferred
+  agentActionAt: timestamp("agent_action_at"),
+  agentNotes: text("agent_notes"),
+  
+  // Client notification
+  clientNotified: boolean("client_notified").default(false),
+  clientNotifiedAt: timestamp("client_notified_at"),
+  clientViewed: boolean("client_viewed").default(false),
+  clientViewedAt: timestamp("client_viewed_at"),
+  
+  // Status
+  status: varchar("status").default("active"), // active, acknowledged, resolved, dismissed, expired
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("idx_portfolio_alerts_client").on(table.clientId),
+  index("idx_portfolio_alerts_portfolio").on(table.portfolioId),
+  index("idx_portfolio_alerts_type").on(table.alertType),
+  index("idx_portfolio_alerts_severity").on(table.severity),
+  index("idx_portfolio_alerts_status").on(table.status),
+]);
+
+// AI Portfolio Analysis - Stores comprehensive portfolio analysis results
+export const aiPortfolioAnalysis = pgTable("ai_portfolio_analysis", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  
+  // Analysis timestamp
+  analysisDate: timestamp("analysis_date").defaultNow().notNull(),
+  
+  // Portfolio metrics
+  totalValue: decimal("total_value", { precision: 15, scale: 2 }),
+  totalInvested: decimal("total_invested", { precision: 15, scale: 2 }),
+  totalGainLoss: decimal("total_gain_loss", { precision: 15, scale: 2 }),
+  totalGainLossPercent: decimal("total_gain_loss_percent", { precision: 8, scale: 4 }),
+  
+  // Return metrics
+  cagr1y: decimal("cagr_1y", { precision: 8, scale: 4 }),
+  cagr3y: decimal("cagr_3y", { precision: 8, scale: 4 }),
+  cagr5y: decimal("cagr_5y", { precision: 8, scale: 4 }),
+  xirr: decimal("xirr", { precision: 8, scale: 4 }),
+  absoluteReturn: decimal("absolute_return", { precision: 8, scale: 4 }),
+  
+  // Risk metrics
+  portfolioBeta: decimal("portfolio_beta", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  standardDeviation: decimal("standard_deviation", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  riskScore: integer("risk_score"), // 0-100
+  
+  // Concentration analysis
+  topHoldingWeight: decimal("top_holding_weight", { precision: 8, scale: 4 }),
+  top5HoldingsWeight: decimal("top_5_holdings_weight", { precision: 8, scale: 4 }),
+  sectorConcentration: jsonb("sector_concentration").$type<Record<string, number>>(),
+  
+  // Allocation breakdown
+  equityAllocation: decimal("equity_allocation", { precision: 8, scale: 4 }),
+  debtAllocation: decimal("debt_allocation", { precision: 8, scale: 4 }),
+  goldAllocation: decimal("gold_allocation", { precision: 8, scale: 4 }),
+  cashAllocation: decimal("cash_allocation", { precision: 8, scale: 4 }),
+  alternativeAllocation: decimal("alternative_allocation", { precision: 8, scale: 4 }),
+  
+  // Horizon analysis
+  ultraShortTermAllocation: decimal("ultra_short_term_allocation", { precision: 8, scale: 4 }),
+  shortTermAllocation: decimal("short_term_allocation", { precision: 8, scale: 4 }),
+  mediumTermAllocation: decimal("medium_term_allocation", { precision: 8, scale: 4 }),
+  longTermAllocation: decimal("long_term_allocation", { precision: 8, scale: 4 }),
+  
+  // Client profile alignment
+  clientRiskProfile: varchar("client_risk_profile"), // conservative, moderate, aggressive
+  portfolioRiskAlignment: varchar("portfolio_risk_alignment"), // aligned, slightly_misaligned, misaligned
+  riskMismatchDetails: text("risk_mismatch_details"),
+  
+  // AI insights
+  overallHealthScore: integer("overall_health_score"), // 0-100
+  aiSummary: text("ai_summary"),
+  keyStrengths: jsonb("key_strengths").$type<string[]>(),
+  keyWeaknesses: jsonb("key_weaknesses").$type<string[]>(),
+  recommendations: jsonb("recommendations").$type<string[]>(),
+  
+  // Detailed analysis
+  sectorAnalysis: jsonb("sector_analysis"),
+  holdingsAnalysis: jsonb("holdings_analysis"),
+  benchmarkComparison: jsonb("benchmark_comparison"),
+  
+  // Status
+  status: varchar("status").default("completed"), // in_progress, completed, error
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_portfolio_analysis_client").on(table.clientId),
+  index("idx_ai_portfolio_analysis_portfolio").on(table.portfolioId),
+  index("idx_ai_portfolio_analysis_date").on(table.analysisDate),
+]);
+
+// AI Talking Points - Agent communication scripts for client conversations
+export const aiTalkingPoints = pgTable("ai_talking_points", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  analysisId: varchar("analysis_id").references(() => aiPortfolioAnalysis.id),
+  profitPickId: varchar("profit_pick_id").references(() => aiProfitPicks.id),
+  
+  // Talking point classification
+  pointType: varchar("point_type").notNull(), // greeting, portfolio_summary, recommendation, risk_warning, action_item, closing, objection_handler
+  category: varchar("category"), // performance, risk, allocation, recommendation, compliance
+  
+  // Content
+  title: varchar("title").notNull(),
+  agentScript: text("agent_script").notNull(), // What agent should say
+  clientFacingVersion: text("client_facing_version"), // Simplified version for client understanding
+  
+  // Supporting data
+  supportingData: jsonb("supporting_data"), // Numbers, charts, facts to reference
+  visualAid: varchar("visual_aid"), // Reference to any chart/graph to show
+  
+  // Customization
+  tone: varchar("tone").default("professional"), // professional, friendly, cautious, urgent
+  emphasis: varchar("emphasis"), // positive, neutral, cautionary
+  
+  // Ordering
+  sequenceOrder: integer("sequence_order").default(0),
+  isRequired: boolean("is_required").default(false),
+  
+  // Agent interaction
+  agentUsed: boolean("agent_used").default(false),
+  agentUsedAt: timestamp("agent_used_at"),
+  agentModified: boolean("agent_modified").default(false),
+  agentVersion: text("agent_version"), // Agent's modified version
+  
+  // Status
+  status: varchar("status").default("active"), // active, used, expired
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_talking_points_client").on(table.clientId),
+  index("idx_ai_talking_points_agent").on(table.agentId),
+  index("idx_ai_talking_points_type").on(table.pointType),
+  index("idx_ai_talking_points_analysis").on(table.analysisId),
+]);
+
+// Insert schemas and types for AI Investment Advisory
+export const insertAiProfitPickSchema = createInsertSchema(aiProfitPicks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiProfitPick = typeof aiProfitPicks.$inferSelect;
+export type InsertAiProfitPick = z.infer<typeof insertAiProfitPickSchema>;
+
+export const insertPortfolioAlertSchema = createInsertSchema(portfolioAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PortfolioAlert = typeof portfolioAlerts.$inferSelect;
+export type InsertPortfolioAlert = z.infer<typeof insertPortfolioAlertSchema>;
+
+export const insertAiPortfolioAnalysisSchema = createInsertSchema(aiPortfolioAnalysis).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiPortfolioAnalysis = typeof aiPortfolioAnalysis.$inferSelect;
+export type InsertAiPortfolioAnalysis = z.infer<typeof insertAiPortfolioAnalysisSchema>;
+
+export const insertAiTalkingPointSchema = createInsertSchema(aiTalkingPoints).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AiTalkingPoint = typeof aiTalkingPoints.$inferSelect;
+export type InsertAiTalkingPoint = z.infer<typeof insertAiTalkingPointSchema>;
+
+// Enums for AI Investment Advisory
+export const TimeHorizonEnum = z.enum(['ultra_short', 'short', 'medium', 'long']);
+export const SignalTypeEnum = z.enum(['buy', 'sell', 'hold']);
+export const RiskLevelEnum = z.enum(['low', 'moderate', 'high', 'very_high']);
+export const AlertTypeEnum = z.enum([
+  'concentration',
+  'loss_trigger',
+  'profit_trigger',
+  'sector_overweight',
+  'risk_mismatch',
+  'horizon_mismatch',
+  'benchmark_breach',
+  'valuation_warning',
+  'rebalancing_needed'
+]);
+export const AlertSeverityEnum = z.enum(['low', 'medium', 'high', 'critical']);
