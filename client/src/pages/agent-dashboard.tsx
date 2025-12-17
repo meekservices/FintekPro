@@ -139,8 +139,8 @@ export default function AgentDashboard() {
   const { data: ckycClients, isLoading: clientsLoading } = useQuery<CkycClient[]>({
     queryKey: ["/api/agent/ckyc-clients"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/agent/ckyc-clients");
-      return response.json();
+      const response = await apiRequest("/api/agent/ckyc-clients");
+      return response;
     }
   });
 
@@ -148,8 +148,8 @@ export default function AgentDashboard() {
   const { data: notificationTriggers, isLoading: triggersLoading } = useQuery<NotificationTrigger[]>({
     queryKey: ["/api/agent/notifications"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/agent/notifications");
-      return response.json();
+      const response = await apiRequest("/api/agent/notifications");
+      return response;
     }
   });
 
@@ -157,10 +157,8 @@ export default function AgentDashboard() {
   const { data: proposals, isLoading: proposalsLoading } = useQuery<InvestmentProposal[]>({
     queryKey: ["/api/proposals"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/proposals", {
-        headers: { Authorization: "Bearer demo-token" }
-      });
-      return response.json();
+      const response = await apiRequest("/api/proposals");
+      return response;
     }
   });
 
@@ -168,18 +166,20 @@ export default function AgentDashboard() {
   const { data: clients, isLoading: clientsForProposalsLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/clients", {
-        headers: { Authorization: "Bearer demo-token" }
-      });
-      return response.json();
+      const response = await apiRequest("/api/clients");
+      return response;
     }
   });
 
   // Create notification trigger mutation
   const createNotificationMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/agent/ckyc/notifications", data);
-      return response.json();
+      const response = await apiRequest("/api/agent/ckyc/notifications", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      });
+      return response;
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Notification sent successfully" });
@@ -195,11 +195,12 @@ export default function AgentDashboard() {
   // Create investment proposal mutation
   const createProposalMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/proposals", {
-        body: data,
-        headers: { Authorization: "Bearer demo-token" }
+      const response = await apiRequest("/api/proposals", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
       });
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Investment proposal created successfully" });
@@ -214,11 +215,12 @@ export default function AgentDashboard() {
   // Update proposal status mutation
   const updateProposalMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiRequest("PATCH", `/api/proposals/${id}`, {
-        body: data,
-        headers: { Authorization: "Bearer demo-token" }
+      const response = await apiRequest(`/api/proposals/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
       });
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Proposal updated successfully" });

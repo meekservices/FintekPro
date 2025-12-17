@@ -228,8 +228,10 @@ export default function IntelligentTaxHub() {
   // Sync Data Mutation
   const syncMutation = useMutation({
     mutationFn: (sourceId: string) =>
-      apiRequest('POST', `/api/tax-hub/sync/${sourceId}`, {
-        body: { year: selectedYear }
+      apiRequest(`/api/tax-hub/sync/${sourceId}`, {
+        method: 'POST',
+        body: JSON.stringify({ year: selectedYear }),
+        headers: { "Content-Type": "application/json" }
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tax-hub'] });
@@ -250,8 +252,10 @@ export default function IntelligentTaxHub() {
   // File ITR Mutation
   const fileMutation = useMutation({
     mutationFn: (formData: any) =>
-      apiRequest('POST', '/api/tax-hub/file-itr', {
-        body: { ...formData, year: selectedYear }
+      apiRequest('/api/tax-hub/file-itr', {
+        method: 'POST',
+        body: JSON.stringify({ ...formData, year: selectedYear }),
+        headers: { "Content-Type": "application/json" }
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tax-hub'] });
