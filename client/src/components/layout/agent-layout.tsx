@@ -11,7 +11,8 @@ import {
   X,
   FileText,
   Settings,
-  AlertCircle
+  AlertCircle,
+  Brain
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,12 @@ const agentNavItems = [
     href: "/clients",
     icon: Users,
     description: "Manage your client portfolio"
+  },
+  {
+    title: "AI Advisory",
+    href: "/investment-advisory",
+    icon: Brain,
+    description: "AI-powered investment recommendations"
   },
   {
     title: "Proposals",
