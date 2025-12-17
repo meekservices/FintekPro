@@ -45,10 +45,52 @@ router.get("/portfolio/:clientId", async (req, res) => {
 
     if (!portfolio) {
       return res.json({
-        success: true,
-        portfolio: null,
+        id: null,
+        clientId,
+        name: "No Portfolio",
+        totalValue: 0,
         holdings: [],
-        message: "No portfolio found for this client"
+        lastUpdated: new Date().toISOString()
+      });
+      return res.json({
+        id: null,
+        clientId,
+        name: "No Portfolio",
+        totalValue: 0,
+        holdings: [],
+        lastUpdated: new Date().toISOString()
+      });
+      return res.json({
+        id: null,
+        clientId,
+        name: "No Portfolio",
+        totalValue: 0,
+        holdings: [],
+        lastUpdated: new Date().toISOString()
+      });
+      return res.json({
+        id: null,
+        clientId,
+        name: "No Portfolio",
+        totalValue: 0,
+        holdings: [],
+        lastUpdated: new Date().toISOString()
+      });
+      return res.json({
+        id: null,
+        clientId,
+        name: "No Portfolio",
+        totalValue: 0,
+        holdings: [],
+        lastUpdated: new Date().toISOString()
+      });
+      return res.json({
+        id: null,
+        clientId,
+        name: "No Portfolio",
+        totalValue: 0,
+        holdings: [],
+        lastUpdated: new Date().toISOString()
       });
     }
 
@@ -74,14 +116,17 @@ router.get("/portfolio/:clientId", async (req, res) => {
         const gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
 
         return {
-          ...holding,
+          id: holding.id,
+          symbol: holding.symbol,
+          name: holding.symbol,
+          quantity,
+          averagePrice: avgPrice,
           currentPrice,
-          marketValue,
-          investedValue,
+          currentValue: marketValue,
           gainLoss,
           gainLossPercent,
-          change: market?.change || "0",
-          changePercent: market?.changePercent || "0"
+          sector: holding.sector,
+          assetType: holding.assetType || 'EQUITY'
         };
       })
     );
@@ -90,15 +135,12 @@ router.get("/portfolio/:clientId", async (req, res) => {
     const totalInvested = holdingsWithMarketData.reduce((sum, h) => sum + h.investedValue, 0);
 
     res.json({
-      success: true,
-      portfolio: {
-        ...portfolio,
-        totalValue,
-        totalInvested,
-        totalGainLoss: totalValue - totalInvested,
-        totalGainLossPercent: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0
-      },
-      holdings: holdingsWithMarketData
+      id: portfolio.id,
+      clientId,
+      name: portfolio.name,
+      totalValue,
+      holdings: holdingsWithMarketData,
+      lastUpdated: portfolio.updatedAt?.toISOString() || new Date().toISOString()
     });
   } catch (error) {
     console.error("Error fetching portfolio:", error);
@@ -678,5 +720,200 @@ router.get("/ai/analysis/detail/:analysisId", async (req, res) => {
     });
   }
 });
+
+
+// ============================================
+// Frontend-compatible wrapper routes
+// ============================================
+
+// POST endpoint for adding holdings
+router.post("/portfolio/:clientId/holdings", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { symbol, name, quantity, averagePrice, assetType } = req.body;
+
+    let [portfolio] = await db
+      .select()
+      .from(portfolios)
+      .where(eq(portfolios.userId, clientId))
+      .limit(1);
+
+    if (!portfolio) {
+      [portfolio] = await db.insert(portfolios).values({
+        userId: clientId,
+        name: "Client Portfolio",
+        isDefault: true,
+      }).returning();
+    }
+
+    const [inserted] = await db.insert(portfolioHoldings).values({
+      portfolioId: portfolio.id,
+      symbol: symbol.toUpperCase(),
+      quantity: String(quantity),
+      avgPrice: String(averagePrice),
+      assetType: assetType || 'EQUITY',
+    }).returning();
+
+    res.json({ success: true, holding: inserted });
+  } catch (error) {
+    console.error("Error adding holding:", error);
+    res.status(500).json({ error: "Failed to add holding" });
+  }
+});
+
+// POST endpoint for CSV upload
+router.post("/portfolio/:clientId/upload", upload.single('file'), async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    let [portfolio] = await db
+      .select()
+      .from(portfolios)
+      .where(eq(portfolios.userId, clientId))
+      .limit(1);
+
+    if (!portfolio) {
+      [portfolio] = await db.insert(portfolios).values({
+        userId: clientId,
+        name: "Uploaded Portfolio",
+        isDefault: true,
+      }).returning();
+    }
+
+    const csvContent = req.file.buffer.toString('utf-8');
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const symbolIdx = headers.findIndex(h => h.includes('symbol'));
+    const quantityIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty'));
+    const priceIdx = headers.findIndex(h => h.includes('price'));
+
+    let count = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+      const symbol = values[symbolIdx];
+      const quantity = parseFloat(values[quantityIdx]);
+      const avgPrice = parseFloat(values[priceIdx]);
+      
+      if (symbol && !isNaN(quantity) && !isNaN(avgPrice)) {
+        await db.insert(portfolioHoldings).values({
+          portfolioId: portfolio.id,
+          symbol: symbol.toUpperCase(),
+          quantity: String(quantity),
+          avgPrice: String(avgPrice),
+          assetType: 'EQUITY',
+        });
+        count++;
+      }
+    }
+
+    res.json({ success: true, count });
+  } catch (error) {
+    console.error("Error uploading CSV:", error);
+    res.status(500).json({ error: "Failed to process CSV" });
+  }
+});
+
+// GET endpoint for portfolio analysis
+router.get("/analyze/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const analysis = await aiInvestmentService.analyzePortfolio(clientId);
+    
+    res.json({
+      totalValue: analysis?.totalValue || 0,
+      totalGainLoss: analysis?.totalGainLoss || 0,
+      totalGainLossPercent: analysis?.totalGainLossPercent || 0,
+      fundamentalRatios: analysis?.fundamentalRatios || {
+        avgPE: 0,
+        avgPB: 0,
+        avgROE: 0,
+        avgDebtEquity: 0
+      },
+      sectorConcentration: analysis?.sectorConcentration || {},
+      topHoldings: analysis?.topHoldings || [],
+      riskScore: analysis?.riskScore || 50,
+      diversificationScore: analysis?.diversificationScore || 50
+    });
+  } catch (error) {
+    console.error("Error analyzing portfolio:", error);
+    res.status(500).json({ error: "Failed to analyze portfolio" });
+  }
+});
+
+// GET endpoint for profit picks
+router.get("/profit-picks/:clientId/:horizon", async (req, res) => {
+  try {
+    const { clientId, horizon } = req.params;
+    const picks = await aiInvestmentService.generateProfitPicks(clientId, horizon);
+    res.json(picks || []);
+  } catch (error) {
+    console.error("Error generating profit picks:", error);
+    res.status(500).json({ error: "Failed to generate profit picks" });
+  }
+});
+
+// GET endpoint for profit picks (default horizon)
+router.get("/profit-picks/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const horizon = req.query.horizon as string || '3M';
+    const picks = await aiInvestmentService.generateProfitPicks(clientId, horizon);
+    res.json(picks || []);
+  } catch (error) {
+    console.error("Error generating profit picks:", error);
+    res.status(500).json({ error: "Failed to generate profit picks" });
+  }
+});
+
+// GET endpoint for alerts
+router.get("/alerts/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const alerts = await aiInvestmentService.checkBenchmarkAlerts(clientId);
+    res.json(alerts || []);
+  } catch (error) {
+    console.error("Error fetching alerts:", error);
+    res.status(500).json({ error: "Failed to fetch alerts" });
+  }
+});
+
+// GET endpoint for talking points
+router.get("/talking-points/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const talkingPoints = await aiInvestmentService.generateTalkingPoints(clientId);
+    res.json(talkingPoints || []);
+  } catch (error) {
+    console.error("Error generating talking points:", error);
+    res.status(500).json({ error: "Failed to generate talking points" });
+  }
+});
+
+// POST endpoint for creating proposal
+router.post("/proposal", async (req, res) => {
+  try {
+    const { clientId, picks } = req.body;
+    
+    if (!clientId || !picks?.length) {
+      return res.status(400).json({ error: "Client ID and picks are required" });
+    }
+
+    const result = await aiInvestmentService.createProposalFromPicks(clientId, picks);
+    
+    res.json({
+      proposalId: result?.proposalId || 'PROP-' + Date.now(),
+      itemCount: picks.length
+    });
+  } catch (error) {
+    console.error("Error creating proposal:", error);
+    res.status(500).json({ error: "Failed to create proposal" });
+  }
+});
+
 
 export default router;
