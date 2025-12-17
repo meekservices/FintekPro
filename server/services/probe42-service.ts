@@ -877,14 +877,14 @@ class Probe42Service {
           cin: details.cin || company.cin,
           sector: details.sector,
           industry: details.industry,
-          incorporationDate: details.incorporation_date ? new Date(details.incorporation_date) : undefined,
+          incorporationDate: details.incorporation_date || undefined,
           paidUpCapital: details.paid_up_capital?.toString(),
           authorizedCapital: details.authorized_capital?.toString(),
           faceValue: details.face_value?.toString(),
-          totalShares: details.total_shares?.toString(),
+          totalShares: details.total_shares ?? undefined,
           website: details.website,
           description: details.description,
-          lastSynced: new Date(),
+          lastSyncedAt: new Date(),
         });
         result.detailsUpdated = true;
       }
