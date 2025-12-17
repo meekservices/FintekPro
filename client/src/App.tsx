@@ -164,6 +164,7 @@ import AIProposalsPage from "@/pages/ai-proposals";
 import AIProposalReviewPage from "@/pages/ai-proposal-review";
 import GoalsPage from "@/pages/goals";
 import InvestableSurplusPage from "@/pages/investable-surplus";
+import TaxComplianceForm15Page from "@/pages/tax-compliance-form15";
 
 function UserProtectedRoutes() {
   return (
@@ -247,6 +248,7 @@ function UserProtectedRoutes() {
         <Route path="/nri-services" component={NRIServices} />
         <Route path="/itr-tax-services" component={ITRTaxServices} />
         <Route path="/tds-compliance" component={TDSCompliance} />
+        <Route path="/tax-compliance/form15" component={TaxComplianceForm15Page} />
         <Route path="/domestic-trading" component={DomesticTrading} />
         <Route path="/global-trading" component={GlobalTrading} />
         <Route path="/cart" component={Cart} />

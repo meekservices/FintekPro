@@ -79,6 +79,7 @@ import { cashfreeService } from './cashfree-service';
 import { phonePeService } from './phonepe-service';
 import { mutualFundsRefreshJob } from './mutual-funds-refresh-job';
 import { registerAgentItrRoutes } from './agent-itr-routes';
+import { registerForm15Routes } from './form15-routes';
 import { initReKYCCron } from './rekyc-cron';
 import { seedProducts } from './seed-products';
 import { seedDefaultAgent } from './seed-default-agent';
@@ -172,6 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start mutual funds background refresh job
   mutualFundsRefreshJob.start();
   registerAgentItrRoutes(app);
+  registerForm15Routes(app);
   
   // Start Re-KYC reminder cron job (runs daily at 9:00 AM)
   initReKYCCron();
