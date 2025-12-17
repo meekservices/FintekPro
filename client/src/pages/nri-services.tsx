@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ interface NRIService {
   isPremium?: boolean;
   icon: any;
   benefits: string[];
+  href?: string;
 }
 
 interface RemittanceOption {
@@ -201,6 +203,21 @@ const nriServices: NRIService[] = [
     icon: Shield,
     benefits: ["Expert FEMA guidance", "Compliance documentation", "Penalty protection", "Regular updates"]
   },
+  {
+    id: "form-15ca-15cb",
+    title: "Form 15CA/15CB Filing",
+    description: "CA-assisted international remittance compliance with DTAA benefits and digital signature",
+    category: "Tax & Compliance",
+    features: ["CA Assisted", "DTAA Optimization", "Digital Signature", "Rule 37BB Compliance"],
+    processingTime: "2-3 business days",
+    currency: "INR",
+    rating: 4.9,
+    isPopular: true,
+    isPremium: true,
+    icon: FileText,
+    benefits: ["CA-certified Form 15CB", "DTAA treaty benefits", "Bank compliance pack", "8-year audit trail"],
+    href: "/tax-compliance/form15"
+  },
   
   // Advisory Services
   {
@@ -323,6 +340,7 @@ export default function NRIServices() {
   const [selectedService, setSelectedService] = useState<NRIService | null>(null);
   const [remittanceAmount, setRemittanceAmount] = useState(1000);
   const [fromCurrency, setFromCurrency] = useState("USD");
+  const [, setLocation] = useLocation();
   
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
@@ -339,6 +357,19 @@ export default function NRIServices() {
   const selectedCountryData = nriCountries.find(country => country.code === selectedCountry);
 
   const handleServiceInquiry = (service: NRIService) => {
+    // If service has a direct href, navigate to it
+    if (service.href) {
+      if (!isAuthenticated) {
+        toast({
+          title: "Login Required",
+          description: "Please login to access this service.",
+        });
+        return;
+      }
+      setLocation(service.href);
+      return;
+    }
+    
     if (!isAuthenticated) {
       toast({
         title: "Login Required",

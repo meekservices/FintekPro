@@ -300,6 +300,15 @@ export function EnhancedNavigation() {
               href: "/tds-compliance",
               description: "TDS calculator, Form 16/16A, return filing",
               badge: "NEW"
+            },
+            {
+              name: "International Remittance",
+              description: "Form 15CA/15CB for foreign payments",
+              subItems: [
+                { name: "Form 15CA/15CB Filing", href: "/tax-compliance/form15", description: "NRI/Foreign remittance compliance", badge: "CA ASSISTED" },
+                { name: "DTAA Benefits", href: "/tax-compliance/form15?tab=dtaa", description: "Double taxation avoidance" },
+                { name: "TRC Verification", href: "/tax-compliance/form15?tab=trc", description: "Tax Residency Certificate" }
+              ]
             }
           ]
         }
