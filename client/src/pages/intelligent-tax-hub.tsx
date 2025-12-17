@@ -165,12 +165,53 @@ interface TaxService {
   action: string;
 }
 
+interface ITRFilingStatus {
+  currentStep: number;
+  totalSteps: number;
+  steps: {
+    id: string;
+    title: string;
+    status: "completed" | "in_progress" | "pending";
+    description: string;
+    completedAt?: string;
+  }[];
+  overallProgress: number;
+  estimatedCompletion?: string;
+  lastActivity?: string;
+}
+
+interface PreFillDataSource {
+  id: string;
+  name: string;
+  type: "salary" | "investments" | "bank" | "government" | "insurance" | "property";
+  connected: boolean;
+  dataCount: number;
+  lastSync?: string;
+  autoImported: boolean;
+}
+
+interface TaxSavingSuggestion {
+  id: string;
+  title: string;
+  section: string;
+  currentAmount: number;
+  suggestedAmount: number;
+  potentialSaving: number;
+  priority: "urgent" | "recommended" | "optional";
+  deadline?: string;
+  actionRequired: string;
+  category: "80C" | "80D" | "HRA" | "80G" | "80E" | "24" | "other";
+}
+
 interface DashboardData {
   healthScore: TaxHealthScore;
   incomeSources: IncomeSource[];
   timeline: TaxTimeline[];
   quickStats: QuickStats;
   recommendations: AIRecommendation[];
+  filingStatus?: ITRFilingStatus;
+  prefillSources?: PreFillDataSource[];
+  taxSavings?: TaxSavingSuggestion[];
 }
 
 interface FilingData {
