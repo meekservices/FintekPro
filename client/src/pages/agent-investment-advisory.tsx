@@ -55,7 +55,12 @@ import {
   Copy,
   Download,
   Filter,
-  Search
+  Search,
+  Layers,
+  Building2,
+  Globe,
+  Lock,
+  Unlock
 } from "lucide-react";
 
 interface Portfolio {
@@ -176,6 +181,10 @@ export default function AgentInvestmentAdvisory() {
   const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedProductCategories, setSelectedProductCategories] = useState<string[]>([]);
+  const [unifiedAdvisoryLoading, setUnifiedAdvisoryLoading] = useState(false);
+  const [unifiedEligibility, setUnifiedEligibility] = useState<Record<string, { eligible: boolean; reason: string }> | null>(null);
+  const [unifiedRecommendations, setUnifiedRecommendations] = useState<any>(null);
 
   const [newHolding, setNewHolding] = useState({
     symbol: "",
@@ -367,6 +376,10 @@ export default function AgentInvestmentAdvisory() {
           <TabsTrigger value="talking-points" data-testid="tab-talking-points">
             <MessageSquare className="h-4 w-4 mr-2" />
             Talking Points
+          </TabsTrigger>
+          <TabsTrigger value="multi-product" data-testid="tab-multi-product">
+            <Layers className="h-4 w-4 mr-2" />
+            Multi-Product
           </TabsTrigger>
           <TabsTrigger value="finalize" data-testid="tab-finalize">
             <Send className="h-4 w-4 mr-2" />
@@ -1077,6 +1090,236 @@ export default function AgentInvestmentAdvisory() {
                 </div>
               )}
             </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="multi-product" className="space-y-4">
+          <Alert>
+            <ShieldCheck className="h-4 w-4" />
+            <AlertTitle>SEBI Compliance Mode</AlertTitle>
+            <AlertDescription>
+              Agent view-only: You can review and explain recommendations but cannot modify suitability assessments.
+              All advice is logged for 8-year regulatory retention.
+            </AlertDescription>
+          </Alert>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Multi-Product Advisory Engine
+              </CardTitle>
+              <CardDescription>
+                Generate AI-powered recommendations across 8 product categories with regulatory compliance
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { id: 'stocks', name: 'Stocks', icon: TrendingUp, risk: 'Aggressive' },
+                  { id: 'mutual_funds', name: 'Mutual Funds', icon: PieChart, risk: 'Moderate' },
+                  { id: 'bonds', name: 'Bonds/NCDs', icon: Briefcase, risk: 'Conservative' },
+                  { id: 'unlisted', name: 'Unlisted/Pre-IPO', icon: Lock, risk: 'HNI+' },
+                  { id: 'mld', name: 'MLDs', icon: Calculator, risk: 'HNI+' },
+                  { id: 'pms', name: 'PMS', icon: Target, risk: 'HNI+' },
+                  { id: 'aif', name: 'AIF', icon: Building2, risk: 'Accredited' },
+                  { id: 'cfd', name: 'CFDs/Offshore', icon: Globe, risk: 'High Risk' }
+                ].map((product) => {
+                  const Icon = product.icon;
+                  const isSelected = selectedProductCategories.includes(product.id);
+                  const eligibility = unifiedEligibility?.[product.id];
+                  const isEligible = eligibility?.eligible ?? false;
+                  
+                  return (
+                    <Card 
+                      key={product.id}
+                      className={`cursor-pointer transition-all ${
+                        isSelected 
+                          ? 'ring-2 ring-primary border-primary' 
+                          : 'hover:border-primary/50'
+                      } ${!isEligible && eligibility ? 'opacity-50' : ''}`}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedProductCategories(prev => prev.filter(p => p !== product.id));
+                        } else {
+                          setSelectedProductCategories(prev => [...prev, product.id]);
+                        }
+                      }}
+                      data-testid={`card-product-${product.id}`}
+                    >
+                      <CardContent className="p-4 text-center">
+                        <Icon className={`h-8 w-8 mx-auto mb-2 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <div className="font-medium text-sm">{product.name}</div>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs mt-1 ${
+                            product.risk === 'Conservative' ? 'border-green-500 text-green-600' :
+                            product.risk === 'Moderate' ? 'border-yellow-500 text-yellow-600' :
+                            product.risk === 'Aggressive' ? 'border-orange-500 text-orange-600' :
+                            'border-red-500 text-red-600'
+                          }`}
+                        >
+                          {product.risk}
+                        </Badge>
+                        {eligibility && (
+                          <div className="mt-2">
+                            {isEligible ? (
+                              <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                <Unlock className="h-3 w-3 mr-1" />
+                                Eligible
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="text-xs">
+                                <Lock className="h-3 w-3 mr-1" />
+                                Blocked
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <Separator />
+
+              <div className="flex gap-4">
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    setUnifiedAdvisoryLoading(true);
+                    try {
+                      const response = await apiRequest('/api/unified-advisory/eligibility', {
+                        method: 'POST',
+                        body: JSON.stringify({ clientId: selectedClientId })
+                      });
+                      const data = await response.json();
+                      setUnifiedEligibility(data.eligibility || {});
+                      toast({
+                        title: "Eligibility Checked",
+                        description: `${Object.values(data.eligibility || {}).filter((e: any) => e.eligible).length} products eligible`
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Error",
+                        description: "Failed to check eligibility",
+                        variant: "destructive"
+                      });
+                    }
+                    setUnifiedAdvisoryLoading(false);
+                  }}
+                  disabled={unifiedAdvisoryLoading}
+                  data-testid="button-check-eligibility"
+                >
+                  {unifiedAdvisoryLoading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                  )}
+                  Check Eligibility
+                </Button>
+
+                <Button
+                  onClick={async () => {
+                    if (selectedProductCategories.length === 0) {
+                      toast({
+                        title: "Select Products",
+                        description: "Please select at least one product category",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    setUnifiedAdvisoryLoading(true);
+                    try {
+                      const response = await apiRequest('/api/unified-advisory/recommendations', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          clientId: selectedClientId,
+                          productTypes: selectedProductCategories
+                        })
+                      });
+                      const data = await response.json();
+                      setUnifiedRecommendations(data);
+                      toast({
+                        title: "Recommendations Generated",
+                        description: `Generated ${data.recommendations?.length || 0} recommendations`
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Error",
+                        description: "Failed to generate recommendations",
+                        variant: "destructive"
+                      });
+                    }
+                    setUnifiedAdvisoryLoading(false);
+                  }}
+                  disabled={unifiedAdvisoryLoading || selectedProductCategories.length === 0}
+                  data-testid="button-generate-recommendations"
+                >
+                  {unifiedAdvisoryLoading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Brain className="h-4 w-4 mr-2" />
+                  )}
+                  Generate AI Recommendations
+                </Button>
+              </div>
+
+              {unifiedRecommendations && (
+                <div className="space-y-4">
+                  <Separator />
+                  
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">AI Recommendations</h3>
+                    <Badge variant="outline">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {new Date().toLocaleString()}
+                    </Badge>
+                  </div>
+
+                  {unifiedRecommendations.recommendations?.map((rec: any, index: number) => (
+                    <Card key={index} className="border-l-4 border-l-primary">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base">{rec.productName}</CardTitle>
+                          <div className="flex gap-2">
+                            <Badge className={SIGNAL_COLORS[rec.action as keyof typeof SIGNAL_COLORS] || ''}>
+                              {rec.action}
+                            </Badge>
+                            <Badge variant="outline">{rec.productType}</Badge>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <p className="text-sm text-muted-foreground">{rec.rationale}</p>
+                        <div className="flex gap-4 text-sm">
+                          <span>Amount: <strong>₹{rec.suggestedAmount?.toLocaleString()}</strong></span>
+                          <span>Expected Return: <strong>{rec.expectedReturn}%</strong></span>
+                          <span>Risk: <Badge variant="outline" className={RISK_COLORS[rec.riskLevel as keyof typeof RISK_COLORS] || ''}>{rec.riskLevel}</Badge></span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  {unifiedRecommendations.disclosures && (
+                    <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <AlertTitle className="text-amber-800 dark:text-amber-200">Regulatory Disclosures</AlertTitle>
+                      <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs space-y-1">
+                        {Object.entries(unifiedRecommendations.disclosures || {}).map(([key, value]) => (
+                          <p key={key}>{String(value)}</p>
+                        ))}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="text-xs text-muted-foreground">
+              <Eye className="h-3 w-3 mr-1" />
+              Agent Mode: View and explain only. Recommendations are AI-generated with regulatory compliance.
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
