@@ -1,15 +1,40 @@
-import { Express, Request, Response } from "express";
+import { Express, Request, Response, Router } from "express";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { 
+  requireAuth, 
+  injectRoleInfo, 
+  getRoleInfo,
+  requireRole 
+} from "./middleware/roleMiddleware";
+import { RoleId } from "@shared/roles";
 
-// Role validation helper
+// Form 15 allowed roles
+const FORM15_ALLOWED_ROLES: RoleId[] = ['superadmin', 'master_agent', 'admin', 'compliance_officer', 'agent', 'sub_agent', 'client', 'user'];
+
+// Get user role from roleMiddleware's injected roleInfo (supports multi-role hierarchy)
 function getUserRole(req: Request): string {
+  const roleInfo = getRoleInfo(req);
+  if (roleInfo?.highestRole) {
+    // Map roleMiddleware roles to Form 15 legacy roles
+    const role = roleInfo.highestRole;
+    if (['superadmin', 'master_agent', 'admin', 'compliance_officer'].includes(role)) return 'admin';
+    if (['agent', 'sub_agent'].includes(role)) return 'ca_subordinate_agent';
+    if (role === 'partner') return 'ca'; // Partners can act as CAs
+    return 'client';
+  }
+  // Fallback to session for backward compatibility
   return (req as any).session?.user?.role || 'client';
 }
 
-function getSessionUser(req: Request): { id: string; email: string; role?: string } | undefined {
-  return (req as any).session?.user;
+function getSessionUser(req: Request): { id: string; email: string; role?: string; roles?: string[] } | undefined {
+  const roleInfo = getRoleInfo(req);
+  const sessionUser = (req as any).session?.user;
+  if (sessionUser && roleInfo) {
+    return { ...sessionUser, roles: roleInfo.roles };
+  }
+  return sessionUser;
 }
 
 function canCreateCase(role: string): boolean {
