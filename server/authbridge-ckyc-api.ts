@@ -53,15 +53,56 @@ class AuthBridgeCKYCService {
   private baseUrl: string;
   private apiKey: string;
   private clientId: string;
+  private environment: 'sandbox' | 'production';
+
+  // AuthBridge CKYC API URLs
+  private static readonly SANDBOX_URL = 'https://sandbox.authbridge.com';
+  private static readonly PRODUCTION_URL = 'https://api.authbridge.com';
+  private static readonly CKYC_ENDPOINT = '/v1/ckyc/fetch';
 
   constructor() {
-    this.baseUrl = process.env.AUTHBRIDGE_BASE_URL || 'https://api.authbridge.com';
+    // Environment auto-detection (similar to Cashfree pattern)
+    // Priority: AUTHBRIDGE_ENVIRONMENT > NODE_ENV > default to sandbox
+    const explicitEnv = process.env.AUTHBRIDGE_ENVIRONMENT;
+    if (explicitEnv === 'production' || explicitEnv === 'PRODUCTION') {
+      this.environment = 'production';
+    } else if (explicitEnv === 'sandbox' || explicitEnv === 'SANDBOX') {
+      this.environment = 'sandbox';
+    } else {
+      // Auto-detect based on NODE_ENV
+      this.environment = process.env.NODE_ENV === 'production' ? 'production' : 'sandbox';
+    }
+
+    // Set base URL based on environment (can be overridden via AUTHBRIDGE_BASE_URL)
+    const defaultUrl = this.environment === 'production' 
+      ? AuthBridgeCKYCService.PRODUCTION_URL 
+      : AuthBridgeCKYCService.SANDBOX_URL;
+    this.baseUrl = process.env.AUTHBRIDGE_BASE_URL || defaultUrl;
+    
     this.apiKey = process.env.AUTHBRIDGE_API_KEY || '';
     this.clientId = process.env.AUTHBRIDGE_CLIENT_ID || '';
 
     if (!this.apiKey || !this.clientId) {
-      console.warn('⚠️ [AuthBridge CKYC API] API credentials not configured. Using mock mode.');
+      console.warn(`⚠️ [AuthBridge CKYC API] API credentials not configured. Using mock mode.`);
+      console.log(`ℹ️ [AuthBridge CKYC API] Environment: ${this.environment} (auto-detected)`);
+    } else {
+      console.log(`✅ [AuthBridge CKYC API] Initialized in ${this.environment.toUpperCase()} mode`);
+      console.log(`   Base URL: ${this.baseUrl}`);
     }
+  }
+
+  /**
+   * Get current environment (sandbox or production)
+   */
+  getEnvironment(): string {
+    return this.environment;
+  }
+
+  /**
+   * Check if service is in mock mode (no credentials)
+   */
+  isInMockMode(): boolean {
+    return !this.apiKey || !this.clientId;
   }
 
   /**
@@ -80,9 +121,9 @@ class AuthBridgeCKYCService {
         return this.mockCKYCFetch(request);
       }
 
-      // Real API call
+      // Real API call using the correct endpoint
       const response = await axios.post<AuthBridgeCKYCResponse>(
-        `${this.baseUrl}/ckyc/fetch`,
+        `${this.baseUrl}${AuthBridgeCKYCService.CKYC_ENDPOINT}`,
         {
           pan: request.pan.toUpperCase(),
           full_name: request.full_name,
