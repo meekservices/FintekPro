@@ -1711,7 +1711,7 @@ function CreateProposalDialog({ open, onOpenChange, clients, onSubmit, isLoading
                   <SelectValue placeholder="Choose a client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map((client) => (
+                  {Array.isArray(clients) && clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.firstName} {client.lastName} ({client.email})
                     </SelectItem>
