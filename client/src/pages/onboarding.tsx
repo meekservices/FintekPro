@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,7 +45,8 @@ import {
   TrendingUp,
   ShieldCheck,
   Building,
-  HandshakeIcon
+  HandshakeIcon,
+  User
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -111,6 +113,19 @@ interface SessionData {
   };
 }
 
+interface ReferralInfo {
+  valid: boolean;
+  invitation?: {
+    id: string;
+    referralCode: string;
+    inviterType: string;
+    inviterName: string | null;
+    clientName: string | null;
+    suggestedEntityType: string | null;
+    suggestedMode: string | null;
+  };
+}
+
 export default function SmartKYCOnboarding() {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<WizardStep>('pan_entry');
@@ -122,6 +137,11 @@ export default function SmartKYCOnboarding() {
   const [detectedPanType, setDetectedPanType] = useState<PanTypeInfo | null>(null);
   const [selectedEntityType, setSelectedEntityType] = useState<string | null>(null);
   const [panValidationError, setPanValidationError] = useState<string>('');
+  
+  // Referral State
+  const [referralCode, setReferralCode] = useState<string>('');
+  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
+  const [referralLoading, setReferralLoading] = useState(false);
   
   // Resume Session Dialog State
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -562,6 +582,53 @@ export default function SmartKYCOnboarding() {
       });
     }
   });
+
+  // Parse and validate referral code from URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const ref = searchParams.get('ref');
+    
+    if (ref && !referralCode) {
+      setReferralCode(ref);
+      setReferralLoading(true);
+      
+      // Validate the referral code
+      fetch(`/api/onboarding-invitations/validate/${ref}`)
+        .then(res => res.json())
+        .then(data => {
+          setReferralLoading(false);
+          if (data.valid && data.invitation) {
+            setReferralInfo(data);
+            
+            // Apply suggested settings from the referral
+            if (data.invitation.suggestedMode) {
+              setOnboardingMode(data.invitation.suggestedMode as OnboardingMode);
+            }
+            if (data.invitation.suggestedEntityType) {
+              setSelectedEntityType(data.invitation.suggestedEntityType);
+            }
+            
+            toast({
+              title: "Referral Verified",
+              description: `You've been invited by ${data.invitation.inviterName || "your advisor"}. Let's get started!`,
+            });
+          } else {
+            // Invalid or expired referral - clear it
+            setReferralCode('');
+            toast({
+              title: "Invalid Referral",
+              description: "The referral link is invalid or expired. You can still proceed with onboarding.",
+              variant: "destructive"
+            });
+          }
+        })
+        .catch(err => {
+          console.error("Error validating referral:", err);
+          setReferralLoading(false);
+          setReferralCode('');
+        });
+    }
+  }, []);
   
   // Session countdown timer
   useEffect(() => {
@@ -806,6 +873,43 @@ export default function SmartKYCOnboarding() {
           <span className={`font-mono font-bold ${getTimerColor()}`} data-testid="text-session-timer">
             {formatTimeRemaining()}
           </span>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+  
+  const renderAssistedBanner = () => {
+    if (!referralInfo?.valid || !referralInfo?.invitation) return null;
+    
+    const inv = referralInfo.invitation;
+    const inviterLabel = inv.inviterType === 'agent' ? 'Agent' : 'Partner';
+    
+    return (
+      <Alert className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 dark:from-blue-950 dark:to-indigo-950 dark:border-blue-800">
+        <HandshakeIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        <AlertTitle className="text-blue-800 dark:text-blue-200 flex items-center gap-2">
+          <Badge className="bg-blue-600 text-white">Assisted Onboarding</Badge>
+          You're being guided by {inv.inviterName || `your ${inviterLabel}`}
+        </AlertTitle>
+        <AlertDescription className="text-blue-700 dark:text-blue-300">
+          <div className="flex items-center gap-4 mt-2">
+            {inv.clientName && (
+              <span className="flex items-center gap-1">
+                <User className="h-4 w-4" />
+                {inv.clientName}
+              </span>
+            )}
+            {inv.suggestedEntityType && (
+              <Badge variant="outline" className="border-blue-300">
+                {inv.suggestedEntityType.charAt(0).toUpperCase() + inv.suggestedEntityType.slice(1)} Entity
+              </Badge>
+            )}
+            {inv.suggestedMode && (
+              <Badge variant="outline" className="border-blue-300">
+                {inv.suggestedMode === 'smart' ? 'Smart' : 'Manual'} Mode
+              </Badge>
+            )}
+          </div>
         </AlertDescription>
       </Alert>
     );
@@ -2749,6 +2853,7 @@ export default function SmartKYCOnboarding() {
       )}
       
       {renderSessionTimer()}
+      {renderAssistedBanner()}
       
       {currentStep === 'pan_entry' && renderPanEntryStep()}
       {currentStep === 'type_detection' && renderTypeDetectionStep()}
