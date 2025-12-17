@@ -62,6 +62,15 @@ A PAN-first intelligent onboarding system that auto-detects entity type and rout
 -   **Approval Workflow**: Non-individual entities require admin approval after document verification.
 -   **PAN Utilities**: Shared utilities in `shared/pan-utils.ts` for PAN validation, type detection, and entity classification.
 
+#### External Financial Calendar Integration
+A comprehensive bond calendar with multi-source external data integration:
+-   **Data Sources**: RBI (G-Sec auctions, SGB issuances), SEBI (regulatory announcements), NSE (bond listings, issuances, coupon payments, maturities), BSE (bond platform announcements).
+-   **Automatic Sync**: Cron-based scheduled sync from all external sources with manual sync trigger option.
+-   **Source Filtering**: UI filters by data source (RBI/SEBI/NSE/BSE/Internal) and event type (auctions, issuances, maturities, coupon payments).
+-   **Calendar Export**: iCal (.ics) file download for import into calendar apps, subscription URL for live updates, Google Calendar integration per event.
+-   **Event Detail Dialog**: Comprehensive event information with quick actions (download event iCal, add to Google Calendar).
+-   **Instrument Coverage**: G-Secs, T-Bills, SDLs, SGBs, NCDs, Corporate Bonds, Infrastructure Bonds, Tax-Free Bonds, 54EC Capital Gains Bonds.
+
 #### Feature Specifications
 Key features include real-time portfolio and market data tracking, various financial calculators, multi-asset support, and family collaboration with shared financial groups and permission-based access. An intelligent tiered KYC system (3-tier with SEBI Accredited Investor compliance) and an AI Chat Assistant powered by Google Gemini are integrated. Dynamic wealth management analysis, multi-currency support, and a customizable alert system enhance user experience. A financial product marketplace offers category tabs, filtering, wishlist, and cart functionalities, with KYC-based product eligibility gating. Robust payment processing is handled by Cashfree and PhonePe, with a unified order management system. Advanced features include an AI-powered expense tracking and budgeting system, BBPS-Expense integration for bill payments, and a regulation-compliant Client KYC Dashboard with a Product Eligibility Matrix and access control. A Partner Revenue Sharing System and an Agent Onboarding & Management System with tiered agents and secure Aadhaar verification are also implemented. Post-KYC, an Auto-Population System integrates with various data sources for automated financial data aggregation with multi-source consent management. A comprehensive Portfolio Analytics Engine provides XIRR/IRR calculations, CAGR analysis, automated asset allocation, algorithm-based risk profiling, and category performance tracking across multiple data sources. A 17-step KYC onboarding workflow orchestrator manages the complete compliance journey with auto-skip logic, dependency validation, comprehensive state machine, and SEBI-compliant risk profiling with manipulation prevention. The Unlisted Marketplace integrates with Probe42 for real-time financial analytics and multi-methodology price suggestions.
 
