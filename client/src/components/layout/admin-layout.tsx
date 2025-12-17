@@ -33,7 +33,8 @@ import {
   ChevronDown,
   ChevronRight,
   Landmark,
-  ShoppingCart
+  ShoppingCart,
+  Lightbulb
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -216,6 +217,12 @@ const adminNavItems = [
     href: "/admin/marketing-analytics",
     icon: PieChart,
     description: "Cross-channel performance tracking"
+  },
+  {
+    title: "Replit Suggestions",
+    href: "/admin/replit-suggestions",
+    icon: Lightbulb,
+    description: "Improvement initiatives & error analysis"
   },
   {
     title: "Production Readiness",

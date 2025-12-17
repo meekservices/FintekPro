@@ -67,6 +67,7 @@ import KycCompliancePage from "@/pages/admin/kyc-compliance";
 import FinancialOperationsPage from "@/pages/admin/financial-operations";
 import APIConfiguration from "@/pages/admin/api-configuration";
 import ProductionReadiness from "@/pages/admin/production-readiness";
+import ReplitSuggestions from "@/pages/admin/replit-suggestions";
 import ZohoDashboardPage from "@/pages/admin/zoho-dashboard";
 import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
 import ZohoLogsPage from "@/pages/admin/zoho-logs";
@@ -370,6 +371,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <ProductionReadiness />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/replit-suggestions">
+        {() => (
+          <AdminLayout>
+            <ReplitSuggestions />
           </AdminLayout>
         )}
       </Route>

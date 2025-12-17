@@ -33643,5 +33643,88 @@ System Security Data:`;
   });
 
 
+  // Admin Error Logs API for Replit Suggestions page
+  app.get('/api/admin/error-logs', requireAdmin, async (req, res) => {
+    try {
+      const errorLogs = [];
+      
+      if (!process.env.GEMINI_API_KEY) {
+        errorLogs.push({
+          id: 'warn-gemini',
+          timestamp: new Date().toISOString(),
+          level: 'low',
+          category: 'integration',
+          message: 'AI Investment Service running without Gemini - using rule-based analysis',
+          source: 'server/services/ai-investment-service.ts',
+          count: 1,
+          lastOccurrence: new Date().toISOString(),
+          suggestedFix: 'Add GEMINI_API_KEY to enable AI-powered investment advisory',
+          resolved: false
+        });
+      }
+      
+      if (!process.env.CKYC_API_KEY) {
+        errorLogs.push({
+          id: 'warn-ckyc',
+          timestamp: new Date().toISOString(),
+          level: 'medium',
+          category: 'api',
+          message: 'CKYC API credentials not configured - using mock mode',
+          source: 'server/services/ckyc-service.ts',
+          count: 1,
+          lastOccurrence: new Date().toISOString(),
+          suggestedFix: 'Configure CKYC_API_KEY and CKYC_API_SECRET environment variables',
+          resolved: false
+        });
+      }
+      
+      if (!process.env.AUTHBRIDGE_API_KEY) {
+        errorLogs.push({
+          id: 'warn-authbridge',
+          timestamp: new Date().toISOString(),
+          level: 'low',
+          category: 'integration',
+          message: 'AuthBridge CKYC API credentials not configured - using mock mode',
+          source: 'server/services/authbridge-ckyc-service.ts',
+          count: 1,
+          lastOccurrence: new Date().toISOString(),
+          suggestedFix: 'Add AuthBridge API credentials for production CKYC verification',
+          resolved: false
+        });
+      }
+      
+      const cashfreeEnv = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+      if (cashfreeEnv === 'SANDBOX') {
+        errorLogs.push({
+          id: 'info-cashfree',
+          timestamp: new Date().toISOString(),
+          level: 'low',
+          category: 'payment',
+          message: 'Cashfree payment gateway running in SANDBOX mode',
+          source: 'server/services/cashfree-service.ts',
+          count: 1,
+          lastOccurrence: new Date().toISOString(),
+          suggestedFix: 'Update CASHFREE_ENVIRONMENT to PRODUCTION for live payments',
+          resolved: false
+        });
+      }
+      
+      res.json({
+        errorLogs,
+        summary: {
+          total: errorLogs.length,
+          critical: errorLogs.filter(e => e.level === 'critical').length,
+          high: errorLogs.filter(e => e.level === 'high').length,
+          medium: errorLogs.filter(e => e.level === 'medium').length,
+          low: errorLogs.filter(e => e.level === 'low').length
+        },
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching error logs:', error);
+      res.status(500).json({ message: 'Failed to fetch error logs' });
+    }
+  });
+
   return server;
 }
