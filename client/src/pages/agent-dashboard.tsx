@@ -37,8 +37,18 @@ import {
   ArrowRight,
   Calendar,
   Edit,
-  Trash2
+  Trash2,
+  Briefcase,
+  Receipt,
+  Building2,
+  UserCheck,
+  ClipboardList,
+  AlertTriangle,
+  ChevronRight,
+  BarChart3,
+  DollarSign
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface CkycClient {
@@ -120,6 +130,44 @@ interface Client {
   phone: string;
   riskProfile?: string;
   investmentGoals?: string;
+}
+
+interface TDSSummary {
+  quarter: string;
+  totalTDS: number;
+  clientsCount: number;
+  filed: boolean;
+  dueDate: string;
+  status: "filed" | "pending" | "overdue";
+}
+
+interface ITRCase {
+  id: string;
+  clientId: string;
+  clientName: string;
+  panNumber: string;
+  assessmentYear: string;
+  itrForm: string;
+  status: "draft" | "pending_documents" | "under_review" | "assigned_to_ca" | "ca_review" | "filed" | "rejected";
+  assignedCA?: string;
+  caName?: string;
+  createdAt: string;
+  lastUpdated: string;
+  dueDate: string;
+  priority: "high" | "medium" | "low";
+  totalIncome?: number;
+  taxLiability?: number;
+}
+
+interface ClientOverview {
+  totalClients: number;
+  activeClients: number;
+  newThisMonth: number;
+  kycPending: number;
+  itrPending: number;
+  totalAUM: number;
+  revenueThisMonth: number;
+  complianceScore: number;
 }
 
 export default function AgentDashboard() {
@@ -374,33 +422,555 @@ export default function AgentDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="proposals" className="space-y-4">
-        <ScrollableTabsList className="grid w-full grid-cols-6">
+      <Tabs defaultValue="overview" className="space-y-4">
+        <ScrollableTabsList className="w-full">
+          <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-overview">
+            <BarChart3 size={16} />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="itr-cases" className="flex items-center gap-2" data-testid="tab-itr-cases">
+            <ClipboardList size={16} />
+            ITR Cases
+          </TabsTrigger>
+          <TabsTrigger value="tds-summary" className="flex items-center gap-2" data-testid="tab-tds-summary">
+            <Receipt size={16} />
+            TDS Summary
+          </TabsTrigger>
           <TabsTrigger value="proposals" className="flex items-center gap-2">
             <TrendingUp size={16} />
-            Investment Proposals
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2">
-            <FileText size={16} />
-            Client Reports
+            Proposals
           </TabsTrigger>
           <TabsTrigger value="clients" className="flex items-center gap-2">
             <Users size={16} />
-            CKYC Clients
-          </TabsTrigger>
-          <TabsTrigger value="profile" className="flex items-center gap-2">
-            <User size={16} />
-            Profile Management
+            Clients
           </TabsTrigger>
           <TabsTrigger value="compliance" className="flex items-center gap-2">
             <Shield size={16} />
-            AML Compliance
+            Compliance
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell size={16} />
-            Notifications History
+            Notifications
           </TabsTrigger>
         </ScrollableTabsList>
+
+        {/* Client Overview At-a-Glance Tab */}
+        <TabsContent value="overview" className="space-y-6" data-testid="content-overview">
+          {(() => {
+            const overview: ClientOverview = {
+              totalClients: ckycClients?.length || 42,
+              activeClients: 38,
+              newThisMonth: 5,
+              kycPending: 3,
+              itrPending: 12,
+              totalAUM: 25600000,
+              revenueThisMonth: 145000,
+              complianceScore: 94
+            };
+            
+            const clientsByStatus = [
+              { status: "KYC Complete", count: 35, color: "bg-green-500" },
+              { status: "KYC Pending", count: 3, color: "bg-yellow-500" },
+              { status: "Documents Required", count: 2, color: "bg-orange-500" },
+              { status: "Inactive", count: 2, color: "bg-gray-400" }
+            ];
+            
+            const recentActivity = [
+              { id: 1, type: "itr_filed", client: "Rajesh Kumar", message: "ITR-1 filed successfully", time: "2 hours ago" },
+              { id: 2, type: "kyc_completed", client: "Priya Sharma", message: "KYC verification completed", time: "4 hours ago" },
+              { id: 3, type: "document_uploaded", client: "Amit Patel", message: "Form 16 uploaded", time: "5 hours ago" },
+              { id: 4, type: "ca_assigned", client: "Sunita Devi", message: "CA assigned for ITR review", time: "Yesterday" },
+              { id: 5, type: "payment_received", client: "Vikram Singh", message: "Service fee received ₹2,999", time: "Yesterday" }
+            ];
+            
+            return (
+              <>
+                {/* Key Metrics Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900" data-testid="card-total-clients">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Total Clients</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-3xl font-bold text-blue-900 dark:text-blue-100" data-testid="text-total-clients">{overview.totalClients}</div>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">+{overview.newThisMonth} this month</p>
+                        </div>
+                        <Users className="h-8 w-8 text-blue-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900" data-testid="card-total-aum">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">Total AUM</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-3xl font-bold text-green-900 dark:text-green-100" data-testid="text-total-aum">
+                            ₹{(overview.totalAUM / 10000000).toFixed(1)}Cr
+                          </div>
+                          <p className="text-xs text-green-600 dark:text-green-400">Assets under mgmt</p>
+                        </div>
+                        <IndianRupee className="h-8 w-8 text-green-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900" data-testid="card-revenue">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">Revenue (MTD)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-3xl font-bold text-purple-900 dark:text-purple-100" data-testid="text-revenue">
+                            ₹{(overview.revenueThisMonth / 1000).toFixed(0)}K
+                          </div>
+                          <p className="text-xs text-purple-600 dark:text-purple-400">This month</p>
+                        </div>
+                        <DollarSign className="h-8 w-8 text-purple-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900" data-testid="card-compliance">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300">Compliance Score</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-3xl font-bold text-amber-900 dark:text-amber-100" data-testid="text-compliance-score">
+                            {overview.complianceScore}%
+                          </div>
+                          <p className="text-xs text-amber-600 dark:text-amber-400">Excellent</p>
+                        </div>
+                        <Shield className="h-8 w-8 text-amber-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Action Items & Client Distribution */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Pending Actions */}
+                  <Card data-testid="card-pending-actions">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-orange-500" />
+                        Pending Actions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-800">
+                        <div className="flex items-center gap-3">
+                          <ClipboardList className="h-5 w-5 text-orange-600" />
+                          <div>
+                            <p className="font-medium text-sm">ITR Filings Pending</p>
+                            <p className="text-xs text-gray-500">{overview.itrPending} clients awaiting filing</p>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" data-testid="button-view-itr-pending">
+                          View <ChevronRight className="h-3 w-3 ml-1" />
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                        <div className="flex items-center gap-3">
+                          <UserCheck className="h-5 w-5 text-yellow-600" />
+                          <div>
+                            <p className="font-medium text-sm">KYC Pending</p>
+                            <p className="text-xs text-gray-500">{overview.kycPending} clients need verification</p>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" data-testid="button-view-kyc-pending">
+                          View <ChevronRight className="h-3 w-3 ml-1" />
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center gap-3">
+                          <Receipt className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="font-medium text-sm">TDS Returns Due</p>
+                            <p className="text-xs text-gray-500">Q3 filing due in 15 days</p>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" data-testid="button-view-tds-due">
+                          View <ChevronRight className="h-3 w-3 ml-1" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Client Distribution */}
+                  <Card data-testid="card-client-distribution">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <PieChart className="h-5 w-5" />
+                        Client Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {clientsByStatus.map((item, idx) => (
+                        <div key={idx} className="space-y-2" data-testid={`distribution-${item.status.toLowerCase().replace(' ', '-')}`}>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-2">
+                              <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                              {item.status}
+                            </span>
+                            <span className="font-medium">{item.count}</span>
+                          </div>
+                          <Progress value={(item.count / overview.totalClients) * 100} className="h-2" />
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Recent Activity */}
+                <Card data-testid="card-recent-activity">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      Recent Activity
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {recentActivity.map((activity) => (
+                        <div key={activity.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg" data-testid={`activity-${activity.id}`}>
+                          <div className={`p-2 rounded-full ${
+                            activity.type === 'itr_filed' ? 'bg-green-100 text-green-600' :
+                            activity.type === 'kyc_completed' ? 'bg-blue-100 text-blue-600' :
+                            activity.type === 'ca_assigned' ? 'bg-purple-100 text-purple-600' :
+                            activity.type === 'payment_received' ? 'bg-emerald-100 text-emerald-600' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {activity.type === 'itr_filed' ? <FileText className="h-4 w-4" /> :
+                             activity.type === 'kyc_completed' ? <CheckCircle className="h-4 w-4" /> :
+                             activity.type === 'ca_assigned' ? <UserCheck className="h-4 w-4" /> :
+                             activity.type === 'payment_received' ? <IndianRupee className="h-4 w-4" /> :
+                             <FileText className="h-4 w-4" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{activity.client}</p>
+                            <p className="text-xs text-gray-500">{activity.message}</p>
+                          </div>
+                          <span className="text-xs text-gray-400">{activity.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
+        </TabsContent>
+
+        {/* ITR Case Management Tab */}
+        <TabsContent value="itr-cases" className="space-y-4" data-testid="content-itr-cases">
+          {(() => {
+            const itrCases: ITRCase[] = [
+              { id: "1", clientId: "c1", clientName: "Rajesh Kumar", panNumber: "ABCPK1234A", assessmentYear: "2024-25", itrForm: "ITR-1", status: "ca_review", assignedCA: "ca1", caName: "CA Vikram Mehta", createdAt: "2024-12-01", lastUpdated: "2024-12-15", dueDate: "2024-12-31", priority: "high", totalIncome: 850000, taxLiability: 52000 },
+              { id: "2", clientId: "c2", clientName: "Priya Sharma", panNumber: "DEFPS5678B", assessmentYear: "2024-25", itrForm: "ITR-2", status: "pending_documents", createdAt: "2024-12-05", lastUpdated: "2024-12-14", dueDate: "2024-12-31", priority: "high", totalIncome: 1250000, taxLiability: 145000 },
+              { id: "3", clientId: "c3", clientName: "Amit Patel", panNumber: "GHIAP9012C", assessmentYear: "2024-25", itrForm: "ITR-1", status: "filed", assignedCA: "ca2", caName: "CA Neha Gupta", createdAt: "2024-11-20", lastUpdated: "2024-12-10", dueDate: "2024-12-31", priority: "low", totalIncome: 650000, taxLiability: 28000 },
+              { id: "4", clientId: "c4", clientName: "Sunita Devi", panNumber: "JKLSD3456D", assessmentYear: "2024-25", itrForm: "ITR-3", status: "assigned_to_ca", assignedCA: "ca1", caName: "CA Vikram Mehta", createdAt: "2024-12-08", lastUpdated: "2024-12-12", dueDate: "2024-12-31", priority: "medium", totalIncome: 2100000, taxLiability: 425000 },
+              { id: "5", clientId: "c5", clientName: "Vikram Singh", panNumber: "MNPVS7890E", assessmentYear: "2024-25", itrForm: "ITR-4", status: "draft", createdAt: "2024-12-10", lastUpdated: "2024-12-13", dueDate: "2024-12-31", priority: "medium", totalIncome: 980000, taxLiability: 75000 }
+            ];
+            
+            const caList = [
+              { id: "ca1", name: "CA Vikram Mehta", specialization: "Individual Taxation", activeCase: 8 },
+              { id: "ca2", name: "CA Neha Gupta", specialization: "Business Taxation", activeCase: 5 },
+              { id: "ca3", name: "CA Rahul Verma", specialization: "NRI Taxation", activeCase: 3 }
+            ];
+            
+            const getStatusBadgeColor = (status: string) => {
+              switch (status) {
+                case "filed": return "bg-green-100 text-green-700 border-green-200";
+                case "ca_review": return "bg-purple-100 text-purple-700 border-purple-200";
+                case "assigned_to_ca": return "bg-blue-100 text-blue-700 border-blue-200";
+                case "pending_documents": return "bg-orange-100 text-orange-700 border-orange-200";
+                case "draft": return "bg-gray-100 text-gray-700 border-gray-200";
+                default: return "bg-gray-100 text-gray-700 border-gray-200";
+              }
+            };
+            
+            const getPriorityBadge = (priority: string) => {
+              switch (priority) {
+                case "high": return "bg-red-100 text-red-700";
+                case "medium": return "bg-yellow-100 text-yellow-700";
+                default: return "bg-gray-100 text-gray-700";
+              }
+            };
+            
+            return (
+              <>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <ClipboardList className="h-5 w-5" />
+                          ITR Case Management
+                        </CardTitle>
+                        <CardDescription>Manage client ITR filings with CA assignment workflow</CardDescription>
+                      </div>
+                      <Button data-testid="button-new-itr-case">
+                        <Plus className="h-4 w-4 mr-2" /> New Case
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                        <div className="text-2xl font-bold">{itrCases.length}</div>
+                        <p className="text-xs text-gray-500">Total Cases</p>
+                      </div>
+                      <div className="p-3 bg-orange-50 dark:bg-orange-900 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-orange-600">{itrCases.filter(c => c.status === "pending_documents").length}</div>
+                        <p className="text-xs text-gray-500">Pending Docs</p>
+                      </div>
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-blue-600">{itrCases.filter(c => c.status === "assigned_to_ca").length}</div>
+                        <p className="text-xs text-gray-500">With CA</p>
+                      </div>
+                      <div className="p-3 bg-purple-50 dark:bg-purple-900 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-purple-600">{itrCases.filter(c => c.status === "ca_review").length}</div>
+                        <p className="text-xs text-gray-500">CA Review</p>
+                      </div>
+                      <div className="p-3 bg-green-50 dark:bg-green-900 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-green-600">{itrCases.filter(c => c.status === "filed").length}</div>
+                        <p className="text-xs text-gray-500">Filed</p>
+                      </div>
+                    </div>
+                    
+                    {/* Cases List */}
+                    <div className="space-y-3">
+                      {itrCases.map((itrCase) => (
+                        <div key={itrCase.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow" data-testid={`itr-case-${itrCase.id}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-4">
+                              <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                                <FileText className="h-6 w-6" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold">{itrCase.clientName}</h4>
+                                  <Badge className={`text-xs ${getPriorityBadge(itrCase.priority)}`}>
+                                    {itrCase.priority}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-500">
+                                  <span>PAN: {itrCase.panNumber}</span>
+                                  <span>•</span>
+                                  <span>{itrCase.itrForm}</span>
+                                  <span>•</span>
+                                  <span>AY {itrCase.assessmentYear}</span>
+                                </div>
+                                {itrCase.caName && (
+                                  <p className="text-xs text-purple-600 mt-1 flex items-center gap-1">
+                                    <UserCheck className="h-3 w-3" /> Assigned to {itrCase.caName}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <Badge className={`${getStatusBadgeColor(itrCase.status)}`}>
+                                {itrCase.status.replace(/_/g, " ").toUpperCase()}
+                              </Badge>
+                              <span className="text-xs text-gray-500">Due: {itrCase.dueDate}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                            <div className="flex items-center gap-4 text-sm">
+                              <span className="text-gray-600">Income: ₹{(itrCase.totalIncome || 0).toLocaleString()}</span>
+                              <span className="text-orange-600">Tax: ₹{(itrCase.taxLiability || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              {!itrCase.assignedCA && itrCase.status !== "filed" && (
+                                <Select>
+                                  <SelectTrigger className="w-[180px] h-8 text-xs" data-testid={`select-ca-${itrCase.id}`}>
+                                    <SelectValue placeholder="Assign CA" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {caList.map(ca => (
+                                      <SelectItem key={ca.id} value={ca.id}>
+                                        {ca.name} ({ca.activeCase} cases)
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              <Button size="sm" variant="outline" data-testid={`button-view-case-${itrCase.id}`}>
+                                <Eye className="h-3 w-3 mr-1" /> View
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
+        </TabsContent>
+
+        {/* TDS Summary Tab */}
+        <TabsContent value="tds-summary" className="space-y-4" data-testid="content-tds-summary">
+          {(() => {
+            const tdsSummary: TDSSummary[] = [
+              { quarter: "Q1 (Apr-Jun)", totalTDS: 245000, clientsCount: 28, filed: true, dueDate: "2024-07-31", status: "filed" },
+              { quarter: "Q2 (Jul-Sep)", totalTDS: 312000, clientsCount: 32, filed: true, dueDate: "2024-10-31", status: "filed" },
+              { quarter: "Q3 (Oct-Dec)", totalTDS: 278000, clientsCount: 30, filed: false, dueDate: "2025-01-31", status: "pending" },
+              { quarter: "Q4 (Jan-Mar)", totalTDS: 0, clientsCount: 0, filed: false, dueDate: "2025-05-31", status: "pending" }
+            ];
+            
+            const totalTDSCollected = tdsSummary.reduce((acc, q) => acc + q.totalTDS, 0);
+            const filedQuarters = tdsSummary.filter(q => q.filed).length;
+            
+            const tdsBreakdown = [
+              { category: "Salary (TDS 192)", amount: 485000, percentage: 58 },
+              { category: "Professional Fees (TDS 194J)", amount: 180000, percentage: 22 },
+              { category: "Rent (TDS 194I)", amount: 95000, percentage: 11 },
+              { category: "Interest (TDS 194A)", amount: 75000, percentage: 9 }
+            ];
+            
+            return (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900" data-testid="card-total-tds">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Total TDS Collected</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-blue-900 dark:text-blue-100" data-testid="text-total-tds-collected">
+                        ₹{(totalTDSCollected / 100000).toFixed(1)}L
+                      </div>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">FY 2024-25</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900" data-testid="card-filed-returns">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">Returns Filed</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-green-900 dark:text-green-100" data-testid="text-filed-returns">
+                        {filedQuarters}/4
+                      </div>
+                      <p className="text-xs text-green-600 dark:text-green-400">Quarters completed</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900" data-testid="card-next-due">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">Next Due</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-orange-900 dark:text-orange-100" data-testid="text-next-due">
+                        Jan 31
+                      </div>
+                      <p className="text-xs text-orange-600 dark:text-orange-400">Q3 TDS Return</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Quarterly Summary */}
+                  <Card data-testid="card-quarterly-summary">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Quarterly TDS Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {tdsSummary.map((quarter, idx) => (
+                          <div key={idx} className="p-4 border rounded-lg" data-testid={`tds-quarter-${idx}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${
+                                  quarter.status === "filed" ? "bg-green-100 text-green-600" :
+                                  quarter.status === "overdue" ? "bg-red-100 text-red-600" :
+                                  "bg-yellow-100 text-yellow-600"
+                                }`}>
+                                  <Receipt className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold">{quarter.quarter}</h4>
+                                  <p className="text-xs text-gray-500">{quarter.clientsCount} clients • Due: {quarter.dueDate}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-bold">₹{quarter.totalTDS.toLocaleString()}</div>
+                                <Badge className={`text-xs ${
+                                  quarter.status === "filed" ? "bg-green-100 text-green-700" :
+                                  quarter.status === "overdue" ? "bg-red-100 text-red-700" :
+                                  "bg-yellow-100 text-yellow-700"
+                                }`}>
+                                  {quarter.status.toUpperCase()}
+                                </Badge>
+                              </div>
+                            </div>
+                            {!quarter.filed && quarter.totalTDS > 0 && (
+                              <Button size="sm" className="w-full mt-2" data-testid={`button-file-tds-${idx}`}>
+                                File TDS Return
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* TDS Breakdown by Category */}
+                  <Card data-testid="card-tds-breakdown">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5" />
+                        TDS by Category
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {tdsBreakdown.map((item, idx) => (
+                          <div key={idx} className="space-y-2" data-testid={`tds-category-${idx}`}>
+                            <div className="flex items-center justify-between text-sm">
+                              <span>{item.category}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">₹{(item.amount / 1000).toFixed(0)}K</span>
+                                <Badge variant="secondary" className="text-xs">{item.percentage}%</Badge>
+                              </div>
+                            </div>
+                            <Progress value={item.percentage} className="h-2" />
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Compliance Status</p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400">All filings on track</p>
+                          </div>
+                          <CheckCircle className="h-8 w-8 text-green-500" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            );
+          })()}
+        </TabsContent>
 
         <TabsContent value="proposals" className="space-y-4">
           <Card>

@@ -42,7 +42,12 @@ import {
   Info,
   ChevronRight,
   Settings,
-  Calculator
+  Calculator,
+  Plus,
+  Upload,
+  X,
+  File,
+  Trash2
 } from "lucide-react";
 import {
   PieChart as RechartsPie,
@@ -437,6 +442,264 @@ export default function IntelligentTaxHub() {
           </Card>
         </div>
 
+        {/* ITR Filing Status Tracker */}
+        <Card data-testid="card-filing-status-tracker">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              ITR Filing Progress
+            </CardTitle>
+            <CardDescription>Track your income tax return filing journey</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const filingStatus: ITRFilingStatus = dashboardData?.filingStatus || {
+                currentStep: 2,
+                totalSteps: 6,
+                overallProgress: 33,
+                steps: [
+                  { id: "1", title: "Data Collection", status: "completed", description: "Income sources verified", completedAt: "Dec 10, 2024" },
+                  { id: "2", title: "Document Upload", status: "in_progress", description: "Upload supporting documents" },
+                  { id: "3", title: "Form Selection", status: "pending", description: "Choose appropriate ITR form" },
+                  { id: "4", title: "Review & Verify", status: "pending", description: "Review pre-filled data" },
+                  { id: "5", title: "Tax Calculation", status: "pending", description: "Calculate tax liability" },
+                  { id: "6", title: "E-File & Submit", status: "pending", description: "Submit to IT Department" }
+                ],
+                lastActivity: "2 hours ago"
+              };
+              
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Overall Progress:</span>
+                      <span className="font-semibold text-blue-600" data-testid="text-filing-progress">{filingStatus.overallProgress}%</span>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      Last activity: {filingStatus.lastActivity}
+                    </Badge>
+                  </div>
+                  
+                  <Progress value={filingStatus.overallProgress} className="h-2 mb-6" />
+                  
+                  <div className="flex flex-wrap justify-between gap-2">
+                    {filingStatus.steps.map((step, idx) => (
+                      <div 
+                        key={step.id} 
+                        className="flex flex-col items-center flex-1 min-w-[100px]"
+                        data-testid={`filing-step-${step.id}`}
+                      >
+                        <div className={`relative w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
+                          step.status === "completed" ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300" :
+                          step.status === "in_progress" ? "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300 ring-2 ring-blue-400 ring-offset-2" :
+                          "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500"
+                        }`}>
+                          {step.status === "completed" ? (
+                            <CheckCircle className="h-5 w-5" />
+                          ) : step.status === "in_progress" ? (
+                            <Clock className="h-5 w-5 animate-pulse" />
+                          ) : (
+                            <span className="text-sm font-medium">{idx + 1}</span>
+                          )}
+                        </div>
+                        <span className={`text-xs font-medium text-center ${
+                          step.status === "completed" ? "text-green-600" :
+                          step.status === "in_progress" ? "text-blue-600" :
+                          "text-gray-400"
+                        }`}>
+                          {step.title}
+                        </span>
+                        <span className="text-[10px] text-gray-500 text-center mt-1 hidden sm:block">
+                          {step.status === "completed" && step.completedAt ? step.completedAt : step.description}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-center pt-4">
+                    <Button className="gap-2" data-testid="button-continue-filing">
+                      Continue Filing <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
+        {/* Pre-fill Data Hub & Tax Savings Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Pre-fill Data Hub Summary */}
+          <Card data-testid="card-prefill-data-hub">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-indigo-600" />
+                Pre-fill Data Hub
+              </CardTitle>
+              <CardDescription>Connected sources for auto-import</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const prefillSources: PreFillDataSource[] = dashboardData?.prefillSources || [
+                  { id: "1", name: "Form 16", type: "salary", connected: true, dataCount: 1, lastSync: "Dec 15, 2024", autoImported: true },
+                  { id: "2", name: "Form 26AS", type: "government", connected: true, dataCount: 12, lastSync: "Dec 14, 2024", autoImported: true },
+                  { id: "3", name: "AIS (Annual Info)", type: "government", connected: true, dataCount: 45, lastSync: "Dec 14, 2024", autoImported: true },
+                  { id: "4", name: "Bank Statements", type: "bank", connected: false, dataCount: 0, autoImported: false },
+                  { id: "5", name: "Investment Proofs", type: "investments", connected: true, dataCount: 8, lastSync: "Dec 12, 2024", autoImported: false },
+                  { id: "6", name: "Insurance Policies", type: "insurance", connected: false, dataCount: 0, autoImported: false }
+                ];
+                
+                const connectedCount = prefillSources.filter(s => s.connected).length;
+                const totalRecords = prefillSources.reduce((acc, s) => acc + s.dataCount, 0);
+                
+                const getTypeIcon = (type: string) => {
+                  switch (type) {
+                    case "salary": return <Building2 className="h-4 w-4" />;
+                    case "government": return <Shield className="h-4 w-4" />;
+                    case "bank": return <Banknote className="h-4 w-4" />;
+                    case "investments": return <TrendingUp className="h-4 w-4" />;
+                    case "insurance": return <Shield className="h-4 w-4" />;
+                    default: return <Database className="h-4 w-4" />;
+                  }
+                };
+                
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-950 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                          {connectedCount}/{prefillSources.length} Sources Connected
+                        </p>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                          {totalRecords} records auto-imported
+                        </p>
+                      </div>
+                      <Button size="sm" variant="outline" className="gap-1" data-testid="button-connect-more">
+                        <Plus className="h-3 w-3" /> Connect
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                      {prefillSources.map((source) => (
+                        <div 
+                          key={source.id}
+                          className="flex items-center justify-between p-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                          data-testid={`prefill-source-${source.id}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded ${source.connected ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                              {getTypeIcon(source.type)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{source.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {source.connected ? `${source.dataCount} records • ${source.lastSync}` : "Not connected"}
+                              </p>
+                            </div>
+                          </div>
+                          {source.connected ? (
+                            <div className="flex items-center gap-1">
+                              {source.autoImported && (
+                                <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700">Auto</Badge>
+                              )}
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="text-xs h-7">
+                              Connect
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Tax Savings Suggestions */}
+          <Card data-testid="card-tax-savings-suggestions">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-500" />
+                Tax Savings Opportunities
+              </CardTitle>
+              <CardDescription>AI-identified savings before deadline</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const taxSavings: TaxSavingSuggestion[] = dashboardData?.taxSavings || [
+                  { id: "1", title: "80C Investment Gap", section: "80C", currentAmount: 120000, suggestedAmount: 150000, potentialSaving: 9360, priority: "urgent", deadline: "Mar 31, 2025", actionRequired: "Invest ₹30,000 more in ELSS/PPF", category: "80C" },
+                  { id: "2", title: "Health Insurance Premium", section: "80D", currentAmount: 15000, suggestedAmount: 25000, potentialSaving: 3120, priority: "recommended", actionRequired: "Add parents' health cover", category: "80D" },
+                  { id: "3", title: "NPS Contribution", section: "80CCD(1B)", currentAmount: 0, suggestedAmount: 50000, potentialSaving: 15600, priority: "recommended", actionRequired: "Open NPS account for extra ₹50K deduction", category: "other" },
+                  { id: "4", title: "Home Loan Interest", section: "24(b)", currentAmount: 180000, suggestedAmount: 200000, potentialSaving: 6240, priority: "optional", actionRequired: "Ensure full interest claim", category: "24" }
+                ];
+                
+                const totalPotentialSavings = taxSavings.reduce((acc, s) => acc + s.potentialSaving, 0);
+                
+                const getPriorityColor = (priority: string) => {
+                  switch (priority) {
+                    case "urgent": return "bg-red-100 text-red-700 border-red-200";
+                    case "recommended": return "bg-amber-100 text-amber-700 border-amber-200";
+                    default: return "bg-gray-100 text-gray-700 border-gray-200";
+                  }
+                };
+                
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                          Total Potential Savings
+                        </p>
+                        <p className="text-2xl font-bold text-amber-600" data-testid="text-total-potential-savings">
+                          ₹{totalPotentialSavings.toLocaleString()}
+                        </p>
+                      </div>
+                      <Target className="h-8 w-8 text-amber-500" />
+                    </div>
+                    
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                      {taxSavings.map((saving) => (
+                        <div 
+                          key={saving.id}
+                          className="p-3 border rounded-lg hover:shadow-sm transition-shadow"
+                          data-testid={`tax-saving-${saving.id}`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge className={`text-[10px] ${getPriorityColor(saving.priority)}`}>
+                                {saving.priority}
+                              </Badge>
+                              <span className="text-xs text-gray-500">Section {saving.section}</span>
+                            </div>
+                            <span className="text-sm font-semibold text-green-600">
+                              Save ₹{saving.potentialSaving.toLocaleString()}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-medium mb-1">{saving.title}</h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">{saving.actionRequired}</p>
+                          {saving.deadline && (
+                            <div className="flex items-center gap-1 mt-2 text-xs text-red-600">
+                              <Clock className="h-3 w-3" />
+                              Deadline: {saving.deadline}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <Button className="w-full gap-2" variant="outline" data-testid="button-view-all-savings">
+                      View All Savings Options <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Tax Health Score */}
           <Card className="lg:col-span-1" data-testid="card-health-score">
@@ -741,6 +1004,131 @@ export default function IntelligentTaxHub() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Document Upload with Progress */}
+        <Card data-testid="card-document-upload">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5 text-blue-600" />
+              Document Upload Center
+            </CardTitle>
+            <CardDescription>Upload supporting documents for your ITR filing</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const documentTypes = [
+                { id: "form16", name: "Form 16", required: true, uploaded: true, fileName: "Form16_2024.pdf", size: "245 KB", uploadProgress: 100, uploadedAt: "Dec 10, 2024" },
+                { id: "form26as", name: "Form 26AS", required: true, uploaded: true, fileName: "Form26AS_2024.pdf", size: "128 KB", uploadProgress: 100, uploadedAt: "Dec 10, 2024" },
+                { id: "ais", name: "Annual Information Statement (AIS)", required: true, uploaded: false, fileName: null, size: null, uploadProgress: 0, uploadedAt: null },
+                { id: "bank_statement", name: "Bank Statements", required: false, uploaded: true, fileName: "HDFC_Statement.pdf", size: "512 KB", uploadProgress: 100, uploadedAt: "Dec 8, 2024" },
+                { id: "investment_proof", name: "Investment Proofs (80C, 80D)", required: false, uploaded: false, fileName: null, size: null, uploadProgress: 45, uploadedAt: null },
+                { id: "rent_receipt", name: "Rent Receipts (HRA)", required: false, uploaded: false, fileName: null, size: null, uploadProgress: 0, uploadedAt: null },
+                { id: "home_loan", name: "Home Loan Certificate", required: false, uploaded: false, fileName: null, size: null, uploadProgress: 0, uploadedAt: null },
+              ];
+              
+              const uploadedCount = documentTypes.filter(d => d.uploaded).length;
+              const requiredPending = documentTypes.filter(d => d.required && !d.uploaded).length;
+              
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <span className="text-2xl font-bold text-blue-600" data-testid="text-uploaded-count">{uploadedCount}</span>
+                        <p className="text-xs text-blue-600">Uploaded</p>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-2xl font-bold text-orange-600" data-testid="text-pending-count">{requiredPending}</span>
+                        <p className="text-xs text-orange-600">Required Pending</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="gap-1" data-testid="button-bulk-upload">
+                        <Upload className="h-3 w-3" /> Bulk Upload
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto">
+                    {documentTypes.map((doc) => (
+                      <div 
+                        key={doc.id}
+                        className={`p-4 border rounded-lg transition-all ${
+                          doc.uploaded ? 'border-green-200 bg-green-50/50 dark:bg-green-950/20' : 
+                          doc.uploadProgress > 0 ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-950/20' :
+                          'border-gray-200 hover:border-gray-300'
+                        }`}
+                        data-testid={`document-${doc.id}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${
+                              doc.uploaded ? 'bg-green-100 text-green-600' :
+                              doc.uploadProgress > 0 ? 'bg-blue-100 text-blue-600' :
+                              'bg-gray-100 text-gray-400'
+                            }`}>
+                              <File className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{doc.name}</span>
+                                {doc.required && (
+                                  <Badge variant="secondary" className="text-[10px] bg-red-100 text-red-700">Required</Badge>
+                                )}
+                              </div>
+                              {doc.uploaded ? (
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                                  <span>{doc.fileName}</span>
+                                  <span>•</span>
+                                  <span>{doc.size}</span>
+                                  <span>•</span>
+                                  <span>{doc.uploadedAt}</span>
+                                </div>
+                              ) : doc.uploadProgress > 0 ? (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Progress value={doc.uploadProgress} className="h-1.5 w-24" />
+                                  <span className="text-xs text-blue-600">{doc.uploadProgress}%</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400 mt-1">Not uploaded yet</span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {doc.uploaded ? (
+                              <>
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-500" data-testid={`button-remove-${doc.id}`}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : doc.uploadProgress > 0 ? (
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-500" data-testid={`button-cancel-${doc.id}`}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button variant="outline" size="sm" className="gap-1" data-testid={`button-upload-${doc.id}`}>
+                                <Upload className="h-3 w-3" /> Upload
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
+                      Ensure all required documents are uploaded before filing. Missing documents may delay processing or result in notices from the IT Department.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
 
