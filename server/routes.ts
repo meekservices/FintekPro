@@ -110,6 +110,7 @@ import { registerAgentAdvisoryRoutes } from "./routes/agent-advisory";
 import onboardingInvitationsRoutes from "./routes/onboarding-invitations";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
 import unifiedAdvisoryRoutes from "./routes/unified-advisory-routes";
+import { taxRoutes } from "./tax-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -340,6 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(onboardingInvitationsRoutes);
   app.use("/api/ai-investment", aiInvestmentRoutes);
   app.use("/api/unified-advisory", unifiedAdvisoryRoutes);
+  app.use("/api/tax", taxRoutes);
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {

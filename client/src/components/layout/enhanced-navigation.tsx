@@ -38,7 +38,9 @@ import {
   Settings2,
   Users,
   Bell,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  FolderOpen
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -261,55 +263,47 @@ export function EnhancedNavigation() {
       title: "Tax & Compliance",
       items: [
         {
-          name: "ITR & Tax Services",
+          name: "ITR Filing",
+          icon: FileText,
+          href: "/tax/itr",
+          description: "Self-file or hire expert for ITR-1 to ITR-7",
+          badge: "NEW"
+        },
+        {
+          name: "Form 15CA/15CB",
+          icon: Globe,
+          href: "/tax/15ca-cb",
+          description: "International remittance compliance",
+          badge: "CA ASSISTED"
+        },
+        {
+          name: "Tax Notices",
+          icon: AlertTriangle,
+          href: "/tax/notices",
+          description: "Manage and respond to IT notices"
+        },
+        {
+          name: "Tax Documents",
+          icon: FolderOpen,
+          href: "/tax/documents",
+          description: "Secure document vault (8-year retention)"
+        },
+        {
+          name: "CA Desk",
+          icon: Users,
+          href: "/tax/ca-desk",
+          description: "Expert CA assistance services",
+          badge: "EXPERT"
+        },
+        {
+          name: "Quick Tools",
           icon: Receipt,
-          description: "AI-powered tax filing and compliance",
-          badge: "NEW",
+          description: "Quick access tools",
           subItems: [
-            {
-              name: "Filing Workflows",
-              description: "Quick and intelligent tax filing options",
-              subItems: [
-                { name: "One-Click Tax Filing", href: "/one-click-tax-filing", description: "Quick 6-step wizard", badge: "⚡ RECOMMENDED" },
-                { name: "Tax Smart Filing", href: "/tax", description: "Consent-driven filing with AI optimization" }
-              ]
-            },
-            {
-              name: "AI Insights & Prefill",
-              description: "Smart tax assistance and auto-population",
-              subItems: [
-                { name: "Smart Tax Hub", href: "/tax-hub", description: "AI dashboard with health score", badge: "NEW" },
-                { name: "Prefilled ITR", href: "/itr-prefilled", description: "Review & edit auto-populated forms" }
-              ]
-            },
-            {
-              name: "Data & Records",
-              description: "Tax data sources and document management",
-              subItems: [
-                { name: "Tax Data Center", href: "/tax-data-center", description: "View AIS, 26AS, Form 16" },
-                { name: "Tax Documents", href: "/tax-documents", description: "Manage uploaded documents" }
-              ]
-            },
-            {
-              name: "ITR Filing Services",
-              href: "/itr-tax-services",
-              description: "Comprehensive ITR-1 to ITR-7 filing services"
-            },
-            {
-              name: "TDS Compliance",
-              href: "/tds-compliance",
-              description: "TDS calculator, Form 16/16A, return filing",
-              badge: "NEW"
-            },
-            {
-              name: "International Remittance",
-              description: "Form 15CA/15CB for foreign payments",
-              subItems: [
-                { name: "Form 15CA/15CB Filing", href: "/tax-compliance/form15", description: "NRI/Foreign remittance compliance", badge: "CA ASSISTED" },
-                { name: "DTAA Benefits", href: "/tax-compliance/form15?tab=dtaa", description: "Double taxation avoidance" },
-                { name: "TRC Verification", href: "/tax-compliance/form15?tab=trc", description: "Tax Residency Certificate" }
-              ]
-            }
+            { name: "Smart Tax Hub", href: "/tax-hub", description: "AI dashboard with health score" },
+            { name: "One-Click Filing", href: "/one-click-tax-filing", description: "Quick 6-step wizard" },
+            { name: "Tax Data Center", href: "/tax-data-center", description: "View AIS, 26AS, Form 16" },
+            { name: "TDS Compliance", href: "/tds-compliance", description: "TDS calculator and returns" }
           ]
         }
       ]

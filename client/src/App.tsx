@@ -101,6 +101,10 @@ import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
 import TaxSmartFiling from "@/pages/tax-smart-filing";
 import OneClickTaxFiling from "@/pages/one-click-tax-filing";
+import TaxITRPage from "@/pages/tax-itr";
+import TaxNoticesPage from "@/pages/tax-notices";
+import TaxDocumentVaultPage from "@/pages/tax-document-vault";
+import TaxCADeskPage from "@/pages/tax-ca-desk";
 import PropertyServices from "@/pages/property-services";
 import LoanComparison from "@/pages/loan-comparison";
 import LoanRecommendations from "@/pages/loan-recommendations";
@@ -219,6 +223,13 @@ function UserProtectedRoutes() {
         <Route path="/capital-gains" component={CapitalGainsReports} />
         <Route path="/reports" component={ReportsHub} />
         <Route path="/transaction-reports" component={TransactionReports} />
+        {/* Unified Tax & Compliance Module */}
+        <Route path="/tax/itr" component={TaxITRPage} />
+        <Route path="/tax/itr/:mode" component={TaxITRPage} />
+        <Route path="/tax/15ca-cb" component={TaxComplianceForm15Page} />
+        <Route path="/tax/notices" component={TaxNoticesPage} />
+        <Route path="/tax/documents" component={TaxDocumentVaultPage} />
+        <Route path="/tax/ca-desk" component={TaxCADeskPage} />
         {/* Unified Tax Services - Primary Route */}
         <Route path="/tax-hub" component={IntelligentTaxHub} />
         <Route path="/tax" component={TaxSmartFiling} />
