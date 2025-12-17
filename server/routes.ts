@@ -26211,6 +26211,34 @@ System Security Data:`;
           }
           break;
 
+        case 'probe42':
+          if (!process.env.PROBE42_API_KEY) {
+            result = { success: false, message: 'Missing Probe42 API key' };
+          } else {
+            try {
+              const response = await fetch('https://api.probe42.in/probe_data_api/entities/U73100KA2005PTC036337/kyc-details', {
+                headers: {
+                  'x-api-key': process.env.PROBE42_API_KEY,
+                  'x-api-version': '1.0',
+                  'Content-Type': 'application/json'
+                }
+              });
+              const data = await response.json();
+              result = {
+                success: response.ok && data?.data?.vitals,
+                message: response.ok ? 'API connection successful' : data?.message || 'API connection failed',
+                details: response.ok ? { 
+                  companyName: data?.data?.vitals?.legal_name,
+                  apiVersion: data?.metadata?.api_version
+                } : undefined,
+                latency: Date.now() - startTime
+              };
+            } catch (e: any) {
+              result = { success: false, message: e.message };
+            }
+          }
+          break;
+
         default:
           result = {
             success: true,

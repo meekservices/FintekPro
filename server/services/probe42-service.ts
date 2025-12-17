@@ -20,7 +20,7 @@ import type {
 
 // Environment configuration
 const PROBE42_API_KEY = process.env.PROBE42_API_KEY || '';
-const PROBE42_BASE_URL = process.env.PROBE42_BASE_URL || 'https://api.probe42.in/api/v2';
+const PROBE42_BASE_URL = process.env.PROBE42_BASE_URL || 'https://api.probe42.in/probe_data_api';
 
 // ===================================================================
 // TYPE DEFINITIONS
@@ -166,6 +166,7 @@ class Probe42Service {
       baseURL: PROBE42_BASE_URL,
       headers: {
         'x-api-key': PROBE42_API_KEY,
+        'x-api-version': '1.0',
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -223,10 +224,8 @@ class Probe42Service {
 
     const startTime = Date.now();
     try {
-      // Use a simple search query to test connectivity
-      const response = await this.client.get('/companies/search', {
-        params: { q: 'test', limit: 1 }
-      });
+      // Use a known CIN to test connectivity - Probe Information Services Pvt Ltd
+      const response = await this.client.get('/entities/U73100KA2005PTC036337/kyc-details');
       
       const responseTime = Date.now() - startTime;
       this.lastHealthCheck = {
@@ -410,6 +409,7 @@ class Probe42Service {
 
   /**
    * Get detailed company information
+   * Uses Probe42 /entities/{CIN}/kyc-details endpoint
    */
   async getCompanyDetails(probe42CompanyId: string): Promise<Probe42CompanyDetails | null> {
     if (!probe42CompanyId) {
@@ -421,8 +421,29 @@ class Probe42Service {
     }
 
     try {
-      const response = await this.client.get(`/companies/${probe42CompanyId}`);
-      return response.data.company || null;
+      const response = await this.client.get(`/entities/${probe42CompanyId}/kyc-details`);
+      const data = response.data?.data;
+      if (!data) return null;
+      
+      // Map Probe42 v1.0 response to our internal format
+      return {
+        company_id: probe42CompanyId,
+        name: data.vitals?.legal_name || '',
+        cin: probe42CompanyId,
+        pan: data.vitals?.pan_of_entity,
+        sector: data.industry_segment?.industry,
+        industry: data.industry_segment?.segments?.[0],
+        incorporation_date: data.vitals?.date_of_incorporation,
+        paid_up_capital: data.vitals?.paid_up_capital,
+        status: data.vitals?.status || 'Unknown',
+        website: data.vitals?.website,
+        description: undefined,
+        directors: data.directors?.map((d: any) => ({
+          name: d.name,
+          din: d.din,
+          designation: d.designation
+        }))
+      };
     } catch (error: any) {
       if (error.response?.status === 404) {
         return null;
