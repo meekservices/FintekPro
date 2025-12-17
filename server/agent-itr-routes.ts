@@ -13,21 +13,12 @@ export function registerAgentItrRoutes(app: Express) {
 
       const { status, assessmentYear, clientId } = req.query;
       
-      let conditions = [`c.agent_id = '${agentId}'`];
+      // Use parameterized queries to prevent SQL injection
+      const statusFilter = typeof status === 'string' ? status : null;
+      const yearFilter = typeof assessmentYear === 'string' ? assessmentYear : null;
+      const clientFilter = typeof clientId === 'string' ? clientId : null;
       
-      if (status) {
-        conditions.push(`c.status = '${status}'`);
-      }
-      if (assessmentYear) {
-        conditions.push(`c.assessment_year = '${assessmentYear}'`);
-      }
-      if (clientId) {
-        conditions.push(`c.client_id = '${clientId}'`);
-      }
-
-      const whereClause = conditions.join(' AND ');
-      
-      const result = await db.execute(sql.raw(`
+      const result = await db.execute(sql`
         SELECT c.*, 
                u.email as client_email,
                u.username as client_name,
@@ -35,9 +26,12 @@ export function registerAgentItrRoutes(app: Express) {
         FROM agent_itr_cases c
         LEFT JOIN users u ON c.client_id = u.id
         LEFT JOIN ca_profiles ca ON c.ca_id = ca.user_id
-        WHERE ${whereClause}
+        WHERE c.agent_id = ${agentId}
+          AND (${statusFilter}::text IS NULL OR c.status = ${statusFilter})
+          AND (${yearFilter}::text IS NULL OR c.assessment_year = ${yearFilter})
+          AND (${clientFilter}::text IS NULL OR c.client_id = ${clientFilter})
         ORDER BY c.created_at DESC
-      `));
+      `);
 
       res.json(result.rows || []);
     } catch (error) {
@@ -166,16 +160,30 @@ export function registerAgentItrRoutes(app: Express) {
       const current = await db.execute(sql`SELECT status FROM agent_itr_cases WHERE id = ${caseId}`);
       const previousStatus = current.rows?.[0]?.status;
 
-      const completedAtClause = status === 'completed' ? ', completed_at = NOW()' : '';
+      // Validate status values to prevent injection
+      const validStatuses = ['initiated', 'documents_pending', 'documents_received', 'under_review', 'ca_assigned', 'processing', 'filed', 'completed'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid status value" });
+      }
       
-      await db.execute(sql.raw(`
-        UPDATE agent_itr_cases 
-        SET status = '${status}', 
-            sub_status = ${subStatus ? `'${subStatus}'` : 'NULL'},
-            updated_at = NOW()
-            ${completedAtClause}
-        WHERE id = '${caseId}'
-      `));
+      if (status === 'completed') {
+        await db.execute(sql`
+          UPDATE agent_itr_cases 
+          SET status = ${status}, 
+              sub_status = ${subStatus || null},
+              updated_at = NOW(),
+              completed_at = NOW()
+          WHERE id = ${caseId}
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE agent_itr_cases 
+          SET status = ${status}, 
+              sub_status = ${subStatus || null},
+              updated_at = NOW()
+          WHERE id = ${caseId}
+        `);
+      }
 
       await db.execute(sql`
         INSERT INTO agent_itr_activity_log (case_id, user_id, activity_type, previous_value, new_value, description)
@@ -264,18 +272,25 @@ export function registerAgentItrRoutes(app: Express) {
         return res.status(400).json({ error: "Document type and name are required" });
       }
 
+      // Validate document type
+      const validDocTypes = ['form_16', 'form_16a', 'form_26as', 'ais', 'capital_gains_statement', 'bank_statement', 'rent_receipt', 'investment_proof', 'other'];
+      if (!validDocTypes.includes(documentType)) {
+        return res.status(400).json({ error: "Invalid document type" });
+      }
+
       const result = await db.execute(sql`
         INSERT INTO agent_itr_documents (case_id, document_type, document_name, document_url, file_size, mime_type, status)
         VALUES (${caseId}, ${documentType}, ${documentName}, ${documentUrl || null}, ${fileSize || null}, ${mimeType || null}, 'uploaded')
         RETURNING *
       `);
 
-      await db.execute(sql.raw(`
+      // Use parameterized jsonb append
+      await db.execute(sql`
         UPDATE agent_itr_cases 
-        SET documents_received = documents_received || '["${documentType}"]'::jsonb,
+        SET documents_received = COALESCE(documents_received, '[]'::jsonb) || to_jsonb(${documentType}::text),
             updated_at = NOW()
-        WHERE id = '${caseId}'
-      `));
+        WHERE id = ${caseId}
+      `);
 
       await db.execute(sql`
         INSERT INTO agent_itr_activity_log (case_id, user_id, activity_type, new_value, description)
@@ -321,12 +336,13 @@ export function registerAgentItrRoutes(app: Express) {
         askedAt: new Date().toISOString()
       };
 
-      await db.execute(sql.raw(`
+      // Use parameterized jsonb append
+      await db.execute(sql`
         UPDATE agent_itr_cases 
-        SET client_queries = client_queries || '${JSON.stringify([newQuery])}'::jsonb,
+        SET client_queries = COALESCE(client_queries, '[]'::jsonb) || ${JSON.stringify([newQuery])}::jsonb,
             updated_at = NOW()
-        WHERE id = '${caseId}'
-      `));
+        WHERE id = ${caseId}
+      `);
 
       await db.execute(sql`
         INSERT INTO agent_itr_activity_log (case_id, user_id, activity_type, description)
@@ -357,12 +373,13 @@ export function registerAgentItrRoutes(app: Express) {
         at: new Date().toISOString()
       };
 
-      await db.execute(sql.raw(`
+      // Use parameterized jsonb append
+      await db.execute(sql`
         UPDATE agent_itr_cases 
-        SET internal_notes = internal_notes || '${JSON.stringify([newNote])}'::jsonb,
+        SET internal_notes = COALESCE(internal_notes, '[]'::jsonb) || ${JSON.stringify([newNote])}::jsonb,
             updated_at = NOW()
-        WHERE id = '${caseId}'
-      `));
+        WHERE id = ${caseId}
+      `);
 
       res.json({ success: true });
     } catch (error) {
