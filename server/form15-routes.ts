@@ -139,16 +139,24 @@ function determineRule37BB(remittanceAmount: number, natureOfPayment: string, dt
 }
 
 export function registerForm15Routes(app: Express) {
+  // Create a router for Form 15 routes with centralized auth middleware
+  const router = Router();
+  
+  // Apply authentication and role injection middleware to ALL Form 15 routes
+  router.use(requireAuth);
+  router.use(injectRoleInfo);
+
   // ========================================
   // CASE MANAGEMENT ROUTES
   // ========================================
 
   // Get all cases for user
-  app.get("/api/tax-compliance/form15/cases", async (req: Request, res: Response) => {
+  router.get("/cases", async (req: Request, res: Response) => {
     try {
       const userId = getSessionUser(req)?.id;
       const userRole = getUserRole(req);
       
+      // userId guaranteed by requireAuth middleware
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -206,7 +214,7 @@ export function registerForm15Routes(app: Express) {
   });
 
   // Create new case
-  app.post("/api/tax-compliance/form15/cases", async (req: Request, res: Response) => {
+  router.post("/cases", async (req: Request, res: Response) => {
     try {
       const userId = getSessionUser(req)?.id;
       const userEmail = getSessionUser(req)?.email || '';
@@ -299,7 +307,7 @@ export function registerForm15Routes(app: Express) {
   });
 
   // Get single case with details
-  app.get("/api/tax-compliance/form15/cases/:caseId", async (req: Request, res: Response) => {
+  router.get("/cases/:caseId", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const userId = getSessionUser(req)?.id;
@@ -358,7 +366,7 @@ export function registerForm15Routes(app: Express) {
   });
 
   // Update case (role-based)
-  app.patch("/api/tax-compliance/form15/cases/:caseId", async (req: Request, res: Response) => {
+  router.patch("/cases/:caseId", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const userId = getSessionUser(req)?.id;
@@ -478,7 +486,7 @@ export function registerForm15Routes(app: Express) {
   // ========================================
 
   // Submit for CA review (agent only)
-  app.post("/api/tax-compliance/form15/cases/:caseId/submit-for-review", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/submit-for-review", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const userId = getSessionUser(req)?.id;
@@ -532,7 +540,7 @@ export function registerForm15Routes(app: Express) {
   // ========================================
 
   // Start CA review
-  app.post("/api/tax-compliance/form15/cases/:caseId/start-review", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/start-review", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const userId = getSessionUser(req)?.id;
@@ -562,8 +570,8 @@ export function registerForm15Routes(app: Express) {
       
       // Audit: Log case pickup attempt for compliance
       await logAudit(caseId, userId, userRole, userEmail, 'review_pickup_attempt', 'CA attempting to pick up case for review', {
-        previousCaId: caseData.ca_id || null,
-        ipAddress: req.ip
+        ipAddress: req.ip,
+        metadata: { previousCaId: caseData.ca_id || null }
       });
 
       await db.execute(sql`
@@ -588,7 +596,7 @@ export function registerForm15Routes(app: Express) {
   });
 
   // Send back to agent
-  app.post("/api/tax-compliance/form15/cases/:caseId/send-back", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/send-back", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { reason } = req.body;
@@ -633,7 +641,7 @@ export function registerForm15Routes(app: Express) {
   });
 
   // CA Approval with mandatory checklist
-  app.post("/api/tax-compliance/form15/cases/:caseId/approve", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/approve", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { documentsReviewed, dtaaVerified, taxComputationConfirmed, legalResponsibilityAccepted, remarks } = req.body;
@@ -691,7 +699,7 @@ export function registerForm15Routes(app: Express) {
   // ========================================
 
   // Sign Form 15CB
-  app.post("/api/tax-compliance/form15/cases/:caseId/sign-15cb", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/sign-15cb", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { dscSerialNumber, icaiMembershipNumber } = req.body;
@@ -773,7 +781,7 @@ export function registerForm15Routes(app: Express) {
   // ========================================
 
   // File Form 15CA
-  app.post("/api/tax-compliance/form15/cases/:caseId/file-15ca", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/file-15ca", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const userId = getSessionUser(req)?.id;
@@ -823,7 +831,7 @@ export function registerForm15Routes(app: Express) {
   });
 
   // E-verify Form 15CA (Client)
-  app.post("/api/tax-compliance/form15/cases/:caseId/everify", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/everify", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const userId = getSessionUser(req)?.id;
@@ -872,7 +880,7 @@ export function registerForm15Routes(app: Express) {
   // ========================================
 
   // Generate bank compliance pack
-  app.post("/api/tax-compliance/form15/cases/:caseId/generate-compliance-pack", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/generate-compliance-pack", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const userId = getSessionUser(req)?.id;
@@ -931,7 +939,7 @@ export function registerForm15Routes(app: Express) {
   // ========================================
 
   // Upload document
-  app.post("/api/tax-compliance/form15/cases/:caseId/documents", async (req: Request, res: Response) => {
+  router.post("/cases/:caseId/documents", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { documentType, documentName, documentUrl, fileSize, mimeType, isMandatory } = req.body;
@@ -980,7 +988,7 @@ export function registerForm15Routes(app: Express) {
   });
 
   // Get documents for case
-  app.get("/api/tax-compliance/form15/cases/:caseId/documents", async (req: Request, res: Response) => {
+  router.get("/cases/:caseId/documents", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const userId = getSessionUser(req)?.id;
@@ -1016,7 +1024,7 @@ export function registerForm15Routes(app: Express) {
   // ========================================
 
   // Get CA verification status
-  app.get("/api/tax-compliance/form15/ca-verification", async (req: Request, res: Response) => {
+  router.get("/ca-verification", async (req: Request, res: Response) => {
     try {
       const userId = getSessionUser(req)?.id;
 
@@ -1040,7 +1048,7 @@ export function registerForm15Routes(app: Express) {
   });
 
   // Submit CA verification (Admin approves later)
-  app.post("/api/tax-compliance/form15/ca-verification", async (req: Request, res: Response) => {
+  router.post("/ca-verification", async (req: Request, res: Response) => {
     try {
       const userId = getSessionUser(req)?.id;
       const { icaiMembershipNumber, copNumber, copValidFrom, copValidTo, panNumber, dscSerialNumber, dscValidFrom, dscValidTo } = req.body;
@@ -1088,7 +1096,7 @@ export function registerForm15Routes(app: Express) {
   // STATISTICS
   // ========================================
 
-  app.get("/api/tax-compliance/form15/stats", async (req: Request, res: Response) => {
+  router.get("/stats", async (req: Request, res: Response) => {
     try {
       const userId = getSessionUser(req)?.id;
       const userRole = getUserRole(req);
@@ -1128,5 +1136,8 @@ export function registerForm15Routes(app: Express) {
     }
   });
 
-  console.log("✅ Form 15CA/15CB routes registered");
+  // Mount the router at the Form 15 API path
+  app.use("/api/tax-compliance/form15", router);
+
+  console.log("✅ Form 15CA/15CB routes registered with roleMiddleware");
 }
