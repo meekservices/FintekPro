@@ -1,12 +1,60 @@
-import { Express } from "express";
+import { Express, Request, Response, Router } from "express";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { 
+  requireAuth, 
+  requireAgentPortal,
+  injectRoleInfo, 
+  getRoleInfo 
+} from "./middleware/roleMiddleware";
+
+// Helper to get session user with role info
+function getSessionUser(req: Request): { id: string; email: string; roles?: string[] } | undefined {
+  const roleInfo = getRoleInfo(req);
+  const sessionUser = (req as any).session?.user;
+  if (sessionUser && roleInfo) {
+    return { ...sessionUser, roles: roleInfo.roles };
+  }
+  return sessionUser;
+}
+
+// Check if user is an admin (can access any case)
+function isAdmin(req: Request): boolean {
+  const roleInfo = getRoleInfo(req);
+  if (!roleInfo) return false;
+  return ['superadmin', 'master_agent', 'admin'].includes(roleInfo.highestRole || '');
+}
+
+// Check if user can access an agent's cases (agent owns it, or is admin/partner)
+function canAccessAgentCase(req: Request, caseAgentId: string): boolean {
+  const roleInfo = getRoleInfo(req);
+  const userId = getSessionUser(req)?.id;
+  if (!roleInfo || !userId) return false;
+  
+  // Admins can access all cases
+  if (isAdmin(req)) return true;
+  
+  // Partners can access their agents' cases (TODO: implement partner-agent relationship check)
+  if (roleInfo.highestRole === 'partner') return true;
+  
+  // Agent/sub-agent can only access their own cases
+  return caseAgentId === userId;
+}
 
 export function registerAgentItrRoutes(app: Express) {
+  // Create a router for Agent ITR routes with centralized auth middleware
+  const router = Router();
+  
+  // Apply authentication and role injection middleware to ALL Agent ITR routes
+  router.use(requireAuth);
+  router.use(injectRoleInfo);
+  router.use(requireAgentPortal); // Requires agent portal access
+
   // Get ITR cases for an agent
-  app.get("/api/agent/itr/cases", async (req, res) => {
+  router.get("/cases", async (req: Request, res: Response) => {
     try {
-      const agentId = (req as any).session?.user?.id;
+      const agentId = getSessionUser(req)?.id;
+      // agentId guaranteed by requireAuth middleware
       if (!agentId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -41,9 +89,9 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Create new ITR case for a client
-  app.post("/api/agent/itr/cases", async (req, res) => {
+  router.post("/cases", async (req: Request, res: Response) => {
     try {
-      const agentId = (req as any).session?.user?.id;
+      const agentId = getSessionUser(req)?.id;
       if (!agentId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -101,7 +149,7 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Get single ITR case with details
-  app.get("/api/agent/itr/cases/:caseId", async (req, res) => {
+  router.get("/cases/:caseId", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
 
@@ -147,11 +195,11 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Update ITR case status
-  app.patch("/api/agent/itr/cases/:caseId/status", async (req, res) => {
+  router.patch("/cases/:caseId/status", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { status, subStatus } = req.body;
-      const userId = (req as any).session?.user?.id;
+      const userId = getSessionUser(req)?.id;
 
       if (!status) {
         return res.status(400).json({ error: "Status is required" });
@@ -198,11 +246,11 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Assign CA to ITR case
-  app.post("/api/agent/itr/cases/:caseId/assign-ca", async (req, res) => {
+  router.post("/cases/:caseId/assign-ca", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { caId } = req.body;
-      const userId = (req as any).session?.user?.id;
+      const userId = getSessionUser(req)?.id;
 
       if (!caId) {
         return res.status(400).json({ error: "CA ID is required" });
@@ -244,7 +292,7 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Get available CAs
-  app.get("/api/agent/itr/available-cas", async (req, res) => {
+  router.get("/available-cas", async (req: Request, res: Response) => {
     try {
       const result = await db.execute(sql`
         SELECT * FROM ca_profiles 
@@ -262,11 +310,11 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Upload document to ITR case
-  app.post("/api/agent/itr/cases/:caseId/documents", async (req, res) => {
+  router.post("/cases/:caseId/documents", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { documentType, documentName, documentUrl, fileSize, mimeType } = req.body;
-      const userId = (req as any).session?.user?.id;
+      const userId = getSessionUser(req)?.id;
 
       if (!documentType || !documentName) {
         return res.status(400).json({ error: "Document type and name are required" });
@@ -305,7 +353,7 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Get documents for ITR case
-  app.get("/api/agent/itr/cases/:caseId/documents", async (req, res) => {
+  router.get("/cases/:caseId/documents", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
 
@@ -321,11 +369,11 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Add query to ITR case
-  app.post("/api/agent/itr/cases/:caseId/queries", async (req, res) => {
+  router.post("/cases/:caseId/queries", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { query } = req.body;
-      const userId = (req as any).session?.user?.id;
+      const userId = getSessionUser(req)?.id;
 
       if (!query) {
         return res.status(400).json({ error: "Query is required" });
@@ -357,11 +405,11 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Add internal note to ITR case
-  app.post("/api/agent/itr/cases/:caseId/notes", async (req, res) => {
+  router.post("/cases/:caseId/notes", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { note } = req.body;
-      const userId = (req as any).session?.user?.id;
+      const userId = getSessionUser(req)?.id;
 
       if (!note) {
         return res.status(400).json({ error: "Note is required" });
@@ -389,9 +437,9 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Get ITR statistics for agent dashboard
-  app.get("/api/agent/itr/stats", async (req, res) => {
+  router.get("/stats", async (req: Request, res: Response) => {
     try {
-      const agentId = (req as any).session?.user?.id;
+      const agentId = getSessionUser(req)?.id;
       if (!agentId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -421,10 +469,10 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Auto-populate income data from client portfolio
-  app.post("/api/agent/itr/cases/:caseId/auto-populate", async (req, res) => {
+  router.post("/cases/:caseId/auto-populate", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
-      const userId = (req as any).session?.user?.id;
+      const userId = getSessionUser(req)?.id;
 
       const caseResult = await db.execute(sql`SELECT * FROM agent_itr_cases WHERE id = ${caseId}`);
       if (!caseResult.rows || caseResult.rows.length === 0) {
@@ -482,7 +530,7 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Calculate tax liability
-  app.post("/api/agent/itr/cases/:caseId/calculate-tax", async (req, res) => {
+  router.post("/cases/:caseId/calculate-tax", async (req: Request, res: Response) => {
     try {
       const { caseId } = req.params;
       const { taxRegime } = req.body;
@@ -548,23 +596,35 @@ export function registerAgentItrRoutes(app: Express) {
   });
 
   // Get clients for ITR case creation dropdown
-  app.get("/api/agent/itr/my-clients", async (req, res) => {
+  router.get("/my-clients", async (req: Request, res: Response) => {
     try {
-      const agentId = (req as any).session?.user?.id;
+      const agentId = getSessionUser(req)?.id;
+      // agentId guaranteed by requireAuth middleware
       if (!agentId) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      // Get clients linked to this agent
-      const result = await db.execute(sql`
-        SELECT u.id, u.email, u.username, up.first_name, up.last_name, up.pan_number
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.id IN (
-          SELECT client_id FROM agent_client_relationships WHERE agent_id = ${agentId}
-        )
-        ORDER BY u.username
-      `);
+      // Admins can see all clients, agents see only their linked clients
+      let result;
+      if (isAdmin(req)) {
+        result = await db.execute(sql`
+          SELECT u.id, u.email, u.username, up.first_name, up.last_name, up.pan_number
+          FROM users u
+          LEFT JOIN user_profiles up ON u.id = up.user_id
+          WHERE u.id IN (SELECT client_id FROM agent_client_relationships)
+          ORDER BY u.username
+        `);
+      } else {
+        result = await db.execute(sql`
+          SELECT u.id, u.email, u.username, up.first_name, up.last_name, up.pan_number
+          FROM users u
+          LEFT JOIN user_profiles up ON u.id = up.user_id
+          WHERE u.id IN (
+            SELECT client_id FROM agent_client_relationships WHERE agent_id = ${agentId}
+          )
+          ORDER BY u.username
+        `);
+      }
 
       res.json(result.rows || []);
     } catch (error) {
@@ -572,4 +632,9 @@ export function registerAgentItrRoutes(app: Express) {
       res.status(500).json({ error: "Failed to fetch clients" });
     }
   });
+
+  // Mount the router at the Agent ITR API path
+  app.use("/api/agent/itr", router);
+
+  console.log("✅ Agent ITR routes registered with roleMiddleware");
 }
