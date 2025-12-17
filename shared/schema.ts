@@ -16002,6 +16002,241 @@ export const insertAiTalkingPointSchema = createInsertSchema(aiTalkingPoints).om
 export type AiTalkingPoint = typeof aiTalkingPoints.$inferSelect;
 export type InsertAiTalkingPoint = z.infer<typeof insertAiTalkingPointSchema>;
 
+// Agent-Assisted ITR Filing Cases
+export const agentItrCases = pgTable("agent_itr_cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  caId: varchar("ca_id").references(() => users.id), // Assigned Chartered Accountant
+  
+  // Assessment Year
+  assessmentYear: varchar("assessment_year").notNull(), // e.g., "2024-25"
+  financialYear: varchar("financial_year").notNull(), // e.g., "2023-24"
+  
+  // ITR Details
+  itrFormType: varchar("itr_form_type"), // ITR-1, ITR-2, ITR-3, ITR-4
+  filingType: varchar("filing_type").default("original"), // original, revised, belated
+  
+  // Status Workflow
+  status: varchar("status").default("initiated").notNull(), // initiated, documents_pending, documents_received, under_review, ca_assigned, processing, filed, acknowledged, completed
+  subStatus: varchar("sub_status"), // more granular status
+  
+  // Income Details (Pre-filled from portfolio)
+  salaryIncome: decimal("salary_income", { precision: 15, scale: 2 }).default("0"),
+  interestIncome: decimal("interest_income", { precision: 15, scale: 2 }).default("0"),
+  dividendIncome: decimal("dividend_income", { precision: 15, scale: 2 }).default("0"),
+  capitalGainsStcg: decimal("capital_gains_stcg", { precision: 15, scale: 2 }).default("0"),
+  capitalGainsLtcg: decimal("capital_gains_ltcg", { precision: 15, scale: 2 }).default("0"),
+  businessIncome: decimal("business_income", { precision: 15, scale: 2 }).default("0"),
+  otherIncome: decimal("other_income", { precision: 15, scale: 2 }).default("0"),
+  totalGrossIncome: decimal("total_gross_income", { precision: 15, scale: 2 }).default("0"),
+  
+  // Deductions
+  section80c: decimal("section_80c", { precision: 15, scale: 2 }).default("0"),
+  section80d: decimal("section_80d", { precision: 15, scale: 2 }).default("0"),
+  otherDeductions: decimal("other_deductions", { precision: 15, scale: 2 }).default("0"),
+  totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).default("0"),
+  
+  // Tax Computation
+  taxableIncome: decimal("taxable_income", { precision: 15, scale: 2 }).default("0"),
+  taxRegime: varchar("tax_regime").default("new"), // old, new
+  taxPayable: decimal("tax_payable", { precision: 15, scale: 2 }).default("0"),
+  tdsPaid: decimal("tds_paid", { precision: 15, scale: 2 }).default("0"),
+  advanceTaxPaid: decimal("advance_tax_paid", { precision: 15, scale: 2 }).default("0"),
+  selfAssessmentTax: decimal("self_assessment_tax", { precision: 15, scale: 2 }).default("0"),
+  refundOrDue: decimal("refund_or_due", { precision: 15, scale: 2 }).default("0"),
+  
+  // Documents Tracking
+  documentsRequired: jsonb("documents_required").$type<string[]>().default([]),
+  documentsReceived: jsonb("documents_received").$type<string[]>().default([]),
+  documentsMissing: jsonb("documents_missing").$type<string[]>().default([]),
+  
+  // Filing Details
+  itrAcknowledgementNo: varchar("itr_acknowledgement_no"),
+  itrFiledDate: timestamp("itr_filed_date"),
+  itrVerificationStatus: varchar("itr_verification_status"), // pending, verified
+  itrVerificationMethod: varchar("itr_verification_method"), // aadhaar_otp, net_banking, dsc, manual
+  itrVerifiedDate: timestamp("itr_verified_date"),
+  
+  // Fee Structure
+  serviceFee: decimal("service_fee", { precision: 10, scale: 2 }).default("0"),
+  caFee: decimal("ca_fee", { precision: 10, scale: 2 }).default("0"),
+  totalFee: decimal("total_fee", { precision: 10, scale: 2 }).default("0"),
+  feeStatus: varchar("fee_status").default("pending"), // pending, paid, waived
+  
+  // Communication
+  clientQueries: jsonb("client_queries").$type<{query: string; response?: string; askedAt: string; respondedAt?: string}[]>().default([]),
+  internalNotes: jsonb("internal_notes").$type<{note: string; by: string; at: string}[]>().default([]),
+  
+  // Priority & SLA
+  priority: varchar("priority").default("normal"), // low, normal, high, urgent
+  dueDate: timestamp("due_date"),
+  slaBreached: boolean("sla_breached").default(false),
+  
+  // Source tracking
+  sourceProduct: varchar("source_product"), // stocks, mutual_funds, bonds, unlisted, etc.
+  referralCode: varchar("referral_code"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_agent_itr_cases_client").on(table.clientId),
+  index("idx_agent_itr_cases_agent").on(table.agentId),
+  index("idx_agent_itr_cases_ca").on(table.caId),
+  index("idx_agent_itr_cases_status").on(table.status),
+  index("idx_agent_itr_cases_ay").on(table.assessmentYear),
+]);
+
+// ITR Case Documents
+export const agentItrDocuments = pgTable("agent_itr_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => agentItrCases.id).notNull(),
+  
+  // Document Details
+  documentType: varchar("document_type").notNull(), // form_16, form_16a, form_26as, ais, capital_gains_statement, bank_statement, rent_receipt, investment_proof, other
+  documentName: varchar("document_name").notNull(),
+  documentUrl: text("document_url"),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  
+  // Status
+  status: varchar("status").default("uploaded"), // uploaded, under_review, accepted, rejected
+  reviewNotes: text("review_notes"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  
+  // Auto-parsed data (if applicable)
+  parsedData: jsonb("parsed_data"),
+  parsingStatus: varchar("parsing_status"), // pending, completed, failed
+  
+  // Timestamps
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_itr_docs_case").on(table.caseId),
+  index("idx_agent_itr_docs_type").on(table.documentType),
+]);
+
+// ITR Case Activity Log
+export const agentItrActivityLog = pgTable("agent_itr_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => agentItrCases.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Activity Details
+  activityType: varchar("activity_type").notNull(), // status_change, document_upload, ca_assigned, query_added, note_added, fee_updated, filed, verified
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  description: text("description"),
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  
+  // Timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_itr_activity_case").on(table.caseId),
+  index("idx_agent_itr_activity_type").on(table.activityType),
+]);
+
+// CA (Chartered Accountant) Profiles for ITR Services
+export const caProfiles = pgTable("ca_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Professional Details
+  membershipNumber: varchar("membership_number").notNull(), // ICAI membership number
+  membershipType: varchar("membership_type").notNull(), // ACA (Associate) or FCA (Fellow)
+  certificateOfPracticeNumber: varchar("cop_number"),
+  
+  // Personal Details
+  fullName: varchar("full_name").notNull(),
+  email: varchar("email").notNull(),
+  mobile: varchar("mobile"),
+  
+  // Specializations
+  specializations: jsonb("specializations").$type<string[]>().default([]), // income_tax, gst, audit, company_law
+  
+  // Capacity & Workload
+  maxCasesPerMonth: integer("max_cases_per_month").default(50),
+  currentCaseCount: integer("current_case_count").default(0),
+  isAvailable: boolean("is_available").default(true),
+  
+  // Rating
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("5.00"),
+  totalReviews: integer("total_reviews").default(0),
+  
+  // Fee Structure
+  baseFeeItr1: decimal("base_fee_itr1", { precision: 10, scale: 2 }).default("500"),
+  baseFeeItr2: decimal("base_fee_itr2", { precision: 10, scale: 2 }).default("1500"),
+  baseFeeItr3: decimal("base_fee_itr3", { precision: 10, scale: 2 }).default("3000"),
+  baseFeeItr4: decimal("base_fee_itr4", { precision: 10, scale: 2 }).default("2000"),
+  
+  // Status
+  status: varchar("status").default("active"), // active, inactive, suspended
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ca_profiles_user").on(table.userId),
+  index("idx_ca_profiles_membership").on(table.membershipNumber),
+  index("idx_ca_profiles_available").on(table.isAvailable),
+]);
+
+// Insert schemas and types for Agent ITR Filing
+export const insertAgentItrCaseSchema = createInsertSchema(agentItrCases).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AgentItrCase = typeof agentItrCases.$inferSelect;
+export type InsertAgentItrCase = z.infer<typeof insertAgentItrCaseSchema>;
+
+export const insertAgentItrDocumentSchema = createInsertSchema(agentItrDocuments).omit({
+  id: true,
+  uploadedAt: true,
+  updatedAt: true,
+});
+export type AgentItrDocument = typeof agentItrDocuments.$inferSelect;
+export type InsertAgentItrDocument = z.infer<typeof insertAgentItrDocumentSchema>;
+
+export const insertCaProfileSchema = createInsertSchema(caProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CaProfile = typeof caProfiles.$inferSelect;
+export type InsertCaProfile = z.infer<typeof insertCaProfileSchema>;
+
+// ITR Status Enum
+export const ItrStatusEnum = z.enum([
+  'initiated',
+  'documents_pending',
+  'documents_received',
+  'under_review',
+  'ca_assigned',
+  'processing',
+  'filed',
+  'acknowledged',
+  'completed'
+]);
+
+// ITR Document Type Enum
+export const ItrDocumentTypeEnum = z.enum([
+  'form_16',
+  'form_16a',
+  'form_26as',
+  'ais',
+  'capital_gains_statement',
+  'bank_statement',
+  'rent_receipt',
+  'investment_proof',
+  'other'
+]);
+
 // Enums for AI Investment Advisory
 export const TimeHorizonEnum = z.enum(['ultra_short', 'short', 'medium', 'long']);
 export const SignalTypeEnum = z.enum(['buy', 'sell', 'hold']);
