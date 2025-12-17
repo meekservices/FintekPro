@@ -1,0 +1,1085 @@
+import { useState, useCallback } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useDropzone } from "react-dropzone";
+import { 
+  Brain,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  PieChart,
+  Target,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Upload,
+  FileText,
+  Plus,
+  Minus,
+  RefreshCw,
+  Send,
+  MessageSquare,
+  Lightbulb,
+  ArrowUp,
+  ArrowDown,
+  ArrowRight,
+  Calculator,
+  Scale,
+  Briefcase,
+  Calendar,
+  DollarSign,
+  Percent,
+  ShieldCheck,
+  Zap,
+  Eye,
+  Edit,
+  Trash2,
+  Copy,
+  Download,
+  Filter,
+  Search
+} from "lucide-react";
+
+interface Portfolio {
+  id: string;
+  clientId: string;
+  name: string;
+  totalValue: number;
+  holdings: PortfolioHolding[];
+  lastUpdated: string;
+}
+
+interface PortfolioHolding {
+  id?: string;
+  symbol: string;
+  name: string;
+  quantity: number;
+  averagePrice: number;
+  currentPrice: number;
+  currentValue: number;
+  gainLoss: number;
+  gainLossPercent: number;
+  sector?: string;
+  assetType: string;
+}
+
+interface PortfolioAnalysis {
+  totalValue: number;
+  totalGainLoss: number;
+  totalGainLossPercent: number;
+  fundamentalRatios: {
+    avgPE: number;
+    avgPB: number;
+    avgROE: number;
+    avgDebtEquity: number;
+  };
+  sectorConcentration: Record<string, number>;
+  topHoldings: { symbol: string; weight: number }[];
+  riskScore: number;
+  diversificationScore: number;
+}
+
+interface AIProfitPick {
+  id: string;
+  symbol: string;
+  companyName: string;
+  signal: 'BUY' | 'SELL' | 'HOLD';
+  horizon: '1M' | '3M' | '6M' | '1Y';
+  currentPrice: number;
+  targetPrice: number;
+  stopLoss: number;
+  expectedReturn: number;
+  confidenceScore: number;
+  technicalIndicators: {
+    rsi: number;
+    macd: string;
+    movingAverages: string;
+    volumeTrend: string;
+  };
+  fundamentalScore: number;
+  aiRationale: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  createdAt: string;
+}
+
+interface PortfolioAlert {
+  id: string;
+  alertType: 'UNDERPERFORMANCE' | 'CONCENTRATION' | 'REBALANCE' | 'OPPORTUNITY';
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  title: string;
+  message: string;
+  benchmarkComparison?: {
+    benchmark: string;
+    portfolioReturn: number;
+    benchmarkReturn: number;
+    underperformancePercent: number;
+  };
+  actionRequired: boolean;
+  createdAt: string;
+}
+
+interface TalkingPoint {
+  category: 'STRENGTH' | 'CONCERN' | 'OPPORTUNITY' | 'ACTION';
+  title: string;
+  content: string;
+  supportingData?: string;
+}
+
+const SIGNAL_COLORS = {
+  BUY: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  SELL: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+  HOLD: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+};
+
+const RISK_COLORS = {
+  LOW: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  MEDIUM: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+  HIGH: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+};
+
+const SEVERITY_COLORS = {
+  INFO: "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950",
+  WARNING: "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950",
+  CRITICAL: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
+};
+
+const CATEGORY_ICONS = {
+  STRENGTH: CheckCircle2,
+  CONCERN: AlertTriangle,
+  OPPORTUNITY: Lightbulb,
+  ACTION: Zap
+};
+
+export default function AgentInvestmentAdvisory() {
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("portfolio");
+  const [selectedClientId, setSelectedClientId] = useState<string>("demo-client-1");
+  const [selectedHorizon, setSelectedHorizon] = useState<string>("3M");
+  const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const [newHolding, setNewHolding] = useState({
+    symbol: "",
+    name: "",
+    quantity: 0,
+    averagePrice: 0,
+    assetType: "EQUITY"
+  });
+
+  const { data: portfolio, isLoading: portfolioLoading } = useQuery<Portfolio>({
+    queryKey: ['/api/ai-investment/portfolio', selectedClientId],
+    enabled: !!selectedClientId
+  });
+
+  const { data: analysis, isLoading: analysisLoading, refetch: refetchAnalysis } = useQuery<PortfolioAnalysis>({
+    queryKey: ['/api/ai-investment/analyze', selectedClientId],
+    enabled: !!selectedClientId && !!portfolio
+  });
+
+  const { data: profitPicks, isLoading: picksLoading, refetch: refetchPicks } = useQuery<AIProfitPick[]>({
+    queryKey: ['/api/ai-investment/profit-picks', selectedClientId, selectedHorizon],
+    enabled: !!selectedClientId && !!portfolio
+  });
+
+  const { data: alerts, isLoading: alertsLoading } = useQuery<PortfolioAlert[]>({
+    queryKey: ['/api/ai-investment/alerts', selectedClientId],
+    enabled: !!selectedClientId && !!portfolio
+  });
+
+  const { data: talkingPoints, isLoading: talkingPointsLoading, refetch: refetchTalkingPoints } = useQuery<TalkingPoint[]>({
+    queryKey: ['/api/ai-investment/talking-points', selectedClientId],
+    enabled: !!selectedClientId && !!portfolio
+  });
+
+  const addHoldingMutation = useMutation({
+    mutationFn: async (holding: typeof newHolding) => {
+      return apiRequest(`/api/ai-investment/portfolio/${selectedClientId}/holdings`, {
+        method: 'POST',
+        body: JSON.stringify(holding)
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/portfolio', selectedClientId] });
+      setShowAddHoldingDialog(false);
+      setNewHolding({ symbol: "", name: "", quantity: 0, averagePrice: 0, assetType: "EQUITY" });
+      toast({ title: "Holding added", description: "Portfolio updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add holding", variant: "destructive" });
+    }
+  });
+
+  const uploadCSVMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiRequest(`/api/ai-investment/portfolio/${selectedClientId}/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: {}
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-investment/portfolio', selectedClientId] });
+      setShowUploadDialog(false);
+      toast({ title: "Portfolio uploaded", description: "CSV processed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to upload CSV", variant: "destructive" });
+    }
+  });
+
+  const createProposalMutation = useMutation({
+    mutationFn: async (picks: AIProfitPick[]) => {
+      return apiRequest('/api/ai-investment/proposal', {
+        method: 'POST',
+        body: JSON.stringify({ clientId: selectedClientId, picks })
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Proposal created", 
+        description: `Proposal #${data.proposalId} created with ${data.itemCount} recommendations` 
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create proposal", variant: "destructive" });
+    }
+  });
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      uploadCSVMutation.mutate(acceptedFiles[0]);
+    }
+  }, [uploadCSVMutation]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'text/csv': ['.csv'] },
+    maxFiles: 1
+  });
+
+  const handleRunAnalysis = async () => {
+    setIsAnalyzing(true);
+    try {
+      await refetchAnalysis();
+      await refetchPicks();
+      await refetchTalkingPoints();
+      toast({ title: "Analysis complete", description: "AI recommendations updated" });
+    } catch (error) {
+      toast({ title: "Error", description: "Analysis failed", variant: "destructive" });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-IN', { 
+      style: 'currency', 
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
+  };
+
+  const formatPercent = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  };
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="page-title">
+            AI Investment Advisory
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Analyze portfolios and generate intelligent investment recommendations
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+            <SelectTrigger className="w-48" data-testid="select-client">
+              <SelectValue placeholder="Select client" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="demo-client-1">Demo Client 1</SelectItem>
+              <SelectItem value="demo-client-2">Demo Client 2</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button 
+            onClick={handleRunAnalysis} 
+            disabled={isAnalyzing || !portfolio}
+            data-testid="button-run-analysis"
+          >
+            {isAnalyzing ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Brain className="h-4 w-4 mr-2" />
+                Run AI Analysis
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <ScrollableTabsList>
+          <TabsTrigger value="portfolio" data-testid="tab-portfolio">
+            <Briefcase className="h-4 w-4 mr-2" />
+            Portfolio
+          </TabsTrigger>
+          <TabsTrigger value="analysis" data-testid="tab-analysis">
+            <PieChart className="h-4 w-4 mr-2" />
+            Analysis
+          </TabsTrigger>
+          <TabsTrigger value="profit-picks" data-testid="tab-profit-picks">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            AI Profit Picks
+          </TabsTrigger>
+          <TabsTrigger value="alerts" data-testid="tab-alerts">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Alerts
+          </TabsTrigger>
+          <TabsTrigger value="talking-points" data-testid="tab-talking-points">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Talking Points
+          </TabsTrigger>
+          <TabsTrigger value="finalize" data-testid="tab-finalize">
+            <Send className="h-4 w-4 mr-2" />
+            Finalize
+          </TabsTrigger>
+        </ScrollableTabsList>
+
+        <TabsContent value="portfolio" className="space-y-4">
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Dialog open={showAddHoldingDialog} onOpenChange={setShowAddHoldingDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-add-holding">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Holding
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Portfolio Holding</DialogTitle>
+                  <DialogDescription>
+                    Manually add a stock or mutual fund to the portfolio
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Symbol</Label>
+                      <Input 
+                        placeholder="e.g., RELIANCE"
+                        value={newHolding.symbol}
+                        onChange={(e) => setNewHolding({ ...newHolding, symbol: e.target.value.toUpperCase() })}
+                        data-testid="input-symbol"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Asset Type</Label>
+                      <Select 
+                        value={newHolding.assetType} 
+                        onValueChange={(v) => setNewHolding({ ...newHolding, assetType: v })}
+                      >
+                        <SelectTrigger data-testid="select-asset-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EQUITY">Equity</SelectItem>
+                          <SelectItem value="MUTUAL_FUND">Mutual Fund</SelectItem>
+                          <SelectItem value="ETF">ETF</SelectItem>
+                          <SelectItem value="BOND">Bond</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Company/Fund Name</Label>
+                    <Input 
+                      placeholder="e.g., Reliance Industries Ltd"
+                      value={newHolding.name}
+                      onChange={(e) => setNewHolding({ ...newHolding, name: e.target.value })}
+                      data-testid="input-name"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Quantity</Label>
+                      <Input 
+                        type="number"
+                        placeholder="100"
+                        value={newHolding.quantity || ''}
+                        onChange={(e) => setNewHolding({ ...newHolding, quantity: parseInt(e.target.value) || 0 })}
+                        data-testid="input-quantity"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Avg. Buy Price</Label>
+                      <Input 
+                        type="number"
+                        placeholder="2500.00"
+                        value={newHolding.averagePrice || ''}
+                        onChange={(e) => setNewHolding({ ...newHolding, averagePrice: parseFloat(e.target.value) || 0 })}
+                        data-testid="input-avg-price"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowAddHoldingDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => addHoldingMutation.mutate(newHolding)}
+                    disabled={!newHolding.symbol || !newHolding.quantity}
+                    data-testid="button-confirm-add"
+                  >
+                    Add Holding
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-upload-csv">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload CSV
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Upload Portfolio CSV</DialogTitle>
+                  <DialogDescription>
+                    Upload a CSV file with columns: symbol, name, quantity, averagePrice, assetType
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <div
+                    {...getRootProps()}
+                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                      isDragActive 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-primary'
+                    }`}
+                    data-testid="dropzone-csv"
+                  >
+                    <input {...getInputProps()} />
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    {isDragActive ? (
+                      <p>Drop the CSV file here...</p>
+                    ) : (
+                      <p>Drag & drop a CSV file, or click to select</p>
+                    )}
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {portfolioLoading ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ) : portfolio?.holdings?.length ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Current Holdings</CardTitle>
+                    <CardDescription>
+                      {portfolio.holdings.length} positions · Last updated: {new Date(portfolio.lastUpdated).toLocaleDateString()}
+                    </CardDescription>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">{formatCurrency(portfolio.totalValue)}</p>
+                    <p className="text-sm text-gray-500">Total Value</p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Symbol</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Avg Price</TableHead>
+                      <TableHead className="text-right">Current</TableHead>
+                      <TableHead className="text-right">Value</TableHead>
+                      <TableHead className="text-right">P&L</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {portfolio.holdings.map((holding, idx) => (
+                      <TableRow key={holding.id || idx} data-testid={`row-holding-${idx}`}>
+                        <TableCell className="font-medium">{holding.symbol}</TableCell>
+                        <TableCell className="text-gray-500 max-w-[200px] truncate">
+                          {holding.name}
+                        </TableCell>
+                        <TableCell className="text-right">{holding.quantity}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(holding.averagePrice)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(holding.currentPrice)}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(holding.currentValue)}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={holding.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {formatCurrency(holding.gainLoss)}
+                            <br />
+                            <span className="text-xs">({formatPercent(holding.gainLossPercent)})</span>
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium mb-2">No Portfolio Data</h3>
+                <p className="text-gray-500 mb-4">
+                  Add holdings manually or upload a CSV to get started
+                </p>
+                <div className="flex justify-center gap-2">
+                  <Button variant="outline" onClick={() => setShowAddHoldingDialog(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Holding
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload CSV
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="analysis" className="space-y-4">
+          {analysisLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-8 w-24 mb-2" />
+                    <Skeleton className="h-12 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : analysis ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                      <DollarSign className="h-4 w-4" />
+                      <span className="text-sm">Total Value</span>
+                    </div>
+                    <p className="text-2xl font-bold" data-testid="text-total-value">
+                      {formatCurrency(analysis.totalValue)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                      <TrendingUp className="h-4 w-4" />
+                      <span className="text-sm">Total P&L</span>
+                    </div>
+                    <p className={`text-2xl font-bold ${analysis.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                       data-testid="text-total-pnl">
+                      {formatCurrency(analysis.totalGainLoss)}
+                      <span className="text-sm ml-1">({formatPercent(analysis.totalGainLossPercent)})</span>
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                      <Scale className="h-4 w-4" />
+                      <span className="text-sm">Risk Score</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-2xl font-bold" data-testid="text-risk-score">
+                        {analysis.riskScore}/100
+                      </p>
+                      <Badge variant={analysis.riskScore < 40 ? "default" : analysis.riskScore < 70 ? "secondary" : "destructive"}>
+                        {analysis.riskScore < 40 ? 'Low' : analysis.riskScore < 70 ? 'Medium' : 'High'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                      <PieChart className="h-4 w-4" />
+                      <span className="text-sm">Diversification</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-2xl font-bold" data-testid="text-diversification">
+                        {analysis.diversificationScore}/100
+                      </p>
+                      <Progress value={analysis.diversificationScore} className="flex-1 h-2" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Fundamental Ratios</CardTitle>
+                    <CardDescription>Average metrics across holdings</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-500">Avg P/E Ratio</p>
+                        <p className="text-xl font-bold" data-testid="text-avg-pe">
+                          {analysis.fundamentalRatios.avgPE.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-500">Avg P/B Ratio</p>
+                        <p className="text-xl font-bold" data-testid="text-avg-pb">
+                          {analysis.fundamentalRatios.avgPB.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-500">Avg ROE</p>
+                        <p className="text-xl font-bold" data-testid="text-avg-roe">
+                          {analysis.fundamentalRatios.avgROE.toFixed(2)}%
+                        </p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-500">Avg Debt/Equity</p>
+                        <p className="text-xl font-bold" data-testid="text-avg-de">
+                          {analysis.fundamentalRatios.avgDebtEquity.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Sector Allocation</CardTitle>
+                    <CardDescription>Portfolio concentration by sector</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {Object.entries(analysis.sectorConcentration)
+                        .sort(([, a], [, b]) => b - a)
+                        .slice(0, 6)
+                        .map(([sector, weight]) => (
+                          <div key={sector} className="flex items-center gap-3">
+                            <span className="text-sm w-24 truncate">{sector}</span>
+                            <Progress value={weight * 100} className="flex-1 h-2" />
+                            <span className="text-sm font-medium w-12 text-right">
+                              {(weight * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <PieChart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium mb-2">No Analysis Available</h3>
+                <p className="text-gray-500 mb-4">
+                  Add portfolio holdings and run AI analysis to see insights
+                </p>
+                <Button onClick={handleRunAnalysis} disabled={!portfolio}>
+                  <Brain className="h-4 w-4 mr-2" />
+                  Run Analysis
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="profit-picks" className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Label>Investment Horizon:</Label>
+              <Select value={selectedHorizon} onValueChange={setSelectedHorizon}>
+                <SelectTrigger className="w-32" data-testid="select-horizon">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1M">1 Month</SelectItem>
+                  <SelectItem value="3M">3 Months</SelectItem>
+                  <SelectItem value="6M">6 Months</SelectItem>
+                  <SelectItem value="1Y">1 Year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              onClick={() => refetchPicks()}
+              variant="outline"
+              data-testid="button-refresh-picks"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Picks
+            </Button>
+          </div>
+
+          {picksLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-6 w-32 mb-4" />
+                    <Skeleton className="h-20 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : profitPicks?.length ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {profitPicks.map((pick) => (
+                <Card key={pick.id} className="overflow-hidden" data-testid={`card-pick-${pick.symbol}`}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg">{pick.symbol}</CardTitle>
+                        <CardDescription className="truncate">{pick.companyName}</CardDescription>
+                      </div>
+                      <Badge className={SIGNAL_COLORS[pick.signal]}>
+                        {pick.signal === 'BUY' && <ArrowUp className="h-3 w-3 mr-1" />}
+                        {pick.signal === 'SELL' && <ArrowDown className="h-3 w-3 mr-1" />}
+                        {pick.signal}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                        <p className="text-gray-500">Current</p>
+                        <p className="font-bold">{formatCurrency(pick.currentPrice)}</p>
+                      </div>
+                      <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                        <p className="text-gray-500">Target</p>
+                        <p className="font-bold text-green-600">{formatCurrency(pick.targetPrice)}</p>
+                      </div>
+                      <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                        <p className="text-gray-500">Stop Loss</p>
+                        <p className="font-bold text-red-600">{formatCurrency(pick.stopLoss)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Expected Return</span>
+                      <span className={`font-bold ${pick.expectedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatPercent(pick.expectedReturn)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Confidence</span>
+                      <div className="flex items-center gap-2">
+                        <Progress value={pick.confidenceScore} className="w-16 h-2" />
+                        <span className="font-medium">{pick.confidenceScore}%</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Risk Level</span>
+                      <Badge variant="outline" className={RISK_COLORS[pick.riskLevel]}>
+                        {pick.riskLevel}
+                      </Badge>
+                    </div>
+
+                    <Separator />
+
+                    <div className="text-sm">
+                      <p className="text-gray-500 mb-1">Technical Indicators</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>RSI: <span className="font-medium">{pick.technicalIndicators.rsi}</span></div>
+                        <div>MACD: <span className="font-medium">{pick.technicalIndicators.macd}</span></div>
+                        <div className="col-span-2">MA: <span className="font-medium">{pick.technicalIndicators.movingAverages}</span></div>
+                      </div>
+                    </div>
+
+                    <div className="text-sm">
+                      <p className="text-gray-500 mb-1">AI Rationale</p>
+                      <p className="text-xs line-clamp-3">{pick.aiRationale}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium mb-2">No AI Picks Available</h3>
+                <p className="text-gray-500 mb-4">
+                  Run AI analysis to generate intelligent stock recommendations
+                </p>
+                <Button onClick={handleRunAnalysis} disabled={!portfolio}>
+                  <Brain className="h-4 w-4 mr-2" />
+                  Generate AI Picks
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="alerts" className="space-y-4">
+          {alertsLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+          ) : alerts?.length ? (
+            <div className="space-y-4">
+              {alerts.map((alert) => (
+                <Alert 
+                  key={alert.id} 
+                  className={SEVERITY_COLORS[alert.severity]}
+                  data-testid={`alert-${alert.id}`}
+                >
+                  <div className="flex items-start gap-3">
+                    {alert.severity === 'CRITICAL' && <XCircle className="h-5 w-5 text-red-600" />}
+                    {alert.severity === 'WARNING' && <AlertTriangle className="h-5 w-5 text-yellow-600" />}
+                    {alert.severity === 'INFO' && <CheckCircle2 className="h-5 w-5 text-blue-600" />}
+                    <div className="flex-1">
+                      <AlertTitle className="flex items-center gap-2">
+                        {alert.title}
+                        <Badge variant="outline" className="text-xs">
+                          {alert.alertType.replace('_', ' ')}
+                        </Badge>
+                      </AlertTitle>
+                      <AlertDescription className="mt-1">
+                        {alert.message}
+                        {alert.benchmarkComparison && (
+                          <div className="mt-2 p-2 bg-white/50 dark:bg-black/20 rounded text-sm">
+                            <p>
+                              <strong>{alert.benchmarkComparison.benchmark}:</strong>{' '}
+                              Portfolio {formatPercent(alert.benchmarkComparison.portfolioReturn)} vs{' '}
+                              Benchmark {formatPercent(alert.benchmarkComparison.benchmarkReturn)}
+                            </p>
+                            <p className="text-red-600 font-medium">
+                              Underperformance: {formatPercent(alert.benchmarkComparison.underperformancePercent)}
+                            </p>
+                          </div>
+                        )}
+                      </AlertDescription>
+                    </div>
+                    {alert.actionRequired && (
+                      <Badge variant="destructive" className="shrink-0">
+                        Action Required
+                      </Badge>
+                    )}
+                  </div>
+                </Alert>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                <h3 className="text-lg font-medium mb-2">No Alerts</h3>
+                <p className="text-gray-500">
+                  Portfolio is performing well with no issues detected
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="talking-points" className="space-y-4">
+          {talkingPointsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
+            </div>
+          ) : talkingPoints?.length ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {talkingPoints.map((point, idx) => {
+                const Icon = CATEGORY_ICONS[point.category];
+                return (
+                  <Card key={idx} data-testid={`card-talking-point-${idx}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-2 rounded-full ${
+                          point.category === 'STRENGTH' ? 'bg-green-100 text-green-600' :
+                          point.category === 'CONCERN' ? 'bg-red-100 text-red-600' :
+                          point.category === 'OPPORTUNITY' ? 'bg-blue-100 text-blue-600' :
+                          'bg-purple-100 text-purple-600'
+                        }`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <Badge variant="outline" className="text-xs mb-1">
+                            {point.category}
+                          </Badge>
+                          <CardTitle className="text-base">{point.title}</CardTitle>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{point.content}</p>
+                      {point.supportingData && (
+                        <p className="text-xs text-gray-500 mt-2 italic">{point.supportingData}</p>
+                      )}
+                    </CardContent>
+                    <CardFooter className="pt-0">
+                      <Button variant="ghost" size="sm" className="w-full">
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy to Clipboard
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium mb-2">No Talking Points</h3>
+                <p className="text-gray-500 mb-4">
+                  Run AI analysis to generate client talking points
+                </p>
+                <Button onClick={handleRunAnalysis} disabled={!portfolio}>
+                  <Brain className="h-4 w-4 mr-2" />
+                  Generate Talking Points
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="finalize" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Finalize Investment Recommendations</CardTitle>
+              <CardDescription>
+                Review AI picks and create an investment proposal for the client
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {profitPicks?.length ? (
+                <>
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                    <h4 className="font-medium mb-3">Selected AI Recommendations</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Symbol</TableHead>
+                          <TableHead>Signal</TableHead>
+                          <TableHead>Target</TableHead>
+                          <TableHead>Expected Return</TableHead>
+                          <TableHead>Confidence</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {profitPicks.filter(p => p.signal === 'BUY').slice(0, 5).map((pick) => (
+                          <TableRow key={pick.id}>
+                            <TableCell className="font-medium">{pick.symbol}</TableCell>
+                            <TableCell>
+                              <Badge className={SIGNAL_COLORS[pick.signal]}>{pick.signal}</Badge>
+                            </TableCell>
+                            <TableCell>{formatCurrency(pick.targetPrice)}</TableCell>
+                            <TableCell className="text-green-600">{formatPercent(pick.expectedReturn)}</TableCell>
+                            <TableCell>{pick.confidenceScore}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <Alert>
+                    <ShieldCheck className="h-4 w-4" />
+                    <AlertTitle>Compliance Check</AlertTitle>
+                    <AlertDescription>
+                      All recommendations align with client's risk profile and investment objectives.
+                      Creating a proposal will route through your firm's compliance workflow.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Report
+                    </Button>
+                    <Button 
+                      onClick={() => profitPicks && createProposalMutation.mutate(profitPicks.filter(p => p.signal === 'BUY'))}
+                      disabled={createProposalMutation.isPending}
+                      data-testid="button-create-proposal"
+                    >
+                      {createProposalMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Create Investment Proposal
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <Target className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium mb-2">No Recommendations to Finalize</h3>
+                  <p className="text-gray-500 mb-4">
+                    Generate AI profit picks first to create an investment proposal
+                  </p>
+                  <Button onClick={() => setActiveTab("profit-picks")}>
+                    Go to AI Profit Picks
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
