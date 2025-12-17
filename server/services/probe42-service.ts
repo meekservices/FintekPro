@@ -20,7 +20,7 @@ import type {
 
 // Environment configuration
 const PROBE42_API_KEY = process.env.PROBE42_API_KEY || '';
-const PROBE42_BASE_URL = process.env.PROBE42_BASE_URL || 'https://api.probe42.in/api/v1';
+const PROBE42_BASE_URL = process.env.PROBE42_BASE_URL || 'https://api.probe42.in/api/v2';
 
 // ===================================================================
 // TYPE DEFINITIONS
