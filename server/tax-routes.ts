@@ -773,6 +773,100 @@ router.get("/itr/verification-status/:draftId", async (req: Request, res: Respon
   }
 });
 
+router.get("/agent/itr-cases", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const cases = Array.from(itrDraftStorage.values())
+      .map(d => ({
+        id: d.id,
+        clientName: d.fullName || "Client",
+        clientPan: d.pan || "",
+        assessmentYear: "2024-25",
+        itrForm: d.itrForm || "ITR-1",
+        status: d.status,
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt
+      }))
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
+    
+    res.json(cases);
+  } catch (error) {
+    console.error("Error fetching agent ITR cases:", error);
+    res.status(500).json({ error: "Failed to fetch cases" });
+  }
+});
+
+router.get("/agent/notices", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const sampleNotices = [
+      {
+        id: 1,
+        clientName: "Sample Client",
+        noticeType: "Scrutiny Assessment",
+        section: "143(2)",
+        responseDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: "pending",
+        priority: "high"
+      }
+    ];
+    
+    res.json(sampleNotices);
+  } catch (error) {
+    console.error("Error fetching agent notices:", error);
+    res.status(500).json({ error: "Failed to fetch notices" });
+  }
+});
+
+router.post("/agent/cases/:caseId/action", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const { caseId } = req.params;
+    const { action, notes } = req.body;
+    
+    const draft = itrDraftStorage.get(parseInt(caseId));
+    
+    if (!draft) {
+      return res.status(404).json({ error: "Case not found" });
+    }
+    
+    let newStatus = draft.status;
+    
+    if (action === "submit_for_review") {
+      newStatus = "pending_review";
+    } else if (action === "mark_complete") {
+      newStatus = "completed";
+    }
+    
+    itrDraftStorage.set(parseInt(caseId), {
+      ...draft,
+      status: newStatus,
+      agentNotes: notes,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.json({ success: true, status: newStatus });
+  } catch (error) {
+    console.error("Error updating case:", error);
+    res.status(500).json({ error: "Failed to update case" });
+  }
+});
+
 router.get("/filing-status", async (req: Request, res: Response) => {
   try {
     const userId = (req as any).session?.userId;
