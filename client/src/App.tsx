@@ -106,6 +106,7 @@ import TaxITRSelfPage from "@/pages/tax-itr-self";
 import TaxITRExpertPage from "@/pages/tax-itr-expert";
 import TaxITRPreviewPage from "@/pages/tax-itr-preview";
 import TaxITRPaymentPage from "@/pages/tax-itr-payment";
+import TaxITRVerifyPage from "@/pages/tax-itr-verify";
 import TaxNoticesPage from "@/pages/tax-notices";
 import TaxDocumentVaultPage from "@/pages/tax-document-vault";
 import TaxCADeskPage from "@/pages/tax-ca-desk";
@@ -233,6 +234,7 @@ function UserProtectedRoutes() {
         <Route path="/tax/itr/expert" component={TaxITRExpertPage} />
         <Route path="/tax/itr/preview/:draftId" component={TaxITRPreviewPage} />
         <Route path="/tax/itr/payment/:draftId" component={TaxITRPaymentPage} />
+        <Route path="/tax/itr/verify/:draftId" component={TaxITRVerifyPage} />
         <Route path="/tax/itr/:mode" component={TaxITRPage} />
         <Route path="/tax/15ca-cb" component={TaxComplianceForm15Page} />
         <Route path="/tax/notices" component={TaxNoticesPage} />
