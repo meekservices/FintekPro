@@ -546,6 +546,111 @@ router.get("/itr-pricing", async (req: Request, res: Response) => {
   res.json(pricing);
 });
 
+const paymentStorage = new Map<string, any>();
+let paymentIdCounter = 1;
+
+router.post("/itr/draft/:id/lock", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const draftId = parseInt(req.params.id);
+    const draft = itrDraftStorage.get(draftId);
+    
+    if (!draft) {
+      return res.status(404).json({ error: "Draft not found" });
+    }
+    
+    if (draft.userId !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    const updatedDraft = {
+      ...draft,
+      status: "preview",
+      lockedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    itrDraftStorage.set(draftId, updatedDraft);
+    
+    res.json(updatedDraft);
+  } catch (error) {
+    console.error("Error locking draft:", error);
+    res.status(500).json({ error: "Failed to lock draft" });
+  }
+});
+
+router.post("/itr/payment", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const { draftId, amount, paymentMethod, couponCode } = req.body;
+    
+    if (!draftId || !amount || !paymentMethod) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    
+    const transactionId = `TXN${Date.now()}${paymentIdCounter++}`;
+    
+    const payment = {
+      id: transactionId,
+      transactionId,
+      userId,
+      draftId,
+      amount,
+      paymentMethod,
+      couponCode: couponCode || null,
+      status: "completed",
+      createdAt: new Date().toISOString()
+    };
+    
+    paymentStorage.set(transactionId, payment);
+    
+    const draft = itrDraftStorage.get(parseInt(draftId));
+    if (draft && draft.userId === userId) {
+      itrDraftStorage.set(parseInt(draftId), {
+        ...draft,
+        status: "paid",
+        paymentId: transactionId,
+        paidAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
+    res.status(201).json(payment);
+  } catch (error) {
+    console.error("Error processing payment:", error);
+    res.status(500).json({ error: "Failed to process payment" });
+  }
+});
+
+router.get("/itr/payments", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const userPayments = Array.from(paymentStorage.values())
+      .filter(p => p.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    res.json(userPayments);
+  } catch (error) {
+    console.error("Error fetching payments:", error);
+    res.status(500).json({ error: "Failed to fetch payments" });
+  }
+});
+
 router.get("/filing-status", async (req: Request, res: Response) => {
   try {
     const userId = (req as any).session?.userId;
