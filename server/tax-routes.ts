@@ -349,6 +349,189 @@ router.get("/itr/draft/:id", async (req: Request, res: Response) => {
   }
 });
 
+const expertCaseStorage = new Map<string, any>();
+let expertCaseIdCounter = 1;
+
+const expertCaseSchema = z.object({
+  assessmentYear: z.string().regex(/^\d{4}-\d{2}$/),
+  incomeSources: z.object({
+    hasSalary: z.boolean(),
+    hasHouseProperty: z.boolean(),
+    hasCapitalGains: z.boolean(),
+    hasBusinessIncome: z.boolean(),
+    hasForeignIncome: z.boolean(),
+    hasOtherIncome: z.boolean()
+  }),
+  estimatedIncome: z.string().optional(),
+  specialCircumstances: z.string().optional(),
+  contactPhone: z.string().optional(),
+  preferredTime: z.string().optional(),
+  preferredExpertType: z.enum(["ca", "tax_expert", "any"]),
+  urgency: z.enum(["normal", "priority", "urgent"]),
+  documents: z.array(z.string()),
+  status: z.enum(["draft", "submitted", "assigned", "in_progress", "review", "completed"])
+});
+
+const expertCaseUpdateSchema = expertCaseSchema.partial();
+
+router.post("/expert-cases", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const validationResult = expertCaseSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      return res.status(400).json({ 
+        error: "Validation failed", 
+        details: validationResult.error.errors 
+      });
+    }
+    
+    const caseId = `EXP-${Date.now()}-${expertCaseIdCounter++}`;
+    const expertCase = {
+      id: caseId,
+      userId,
+      ...validationResult.data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      assignedExpert: null,
+      messages: []
+    };
+    
+    expertCaseStorage.set(caseId, expertCase);
+    
+    res.status(201).json(expertCase);
+  } catch (error) {
+    console.error("Error creating expert case:", error);
+    res.status(500).json({ error: "Failed to create expert case" });
+  }
+});
+
+router.get("/expert-cases", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const userCases = Array.from(expertCaseStorage.values())
+      .filter(c => c.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    res.json(userCases);
+  } catch (error) {
+    console.error("Error fetching expert cases:", error);
+    res.status(500).json({ error: "Failed to fetch expert cases" });
+  }
+});
+
+router.get("/expert-cases/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const expertCase = expertCaseStorage.get(req.params.id);
+    
+    if (!expertCase) {
+      return res.status(404).json({ error: "Case not found" });
+    }
+    
+    if (expertCase.userId !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    res.json(expertCase);
+  } catch (error) {
+    console.error("Error fetching expert case:", error);
+    res.status(500).json({ error: "Failed to fetch expert case" });
+  }
+});
+
+router.patch("/expert-cases/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const expertCase = expertCaseStorage.get(req.params.id);
+    
+    if (!expertCase) {
+      return res.status(404).json({ error: "Case not found" });
+    }
+    
+    if (expertCase.userId !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    if (expertCase.status === "completed") {
+      return res.status(400).json({ error: "Cannot modify completed case" });
+    }
+    
+    const validationResult = expertCaseUpdateSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      return res.status(400).json({ 
+        error: "Validation failed", 
+        details: validationResult.error.errors 
+      });
+    }
+    
+    const updatedCase = {
+      ...expertCase,
+      ...validationResult.data,
+      updatedAt: new Date().toISOString()
+    };
+    
+    expertCaseStorage.set(req.params.id, updatedCase);
+    
+    res.json(updatedCase);
+  } catch (error) {
+    console.error("Error updating expert case:", error);
+    res.status(500).json({ error: "Failed to update expert case" });
+  }
+});
+
+router.delete("/expert-cases/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const expertCase = expertCaseStorage.get(req.params.id);
+    
+    if (!expertCase) {
+      return res.status(404).json({ error: "Case not found" });
+    }
+    
+    if (expertCase.userId !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    if (expertCase.status !== "draft" && expertCase.status !== "submitted") {
+      return res.status(400).json({ error: "Cannot delete case after it has been assigned" });
+    }
+    
+    expertCaseStorage.delete(req.params.id);
+    
+    res.json({ message: "Case deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting expert case:", error);
+    res.status(500).json({ error: "Failed to delete expert case" });
+  }
+});
+
 router.get("/itr-pricing", async (req: Request, res: Response) => {
   const pricing = {
     "ITR-1": { selfFile: 499, expert: 1999 },
