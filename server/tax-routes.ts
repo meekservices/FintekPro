@@ -1,7 +1,78 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
+import { z } from "zod";
 
 const router = Router();
+
+const itrDraftStorage = new Map<number, any>();
+let draftIdCounter = 1;
+
+const coerceNumber = z.preprocess((val) => {
+  if (val === "" || val === null || val === undefined) return 0;
+  const num = Number(val);
+  return isNaN(num) ? 0 : num;
+}, z.number());
+
+const itrDraftSchema = z.object({
+  pan: z.string().min(10).max(10),
+  assessmentYear: z.string().regex(/^\d{4}-\d{2}$/),
+  itrForm: z.enum(["ITR-1", "ITR-2", "ITR-3", "ITR-4", "ITR-5", "ITR-6", "ITR-7"]),
+  status: z.enum(["draft", "preview", "pending_payment", "paid", "submitted", "verified"]).optional(),
+  incomeSources: z.object({
+    hasSalary: z.boolean(),
+    hasHouseProperty: z.boolean(),
+    hasCapitalGains: z.boolean(),
+    hasBusinessIncome: z.boolean(),
+    hasForeignIncome: z.boolean(),
+    hasOtherIncome: z.boolean()
+  }).optional(),
+  salaryDetails: z.object({
+    grossSalary: coerceNumber,
+    allowances: coerceNumber,
+    perquisites: coerceNumber,
+    profitInLieu: coerceNumber,
+    standardDeduction: coerceNumber,
+    professionalTax: coerceNumber,
+    employerPF: coerceNumber
+  }).optional(),
+  housePropertyDetails: z.object({
+    propertyCount: z.preprocess((val) => {
+      if (val === "" || val === null || val === undefined) return 1;
+      const num = Number(val);
+      return isNaN(num) || num < 1 ? 1 : num;
+    }, z.number().min(1)),
+    rentalIncome: coerceNumber,
+    municipalTaxes: coerceNumber,
+    interestOnLoan: coerceNumber,
+    isSelfOccupied: z.boolean()
+  }).optional(),
+  capitalGainsDetails: z.object({
+    shortTermGains: coerceNumber,
+    longTermGains: coerceNumber,
+    exemptionsApplied: coerceNumber
+  }).optional(),
+  otherIncomeDetails: z.object({
+    interestIncome: coerceNumber,
+    dividendIncome: coerceNumber,
+    otherSources: coerceNumber
+  }).optional(),
+  deductionDetails: z.object({
+    section80C: coerceNumber,
+    section80D: coerceNumber,
+    section80E: coerceNumber,
+    section80G: coerceNumber,
+    section80TTA: coerceNumber,
+    otherDeductions: coerceNumber
+  }).optional(),
+  grossTotalIncome: coerceNumber.optional(),
+  totalDeductions: coerceNumber.optional(),
+  taxableIncome: coerceNumber.optional(),
+  taxPayable: coerceNumber.optional(),
+  tdsCredits: coerceNumber.optional(),
+  advanceTax: coerceNumber.optional(),
+  selfAssessmentTax: coerceNumber.optional(),
+  refundDue: coerceNumber.optional()
+});
 
 type PANType = "individual" | "huf" | "firm" | "company" | "trust" | "nri" | "aop" | "boi" | "government" | "local_authority" | "artificial_juridical_person";
 
@@ -178,6 +249,105 @@ function getEligibleITRForms(panType: PANType): Array<{ form: string; name: stri
       ];
   }
 }
+
+router.post("/itr/draft", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const validation = itrDraftSchema.safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: "Validation failed", 
+        details: validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+      });
+    }
+    
+    const draftData = validation.data;
+    const existingDraftKey = Array.from(itrDraftStorage.entries()).find(
+      ([_, d]) => d.userId === userId && d.pan === draftData.pan && d.assessmentYear === draftData.assessmentYear
+    );
+    
+    let draftId: number;
+    const now = new Date().toISOString();
+    
+    if (existingDraftKey) {
+      draftId = existingDraftKey[0];
+      const savedDraft = {
+        id: draftId,
+        ...draftData,
+        userId,
+        status: draftData.status || "draft",
+        createdAt: existingDraftKey[1].createdAt,
+        updatedAt: now
+      };
+      itrDraftStorage.set(draftId, savedDraft);
+      res.json({ success: true, draft: savedDraft, updated: true });
+    } else {
+      draftId = draftIdCounter++;
+      const savedDraft = {
+        id: draftId,
+        ...draftData,
+        userId,
+        status: draftData.status || "draft",
+        createdAt: now,
+        updatedAt: now
+      };
+      itrDraftStorage.set(draftId, savedDraft);
+      res.json({ success: true, draft: savedDraft, created: true });
+    }
+  } catch (error) {
+    console.error("Error saving ITR draft:", error);
+    res.status(500).json({ error: "Failed to save draft" });
+  }
+});
+
+router.get("/itr/drafts", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const userDrafts = Array.from(itrDraftStorage.values()).filter(d => d.userId === userId);
+    
+    res.json(userDrafts);
+  } catch (error) {
+    console.error("Error fetching ITR drafts:", error);
+    res.status(500).json({ error: "Failed to fetch drafts" });
+  }
+});
+
+router.get("/itr/draft/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const draftId = parseInt(req.params.id);
+    const draft = itrDraftStorage.get(draftId);
+    
+    if (!draft) {
+      return res.status(404).json({ error: "Draft not found" });
+    }
+    
+    if (draft.userId !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    res.json(draft);
+  } catch (error) {
+    console.error("Error fetching ITR draft:", error);
+    res.status(500).json({ error: "Failed to fetch draft" });
+  }
+});
 
 router.get("/itr-pricing", async (req: Request, res: Response) => {
   const pricing = {

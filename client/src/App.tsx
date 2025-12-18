@@ -102,6 +102,7 @@ import TaxDataCenter from "@/pages/tax-data-center";
 import TaxSmartFiling from "@/pages/tax-smart-filing";
 import OneClickTaxFiling from "@/pages/one-click-tax-filing";
 import TaxITRPage from "@/pages/tax-itr";
+import TaxITRSelfPage from "@/pages/tax-itr-self";
 import TaxNoticesPage from "@/pages/tax-notices";
 import TaxDocumentVaultPage from "@/pages/tax-document-vault";
 import TaxCADeskPage from "@/pages/tax-ca-desk";
@@ -225,6 +226,7 @@ function UserProtectedRoutes() {
         <Route path="/transaction-reports" component={TransactionReports} />
         {/* Unified Tax & Compliance Module */}
         <Route path="/tax/itr" component={TaxITRPage} />
+        <Route path="/tax/itr/self" component={TaxITRSelfPage} />
         <Route path="/tax/itr/:mode" component={TaxITRPage} />
         <Route path="/tax/15ca-cb" component={TaxComplianceForm15Page} />
         <Route path="/tax/notices" component={TaxNoticesPage} />
