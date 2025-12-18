@@ -7,6 +7,210 @@ const router = Router();
 const itrDraftStorage = new Map<number, any>();
 let draftIdCounter = 1;
 
+type TaxRole = "client" | "agent" | "ca" | "admin";
+
+interface TaxPermissions {
+  canCreateDraft: boolean;
+  canEditDraft: boolean;
+  canSubmitForReview: boolean;
+  canApprove: boolean;
+  canSign: boolean;
+  canViewAllCases: boolean;
+  canFinalSubmit: boolean;
+}
+
+const ROLE_PERMISSIONS: Record<TaxRole, TaxPermissions> = {
+  client: {
+    canCreateDraft: true,
+    canEditDraft: true,
+    canSubmitForReview: false,
+    canApprove: false,
+    canSign: false,
+    canViewAllCases: false,
+    canFinalSubmit: true
+  },
+  agent: {
+    canCreateDraft: true,
+    canEditDraft: true,
+    canSubmitForReview: true,
+    canApprove: false,
+    canSign: false,
+    canViewAllCases: true,
+    canFinalSubmit: false
+  },
+  ca: {
+    canCreateDraft: true,
+    canEditDraft: true,
+    canSubmitForReview: true,
+    canApprove: true,
+    canSign: true,
+    canViewAllCases: true,
+    canFinalSubmit: true
+  },
+  admin: {
+    canCreateDraft: true,
+    canEditDraft: true,
+    canSubmitForReview: true,
+    canApprove: true,
+    canSign: true,
+    canViewAllCases: true,
+    canFinalSubmit: true
+  }
+};
+
+function getUserTaxRole(req: Request): TaxRole {
+  const session = (req as any).session;
+  if (!session?.userId) return "client";
+  
+  const userRole = session.userRole?.toLowerCase();
+  
+  if (userRole === "admin") return "admin";
+  if (userRole === "ca" || userRole === "chartered_accountant") return "ca";
+  if (userRole === "agent") return "agent";
+  
+  return "client";
+}
+
+function getUserPermissions(req: Request): TaxPermissions {
+  const role = getUserTaxRole(req);
+  return ROLE_PERMISSIONS[role];
+}
+
+function requirePermission(permission: keyof TaxPermissions) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const permissions = getUserPermissions(req);
+    
+    if (!permissions[permission]) {
+      const role = getUserTaxRole(req);
+      return res.status(403).json({ 
+        error: "Permission denied",
+        message: `Role '${role}' does not have permission: ${permission}`,
+        requiredPermission: permission
+      });
+    }
+    
+    (req as any).taxRole = getUserTaxRole(req);
+    (req as any).taxPermissions = permissions;
+    next();
+  };
+}
+
+function requireTaxAuth(req: Request, res: Response, next: NextFunction) {
+  const userId = (req as any).session?.userId;
+  
+  if (!userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  
+  (req as any).taxRole = getUserTaxRole(req);
+  (req as any).taxPermissions = getUserPermissions(req);
+  next();
+}
+
+interface TaxAuditEntry {
+  id: number;
+  entityType: "itr_draft" | "form15_case" | "notice" | "payment";
+  entityId: number | string;
+  action: string;
+  previousStatus?: string;
+  newStatus?: string;
+  userId: number;
+  userRole: TaxRole;
+  changesDescription: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
+  ipAddress?: string;
+}
+
+const taxAuditLog = new Map<number, TaxAuditEntry>();
+let auditIdCounter = 1;
+
+function logTaxAudit(entry: Omit<TaxAuditEntry, "id" | "timestamp">) {
+  const auditEntry: TaxAuditEntry = {
+    id: auditIdCounter++,
+    ...entry,
+    timestamp: new Date().toISOString()
+  };
+  taxAuditLog.set(auditEntry.id, auditEntry);
+  console.log(`[TAX AUDIT] ${auditEntry.action} on ${auditEntry.entityType}:${auditEntry.entityId} by user ${auditEntry.userId} (${auditEntry.userRole})`);
+  return auditEntry;
+}
+
+function shouldResetPaymentOnEdit(currentStatus: string): boolean {
+  return ["paid", "submitted", "verified", "filed"].includes(currentStatus);
+}
+
+function shouldResetApprovalOnEdit(currentStatus: string): boolean {
+  return ["ca_approved", "approved", "signed", "submitted", "filed"].includes(currentStatus);
+}
+
+function handleImmutableEdit(draft: any, userId: number, userRole: TaxRole): { allowed: boolean; resetTo?: string; warning?: string } {
+  const status = draft.status;
+  
+  if (["filed", "verified", "submitted"].includes(status)) {
+    return { 
+      allowed: false, 
+      warning: `Cannot modify ITR in '${status}' status. The return has been filed with the Income Tax Department.` 
+    };
+  }
+  
+  if (status === "paid") {
+    logTaxAudit({
+      entityType: "itr_draft",
+      entityId: draft.id,
+      action: "PAYMENT_RESET",
+      previousStatus: "paid",
+      newStatus: "draft",
+      userId,
+      userRole,
+      changesDescription: "Payment status reset due to draft modification after payment"
+    });
+    return { 
+      allowed: true, 
+      resetTo: "draft", 
+      warning: "Draft modified after payment. Payment has been voided and you will need to pay again." 
+    };
+  }
+  
+  if (status === "preview") {
+    logTaxAudit({
+      entityType: "itr_draft",
+      entityId: draft.id,
+      action: "PREVIEW_RESET",
+      previousStatus: "preview",
+      newStatus: "draft",
+      userId,
+      userRole,
+      changesDescription: "Preview lock reset due to draft modification"
+    });
+    return { 
+      allowed: true, 
+      resetTo: "draft", 
+      warning: "Draft modified after preview. You will need to preview and lock again." 
+    };
+  }
+  
+  if (["ca_approved", "approved"].includes(status)) {
+    logTaxAudit({
+      entityType: "itr_draft",
+      entityId: draft.id,
+      action: "APPROVAL_RESET",
+      previousStatus: status,
+      newStatus: "pending_review",
+      userId,
+      userRole,
+      changesDescription: "CA approval reset due to draft modification after approval"
+    });
+    return { 
+      allowed: true, 
+      resetTo: "pending_review", 
+      warning: "Draft modified after CA approval. The return will need to be re-approved." 
+    };
+  }
+  
+  return { allowed: true };
+}
+
 const coerceNumber = z.preprocess((val) => {
   if (val === "" || val === null || val === undefined) return 0;
   const num = Number(val);
@@ -275,20 +479,63 @@ router.post("/itr/draft", async (req: Request, res: Response) => {
     let draftId: number;
     const now = new Date().toISOString();
     
+    const userRole = getUserTaxRole(req);
+    
     if (existingDraftKey) {
       draftId = existingDraftKey[0];
+      const existingDraft = existingDraftKey[1];
+      
+      const immutabilityCheck = handleImmutableEdit(existingDraft, userId, userRole);
+      
+      if (!immutabilityCheck.allowed) {
+        return res.status(403).json({ 
+          error: "Draft cannot be modified",
+          message: immutabilityCheck.warning 
+        });
+      }
+      
+      const newStatus = immutabilityCheck.resetTo || existingDraft.status;
+      
+      logTaxAudit({
+        entityType: "itr_draft",
+        entityId: draftId,
+        action: "DRAFT_UPDATED",
+        previousStatus: existingDraft.status,
+        newStatus,
+        userId,
+        userRole,
+        changesDescription: `Draft updated. ${immutabilityCheck.warning || "No status change."}`,
+        metadata: { resetTriggered: !!immutabilityCheck.resetTo }
+      });
+      
       const savedDraft = {
         id: draftId,
         ...draftData,
         userId,
-        status: draftData.status || "draft",
+        status: newStatus,
         createdAt: existingDraftKey[1].createdAt,
         updatedAt: now
       };
       itrDraftStorage.set(draftId, savedDraft);
-      res.json({ success: true, draft: savedDraft, updated: true });
+      res.json({ 
+        success: true, 
+        draft: savedDraft, 
+        updated: true,
+        warning: immutabilityCheck.warning
+      });
     } else {
       draftId = draftIdCounter++;
+      
+      logTaxAudit({
+        entityType: "itr_draft",
+        entityId: draftId,
+        action: "DRAFT_CREATED",
+        newStatus: "draft",
+        userId,
+        userRole,
+        changesDescription: `New ITR draft created for PAN ${draftData.pan}, AY ${draftData.assessmentYear}`
+      });
+      
       const savedDraft = {
         id: draftId,
         ...draftData,
@@ -568,6 +815,19 @@ router.post("/itr/draft/:id/lock", async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
     
+    const userRole = getUserTaxRole(req);
+    
+    logTaxAudit({
+      entityType: "itr_draft",
+      entityId: draftId,
+      action: "DRAFT_LOCKED",
+      previousStatus: draft.status,
+      newStatus: "preview",
+      userId,
+      userRole,
+      changesDescription: "Draft locked for preview before payment"
+    });
+    
     const updatedDraft = {
       ...draft,
       status: "preview",
@@ -599,6 +859,17 @@ router.post("/itr/payment", async (req: Request, res: Response) => {
     }
     
     const transactionId = `TXN${Date.now()}${paymentIdCounter++}`;
+    const userRole = getUserTaxRole(req);
+    
+    logTaxAudit({
+      entityType: "payment",
+      entityId: transactionId,
+      action: "PAYMENT_COMPLETED",
+      userId,
+      userRole,
+      changesDescription: `Payment of ₹${amount} for ITR draft ${draftId} via ${paymentMethod}`,
+      metadata: { amount, paymentMethod, couponCode, draftId }
+    });
     
     const payment = {
       id: transactionId,
@@ -721,6 +992,19 @@ router.post("/itr/verify/submit", async (req: Request, res: Response) => {
     
     const acknowledgementNumber = `ACK${Date.now()}${Math.floor(Math.random() * 1000)}`;
     const filingDate = new Date().toISOString();
+    const userRole = getUserTaxRole(req);
+    
+    logTaxAudit({
+      entityType: "itr_draft",
+      entityId: parseInt(draftId),
+      action: "ITR_FILED",
+      previousStatus: draft.status,
+      newStatus: "filed",
+      userId,
+      userRole,
+      changesDescription: `ITR filed successfully via ${method} verification. Acknowledgement: ${acknowledgementNumber}`,
+      metadata: { verificationMethod: method, acknowledgementNumber, filingDate }
+    });
     
     itrDraftStorage.set(parseInt(draftId), {
       ...draft,
@@ -773,14 +1057,45 @@ router.get("/itr/verification-status/:draftId", async (req: Request, res: Respon
   }
 });
 
-router.get("/agent/itr-cases", async (req: Request, res: Response) => {
+router.get("/permissions", requireTaxAuth, async (req: Request, res: Response) => {
+  const role = (req as any).taxRole;
+  const permissions = (req as any).taxPermissions;
+  
+  res.json({
+    role,
+    permissions,
+    userId: (req as any).session?.userId
+  });
+});
+
+router.get("/audit-log", requirePermission("canViewAllCases"), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
+    const { entityType, entityId, limit = 100 } = req.query;
     
-    if (!userId) {
-      return res.status(401).json({ error: "User not authenticated" });
+    let logs = Array.from(taxAuditLog.values())
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    if (entityType) {
+      logs = logs.filter(l => l.entityType === entityType);
     }
     
+    if (entityId) {
+      logs = logs.filter(l => String(l.entityId) === String(entityId));
+    }
+    
+    res.json({
+      logs: logs.slice(0, Number(limit)),
+      total: logs.length,
+      retentionPolicy: "8 years (production database migration required)"
+    });
+  } catch (error) {
+    console.error("Error fetching audit log:", error);
+    res.status(500).json({ error: "Failed to fetch audit log" });
+  }
+});
+
+router.get("/agent/itr-cases", requirePermission("canViewAllCases"), async (req: Request, res: Response) => {
+  try {
     const cases = Array.from(itrDraftStorage.values())
       .map(d => ({
         id: d.id,
@@ -801,14 +1116,8 @@ router.get("/agent/itr-cases", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/agent/notices", async (req: Request, res: Response) => {
+router.get("/agent/notices", requirePermission("canViewAllCases"), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
-    
-    if (!userId) {
-      return res.status(401).json({ error: "User not authenticated" });
-    }
-    
     const sampleNotices = [
       {
         id: 1,
@@ -828,14 +1137,8 @@ router.get("/agent/notices", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/agent/cases/:caseId/action", async (req: Request, res: Response) => {
+router.post("/agent/cases/:caseId/action", requirePermission("canSubmitForReview"), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).session?.userId;
-    
-    if (!userId) {
-      return res.status(401).json({ error: "User not authenticated" });
-    }
-    
     const { caseId } = req.params;
     const { action, notes } = req.body;
     
