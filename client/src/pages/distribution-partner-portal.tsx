@@ -379,7 +379,7 @@ export default function DistributionPartnerPortal() {
                         data-testid="input-search-agents"
                       />
                     </div>
-                    <Button data-testid="button-add-agent">
+                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-agent">
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Agent
                     </Button>
@@ -432,7 +432,7 @@ export default function DistributionPartnerPortal() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" data-testid={`button-view-agent-${index}`}>
+                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950" data-testid={`button-view-agent-${index}`}>
                               View
                             </Button>
                           </TableCell>
@@ -444,7 +444,7 @@ export default function DistributionPartnerPortal() {
                           <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                           <p className="text-lg font-medium mb-1">No agents in your network</p>
                           <p className="text-muted-foreground mb-4">Start building your distribution network</p>
-                          <Button data-testid="button-onboard-first-agent">
+                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-onboard-first-agent">
                             <UserPlus className="h-4 w-4 mr-2" />
                             Onboard First Agent
                           </Button>
@@ -474,7 +474,7 @@ export default function DistributionPartnerPortal() {
                         data-testid="input-search-clients"
                       />
                     </div>
-                    <Button variant="outline" data-testid="button-export-clients">
+                    <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950" data-testid="button-export-clients">
                       <Download className="h-4 w-4 mr-2" />
                       Export
                     </Button>
@@ -574,7 +574,7 @@ export default function DistributionPartnerPortal() {
                     <CardTitle>Commission History</CardTitle>
                     <CardDescription>Track your earnings and payouts</CardDescription>
                   </div>
-                  <Button variant="outline" data-testid="button-download-statement">
+                  <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950" data-testid="button-download-statement">
                     <Download className="h-4 w-4 mr-2" />
                     Download Statement
                   </Button>
@@ -648,7 +648,7 @@ export default function DistributionPartnerPortal() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Button variant="outline" className="w-full" data-testid={`button-generate-${report.testId}-report`}>
+                    <Button variant="outline" className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950" data-testid={`button-generate-${report.testId}-report`}>
                       <FileText className="h-4 w-4 mr-2" />
                       Generate Report
                     </Button>
@@ -692,7 +692,7 @@ export default function DistributionPartnerPortal() {
                       <p className="font-medium">{(partnerProfile as any)?.euinNumber || '-'}</p>
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full" data-testid="button-edit-profile">
+                  <Button variant="outline" className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950" data-testid="button-edit-profile">
                     Edit Profile
                   </Button>
                 </CardContent>
@@ -726,7 +726,7 @@ export default function DistributionPartnerPortal() {
                       <p className="font-medium">{(partnerProfile as any)?.upiId || '-'}</p>
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full" data-testid="button-update-bank">
+                  <Button variant="outline" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950" data-testid="button-update-bank">
                     Update Bank Details
                   </Button>
                 </CardContent>

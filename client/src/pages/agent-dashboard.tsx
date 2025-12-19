@@ -573,7 +573,7 @@ export default function AgentDashboard() {
                             <p className="text-xs text-gray-500">{overview.itrPending} clients awaiting filing</p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" data-testid="button-view-itr-pending">
+                        <Button size="sm" variant="outline" className="border-orange-200 text-orange-700 hover:bg-orange-100 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950" data-testid="button-view-itr-pending">
                           View <ChevronRight className="h-3 w-3 ml-1" />
                         </Button>
                       </div>
@@ -586,7 +586,7 @@ export default function AgentDashboard() {
                             <p className="text-xs text-gray-500">{overview.kycPending} clients need verification</p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" data-testid="button-view-kyc-pending">
+                        <Button size="sm" variant="outline" className="border-yellow-200 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-800 dark:text-yellow-300 dark:hover:bg-yellow-950" data-testid="button-view-kyc-pending">
                           View <ChevronRight className="h-3 w-3 ml-1" />
                         </Button>
                       </div>
@@ -599,7 +599,7 @@ export default function AgentDashboard() {
                             <p className="text-xs text-gray-500">Q3 filing due in 15 days</p>
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" data-testid="button-view-tds-due">
+                        <Button size="sm" variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950" data-testid="button-view-tds-due">
                           View <ChevronRight className="h-3 w-3 ml-1" />
                         </Button>
                       </div>
@@ -719,7 +719,7 @@ export default function AgentDashboard() {
                         </CardTitle>
                         <CardDescription>Manage client ITR filings with CA assignment workflow</CardDescription>
                       </div>
-                      <Button data-testid="button-new-itr-case">
+                      <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-new-itr-case">
                         <Plus className="h-4 w-4 mr-2" /> New Case
                       </Button>
                     </div>
