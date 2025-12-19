@@ -77,6 +77,12 @@ const adminNavItems = [
     description: "Orders, payments, revenue & refunds"
   },
   {
+    title: "Commission Master",
+    href: "/admin/commission-master",
+    icon: TrendingUp,
+    description: "Role-based commission configuration"
+  },
+  {
     title: "Users & Access",
     href: "/admin/users",
     icon: Users,

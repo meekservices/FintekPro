@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date, bigint, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date, bigint, numeric, pgEnum, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16588,5 +16588,161 @@ export const RbiPurposeCodeCategories = {
     { code: 'S1304', description: 'Gift remittances' },
     { code: 'S1305', description: 'Donations' },
   ],
+};
+
+// ============================================================================
+// Commission Plan Configuration Tables (Admin-Driven Role-Based Commission)
+// ============================================================================
+
+// Payout mode enum for commission role maps
+export const payoutModeEnum = pgEnum("payout_mode", [
+  "upfront",
+  "trail",
+  "revenue_share",
+  "performance"
+]);
+
+// Passthrough rule enum for hierarchy splits
+export const passthroughRuleEnum = pgEnum("passthrough_rule", [
+  "stop",
+  "roll_up"
+]);
+
+// Commission plan status enum
+export const commissionPlanStatusEnum = pgEnum("commission_plan_status", [
+  "draft",
+  "active",
+  "frozen",
+  "archived"
+]);
+
+// Commission Plans - Version-controlled commission configurations by product type
+export const commissionPlans = pgTable("commission_plans", {
+  id: serial("id").primaryKey(),
+  productType: varchar("product_type", { length: 100 }).notNull(), // mutual_fund, stocks, bonds, ipos, loans, insurance, unlisted, tax_services
+  version: integer("version").notNull().default(1),
+  status: commissionPlanStatusEnum("status").notNull().default("draft"),
+  isActive: boolean("is_active").notNull().default(false),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"),
+  regulatoryCap: decimal("regulatory_cap", { precision: 5, scale: 2 }), // Maximum allowed commission %
+  changeReason: text("change_reason"),
+  createdBy: integer("created_by").notNull(),
+  updatedBy: integer("updated_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  productTypeIdx: index("commission_plans_product_type_idx").on(table.productType),
+  isActiveIdx: index("commission_plans_is_active_idx").on(table.isActive),
+  statusIdx: index("commission_plans_status_idx").on(table.status),
+}));
+
+// Commission Role Maps - Payout percentages by role for each plan
+export const commissionRoleMaps = pgTable("commission_role_maps", {
+  id: serial("id").primaryKey(),
+  commissionPlanId: integer("commission_plan_id").notNull().references(() => commissionPlans.id, { onDelete: "cascade" }),
+  roleId: varchar("role_id", { length: 50 }).notNull(), // References role from roles.ts
+  payoutPercentage: decimal("payout_percentage", { precision: 5, scale: 2 }).notNull(),
+  payoutMode: payoutModeEnum("payout_mode").notNull().default("upfront"),
+  minCap: decimal("min_cap", { precision: 15, scale: 2 }), // Minimum commission amount
+  maxCap: decimal("max_cap", { precision: 15, scale: 2 }), // Maximum commission amount
+  validationStatus: boolean("validation_status").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  planIdIdx: index("commission_role_maps_plan_id_idx").on(table.commissionPlanId),
+  roleIdIdx: index("commission_role_maps_role_id_idx").on(table.roleId),
+}));
+
+// Commission Hierarchy Splits - Share percentages by hierarchy level
+export const commissionHierarchySplits = pgTable("commission_hierarchy_splits", {
+  id: serial("id").primaryKey(),
+  commissionPlanId: integer("commission_plan_id").notNull().references(() => commissionPlans.id, { onDelete: "cascade" }),
+  roleId: varchar("role_id", { length: 50 }).notNull(),
+  hierarchyLevel: integer("hierarchy_level").notNull(), // 1 = top, higher = lower in hierarchy
+  sharePercentage: decimal("share_percentage", { precision: 5, scale: 2 }).notNull(),
+  passthroughRule: passthroughRuleEnum("passthrough_rule").notNull().default("stop"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  planIdIdx: index("commission_hierarchy_splits_plan_id_idx").on(table.commissionPlanId),
+}));
+
+// Commission Audit Logs - Complete modification history
+export const commissionAuditLogs = pgTable("commission_audit_logs", {
+  id: serial("id").primaryKey(),
+  commissionPlanId: integer("commission_plan_id").notNull().references(() => commissionPlans.id, { onDelete: "cascade" }),
+  fieldChanged: varchar("field_changed", { length: 100 }).notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  changedBy: integer("changed_by").notNull(),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  remarks: text("remarks"),
+}, (table) => ({
+  planIdIdx: index("commission_audit_logs_plan_id_idx").on(table.commissionPlanId),
+  changedAtIdx: index("commission_audit_logs_changed_at_idx").on(table.changedAt),
+}));
+
+// Commission Plan Schemas
+export const insertCommissionPlanSchema = createInsertSchema(commissionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CommissionPlan = typeof commissionPlans.$inferSelect;
+export type InsertCommissionPlan = z.infer<typeof insertCommissionPlanSchema>;
+
+export const insertCommissionRoleMapSchema = createInsertSchema(commissionRoleMaps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CommissionRoleMap = typeof commissionRoleMaps.$inferSelect;
+export type InsertCommissionRoleMap = z.infer<typeof insertCommissionRoleMapSchema>;
+
+export const insertCommissionHierarchySplitSchema = createInsertSchema(commissionHierarchySplits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CommissionHierarchySplit = typeof commissionHierarchySplits.$inferSelect;
+export type InsertCommissionHierarchySplit = z.infer<typeof insertCommissionHierarchySplitSchema>;
+
+export const insertCommissionAuditLogSchema = createInsertSchema(commissionAuditLogs).omit({
+  id: true,
+  changedAt: true,
+});
+export type CommissionAuditLog = typeof commissionAuditLogs.$inferSelect;
+export type InsertCommissionAuditLog = z.infer<typeof insertCommissionAuditLogSchema>;
+
+// Product types for commission configuration
+export const CommissionProductTypes = [
+  'mutual_fund',
+  'mutual_fund_direct', // Always 0% commission
+  'stocks',
+  'ipos',
+  'bonds',
+  'loans',
+  'insurance',
+  'unlisted',
+  'tax_services',
+  'pms_aif'
+] as const;
+
+export type CommissionProductType = typeof CommissionProductTypes[number];
+
+// Regulatory caps by product type (SEBI/AMFI mandated)
+export const RegulatoryCommissionCaps: Record<CommissionProductType, number> = {
+  mutual_fund: 2.25, // AMFI mandated trail cap
+  mutual_fund_direct: 0, // Direct plans have 0 commission
+  stocks: 0.5, // Brokerage cap
+  ipos: 0.5,
+  bonds: 1.0,
+  loans: 4.0, // Varies by loan type
+  insurance: 15.0, // First year commission cap
+  unlisted: 2.0,
+  tax_services: 40.0, // CA fee share
+  pms_aif: 2.5 // Performance fee structures
 };
 

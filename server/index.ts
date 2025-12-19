@@ -275,6 +275,11 @@ app.use((req, res, next) => {
     });
   });
   
+  // Register Commission Configuration routes (Admin-Driven Role-Based Commission Calibration)
+  const commissionConfigRoutes = await import('./commission-config-routes');
+  app.use('/api/admin', commissionConfigRoutes.default);
+  console.log('✅ Commission configuration routes registered');
+  
   // Register Regulatory Framework routes (SEBI/RBI Investor Classification, Brokerage, Eligibility, Overrides)
   const regulatoryFrameworkRoutes = await import('./routes/regulatory-framework-routes');
   app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
