@@ -131,7 +131,7 @@ export async function scrapeBseMldListings(): Promise<BseMldImportResult> {
         if (!isin) continue;
 
         listings.push({
-          isin: isin.trim(),
+          isin: isin.trim().toUpperCase(),
           name: securityName.trim(),
           issuer: issuerName.trim(),
           issueDate: parseDate(item.IssueDate || item.Issue_Date),
@@ -204,7 +204,7 @@ async function scrapeBseDebtHtml(): Promise<BseMldImportResult> {
       if (!isMLD(name, issuer)) return;
 
       listings.push({
-        isin,
+        isin: isin.trim().toUpperCase(),
         name,
         issuer,
         issueDate: null,

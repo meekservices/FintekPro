@@ -731,16 +731,20 @@ router.get("/admin/mld/import/preview", requireAdmin, async (req, res) => {
       }
     }
     
+    // Normalize ISINs - trim whitespace and uppercase for consistent comparison
+    const normalizeIsin = (isin: string) => isin.trim().toUpperCase();
+    
     // Check for existing ISINs to mark duplicates
     const existingIsins = await db
       .select({ isin: mldMaster.isin })
       .from(mldMaster);
     
-    const existingIsinSet = new Set(existingIsins.map(e => e.isin));
+    const existingIsinSet = new Set(existingIsins.map(e => normalizeIsin(e.isin)));
     
     const previewListings = listings.map(listing => ({
       ...listing,
-      isDuplicate: existingIsinSet.has(listing.isin),
+      isin: normalizeIsin(listing.isin), // Normalize the scraped ISIN
+      isDuplicate: existingIsinSet.has(normalizeIsin(listing.isin)),
     }));
     
     const newCount = previewListings.filter(l => !l.isDuplicate).length;

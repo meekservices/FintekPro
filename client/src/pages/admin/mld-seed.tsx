@@ -1012,6 +1012,27 @@ export default function MldSeedAdmin() {
                 </Button>
               </div>
             </div>
+          ) : importPreview.listings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <AlertTriangle className="w-16 h-16 text-yellow-500" />
+              <p className="text-muted-foreground text-center">
+                No MLD listings found. Try using sample data instead.
+              </p>
+              {importPreview.errors.length > 0 && (
+                <div className="text-sm text-destructive max-w-md text-center">
+                  {importPreview.errors.slice(0, 2).join(". ")}
+                </div>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setImportPreview(null);
+                  previewBseImportMutation.mutate(true);
+                }}
+              >
+                Try Sample Data
+              </Button>
+            </div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
