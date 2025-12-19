@@ -80,50 +80,55 @@ router.post("/api/agent/prospect-proposals", async (req: Request, res: Response)
     const shareToken = generateShareToken();
     const referralCode = generateReferralCode();
 
-    // Create linked onboarding invitation
+    // Create linked onboarding invitation and proposal in a transaction
     const expiresAt = validUntil ? new Date(validUntil) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    const [invitation] = await db.insert(onboardingInvitations).values({
-      referralCode,
-      inviterId: user.id,
-      inviterType: "agent",
-      inviterName: user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user.email,
-      clientEmail: prospectEmail,
-      clientMobile: prospectMobile,
-      clientName: prospectName,
-      suggestedMode: "smart",
-      status: "pending",
-      expiresAt,
-      notes: `Created via prospect proposal: ${proposalTitle}`,
-    }).returning();
+    const result = await db.transaction(async (tx) => {
+      const [invitation] = await tx.insert(onboardingInvitations).values({
+        referralCode,
+        inviterId: user.id,
+        inviterType: "agent",
+        inviterName: user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user.email,
+        clientEmail: prospectEmail,
+        clientMobile: prospectMobile,
+        clientName: prospectName,
+        suggestedMode: "smart",
+        status: "pending",
+        expiresAt,
+        notes: `Created via prospect proposal: ${proposalTitle}`,
+      }).returning();
 
-    // Create the proposal
-    const [proposal] = await db.insert(prospectProposals).values({
-      shareToken,
-      agentId: user.id,
-      agentName: user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : null,
-      agentArnCode: user.arnCode || null,
-      agentMobile: user.mobile || null,
-      agentEmail: user.email || null,
-      prospectName,
-      prospectEmail,
-      prospectMobile,
-      proposalType,
-      samplePortfolio: samplePortfolio || null,
-      investmentGoals: investmentGoals || null,
-      proposalTitle,
-      executiveSummary,
-      currentAnalysis,
-      recommendations: recommendations || [],
-      totalInvestmentAmount: totalInvestmentAmount?.toString(),
-      projectedReturns: projectedReturns?.toString(),
-      projectedValue: projectedValue?.toString(),
-      targetAllocation: targetAllocation || null,
-      invitationId: invitation.id,
-      referralCode,
-      status: "draft",
-      validUntil: expiresAt,
-    }).returning();
+      const [proposal] = await tx.insert(prospectProposals).values({
+        shareToken,
+        agentId: user.id,
+        agentName: user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : null,
+        agentArnCode: user.arnCode || null,
+        agentMobile: user.mobile || null,
+        agentEmail: user.email || null,
+        prospectName,
+        prospectEmail,
+        prospectMobile,
+        proposalType,
+        samplePortfolio: samplePortfolio || null,
+        investmentGoals: investmentGoals || null,
+        proposalTitle,
+        executiveSummary,
+        currentAnalysis,
+        recommendations: recommendations || [],
+        totalInvestmentAmount: totalInvestmentAmount?.toString(),
+        projectedReturns: projectedReturns?.toString(),
+        projectedValue: projectedValue?.toString(),
+        targetAllocation: targetAllocation || null,
+        invitationId: invitation.id,
+        referralCode,
+        status: "draft",
+        validUntil: expiresAt,
+      }).returning();
+
+      return { invitation, proposal };
+    });
+
+    const { invitation, proposal } = result;
 
     await logProposalEvent(proposal.id, "created", {
       proposalType,
