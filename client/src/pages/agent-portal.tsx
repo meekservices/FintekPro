@@ -683,7 +683,7 @@ export default function AgentPortal() {
                     <CardTitle>Partners Management</CardTitle>
                     <CardDescription>Add and manage partners with or without EUIN/ARN numbers</CardDescription>
                   </div>
-                  <Button onClick={() => setShowAddPartnerDialog(true)} data-testid="button-add-partner">
+                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" onClick={() => setShowAddPartnerDialog(true)} data-testid="button-add-partner">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Partner
                   </Button>
@@ -748,10 +748,10 @@ export default function AgentPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-1">
-                            <Button variant="outline" size="sm">
+                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950">
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950">
                               <Edit3 className="w-4 h-4" />
                             </Button>
                           </div>
@@ -773,7 +773,7 @@ export default function AgentPortal() {
                     <CardTitle>Clients Management</CardTitle>
                     <CardDescription>Manage client relationships and EUIN assignments</CardDescription>
                   </div>
-                  <Button onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
+                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" onClick={() => setShowAddClientDialog(true)} data-testid="button-add-client">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add Client
                   </Button>
@@ -847,10 +847,10 @@ export default function AgentPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-1">
-                            <Button variant="outline" size="sm">
+                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950">
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950">
                               <Edit3 className="w-4 h-4" />
                             </Button>
                           </div>
@@ -872,21 +872,21 @@ export default function AgentPortal() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Button variant="outline" className="h-20 flex-col">
-                    <Download className="w-6 h-6 mb-2" />
-                    Partner Report
+                  <Button variant="outline" className="h-20 flex-col border-blue-200 hover:bg-blue-50 hover:border-blue-300 dark:border-blue-800 dark:hover:bg-blue-950">
+                    <Download className="w-6 h-6 mb-2 text-blue-600" />
+                    <span className="text-blue-700 dark:text-blue-300">Partner Report</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col">
-                    <Download className="w-6 h-6 mb-2" />
-                    Client Report
+                  <Button variant="outline" className="h-20 flex-col border-green-200 hover:bg-green-50 hover:border-green-300 dark:border-green-800 dark:hover:bg-green-950">
+                    <Download className="w-6 h-6 mb-2 text-green-600" />
+                    <span className="text-green-700 dark:text-green-300">Client Report</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col">
-                    <Download className="w-6 h-6 mb-2" />
-                    Commission Report
+                  <Button variant="outline" className="h-20 flex-col border-purple-200 hover:bg-purple-50 hover:border-purple-300 dark:border-purple-800 dark:hover:bg-purple-950">
+                    <Download className="w-6 h-6 mb-2 text-purple-600" />
+                    <span className="text-purple-700 dark:text-purple-300">Commission Report</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col">
-                    <Download className="w-6 h-6 mb-2" />
-                    Activity Report
+                  <Button variant="outline" className="h-20 flex-col border-amber-200 hover:bg-amber-50 hover:border-amber-300 dark:border-amber-800 dark:hover:bg-amber-950">
+                    <Download className="w-6 h-6 mb-2 text-amber-600" />
+                    <span className="text-amber-700 dark:text-amber-300">Activity Report</span>
                   </Button>
                 </div>
               </CardContent>
@@ -1044,10 +1044,10 @@ export default function AgentPortal() {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setShowAddPartnerDialog(false)} data-testid="button-cancel-partner">
+                  <Button type="button" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddPartnerDialog(false)} data-testid="button-cancel-partner">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={addPartnerMutation.isPending} data-testid="button-submit-partner">
+                  <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={addPartnerMutation.isPending} data-testid="button-submit-partner">
                     {addPartnerMutation.isPending ? "Adding..." : "Add Partner"}
                   </Button>
                 </div>
@@ -1163,10 +1163,10 @@ export default function AgentPortal() {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setShowAddClientDialog(false)} data-testid="button-cancel-client">
+                  <Button type="button" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddClientDialog(false)} data-testid="button-cancel-client">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={addClientMutation.isPending} data-testid="button-submit-client">
+                  <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={addClientMutation.isPending} data-testid="button-submit-client">
                     {addClientMutation.isPending ? "Adding..." : "Add Client"}
                   </Button>
                 </div>
