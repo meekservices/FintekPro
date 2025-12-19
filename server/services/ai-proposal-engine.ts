@@ -10,6 +10,7 @@ import {
   userProfiles,
   users,
   unifiedCartItems,
+  clientPortfolioMld,
   type PortfolioDiagnostics,
   type AiProposal,
   type AiProposalItem,
@@ -48,6 +49,13 @@ const RISK_RATINGS: Record<string, number> = {
   "hybrid_balanced": 5,
   "hybrid_conservative": 4,
   "mld": 7,
+  "mld_digital": 6,
+  "mld_barrier": 7,
+  "mld_sharkfin": 7,
+  "mld_range": 6,
+  "mld_participation": 7,
+  "mld_autocall": 8,
+  "mld_snowball": 8,
   "reit": 6,
   "invit": 6,
   "aif_cat_1": 7,
@@ -171,6 +179,7 @@ export class AIProposalEngine {
   async getPortfolioHoldings(userId: string): Promise<PortfolioHolding[]> {
     const holdings: PortfolioHolding[] = [];
 
+    // Fetch Mutual Fund holdings
     const mfData = await db
       .select()
       .from(mfHoldings)
@@ -183,6 +192,21 @@ export class AIProposalEngine {
       totalValue += value;
     }
 
+    // Fetch approved MLD holdings
+    const mldData = await db
+      .select()
+      .from(clientPortfolioMld)
+      .where(and(
+        eq(clientPortfolioMld.clientId, userId),
+        eq(clientPortfolioMld.entryStatus, "approved")
+      ));
+
+    for (const mld of mldData) {
+      const value = parseFloat(mld.currentValue || mld.totalInvested || "0");
+      totalValue += value;
+    }
+
+    // Add MF holdings
     for (const h of mfData) {
       const value = parseFloat(h.mf_holdings.currentValue?.toString() || "0");
       const assetSubType = this.classifyMFScheme(h.mf_holdings.schemeName || "");
@@ -197,6 +221,27 @@ export class AIProposalEngine {
         riskScore: RISK_RATINGS[assetSubType] || 5,
         lockIn: h.mf_holdings.lockInEndDate ? new Date(h.mf_holdings.lockInEndDate) > new Date() : false,
         amcName: h.mf_folios.amcName || undefined,
+      });
+    }
+
+    // Add MLD holdings (only approved ones for AI analysis)
+    for (const mld of mldData) {
+      const value = parseFloat(mld.currentValue || mld.totalInvested || "0");
+      const payoffType = (mld.payoffType || "digital").toLowerCase();
+      const riskKey = `mld_${payoffType}`;
+      // Use payoff-type specific risk rating, fallback to generic MLD rating, then to stored riskScore
+      const riskScore = RISK_RATINGS[riskKey] || RISK_RATINGS["mld"] || mld.riskScore || 7;
+      
+      holdings.push({
+        assetType: "mld",
+        assetSubType: riskKey,
+        isin: mld.isin || undefined,
+        schemeName: mld.mldName || "Unknown MLD",
+        currentValue: value,
+        weightPercent: totalValue > 0 ? (value / totalValue) * 100 : 0,
+        riskScore: riskScore,
+        lockIn: mld.maturityDate ? new Date(mld.maturityDate) > new Date() : true,
+        amcName: mld.issuer || undefined,
       });
     }
 
