@@ -829,6 +829,9 @@ export default function StoreManagement() {
                                 if (slug === 'mf-regular' || slug === 'mf-direct' || cat.name.includes('Mutual Funds')) {
                                   return '/admin/mutual-funds';
                                 }
+                                if (slug === 'mld' || slug === 'structured-products' || cat.name.includes('MLD') || cat.name.includes('Market Linked')) {
+                                  return '/admin/mld-seed';
+                                }
                                 return `/admin/store/seed/${slug}`;
                               };
                               return (

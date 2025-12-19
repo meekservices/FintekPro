@@ -17,7 +17,8 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Plus, Briefcase, PieChart, BarChart3, FileText, CheckCircle, Clock, XCircle, AlertTriangle, Search, Pencil, Trash2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Plus, Briefcase, PieChart, BarChart3, FileText, CheckCircle, Clock, XCircle, AlertTriangle, Search, Pencil, Trash2, Layers, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { format } from "date-fns";
 
 interface AifHolding {
@@ -343,6 +344,9 @@ export default function AlternativeInvestmentsPage() {
           <TabsTrigger value="pms" data-testid="tab-pms">
             <PieChart className="w-4 h-4 mr-2" /> PMS ({pmsSummary.holdings})
           </TabsTrigger>
+          <TabsTrigger value="mld" data-testid="tab-mld">
+            <Layers className="w-4 h-4 mr-2" /> MLD
+          </TabsTrigger>
         </ScrollableTabsList>
 
         {/* AIF Tab Content */}
@@ -534,6 +538,39 @@ export default function AlternativeInvestmentsPage() {
               </Card>
             </>
           )}
+        </TabsContent>
+
+        {/* MLD Tab Content */}
+        <TabsContent value="mld" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="w-5 h-5" />
+                Market Linked Debentures
+              </CardTitle>
+              <CardDescription>
+                Explore and invest in structured products with market-linked returns
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                MLDs offer capital-efficient exposure to market indices with structured payoff profiles.
+                Browse available MLDs, analyze payoff scenarios, and add your existing holdings to track them.
+              </p>
+              <div className="flex gap-4">
+                <Link href="/mld">
+                  <Button data-testid="button-browse-mld">
+                    <Layers className="w-4 h-4 mr-2" /> Browse MLDs
+                  </Button>
+                </Link>
+                <Link href="/mld">
+                  <Button variant="outline" data-testid="button-add-mld">
+                    <Plus className="w-4 h-4 mr-2" /> Add Existing MLD
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

@@ -51,6 +51,8 @@ import AIFDetail from "@/pages/aif-detail";
 import PMS from "@/pages/pms";
 import PMSDetail from "@/pages/pms-detail";
 import AlternativeInvestments from "@/pages/alternative-investments";
+import MldStore from "@/pages/mld-store";
+import MldDetail from "@/pages/mld-detail";
 import BajajFinance from "@/pages/bajaj-finance";
 import TataCapital from "@/pages/tata-capital";
 import PolicyBazaar from "@/pages/policybazaar";
@@ -77,6 +79,7 @@ import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
 import ZohoLogsPage from "@/pages/admin/zoho-logs";
 import StoreManagement from "@/pages/admin/store-management";
 import BondSeedAdmin from "@/pages/admin/bond-seed";
+import MldSeedAdmin from "@/pages/admin/mld-seed";
 import MutualFundsSeeding from "@/pages/admin/mutual-funds-seeding";
 import SeedUnlistedPage from "@/pages/admin/seed-unlisted";
 import UnlistedPreviewPage from "@/pages/admin/unlisted-preview";
@@ -292,6 +295,8 @@ function UserProtectedRoutes() {
         <Route path="/pms" component={PMS} />
         <Route path="/pms/:id" component={PMSDetail} />
         <Route path="/alternative-investments" component={AlternativeInvestments} />
+        <Route path="/mld" component={MldStore} />
+        <Route path="/mld/:id" component={MldDetail} />
         <Route path="/bajaj-finance" component={BajajFinance} />
         <Route path="/tata-capital" component={TataCapital} />
         <Route path="/policybazaar" component={PolicyBazaar} />
@@ -655,6 +660,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <BondSeedAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mld-seed">
+        {() => (
+          <AdminLayout>
+            <MldSeedAdmin />
           </AdminLayout>
         )}
       </Route>
