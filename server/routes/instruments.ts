@@ -477,6 +477,101 @@ router.post("/api/instruments/sync-nse", async (req: Request, res: Response) => 
   }
 });
 
+// Sync from NSE official equity list CSV (most reliable method)
+router.post("/api/instruments/sync-nse-csv", async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    if (!user || !['admin', 'superadmin'].some(r => user.roles?.includes(r))) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    console.log("Fetching NSE equity list from archives...");
+    
+    // Download the official NSE equity list CSV
+    const response = await fetch("https://archives.nseindia.com/content/equities/EQUITY_L.csv");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch NSE equity list: ${response.statusText}`);
+    }
+    
+    const csvText = await response.text();
+    const lines = csvText.split('\n').filter(line => line.trim());
+    
+    console.log(`Processing ${lines.length - 1} stocks from NSE equity list`);
+    
+    let synced = 0;
+    let errors = 0;
+    
+    // Skip header line
+    for (let i = 1; i < lines.length; i++) {
+      try {
+        const line = lines[i];
+        // Parse CSV: SYMBOL,NAME OF COMPANY, SERIES, DATE OF LISTING, PAID UP VALUE, MARKET LOT, ISIN NUMBER, FACE VALUE
+        const parts = line.split(',');
+        if (parts.length < 7) continue;
+        
+        const symbol = parts[0]?.trim();
+        const name = parts[1]?.trim();
+        const series = parts[2]?.trim();
+        const isin = parts[6]?.trim();
+        
+        // Only process equity stocks (EQ series) with valid ISINs
+        if (!symbol || !isin || !isin.startsWith('INE') || isin.length !== 12) {
+          continue;
+        }
+        
+        // Skip non-EQ series (BE, BZ, etc. are less liquid)
+        // But include EQ for main stocks
+        
+        await db.insert(instrumentMaster).values({
+          isin: isin,
+          symbol: symbol,
+          name: name || symbol,
+          shortName: (name || symbol).substring(0, 50),
+          assetClass: "equity",
+          subType: null,
+          sector: null, // NSE CSV doesn't have sector info
+          category: null,
+          issuer: name || symbol,
+          lastPrice: null, // Price would need separate API
+          priceSource: "nse",
+          riskLevel: "high",
+          currency: "INR",
+          sourceTable: "nse_equity_csv",
+          sourceId: isin,
+          metadata: {
+            symbol: symbol,
+            exchange: "NSE",
+            series: series,
+          },
+        }).onConflictDoUpdate({
+          target: instrumentMaster.isin,
+          set: {
+            symbol: symbol,
+            name: name || symbol,
+            updatedAt: new Date(),
+          }
+        });
+        
+        synced++;
+      } catch (e: any) {
+        console.error(`Error on line ${i}:`, e.message);
+        errors++;
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      synced,
+      errors,
+      total: lines.length - 1,
+      message: `Synced ${synced} stocks from NSE equity list (${errors} errors)`
+    });
+  } catch (error: any) {
+    console.error("NSE CSV sync error:", error);
+    res.status(500).json({ error: error.message || "Failed to sync NSE stocks from CSV" });
+  }
+});
+
 // Light sync - just fetch symbols and basic info without detailed API calls
 router.post("/api/instruments/sync-nse-light", async (req: Request, res: Response) => {
   try {
