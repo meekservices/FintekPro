@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "../db";
-import { aifMaster, pmsMaster, fundManagers, fundPerformanceMonthwise, fundPerformanceRolling } from "@shared/schema";
+import { aifMaster, pmsMaster, fundManagers, fundPerformanceMonthwise, fundPerformanceRolling, insertAifMasterSchema, insertPmsMasterSchema } from "@shared/schema";
 import { eq, and, desc, asc, ilike, sql, gte, lte, or } from "drizzle-orm";
 import { z } from "zod";
+import { requireAdmin } from "../middleware/roleMiddleware";
 
 const router = Router();
 
@@ -25,9 +26,6 @@ router.get("/aif", async (req, res) => {
       limit = "20"
     } = req.query;
 
-    let query = db.select().from(aifMaster).where(eq(aifMaster.isPublished, true));
-    
-    // Build conditions array
     const conditions: any[] = [eq(aifMaster.isPublished, true)];
     
     if (status && status !== "all") {
@@ -52,17 +50,41 @@ router.get("/aif", async (req, res) => {
     }
     
     if (riskScore) {
-      conditions.push(eq(aifMaster.riskScore, parseInt(riskScore as string)));
+      const [minRisk, maxRisk] = (riskScore as string).includes("-") 
+        ? (riskScore as string).split("-").map(Number)
+        : [parseInt(riskScore as string), parseInt(riskScore as string)];
+      conditions.push(gte(aifMaster.riskScore, minRisk));
+      conditions.push(lte(aifMaster.riskScore, maxRisk));
+    }
+    
+    if (minInvestment) {
+      const minVal = parseFloat(minInvestment as string);
+      if (!isNaN(minVal)) {
+        conditions.push(sql`CAST(${aifMaster.minInvestment} AS NUMERIC) >= ${minVal}`);
+      }
+    }
+    
+    if (maxInvestment) {
+      const maxVal = parseFloat(maxInvestment as string);
+      if (!isNaN(maxVal)) {
+        conditions.push(sql`CAST(${aifMaster.minInvestment} AS NUMERIC) <= ${maxVal}`);
+      }
     }
 
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    
+    const orderColumn = sortBy === "return1Y" ? aifMaster.return1Y 
+      : sortBy === "return3Y" ? aifMaster.return3Y
+      : sortBy === "aum" ? aifMaster.aum
+      : sortBy === "riskScore" ? aifMaster.riskScore
+      : aifMaster.name;
     
     const schemes = await db
       .select()
       .from(aifMaster)
       .leftJoin(fundManagers, eq(aifMaster.managerId, fundManagers.id))
       .where(and(...conditions))
-      .orderBy(sortOrder === "desc" ? desc(aifMaster.name) : asc(aifMaster.name))
+      .orderBy(sortOrder === "desc" ? desc(orderColumn) : asc(orderColumn))
       .limit(parseInt(limit as string))
       .offset(offset);
 
@@ -161,17 +183,41 @@ router.get("/pms", async (req, res) => {
     }
     
     if (riskScore) {
-      conditions.push(eq(pmsMaster.riskScore, parseInt(riskScore as string)));
+      const [minRisk, maxRisk] = (riskScore as string).includes("-") 
+        ? (riskScore as string).split("-").map(Number)
+        : [parseInt(riskScore as string), parseInt(riskScore as string)];
+      conditions.push(gte(pmsMaster.riskScore, minRisk));
+      conditions.push(lte(pmsMaster.riskScore, maxRisk));
+    }
+    
+    if (minInvestment) {
+      const minVal = parseFloat(minInvestment as string);
+      if (!isNaN(minVal)) {
+        conditions.push(sql`CAST(${pmsMaster.minInvestment} AS NUMERIC) >= ${minVal}`);
+      }
+    }
+    
+    if (maxInvestment) {
+      const maxVal = parseFloat(maxInvestment as string);
+      if (!isNaN(maxVal)) {
+        conditions.push(sql`CAST(${pmsMaster.minInvestment} AS NUMERIC) <= ${maxVal}`);
+      }
     }
 
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    
+    const orderColumn = sortBy === "return1Y" ? pmsMaster.return1Y 
+      : sortBy === "return3Y" ? pmsMaster.return3Y
+      : sortBy === "aum" ? pmsMaster.aum
+      : sortBy === "riskScore" ? pmsMaster.riskScore
+      : pmsMaster.name;
     
     const schemes = await db
       .select()
       .from(pmsMaster)
       .leftJoin(fundManagers, eq(pmsMaster.managerId, fundManagers.id))
       .where(and(...conditions))
-      .orderBy(sortOrder === "desc" ? desc(pmsMaster.name) : asc(pmsMaster.name))
+      .orderBy(sortOrder === "desc" ? desc(orderColumn) : asc(orderColumn))
       .limit(parseInt(limit as string))
       .offset(offset);
 
@@ -284,7 +330,7 @@ router.get("/performance/fund/:id/rolling", async (req, res) => {
 // ============ ADMIN ROUTES ============
 
 // POST /admin/store/publish - Toggle publish status for AIF/PMS
-router.post("/admin/store/publish", async (req, res) => {
+router.post("/admin/store/publish", requireAdmin, async (req, res) => {
   try {
     const schema = z.object({
       fundType: z.enum(["aif", "pms"]),
@@ -319,7 +365,7 @@ router.post("/admin/store/publish", async (req, res) => {
 });
 
 // GET /admin/store/aif - List all AIF schemes for admin (including unpublished)
-router.get("/admin/store/aif", async (req, res) => {
+router.get("/admin/store/aif", requireAdmin, async (req, res) => {
   try {
     const schemes = await db
       .select()
@@ -340,7 +386,7 @@ router.get("/admin/store/aif", async (req, res) => {
 });
 
 // GET /admin/store/pms - List all PMS schemes for admin (including unpublished)
-router.get("/admin/store/pms", async (req, res) => {
+router.get("/admin/store/pms", requireAdmin, async (req, res) => {
   try {
     const schemes = await db
       .select()
@@ -361,20 +407,27 @@ router.get("/admin/store/pms", async (req, res) => {
 });
 
 // POST /admin/store/aif - Create or update AIF scheme
-router.post("/admin/store/aif", async (req, res) => {
+router.post("/admin/store/aif", requireAdmin, async (req, res) => {
   try {
-    const { id, ...data } = req.body;
+    const { id, ...rawData } = req.body;
     
     if (id) {
-      // Update existing
+      const updateSchema = insertAifMasterSchema.partial();
+      const validation = updateSchema.safeParse(rawData);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+      }
       await db
         .update(aifMaster)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...validation.data, updatedAt: new Date() })
         .where(eq(aifMaster.id, id));
       res.json({ success: true, message: "AIF scheme updated" });
     } else {
-      // Create new
-      const result = await db.insert(aifMaster).values(data).returning();
+      const validation = insertAifMasterSchema.safeParse(rawData);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+      }
+      const result = await db.insert(aifMaster).values(validation.data).returning();
       res.json({ success: true, scheme: result[0] });
     }
   } catch (error: any) {
@@ -384,18 +437,27 @@ router.post("/admin/store/aif", async (req, res) => {
 });
 
 // POST /admin/store/pms - Create or update PMS scheme
-router.post("/admin/store/pms", async (req, res) => {
+router.post("/admin/store/pms", requireAdmin, async (req, res) => {
   try {
-    const { id, ...data } = req.body;
+    const { id, ...rawData } = req.body;
     
     if (id) {
+      const updateSchema = insertPmsMasterSchema.partial();
+      const validation = updateSchema.safeParse(rawData);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+      }
       await db
         .update(pmsMaster)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...validation.data, updatedAt: new Date() })
         .where(eq(pmsMaster.id, id));
       res.json({ success: true, message: "PMS scheme updated" });
     } else {
-      const result = await db.insert(pmsMaster).values(data).returning();
+      const validation = insertPmsMasterSchema.safeParse(rawData);
+      if (!validation.success) {
+        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+      }
+      const result = await db.insert(pmsMaster).values(validation.data).returning();
       res.json({ success: true, scheme: result[0] });
     }
   } catch (error: any) {
