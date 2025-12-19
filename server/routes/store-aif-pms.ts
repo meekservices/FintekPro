@@ -114,6 +114,50 @@ router.get("/aif", async (req, res) => {
   }
 });
 
+// GET /aif/admin - List all AIF schemes for admin (must be before /:id)
+router.get("/aif/admin", requireAdmin, async (req, res) => {
+  try {
+    const schemes = await db
+      .select()
+      .from(aifMaster)
+      .leftJoin(fundManagers, eq(aifMaster.managerId, fundManagers.id))
+      .orderBy(desc(aifMaster.updatedAt));
+
+    res.json({
+      schemes: schemes.map(s => ({
+        ...s.aif_master,
+        manager: s.fund_managers
+      }))
+    });
+  } catch (error: any) {
+    console.error("Error fetching admin AIF list:", error);
+    res.status(500).json({ error: "Failed to fetch AIF schemes for admin" });
+  }
+});
+
+// PATCH /aif/:id/publish - Toggle AIF publish status (must be before general /:id)
+router.patch("/aif/:id/publish", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const schema = z.object({ isPublished: z.boolean() });
+    const validation = schema.safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({ error: "Invalid request", details: validation.error.errors });
+    }
+    
+    await db
+      .update(aifMaster)
+      .set({ isPublished: validation.data.isPublished, updatedAt: new Date() })
+      .where(eq(aifMaster.id, id));
+    
+    res.json({ success: true, message: `AIF ${validation.data.isPublished ? "published" : "unpublished"} successfully` });
+  } catch (error: any) {
+    console.error("Error updating AIF publish status:", error);
+    res.status(500).json({ error: "Failed to update publish status" });
+  }
+});
+
 // GET /store/aif/:id - Get AIF scheme details
 router.get("/aif/:id", async (req, res) => {
   try {
@@ -243,6 +287,50 @@ router.get("/pms", async (req, res) => {
   } catch (error: any) {
     console.error("Error fetching PMS schemes:", error);
     res.status(500).json({ error: "Failed to fetch PMS schemes" });
+  }
+});
+
+// GET /pms/admin - List all PMS schemes for admin (must be before /:id)
+router.get("/pms/admin", requireAdmin, async (req, res) => {
+  try {
+    const schemes = await db
+      .select()
+      .from(pmsMaster)
+      .leftJoin(fundManagers, eq(pmsMaster.managerId, fundManagers.id))
+      .orderBy(desc(pmsMaster.updatedAt));
+
+    res.json({
+      schemes: schemes.map(s => ({
+        ...s.pms_master,
+        manager: s.fund_managers
+      }))
+    });
+  } catch (error: any) {
+    console.error("Error fetching admin PMS list:", error);
+    res.status(500).json({ error: "Failed to fetch PMS schemes for admin" });
+  }
+});
+
+// PATCH /pms/:id/publish - Toggle PMS publish status (must be before general /:id)
+router.patch("/pms/:id/publish", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const schema = z.object({ isPublished: z.boolean() });
+    const validation = schema.safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({ error: "Invalid request", details: validation.error.errors });
+    }
+    
+    await db
+      .update(pmsMaster)
+      .set({ isPublished: validation.data.isPublished, updatedAt: new Date() })
+      .where(eq(pmsMaster.id, id));
+    
+    res.json({ success: true, message: `PMS ${validation.data.isPublished ? "published" : "unpublished"} successfully` });
+  } catch (error: any) {
+    console.error("Error updating PMS publish status:", error);
+    res.status(500).json({ error: "Failed to update publish status" });
   }
 });
 

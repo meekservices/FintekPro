@@ -167,6 +167,7 @@ import UnlistedComplianceAlerts from "@/pages/admin/unlisted-compliance-alerts";
 import FixedIncomeAdmin from "@/pages/admin/FixedIncomeAdmin";
 import BondCommissionSettings from "@/pages/admin/bond-commission-settings";
 import CommissionMaster from "@/pages/admin/commission-master";
+import AdminStoreManager from "@/pages/admin/store-manager";
 import BrowseUnlisted from "@/pages/unlisted/BrowseUnlisted";
 import CompanyDetails from "@/pages/unlisted/CompanyDetails";
 import CreateSellListing from "@/pages/unlisted/CreateSellListing";
@@ -512,6 +513,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <StoreManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store-manager">
+        {() => (
+          <AdminLayout>
+            <AdminStoreManager />
           </AdminLayout>
         )}
       </Route>
