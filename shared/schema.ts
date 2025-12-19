@@ -17043,3 +17043,286 @@ export const insertProposalHoldingSchema = createInsertSchema(proposalHoldings).
 export type ProposalHolding = typeof proposalHoldings.$inferSelect;
 export type InsertProposalHolding = z.infer<typeof insertProposalHoldingSchema>;
 
+// ============ FUND MANAGERS ============
+// Track fund managers and their performance across AIF/PMS
+// Defined before AIF/PMS tables since they reference this
+
+export const fundManagers = pgTable("fund_managers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic Info
+  name: text("name").notNull(),
+  designation: text("designation"),
+  fundHouse: text("fund_house"),
+  
+  // Experience
+  experienceYears: integer("experience_years"),
+  qualifications: text("qualifications"),
+  certifications: text("certifications").array(),
+  
+  // Performance Metrics
+  totalAumManaged: decimal("total_aum_managed", { precision: 20, scale: 2 }),
+  fundsManaged: integer("funds_managed"),
+  avgAlpha: decimal("avg_alpha", { precision: 8, scale: 4 }),
+  consistencyScore: decimal("consistency_score", { precision: 5, scale: 2 }), // 0-100 score
+  
+  // Bio
+  bio: text("bio"),
+  photoUrl: text("photo_url"),
+  linkedinUrl: text("linkedin_url"),
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_fund_managers_name").on(table.name),
+  index("idx_fund_managers_fund_house").on(table.fundHouse),
+]);
+
+export const insertFundManagerSchema = createInsertSchema(fundManagers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FundManager = typeof fundManagers.$inferSelect;
+export type InsertFundManager = z.infer<typeof insertFundManagerSchema>;
+
+// ============ AIF MASTER (Alternative Investment Funds) ============
+// Institutional-grade AIF scheme database with Finalyca-style analytics
+
+export const fundStatusEnum = pgEnum("fund_status", ["active", "soft_close", "hard_close", "existing_only", "suspended"]);
+export const navFrequencyEnum = pgEnum("nav_frequency", ["DAILY", "WEEKLY", "MONTHLY"]);
+
+export const aifMaster = pgTable("aif_master", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic Information
+  name: text("name").notNull(),
+  registrationNo: text("registration_no").unique(),
+  category: text("category"), // Category I, II, III
+  subcategory: text("subcategory"), // VC, PIPE, Credit, Long-Short, etc.
+  
+  // Manager and Sponsor
+  managerId: varchar("manager_id").references(() => fundManagers.id),
+  fundHouseName: text("fund_house_name"),
+  sponsor: text("sponsor"),
+  
+  // Investment Details
+  style: text("style"), // Growth, Value, Blend, Thematic
+  minInvestment: decimal("min_investment", { precision: 15, scale: 2 }).default("10000000"), // ₹1Cr default
+  lockIn: text("lock_in"), // Lock-in period description
+  liquidityFrequency: text("liquidity_frequency"), // Monthly, Quarterly, Annual
+  benchmark: text("benchmark"),
+  
+  // Status and Publishing
+  fundStatus: text("fund_status").default("active"), // active, soft_close, hard_close, existing_only, suspended
+  isPublished: boolean("is_published").default(false),
+  
+  // NAV Information
+  navFrequency: text("nav_frequency").default("MONTHLY"), // DAILY, WEEKLY, MONTHLY
+  latestNav: decimal("latest_nav", { precision: 15, scale: 4 }),
+  lastNavDate: date("last_nav_date"),
+  aum: decimal("aum", { precision: 20, scale: 2 }), // Assets Under Management
+  
+  // Performance Metrics
+  return1M: decimal("return_1m", { precision: 8, scale: 4 }),
+  return3M: decimal("return_3m", { precision: 8, scale: 4 }),
+  return6M: decimal("return_6m", { precision: 8, scale: 4 }),
+  return1Y: decimal("return_1y", { precision: 8, scale: 4 }),
+  return3Y: decimal("return_3y", { precision: 8, scale: 4 }),
+  return5Y: decimal("return_5y", { precision: 8, scale: 4 }),
+  returnSinceInception: decimal("return_since_inception", { precision: 8, scale: 4 }),
+  
+  // Risk Metrics
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  sortinoRatio: decimal("sortino_ratio", { precision: 8, scale: 4 }),
+  riskScore: integer("risk_score"), // 1-10 scale
+  
+  // Identifiers
+  isin: text("isin"),
+  sebiId: text("sebi_id"),
+  
+  // Metadata
+  inceptionDate: date("inception_date"),
+  description: text("description"),
+  investmentObjective: text("investment_objective"),
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_aif_master_registration").on(table.registrationNo),
+  index("idx_aif_master_category").on(table.category),
+  index("idx_aif_master_published").on(table.isPublished),
+  index("idx_aif_master_status").on(table.fundStatus),
+]);
+
+export const insertAifMasterSchema = createInsertSchema(aifMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AifMaster = typeof aifMaster.$inferSelect;
+export type InsertAifMaster = z.infer<typeof insertAifMasterSchema>;
+
+// ============ PMS MASTER (Portfolio Management Services) ============
+// Institutional-grade PMS scheme database with Finalyca-style analytics
+
+export const pmsMaster = pgTable("pms_master", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic Information
+  name: text("name").notNull(),
+  registrationNo: text("registration_no").unique(),
+  strategy: text("strategy"), // Multi-cap, Large-cap, Mid-cap, etc.
+  
+  // Manager and Sponsor
+  managerId: varchar("manager_id").references(() => fundManagers.id),
+  fundHouseName: text("fund_house_name"),
+  sponsor: text("sponsor"),
+  
+  // Investment Details
+  style: text("style"), // Growth, Value, GARP, Momentum
+  minInvestment: decimal("min_investment", { precision: 15, scale: 2 }).default("5000000"), // ₹50L default
+  lockIn: text("lock_in"),
+  benchmark: text("benchmark"),
+  feeStructure: text("fee_structure"), // Fixed, Performance-based, Hybrid
+  managementFee: decimal("management_fee", { precision: 5, scale: 2 }),
+  performanceFee: decimal("performance_fee", { precision: 5, scale: 2 }),
+  
+  // Status and Publishing
+  fundStatus: text("fund_status").default("active"),
+  isPublished: boolean("is_published").default(false),
+  
+  // NAV and AUM
+  latestNav: decimal("latest_nav", { precision: 15, scale: 4 }),
+  lastNavDate: date("last_nav_date"),
+  aum: decimal("aum", { precision: 20, scale: 2 }),
+  
+  // Performance Metrics
+  return1M: decimal("return_1m", { precision: 8, scale: 4 }),
+  return3M: decimal("return_3m", { precision: 8, scale: 4 }),
+  return6M: decimal("return_6m", { precision: 8, scale: 4 }),
+  return1Y: decimal("return_1y", { precision: 8, scale: 4 }),
+  return3Y: decimal("return_3y", { precision: 8, scale: 4 }),
+  return5Y: decimal("return_5y", { precision: 8, scale: 4 }),
+  returnSinceInception: decimal("return_since_inception", { precision: 8, scale: 4 }),
+  
+  // Risk Metrics
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  sortinoRatio: decimal("sortino_ratio", { precision: 8, scale: 4 }),
+  alpha: decimal("alpha", { precision: 8, scale: 4 }),
+  beta: decimal("beta", { precision: 8, scale: 4 }),
+  riskScore: integer("risk_score"),
+  
+  // Identifiers
+  sebiId: text("sebi_id"),
+  
+  // Metadata
+  inceptionDate: date("inception_date"),
+  description: text("description"),
+  investmentObjective: text("investment_objective"),
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_pms_master_registration").on(table.registrationNo),
+  index("idx_pms_master_strategy").on(table.strategy),
+  index("idx_pms_master_published").on(table.isPublished),
+  index("idx_pms_master_status").on(table.fundStatus),
+]);
+
+export const insertPmsMasterSchema = createInsertSchema(pmsMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PmsMaster = typeof pmsMaster.$inferSelect;
+export type InsertPmsMaster = z.infer<typeof insertPmsMasterSchema>;
+
+// ============ FUND PERFORMANCE MONTHWISE ============
+// Monthly performance data for Finalyca-style charts
+
+export const fundPerformanceMonthwise = pgTable("fund_performance_monthwise", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Fund Reference (supports both AIF and PMS)
+  fundType: text("fund_type").notNull(), // 'aif' or 'pms'
+  fundId: varchar("fund_id").notNull(),
+  
+  // Period
+  year: integer("year").notNull(),
+  month: integer("month").notNull(), // 1-12
+  
+  // Performance Data
+  nav: decimal("nav", { precision: 15, scale: 4 }),
+  returnPercent: decimal("return_percent", { precision: 8, scale: 4 }),
+  benchmarkReturn: decimal("benchmark_return", { precision: 8, scale: 4 }),
+  alpha: decimal("alpha", { precision: 8, scale: 4 }),
+  
+  // Additional metrics
+  aum: decimal("aum", { precision: 20, scale: 2 }),
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_fund_perf_monthly_fund").on(table.fundType, table.fundId),
+  index("idx_fund_perf_monthly_period").on(table.year, table.month),
+]);
+
+export const insertFundPerformanceMonthwiseSchema = createInsertSchema(fundPerformanceMonthwise).omit({
+  id: true,
+  createdAt: true,
+});
+export type FundPerformanceMonthwise = typeof fundPerformanceMonthwise.$inferSelect;
+export type InsertFundPerformanceMonthwise = z.infer<typeof insertFundPerformanceMonthwiseSchema>;
+
+// ============ FUND PERFORMANCE ROLLING ============
+// Rolling returns for comparison tables
+
+export const fundPerformanceRolling = pgTable("fund_performance_rolling", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Fund Reference
+  fundType: text("fund_type").notNull(), // 'aif' or 'pms'
+  fundId: varchar("fund_id").notNull(),
+  
+  // As-of date for the rolling calculation
+  asOfDate: date("as_of_date").notNull(),
+  
+  // Rolling Returns
+  return1M: decimal("return_1m", { precision: 8, scale: 4 }),
+  return3M: decimal("return_3m", { precision: 8, scale: 4 }),
+  return6M: decimal("return_6m", { precision: 8, scale: 4 }),
+  return1Y: decimal("return_1y", { precision: 8, scale: 4 }),
+  return2Y: decimal("return_2y", { precision: 8, scale: 4 }),
+  return3Y: decimal("return_3y", { precision: 8, scale: 4 }),
+  return5Y: decimal("return_5y", { precision: 8, scale: 4 }),
+  returnSI: decimal("return_si", { precision: 8, scale: 4 }), // Since Inception
+  
+  // Risk Metrics at snapshot
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_fund_perf_rolling_fund").on(table.fundType, table.fundId),
+  index("idx_fund_perf_rolling_date").on(table.asOfDate),
+]);
+
+export const insertFundPerformanceRollingSchema = createInsertSchema(fundPerformanceRolling).omit({
+  id: true,
+  createdAt: true,
+});
+export type FundPerformanceRolling = typeof fundPerformanceRolling.$inferSelect;
+export type InsertFundPerformanceRolling = z.infer<typeof insertFundPerformanceRollingSchema>;
+
