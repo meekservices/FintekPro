@@ -50,6 +50,7 @@ import AIF from "@/pages/aif";
 import AIFDetail from "@/pages/aif-detail";
 import PMS from "@/pages/pms";
 import PMSDetail from "@/pages/pms-detail";
+import AlternativeInvestments from "@/pages/alternative-investments";
 import BajajFinance from "@/pages/bajaj-finance";
 import TataCapital from "@/pages/tata-capital";
 import PolicyBazaar from "@/pages/policybazaar";
@@ -290,6 +291,7 @@ function UserProtectedRoutes() {
         <Route path="/aif/:id" component={AIFDetail} />
         <Route path="/pms" component={PMS} />
         <Route path="/pms/:id" component={PMSDetail} />
+        <Route path="/alternative-investments" component={AlternativeInvestments} />
         <Route path="/bajaj-finance" component={BajajFinance} />
         <Route path="/tata-capital" component={TataCapital} />
         <Route path="/policybazaar" component={PolicyBazaar} />
