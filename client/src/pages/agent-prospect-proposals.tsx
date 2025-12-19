@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { PortfolioEditor } from "@/components/portfolio/PortfolioEditor";
 import { 
   Plus,
   FileText,
@@ -116,6 +117,8 @@ export default function AgentProspectProposalsPage() {
   // Sample portfolio fields
   const [portfolioValue, setPortfolioValue] = useState("");
   const [holdingsText, setHoldingsText] = useState("");
+  const [portfolioHoldings, setPortfolioHoldings] = useState<any[]>([]);
+  const [useAdvancedEditor, setUseAdvancedEditor] = useState(false);
   
   // Fresh investment fields
   const [goalType, setGoalType] = useState("wealth_creation");
@@ -707,29 +710,63 @@ export default function AgentProspectProposalsPage() {
               </TabsContent>
 
               <TabsContent value="sample_portfolio" className="space-y-4 mt-0">
-                <div className="space-y-2">
-                  <Label>Current Portfolio Value</Label>
-                  <Input 
-                    type="number"
-                    value={portfolioValue} 
-                    onChange={(e) => setPortfolioValue(e.target.value)}
-                    placeholder="₹ 25,00,000"
-                    data-testid="input-portfolio-value"
-                  />
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="advanced-toggle" className="text-sm">
+                      {useAdvancedEditor ? "Advanced ISIN-based Entry" : "Quick Text Entry"}
+                    </Label>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setUseAdvancedEditor(!useAdvancedEditor)}
+                    className="text-xs"
+                    data-testid="btn-toggle-editor"
+                  >
+                    {useAdvancedEditor ? "Switch to Quick Entry" : "Use Advanced Editor"}
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label>Holdings (One per line: Name, Value, 1Y Return%)</Label>
-                  <Textarea 
-                    value={holdingsText} 
-                    onChange={(e) => setHoldingsText(e.target.value)}
-                    placeholder="HDFC Top 100 Fund, 500000, 12.5
+
+                {useAdvancedEditor ? (
+                  /* Advanced ISIN-based Editor */
+                  <div className="border rounded-lg p-4">
+                    <PortfolioEditor
+                      onSave={(holdings, summary) => {
+                        setPortfolioHoldings(holdings);
+                        setPortfolioValue(summary.totalCurrentValue.toString());
+                      }}
+                      initialHoldings={portfolioHoldings}
+                    />
+                  </div>
+                ) : (
+                  /* Quick Text Entry Mode */
+                  <>
+                    <div className="space-y-2">
+                      <Label>Current Portfolio Value</Label>
+                      <Input 
+                        type="number"
+                        value={portfolioValue} 
+                        onChange={(e) => setPortfolioValue(e.target.value)}
+                        placeholder="₹ 25,00,000"
+                        data-testid="input-portfolio-value"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Holdings (One per line: Name, Value, 1Y Return%)</Label>
+                      <Textarea 
+                        value={holdingsText} 
+                        onChange={(e) => setHoldingsText(e.target.value)}
+                        placeholder="HDFC Top 100 Fund, 500000, 12.5
 SBI Bluechip Fund, 300000, 10.2
 Axis Midcap Fund, 200000, 18.5"
-                    rows={5}
-                    data-testid="input-holdings"
-                  />
-                  <p className="text-xs text-gray-500">Format: Fund Name, Current Value, 1Y Return %</p>
-                </div>
+                        rows={5}
+                        data-testid="input-holdings"
+                      />
+                      <p className="text-xs text-gray-500">Format: Fund Name, Current Value, 1Y Return %</p>
+                    </div>
+                  </>
+                )}
               </TabsContent>
 
               <Separator />
