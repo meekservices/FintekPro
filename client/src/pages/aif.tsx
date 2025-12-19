@@ -47,6 +47,7 @@ export default function AIF() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedStyle, setSelectedStyle] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("active");
+  const [selectedAMC, setSelectedAMC] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
 
