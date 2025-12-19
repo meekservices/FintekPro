@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +16,8 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { PortfolioEditor } from "@/components/portfolio/PortfolioEditor";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   Plus,
   FileText,
@@ -39,8 +41,55 @@ import {
   Sparkles,
   PieChart,
   Building2,
-  User
+  User,
+  Search,
+  Loader2,
+  X,
+  Check,
+  AlertCircle
 } from "lucide-react";
+
+// Product types for portfolio entry
+const PRODUCT_TYPES = [
+  { value: "mutual_fund", label: "Mutual Fund", color: "bg-blue-500" },
+  { value: "pms", label: "PMS", color: "bg-purple-500" },
+  { value: "aif", label: "AIF", color: "bg-indigo-500" },
+  { value: "equity", label: "Stocks", color: "bg-green-500" },
+  { value: "bond", label: "Bonds/NCDs", color: "bg-amber-500" },
+  { value: "etf", label: "ETF", color: "bg-cyan-500" },
+  { value: "fd", label: "Fixed Deposit", color: "bg-orange-500" },
+  { value: "insurance", label: "Insurance/ULIP", color: "bg-pink-500" },
+  { value: "gold", label: "Gold", color: "bg-yellow-500" },
+  { value: "real_estate", label: "Real Estate", color: "bg-stone-500" },
+  { value: "other", label: "Other", color: "bg-gray-500" },
+];
+
+interface PortfolioHolding {
+  id: string;
+  productType: string;
+  productId?: string;
+  productName: string;
+  quantity: number;
+  currentPrice: number | null;
+  currentValue: number;
+  returns1y: number | null;
+  category?: string;
+  issuer?: string;
+  isManual: boolean;
+}
+
+interface SearchProduct {
+  id: string;
+  name: string;
+  productType: string;
+  category: string | null;
+  issuer: string | null;
+  currentPrice: number | null;
+  returns1y: number | null;
+  returns3y: number | null;
+  riskLevel: string | null;
+  identifier: string | null;
+}
 
 interface ProspectProposal {
   id: string;
@@ -119,6 +168,15 @@ export default function AgentProspectProposalsPage() {
   const [holdingsText, setHoldingsText] = useState("");
   const [portfolioHoldings, setPortfolioHoldings] = useState<any[]>([]);
   const [useAdvancedEditor, setUseAdvancedEditor] = useState(false);
+  
+  // Quick Entry with product search
+  const [quickHoldings, setQuickHoldings] = useState<PortfolioHolding[]>([]);
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [productSearchResults, setProductSearchResults] = useState<SearchProduct[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [activeHoldingId, setActiveHoldingId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Fresh investment fields
   const [goalType, setGoalType] = useState("wealth_creation");
@@ -234,6 +292,7 @@ export default function AgentProspectProposalsPage() {
     setProposalTitle("");
     setPortfolioValue("");
     setHoldingsText("");
+    setQuickHoldings([]);
     setGoalType("wealth_creation");
     setTargetAmount("");
     setTimeHorizon("medium_term");
@@ -243,30 +302,166 @@ export default function AgentProspectProposalsPage() {
     setGeneratedProposal(null);
   };
 
+  // Product search function
+  const searchProducts = useCallback(async (query: string, productType: string) => {
+    if (!query || query.length < 2) {
+      setProductSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const res = await fetch(`/api/store/products/search?query=${encodeURIComponent(query)}&productType=${productType}&limit=15`);
+      const data = await res.json();
+      setProductSearchResults(data.products || []);
+    } catch (error) {
+      console.error("Product search error:", error);
+      setProductSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Debounced product search
+  const handleProductSearch = useCallback((query: string, productType: string) => {
+    setProductSearchQuery(query);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      searchProducts(query, productType);
+    }, 300);
+  }, [searchProducts]);
+
+  // Add new holding
+  const addHolding = () => {
+    const newHolding: PortfolioHolding = {
+      id: `holding-${Date.now()}`,
+      productType: "mutual_fund",
+      productName: "",
+      quantity: 0,
+      currentPrice: null,
+      currentValue: 0,
+      returns1y: null,
+      isManual: false,
+    };
+    setQuickHoldings([...quickHoldings, newHolding]);
+    setActiveHoldingId(newHolding.id);
+  };
+
+  // Update holding
+  const updateHolding = (id: string, updates: Partial<PortfolioHolding>) => {
+    setQuickHoldings(holdings => 
+      holdings.map(h => {
+        if (h.id === id) {
+          const updated = { ...h, ...updates };
+          // Recalculate current value if quantity or price changed
+          if (updates.quantity !== undefined || updates.currentPrice !== undefined) {
+            const price = updates.currentPrice ?? h.currentPrice ?? 0;
+            const qty = updates.quantity ?? h.quantity ?? 0;
+            updated.currentValue = price * qty;
+          }
+          return updated;
+        }
+        return h;
+      })
+    );
+  };
+
+  // Select product from search results
+  const selectProduct = (holdingId: string, product: SearchProduct) => {
+    updateHolding(holdingId, {
+      productId: product.id,
+      productName: product.name,
+      currentPrice: product.currentPrice,
+      returns1y: product.returns1y,
+      category: product.category || undefined,
+      issuer: product.issuer || undefined,
+      isManual: false,
+    });
+    setSearchOpen(false);
+    setProductSearchQuery("");
+    setProductSearchResults([]);
+  };
+
+  // Remove holding
+  const removeHolding = (id: string) => {
+    setQuickHoldings(holdings => holdings.filter(h => h.id !== id));
+  };
+
+  // Calculate portfolio summary
+  const portfolioSummary = {
+    totalValue: quickHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0),
+    totalHoldings: quickHoldings.length,
+    weightedReturn: quickHoldings.length > 0 
+      ? quickHoldings.reduce((sum, h) => {
+          if (h.returns1y && h.currentValue) {
+            return sum + (h.returns1y * h.currentValue);
+          }
+          return sum;
+        }, 0) / Math.max(quickHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0), 1)
+      : 0,
+    assetAllocation: quickHoldings.reduce((acc, h) => {
+      const type = PRODUCT_TYPES.find(p => p.value === h.productType)?.label || h.productType;
+      acc[type] = (acc[type] || 0) + (h.currentValue || 0);
+      return acc;
+    }, {} as Record<string, number>),
+  };
+
   const handleGenerate = () => {
     setIsGenerating(true);
     
     let data: any = { proposalType };
     
     if (proposalType === "sample_portfolio") {
-      const holdings = holdingsText.split("\n").filter(h => h.trim()).map((line, idx) => {
-        const parts = line.split(",").map(p => p.trim());
-        return {
-          name: parts[0] || `Holding ${idx + 1}`,
-          type: "mutual_fund",
-          currentValue: parseFloat(parts[1]) || 100000,
-          allocation: 0,
-          returns1Y: parseFloat(parts[2]) || 10,
-        };
-      });
+      let holdings: any[] = [];
+      let totalValue = 0;
       
-      const totalValue = parseFloat(portfolioValue) || holdings.reduce((sum, h) => sum + h.currentValue, 0);
-      holdings.forEach(h => { h.allocation = (h.currentValue / totalValue) * 100; });
+      if (useAdvancedEditor) {
+        // Advanced editor mode - use portfolioHoldings
+        holdings = portfolioHoldings.map(h => ({
+          name: h.securityName || h.productName,
+          type: h.assetClass || "mutual_fund",
+          currentValue: h.currentValue || 0,
+          allocation: 0,
+          returns1Y: h.unrealizedGainLossPercent || 10,
+        }));
+        totalValue = parseFloat(portfolioValue) || holdings.reduce((sum, h) => sum + h.currentValue, 0);
+      } else if (quickHoldings.length > 0) {
+        // Quick entry mode with product search
+        holdings = quickHoldings.filter(h => h.productName).map(h => ({
+          name: h.productName,
+          type: h.productType,
+          currentValue: h.currentValue || 0,
+          allocation: 0,
+          returns1Y: h.returns1y || 10,
+          quantity: h.quantity,
+          currentPrice: h.currentPrice,
+          category: h.category,
+          issuer: h.issuer,
+        }));
+        totalValue = portfolioSummary.totalValue;
+      } else {
+        // Legacy text mode fallback
+        holdings = holdingsText.split("\n").filter(h => h.trim()).map((line, idx) => {
+          const parts = line.split(",").map(p => p.trim());
+          return {
+            name: parts[0] || `Holding ${idx + 1}`,
+            type: "mutual_fund",
+            currentValue: parseFloat(parts[1]) || 100000,
+            allocation: 0,
+            returns1Y: parseFloat(parts[2]) || 10,
+          };
+        });
+        totalValue = parseFloat(portfolioValue) || holdings.reduce((sum, h) => sum + h.currentValue, 0);
+      }
+      
+      holdings.forEach(h => { h.allocation = totalValue > 0 ? (h.currentValue / totalValue) * 100 : 0; });
       
       data.samplePortfolio = {
         totalValue,
         holdings,
-        assetAllocation: {}
+        assetAllocation: portfolioSummary.assetAllocation
       };
     } else {
       data.investmentGoals = {
@@ -714,7 +909,7 @@ export default function AgentProspectProposalsPage() {
                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="advanced-toggle" className="text-sm">
-                      {useAdvancedEditor ? "Advanced ISIN-based Entry" : "Quick Text Entry"}
+                      {useAdvancedEditor ? "Advanced ISIN-based Entry" : "Quick Product Entry"}
                     </Label>
                   </div>
                   <Button
@@ -740,32 +935,244 @@ export default function AgentProspectProposalsPage() {
                     />
                   </div>
                 ) : (
-                  /* Quick Text Entry Mode */
-                  <>
-                    <div className="space-y-2">
-                      <Label>Current Portfolio Value</Label>
-                      <Input 
-                        type="number"
-                        value={portfolioValue} 
-                        onChange={(e) => setPortfolioValue(e.target.value)}
-                        placeholder="₹ 25,00,000"
-                        data-testid="input-portfolio-value"
-                      />
+                  /* Quick Product Entry Mode with Search */
+                  <div className="space-y-4">
+                    {/* Holdings List */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Client Holdings</Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={addHolding}
+                          className="text-xs"
+                          data-testid="btn-add-holding"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Add Holding
+                        </Button>
+                      </div>
+
+                      {quickHoldings.length === 0 ? (
+                        <div className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500">
+                          <Wallet className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                          <p className="text-sm">No holdings added yet</p>
+                          <p className="text-xs mt-1">Click "Add Holding" to add client's investments</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-80 overflow-y-auto">
+                          {quickHoldings.map((holding, idx) => (
+                            <div 
+                              key={holding.id} 
+                              className="border rounded-lg p-3 bg-white dark:bg-gray-800 space-y-2"
+                            >
+                              <div className="flex items-start gap-2">
+                                {/* Product Type */}
+                                <div className="w-28">
+                                  <Select 
+                                    value={holding.productType} 
+                                    onValueChange={(v) => {
+                                      updateHolding(holding.id, { productType: v, productName: "", productId: undefined, currentPrice: null, returns1y: null });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-9 text-xs" data-testid={`select-product-type-${idx}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {PRODUCT_TYPES.map(pt => (
+                                        <SelectItem key={pt.value} value={pt.value} className="text-xs">
+                                          {pt.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {/* Product Name with Search */}
+                                <div className="flex-1">
+                                  <Popover 
+                                    open={searchOpen && activeHoldingId === holding.id} 
+                                    onOpenChange={(open) => {
+                                      setSearchOpen(open);
+                                      if (open) setActiveHoldingId(holding.id);
+                                    }}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <div className="relative">
+                                        <Input
+                                          placeholder={
+                                            ["fd", "insurance", "gold", "real_estate", "other"].includes(holding.productType)
+                                              ? "Enter product name manually"
+                                              : "Search product name..."
+                                          }
+                                          value={activeHoldingId === holding.id && searchOpen ? productSearchQuery : holding.productName}
+                                          onChange={(e) => {
+                                            if (!["fd", "insurance", "gold", "real_estate", "other"].includes(holding.productType)) {
+                                              setActiveHoldingId(holding.id);
+                                              setSearchOpen(true);
+                                              handleProductSearch(e.target.value, holding.productType);
+                                            } else {
+                                              updateHolding(holding.id, { productName: e.target.value, isManual: true });
+                                            }
+                                          }}
+                                          onFocus={() => {
+                                            if (!["fd", "insurance", "gold", "real_estate", "other"].includes(holding.productType)) {
+                                              setActiveHoldingId(holding.id);
+                                              setSearchOpen(true);
+                                            }
+                                          }}
+                                          className="h-9 text-xs pr-8"
+                                          data-testid={`input-product-name-${idx}`}
+                                        />
+                                        {isSearching && activeHoldingId === holding.id && (
+                                          <Loader2 className="w-4 h-4 absolute right-2 top-2.5 animate-spin text-gray-400" />
+                                        )}
+                                        {holding.productName && !isSearching && (
+                                          <Check className="w-4 h-4 absolute right-2 top-2.5 text-green-500" />
+                                        )}
+                                      </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80 p-0" align="start">
+                                      {productSearchResults.length > 0 ? (
+                                        <div className="max-h-60 overflow-y-auto">
+                                          {productSearchResults.map((product) => (
+                                            <div
+                                              key={product.id}
+                                              className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer border-b last:border-b-0"
+                                              onClick={() => selectProduct(holding.id, product)}
+                                            >
+                                              <p className="text-sm font-medium truncate">{product.name}</p>
+                                              <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-xs text-gray-500">{product.issuer}</span>
+                                                {product.currentPrice && (
+                                                  <span className="text-xs text-blue-600">NAV: ₹{product.currentPrice.toFixed(2)}</span>
+                                                )}
+                                                {product.returns1y !== null && (
+                                                  <span className={`text-xs ${product.returns1y >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    1Y: {product.returns1y.toFixed(1)}%
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : productSearchQuery.length >= 2 ? (
+                                        <div className="p-4 text-center text-gray-500 text-sm">
+                                          {isSearching ? "Searching..." : "No products found"}
+                                        </div>
+                                      ) : (
+                                        <div className="p-4 text-center text-gray-500 text-sm">
+                                          Type at least 2 characters to search
+                                        </div>
+                                      )}
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+
+                                {/* Quantity Input */}
+                                <div className="w-24">
+                                  <Input
+                                    type="number"
+                                    placeholder="Qty"
+                                    value={holding.quantity || ""}
+                                    onChange={(e) => updateHolding(holding.id, { quantity: parseFloat(e.target.value) || 0 })}
+                                    className="h-9 text-xs"
+                                    data-testid={`input-quantity-${idx}`}
+                                  />
+                                </div>
+
+                                {/* Manual Price (for manual entries or override) */}
+                                {["fd", "insurance", "gold", "real_estate", "other"].includes(holding.productType) && (
+                                  <div className="w-28">
+                                    <Input
+                                      type="number"
+                                      placeholder="Price/NAV"
+                                      value={holding.currentPrice || ""}
+                                      onChange={(e) => updateHolding(holding.id, { currentPrice: parseFloat(e.target.value) || null })}
+                                      className="h-9 text-xs"
+                                      data-testid={`input-price-${idx}`}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Remove Button */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeHolding(holding.id)}
+                                  className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  data-testid={`btn-remove-holding-${idx}`}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+
+                              {/* Holding Summary Row */}
+                              {holding.productName && (
+                                <div className="flex items-center justify-between text-xs px-1 pt-1 border-t">
+                                  <div className="flex items-center gap-3">
+                                    {holding.currentPrice && (
+                                      <span className="text-gray-600">
+                                        NAV: <span className="font-medium">₹{holding.currentPrice.toFixed(2)}</span>
+                                      </span>
+                                    )}
+                                    {holding.returns1y !== null && (
+                                      <span className={holding.returns1y >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                        1Y Return: {holding.returns1y.toFixed(1)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="font-medium text-blue-700">
+                                    Value: ₹{holding.currentValue.toLocaleString('en-IN')}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <Label>Holdings (One per line: Name, Value, 1Y Return%)</Label>
-                      <Textarea 
-                        value={holdingsText} 
-                        onChange={(e) => setHoldingsText(e.target.value)}
-                        placeholder="HDFC Top 100 Fund, 500000, 12.5
-SBI Bluechip Fund, 300000, 10.2
-Axis Midcap Fund, 200000, 18.5"
-                        rows={5}
-                        data-testid="input-holdings"
-                      />
-                      <p className="text-xs text-gray-500">Format: Fund Name, Current Value, 1Y Return %</p>
-                    </div>
-                  </>
+
+                    {/* Portfolio Summary */}
+                    {quickHoldings.length > 0 && (
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-lg p-4 space-y-3">
+                        <h4 className="font-medium text-sm flex items-center gap-2">
+                          <PieChart className="w-4 h-4 text-indigo-600" />
+                          Portfolio Summary
+                        </h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-xs text-gray-500">Total Value</p>
+                            <p className="text-lg font-bold text-blue-700">
+                              ₹{portfolioSummary.totalValue.toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Holdings</p>
+                            <p className="text-lg font-bold text-gray-700">{portfolioSummary.totalHoldings}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Wtd. Avg. 1Y Return</p>
+                            <p className={`text-lg font-bold ${portfolioSummary.weightedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {portfolioSummary.weightedReturn.toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                        {Object.keys(portfolioSummary.assetAllocation).length > 0 && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-2">Asset Allocation</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(portfolioSummary.assetAllocation).map(([type, value]) => (
+                                <Badge key={type} variant="secondary" className="text-xs">
+                                  {type}: ₹{value.toLocaleString('en-IN')} ({((value / portfolioSummary.totalValue) * 100).toFixed(0)}%)
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </TabsContent>
 
