@@ -12,7 +12,8 @@ import {
   FileText,
   Settings,
   AlertCircle,
-  Brain
+  Brain,
+  UserPlus
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,12 @@ const agentNavItems = [
     href: "/clients",
     icon: Users,
     description: "Manage your client portfolio"
+  },
+  {
+    title: "Demo Proposals",
+    href: "/prospect-proposals",
+    icon: UserPlus,
+    description: "Create proposals to acquire new clients"
   },
   {
     title: "AI Advisory",

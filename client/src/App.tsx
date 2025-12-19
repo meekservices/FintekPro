@@ -88,11 +88,13 @@ import AgentPortal from "@/pages/agent-portal";
 import DistributionPartnerPortal from "@/pages/distribution-partner-portal";
 import FieldAgentPortal from "@/pages/field-agent-portal";
 import AgentClientsPage from "@/pages/agent-clients";
+import AgentProspectProposalsPage from "@/pages/agent-prospect-proposals";
 import AgentInvestmentAdvisory from "@/pages/agent-investment-advisory";
 import AgentProposalsPage from "@/pages/agent-proposals";
 import AgentTreasuryPage from "@/pages/agent-treasury";
 import AgentTaxCasesPage from "@/pages/agent-tax-cases";
 import OnboardingPage from "@/pages/onboarding";
+import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
 import NetWorthPage from "@/pages/net-worth";
 import AdminProposalsPage from "@/pages/admin-proposals";
@@ -763,6 +765,13 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/prospect-proposals">
+        {() => (
+          <AgentLayout>
+            <AgentProspectProposalsPage />
+          </AgentLayout>
+        )}
+      </Route>
       <Route path="/clients">
         {() => (
           <AgentLayout>
@@ -841,6 +850,7 @@ function Router() {
         {/* Public routes - no authentication or profile completion required */}
         <Route path="/auth" component={AuthPage} />
         <Route path="/profile" component={Profile} />
+        <Route path="/proposal/:shareToken" component={PublicProposalPage} />
         <Route path="/onboarding" component={OnboardingPage} />
         <Route path="/manual-kyc" component={ManualKYCPage} />
         <Route path="/kyc-dashboard">
