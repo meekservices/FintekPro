@@ -11,10 +11,89 @@ import {
   type InsertCommissionPlan,
   type InsertCommissionRoleMap,
   type InsertCommissionHierarchySplit,
-  type InsertCommissionAuditLog
+  type InsertCommissionAuditLog,
+  users
 } from "@shared/schema";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { emailService } from "./email-service";
+
+interface CommissionNotification {
+  eventType: 'plan_activated' | 'plan_frozen' | 'plan_created' | 'plan_updated' | 'percentages_changed';
+  productType: string;
+  planVersion: number;
+  changedBy: string;
+  affectedRoles: string[];
+  changes?: { roleId: string; oldPercentage?: number; newPercentage?: number }[];
+  reason?: string;
+}
+
+async function sendCommissionNotification(notification: CommissionNotification): Promise<void> {
+  try {
+    const adminRoles = ['superadmin', 'admin', 'finance_head', 'compliance_officer'];
+    const admins = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      role: users.role,
+    }).from(users).where(inArray(users.role, adminRoles));
+
+    const eventLabels: Record<string, string> = {
+      plan_activated: 'Commission Plan Activated',
+      plan_frozen: 'Commission Plan Frozen',
+      plan_created: 'New Commission Plan Created',
+      plan_updated: 'Commission Plan Updated',
+      percentages_changed: 'Commission Percentages Modified',
+    };
+
+    const subject = `[FintekPro] ${eventLabels[notification.eventType] || 'Commission Plan Change'} - ${notification.productType}`;
+
+    let changesHtml = '';
+    if (notification.changes && notification.changes.length > 0) {
+      changesHtml = `
+        <h3>Percentage Changes:</h3>
+        <table border="1" cellpadding="8" cellspacing="0">
+          <tr><th>Role</th><th>Old %</th><th>New %</th></tr>
+          ${notification.changes.map(c => `
+            <tr>
+              <td>${c.roleId}</td>
+              <td>${c.oldPercentage ?? 'N/A'}%</td>
+              <td>${c.newPercentage ?? 'N/A'}%</td>
+            </tr>
+          `).join('')}
+        </table>
+      `;
+    }
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">${eventLabels[notification.eventType]}</h2>
+        <p><strong>Product Type:</strong> ${notification.productType}</p>
+        <p><strong>Plan Version:</strong> v${notification.planVersion}</p>
+        <p><strong>Changed By:</strong> ${notification.changedBy}</p>
+        <p><strong>Affected Roles:</strong> ${notification.affectedRoles.join(', ') || 'All roles'}</p>
+        ${notification.reason ? `<p><strong>Reason:</strong> ${notification.reason}</p>` : ''}
+        ${changesHtml}
+        <hr>
+        <p style="color: #666; font-size: 12px;">This is an automated notification from FintekPro Commission Management System.</p>
+      </div>
+    `;
+
+    for (const admin of admins) {
+      if (admin.email) {
+        await emailService.sendEmail({
+          to: admin.email,
+          subject,
+          html: htmlContent,
+        });
+      }
+    }
+
+    console.log(`[Commission Notification] Sent ${notification.eventType} notification to ${admins.length} admins for ${notification.productType}`);
+  } catch (error) {
+    console.error('[Commission Notification] Failed to send notification:', error);
+  }
+}
 
 const router = Router();
 
@@ -320,6 +399,9 @@ router.put("/commission-plan/:id", requireCommissionPermission('canEdit'), async
       return res.status(400).json({ error: "Total payout percentage cannot exceed 100%" });
     }
     
+    const oldRoleMaps = await db.select().from(commissionRoleMaps)
+      .where(eq(commissionRoleMaps.commissionPlanId, planId));
+    
     await db.update(commissionPlans)
       .set({
         effectiveFrom: data.effective_from,
@@ -367,6 +449,40 @@ router.put("/commission-plan/:id", requireCommissionPermission('canEdit'), async
       req.ip,
       data.reason
     );
+    
+    const percentageChanges: { roleId: string; oldPercentage?: number; newPercentage?: number }[] = [];
+    for (const newRole of data.roles) {
+      const oldRole = oldRoleMaps.find(r => r.roleId === newRole.role_id);
+      const oldPct = oldRole ? parseFloat(oldRole.payoutPercentage.toString()) : undefined;
+      if (oldPct !== newRole.percentage) {
+        percentageChanges.push({
+          roleId: newRole.role_id,
+          oldPercentage: oldPct,
+          newPercentage: newRole.percentage,
+        });
+      }
+    }
+    for (const oldRole of oldRoleMaps) {
+      if (!data.roles.find(r => r.role_id === oldRole.roleId)) {
+        percentageChanges.push({
+          roleId: oldRole.roleId,
+          oldPercentage: parseFloat(oldRole.payoutPercentage.toString()),
+          newPercentage: undefined,
+        });
+      }
+    }
+    
+    if (percentageChanges.length > 0) {
+      sendCommissionNotification({
+        eventType: 'percentages_changed',
+        productType: existingPlan.productType,
+        planVersion: existingPlan.version,
+        changedBy: `User #${userId}`,
+        affectedRoles: data.roles.map(r => r.role_id),
+        changes: percentageChanges,
+        reason: data.reason,
+      }).catch(err => console.error('Notification failed:', err));
+    }
     
     res.json({ message: "Plan updated successfully" });
   } catch (error) {
@@ -435,6 +551,15 @@ router.post("/commission-plan/:id/activate", requireCommissionPermission('canAct
       `Plan activated for ${plan.productType}`
     );
     
+    sendCommissionNotification({
+      eventType: 'plan_activated',
+      productType: plan.productType,
+      planVersion: plan.version,
+      changedBy: `User #${userId}`,
+      affectedRoles: roleMaps.map(rm => rm.roleId),
+      reason: `Plan activated for ${plan.productType}`,
+    }).catch(err => console.error('Notification failed:', err));
+    
     res.json({ message: "Plan activated successfully" });
   } catch (error) {
     console.error("Error activating commission plan:", error);
@@ -478,6 +603,18 @@ router.post("/commission-plan/:id/freeze", requireCommissionPermission('canFreez
       req.ip,
       req.body.reason || 'Plan frozen by admin'
     );
+    
+    const roleMaps = await db.select().from(commissionRoleMaps)
+      .where(eq(commissionRoleMaps.commissionPlanId, planId));
+    
+    sendCommissionNotification({
+      eventType: 'plan_frozen',
+      productType: plan.productType,
+      planVersion: plan.version,
+      changedBy: `User #${userId}`,
+      affectedRoles: roleMaps.map(rm => rm.roleId),
+      reason: req.body.reason || 'Plan frozen by admin',
+    }).catch(err => console.error('Notification failed:', err));
     
     res.json({ message: "Plan frozen successfully" });
   } catch (error) {
