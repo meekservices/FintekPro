@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { aifMaster, pmsMaster, fundManagers, fundPerformanceMonthwise, fundPerformanceRolling, insertAifMasterSchema, insertPmsMasterSchema, mutualFunds, instrumentMaster, clientPortfolioAif, clientPortfolioPms, insertClientPortfolioAifSchema, insertClientPortfolioPmsSchema, users } from "@shared/schema";
+import { aifMaster, pmsMaster, fundManagers, fundPerformanceMonthwise, fundPerformanceRolling, insertAifMasterSchema, insertPmsMasterSchema, mutualFunds, instrumentMaster, clientPortfolioAif, clientPortfolioPms, clientPortfolioMld, mldMaster, insertClientPortfolioAifSchema, insertClientPortfolioPmsSchema, users } from "@shared/schema";
 import { eq, and, desc, asc, ilike, sql, gte, lte, or, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../middleware/roleMiddleware";
@@ -1367,6 +1367,25 @@ router.get("/portfolio/admin/all", requireAdmin, async (req, res) => {
         .orderBy(desc(clientPortfolioPms.createdAt));
     }
     
+    // Fetch MLD holdings
+    let mldHoldings: any[] = [];
+    if (!type || type === "mld") {
+      const mldConditions = [];
+      if (status) mldConditions.push(eq(clientPortfolioMld.entryStatus, status as string));
+      
+      mldHoldings = await db
+        .select({
+          holding: clientPortfolioMld,
+          client: users,
+          mld: mldMaster,
+        })
+        .from(clientPortfolioMld)
+        .leftJoin(users, eq(clientPortfolioMld.clientId, users.id))
+        .leftJoin(mldMaster, eq(clientPortfolioMld.isin, mldMaster.isin))
+        .where(mldConditions.length > 0 ? and(...mldConditions) : undefined)
+        .orderBy(desc(clientPortfolioMld.createdAt));
+    }
+    
     res.json({
       aif: aifHoldings.map(h => ({
         ...h.holding,
@@ -1386,11 +1405,28 @@ router.get("/portfolio/admin/all", requireAdmin, async (req, res) => {
           email: h.client.email,
         } : null,
       })),
+      mld: mldHoldings.map(h => ({
+        ...h.holding,
+        type: "mld",
+        mldName: h.mld?.name || h.holding.mldName || "Unknown MLD",
+        issuer: h.mld?.issuer || null,
+        payoffType: h.mld?.payoffType || "digital",
+        totalInvested: h.holding.quantity && h.holding.purchasePrice 
+          ? String(Number(h.holding.quantity) * Number(h.holding.purchasePrice))
+          : null,
+        client: h.client ? {
+          id: h.client.id,
+          name: `${h.client.firstName || ""} ${h.client.lastName || ""}`.trim(),
+          email: h.client.email,
+        } : null,
+      })),
       summary: {
         totalAifHoldings: aifHoldings.length,
         totalPmsHoldings: pmsHoldings.length,
+        totalMldHoldings: mldHoldings.length,
         pendingApproval: aifHoldings.filter(h => h.holding.entryStatus === "pending").length +
-                        pmsHoldings.filter(h => h.holding.entryStatus === "pending").length,
+                        pmsHoldings.filter(h => h.holding.entryStatus === "pending").length +
+                        mldHoldings.filter(h => h.holding.entryStatus === "pending").length,
       },
     });
   } catch (error: any) {
@@ -1438,8 +1474,21 @@ router.put("/portfolio/admin/approve/:type/:id", requireAdmin, async (req, res) 
         .returning();
       
       res.json(updated);
+    } else if (type === "mld") {
+      const [updated] = await db.update(clientPortfolioMld)
+        .set({
+          entryStatus,
+          approvedByUserId: action === "approve" ? adminId : null,
+          approvedAt: action === "approve" ? new Date() : null,
+          rejectionReason: action === "reject" ? rejectionReason : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(clientPortfolioMld.id, id))
+        .returning();
+      
+      res.json(updated);
     } else {
-      res.status(400).json({ error: "Invalid type. Must be aif or pms" });
+      res.status(400).json({ error: "Invalid type. Must be aif, pms, or mld" });
     }
   } catch (error: any) {
     console.error("Error approving/rejecting holding:", error);

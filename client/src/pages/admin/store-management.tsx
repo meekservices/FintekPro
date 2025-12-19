@@ -120,24 +120,47 @@ interface PortfolioPMS {
   client?: { id: number; name: string; email: string };
 }
 
+interface PortfolioMLD {
+  id: string;
+  clientId: string;
+  isin: string | null;
+  mldName: string;
+  issuer: string | null;
+  payoffType: string | null;
+  quantity: number;
+  purchasePrice: string;
+  faceValue: string | null;
+  totalInvested: string | null;
+  currentValue: string | null;
+  maturityDate: string | null;
+  purchaseDate: string | null;
+  entryStatus: string;
+  notes: string | null;
+  createdAt: string;
+  type: "mld";
+  client?: { id: string; name: string; email: string };
+}
+
 function PortfolioApprovalsTab() {
   const { toast } = useToast();
-  const [approvalType, setApprovalType] = useState<"aif" | "pms">("aif");
+  const [approvalType, setApprovalType] = useState<"aif" | "pms" | "mld">("aif");
   const [statusFilter, setStatusFilter] = useState<"pending" | "approved" | "rejected" | "all">("pending");
 
   const { data: portfolioData, isLoading } = useQuery<{ 
     aif: PortfolioAIF[]; 
     pms: PortfolioPMS[];
-    summary: { totalAifHoldings: number; totalPmsHoldings: number; pendingApproval: number };
+    mld: PortfolioMLD[];
+    summary: { totalAifHoldings: number; totalPmsHoldings: number; totalMldHoldings: number; pendingApproval: number };
   }>({
     queryKey: ['/api/store/portfolio/admin/all'],
   });
 
   const aifHoldings = portfolioData?.aif || [];
   const pmsHoldings = portfolioData?.pms || [];
+  const mldHoldings = portfolioData?.mld || [];
 
   const approveMutation = useMutation({
-    mutationFn: ({ type, id, action }: { type: 'aif' | 'pms'; id: number; action: 'approve' | 'reject' }) =>
+    mutationFn: ({ type, id, action }: { type: 'aif' | 'pms' | 'mld'; id: number | string; action: 'approve' | 'reject' }) =>
       apiRequest(`/api/store/portfolio/admin/approve/${type}/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ action })
@@ -166,8 +189,13 @@ function PortfolioApprovalsTab() {
     ? pmsHoldings 
     : pmsHoldings.filter(h => h.entryStatus === statusFilter);
 
+  const filteredMLD = statusFilter === 'all' 
+    ? mldHoldings 
+    : mldHoldings.filter(h => h.entryStatus === statusFilter);
+
   const pendingAIFCount = aifHoldings.filter(h => h.entryStatus === 'pending').length;
   const pendingPMSCount = pmsHoldings.filter(h => h.entryStatus === 'pending').length;
+  const pendingMLDCount = mldHoldings.filter(h => h.entryStatus === 'pending').length;
 
   const formatCurrency = (value: string | null) => {
     if (!value) return '-';
@@ -194,10 +222,15 @@ function PortfolioApprovalsTab() {
                 {pendingPMSCount} PMS Pending
               </Badge>
             )}
+            {pendingMLDCount > 0 && (
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                {pendingMLDCount} MLD Pending
+              </Badge>
+            )}
           </div>
         </CardTitle>
         <CardDescription className="text-gray-400">
-          Review and approve client-submitted AIF and PMS holdings for portfolio analysis
+          Review and approve client-submitted AIF, PMS, and MLD holdings for portfolio analysis
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -220,6 +253,15 @@ function PortfolioApprovalsTab() {
               data-testid="button-filter-pms"
             >
               PMS Holdings
+            </Button>
+            <Button
+              variant={approvalType === "mld" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setApprovalType("mld")}
+              className={approvalType === "mld" ? "bg-teal-600 hover:bg-teal-700" : "border-gray-700"}
+              data-testid="button-filter-mld"
+            >
+              MLD Holdings
             </Button>
           </div>
           <div className="flex items-center gap-2">
@@ -343,7 +385,7 @@ function PortfolioApprovalsTab() {
               </Table>
             </ScrollArea>
           )
-        ) : (
+        ) : approvalType === "pms" ? (
           isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
@@ -428,7 +470,92 @@ function PortfolioApprovalsTab() {
               </Table>
             </ScrollArea>
           )
-        )}
+        ) : approvalType === "mld" ? (
+          isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-teal-400" />
+              <span className="ml-2 text-gray-400">Loading MLD holdings...</span>
+            </div>
+          ) : filteredMLD.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No {statusFilter === 'all' ? '' : statusFilter} MLD entries found</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[500px]">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-800">
+                    <TableHead className="text-gray-400">Client</TableHead>
+                    <TableHead className="text-gray-400">MLD Name</TableHead>
+                    <TableHead className="text-gray-400">Issuer</TableHead>
+                    <TableHead className="text-gray-400">Payoff Type</TableHead>
+                    <TableHead className="text-gray-400 text-right">Quantity</TableHead>
+                    <TableHead className="text-gray-400 text-right">Total Invested</TableHead>
+                    <TableHead className="text-gray-400">Status</TableHead>
+                    <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMLD.map((holding) => (
+                    <TableRow key={holding.id} className="border-gray-800" data-testid={`row-mld-${holding.id}`}>
+                      <TableCell className="text-gray-300">
+                        <div>
+                          <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
+                          <p className="text-xs text-gray-500">{holding.client?.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-gray-300">{holding.mldName}</TableCell>
+                      <TableCell className="text-gray-400">{holding.issuer || '-'}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-teal-500/20 text-teal-400">
+                          {holding.payoffType || 'Digital'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-gray-300">{holding.quantity}</TableCell>
+                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.totalInvested)}</TableCell>
+                      <TableCell>
+                        <Badge className={
+                          holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
+                          holding.entryStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                          'bg-amber-500/20 text-amber-400'
+                        }>
+                          {holding.entryStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {holding.entryStatus === 'pending' && (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-green-600 text-green-400 hover:bg-green-600/20"
+                              onClick={() => approveMutation.mutate({ type: 'mld', id: holding.id, action: 'approve' })}
+                              disabled={approveMutation.isPending}
+                              data-testid={`button-approve-mld-${holding.id}`}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-600 text-red-400 hover:bg-red-600/20"
+                              onClick={() => approveMutation.mutate({ type: 'mld', id: holding.id, action: 'reject' })}
+                              disabled={approveMutation.isPending}
+                              data-testid={`button-reject-mld-${holding.id}`}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )
+        ) : null}
       </CardContent>
     </Card>
   );
