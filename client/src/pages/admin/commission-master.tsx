@@ -251,7 +251,7 @@ export default function CommissionMaster() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Commission Master</h1>
           <p className="text-gray-500 dark:text-gray-400">Configure role-based commission plans by product type</p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} data-testid="btn-create-plan">
+        <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" onClick={() => setShowCreateDialog(true)} data-testid="btn-create-plan">
           <Plus className="w-4 h-4 mr-2" />
           Create Plan
         </Button>
@@ -362,6 +362,7 @@ export default function CommissionMaster() {
                           <Button 
                             size="sm" 
                             variant="outline"
+                            className="border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-950"
                             onClick={() => activatePlanMutation.mutate(plan.id)}
                             disabled={activatePlanMutation.isPending}
                             data-testid={`btn-activate-${plan.id}`}
@@ -374,6 +375,7 @@ export default function CommissionMaster() {
                           <Button 
                             size="sm" 
                             variant="outline"
+                            className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"
                             onClick={() => freezePlanMutation.mutate(plan.id)}
                             disabled={freezePlanMutation.isPending}
                             data-testid={`btn-freeze-${plan.id}`}
@@ -385,6 +387,7 @@ export default function CommissionMaster() {
                         <Button 
                           size="sm" 
                           variant="outline"
+                          className="border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-950"
                           onClick={() => clonePlanMutation.mutate(plan.id)}
                           disabled={clonePlanMutation.isPending}
                           data-testid={`btn-clone-${plan.id}`}
@@ -395,6 +398,7 @@ export default function CommissionMaster() {
                         <Button 
                           size="sm" 
                           variant="ghost"
+                          className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
                           onClick={() => openAuditLog(plan)}
                           data-testid={`btn-audit-${plan.id}`}
                         >
@@ -609,10 +613,11 @@ export default function CommissionMaster() {
           </Tabs>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
             <Button 
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
               onClick={handleCreatePlan} 
               disabled={createPlanMutation.isPending}
               data-testid="btn-submit-plan"
@@ -666,7 +671,7 @@ export default function CommissionMaster() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAuditDialog(false)}>
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAuditDialog(false)}>
               Close
             </Button>
           </DialogFooter>

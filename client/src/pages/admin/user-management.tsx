@@ -216,7 +216,7 @@ export default function UserManagement() {
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button data-testid="button-add-user">
+            <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-user">
               <Plus className="w-4 h-4 mr-2" />
               Add User
             </Button>
@@ -308,10 +308,10 @@ export default function UserManagement() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} data-testid="button-cancel">
+                <Button type="button" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setIsAddOpen(false)} data-testid="button-cancel">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createUserMutation.isPending} data-testid="button-submit">
+                <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={createUserMutation.isPending} data-testid="button-submit">
                   {createUserMutation.isPending ? 'Creating...' : 'Create User'}
                 </Button>
               </div>
@@ -494,6 +494,7 @@ export default function UserManagement() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
                             onClick={() => setEditingUser(user)}
                             data-testid={`button-edit-${user.id}`}
                           >
@@ -502,10 +503,11 @@ export default function UserManagement() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
                             onClick={() => setDeletingUser(user)}
                             data-testid={`button-delete-${user.id}`}
                           >
-                            <Trash2 className="w-4 h-4 text-red-600" />
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -607,10 +609,10 @@ export default function UserManagement() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setEditingUser(null)} data-testid="button-edit-cancel">
+                <Button type="button" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setEditingUser(null)} data-testid="button-edit-cancel">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updateUserMutation.isPending} data-testid="button-edit-submit">
+                <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={updateUserMutation.isPending} data-testid="button-edit-submit">
                   {updateUserMutation.isPending ? 'Updating...' : 'Update User'}
                 </Button>
               </div>
