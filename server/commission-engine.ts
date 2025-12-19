@@ -1,6 +1,14 @@
 import { storage } from "./storage";
+import { db } from "./db";
+import { 
+  commissionPlans, 
+  commissionRoleMaps, 
+  commissionHierarchySplits,
+  type CommissionProductType
+} from "@shared/schema";
 import type { InsertAgentCommission } from "@shared/schema";
 import { format } from "date-fns";
+import { eq, and, lte, gte, desc, or, isNull, sql } from "drizzle-orm";
 
 export interface CommissionCalculationInput {
   agentId: string;
@@ -29,8 +37,166 @@ export interface CommissionCalculationResult {
   splitRuleId: string | null;
 }
 
+interface ActivePlanData {
+  plan: typeof commissionPlans.$inferSelect;
+  roleMaps: (typeof commissionRoleMaps.$inferSelect)[];
+  hierarchySplits: (typeof commissionHierarchySplits.$inferSelect)[];
+}
+
+interface HierarchyCommissionResult {
+  roleId: string;
+  hierarchyLevel: number;
+  sharePercentage: number;
+  commissionAmount: number;
+  tdsAmount: number;
+  netAmount: number;
+  passthroughRule: string;
+}
+
 class CommissionEngine {
   private readonly TDS_RATE = 0.10; // 10% TDS on commissions
+
+  /**
+   * Fetch the active commission plan for a product type on a given date
+   */
+  async getActivePlanForProduct(productType: string, effectiveDate?: Date): Promise<ActivePlanData | null> {
+    const targetDate = effectiveDate || new Date();
+    const dateStr = format(targetDate, 'yyyy-MM-dd');
+
+    try {
+      const [plan] = await db.select()
+        .from(commissionPlans)
+        .where(
+          and(
+            eq(commissionPlans.productType, productType),
+            eq(commissionPlans.status, 'active'),
+            lte(commissionPlans.effectiveFrom, targetDate),
+            or(
+              isNull(commissionPlans.effectiveTo),
+              gte(commissionPlans.effectiveTo, targetDate)
+            )
+          )
+        )
+        .orderBy(desc(commissionPlans.version))
+        .limit(1);
+
+      if (!plan) {
+        console.log(`[Commission Engine] No active plan found for ${productType} on ${dateStr}`);
+        return null;
+      }
+
+      const roleMaps = await db.select()
+        .from(commissionRoleMaps)
+        .where(eq(commissionRoleMaps.commissionPlanId, plan.id));
+
+      const hierarchySplits = await db.select()
+        .from(commissionHierarchySplits)
+        .where(eq(commissionHierarchySplits.commissionPlanId, plan.id));
+
+      console.log(`[Commission Engine] Found active plan v${plan.version} for ${productType} with ${roleMaps.length} role maps`);
+
+      return { plan, roleMaps, hierarchySplits };
+    } catch (error) {
+      console.error(`[Commission Engine] Error fetching active plan:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get commission rate for a specific role from the active plan
+   */
+  getRoleCommissionRate(roleMaps: (typeof commissionRoleMaps.$inferSelect)[], roleId: string): number {
+    const roleMap = roleMaps.find(rm => rm.roleId === roleId);
+    return roleMap ? parseFloat(roleMap.percentage.toString()) : 0;
+  }
+
+  /**
+   * Apply hierarchy splits to distribute commission across levels
+   * Returns commission breakdown for each level in the hierarchy
+   */
+  applyHierarchySplits(
+    hierarchySplits: (typeof commissionHierarchySplits.$inferSelect)[],
+    totalCommission: number
+  ): HierarchyCommissionResult[] {
+    if (!hierarchySplits || hierarchySplits.length === 0) {
+      return [];
+    }
+
+    const sortedSplits = [...hierarchySplits].sort((a, b) => a.hierarchyLevel - b.hierarchyLevel);
+    let remainingCommission = totalCommission;
+    const results: HierarchyCommissionResult[] = [];
+
+    for (const split of sortedSplits) {
+      const sharePercentage = parseFloat(split.sharePercentage.toString());
+      const commissionAmount = (totalCommission * sharePercentage) / 100;
+      const tdsAmount = commissionAmount * this.TDS_RATE;
+      const netAmount = commissionAmount - tdsAmount;
+
+      results.push({
+        roleId: split.roleId,
+        hierarchyLevel: split.hierarchyLevel,
+        sharePercentage,
+        commissionAmount,
+        tdsAmount,
+        netAmount,
+        passthroughRule: split.passthroughRule || 'roll_up',
+      });
+
+      remainingCommission -= commissionAmount;
+
+      if (split.passthroughRule === 'stop') {
+        break;
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Calculate commission using the new plan-based system
+   */
+  async calculateCommissionWithPlan(
+    input: CommissionCalculationInput,
+    agentRole: string = 'agent'
+  ): Promise<{
+    planId: number | null;
+    planVersion: number | null;
+    baseRate: number;
+    hierarchyBreakdown: HierarchyCommissionResult[];
+    totalCommissionAmount: number;
+    calculation: CommissionCalculationResult;
+  }> {
+    const activePlan = await this.getActivePlanForProduct(input.productType, input.transactionDate);
+
+    if (activePlan) {
+      const baseRate = this.getRoleCommissionRate(activePlan.roleMaps, agentRole);
+      const hierarchyBreakdown = this.applyHierarchySplits(
+        activePlan.hierarchySplits,
+        input.totalCommissionAmount
+      );
+
+      const calculation = await this.calculateCommission(input);
+
+      return {
+        planId: activePlan.plan.id,
+        planVersion: activePlan.plan.version,
+        baseRate,
+        hierarchyBreakdown,
+        totalCommissionAmount: input.totalCommissionAmount,
+        calculation,
+      };
+    }
+
+    const calculation = await this.calculateCommission(input);
+    return {
+      planId: null,
+      planVersion: null,
+      baseRate: 0,
+      hierarchyBreakdown: [],
+      totalCommissionAmount: input.totalCommissionAmount,
+      calculation,
+    };
+  }
 
   /**
    * Calculate commissions for an agent and their master agent (if applicable)
