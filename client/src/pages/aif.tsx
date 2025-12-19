@@ -44,43 +44,37 @@ export default function AIF() {
     window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
     return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
   }, []);
-  const [selectedAMC, setSelectedAMC] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedRiskRating, setSelectedRiskRating] = useState("all");
+  const [selectedStyle, setSelectedStyle] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("active");
   const [searchQuery, setSearchQuery] = useState("");
-  const [minAUM, setMinAUM] = useState("");
-  const [maxAUM, setMaxAUM] = useState("");
+  const [sortBy, setSortBy] = useState("name");
 
-  // Fetch comprehensive AIF data
-  const { data: aifData, isLoading: isAIFLoading } = useQuery({
-    queryKey: ["/api/aif/comprehensive", selectedAMC, selectedCategory, selectedRiskRating],
-    refetchInterval: 300000, // Refresh every 5 minutes
+  // Fetch AIF schemes from store API with filters
+  const { data: aifResponse, isLoading: isAIFLoading } = useQuery<{ schemes: any[]; pagination: any }>({
+    queryKey: ["/api/store/aif", { 
+      status: selectedStatus,
+      category: selectedCategory !== "all" ? selectedCategory : undefined,
+      style: selectedStyle !== "all" ? selectedStyle : undefined,
+      search: searchQuery || undefined,
+      sortBy
+    }],
+    refetchInterval: 300000,
   });
 
-  // Fetch filtered AIF data
-  const { data: filteredAIF, isLoading: isFilteredLoading } = useQuery({
-    queryKey: ["/api/comprehensive/aif/filter", selectedCategory, minAUM, maxAUM],
-    enabled: !!(selectedCategory !== "all" || minAUM || maxAUM),
-  });
-
-  // Fetch SEBI AIF regulatory data
-  const { data: sebiAIF, isLoading: isSEBILoading } = useQuery({
-    queryKey: ["/api/sebi/aif", selectedCategory === "all" ? undefined : selectedCategory],
-    refetchInterval: 600000, // Refresh every 10 minutes
-  });
-
-  // Fetch SEBI compliance data for selected AIFs
-  const { data: complianceData } = useQuery({
-    queryKey: ["/api/sebi/enforcement-actions"],
-    refetchInterval: 3600000, // Refresh every hour
-  });
-
-  const displayData = (filteredAIF as any)?.data || (aifData as any) || [];
-  const statistics = (aifData as any)?.statistics || {
-    totalFunds: 0,
-    totalAUM: 0,
-    averageReturns: { "1Y": 0, "3Y": 0, "5Y": 0 },
-    activeAMCs: 0
+  const displayData = aifResponse?.schemes || [];
+  const pagination = aifResponse?.pagination;
+  
+  // Calculate statistics from fetched data
+  const statistics = {
+    totalFunds: pagination?.total || displayData.length,
+    totalAUM: displayData.reduce((sum: number, fund: any) => sum + (parseFloat(fund.aum) || 0), 0),
+    averageReturns: {
+      "1Y": displayData.length > 0 ? displayData.reduce((sum: number, f: any) => sum + (parseFloat(f.return1Y) || 0), 0) / displayData.length : 0,
+      "3Y": displayData.length > 0 ? displayData.reduce((sum: number, f: any) => sum + (parseFloat(f.return3Y) || 0), 0) / displayData.length : 0,
+      "5Y": displayData.length > 0 ? displayData.reduce((sum: number, f: any) => sum + (parseFloat(f.return5Y) || 0), 0) / displayData.length : 0,
+    },
+    activeAMCs: new Set(displayData.map((f: any) => f.fundHouseName).filter(Boolean)).size
   };
 
   if (isAIFLoading) {

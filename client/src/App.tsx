@@ -47,6 +47,7 @@ import ClientAutoPopulate from "@/pages/client-auto-populate";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import AIF from "@/pages/aif";
+import PMS from "@/pages/pms";
 import BajajFinance from "@/pages/bajaj-finance";
 import TataCapital from "@/pages/tata-capital";
 import PolicyBazaar from "@/pages/policybazaar";
@@ -283,6 +284,7 @@ function UserProtectedRoutes() {
         <Route path="/hdfc-loans" component={HDFCLoans} />
         <Route path="/client-auto-populate" component={ClientAutoPopulate} />
         <Route path="/aif" component={AIF} />
+        <Route path="/pms" component={PMS} />
         <Route path="/bajaj-finance" component={BajajFinance} />
         <Route path="/tata-capital" component={TataCapital} />
         <Route path="/policybazaar" component={PolicyBazaar} />
