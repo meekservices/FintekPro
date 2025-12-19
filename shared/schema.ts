@@ -17471,3 +17471,213 @@ export const insertClientPortfolioPmsSchema = createInsertSchema(clientPortfolio
 export type ClientPortfolioPms = typeof clientPortfolioPms.$inferSelect;
 export type InsertClientPortfolioPms = z.infer<typeof insertClientPortfolioPmsSchema>;
 
+// ============ MLD MASTER (Market Linked Debentures) ============
+// Structured product database for listed and unlisted MLDs
+
+export const mldStatusEnum = pgEnum("mld_status", ["active", "closed", "matured", "called_back"]);
+export const mldPayoffTypeEnum = pgEnum("mld_payoff_type", ["digital", "barrier", "sharkfin", "range", "participation", "autocall", "snowball"]);
+
+export const mldMaster = pgTable("mld_master", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic Information
+  isin: text("isin").unique().notNull(),
+  name: text("name").notNull(),
+  issuer: text("issuer").notNull(),
+  
+  // Underlying & Structure
+  underlying: text("underlying").notNull(), // NIFTY 50, SENSEX, etc.
+  payoffType: text("payoff_type").notNull(), // digital, barrier, sharkfin, range, participation, autocall, snowball
+  barrierLevel: decimal("barrier_level", { precision: 8, scale: 4 }), // e.g., 0.9 = 90%
+  participationRate: decimal("participation_rate", { precision: 8, scale: 4 }), // e.g., 1.5 = 150%
+  cap: decimal("cap", { precision: 8, scale: 4 }), // Maximum payoff cap
+  floor: decimal("floor", { precision: 8, scale: 4 }), // Principal protection floor
+  
+  // Dates
+  issueDate: date("issue_date"),
+  maturityDate: date("maturity_date").notNull(),
+  observationSchedule: jsonb("observation_schedule").default([]), // Array of observation dates for autocall
+  
+  // Investment Details
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }).default("1000000"),
+  minInvestment: decimal("min_investment", { precision: 15, scale: 2 }).default("1000000"),
+  
+  // Rating & Risk
+  rating: text("rating"), // AAA, AA+, AA, etc.
+  riskScore: integer("risk_score"), // 1-10 scale
+  creditRisk: text("credit_risk"), // Low, Medium, High
+  structuralRisk: text("structural_risk"),
+  liquidityRisk: text("liquidity_risk"),
+  
+  // Status & Publishing
+  status: text("status").default("active"), // active, closed, matured, called_back
+  isListed: boolean("is_listed").default(false),
+  isPublished: boolean("is_published").default(false),
+  liquidityProfile: text("liquidity_profile"), // High, Medium, Low
+  
+  // Pricing
+  latestPrice: decimal("latest_price", { precision: 15, scale: 4 }),
+  lastPriceDate: date("last_price_date"),
+  ytm: decimal("ytm", { precision: 8, scale: 4 }), // Yield to Maturity
+  impliedYield: decimal("implied_yield", { precision: 8, scale: 4 }),
+  irr: decimal("irr", { precision: 8, scale: 4 }),
+  
+  // Term Sheet
+  termSheetPath: text("term_sheet_path"),
+  termSheetParsed: jsonb("term_sheet_parsed").default({}), // Parsed structure from term sheet
+  
+  // AI Suitability
+  suitabilityScore: integer("suitability_score"), // 1-10
+  aiRecommendation: text("ai_recommendation"),
+  warningIndicators: jsonb("warning_indicators").default([]),
+  
+  // Metadata
+  description: text("description"),
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mld_master_isin").on(table.isin),
+  index("idx_mld_master_issuer").on(table.issuer),
+  index("idx_mld_master_underlying").on(table.underlying),
+  index("idx_mld_master_payoff_type").on(table.payoffType),
+  index("idx_mld_master_published").on(table.isPublished),
+  index("idx_mld_master_status").on(table.status),
+  index("idx_mld_master_maturity").on(table.maturityDate),
+]);
+
+export const insertMldMasterSchema = createInsertSchema(mldMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MldMaster = typeof mldMaster.$inferSelect;
+export type InsertMldMaster = z.infer<typeof insertMldMasterSchema>;
+
+// ============ MLD PRICE HISTORY ============
+// Secondary market prices for listed MLDs or OTC quotes
+
+export const mldPriceHistory = pgTable("mld_price_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mldId: varchar("mld_id").notNull().references(() => mldMaster.id),
+  
+  priceDate: date("price_date").notNull(),
+  price: decimal("price", { precision: 15, scale: 4 }).notNull(),
+  ytm: decimal("ytm", { precision: 8, scale: 4 }),
+  volume: decimal("volume", { precision: 15, scale: 2 }),
+  source: text("source"), // NSE, BSE, OTC, Dealer
+  
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mld_price_history_mld").on(table.mldId),
+  index("idx_mld_price_history_date").on(table.priceDate),
+]);
+
+export const insertMldPriceHistorySchema = createInsertSchema(mldPriceHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type MldPriceHistory = typeof mldPriceHistory.$inferSelect;
+export type InsertMldPriceHistory = z.infer<typeof insertMldPriceHistorySchema>;
+
+// ============ MLD MONTHWISE PERFORMANCE ============
+// Monthly performance tracking for MLDs with price history
+
+export const mldMonthwisePerformance = pgTable("mld_monthwise_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mldId: varchar("mld_id").notNull().references(() => mldMaster.id),
+  
+  monthYear: date("month_year").notNull(), // First day of the month
+  priceStart: decimal("price_start", { precision: 15, scale: 4 }),
+  priceEnd: decimal("price_end", { precision: 15, scale: 4 }),
+  returnMonthly: decimal("return_monthly", { precision: 8, scale: 4 }),
+  isPartial: boolean("is_partial").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mld_monthwise_performance_mld").on(table.mldId),
+  index("idx_mld_monthwise_performance_month").on(table.monthYear),
+]);
+
+export const insertMldMonthwisePerformanceSchema = createInsertSchema(mldMonthwisePerformance).omit({
+  id: true,
+  createdAt: true,
+});
+export type MldMonthwisePerformance = typeof mldMonthwisePerformance.$inferSelect;
+export type InsertMldMonthwisePerformance = z.infer<typeof insertMldMonthwisePerformanceSchema>;
+
+// ============ CLIENT PORTFOLIO - MLD HOLDINGS ============
+// Tracks client's existing MLD investments for AI analysis and portfolio management
+
+export const clientPortfolioMld = pgTable("client_portfolio_mld", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Client/User Reference
+  clientId: varchar("client_id").notNull().references(() => users.id),
+  addedByUserId: varchar("added_by_user_id").references(() => users.id), // Agent or client
+  
+  // MLD Reference
+  mldId: varchar("mld_id").references(() => mldMaster.id),
+  isin: text("isin").notNull(),
+  mldName: text("mld_name").notNull(), // Denormalized for quick display
+  issuer: text("issuer"),
+  underlying: text("underlying"),
+  payoffType: text("payoff_type"),
+  
+  // Investment Details
+  purchasePrice: decimal("purchase_price", { precision: 15, scale: 4 }).notNull(),
+  purchaseDate: date("purchase_date").notNull(),
+  quantity: decimal("quantity", { precision: 15, scale: 2 }).notNull(), // Number of units/face value
+  faceValue: decimal("face_value", { precision: 15, scale: 2 }),
+  totalInvested: decimal("total_invested", { precision: 15, scale: 2 }), // purchase_price * quantity
+  
+  // Maturity
+  maturityDate: date("maturity_date"),
+  expectedPayoffScenario: text("expected_payoff_scenario"), // bull, base, bear
+  expectedPayoffAmount: decimal("expected_payoff_amount", { precision: 15, scale: 2 }),
+  
+  // Current Valuation
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  lastPriceDate: date("last_price_date"),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  unrealizedGainLoss: decimal("unrealized_gain_loss", { precision: 15, scale: 2 }),
+  unrealizedGainLossPercent: decimal("unrealized_gain_loss_percent", { precision: 8, scale: 4 }),
+  
+  // Risk Metrics
+  riskScore: integer("risk_score"),
+  creditRiskExposure: decimal("credit_risk_exposure", { precision: 15, scale: 2 }),
+  
+  // Documents
+  documents: jsonb("documents").default([]), // Array of { type, name, url, uploadedAt }
+  
+  // Approval Status
+  entryStatus: text("entry_status").default("pending"), // pending, approved, rejected, needs_review
+  approvedByUserId: varchar("approved_by_user_id").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Notes
+  notes: text("notes"),
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_client_portfolio_mld_client").on(table.clientId),
+  index("idx_client_portfolio_mld_mld").on(table.mldId),
+  index("idx_client_portfolio_mld_isin").on(table.isin),
+  index("idx_client_portfolio_mld_status").on(table.entryStatus),
+]);
+
+export const insertClientPortfolioMldSchema = createInsertSchema(clientPortfolioMld).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ClientPortfolioMld = typeof clientPortfolioMld.$inferSelect;
+export type InsertClientPortfolioMld = z.infer<typeof insertClientPortfolioMldSchema>;
+

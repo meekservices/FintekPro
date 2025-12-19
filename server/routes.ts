@@ -111,6 +111,7 @@ import onboardingInvitationsRoutes from "./routes/onboarding-invitations";
 import prospectProposalsRoutes from "./routes/prospect-proposals";
 import instrumentsRoutes from "./routes/instruments";
 import storeAifPmsRoutes from "./routes/store-aif-pms";
+import storeMldRoutes from "./routes/store-mld";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
 import unifiedAdvisoryRoutes from "./routes/unified-advisory-routes";
 import { taxRoutes } from "./tax-routes";
@@ -345,6 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(prospectProposalsRoutes);
   app.use(instrumentsRoutes);
   app.use("/api/store", storeAifPmsRoutes);
+  app.use("/api/store", storeMldRoutes);
   app.use("/api/ai-investment", aiInvestmentRoutes);
   app.use("/api/unified-advisory", unifiedAdvisoryRoutes);
   app.use("/api/tax", taxRoutes);
