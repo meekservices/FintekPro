@@ -8,6 +8,7 @@ import {
   unlistedCompanies 
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc } from "drizzle-orm";
+import { NseIndia } from "stock-nse-india";
 
 const router = Router();
 
@@ -348,6 +349,222 @@ router.post("/api/instruments/sync", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Instrument sync error:", error);
     res.status(500).json({ error: error.message || "Failed to sync instruments" });
+  }
+});
+
+// Sync ALL NSE listed stocks from NSE India API
+router.post("/api/instruments/sync-nse", async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    if (!user || !['admin', 'superadmin'].some(r => user.roles?.includes(r))) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const nseIndia = new NseIndia();
+    
+    console.log("Fetching all equity stocks from NSE India...");
+    
+    // Get the list of all stocks from NSE
+    const allStocks = await nseIndia.getAllStockSymbols();
+    console.log(`Found ${allStocks.length} stock symbols from NSE`);
+    
+    let synced = 0;
+    let errors = 0;
+    let skipped = 0;
+    const batchSize = 50;
+    
+    // Process stocks in batches to avoid overwhelming NSE API
+    for (let i = 0; i < allStocks.length; i += batchSize) {
+      const batch = allStocks.slice(i, i + batchSize);
+      
+      for (const symbol of batch) {
+        try {
+          // Get detailed equity info for each stock
+          const equityDetails = await nseIndia.getEquityDetails(symbol);
+          
+          if (!equityDetails || !equityDetails.info) {
+            skipped++;
+            continue;
+          }
+          
+          const info = equityDetails.info;
+          const priceInfo = equityDetails.priceInfo || {};
+          
+          // Extract ISIN - required field
+          const isin = info.isin;
+          if (!isin || isin.length !== 12) {
+            skipped++;
+            continue;
+          }
+          
+          // Get sector/industry from industryInfo if available
+          const industryInfo = (equityDetails as any).industryInfo || {};
+          const infoAny = info as any;
+          
+          await db.insert(instrumentMaster).values({
+            isin: isin,
+            symbol: symbol,
+            name: info.companyName || symbol,
+            shortName: (info.companyName || symbol).substring(0, 50),
+            assetClass: "equity",
+            subType: null,
+            sector: industryInfo.sector || industryInfo.industry || null,
+            category: industryInfo.basicIndustry || industryInfo.industry || null,
+            issuer: info.companyName || symbol,
+            lastPrice: priceInfo.lastPrice?.toString() || null,
+            priceSource: "nse",
+            priceUpdatedAt: new Date(),
+            riskLevel: "high",
+            currency: "INR",
+            sourceTable: "nse_equity",
+            sourceId: isin,
+            metadata: {
+              symbol: symbol,
+              exchange: "NSE",
+              series: infoAny.series,
+              industry: industryInfo.industry,
+              sector: industryInfo.sector,
+              macroSector: industryInfo.macro,
+              faceValue: infoAny.faceValue,
+              isinDemat: infoAny.isinDemat,
+            },
+          }).onConflictDoUpdate({
+            target: instrumentMaster.isin,
+            set: {
+              symbol: symbol,
+              name: info.companyName || symbol,
+              lastPrice: priceInfo.lastPrice?.toString() || null,
+              sector: industryInfo.sector || industryInfo.industry || null,
+              category: industryInfo.basicIndustry || industryInfo.industry || null,
+              priceUpdatedAt: new Date(),
+              updatedAt: new Date(),
+              metadata: sql`${instrumentMaster.metadata}::jsonb || ${JSON.stringify({
+                symbol: symbol,
+                exchange: "NSE",
+                series: infoAny.series,
+                industry: industryInfo.industry,
+                sector: industryInfo.sector,
+                macroSector: industryInfo.macro,
+              })}::jsonb`,
+            }
+          });
+          
+          synced++;
+          
+          // Add small delay to be respectful to NSE API
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } catch (e: any) {
+          console.error(`Error syncing ${symbol}:`, e.message);
+          errors++;
+        }
+      }
+      
+      console.log(`Progress: ${Math.min(i + batchSize, allStocks.length)}/${allStocks.length} stocks processed`);
+    }
+
+    res.json({ 
+      success: true, 
+      synced,
+      errors,
+      skipped,
+      total: allStocks.length,
+      message: `Synced ${synced} stocks from NSE India (${errors} errors, ${skipped} skipped)`
+    });
+  } catch (error: any) {
+    console.error("NSE sync error:", error);
+    res.status(500).json({ error: error.message || "Failed to sync NSE stocks" });
+  }
+});
+
+// Light sync - just fetch symbols and basic info without detailed API calls
+router.post("/api/instruments/sync-nse-light", async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    if (!user || !['admin', 'superadmin'].some(r => user.roles?.includes(r))) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const nseIndia = new NseIndia();
+    
+    console.log("Fetching equity list from NSE India...");
+    
+    // Get all equity info from the index endpoint
+    const niftyTotalMarket = await nseIndia.getEquityStockIndices("NIFTY TOTAL MARKET");
+    const stocks = niftyTotalMarket?.data || [];
+    
+    console.log(`Found ${stocks.length} stocks from NIFTY Total Market index`);
+    
+    let synced = 0;
+    let errors = 0;
+    
+    for (const stock of stocks) {
+      try {
+        if (!stock.symbol) continue;
+        
+        // Generate ISIN if not available (use NSE symbol as identifier)
+        const isin = stock.identifier?.startsWith("INE") 
+          ? stock.identifier 
+          : `NSE${stock.symbol.padEnd(9, '0').substring(0, 9)}`;
+        
+        await db.insert(instrumentMaster).values({
+          isin: isin,
+          symbol: stock.symbol,
+          name: stock.meta?.companyName || stock.symbol,
+          shortName: (stock.meta?.companyName || stock.symbol).substring(0, 50),
+          assetClass: "equity",
+          subType: null,
+          sector: stock.meta?.industry || null,
+          category: null,
+          issuer: stock.meta?.companyName || stock.symbol,
+          lastPrice: stock.lastPrice?.toString() || null,
+          priceSource: "nse",
+          priceUpdatedAt: new Date(),
+          riskLevel: "high",
+          currency: "INR",
+          sourceTable: "nse_equity",
+          sourceId: stock.symbol,
+          metadata: {
+            symbol: stock.symbol,
+            exchange: "NSE",
+            series: stock.series || "EQ",
+            industry: stock.meta?.industry,
+            dayHigh: stock.dayHigh,
+            dayLow: stock.dayLow,
+            open: stock.open,
+            previousClose: stock.previousClose,
+            change: stock.change,
+            pChange: stock.pChange,
+            yearHigh: stock.yearHigh,
+            yearLow: stock.yearLow,
+          },
+        }).onConflictDoUpdate({
+          target: instrumentMaster.isin,
+          set: {
+            symbol: stock.symbol,
+            lastPrice: stock.lastPrice?.toString() || null,
+            priceUpdatedAt: new Date(),
+            updatedAt: new Date(),
+          }
+        });
+        
+        synced++;
+      } catch (e: any) {
+        console.error(`Error syncing ${stock.symbol}:`, e.message);
+        errors++;
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      synced,
+      errors,
+      total: stocks.length,
+      message: `Synced ${synced} stocks from NIFTY Total Market (${errors} errors)`
+    });
+  } catch (error: any) {
+    console.error("NSE light sync error:", error);
+    res.status(500).json({ error: error.message || "Failed to sync NSE stocks" });
   }
 });
 
