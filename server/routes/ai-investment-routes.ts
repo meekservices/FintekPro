@@ -915,5 +915,161 @@ router.post("/proposal", async (req, res) => {
   }
 });
 
+// Schema for portfolio insights request validation
+const portfolioInsightsSchema = z.object({
+  holdings: z.array(z.object({
+    name: z.string(),
+    assetClass: z.string(),
+    value: z.number(),
+    quantity: z.number(),
+    gainLossPercent: z.number(),
+  })).min(1, "At least one holding is required"),
+  totalValue: z.number().optional().default(0),
+  assetAllocation: z.record(z.object({
+    value: z.number(),
+    percent: z.number(),
+  })).optional().default({}),
+});
+
+// POST endpoint for AI portfolio insights
+router.post("/portfolio-insights", async (req, res) => {
+  try {
+    const validation = portfolioInsightsSchema.safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: "Invalid request data",
+        details: validation.error.errors 
+      });
+    }
+    
+    const { holdings, totalValue, assetAllocation } = validation.data;
+
+    const insights = generatePortfolioInsights(holdings, totalValue, assetAllocation);
+    
+    res.json({ insights });
+  } catch (error) {
+    console.error("Error generating portfolio insights:", error);
+    res.status(500).json({ error: "Failed to generate portfolio insights" });
+  }
+});
+
+function generatePortfolioInsights(
+  holdings: Array<{
+    name: string;
+    assetClass: string;
+    value: number;
+    quantity: number;
+    gainLossPercent: number;
+  }>,
+  totalValue: number,
+  assetAllocation: Record<string, { value: number; percent: number }>
+): string {
+  const insights: string[] = [];
+  
+  insights.push("## Portfolio Analysis\n");
+  
+  // 1. Asset Allocation Analysis
+  insights.push("### Asset Allocation\n");
+  const allocationEntries = Object.entries(assetAllocation || {});
+  if (allocationEntries.length > 0) {
+    const sortedAllocation = allocationEntries.sort((a, b) => b[1].percent - a[1].percent);
+    const topAsset = sortedAllocation[0];
+    if (topAsset && topAsset[1].percent > 50) {
+      insights.push(`**Concentration Alert:** ${formatAssetClass(topAsset[0])} represents ${topAsset[1].percent.toFixed(1)}% of your portfolio. Consider diversifying to reduce risk.\n`);
+    } else if (sortedAllocation.length === 1) {
+      insights.push(`Your portfolio is entirely in ${formatAssetClass(topAsset[0])}. Consider diversifying across asset classes for better risk management.\n`);
+    } else {
+      insights.push(`Your portfolio is distributed across ${sortedAllocation.length} asset classes, with ${formatAssetClass(topAsset[0])} being the largest at ${topAsset[1].percent.toFixed(1)}%.\n`);
+    }
+  }
+  
+  // 2. Performance Analysis
+  insights.push("\n### Performance Insights\n");
+  const gainers = holdings.filter(h => h.gainLossPercent > 0);
+  const losers = holdings.filter(h => h.gainLossPercent < 0);
+  
+  if (gainers.length > 0) {
+    const topGainer = gainers.sort((a, b) => b.gainLossPercent - a.gainLossPercent)[0];
+    insights.push(`**Top Performer:** ${topGainer.name} with ${topGainer.gainLossPercent.toFixed(2)}% gains.\n`);
+  }
+  
+  if (losers.length > 0) {
+    const topLoser = losers.sort((a, b) => a.gainLossPercent - b.gainLossPercent)[0];
+    insights.push(`**Underperformer:** ${topLoser.name} with ${topLoser.gainLossPercent.toFixed(2)}% loss. Consider reviewing this position.\n`);
+  }
+  
+  // 3. Risk Assessment
+  insights.push("\n### Risk Assessment\n");
+  const equityPercent = (assetAllocation?.equity?.percent || 0) + (assetAllocation?.unlisted?.percent || 0);
+  const debtPercent = (assetAllocation?.bond?.percent || 0) + (assetAllocation?.mld?.percent || 0);
+  const mfPercent = assetAllocation?.mutual_fund?.percent || 0;
+  
+  if (equityPercent > 70) {
+    insights.push(`**High Equity Exposure (${equityPercent.toFixed(1)}%):** Your portfolio has aggressive risk profile. Consider adding debt instruments for stability during market corrections.\n`);
+  } else if (debtPercent > 70) {
+    insights.push(`**Conservative Allocation (${debtPercent.toFixed(1)}% debt):** While stable, you may be missing growth opportunities. Consider adding equity exposure based on your risk tolerance.\n`);
+  } else {
+    insights.push(`Your portfolio has a balanced mix with ${equityPercent.toFixed(1)}% equity and ${debtPercent.toFixed(1)}% debt.\n`);
+  }
+  
+  // 4. Diversification Score
+  insights.push("\n### Diversification\n");
+  const uniqueAssetClasses = Object.keys(assetAllocation || {}).length;
+  const holdingsCount = holdings.length;
+  
+  if (uniqueAssetClasses < 3) {
+    insights.push(`**Limited Diversification:** Only ${uniqueAssetClasses} asset class(es). Consider adding mutual funds, bonds, or ETFs to improve diversification.\n`);
+  } else if (holdingsCount < 5) {
+    insights.push(`**Concentrated Holdings:** Only ${holdingsCount} securities. A well-diversified portfolio typically has 10-15 holdings across sectors.\n`);
+  } else {
+    insights.push(`Good diversification with ${holdingsCount} holdings across ${uniqueAssetClasses} asset classes.\n`);
+  }
+  
+  // 5. Recommendations
+  insights.push("\n### Recommendations\n");
+  const recommendations: string[] = [];
+  
+  if (!assetAllocation?.bond && !assetAllocation?.mld) {
+    recommendations.push("Add fixed-income instruments (bonds/MLDs) for portfolio stability");
+  }
+  if (equityPercent > 80) {
+    recommendations.push("Consider profit booking in equity positions with significant gains");
+  }
+  if (losers.length > 3) {
+    recommendations.push("Review underperforming positions and consider rebalancing");
+  }
+  if (holdingsCount > 30) {
+    recommendations.push("Portfolio may be over-diversified; consider consolidating similar holdings");
+  }
+  if (mfPercent > 50) {
+    recommendations.push("Review mutual fund overlap to avoid duplicate holdings across schemes");
+  }
+  
+  if (recommendations.length > 0) {
+    recommendations.forEach((rec, i) => {
+      insights.push(`${i + 1}. ${rec}\n`);
+    });
+  } else {
+    insights.push("Your portfolio appears well-balanced. Continue monitoring and rebalance quarterly.\n");
+  }
+  
+  return insights.join("");
+}
+
+function formatAssetClass(assetClass: string): string {
+  const labels: Record<string, string> = {
+    mutual_fund: "Mutual Funds",
+    equity: "Listed Stocks",
+    bond: "Bonds",
+    mld: "MLDs",
+    etf: "ETFs",
+    unlisted: "Unlisted Equity",
+    pms: "PMS",
+    aif: "AIF",
+    other: "Other Assets",
+  };
+  return labels[assetClass] || assetClass;
+}
 
 export default router;
