@@ -349,18 +349,16 @@ export default function AgentProspectProposalsPage() {
     setActiveHoldingId(newHolding.id);
   };
 
-  // Update holding
+  // Update holding - always recalculate currentValue from final price and quantity
   const updateHolding = (id: string, updates: Partial<PortfolioHolding>) => {
     setQuickHoldings(holdings => 
       holdings.map(h => {
         if (h.id === id) {
           const updated = { ...h, ...updates };
-          // Recalculate current value if quantity or price changed
-          if (updates.quantity !== undefined || updates.currentPrice !== undefined) {
-            const price = updates.currentPrice ?? h.currentPrice ?? 0;
-            const qty = updates.quantity ?? h.quantity ?? 0;
-            updated.currentValue = price * qty;
-          }
+          // Always recalculate current value using final price and quantity
+          const finalPrice = updated.currentPrice ?? 0;
+          const finalQty = updated.quantity ?? 0;
+          updated.currentValue = finalPrice * finalQty;
           return updated;
         }
         return h;
@@ -368,17 +366,28 @@ export default function AgentProspectProposalsPage() {
     );
   };
 
-  // Select product from search results
+  // Select product from search results - preserve existing quantity
   const selectProduct = (holdingId: string, product: SearchProduct) => {
-    updateHolding(holdingId, {
-      productId: product.id,
-      productName: product.name,
-      currentPrice: product.currentPrice,
-      returns1y: product.returns1y,
-      category: product.category || undefined,
-      issuer: product.issuer || undefined,
-      isManual: false,
-    });
+    setQuickHoldings(holdings => 
+      holdings.map(h => {
+        if (h.id === holdingId) {
+          const newPrice = product.currentPrice ?? 0;
+          const existingQty = h.quantity ?? 0;
+          return {
+            ...h,
+            productId: product.id,
+            productName: product.name,
+            currentPrice: product.currentPrice,
+            returns1y: product.returns1y,
+            category: product.category || undefined,
+            issuer: product.issuer || undefined,
+            isManual: false,
+            currentValue: newPrice * existingQty,
+          };
+        }
+        return h;
+      })
+    );
     setSearchOpen(false);
     setProductSearchQuery("");
     setProductSearchResults([]);
@@ -389,19 +398,18 @@ export default function AgentProspectProposalsPage() {
     setQuickHoldings(holdings => holdings.filter(h => h.id !== id));
   };
 
-  // Calculate portfolio summary
+  // Calculate portfolio summary with proper guards against NaN
+  const totalPortfolioValue = quickHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+  const holdingsWithValue = quickHoldings.filter(h => (h.currentValue || 0) > 0 && h.returns1y !== null);
+  const weightedReturnNumerator = holdingsWithValue.reduce((sum, h) => sum + ((h.returns1y || 0) * (h.currentValue || 0)), 0);
+  
   const portfolioSummary = {
-    totalValue: quickHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0),
-    totalHoldings: quickHoldings.length,
-    weightedReturn: quickHoldings.length > 0 
-      ? quickHoldings.reduce((sum, h) => {
-          if (h.returns1y && h.currentValue) {
-            return sum + (h.returns1y * h.currentValue);
-          }
-          return sum;
-        }, 0) / Math.max(quickHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0), 1)
+    totalValue: totalPortfolioValue,
+    totalHoldings: quickHoldings.filter(h => h.productName).length,
+    weightedReturn: totalPortfolioValue > 0 && holdingsWithValue.length > 0
+      ? weightedReturnNumerator / totalPortfolioValue
       : 0,
-    assetAllocation: quickHoldings.reduce((acc, h) => {
+    assetAllocation: quickHoldings.filter(h => (h.currentValue || 0) > 0).reduce((acc, h) => {
       const type = PRODUCT_TYPES.find(p => p.value === h.productType)?.label || h.productType;
       acc[type] = (acc[type] || 0) + (h.currentValue || 0);
       return acc;
