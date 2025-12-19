@@ -17326,3 +17326,148 @@ export const insertFundPerformanceRollingSchema = createInsertSchema(fundPerform
 export type FundPerformanceRolling = typeof fundPerformanceRolling.$inferSelect;
 export type InsertFundPerformanceRolling = z.infer<typeof insertFundPerformanceRollingSchema>;
 
+// ============ CLIENT PORTFOLIO - AIF HOLDINGS ============
+// Tracks client's existing AIF investments for AI analysis and portfolio management
+
+export const portfolioEntryStatusEnum = pgEnum("portfolio_entry_status", ["pending", "approved", "rejected", "needs_review"]);
+
+export const clientPortfolioAif = pgTable("client_portfolio_aif", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Client/User Reference
+  clientId: varchar("client_id").notNull().references(() => users.id),
+  addedByUserId: varchar("added_by_user_id").references(() => users.id), // Agent or client
+  
+  // AIF Reference
+  aifId: varchar("aif_id").references(() => aifMaster.id),
+  aifName: text("aif_name").notNull(), // Denormalized for quick display
+  registrationNo: text("registration_no"),
+  category: text("category"), // Category I, II, III
+  subcategory: text("subcategory"), // Strategy type
+  
+  // Investment Details - Commitment Model
+  commitmentAmount: decimal("commitment_amount", { precision: 15, scale: 2 }).notNull(), // Total commitment
+  capitalCalled: decimal("capital_called", { precision: 15, scale: 2 }).notNull(), // Capital called to date
+  capitalUncalled: decimal("capital_uncalled", { precision: 15, scale: 2 }), // Remaining commitment
+  
+  // Investment Dates
+  investedDate: date("invested_date").notNull(),
+  lockinEndDate: date("lockin_end_date"),
+  
+  // Units and NAV
+  currentUnits: decimal("current_units", { precision: 15, scale: 4 }),
+  entryNav: decimal("entry_nav", { precision: 15, scale: 4 }),
+  latestNav: decimal("latest_nav", { precision: 15, scale: 4 }),
+  lastNavDate: date("last_nav_date"),
+  
+  // Valuation
+  costOfInvestment: decimal("cost_of_investment", { precision: 15, scale: 2 }),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }), // Auto-calculated or manual
+  unrealizedGainLoss: decimal("unrealized_gain_loss", { precision: 15, scale: 2 }),
+  unrealizedGainLossPercent: decimal("unrealized_gain_loss_percent", { precision: 8, scale: 4 }),
+  
+  // Distributions
+  distributionsReceived: decimal("distributions_received", { precision: 15, scale: 2 }).default("0"),
+  lastDistributionDate: date("last_distribution_date"),
+  
+  // Documents
+  documents: jsonb("documents").default([]), // Array of { type, name, url, uploadedAt }
+  
+  // Approval Status
+  entryStatus: text("entry_status").default("pending"), // pending, approved, rejected, needs_review
+  approvedByUserId: varchar("approved_by_user_id").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Notes
+  notes: text("notes"),
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_client_portfolio_aif_client").on(table.clientId),
+  index("idx_client_portfolio_aif_aif").on(table.aifId),
+  index("idx_client_portfolio_aif_status").on(table.entryStatus),
+]);
+
+export const insertClientPortfolioAifSchema = createInsertSchema(clientPortfolioAif).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ClientPortfolioAif = typeof clientPortfolioAif.$inferSelect;
+export type InsertClientPortfolioAif = z.infer<typeof insertClientPortfolioAifSchema>;
+
+// ============ CLIENT PORTFOLIO - PMS HOLDINGS ============
+// Tracks client's existing PMS investments for AI analysis and portfolio management
+
+export const clientPortfolioPms = pgTable("client_portfolio_pms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Client/User Reference
+  clientId: varchar("client_id").notNull().references(() => users.id),
+  addedByUserId: varchar("added_by_user_id").references(() => users.id), // Agent or client
+  
+  // PMS Reference
+  pmsId: varchar("pms_id").references(() => pmsMaster.id),
+  pmsName: text("pms_name").notNull(), // Denormalized for quick display
+  registrationNo: text("registration_no"),
+  strategy: text("strategy"), // Strategy type
+  
+  // Investment Details
+  investedAmount: decimal("invested_amount", { precision: 15, scale: 2 }).notNull(), // Initial investment
+  additionalInfusions: decimal("additional_infusions", { precision: 15, scale: 2 }).default("0"),
+  totalInvested: decimal("total_invested", { precision: 15, scale: 2 }), // Sum of all investments
+  
+  // Dates
+  startDate: date("start_date").notNull(),
+  lastInfusionDate: date("last_infusion_date"),
+  
+  // Current Valuation
+  corpusValue: decimal("corpus_value", { precision: 15, scale: 2 }), // Current portfolio value
+  latestNav: decimal("latest_nav", { precision: 15, scale: 4 }),
+  lastNavDate: date("last_nav_date"),
+  
+  // Performance
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  unrealizedGainLoss: decimal("unrealized_gain_loss", { precision: 15, scale: 2 }),
+  unrealizedGainLossPercent: decimal("unrealized_gain_loss_percent", { precision: 8, scale: 4 }),
+  absoluteReturn: decimal("absolute_return", { precision: 8, scale: 4 }),
+  cagr: decimal("cagr", { precision: 8, scale: 4 }), // Annualized return
+  
+  // Withdrawals
+  withdrawalsReceived: decimal("withdrawals_received", { precision: 15, scale: 2 }).default("0"),
+  lastWithdrawalDate: date("last_withdrawal_date"),
+  
+  // Documents
+  documents: jsonb("documents").default([]), // Array of { type, name, url, uploadedAt }
+  
+  // Approval Status
+  entryStatus: text("entry_status").default("pending"), // pending, approved, rejected, needs_review
+  approvedByUserId: varchar("approved_by_user_id").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Notes
+  notes: text("notes"),
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_client_portfolio_pms_client").on(table.clientId),
+  index("idx_client_portfolio_pms_pms").on(table.pmsId),
+  index("idx_client_portfolio_pms_status").on(table.entryStatus),
+]);
+
+export const insertClientPortfolioPmsSchema = createInsertSchema(clientPortfolioPms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ClientPortfolioPms = typeof clientPortfolioPms.$inferSelect;
+export type InsertClientPortfolioPms = z.infer<typeof insertClientPortfolioPmsSchema>;
+
