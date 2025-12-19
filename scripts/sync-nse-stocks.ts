@@ -58,6 +58,15 @@ async function syncNseStocks() {
         set: {
           symbol: symbol,
           name: name || symbol,
+          shortName: (name || symbol).substring(0, 50),
+          issuer: name || symbol,
+          sourceTable: "nse_equity_csv",
+          sourceId: isin,
+          metadata: {
+            symbol: symbol,
+            exchange: "NSE",
+            series: series,
+          },
           updatedAt: new Date(),
         }
       });

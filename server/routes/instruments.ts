@@ -529,10 +529,10 @@ router.post("/api/instruments/sync-nse-csv", async (req: Request, res: Response)
           shortName: (name || symbol).substring(0, 50),
           assetClass: "equity",
           subType: null,
-          sector: null, // NSE CSV doesn't have sector info
+          sector: null,
           category: null,
           issuer: name || symbol,
-          lastPrice: null, // Price would need separate API
+          lastPrice: null,
           priceSource: "nse",
           riskLevel: "high",
           currency: "INR",
@@ -548,6 +548,15 @@ router.post("/api/instruments/sync-nse-csv", async (req: Request, res: Response)
           set: {
             symbol: symbol,
             name: name || symbol,
+            shortName: (name || symbol).substring(0, 50),
+            issuer: name || symbol,
+            sourceTable: "nse_equity_csv",
+            sourceId: isin,
+            metadata: {
+              symbol: symbol,
+              exchange: "NSE",
+              series: series,
+            },
             updatedAt: new Date(),
           }
         });
