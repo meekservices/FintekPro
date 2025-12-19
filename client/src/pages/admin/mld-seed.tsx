@@ -18,7 +18,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   RefreshCw, Search, Loader2, ArrowLeft, Building2, Layers, 
   TrendingUp, AlertTriangle, Eye, EyeOff, Plus, Edit, Trash2,
-  ChartLine, Percent, IndianRupee, Clock, Shield, Check, X
+  ChartLine, Percent, IndianRupee, Clock, Shield, Check, X,
+  Download, CloudDownload, CheckCircle2, XCircle
 } from "lucide-react";
 import { Link } from "wouter";
 import { format, parseISO } from "date-fns";
@@ -148,11 +149,39 @@ const defaultMldForm = {
   isPublished: false,
 };
 
+interface BseMldListing {
+  isin: string;
+  name: string;
+  issuer: string;
+  issueDate: string | null;
+  maturityDate: string | null;
+  faceValue: string;
+  couponRate: string | null;
+  creditRating: string | null;
+  listingType: string;
+  exchange: string;
+  isDuplicate?: boolean;
+}
+
+interface BseImportPreviewResponse {
+  success: boolean;
+  listings: BseMldListing[];
+  summary: {
+    total: number;
+    newMLDs: number;
+    duplicates: number;
+  };
+  errors: string[];
+}
+
 export default function MldSeedAdmin() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importPreview, setImportPreview] = useState<BseImportPreviewResponse | null>(null);
+  const [selectedForImport, setSelectedForImport] = useState<Set<string>>(new Set());
   const [editingMld, setEditingMld] = useState<MldMaster | null>(null);
   const [mldForm, setMldForm] = useState(defaultMldForm);
 
@@ -234,6 +263,71 @@ export default function MldSeedAdmin() {
       toast({ title: "Error", description: err.message || "Failed to delete MLD", variant: "destructive" });
     },
   });
+
+  const previewBseImportMutation = useMutation({
+    mutationFn: (useSample: boolean) => 
+      apiRequest(`/api/store/admin/mld/import/preview?useSample=${useSample}`),
+    onSuccess: (data: BseImportPreviewResponse) => {
+      setImportPreview(data);
+      const newItems = data.listings.filter(l => !l.isDuplicate);
+      setSelectedForImport(new Set(newItems.map(l => l.isin)));
+      toast({ title: "Preview Ready", description: `Found ${data.summary.newMLDs} new MLDs to import` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to fetch BSE MLDs", variant: "destructive" });
+    },
+  });
+
+  const executeBseImportMutation = useMutation({
+    mutationFn: (listings: BseMldListing[]) => 
+      apiRequest("/api/store/admin/mld/import", {
+        method: "POST",
+        body: JSON.stringify({ listings, skipDuplicates: true }),
+      }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/admin/mld"] });
+      toast({ 
+        title: "Import Complete", 
+        description: `Imported ${data.summary?.imported || 0} MLDs, skipped ${data.summary?.skipped || 0} duplicates` 
+      });
+      setShowImportDialog(false);
+      setImportPreview(null);
+      setSelectedForImport(new Set());
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to import MLDs", variant: "destructive" });
+    },
+  });
+
+  const handleImportSelected = () => {
+    if (!importPreview) return;
+    const selectedListings = importPreview.listings.filter(l => selectedForImport.has(l.isin) && !l.isDuplicate);
+    if (selectedListings.length === 0) {
+      toast({ title: "No Items Selected", description: "Please select at least one MLD to import", variant: "destructive" });
+      return;
+    }
+    executeBseImportMutation.mutate(selectedListings);
+  };
+
+  const toggleImportSelection = (isin: string) => {
+    const newSet = new Set(selectedForImport);
+    if (newSet.has(isin)) {
+      newSet.delete(isin);
+    } else {
+      newSet.add(isin);
+    }
+    setSelectedForImport(newSet);
+  };
+
+  const selectAllNew = () => {
+    if (!importPreview) return;
+    const newItems = importPreview.listings.filter(l => !l.isDuplicate);
+    setSelectedForImport(new Set(newItems.map(l => l.isin)));
+  };
+
+  const clearSelection = () => {
+    setSelectedForImport(new Set());
+  };
 
   const handleSubmit = () => {
     if (!mldForm.isin || !mldForm.name || !mldForm.issuer || !mldForm.maturityDate) {
@@ -351,6 +445,13 @@ export default function MldSeedAdmin() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} data-testid="btn-refresh">
             <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowImportDialog(true)} 
+            data-testid="btn-import-bse"
+          >
+            <CloudDownload className="w-4 h-4 mr-2" /> Import from BSE
           </Button>
           <Button onClick={() => setShowAddDialog(true)} data-testid="btn-add-mld">
             <Plus className="w-4 h-4 mr-2" /> Add MLD
@@ -867,6 +968,177 @@ export default function MldSeedAdmin() {
               )}
               {editingMld ? "Update MLD" : "Create MLD"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CloudDownload className="w-5 h-5" />
+              Import MLDs from BSE
+            </DialogTitle>
+            <DialogDescription>
+              Fetch Market Linked Debentures from BSE debt segment. Duplicate ISINs will be highlighted.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!importPreview ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <Building2 className="w-16 h-16 text-muted-foreground" />
+              <p className="text-muted-foreground text-center">
+                Click below to fetch MLD listings from BSE debt segment
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => previewBseImportMutation.mutate(false)}
+                  disabled={previewBseImportMutation.isPending}
+                  data-testid="btn-fetch-bse-live"
+                >
+                  {previewBseImportMutation.isPending && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  <Download className="w-4 h-4 mr-2" />
+                  Fetch from BSE (Live)
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => previewBseImportMutation.mutate(true)}
+                  disabled={previewBseImportMutation.isPending}
+                  data-testid="btn-fetch-sample"
+                >
+                  Use Sample Data
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex gap-4">
+                  <Badge variant="outline" className="text-sm">
+                    Total: {importPreview.summary.total}
+                  </Badge>
+                  <Badge variant="default" className="text-sm bg-green-600">
+                    New: {importPreview.summary.newMLDs}
+                  </Badge>
+                  <Badge variant="secondary" className="text-sm">
+                    Duplicates: {importPreview.summary.duplicates}
+                  </Badge>
+                  <Badge variant="outline" className="text-sm">
+                    Selected: {selectedForImport.size}
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={selectAllNew}>
+                    Select All New
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={clearSelection}>
+                    Clear
+                  </Button>
+                </div>
+              </div>
+
+              <ScrollArea className="h-[400px] border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">Select</TableHead>
+                      <TableHead>ISIN</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Issuer</TableHead>
+                      <TableHead>Face Value</TableHead>
+                      <TableHead>Maturity</TableHead>
+                      <TableHead>Rating</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importPreview.listings.map((listing) => (
+                      <TableRow 
+                        key={listing.isin}
+                        className={listing.isDuplicate ? "opacity-50 bg-muted/50" : ""}
+                      >
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedForImport.has(listing.isin)}
+                            onChange={() => toggleImportSelection(listing.isin)}
+                            disabled={listing.isDuplicate}
+                            className="w-4 h-4"
+                            data-testid={`checkbox-${listing.isin}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {listing.isin}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {listing.name}
+                        </TableCell>
+                        <TableCell>{listing.issuer}</TableCell>
+                        <TableCell>{formatCurrency(listing.faceValue)}</TableCell>
+                        <TableCell>
+                          {listing.maturityDate 
+                            ? format(parseISO(listing.maturityDate), "dd MMM yyyy")
+                            : "—"
+                          }
+                        </TableCell>
+                        <TableCell>
+                          {listing.creditRating ? (
+                            <Badge variant="outline">{listing.creditRating}</Badge>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {listing.isDuplicate ? (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <XCircle className="w-3 h-3" /> Exists
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+                              <CheckCircle2 className="w-3 h-3" /> New
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+
+              {importPreview.errors.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="w-4 h-4" />
+                  <AlertDescription>
+                    {importPreview.errors.length} error(s) during fetch. Some listings may be incomplete.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowImportDialog(false);
+                setImportPreview(null);
+                setSelectedForImport(new Set());
+              }}
+            >
+              Cancel
+            </Button>
+            {importPreview && (
+              <Button
+                onClick={handleImportSelected}
+                disabled={selectedForImport.size === 0 || executeBseImportMutation.isPending}
+                data-testid="btn-confirm-import"
+              >
+                {executeBseImportMutation.isPending && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Import {selectedForImport.size} Selected
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

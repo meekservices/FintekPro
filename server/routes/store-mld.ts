@@ -3,6 +3,7 @@ import { db } from "../db";
 import { mldMaster, mldPriceHistory, mldMonthwisePerformance, clientPortfolioMld, users } from "@shared/schema";
 import { eq, desc, and, ilike, or, sql, gte, lte } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middleware/roleMiddleware";
+import { scrapeBseMldListings, generateSampleMldListings, type BseMldListing } from "../services/bse-mld-scraper";
 
 const router = Router();
 
@@ -704,5 +705,160 @@ function generatePayoffGraphData(mld: any) {
   
   return dataPoints;
 }
+
+// ============ BSE MLD IMPORT ENDPOINTS ============
+
+// GET /admin/mld/import/preview - Preview MLDs from BSE before importing
+router.get("/admin/mld/import/preview", requireAdmin, async (req, res) => {
+  try {
+    const { useSample } = req.query;
+    
+    let listings: BseMldListing[];
+    let errors: string[] = [];
+    
+    if (useSample === "true") {
+      console.log("[BSE Import] Using sample MLD data for preview");
+      listings = generateSampleMldListings();
+    } else {
+      console.log("[BSE Import] Scraping BSE for MLD listings...");
+      const result = await scrapeBseMldListings();
+      listings = result.listings;
+      errors = result.errors;
+      
+      if (listings.length === 0) {
+        console.log("[BSE Import] No live MLDs found, falling back to sample data");
+        listings = generateSampleMldListings();
+      }
+    }
+    
+    // Check for existing ISINs to mark duplicates
+    const existingIsins = await db
+      .select({ isin: mldMaster.isin })
+      .from(mldMaster);
+    
+    const existingIsinSet = new Set(existingIsins.map(e => e.isin));
+    
+    const previewListings = listings.map(listing => ({
+      ...listing,
+      isDuplicate: existingIsinSet.has(listing.isin),
+    }));
+    
+    const newCount = previewListings.filter(l => !l.isDuplicate).length;
+    const duplicateCount = previewListings.filter(l => l.isDuplicate).length;
+    
+    res.json({
+      success: true,
+      listings: previewListings,
+      summary: {
+        total: listings.length,
+        newMLDs: newCount,
+        duplicates: duplicateCount,
+      },
+      errors,
+    });
+  } catch (error: any) {
+    console.error("[BSE Import] Preview error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Failed to preview BSE MLDs",
+      details: error.message,
+    });
+  }
+});
+
+// POST /admin/mld/import - Import selected MLDs from BSE
+router.post("/admin/mld/import", requireAdmin, async (req, res) => {
+  try {
+    const { listings, skipDuplicates = true } = req.body;
+    
+    if (!Array.isArray(listings) || listings.length === 0) {
+      return res.status(400).json({ error: "No listings provided for import" });
+    }
+    
+    console.log(`[BSE Import] Starting import of ${listings.length} MLDs...`);
+    
+    // Get existing ISINs
+    const existingIsins = await db
+      .select({ isin: mldMaster.isin })
+      .from(mldMaster);
+    const existingIsinSet = new Set(existingIsins.map(e => e.isin));
+    
+    const imported: any[] = [];
+    const skipped: string[] = [];
+    const errors: string[] = [];
+    
+    for (const listing of listings as BseMldListing[]) {
+      try {
+        if (existingIsinSet.has(listing.isin)) {
+          if (skipDuplicates) {
+            skipped.push(listing.isin);
+            continue;
+          }
+        }
+        
+        // Determine payoff type from name (default to barrier if unclear)
+        let payoffType = "barrier";
+        const lowerName = listing.name.toLowerCase();
+        if (lowerName.includes("principal protected")) payoffType = "digital";
+        else if (lowerName.includes("autocall")) payoffType = "autocall";
+        else if (lowerName.includes("snowball")) payoffType = "snowball";
+        else if (lowerName.includes("participation")) payoffType = "participation";
+        else if (lowerName.includes("range")) payoffType = "range";
+        else if (lowerName.includes("shark")) payoffType = "sharkfin";
+        
+        const [newMld] = await db
+          .insert(mldMaster)
+          .values({
+            isin: listing.isin,
+            name: listing.name,
+            issuer: listing.issuer,
+            issueDate: listing.issueDate || new Date().toISOString().split("T")[0],
+            maturityDate: listing.maturityDate,
+            faceValue: listing.faceValue,
+            couponRate: listing.couponRate,
+            underlying: "NIFTY 50",
+            payoffType,
+            creditRating: listing.creditRating,
+            listingType: listing.listingType,
+            exchange: listing.exchange,
+            minInvestment: listing.faceValue,
+            lotSize: 1,
+            status: "active",
+            riskScore: 5,
+            isPublished: false,
+            createdAt: new Date(),
+          })
+          .returning();
+        
+        imported.push(newMld);
+        existingIsinSet.add(listing.isin);
+      } catch (itemError: any) {
+        console.error(`[BSE Import] Error importing ${listing.isin}:`, itemError.message);
+        errors.push(`${listing.isin}: ${itemError.message}`);
+      }
+    }
+    
+    console.log(`[BSE Import] Completed: ${imported.length} imported, ${skipped.length} skipped, ${errors.length} errors`);
+    
+    res.json({
+      success: true,
+      summary: {
+        imported: imported.length,
+        skipped: skipped.length,
+        errors: errors.length,
+      },
+      imported,
+      skipped,
+      errors,
+    });
+  } catch (error: any) {
+    console.error("[BSE Import] Import error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Failed to import BSE MLDs",
+      details: error.message,
+    });
+  }
+});
 
 export default router;
