@@ -16912,3 +16912,134 @@ export const InvestmentGoalTypes = [
 ] as const;
 export type InvestmentGoalType = typeof InvestmentGoalTypes[number];
 
+// ============ INSTRUMENT MASTER ============
+// Unified instrument lookup table for ISIN-based portfolio entry
+
+export const InstrumentAssetClassEnum = z.enum([
+  'equity',
+  'mutual_fund',
+  'bond',
+  'etf',
+  'mld',
+  'unlisted',
+  'aif',
+  'pms',
+  'fd',
+  'gold',
+  'real_estate',
+  'other'
+]);
+export type InstrumentAssetClass = z.infer<typeof InstrumentAssetClassEnum>;
+
+export const instrumentMaster = pgTable("instrument_master", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Primary identifiers
+  isin: varchar("isin").notNull().unique(),
+  symbol: varchar("symbol"),
+  
+  // Instrument details
+  name: varchar("name").notNull(),
+  shortName: varchar("short_name"),
+  assetClass: varchar("asset_class").notNull(), // equity, mutual_fund, bond, etf, mld, unlisted, aif, pms
+  subType: varchar("sub_type"), // large_cap, mid_cap, gilt, corporate_bond, etc.
+  category: varchar("category"), // AMFI category for MFs
+  
+  // Issuer/AMC details
+  issuer: varchar("issuer"), // AMC name for MFs, company name for equity
+  sector: varchar("sector"),
+  
+  // Pricing
+  lastPrice: decimal("last_price", { precision: 15, scale: 4 }),
+  currency: varchar("currency").default("INR"),
+  priceSource: varchar("price_source"), // nse, bse, amfi, manual
+  priceUpdatedAt: timestamp("price_updated_at"),
+  
+  // Additional metadata
+  faceValue: decimal("face_value", { precision: 15, scale: 4 }),
+  maturityDate: timestamp("maturity_date"),
+  creditRating: varchar("credit_rating"),
+  riskLevel: varchar("risk_level"), // low, moderate, high
+  
+  // Source reference (for linking to original tables)
+  sourceTable: varchar("source_table"), // mutual_funds, bond_catalog, unlisted_companies
+  sourceId: varchar("source_id"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_instrument_master_isin").on(table.isin),
+  index("idx_instrument_master_name").on(table.name),
+  index("idx_instrument_master_asset_class").on(table.assetClass),
+  index("idx_instrument_master_symbol").on(table.symbol),
+]);
+
+export const insertInstrumentMasterSchema = createInsertSchema(instrumentMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InstrumentMaster = typeof instrumentMaster.$inferSelect;
+export type InsertInstrumentMaster = z.infer<typeof insertInstrumentMasterSchema>;
+
+// ============ PROPOSAL HOLDINGS ============
+// Structured holdings for prospect proposals with ISIN-based entries
+
+export const proposalHoldings = pgTable("proposal_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Parent proposal
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Instrument reference
+  instrumentId: varchar("instrument_id").references(() => instrumentMaster.id),
+  isin: varchar("isin").notNull(),
+  
+  // Holding details from instrument master (denormalized for performance)
+  securityName: varchar("security_name").notNull(),
+  assetClass: varchar("asset_class").notNull(),
+  category: varchar("category"),
+  issuer: varchar("issuer"),
+  
+  // Acquisition details
+  quantity: decimal("quantity", { precision: 15, scale: 4 }).notNull(),
+  buyPrice: decimal("buy_price", { precision: 15, scale: 4 }).notNull(),
+  buyDate: timestamp("buy_date"),
+  
+  // Current valuation
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }),
+  unrealizedGainLoss: decimal("unrealized_gain_loss", { precision: 15, scale: 2 }),
+  unrealizedGainLossPercent: decimal("unrealized_gain_loss_percent", { precision: 8, scale: 2 }),
+  
+  // Import source
+  importedFrom: varchar("imported_from"), // manual, csv_zerodha, csv_upstox, cas_pdf
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Order for display
+  sortOrder: integer("sort_order").default(0),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_holdings_proposal").on(table.proposalId),
+  index("idx_proposal_holdings_isin").on(table.isin),
+  index("idx_proposal_holdings_asset_class").on(table.assetClass),
+]);
+
+export const insertProposalHoldingSchema = createInsertSchema(proposalHoldings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ProposalHolding = typeof proposalHoldings.$inferSelect;
+export type InsertProposalHolding = z.infer<typeof insertProposalHoldingSchema>;
+
