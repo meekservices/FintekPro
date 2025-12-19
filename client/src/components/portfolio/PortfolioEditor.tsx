@@ -107,11 +107,13 @@ interface PortfolioSummary {
 
 const ASSET_CLASSES = [
   { value: "mutual_fund", label: "Mutual Funds", color: "bg-blue-500" },
-  { value: "equity", label: "Equities", color: "bg-green-500" },
-  { value: "bond", label: "Bonds & MLDs", color: "bg-amber-500" },
+  { value: "equity", label: "Listed Stocks", color: "bg-green-500" },
+  { value: "bond", label: "Bonds", color: "bg-amber-500" },
+  { value: "mld", label: "MLDs", color: "bg-orange-500" },
   { value: "etf", label: "ETFs", color: "bg-purple-500" },
   { value: "unlisted", label: "Unlisted Equity", color: "bg-red-500" },
-  { value: "aif", label: "AIF/PMS", color: "bg-indigo-500" },
+  { value: "pms", label: "PMS", color: "bg-teal-500" },
+  { value: "aif", label: "AIF", color: "bg-indigo-500" },
   { value: "other", label: "Other Assets", color: "bg-gray-500" },
 ];
 
@@ -297,12 +299,13 @@ export function PortfolioEditor({
   const validateHoldings = useCallback((): string[] => {
     const errors: string[] = [];
     const isinSet = new Set<string>();
+    const nameSet = new Set<string>();
 
     holdings.forEach((h, i) => {
       const rowNum = i + 1;
 
       if (!h.isin) {
-        errors.push(`Row ${rowNum}: ISIN is required`);
+        errors.push(`Row ${rowNum}: ISIN/identifier is required`);
       } else {
         const normalizedIsin = h.isin.toUpperCase();
         if (isinSet.has(normalizedIsin)) {
@@ -313,6 +316,12 @@ export function PortfolioEditor({
 
       if (!h.securityName) {
         errors.push(`Row ${rowNum}: Security name is required`);
+      } else {
+        const normalizedName = h.securityName.toLowerCase().trim();
+        if (nameSet.has(normalizedName)) {
+          errors.push(`Row ${rowNum}: Duplicate security "${h.securityName}"`);
+        }
+        nameSet.add(normalizedName);
       }
 
       if (!h.quantity || h.quantity <= 0) {
@@ -325,6 +334,15 @@ export function PortfolioEditor({
 
       if (h.buyDate && new Date(h.buyDate) > new Date()) {
         errors.push(`Row ${rowNum}: Buy date cannot be in the future`);
+      }
+
+      // Asset-class specific validations
+      if (h.assetClass === "pms" && h.currentValue < 5000000) {
+        errors.push(`Row ${rowNum}: PMS typically requires minimum ₹50 Lakhs investment`);
+      }
+
+      if (h.assetClass === "aif" && h.currentValue < 10000000) {
+        errors.push(`Row ${rowNum}: AIF typically requires minimum ₹1 Crore investment`);
       }
     });
 
@@ -504,8 +522,15 @@ export function PortfolioEditor({
                                   <div className="cursor-pointer">
                                     {holding.isin ? (
                                       <div>
-                                        <div className="font-mono text-xs text-muted-foreground">
-                                          {holding.isin}
+                                        <div className="font-mono text-xs text-muted-foreground flex items-center gap-1">
+                                          {holding.isin.startsWith("MAN") ? (
+                                            <>
+                                              <Badge variant="secondary" className="text-xs px-1 py-0">Manual</Badge>
+                                              <span className="text-[10px]">{holding.isin}</span>
+                                            </>
+                                          ) : (
+                                            holding.isin
+                                          )}
                                         </div>
                                         <div className="text-sm font-medium truncate max-w-[200px]">
                                           {holding.securityName}
@@ -514,7 +539,7 @@ export function PortfolioEditor({
                                     ) : (
                                       <div className="flex items-center gap-2 text-muted-foreground">
                                         <Search className="w-4 h-4" />
-                                        <span>Search by ISIN or name...</span>
+                                        <span>Search or enter manually...</span>
                                       </div>
                                     )}
                                   </div>
@@ -535,7 +560,42 @@ export function PortfolioEditor({
                                         </div>
                                       )}
                                       {!isSearching && searchQuery.length >= 2 && searchResults?.instruments?.length === 0 && (
-                                        <CommandEmpty>No instruments found.</CommandEmpty>
+                                        <CommandEmpty>
+                                          <div className="py-2 px-3 space-y-3">
+                                            <p className="text-sm text-muted-foreground text-center">
+                                              No instruments found for "{searchQuery}"
+                                            </p>
+                                            <div className="text-xs text-muted-foreground text-center">
+                                              Add manually for stocks, PMS, AIF, MLDs not in database
+                                            </div>
+                                            <div className="space-y-2">
+                                              <Input
+                                                placeholder="Enter ISIN (optional, e.g. INE123A45678)"
+                                                className="h-8 text-xs"
+                                                id={`manual-isin-${holding.id}`}
+                                                data-testid="input-manual-isin"
+                                              />
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                  const isinInput = document.getElementById(`manual-isin-${holding.id}`) as HTMLInputElement;
+                                                  const userIsin = isinInput?.value?.trim().toUpperCase();
+                                                  const generatedId = `MAN${Math.random().toString(36).substr(2, 9).toUpperCase()}`.substring(0, 12);
+                                                  updateRow(holding.id, "securityName", searchQuery);
+                                                  updateRow(holding.id, "isin", userIsin || generatedId);
+                                                  setSearchOpen(null);
+                                                  setSearchQuery("");
+                                                }}
+                                                className="w-full"
+                                                data-testid="btn-manual-entry"
+                                              >
+                                                <Plus className="w-4 h-4 mr-2" />
+                                                Add "{searchQuery}" manually
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </CommandEmpty>
                                       )}
                                       {searchResults?.instruments?.length > 0 && (
                                         <CommandGroup heading="Instruments">
