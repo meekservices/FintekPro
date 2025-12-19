@@ -72,6 +72,368 @@ interface AuditLog {
   timestamp: string;
 }
 
+interface PortfolioAIF {
+  id: number;
+  clientId: number;
+  schemeId: number | null;
+  schemeName: string;
+  amcName: string;
+  category: string | null;
+  subCategory: string | null;
+  commitmentAmount: string;
+  capitalCalled: string;
+  capitalUncalled: string;
+  currentNav: string | null;
+  currentValue: string | null;
+  unrealizedGainLoss: string | null;
+  lockInEndDate: string | null;
+  fundStartDate: string | null;
+  investmentDate: string | null;
+  entryStatus: string;
+  notes: string | null;
+  documents: any | null;
+  createdAt: string;
+  type: "aif";
+  client?: { id: number; name: string; email: string };
+}
+
+interface PortfolioPMS {
+  id: number;
+  clientId: number;
+  schemeId: number | null;
+  schemeName: string;
+  amcName: string;
+  strategy: string | null;
+  initialInvestment: string;
+  additionalInfusions: string | null;
+  totalInvested: string;
+  corpusValue: string | null;
+  currentValue: string | null;
+  unrealizedGainLoss: string | null;
+  cagr: string | null;
+  startDate: string | null;
+  entryStatus: string;
+  notes: string | null;
+  documents: any | null;
+  createdAt: string;
+  type: "pms";
+  client?: { id: number; name: string; email: string };
+}
+
+function PortfolioApprovalsTab() {
+  const { toast } = useToast();
+  const [approvalType, setApprovalType] = useState<"aif" | "pms">("aif");
+  const [statusFilter, setStatusFilter] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+
+  const { data: portfolioData, isLoading } = useQuery<{ 
+    aif: PortfolioAIF[]; 
+    pms: PortfolioPMS[];
+    summary: { totalAifHoldings: number; totalPmsHoldings: number; pendingApproval: number };
+  }>({
+    queryKey: ['/api/store/portfolio/admin/all'],
+  });
+
+  const aifHoldings = portfolioData?.aif || [];
+  const pmsHoldings = portfolioData?.pms || [];
+
+  const approveMutation = useMutation({
+    mutationFn: ({ type, id, action }: { type: 'aif' | 'pms'; id: number; action: 'approve' | 'reject' }) =>
+      apiRequest(`/api/store/portfolio/admin/approve/${type}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ action })
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/store/portfolio/admin/all'] });
+      toast({
+        title: variables.action === 'approve' ? "Entry Approved" : "Entry Rejected",
+        description: `The ${variables.type.toUpperCase()} entry has been ${variables.action === 'approve' ? 'approved' : 'rejected'}.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update approval status",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const filteredAIF = statusFilter === 'all' 
+    ? aifHoldings 
+    : aifHoldings.filter(h => h.entryStatus === statusFilter);
+
+  const filteredPMS = statusFilter === 'all' 
+    ? pmsHoldings 
+    : pmsHoldings.filter(h => h.entryStatus === statusFilter);
+
+  const pendingAIFCount = aifHoldings.filter(h => h.entryStatus === 'pending').length;
+  const pendingPMSCount = pmsHoldings.filter(h => h.entryStatus === 'pending').length;
+
+  const formatCurrency = (value: string | null) => {
+    if (!value) return '-';
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(parseFloat(value));
+  };
+
+  return (
+    <Card className="bg-gray-900 border-gray-800">
+      <CardHeader>
+        <CardTitle className="text-white flex items-center justify-between">
+          <span>Portfolio Approvals</span>
+          <div className="flex items-center gap-2">
+            {pendingAIFCount > 0 && (
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                {pendingAIFCount} AIF Pending
+              </Badge>
+            )}
+            {pendingPMSCount > 0 && (
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                {pendingPMSCount} PMS Pending
+              </Badge>
+            )}
+          </div>
+        </CardTitle>
+        <CardDescription className="text-gray-400">
+          Review and approve client-submitted AIF and PMS holdings for portfolio analysis
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={approvalType === "aif" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setApprovalType("aif")}
+              className={approvalType === "aif" ? "bg-blue-600 hover:bg-blue-700" : "border-gray-700"}
+              data-testid="button-filter-aif"
+            >
+              AIF Holdings
+            </Button>
+            <Button
+              variant={approvalType === "pms" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setApprovalType("pms")}
+              className={approvalType === "pms" ? "bg-purple-600 hover:bg-purple-700" : "border-gray-700"}
+              data-testid="button-filter-pms"
+            >
+              PMS Holdings
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={statusFilter === "pending" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("pending")}
+              className={statusFilter === "pending" ? "bg-amber-600 hover:bg-amber-700" : "border-gray-700"}
+              data-testid="button-filter-pending"
+            >
+              Pending
+            </Button>
+            <Button
+              variant={statusFilter === "approved" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("approved")}
+              className={statusFilter === "approved" ? "bg-green-600 hover:bg-green-700" : "border-gray-700"}
+              data-testid="button-filter-approved"
+            >
+              Approved
+            </Button>
+            <Button
+              variant={statusFilter === "rejected" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("rejected")}
+              className={statusFilter === "rejected" ? "bg-red-600 hover:bg-red-700" : "border-gray-700"}
+              data-testid="button-filter-rejected"
+            >
+              Rejected
+            </Button>
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+              className={statusFilter === "all" ? "bg-gray-600 hover:bg-gray-700" : "border-gray-700"}
+              data-testid="button-filter-all"
+            >
+              All
+            </Button>
+          </div>
+        </div>
+
+        {approvalType === "aif" ? (
+          isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+              <span className="ml-2 text-gray-400">Loading AIF holdings...</span>
+            </div>
+          ) : filteredAIF.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No {statusFilter === 'all' ? '' : statusFilter} AIF entries found</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[500px]">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-800">
+                    <TableHead className="text-gray-400">Client</TableHead>
+                    <TableHead className="text-gray-400">Scheme</TableHead>
+                    <TableHead className="text-gray-400">AMC</TableHead>
+                    <TableHead className="text-gray-400 text-right">Commitment</TableHead>
+                    <TableHead className="text-gray-400 text-right">Called</TableHead>
+                    <TableHead className="text-gray-400 text-right">Current Value</TableHead>
+                    <TableHead className="text-gray-400">Status</TableHead>
+                    <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAIF.map((holding) => (
+                    <TableRow key={holding.id} className="border-gray-800" data-testid={`row-aif-${holding.id}`}>
+                      <TableCell className="text-gray-300">
+                        <div>
+                          <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
+                          <p className="text-xs text-gray-500">{holding.client?.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-gray-300">{holding.schemeName}</TableCell>
+                      <TableCell className="text-gray-400">{holding.amcName}</TableCell>
+                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.commitmentAmount)}</TableCell>
+                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.capitalCalled)}</TableCell>
+                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.currentValue)}</TableCell>
+                      <TableCell>
+                        <Badge className={
+                          holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
+                          holding.entryStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                          'bg-amber-500/20 text-amber-400'
+                        }>
+                          {holding.entryStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {holding.entryStatus === 'pending' && (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-green-600 text-green-400 hover:bg-green-600/20"
+                              onClick={() => approveMutation.mutate({ type: 'aif', id: holding.id, action: 'approve' })}
+                              disabled={approveMutation.isPending}
+                              data-testid={`button-approve-aif-${holding.id}`}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-600 text-red-400 hover:bg-red-600/20"
+                              onClick={() => approveMutation.mutate({ type: 'aif', id: holding.id, action: 'reject' })}
+                              disabled={approveMutation.isPending}
+                              data-testid={`button-reject-aif-${holding.id}`}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )
+        ) : (
+          isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+              <span className="ml-2 text-gray-400">Loading PMS holdings...</span>
+            </div>
+          ) : filteredPMS.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No {statusFilter === 'all' ? '' : statusFilter} PMS entries found</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[500px]">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-800">
+                    <TableHead className="text-gray-400">Client</TableHead>
+                    <TableHead className="text-gray-400">Scheme</TableHead>
+                    <TableHead className="text-gray-400">AMC</TableHead>
+                    <TableHead className="text-gray-400 text-right">Total Invested</TableHead>
+                    <TableHead className="text-gray-400 text-right">Corpus Value</TableHead>
+                    <TableHead className="text-gray-400 text-right">CAGR</TableHead>
+                    <TableHead className="text-gray-400">Status</TableHead>
+                    <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPMS.map((holding) => (
+                    <TableRow key={holding.id} className="border-gray-800" data-testid={`row-pms-${holding.id}`}>
+                      <TableCell className="text-gray-300">
+                        <div>
+                          <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
+                          <p className="text-xs text-gray-500">{holding.client?.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-gray-300">{holding.schemeName}</TableCell>
+                      <TableCell className="text-gray-400">{holding.amcName}</TableCell>
+                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.totalInvested)}</TableCell>
+                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.corpusValue)}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={parseFloat(holding.cagr || '0') >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {holding.cagr ? `${parseFloat(holding.cagr).toFixed(2)}%` : '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={
+                          holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
+                          holding.entryStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                          'bg-amber-500/20 text-amber-400'
+                        }>
+                          {holding.entryStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {holding.entryStatus === 'pending' && (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-green-600 text-green-400 hover:bg-green-600/20"
+                              onClick={() => approveMutation.mutate({ type: 'pms', id: holding.id, action: 'approve' })}
+                              disabled={approveMutation.isPending}
+                              data-testid={`button-approve-pms-${holding.id}`}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-600 text-red-400 hover:bg-red-600/20"
+                              onClick={() => approveMutation.mutate({ type: 'pms', id: holding.id, action: 'reject' })}
+                              disabled={approveMutation.isPending}
+                              data-testid={`button-reject-pms-${holding.id}`}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function StoreManagement() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("hierarchy");
@@ -310,7 +672,7 @@ export default function StoreManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg bg-gray-900 border-gray-800">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-gray-900 border-gray-800">
           <TabsTrigger value="hierarchy" data-testid="tab-hierarchy">
             <FolderTree className="w-4 h-4 mr-2" />
             Hierarchy
@@ -318,6 +680,10 @@ export default function StoreManagement() {
           <TabsTrigger value="products" data-testid="tab-products">
             <Package className="w-4 h-4 mr-2" />
             Products
+          </TabsTrigger>
+          <TabsTrigger value="portfolio-approvals" data-testid="tab-portfolio-approvals">
+            <Shield className="w-4 h-4 mr-2" />
+            Portfolio Approvals
           </TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-audit">
             <History className="w-4 h-4 mr-2" />
@@ -804,6 +1170,11 @@ export default function StoreManagement() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Portfolio Approvals Tab - AIF/PMS Holdings */}
+        <TabsContent value="portfolio-approvals">
+          <PortfolioApprovalsTab />
         </TabsContent>
 
         {/* Audit Log Tab */}
