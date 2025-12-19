@@ -16746,3 +16746,169 @@ export const RegulatoryCommissionCaps: Record<CommissionProductType, number> = {
   pms_aif: 2.5 // Performance fee structures
 };
 
+// ========================================
+// PROSPECT PORTFOLIO DEMO PROPOSALS
+// ========================================
+
+export const prospectProposals = pgTable("prospect_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Unique shareable token for public access
+  shareToken: varchar("share_token").notNull().unique(),
+  
+  // Agent who created the proposal
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  agentName: varchar("agent_name"),
+  agentArnCode: varchar("agent_arn_code"),
+  agentMobile: varchar("agent_mobile"),
+  agentEmail: varchar("agent_email"),
+  
+  // Prospect details (non-registered user)
+  prospectName: varchar("prospect_name").notNull(),
+  prospectEmail: varchar("prospect_email"),
+  prospectMobile: varchar("prospect_mobile"),
+  
+  // Proposal type
+  proposalType: varchar("proposal_type").notNull(), // 'sample_portfolio' | 'fresh_investment'
+  
+  // For sample portfolio type - input portfolio data
+  samplePortfolio: jsonb("sample_portfolio").$type<{
+    totalValue: number;
+    holdings: Array<{
+      name: string;
+      type: string; // mutual_fund, stock, bond, etc.
+      currentValue: number;
+      allocation: number;
+      returns1Y?: number;
+    }>;
+    assetAllocation: Record<string, number>;
+  }>(),
+  
+  // For fresh investment type - investment goals
+  investmentGoals: jsonb("investment_goals").$type<{
+    goalType: string; // retirement, child_education, wealth_creation, etc.
+    targetAmount?: number;
+    timeHorizon: string; // short_term, medium_term, long_term
+    monthlyInvestment?: number;
+    lumpsum?: number;
+    riskTolerance: string; // conservative, moderate, aggressive
+  }>(),
+  
+  // AI-generated proposal content
+  proposalTitle: varchar("proposal_title").notNull(),
+  executiveSummary: text("executive_summary"),
+  currentAnalysis: text("current_analysis"),
+  
+  // Recommendations
+  recommendations: jsonb("recommendations").$type<Array<{
+    productType: string;
+    productName: string;
+    productCode?: string;
+    amc?: string;
+    category?: string;
+    recommendedAmount: number;
+    allocationPercentage: number;
+    investmentType: string; // lumpsum, sip
+    sipAmount?: number;
+    returns1Y?: number;
+    returns3Y?: number;
+    returns5Y?: number;
+    riskRating?: string;
+    selectionReason: string;
+  }>>(),
+  
+  // Projected outcomes
+  totalInvestmentAmount: decimal("total_investment_amount", { precision: 15, scale: 2 }),
+  projectedReturns: decimal("projected_returns", { precision: 5, scale: 2 }),
+  projectedValue: decimal("projected_value", { precision: 15, scale: 2 }),
+  targetAllocation: jsonb("target_allocation").$type<Record<string, number>>(),
+  
+  // Linked onboarding invitation
+  invitationId: varchar("invitation_id").references(() => onboardingInvitations.id),
+  referralCode: varchar("referral_code"),
+  
+  // Engagement tracking
+  viewCount: integer("view_count").default(0),
+  lastViewedAt: timestamp("last_viewed_at"),
+  firstViewedAt: timestamp("first_viewed_at"),
+  
+  // Sharing details
+  sharedViaEmail: boolean("shared_via_email").default(false),
+  sharedViaWhatsApp: boolean("shared_via_whatsapp").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  whatsappSentAt: timestamp("whatsapp_sent_at"),
+  
+  // Conversion tracking
+  status: varchar("status").notNull().default("draft"), // draft, shared, viewed, converted, expired
+  convertedUserId: varchar("converted_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  
+  // Expiry
+  validUntil: timestamp("valid_until"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_prospect_proposals_share_token").on(table.shareToken),
+  index("idx_prospect_proposals_agent").on(table.agentId),
+  index("idx_prospect_proposals_status").on(table.status),
+  index("idx_prospect_proposals_prospect_email").on(table.prospectEmail),
+]);
+
+// Prospect proposal view events for tracking engagement
+export const prospectProposalEvents = pgTable("prospect_proposal_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
+  
+  // Event details
+  eventType: varchar("event_type").notNull(), // created, shared_email, shared_whatsapp, viewed, link_clicked, onboarding_started, converted
+  eventData: jsonb("event_data"),
+  
+  // Context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  referrer: varchar("referrer"),
+  
+  // Timestamp
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_prospect_proposal_events_proposal").on(table.proposalId),
+  index("idx_prospect_proposal_events_type").on(table.eventType),
+]);
+
+// Insert schemas and types
+export const insertProspectProposalSchema = createInsertSchema(prospectProposals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ProspectProposal = typeof prospectProposals.$inferSelect;
+export type InsertProspectProposal = z.infer<typeof insertProspectProposalSchema>;
+
+export const insertProspectProposalEventSchema = createInsertSchema(prospectProposalEvents).omit({
+  id: true,
+  timestamp: true,
+});
+export type ProspectProposalEvent = typeof prospectProposalEvents.$inferSelect;
+export type InsertProspectProposalEvent = z.infer<typeof insertProspectProposalEventSchema>;
+
+// Proposal type enum
+export const ProspectProposalTypeEnum = z.enum(['sample_portfolio', 'fresh_investment']);
+
+// Proposal status enum
+export const ProspectProposalStatusEnum = z.enum(['draft', 'shared', 'viewed', 'converted', 'expired']);
+
+// Goal types for fresh investment proposals
+export const InvestmentGoalTypes = [
+  'retirement',
+  'child_education',
+  'wealth_creation',
+  'home_purchase',
+  'emergency_fund',
+  'tax_saving',
+  'regular_income',
+  'custom'
+] as const;
+export type InvestmentGoalType = typeof InvestmentGoalTypes[number];
+
