@@ -397,9 +397,10 @@ export default function AgentClientsPage() {
               Manage your clients, portfolios, and advisory sessions
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button 
               variant="outline"
+              className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
               onClick={() => setShowInvitationsTab(true)}
               data-testid="button-view-invitations"
             >
@@ -407,7 +408,7 @@ export default function AgentClientsPage() {
               Invitations ({invitationStats?.stats?.total || 0})
             </Button>
             <Button 
-              className="bg-primary hover:bg-primary/90" 
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200" 
               onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}
               data-testid="button-add-client"
             >
@@ -553,13 +554,15 @@ export default function AgentClientsPage() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
+                                    className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-200 dark:hover:bg-indigo-950"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedClient(client);
                                     }}
                                     data-testid={`button-view-client-${client.id}`}
                                   >
-                                    <Eye className="h-4 w-4" />
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    View
                                   </Button>
                                 </TableCell>
                               </TableRow>
@@ -1052,7 +1055,7 @@ export default function AgentClientsPage() {
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
-                  className="flex-1"
+                  className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"
                   onClick={() => {
                     window.open(`mailto:${inviteClientEmail}?subject=Complete Your FintekPro Onboarding&body=Dear ${inviteClientName || "Client"},%0D%0A%0D%0APlease complete your onboarding by clicking the link below:%0D%0A${generatedReferralLink}%0D%0A%0D%0ABest regards`);
                   }}
@@ -1064,7 +1067,7 @@ export default function AgentClientsPage() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="flex-1"
+                  className="flex-1 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-950"
                   onClick={() => {
                     window.open(`https://wa.me/${inviteClientMobile?.replace(/[^0-9]/g, '')}?text=Dear ${inviteClientName || "Client"},%0A%0APlease complete your FintekPro onboarding:%0A${encodeURIComponent(generatedReferralLink)}`);
                   }}
@@ -1081,10 +1084,15 @@ export default function AgentClientsPage() {
           <DialogFooter>
             {!generatedReferralLink ? (
               <>
-                <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+                <Button 
+                  variant="outline" 
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                  onClick={() => setShowInviteDialog(false)}
+                >
                   Cancel
                 </Button>
                 <Button 
+                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-sm"
                   onClick={handleCreateInvitation}
                   disabled={createInvitation.isPending || (!inviteClientEmail && !inviteClientMobile)}
                   data-testid="button-create-invitation"
@@ -1098,7 +1106,10 @@ export default function AgentClientsPage() {
                 </Button>
               </>
             ) : (
-              <Button onClick={() => { resetInviteForm(); setShowInviteDialog(false); }}>
+              <Button 
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => { resetInviteForm(); setShowInviteDialog(false); }}
+              >
                 Done
               </Button>
             )}
@@ -1147,8 +1158,7 @@ export default function AgentClientsPage() {
               <UserPlus className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No invitations yet</p>
               <Button 
-                variant="outline" 
-                className="mt-3"
+                className="mt-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
                 onClick={() => { setShowInvitationsTab(false); setShowInviteDialog(true); }}
               >
                 Create First Invitation
@@ -1202,6 +1212,7 @@ export default function AgentClientsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950"
                           onClick={() => {
                             const link = `${window.location.origin}/onboarding?ref=${inv.referralCode}`;
                             navigator.clipboard.writeText(link);
@@ -1215,6 +1226,7 @@ export default function AgentClientsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
                             onClick={() => resendInvitation.mutate(inv.id)}
                             disabled={resendInvitation.isPending}
                             data-testid={`button-resend-${inv.id}`}
