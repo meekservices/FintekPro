@@ -40,7 +40,22 @@ import {
   Bell,
   AlertCircle,
   AlertTriangle,
-  FolderOpen
+  FolderOpen,
+  Wallet,
+  ClipboardList,
+  LineChart,
+  Package,
+  FileCheck,
+  Building,
+  Coins,
+  ScrollText,
+  CircleDollarSign,
+  UserCog,
+  ClipboardCheck,
+  BadgePercent,
+  Scale,
+  Folder,
+  LayoutDashboard
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -125,253 +140,296 @@ export function EnhancedNavigation() {
     );
   };
 
-  // FintekPro process flow-based navigation structure
+  // Role checks
+  const isAdmin = user?.roles?.includes('admin') || user?.roles?.includes('super_admin');
+  const isAgent = user?.roles?.includes('agent') || user?.roles?.includes('partner');
+  const isPremium = user?.kycLevel === 'enhanced' || user?.kycLevel === 'accredited';
+  const isKycComplete = user?.kycStatus === 'verified' || user?.kycStatus === 'approved';
+
+  // Store sub-items with visibility rules for premium products
+  const storeSubItems: NavigationSubItem[] = [
+    // Premium products - only visible to premium users
+    ...(isPremium ? [
+      { name: "AIF", href: "/aif", description: "Alternative Investment Funds (₹1Cr min)", badge: "PREMIUM" },
+      { name: "PMS", href: "/pms", description: "Portfolio Management Services (₹50L min)", badge: "ELITE" },
+    ] : []),
+    // Regular products - visible to all
+    { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic & international funds" },
+    { name: "Bonds & NCDs", href: "/bonds", description: "Fixed income securities" },
+    { name: "MLDs", href: "/mlds", description: "Market Linked Debentures" },
+    { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings" },
+    { name: "Unlisted Shares", href: "/unlisted", description: "Pre-IPO securities" },
+    { name: "Insurance Hub", href: "/insurance", description: "Life, health, general insurance" }
+  ];
+
+  // Trading sub-items (requires KYC)
+  const tradingSubItems: NavigationSubItem[] = isKycComplete ? [
+    { name: "Equities (NSE/BSE)", href: "/broking", description: "Stock trading" },
+    { name: "F&O", href: "/derivatives", description: "Futures & options" },
+    { name: "Commodities", href: "/commodities", description: "MCX/NCDEX trading" },
+    { name: "Global Markets", href: "/global-trading", description: "International stocks" }
+  ] : [
+    { name: "Complete KYC to Trade", href: "/onboarding", description: "Verify your identity to start trading", badge: "REQUIRED" }
+  ];
+
+  // FintekPro 5-Pillar Navigation Architecture (Config-driven with role-based visibility)
   const navigationGroups: NavigationGroup[] = [
+    // ============ PILLAR 1: DASHBOARD ============
     {
-      title: "Getting Started",
+      title: "Dashboard",
       items: [
         {
-          name: "Dashboard",
+          name: "Home",
           href: "/",
-          icon: Home,
-          description: "Portfolio overview and market summary"
+          icon: LayoutDashboard,
+          description: "Overview and market summary"
         },
         {
-          name: "Profile & KYC",
-          icon: UserCheck,
-          description: "Complete your profile and KYC verification",
+          name: "My Portfolio",
+          icon: PieChart,
+          description: "Complete investment holdings",
           subItems: [
-            { name: "My Profile", href: "/profile", description: "Personal info, KYC status & verification", badge: "UNIFIED" },
-            { name: "My Net Worth", href: "/net-worth", description: "Complete wealth tracking with assets, liabilities & AI insights", badge: "NEW" },
-            { name: "Onboarding", href: "/onboarding", description: "PAN-based intelligent KYC for all entity types" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Research & Planning",
-      items: [
-        {
-          name: "Wealth Management",
-          icon: Briefcase,
-          description: "AI-powered investment planning and portfolio management",
-          subItems: [
-            { name: "My Portfolio", href: "/portfolio", description: "Holdings and performance tracking" },
-            { name: "Asset Allocation", href: "/wealth-management?tab=dashboard", description: "Core, Alternative, Premium investments" },
-            { name: "AI Recommendations", href: "/wealth-management?tab=recommendations", description: "Smart allocation system", badge: "AI POWERED" },
-            { name: "Goal Planning", href: "/wealth-management?tab=goals", description: "Financial goal setting" },
-            { name: "Retirement Planning", href: "/wealth-management?tab=retirement", description: "Retirement corpus planning" },
-            { name: "Obligations", href: "/wealth-management?tab=obligations", description: "Track loans, EMIs & recurring payments" }
+            { name: "FintekPro Portfolio", href: "/portfolio?view=fintekpro", description: "Transactions executed via FintekPro" },
+            { name: "Tracker Portfolio", href: "/portfolio?view=tracker", description: "PAN-level consolidated holdings" },
+            { name: "External Portfolio", href: "/portfolio?view=external", description: "Holdings from other platforms" }
           ]
         },
         {
-          name: "Tools & Reports",
-          icon: Calculator,
-          description: "Financial planning and analysis tools",
+          name: "My Obligations",
+          href: "/wealth-management?tab=obligations",
+          icon: ClipboardList,
+          description: "EMIs, SIPs, insurance premiums, dues"
+        },
+        // Proposals visible to all authenticated users
+        ...(isAuthenticated ? [{
+          name: "My Proposals",
+          icon: ClipboardCheck,
+          description: "Investment recommendations",
           subItems: [
-            { name: "Calculators", href: "/calculators", description: "SIP, EMI, Tax & more calculators" },
-            { name: "Reports Hub", href: "/reports", description: "Transaction, capital gains & compliance reports" }
+            { name: "AI Proposals", href: "/client-proposals?type=ai", description: "AI-generated recommendations", badge: "AI" },
+            { name: "Agent Proposals", href: "/client-proposals?type=agent", description: "Agent-created proposals" },
+            { name: "Proposal History", href: "/client-proposals?tab=history", description: "Accepted & rejected proposals" }
           ]
+        }] : []),
+        {
+          name: "Investment Cart",
+          href: "/unified-cart",
+          icon: ShoppingCart,
+          description: "Approved proposals for checkout"
+        },
+        {
+          name: "Net Worth",
+          href: "/net-worth",
+          icon: Wallet,
+          description: "Complete wealth snapshot",
+          badge: "NEW"
+        },
+        {
+          name: "Alerts",
+          href: "/alerts",
+          icon: Bell,
+          description: "Price, renewal & tax alerts"
         }
       ]
     },
+
+    // ============ PILLAR 2: INVEST ============
     {
-      title: "Products & Marketplace",
+      title: "Invest",
       items: [
         {
           name: "Store",
           icon: Store,
-          description: "Financial products and services marketplace",
-          subItems: [
-            { name: "All Products", href: "/store", description: "View all financial products" },
-            { name: "AIF", href: "/aif", description: "Alternative Investment Funds - Vendor-supplied (₹10L min)", badge: "PREMIUM" },
-            { name: "PMS", href: "/pms", description: "Portfolio Management Services - AMC-supplied (₹50L min)", badge: "ELITE" },
-            { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic and international funds" },
-            { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings and opportunities" },
-            { name: "Unlisted Shares", href: "/unlisted", description: "Unlisted securities" },
-            { name: "Bonds & NCDs", href: "/bonds", description: "Non-convertible debentures" },
-            { name: "MLDs", href: "/mlds", description: "Market linked debentures" },
-            { name: "Global Products", href: "/global-trading", description: "International stocks and funds" },
-            { name: "Insurance Hub", href: "/insurance", description: "Life, health, motor insurance" },
-            { name: "Banking Products", href: "/banking-products", description: "Accounts, deposits, cards" },
-            { name: "Professional Services", href: "/professional-services", description: "Advisory and research" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Investing & Trading",
-      items: [
+          description: "Investment marketplace",
+          subItems: storeSubItems
+        },
         {
-          name: "Trading & Investments",
+          name: "Trading",
           icon: TrendingUp,
-          description: "Domestic and global trading platform",
-          subItems: [
-            { name: "NSE/BSE Trading", href: "/broking", description: "Equity and derivatives trading" },
-            { name: "Global Markets", href: "/global-trading", description: "US, Europe, Asia stocks" },
-            { name: "IPO Center", href: "/ipo", description: "Current and pre-IPO opportunities" },
-            { name: "F&O Trading", href: "/derivatives", description: "Futures and options" },
-            { name: "Commodities", href: "/commodities", description: "MCX and NCDEX trading" }
-          ]
-        }
+          description: isKycComplete ? "Equity & derivatives" : "Complete KYC to access trading",
+          subItems: tradingSubItems
+        },
+        // GIFT City only for premium users
+        ...(isPremium ? [{
+          name: "GIFT City IFSC",
+          href: "/gift-city",
+          icon: Crown,
+          description: "International financial services",
+          badge: "PREMIUM"
+        }] : [])
       ]
     },
+
+    // ============ PILLAR 3: FINANCE ============
     {
-      title: "Financial Services",
+      title: "Finance",
       items: [
         {
-          name: "Loans & Credit",
+          name: "Loans",
+          icon: Banknote,
+          description: "All loan types with smart filters",
+          subItems: [
+            { name: "All Loans", href: "/loans", description: "Personal, Home, Car, LAP, LAS, Business, Gold" },
+            { name: "Loan Comparison", href: "/loan-comparison", description: "Compare offers across lenders" }
+          ]
+        },
+        {
+          name: "Credit Cards",
+          href: "/credit-cards",
           icon: CreditCard,
-          description: "Comprehensive loan marketplace",
-          subItems: [
-            { name: "Personal Loan", href: "/loans?type=personal", description: "Instant approval, minimal docs" },
-            { name: "Home Loan", href: "/loans?type=home", description: "Best rates for property purchase" },
-            { name: "Car Loan", href: "/loans?type=car", description: "New and used vehicle financing" },
-            { name: "Loan Against Property", href: "/loans?type=lap", description: "Leverage your property value" },
-            { name: "Loan Against Securities", href: "/loans?type=las", description: "Pledge shares/mutual funds" },
-            { name: "Business Loan", href: "/loans?type=business", description: "SME and corporate financing" },
-            { name: "Education Loan", href: "/loans?type=education", description: "Study in India or abroad" },
-            { name: "Gold Loan", href: "/loans?type=gold", description: "Quick cash against gold" },
-            { name: "Credit Card", href: "/credit-cards", description: "Compare and apply for cards" },
-            { name: "Loan Comparison", href: "/loan-comparison", description: "Compare offers from lenders" }
-          ]
+          description: "Compare & apply"
         },
         {
-          name: "Credit Management",
+          name: "CIBIL & Credit",
+          href: "/cibil",
           icon: BarChart3,
-          description: "Credit score and report management",
-          subItems: [
-            { name: "CIBIL Score", href: "/cibil", description: "Credit monitoring and improvement" },
-            { name: "Credit Report", href: "/credit-report", description: "Detailed credit history" }
-          ]
+          description: "Credit score monitoring"
         },
         {
-          name: "GIFT City IFSC",
-          icon: Crown,
-          description: "Premium international financial services",
-          subItems: [
-            { name: "GIFT City Overview", href: "/gift-city", description: "Premium international services", badge: "PREMIUM" },
-            { name: "AIFs", href: "/gift-city?tab=aif", description: "Alternative Investment Funds" },
-            { name: "IFSC Banking", href: "/gift-city?tab=banking", description: "International banking units" },
-            { name: "Tax Benefits", href: "/gift-city?tab=tax-benefits", description: "10-year tax holiday" },
-            { name: "Global Exposure", href: "/gift-city?tab=global", description: "International structures" }
-          ]
+          name: "Banking Products",
+          href: "/banking-products",
+          icon: Building,
+          description: "FD, RD, Savings, NRO/NRE"
         }
       ]
     },
+
+    // ============ PILLAR 4: TAX & COMPLIANCE ============
     {
       title: "Tax & Compliance",
       items: [
         {
           name: "ITR Filing",
           icon: FileText,
-          href: "/tax/itr",
-          description: "Self-file or hire expert for ITR-1 to ITR-7",
-          badge: "NEW"
+          description: "Income tax returns",
+          subItems: [
+            { name: "Self Filing", href: "/tax/itr?mode=self", description: "File ITR-1 to ITR-7 yourself" },
+            { name: "CA-Assisted", href: "/tax/itr?mode=ca", description: "Expert filing assistance", badge: "CA" }
+          ]
         },
         {
           name: "Form 15CA/15CB",
-          icon: Globe,
           href: "/tax/15ca-cb",
-          description: "International remittance compliance",
-          badge: "CA ASSISTED"
+          icon: Globe,
+          description: "International remittance",
+          badge: "CA ASSIST"
         },
         {
           name: "Tax Notices",
-          icon: AlertTriangle,
           href: "/tax/notices",
-          description: "Manage and respond to IT notices"
+          icon: AlertTriangle,
+          description: "Manage IT notices"
         },
         {
           name: "Tax Documents",
-          icon: FolderOpen,
           href: "/tax/documents",
-          description: "Secure document vault (8-year retention)"
+          icon: FolderOpen,
+          description: "Secure vault (8-year retention)"
         },
         {
           name: "CA Desk",
-          icon: Users,
           href: "/tax/ca-desk",
-          description: "Expert CA assistance services",
+          icon: Users,
+          description: "Expert CA services",
           badge: "EXPERT"
+        }
+      ]
+    },
+
+    // ============ PILLAR 5: MANAGE ============
+    {
+      title: "Manage",
+      items: [
+        {
+          name: "Profile & KYC",
+          icon: UserCheck,
+          description: "Personal info & verification",
+          subItems: [
+            { name: "My Profile", href: "/profile", description: "Account details & KYC status" },
+            { name: "Onboarding", href: "/onboarding", description: "PAN-based KYC verification" }
+          ]
         },
         {
-          name: "Quick Tools",
+          name: "BBPS & Bills",
           icon: Receipt,
-          description: "Quick access tools",
+          description: "Bill payments",
           subItems: [
-            { name: "Smart Tax Hub", href: "/tax-hub", description: "AI dashboard with health score" },
-            { name: "One-Click Filing", href: "/one-click-tax-filing", description: "Quick 6-step wizard" },
-            { name: "Tax Data Center", href: "/tax-data-center", description: "View AIS, 26AS, Form 16" },
-            { name: "TDS Compliance", href: "/tds-compliance", description: "TDS calculator and returns" }
+            { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile" },
+            { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI expense tracking", badge: "AI" }
           ]
-        }
-      ]
-    },
-    {
-      title: "Utilities & Services",
-      items: [
+        },
         {
-          name: "Bill Payments (BBPS)",
-          icon: Receipt,
-          description: "Pay utility bills with auto expense tracking",
-          badge: "INTEGRATED",
-          subItems: [
-            { name: "Pay Bills", href: "/bbps", description: "Electricity, water, gas, mobile, DTH, broadband" },
-            { name: "Expenses & Budgets", href: "/expenses-budgets", description: "AI-powered expense tracking and budgeting", badge: "AI POWERED" },
-            { name: "Bill History", href: "/bbps?tab=history", description: "Transaction history and receipts" },
-            { name: "Recurring Payments", href: "/bbps?tab=recurring", description: "Set up auto-pay for bills" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Family & Collaboration",
-      items: [
-        {
-          name: "Family Collaboration",
+          name: "Family",
+          href: "/families",
           icon: Users,
-          description: "Collaborate with family on finances",
-          subItems: [
-            { name: "My Families", href: "/families", description: "View and manage family groups" },
-            { name: "Shared Goals", href: "/families?tab=goals", description: "Track family financial goals" },
-            { name: "Family Budgets", href: "/families?tab=budgets", description: "Manage household budgets" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Monitoring & Alerts",
-      items: [
+          description: "Family collaboration"
+        },
         {
-          name: "Alerts & Notifications",
-          icon: Bell,
-          description: "Market alerts and spending notifications",
-          badge: "NEW",
+          name: "Reports Hub",
+          icon: Folder,
+          description: "All reports",
           subItems: [
-            { name: "My Alerts", href: "/alerts", description: "View and manage active alerts" },
-            { name: "Alert History", href: "/alerts?tab=history", description: "Past notifications and triggers" },
-            { name: "Notification Settings", href: "/alerts?tab=settings", description: "Configure alert channels" },
-            { name: "Alert Templates", href: "/alerts?tab=templates", description: "Pre-configured alert types" }
+            { name: "Transactions", href: "/reports?type=transactions", description: "Transaction history" },
+            { name: "Capital Gains", href: "/reports?type=capital-gains", description: "Tax reports" },
+            { name: "Compliance", href: "/reports?type=compliance", description: "Regulatory reports" }
           ]
-        }
-      ]
-    },
-    {
-      title: "Settings & Support",
-      items: [
+        },
+        {
+          name: "Calculators",
+          href: "/calculators",
+          icon: Calculator,
+          description: "SIP, EMI, Tax calculators"
+        },
         {
           name: "Settings",
           href: "/settings",
           icon: Settings2,
-          description: "Account and application settings"
+          description: "Account settings"
         }
       ]
     }
   ];
 
-  // Add admin navigation for admin users
-  const isAdmin = user?.roles?.includes('admin') || user?.roles?.includes('super_admin');
+  // ============ AGENT NAVIGATION (Role-based) ============
+  if (isAgent) {
+    navigationGroups.push({
+      title: "Agent Portal",
+      items: [
+        {
+          name: "Agent Dashboard",
+          href: "/agent-dashboard",
+          icon: LayoutDashboard,
+          description: "Agent overview"
+        },
+        {
+          name: "Client Proposals",
+          href: "/admin-proposals",
+          icon: ClipboardCheck,
+          description: "Create & manage proposals"
+        },
+        {
+          name: "Commission Reports",
+          href: "/agent-commissions",
+          icon: BadgePercent,
+          description: "Earnings & payouts"
+        },
+        {
+          name: "ITR Cases",
+          href: "/agent-itr-dashboard",
+          icon: FileText,
+          description: "Tax filing cases"
+        },
+        {
+          name: "Portfolio Review",
+          href: "/agent-portfolio-review",
+          icon: PieChart,
+          description: "Client portfolio analysis"
+        }
+      ]
+    });
+  }
+
+  // ============ ADMIN NAVIGATION (Role-based) ============
   if (isAdmin) {
     navigationGroups.push({
       title: "Administration",
@@ -379,14 +437,38 @@ export function EnhancedNavigation() {
         {
           name: "Admin Panel",
           href: "/admin",
-          icon: UserIcon,
+          icon: UserCog,
           description: "System administration"
+        },
+        {
+          name: "User Management",
+          href: "/admin/users",
+          icon: Users,
+          description: "Manage users & roles"
         },
         {
           name: "Supplier Management",
           href: "/suppliers",
           icon: Building2,
-          description: "Manage suppliers and vendors"
+          description: "Vendors & partners"
+        },
+        {
+          name: "Commission Engine",
+          href: "/admin/commissions",
+          icon: CircleDollarSign,
+          description: "Configure payouts"
+        },
+        {
+          name: "Product Catalogue",
+          href: "/admin/products",
+          icon: Package,
+          description: "Manage products"
+        },
+        {
+          name: "Audit Logs",
+          href: "/admin/audit-logs",
+          icon: ScrollText,
+          description: "Compliance audit trail"
         }
       ]
     });
