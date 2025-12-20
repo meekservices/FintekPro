@@ -306,7 +306,7 @@ export default function MldStorePage() {
 
   const uniqueUnderlyings = useMemo(() => {
     if (!data?.mlds) return [];
-    return [...new Set(data.mlds.map(m => m.underlying))];
+    return Array.from(new Set(data.mlds.map(m => m.underlying)));
   }, [data?.mlds]);
 
   return (
