@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, IndianRupee, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake, Lightbulb, TestTube, AlertCircle, Info, Database, RefreshCw, Briefcase } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, IndianRupee, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake, Lightbulb, TestTube, AlertCircle, Info, Database, RefreshCw, Briefcase, ChevronDown, LayoutDashboard, Cog } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -947,138 +948,260 @@ export default function AdminPanel() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          {/* Tabs Navigation */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-2 overflow-x-auto">
-            <ScrollableTabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 xl:grid-cols-15 gap-2 bg-transparent h-auto min-w-max">
-              <TabsTrigger 
-                value="overview" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-overview"
-              >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger 
-                value="users" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-users"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Users
-              </TabsTrigger>
-              <TabsTrigger 
-                value="api-status" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-api-status"
-              >
-                <Monitor className="w-4 h-4 mr-2" />
-                API Status
-              </TabsTrigger>
-              <TabsTrigger 
-                value="ckyc" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-ckyc"
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                CKYC
-              </TabsTrigger>
-              <TabsTrigger 
-                value="client-agent-relationships" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-client-agent"
-              >
-                <Network className="w-4 h-4 mr-2" />
-                Relationships
-              </TabsTrigger>
-              <TabsTrigger 
-                value="supplier-dashboard" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-suppliers"
-              >
-                <Building2 className="w-4 h-4 mr-2" />
-                Suppliers
-              </TabsTrigger>
-              <TabsTrigger 
-                value="reports" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-reports"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Reports
-              </TabsTrigger>
-              <TabsTrigger 
-                value="system" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-system"
-              >
-                <Server className="w-4 h-4 mr-2" />
-                System
-              </TabsTrigger>
-              <TabsTrigger 
-                value="activities" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-activities"
-              >
-                <Activity className="w-4 h-4 mr-2" />
-                Activities
-              </TabsTrigger>
-              <TabsTrigger 
-                value="insights" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-insights"
-              >
-                <Lightbulb className="w-4 h-4 mr-2" />
-                Insights
-              </TabsTrigger>
-              <TabsTrigger 
-                value="agents" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-agents"
-              >
-                <Users2 className="w-4 h-4 mr-2" />
-                Agents
-              </TabsTrigger>
-              <TabsTrigger 
-                value="proposals" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-proposals"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Proposals
-              </TabsTrigger>
-              <TabsTrigger 
-                value="compliance" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-compliance"
-              >
-                <ShieldCheck className="w-4 h-4 mr-2" />
-                Compliance
-              </TabsTrigger>
-              <TabsTrigger 
-                value="ai-analysis" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-ai-analysis"
-              >
-                <Brain className="w-4 h-4 mr-2" />
-                AI Analysis
-              </TabsTrigger>
-              <TabsTrigger 
-                value="errors" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-errors"
-              >
-                <AlertCircle className="w-4 h-4 mr-2" />
-                Errors
-              </TabsTrigger>
-              <TabsTrigger 
-                value="unlisted" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5"
-                data-testid="tab-unlisted"
-              >
-                <Briefcase className="w-4 h-4 mr-2" />
-                Unlisted
-              </TabsTrigger>
-            </ScrollableTabsList>
+          {/* Grouped Navigation */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Dashboard Group */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant={["overview", "insights"].includes(selectedTab) ? "default" : "outline"}
+                    className="gap-2"
+                    data-testid="nav-dashboard"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("overview")}
+                    className={selectedTab === "overview" ? "bg-accent" : ""}
+                    data-testid="nav-overview"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Overview
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("insights")}
+                    className={selectedTab === "insights" ? "bg-accent" : ""}
+                    data-testid="nav-insights"
+                  >
+                    <Lightbulb className="w-4 h-4 mr-2" />
+                    Insights
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Users & Agents Group */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant={["users", "agents", "client-agent-relationships"].includes(selectedTab) ? "default" : "outline"}
+                    className="gap-2"
+                    data-testid="nav-users-agents"
+                  >
+                    <Users className="w-4 h-4" />
+                    Users & Agents
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("users")}
+                    className={selectedTab === "users" ? "bg-accent" : ""}
+                    data-testid="nav-users"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Users
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("agents")}
+                    className={selectedTab === "agents" ? "bg-accent" : ""}
+                    data-testid="nav-agents"
+                  >
+                    <Users2 className="w-4 h-4 mr-2" />
+                    Agents
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("client-agent-relationships")}
+                    className={selectedTab === "client-agent-relationships" ? "bg-accent" : ""}
+                    data-testid="nav-relationships"
+                  >
+                    <Network className="w-4 h-4 mr-2" />
+                    Relationships
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Compliance & KYC Group */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant={["ckyc", "compliance"].includes(selectedTab) ? "default" : "outline"}
+                    className="gap-2"
+                    data-testid="nav-compliance-kyc"
+                  >
+                    <Shield className="w-4 h-4" />
+                    Compliance & KYC
+                    {complianceAlerts.length > 0 && (
+                      <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                        {complianceAlerts.length}
+                      </Badge>
+                    )}
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("ckyc")}
+                    className={selectedTab === "ckyc" ? "bg-accent" : ""}
+                    data-testid="nav-ckyc"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    CKYC Management
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("compliance")}
+                    className={selectedTab === "compliance" ? "bg-accent" : ""}
+                    data-testid="nav-compliance"
+                  >
+                    <ShieldCheck className="w-4 h-4 mr-2" />
+                    Compliance
+                    {complianceAlerts.length > 0 && (
+                      <Badge variant="destructive" className="ml-auto px-1.5 py-0 text-xs">
+                        {complianceAlerts.length}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* System & Monitoring Group */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant={["api-status", "system", "activities", "errors", "ai-analysis"].includes(selectedTab) ? "default" : "outline"}
+                    className="gap-2"
+                    data-testid="nav-system"
+                  >
+                    <Server className="w-4 h-4" />
+                    System & Monitoring
+                    {systemErrors.length > 0 && (
+                      <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                        {systemErrors.length}
+                      </Badge>
+                    )}
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("api-status")}
+                    className={selectedTab === "api-status" ? "bg-accent" : ""}
+                    data-testid="nav-api-status"
+                  >
+                    <Monitor className="w-4 h-4 mr-2" />
+                    API Status
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("system")}
+                    className={selectedTab === "system" ? "bg-accent" : ""}
+                    data-testid="nav-system-info"
+                  >
+                    <Server className="w-4 h-4 mr-2" />
+                    System Info
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("activities")}
+                    className={selectedTab === "activities" ? "bg-accent" : ""}
+                    data-testid="nav-activities"
+                  >
+                    <Activity className="w-4 h-4 mr-2" />
+                    Activities
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("errors")}
+                    className={selectedTab === "errors" ? "bg-accent" : ""}
+                    data-testid="nav-errors"
+                  >
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    Errors
+                    {systemErrors.length > 0 && (
+                      <Badge variant="destructive" className="ml-auto px-1.5 py-0 text-xs">
+                        {systemErrors.length}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("ai-analysis")}
+                    className={selectedTab === "ai-analysis" ? "bg-accent" : ""}
+                    data-testid="nav-ai-analysis"
+                  >
+                    <Brain className="w-4 h-4 mr-2" />
+                    AI Analysis
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Business Operations Group */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant={["supplier-dashboard", "reports", "proposals", "unlisted"].includes(selectedTab) ? "default" : "outline"}
+                    className="gap-2"
+                    data-testid="nav-business"
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    Business Operations
+                    {proposals.filter((p: any) => p.status === "pending").length > 0 && (
+                      <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                        {proposals.filter((p: any) => p.status === "pending").length}
+                      </Badge>
+                    )}
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("supplier-dashboard")}
+                    className={selectedTab === "supplier-dashboard" ? "bg-accent" : ""}
+                    data-testid="nav-suppliers"
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Suppliers
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("reports")}
+                    className={selectedTab === "reports" ? "bg-accent" : ""}
+                    data-testid="nav-reports"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Reports
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("proposals")}
+                    className={selectedTab === "proposals" ? "bg-accent" : ""}
+                    data-testid="nav-proposals"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Proposals
+                    {proposals.filter((p: any) => p.status === "pending").length > 0 && (
+                      <Badge variant="secondary" className="ml-auto px-1.5 py-0 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                        {proposals.filter((p: any) => p.status === "pending").length}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setSelectedTab("unlisted")}
+                    className={selectedTab === "unlisted" ? "bg-accent" : ""}
+                    data-testid="nav-unlisted"
+                  >
+                    <Briefcase className="w-4 h-4 mr-2" />
+                    Unlisted Market
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Current Section Indicator */}
+              <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Current:</span>
+                <Badge variant="outline" className="font-medium capitalize">
+                  {selectedTab.replace(/-/g, " ")}
+                </Badge>
+              </div>
+            </div>
           </div>
 
           {/* Overview Tab */}
@@ -1220,18 +1343,36 @@ export default function AdminPanel() {
                 <CardDescription>Latest system events and user activities</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                      <div className="w-2 h-2 rounded-full bg-primary"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Activity {i}</p>
-                        <p className="text-xs text-muted-foreground">Lorem ipsum dolor sit amet</p>
+                {activitiesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : activities.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Activity className="w-12 h-12 text-muted-foreground/40 mb-3" />
+                    <p className="text-muted-foreground font-medium">No recent activity</p>
+                    <p className="text-xs text-muted-foreground mt-1">System events will appear here as they occur</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {activities.slice(0, 5).map((activity: any, index: number) => (
+                      <div key={activity.id || index} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className={`w-2 h-2 rounded-full ${
+                          activity.type === 'error' ? 'bg-red-500' : 
+                          activity.type === 'warning' ? 'bg-amber-500' : 
+                          activity.type === 'success' ? 'bg-green-500' : 'bg-primary'
+                        }`}></div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{activity.title || activity.action || 'Activity'}</p>
+                          <p className="text-xs text-muted-foreground">{activity.description || activity.message || ''}</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {activity.createdAt ? format(new Date(activity.createdAt), 'HH:mm') : ''}
+                        </span>
                       </div>
-                      <span className="text-xs text-muted-foreground">{i}m ago</span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
