@@ -330,6 +330,10 @@ function UserProtectedRoutes() {
         <Route path="/goals" component={GoalsPage} />
         <Route path="/investable-surplus" component={InvestableSurplusPage} />
         <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
+        {/* Admin seed pages accessible from main site for development */}
+        <Route path="/admin/aif-seed" component={AifSeedAdmin} />
+        <Route path="/admin/pms-seed" component={PmsSeedAdmin} />
+        <Route path="/admin/mld-seed" component={MldSeedAdmin} />
       </Switch>
     </ProfileCompletionGuard>
   );
