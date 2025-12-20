@@ -1141,6 +1141,75 @@ export default function AdminPanel() {
               </Card>
             </div>
 
+            {/* Data Management Quick Links */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="w-5 h-5 text-primary" />
+                  Data Management
+                </CardTitle>
+                <CardDescription>Seed and manage product data from external sources</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <RouterLink href="/admin/aif-seed">
+                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors h-full" data-testid="link-aif-seed">
+                      <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                        <TrendingUp className="w-8 h-8 text-blue-500 mb-2" />
+                        <p className="font-medium text-sm">AIF Seed</p>
+                        <p className="text-xs text-muted-foreground">Alternative Funds</p>
+                      </CardContent>
+                    </Card>
+                  </RouterLink>
+                  <RouterLink href="/admin/pms-seed">
+                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors h-full" data-testid="link-pms-seed">
+                      <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                        <Briefcase className="w-8 h-8 text-purple-500 mb-2" />
+                        <p className="font-medium text-sm">PMS Seed</p>
+                        <p className="text-xs text-muted-foreground">Portfolio Management</p>
+                      </CardContent>
+                    </Card>
+                  </RouterLink>
+                  <RouterLink href="/admin/mld-seed">
+                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors h-full" data-testid="link-mld-seed">
+                      <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                        <LineChart className="w-8 h-8 text-green-500 mb-2" />
+                        <p className="font-medium text-sm">MLD Seed</p>
+                        <p className="text-xs text-muted-foreground">Market Linked Debentures</p>
+                      </CardContent>
+                    </Card>
+                  </RouterLink>
+                  <RouterLink href="/admin/bond-seed">
+                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors h-full" data-testid="link-bond-seed">
+                      <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                        <Shield className="w-8 h-8 text-amber-500 mb-2" />
+                        <p className="font-medium text-sm">Bond Seed</p>
+                        <p className="text-xs text-muted-foreground">Fixed Income</p>
+                      </CardContent>
+                    </Card>
+                  </RouterLink>
+                  <RouterLink href="/admin/seed-unlisted">
+                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors h-full" data-testid="link-unlisted-seed">
+                      <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                        <Building2 className="w-8 h-8 text-indigo-500 mb-2" />
+                        <p className="font-medium text-sm">Unlisted Seed</p>
+                        <p className="text-xs text-muted-foreground">Pre-IPO Shares</p>
+                      </CardContent>
+                    </Card>
+                  </RouterLink>
+                  <RouterLink href="/admin/mutual-funds-seeding">
+                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors h-full" data-testid="link-mf-seed">
+                      <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                        <PieChart className="w-8 h-8 text-cyan-500 mb-2" />
+                        <p className="font-medium text-sm">MF Seed</p>
+                        <p className="text-xs text-muted-foreground">Mutual Funds</p>
+                      </CardContent>
+                    </Card>
+                  </RouterLink>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Recent Activity */}
             <Card>
               <CardHeader>
