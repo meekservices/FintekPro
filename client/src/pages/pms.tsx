@@ -21,11 +21,13 @@ import {
   Star,
   ChevronRight,
   Briefcase,
-  AlertCircle
+  AlertCircle,
+  Eye
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { ExpressInterestButton } from "@/components/ExpressInterestDialog";
 
 interface PmsScheme {
   id: string;
@@ -436,9 +438,28 @@ export default function PMS() {
                       </div>
                     )}
 
-                    <Button variant="outline" className="w-full mt-2" data-testid={`view-pms-${scheme.id}`}>
-                      View Details <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/pms/${scheme.id}`);
+                        }}
+                        data-testid={`view-pms-${scheme.id}`}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Details
+                      </Button>
+                      <ExpressInterestButton
+                        productType="pms"
+                        productId={scheme.id}
+                        productName={scheme.name}
+                        minInvestment={scheme.minInvestment}
+                        size="default"
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               ))}

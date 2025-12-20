@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { aifMaster, pmsMaster, fundManagers, fundPerformanceMonthwise, fundPerformanceRolling, insertAifMasterSchema, insertPmsMasterSchema, mutualFunds, instrumentMaster, clientPortfolioAif, clientPortfolioPms, clientPortfolioMld, mldMaster, insertClientPortfolioAifSchema, insertClientPortfolioPmsSchema, users } from "@shared/schema";
+import { aifMaster, pmsMaster, fundManagers, fundPerformanceMonthwise, fundPerformanceRolling, insertAifMasterSchema, insertPmsMasterSchema, mutualFunds, instrumentMaster, clientPortfolioAif, clientPortfolioPms, clientPortfolioMld, mldMaster, insertClientPortfolioAifSchema, insertClientPortfolioPmsSchema, users, investmentInquiries, insertInvestmentInquirySchema } from "@shared/schema";
 import { eq, and, desc, asc, ilike, sql, gte, lte, or, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../middleware/roleMiddleware";
@@ -1809,6 +1809,205 @@ router.post("/pms/sebi/import", requireAdmin, async (req, res) => {
       error: "Failed to import SEBI PMS",
       details: error.message,
     });
+  }
+});
+
+// ============ INVESTMENT INQUIRIES ============
+
+const expressInterestSchema = z.object({
+  productType: z.enum(["aif", "pms"]),
+  productId: z.string().min(1),
+  productName: z.string().min(1),
+  name: z.string().min(2, "Name is required"),
+  email: z.string().email("Valid email is required"),
+  phone: z.string().optional(),
+  panNumber: z.string().optional(),
+  investmentAmount: z.string().optional(),
+  investmentTimeline: z.enum(["immediate", "within_1_month", "within_3_months", "exploring"]).optional(),
+  message: z.string().optional(),
+});
+
+// POST /aif/:id/express-interest - Express interest in an AIF
+router.post("/aif/:id/express-interest", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get the AIF details
+    const [aif] = await db.select().from(aifMaster).where(eq(aifMaster.id, id));
+    if (!aif) {
+      return res.status(404).json({ error: "AIF not found" });
+    }
+    
+    const data = expressInterestSchema.parse({
+      ...req.body,
+      productType: "aif",
+      productId: id,
+      productName: aif.name,
+    });
+    
+    // Get user info if authenticated
+    const userId = (req as any).user?.id || null;
+    const kycStatus = (req as any).user?.kycStatus || null;
+    
+    const [inquiry] = await db
+      .insert(investmentInquiries)
+      .values({
+        productType: data.productType,
+        productId: data.productId,
+        productName: data.productName,
+        userId,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        panNumber: data.panNumber || null,
+        investmentAmount: data.investmentAmount || null,
+        investmentTimeline: data.investmentTimeline || null,
+        message: data.message || null,
+        kycStatus,
+        source: "marketplace",
+        status: "new",
+        priority: data.investmentTimeline === "immediate" ? "high" : "medium",
+      })
+      .returning();
+    
+    res.json({
+      success: true,
+      message: "Thank you for your interest. Our team will contact you soon.",
+      inquiryId: inquiry.id,
+    });
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Invalid data", details: error.errors });
+    }
+    console.error("Error creating AIF inquiry:", error);
+    res.status(500).json({ error: "Failed to submit inquiry" });
+  }
+});
+
+// POST /pms/:id/express-interest - Express interest in a PMS
+router.post("/pms/:id/express-interest", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get the PMS details
+    const [pms] = await db.select().from(pmsMaster).where(eq(pmsMaster.id, id));
+    if (!pms) {
+      return res.status(404).json({ error: "PMS not found" });
+    }
+    
+    const data = expressInterestSchema.parse({
+      ...req.body,
+      productType: "pms",
+      productId: id,
+      productName: pms.name,
+    });
+    
+    // Get user info if authenticated
+    const userId = (req as any).user?.id || null;
+    const kycStatus = (req as any).user?.kycStatus || null;
+    
+    const [inquiry] = await db
+      .insert(investmentInquiries)
+      .values({
+        productType: data.productType,
+        productId: data.productId,
+        productName: data.productName,
+        userId,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        panNumber: data.panNumber || null,
+        investmentAmount: data.investmentAmount || null,
+        investmentTimeline: data.investmentTimeline || null,
+        message: data.message || null,
+        kycStatus,
+        source: "marketplace",
+        status: "new",
+        priority: data.investmentTimeline === "immediate" ? "high" : "medium",
+      })
+      .returning();
+    
+    res.json({
+      success: true,
+      message: "Thank you for your interest. Our team will contact you soon.",
+      inquiryId: inquiry.id,
+    });
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Invalid data", details: error.errors });
+    }
+    console.error("Error creating PMS inquiry:", error);
+    res.status(500).json({ error: "Failed to submit inquiry" });
+  }
+});
+
+// GET /inquiries - Admin list all investment inquiries
+router.get("/inquiries", requireAdmin, async (req, res) => {
+  try {
+    const { productType, status, page = "1", limit = "20" } = req.query;
+    
+    const conditions: any[] = [];
+    if (productType && productType !== "all") {
+      conditions.push(eq(investmentInquiries.productType, productType as string));
+    }
+    if (status && status !== "all") {
+      conditions.push(eq(investmentInquiries.status, status as string));
+    }
+    
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    
+    const inquiries = await db
+      .select()
+      .from(investmentInquiries)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(investmentInquiries.createdAt))
+      .limit(parseInt(limit as string))
+      .offset(offset);
+    
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(investmentInquiries)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    
+    res.json({
+      inquiries,
+      total: countResult?.count || 0,
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+    });
+  } catch (error: any) {
+    console.error("Error fetching inquiries:", error);
+    res.status(500).json({ error: "Failed to fetch inquiries" });
+  }
+});
+
+// PATCH /inquiries/:id - Update inquiry status
+router.patch("/inquiries/:id", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes, assignedTo, nextFollowUpAt } = req.body;
+    
+    const updates: any = { updatedAt: new Date() };
+    if (status) updates.status = status;
+    if (notes !== undefined) updates.notes = notes;
+    if (assignedTo !== undefined) updates.assignedTo = assignedTo;
+    if (nextFollowUpAt) updates.nextFollowUpAt = new Date(nextFollowUpAt);
+    if (status === "contacted") updates.lastContactedAt = new Date();
+    
+    const [updated] = await db
+      .update(investmentInquiries)
+      .set(updates)
+      .where(eq(investmentInquiries.id, id))
+      .returning();
+    
+    if (!updated) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+    
+    res.json(updated);
+  } catch (error: any) {
+    console.error("Error updating inquiry:", error);
+    res.status(500).json({ error: "Failed to update inquiry" });
   }
 });
 

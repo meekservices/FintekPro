@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "../db";
-import { mldMaster, mldPriceHistory, mldMonthwisePerformance, clientPortfolioMld, users } from "@shared/schema";
+import { mldMaster, mldPriceHistory, mldMonthwisePerformance, clientPortfolioMld, users, investmentInquiries } from "@shared/schema";
 import { eq, desc, and, ilike, or, sql, gte, lte } from "drizzle-orm";
+import { z } from "zod";
 import { requireAuth, requireAdmin } from "../middleware/roleMiddleware";
 import { scrapeBseMldListings, generateSampleMldListings, type BseMldListing } from "../services/bse-mld-scraper";
 import { scrapeNseMldListings, generateSampleNseMldListings, type NseMldListing } from "../services/nse-mld-scraper";
@@ -930,6 +931,70 @@ router.post("/admin/mld/import", requireAdmin, async (req, res) => {
       error: "Failed to import BSE MLDs",
       details: error.message,
     });
+  }
+});
+
+// ============ MLD INVESTMENT INQUIRIES ============
+
+const mldExpressInterestSchema = z.object({
+  name: z.string().min(2, "Name is required"),
+  email: z.string().email("Valid email is required"),
+  phone: z.string().optional(),
+  panNumber: z.string().optional(),
+  investmentAmount: z.string().optional(),
+  investmentTimeline: z.enum(["immediate", "within_1_month", "within_3_months", "exploring"]).optional(),
+  message: z.string().optional(),
+});
+
+// POST /mld/:id/express-interest - Express interest in an MLD
+router.post("/mld/:id/express-interest", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get the MLD details
+    const [mld] = await db.select().from(mldMaster).where(eq(mldMaster.id, id));
+    if (!mld) {
+      return res.status(404).json({ error: "MLD not found" });
+    }
+    
+    const data = mldExpressInterestSchema.parse(req.body);
+    
+    // Get user info if authenticated
+    const userId = (req as any).user?.id || null;
+    const kycStatus = (req as any).user?.kycStatus || null;
+    
+    const [inquiry] = await db
+      .insert(investmentInquiries)
+      .values({
+        productType: "mld",
+        productId: id,
+        productName: mld.name,
+        userId,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        panNumber: data.panNumber || null,
+        investmentAmount: data.investmentAmount || null,
+        investmentTimeline: data.investmentTimeline || null,
+        message: data.message || null,
+        kycStatus,
+        source: "marketplace",
+        status: "new",
+        priority: data.investmentTimeline === "immediate" ? "high" : "medium",
+      })
+      .returning();
+    
+    res.json({
+      success: true,
+      message: "Thank you for your interest. Our team will contact you soon.",
+      inquiryId: inquiry.id,
+    });
+  } catch (error: any) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ error: "Invalid data", details: error.errors });
+    }
+    console.error("Error creating MLD inquiry:", error);
+    res.status(500).json({ error: "Failed to submit inquiry" });
   }
 });
 

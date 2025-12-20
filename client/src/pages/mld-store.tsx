@@ -31,6 +31,7 @@ import {
   Layers
 } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
+import { ExpressInterestButton } from "@/components/ExpressInterestDialog";
 
 interface MldMaster {
   id: string;
@@ -227,10 +228,25 @@ const MldCard = ({ mld }: { mld: MldMaster }) => {
         )}
       </CardContent>
       
-      <CardFooter className="pt-0">
-        <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-white transition-colors">
+      <CardFooter className="pt-0 flex gap-2">
+        <Button 
+          variant="outline" 
+          className="flex-1" 
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/mld/${mld.id}`);
+          }}
+        >
           View Details <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
+        <ExpressInterestButton
+          productType="mld"
+          productId={mld.id}
+          productName={mld.name}
+          minInvestment={mld.minInvestment}
+          size="default"
+          className="flex-1"
+        />
       </CardFooter>
     </Card>
   );

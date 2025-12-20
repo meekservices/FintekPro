@@ -17681,3 +17681,67 @@ export const insertClientPortfolioMldSchema = createInsertSchema(clientPortfolio
 export type ClientPortfolioMld = typeof clientPortfolioMld.$inferSelect;
 export type InsertClientPortfolioMld = z.infer<typeof insertClientPortfolioMldSchema>;
 
+// ============ INVESTMENT INQUIRIES ============
+// Express Interest / Investment Inquiry tracking for AIF, PMS, MLD
+
+export const investmentInquiryTypeEnum = pgEnum("investment_inquiry_type", ["aif", "pms", "mld"]);
+export const investmentInquiryStatusEnum = pgEnum("investment_inquiry_status", ["new", "contacted", "qualified", "negotiating", "closed_won", "closed_lost"]);
+
+export const investmentInquiries = pgTable("investment_inquiries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Product Reference
+  productType: text("product_type").notNull(), // 'aif', 'pms', 'mld'
+  productId: varchar("product_id").notNull(),
+  productName: text("product_name").notNull(),
+  
+  // Investor Details
+  userId: varchar("user_id").references(() => users.id),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  panNumber: text("pan_number"),
+  
+  // Inquiry Details
+  investmentAmount: decimal("investment_amount", { precision: 15, scale: 2 }),
+  investmentTimeline: text("investment_timeline"), // 'immediate', 'within_1_month', 'within_3_months', 'exploring'
+  message: text("message"),
+  
+  // Lead Management
+  status: text("status").default("new"), // 'new', 'contacted', 'qualified', 'negotiating', 'closed_won', 'closed_lost'
+  priority: text("priority").default("medium"), // 'low', 'medium', 'high', 'urgent'
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  
+  // Follow-up Tracking
+  lastContactedAt: timestamp("last_contacted_at"),
+  nextFollowUpAt: timestamp("next_follow_up_at"),
+  notes: text("notes"),
+  
+  // Source Tracking
+  source: text("source").default("marketplace"), // 'marketplace', 'advisor_referral', 'website', 'campaign'
+  utmSource: text("utm_source"),
+  utmCampaign: text("utm_campaign"),
+  
+  // Metadata
+  kycStatus: text("kyc_status"), // User's KYC status at time of inquiry
+  metadata: jsonb("metadata"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_investment_inquiries_product").on(table.productType, table.productId),
+  index("idx_investment_inquiries_user").on(table.userId),
+  index("idx_investment_inquiries_status").on(table.status),
+  index("idx_investment_inquiries_assigned").on(table.assignedTo),
+  index("idx_investment_inquiries_created").on(table.createdAt),
+]);
+
+export const insertInvestmentInquirySchema = createInsertSchema(investmentInquiries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InvestmentInquiry = typeof investmentInquiries.$inferSelect;
+export type InsertInvestmentInquiry = z.infer<typeof insertInvestmentInquirySchema>;
+

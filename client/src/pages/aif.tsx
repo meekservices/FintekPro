@@ -19,10 +19,13 @@ import {
   Award,
   Target,
   Zap,
-  Star
+  Star,
+  Eye
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { ExpressInterestButton } from "@/components/ExpressInterestDialog";
 
 export default function AIF() {
   // Navigation state for responsive layout
@@ -404,20 +407,34 @@ export default function AIF() {
                           </div>
                         )}
                         
-                        <div className="flex justify-between items-center">
-                          <div className="text-xs text-gray-500">
+                        <div className="flex flex-col gap-3 pt-2 border-t">
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="flex-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.location.href = `/aif/${fund.id || index}`;
+                              }}
+                              data-testid={`view-details-${fund.id || index}`}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View Details
+                            </Button>
+                            <ExpressInterestButton
+                              productType="aif"
+                              productId={fund.id || `aif-${index}`}
+                              productName={fund.fundName || fund.schemaName || 'AIF Fund'}
+                              minInvestment={fund.minimumInvestment || fund.minInvestment}
+                              size="sm"
+                              className="flex-1 bg-finance-blue hover:bg-blue-700"
+                            />
+                          </div>
+                          <div className="text-xs text-gray-500 text-center">
                             <Clock className="w-3 h-3 inline mr-1" />
                             Updated: {fund.lastUpdated || 'Jan 2025'}
                           </div>
-                          <Button 
-                            size="sm" 
-                            className="bg-finance-blue hover:bg-blue-700 group-hover:bg-blue-700 transition-colors"
-                            onClick={() => alert(`Redirecting to invest in ${fund.schemaName}...`)}
-                            data-testid={`invest-${fund.id || index}`}
-                          >
-                            <Zap className="w-4 h-4 mr-1" />
-                            Invest Now
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
