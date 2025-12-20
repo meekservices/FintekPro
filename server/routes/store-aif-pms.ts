@@ -2011,4 +2011,178 @@ router.patch("/inquiries/:id", requireAdmin, async (req, res) => {
   }
 });
 
+// ============ AIF ORDERS ============
+
+// GET /store/aif/orders - Get user's AIF orders
+router.get("/aif/orders", requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const orders = await db
+      .select()
+      .from(clientPortfolioAif)
+      .where(eq(clientPortfolioAif.userId, userId))
+      .orderBy(desc(clientPortfolioAif.createdAt));
+
+    res.json(orders);
+  } catch (error: any) {
+    console.error("Error fetching AIF orders:", error);
+    res.status(500).json({ error: "Failed to fetch AIF orders" });
+  }
+});
+
+// POST /store/aif/orders - Create AIF order with audit logging
+router.post("/aif/orders", requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const { schemeId, amount, orderType = "LUMPSUM", auditLog } = req.body;
+    
+    const [order] = await db
+      .insert(clientPortfolioAif)
+      .values({
+        userId,
+        schemeId,
+        investedAmount: amount?.toString(),
+        status: "pending",
+        orderType,
+        auditLog: JSON.stringify({
+          action: "order_placed",
+          timestamp: new Date().toISOString(),
+          amount,
+          source: auditLog?.source || "aif_page",
+          ...auditLog
+        }),
+      })
+      .returning();
+
+    res.json({ success: true, order });
+  } catch (error: any) {
+    console.error("Error creating AIF order:", error);
+    res.status(500).json({ error: "Failed to create AIF order" });
+  }
+});
+
+// ============ PMS ORDERS ============
+
+// GET /store/pms/orders - Get user's PMS orders
+router.get("/pms/orders", requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const orders = await db
+      .select()
+      .from(clientPortfolioPms)
+      .where(eq(clientPortfolioPms.userId, userId))
+      .orderBy(desc(clientPortfolioPms.createdAt));
+
+    res.json(orders);
+  } catch (error: any) {
+    console.error("Error fetching PMS orders:", error);
+    res.status(500).json({ error: "Failed to fetch PMS orders" });
+  }
+});
+
+// POST /store/pms/orders - Create PMS order with audit logging
+router.post("/pms/orders", requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const { schemeId, amount, orderType = "LUMPSUM", auditLog } = req.body;
+    
+    const [order] = await db
+      .insert(clientPortfolioPms)
+      .values({
+        userId,
+        schemeId,
+        investedAmount: amount?.toString(),
+        status: "pending",
+        orderType,
+        auditLog: JSON.stringify({
+          action: "order_placed",
+          timestamp: new Date().toISOString(),
+          amount,
+          source: auditLog?.source || "pms_page",
+          ...auditLog
+        }),
+      })
+      .returning();
+
+    res.json({ success: true, order });
+  } catch (error: any) {
+    console.error("Error creating PMS order:", error);
+    res.status(500).json({ error: "Failed to create PMS order" });
+  }
+});
+
+// ============ MLD ORDERS ============
+
+// GET /store/mld/orders - Get user's MLD orders
+router.get("/mld/orders", requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const orders = await db
+      .select()
+      .from(clientPortfolioMld)
+      .where(eq(clientPortfolioMld.userId, userId))
+      .orderBy(desc(clientPortfolioMld.createdAt));
+
+    res.json(orders);
+  } catch (error: any) {
+    console.error("Error fetching MLD orders:", error);
+    res.status(500).json({ error: "Failed to fetch MLD orders" });
+  }
+});
+
+// POST /store/mld/orders - Create MLD order with audit logging
+router.post("/mld/orders", requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const { productId, amount, tenure, auditLog } = req.body;
+    
+    const [order] = await db
+      .insert(clientPortfolioMld)
+      .values({
+        userId,
+        productId,
+        investedAmount: amount?.toString(),
+        tenure,
+        status: "pending",
+        auditLog: JSON.stringify({
+          action: "order_placed",
+          timestamp: new Date().toISOString(),
+          amount,
+          source: auditLog?.source || "mld_page",
+          ...auditLog
+        }),
+      })
+      .returning();
+
+    res.json({ success: true, order });
+  } catch (error: any) {
+    console.error("Error creating MLD order:", error);
+    res.status(500).json({ error: "Failed to create MLD order" });
+  }
+});
+
 export default router;

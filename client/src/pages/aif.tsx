@@ -1,64 +1,406 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
-  Building2, 
-  IndianRupee, 
-  TrendingUp, 
-  ArrowUpRight, 
-  Search, 
-  Filter,
-  BarChart3,
-  PieChart,
-  Clock,
-  Shield,
-  Award,
-  Target,
-  Zap,
-  Star,
-  Eye
+  Building2, IndianRupee, TrendingUp, ArrowUpRight, Search, Filter, BarChart3, 
+  PieChart, Clock, Shield, Award, Target, Zap, Star, Eye, RefreshCw, ShoppingCart,
+  ClipboardList, Wallet, Package, FileText, CheckCircle2, AlertTriangle, Banknote,
+  ThumbsUp, ThumbsDown, Edit2, Bot, UserCheck, Trash2, CreditCard, AlertOctagon,
+  Sparkles, Calculator, ArrowRight
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ExpressInterestButton } from "@/components/ExpressInterestDialog";
+import { LoadingState } from "@/components/LoadingState";
 
-export default function AIF() {
-  // Navigation state for responsive layout
-  const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem('navigation-collapsed');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
+const PRODUCT_TYPE = "aif";
+
+function ProposalsTab({ productType, onApprove }: { productType: string; onApprove: () => void }) {
+  const { toast } = useToast();
+  
+  const { data: proposals, isLoading, refetch } = useQuery<any[]>({
+    queryKey: ['/api/proposals', { productType }],
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return apiRequest(`/api/proposals/${proposalId}/approve`, { method: 'POST' });
+    },
+    onSuccess: () => {
+      toast({ title: "Proposal Approved", description: "Added to your investment cart" });
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+      onApprove();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to approve proposal", variant: "destructive" });
     }
   });
 
-  // Listen for navigation state changes
-  useEffect(() => {
-    const handleNavChange = (event: CustomEvent) => {
-      setIsNavCollapsed(event.detail.isCollapsed);
-    };
-    
-    window.addEventListener('navigation-state-changed', handleNavChange as EventListener);
-    return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
-  }, []);
+  const rejectMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      return apiRequest(`/api/proposals/${proposalId}/reject`, { method: 'POST' });
+    },
+    onSuccess: () => {
+      toast({ title: "Proposal Rejected", description: "The proposal has been declined" });
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals'] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to reject proposal", variant: "destructive" });
+    }
+  });
+
+  const pendingProposals = proposals?.filter(p => p.status === 'pending' && p.productType === productType) || [];
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Loading proposals...</span>
+      </div>
+    );
+  }
+
+  if (pendingProposals.length === 0) {
+    return (
+      <Card className="border-dashed border-2 border-blue-200 bg-blue-50/50 dark:bg-blue-900/10">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <Bot className="w-16 h-16 text-blue-400 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Pending AIF Proposals</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-4">
+            AI-generated and agent recommendations for Alternative Investment Funds will appear here based on your risk profile.
+          </p>
+          <Button variant="outline" onClick={() => refetch()} className="border-blue-300 text-blue-600 hover:bg-blue-50">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh Proposals
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {pendingProposals.map((proposal) => (
+        <Card key={proposal.id} className="overflow-hidden hover:shadow-lg transition-shadow" data-testid={`aif-proposal-${proposal.id}`}>
+          <CardContent className="p-0">
+            <div className="flex">
+              <div className={`w-2 ${proposal.proposalSource === 'ai' ? 'bg-gradient-to-b from-blue-500 to-indigo-600' : 'bg-gradient-to-b from-cyan-500 to-teal-600'}`} />
+              <div className="flex-1 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      {proposal.proposalSource === 'ai' ? (
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200"><Bot className="w-3 h-3 mr-1" />AI Generated</Badge>
+                      ) : (
+                        <Badge className="bg-cyan-100 text-cyan-700 border-cyan-200"><UserCheck className="w-3 h-3 mr-1" />Agent Recommended</Badge>
+                      )}
+                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">AIF</Badge>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{proposal.title}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{proposal.description}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
+                      <IndianRupee className="w-5 h-5" />
+                      {parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-sm text-gray-500">Min Investment</p>
+                  </div>
+                </div>
+
+                {proposal.analysisRationale && (
+                  <div className="mb-4 p-4 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="w-5 h-5 text-blue-500 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-blue-800 dark:text-blue-300 text-sm">Investment Rationale</p>
+                        <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">{proposal.analysisRationale}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Expected Return</p>
+                    <p className="text-lg font-bold text-emerald-600">{proposal.expectedReturns ? `${proposal.expectedReturns}%` : 'N/A'}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Lock-in Period</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">{proposal.lockIn || '3 Years'}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Risk Level</p>
+                    <p className="text-lg font-bold text-amber-600">{proposal.riskProfile || 'High'}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => approveMutation.mutate(proposal.id)}
+                    disabled={approveMutation.isPending}
+                    data-testid={`approve-aif-${proposal.id}`}
+                  >
+                    {approveMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <ThumbsUp className="w-4 h-4 mr-2" />}
+                    Approve & Add to Cart
+                  </Button>
+                  <Button 
+                    variant="outline" className="border-red-300 text-red-600 hover:bg-red-50"
+                    onClick={() => rejectMutation.mutate(proposal.id)}
+                    disabled={rejectMutation.isPending}
+                    data-testid={`reject-aif-${proposal.id}`}
+                  >
+                    <ThumbsDown className="w-4 h-4 mr-2" />Reject
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function CartTab({ productType, onCheckout }: { productType: string; onCheckout: () => void }) {
+  const { toast } = useToast();
+  
+  const { data: cartData, isLoading } = useQuery<any>({
+    queryKey: ['/api/cart', { productCategory: productType }],
+  });
+
+  const removeFromCartMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return apiRequest(`/api/cart/items/${itemId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      toast({ title: "Removed from Cart", description: "Item removed successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+    },
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: async () => {
+      const results = [];
+      for (const item of cartItems) {
+        if (item.proposalId) {
+          const result = await apiRequest(`/api/proposals/${item.proposalId}/complete-order`, { 
+            method: 'POST',
+            body: JSON.stringify({ orderType: 'LUMPSUM', productType: 'aif' })
+          });
+          results.push(result);
+          await apiRequest(`/api/cart/items/${item.id}`, { method: 'DELETE' });
+        }
+      }
+      return results;
+    },
+    onSuccess: () => {
+      toast({ title: "Order Placed!", description: "Your AIF investment order has been submitted" });
+      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/store/aif/orders'] });
+      onCheckout();
+    },
+  });
+
+  const cartItems = cartData?.items?.filter((item: any) => item.productCategory === productType || item.category === productType) || [];
+  const totalValue = cartItems.reduce((sum: number, item: any) => sum + parseFloat(item.amount || item.quantity || '0'), 0);
+  
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-12"><RefreshCw className="w-8 h-8 animate-spin text-blue-600" /></div>;
+  }
+
+  if (cartItems.length === 0) {
+    return (
+      <Card className="border-dashed border-2 border-blue-200 bg-blue-50/50 dark:bg-blue-900/10">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <ShoppingCart className="w-16 h-16 text-blue-400 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Your AIF Cart is Empty</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-4">
+            Approve investment proposals to add them to your cart for checkout.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-4">
+        {cartItems.map((item: any, index: number) => (
+          <Card key={item.id || index} className="overflow-hidden" data-testid={`aif-cart-item-${index}`}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-semibold text-gray-900 dark:text-white">{item.productName || item.schemeName || 'AIF Investment'}</h4>
+                    <Badge className="bg-amber-100 text-amber-700">AIF</Badge>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
+                    <IndianRupee className="w-4 h-4" />{parseFloat(item.amount || item.quantity || '0').toLocaleString('en-IN')}
+                  </p>
+                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 mt-2"
+                    onClick={() => removeFromCartMutation.mutate(item.id)} data-testid={`remove-aif-${index}`}>
+                    <Trash2 className="w-4 h-4 mr-1" />Remove
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="lg:col-span-1">
+        <Card className="sticky top-4 border-2 border-blue-200 bg-gradient-to-b from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-blue-600" />Order Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm"><span className="text-gray-500">Total Items</span><span className="font-medium">{cartItems.length}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="font-medium flex items-center"><IndianRupee className="w-3 h-3" />{totalValue.toLocaleString('en-IN')}</span></div>
+            </div>
+            <div className="border-t pt-4">
+              <div className="flex justify-between text-lg font-bold">
+                <span>Total Payable</span>
+                <span className="flex items-center text-blue-600"><IndianRupee className="w-4 h-4" />{totalValue.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+            <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertOctagon className="w-4 h-4 text-amber-600 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-300">AIF Investment Notice</p>
+                  <p className="text-amber-700 dark:text-amber-400 text-xs">Minimum investment ₹1 Crore. Lock-in periods apply per scheme terms.</p>
+                </div>
+              </div>
+            </div>
+            <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold py-6"
+              onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending || cartItems.length === 0} data-testid="aif-checkout-btn">
+              {checkoutMutation.isPending ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Processing...</> : <><CreditCard className="w-5 h-5 mr-2" />Proceed to Payment</>}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function OrdersTab({ productType }: { productType: string }) {
+  const { data: orders, isLoading } = useQuery<any[]>({
+    queryKey: ['/api/store/aif/orders'],
+  });
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-12"><RefreshCw className="w-8 h-8 animate-spin text-blue-600" /></div>;
+  }
+
+  if (!orders || orders.length === 0) {
+    return (
+      <Card className="border-dashed border-2 border-gray-200">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <FileText className="w-16 h-16 text-gray-400 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No AIF Orders Yet</h3>
+          <p className="text-gray-500">Your AIF investment orders will appear here once placed.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {orders.map((order: any) => (
+        <Card key={order.id} data-testid={`aif-order-${order.id}`}>
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h4 className="font-semibold text-lg">{order.schemeName || order.productName}</h4>
+                <p className="text-sm text-gray-500">Order #{order.id?.slice(-8)}</p>
+              </div>
+              <Badge className={order.status === 'completed' ? 'bg-green-100 text-green-700' : order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}>
+                {order.status}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-4 gap-4 text-sm">
+              <div><span className="text-gray-500">Amount</span><p className="font-semibold">₹{parseFloat(order.amount || '0').toLocaleString('en-IN')}</p></div>
+              <div><span className="text-gray-500">Order Date</span><p className="font-semibold">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A'}</p></div>
+              <div><span className="text-gray-500">Type</span><p className="font-semibold">{order.orderType || 'Lumpsum'}</p></div>
+              <div><span className="text-gray-500">Payment</span><p className="font-semibold">{order.paymentStatus || 'Pending'}</p></div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function PortfolioTab({ productType }: { productType: string }) {
+  const { data: holdings, isLoading } = useQuery<any[]>({
+    queryKey: ['/api/portfolio/holdings', { productType }],
+  });
+
+  if (isLoading) {
+    return <LoadingState variant="card" count={3} />;
+  }
+
+  if (!holdings || holdings.length === 0) {
+    return (
+      <Card className="border-dashed border-2 border-gray-200">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <Wallet className="w-16 h-16 text-gray-400 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No AIF Holdings</h3>
+          <p className="text-gray-500">Your AIF investments will appear here once purchased.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {holdings.map((holding: any) => (
+        <Card key={holding.id}>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <h4 className="font-semibold">{holding.schemeName}</h4>
+                <p className="text-sm text-gray-500">{holding.fundHouse}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xl font-bold">₹{parseFloat(holding.currentValue || '0').toLocaleString('en-IN')}</p>
+                <p className={`text-sm ${parseFloat(holding.returns || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {parseFloat(holding.returns || '0') >= 0 ? '+' : ''}{holding.returns}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export default function AIF() {
+  const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState("schemes");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedStyle, setSelectedStyle] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("active");
-  const [selectedAMC, setSelectedAMC] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
-  const [selectedRiskRating, setSelectedRiskRating] = useState("all");
-  const [minAUM, setMinAUM] = useState("");
-  const [maxAUM, setMaxAUM] = useState("");
 
-  // Fetch AIF schemes from store API with filters
-  const { data: aifResponse, isLoading: isAIFLoading } = useQuery<{ schemes: any[]; pagination: any }>({
+  const { data: aifResponse, isLoading } = useQuery<{ schemes: any[]; pagination: any }>({
     queryKey: ["/api/store/aif", { 
       status: selectedStatus,
       category: selectedCategory !== "all" ? selectedCategory : undefined,
@@ -69,46 +411,24 @@ export default function AIF() {
     refetchInterval: 300000,
   });
 
-  // Fetch SEBI registered AIFs for compliance section
-  const { data: sebiAIF, isLoading: isSEBILoading } = useQuery<any[]>({
-    queryKey: ["/api/store/aif/sebi/registered"],
-    enabled: false, // Disabled until endpoint is available
-  });
-
-  // Compliance data placeholder
-  const complianceData = {
-    totalRegistered: Array.isArray(sebiAIF) ? sebiAIF.length : 532,
-    activeCount: 485,
-    suspendedCount: 47,
-  };
+  const { data: cartData } = useQuery<any>({ queryKey: ['/api/cart'] });
+  const { data: proposalData } = useQuery<any[]>({ queryKey: ['/api/proposals'] });
 
   const displayData = aifResponse?.schemes || [];
-  const pagination = aifResponse?.pagination;
-  
-  // Calculate statistics from fetched data
+  const pendingProposals = proposalData?.filter(p => p.status === 'pending' && p.productType === 'aif')?.length || 0;
+  const cartCount = cartData?.items?.filter((i: any) => i.productCategory === 'aif')?.length || 0;
+
   const statistics = {
-    totalFunds: pagination?.total || displayData.length,
+    totalFunds: aifResponse?.pagination?.total || displayData.length,
     totalAUM: displayData.reduce((sum: number, fund: any) => sum + (parseFloat(fund.aum) || 0), 0),
-    averageReturns: {
-      "1Y": displayData.length > 0 ? displayData.reduce((sum: number, f: any) => sum + (parseFloat(f.return1Y) || 0), 0) / displayData.length : 0,
-      "3Y": displayData.length > 0 ? displayData.reduce((sum: number, f: any) => sum + (parseFloat(f.return3Y) || 0), 0) / displayData.length : 0,
-      "5Y": displayData.length > 0 ? displayData.reduce((sum: number, f: any) => sum + (parseFloat(f.return5Y) || 0), 0) / displayData.length : 0,
-    },
+    averageReturns: displayData.length > 0 ? displayData.reduce((sum: number, f: any) => sum + (parseFloat(f.return1Y) || 0), 0) / displayData.length : 0,
     activeAMCs: new Set(displayData.map((f: any) => f.fundHouseName).filter(Boolean)).size
   };
 
-  if (isAIFLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-finance-light" data-testid="aif-page">
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Card>
-            <CardContent className="p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-finance-blue mx-auto mb-6"></div>
-              <h3 className="text-xl font-semibold mb-3">Loading AIF Data...</h3>
-              <p className="text-gray-600">Fetching comprehensive Alternative Investment Fund details from all sources</p>
-            </CardContent>
-          </Card>
-        </main>
+      <div className="min-h-screen bg-finance-light p-8" data-testid="aif-page">
+        <LoadingState variant="card" count={4} />
       </div>
     );
   }
@@ -116,703 +436,167 @@ export default function AIF() {
   return (
     <div className="min-h-screen bg-finance-light" data-testid="aif-page">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Page Header */}
-        <div className="mb-8" data-testid="aif-header">
+        <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Alternative Investment Funds (AIF)</h1>
           <p className="text-gray-600 text-lg max-w-3xl">
-            Explore sophisticated investment opportunities with professionally managed AIF portfolios across Category I, II, and III funds from top AMCs.
+            Explore sophisticated investment opportunities with professionally managed AIF portfolios across Category I, II, and III funds.
           </p>
         </div>
 
-        {/* Market Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card data-testid="card-total-aif-funds">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total AIF Funds</p>
-                  <p className="text-3xl font-bold text-finance-blue">{statistics.totalFunds}</p>
-                </div>
-                <Building2 className="w-10 h-10 text-finance-blue" />
-              </div>
-              <div className="flex items-center mt-3">
-                <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
-                <span className="text-sm text-green-600">Across {statistics.activeAMCs} AMCs</span>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card data-testid="card-total-aum">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total AUM</p>
-                  <p className="text-3xl font-bold text-green-600">₹{((statistics.totalAUM || 0) / 10000000000).toFixed(0)} Cr</p>
-                </div>
-                <IndianRupee className="w-10 h-10 text-green-600" />
-              </div>
-              <div className="flex items-center mt-3">
-                <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
-                <span className="text-sm text-green-600">Growing steadily</span>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card data-testid="card-avg-returns">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Avg. 1Y Returns</p>
-                  <p className="text-3xl font-bold text-purple-600">+{statistics.averageReturns["1Y"]}%</p>
-                </div>
-                <BarChart3 className="w-10 h-10 text-purple-600" />
-              </div>
-              <div className="flex items-center mt-3">
-                <Star className="w-4 h-4 text-purple-600 mr-1" />
-                <span className="text-sm text-purple-600">Outperforming</span>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card data-testid="card-risk-rating">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Avg. Risk Score</p>
-                  <p className="text-3xl font-bold text-orange-600">7.2/10</p>
-                </div>
-                <Shield className="w-10 h-10 text-orange-600" />
-              </div>
-              <div className="flex items-center mt-3">
-                <Target className="w-4 h-4 text-orange-600 mr-1" />
-                <span className="text-sm text-orange-600">Moderate-High</span>
-              </div>
-            </CardContent>
-          </Card>
+          <Card><CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-gray-600">Total AIF Funds</p><p className="text-3xl font-bold text-finance-blue">{statistics.totalFunds}</p></div>
+              <Building2 className="w-10 h-10 text-finance-blue" />
+            </div>
+          </CardContent></Card>
+          <Card><CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-gray-600">Total AUM</p><p className="text-3xl font-bold text-green-600">₹{(statistics.totalAUM / 10000000000).toFixed(0)} Cr</p></div>
+              <IndianRupee className="w-10 h-10 text-green-600" />
+            </div>
+          </CardContent></Card>
+          <Card><CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-gray-600">Avg. 1Y Returns</p><p className="text-3xl font-bold text-purple-600">+{statistics.averageReturns.toFixed(1)}%</p></div>
+              <BarChart3 className="w-10 h-10 text-purple-600" />
+            </div>
+          </CardContent></Card>
+          <Card><CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-gray-600">Active AMCs</p><p className="text-3xl font-bold text-amber-600">{statistics.activeAMCs}</p></div>
+              <Award className="w-10 h-10 text-amber-600" />
+            </div>
+          </CardContent></Card>
         </div>
 
-        <Tabs defaultValue="explore" className="space-y-8">
-          <ScrollableTabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="explore" data-testid="tab-explore">Explore AIFs</TabsTrigger>
-            <TabsTrigger value="categories" data-testid="tab-categories">Categories</TabsTrigger>
-            <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="compliance" data-testid="tab-compliance">SEBI Compliance</TabsTrigger>
-            <TabsTrigger value="compare" data-testid="tab-compare">Compare</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <ScrollableTabsList className="grid w-full grid-cols-6 mb-6">
+            <TabsTrigger value="schemes" data-testid="tab-schemes" className="flex items-center gap-2">
+              <Building2 className="w-4 h-4" />Published Schemes
+            </TabsTrigger>
+            <TabsTrigger value="proposals" data-testid="tab-proposals" className="flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />Proposals
+              {pendingProposals > 0 && <Badge className="ml-1 bg-blue-500 text-white text-xs">{pendingProposals}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="cart" data-testid="tab-cart" className="flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" />Cart
+              {cartCount > 0 && <Badge className="ml-1 bg-orange-500 text-white text-xs">{cartCount}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="orders" data-testid="tab-orders" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />Orders
+            </TabsTrigger>
+            <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="flex items-center gap-2">
+              <Wallet className="w-4 h-4" />My Portfolio
+            </TabsTrigger>
+            <TabsTrigger value="tools" data-testid="tab-tools" className="flex items-center gap-2">
+              <Calculator className="w-4 h-4" />Tools
+            </TabsTrigger>
           </ScrollableTabsList>
 
-          <TabsContent value="explore" className="space-y-6" data-testid="explore-aifs">
-            
-            {/* Filters Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Filter className="h-5 w-5 text-finance-blue" />
-                  Filter AIF Funds
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Search Funds
-                    </label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <Input 
-                        placeholder="Search by fund name..." 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                        data-testid="search-input"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Category
-                    </label>
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger data-testid="category-select">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="Category I">Category I</SelectItem>
-                        <SelectItem value="Category II">Category II</SelectItem>
-                        <SelectItem value="Category III">Category III</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      AMC
-                    </label>
-                    <Select value={selectedAMC} onValueChange={setSelectedAMC}>
-                      <SelectTrigger data-testid="amc-select">
-                        <SelectValue placeholder="Select AMC" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All AMCs</SelectItem>
-                        <SelectItem value="kotak">Kotak Mahindra</SelectItem>
-                        <SelectItem value="icici">ICICI Prudential</SelectItem>
-                        <SelectItem value="hdfc">HDFC Asset Management</SelectItem>
-                        <SelectItem value="aditya-birla">Aditya Birla Sun Life</SelectItem>
-                        <SelectItem value="dsp">DSP Asset Managers</SelectItem>
-                        <SelectItem value="nippon">Nippon India</SelectItem>
-                        <SelectItem value="uti">UTI Asset Management</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Risk Rating
-                    </label>
-                    <Select value={selectedRiskRating} onValueChange={setSelectedRiskRating}>
-                      <SelectTrigger data-testid="risk-select">
-                        <SelectValue placeholder="Select risk level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Risk Levels</SelectItem>
-                        <SelectItem value="low">Low Risk</SelectItem>
-                        <SelectItem value="moderate">Moderate Risk</SelectItem>
-                        <SelectItem value="high">High Risk</SelectItem>
-                        <SelectItem value="very-high">Very High Risk</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+          <TabsContent value="schemes" className="space-y-6">
+            <div className="flex flex-wrap gap-4 mb-6">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input placeholder="Search AIF schemes..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="search-aif" />
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Min AUM (₹ Crores)
-                    </label>
-                    <Input 
-                      type="number" 
-                      placeholder="e.g., 100" 
-                      value={minAUM}
-                      onChange={(e) => setMinAUM(e.target.value)}
-                      data-testid="min-aum"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Max AUM (₹ Crores)
-                    </label>
-                    <Input 
-                      type="number" 
-                      placeholder="e.g., 5000" 
-                      value={maxAUM}
-                      onChange={(e) => setMaxAUM(e.target.value)}
-                      data-testid="max-aum"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* AIF Funds Grid */}
-            <section>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">AIF Funds Portfolio</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {displayData
-                  .filter((fund: any) => {
-                    if (searchQuery) {
-                      return fund.fundName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                             fund.schemaName?.toLowerCase().includes(searchQuery.toLowerCase());
-                    }
-                    return true;
-                  })
-                  .map((fund: any, index: number) => (
-                    <Card 
-                      key={fund.id || fund.aifId || index}
-                      className="hover:shadow-lg transition-all duration-300 cursor-pointer group border-l-4 border-l-finance-blue"
-                      data-testid={`aif-card-${fund.id || index}`}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <h3 className="font-bold text-lg text-gray-900 mb-1 group-hover:text-finance-blue transition-colors">
-                              {fund.fundName || fund.schemaName || 'AIF Fund'}
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-2">
-                              {fund.isinNumber || fund.isin || 'ISIN N/A'}
-                            </p>
-                            <div className="flex items-center gap-2 mb-3">
-                              <Badge 
-                                variant="secondary" 
-                                className={`
-                                  ${fund.category === 'Category I' ? 'bg-green-100 text-green-800' : 
-                                    fund.category === 'Category II' ? 'bg-blue-100 text-blue-800' : 
-                                    'bg-purple-100 text-purple-800'}
-                                `}
-                              >
-                                {fund.category}
-                              </Badge>
-                              <Badge variant="outline">
-                                {fund.subCategory || 'Mixed Fund'}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="flex items-center">
-                            <Star className="w-4 h-4 text-yellow-500" />
-                            <span className="text-sm font-medium ml-1">
-                              {fund.riskRating || '4.2'}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                          <div>
-                            <p className="text-gray-600">AUM</p>
-                            <p className="font-semibold text-finance-blue">
-                              ₹{fund.currentAUM ? (fund.currentAUM / 10000000).toFixed(0) : fund.aum || '1,250'} Cr
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">1Y Returns</p>
-                            <p className="font-semibold text-green-600">
-                              +{fund.pastPerformance?.['1Y'] || fund.returns1Y || '18.5'}%
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Min Investment</p>
-                            <p className="font-semibold">
-                              ₹{fund.minimumInvestment ? (fund.minimumInvestment / 10000000).toFixed(0) : '1'} Cr
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Lock-in</p>
-                            <p className="font-semibold text-orange-600">
-                              {fund.lockInPeriod || fund.lockPeriod || '3 Years'}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {/* SEBI Compliance Status */}
-                        {Array.isArray(sebiAIF) && sebiAIF.find((s: any) => s.aifId === fund.id || s.schemaName === fund.schemaName) && (
-                          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Shield className="w-4 h-4 text-green-600" />
-                              <span className="text-sm font-medium text-green-800">SEBI Compliant</span>
-                            </div>
-                            <div className="text-xs text-green-700 space-y-1">
-                              <div>Reg. No: {Array.isArray(sebiAIF) ? sebiAIF.find((s: any) => s.aifId === fund.id)?.sebiRegistrationNumber || 'INZ000123456' : 'INZ000123456'}</div>
-                              <div>Last Inspection: {Array.isArray(sebiAIF) ? sebiAIF.find((s: any) => s.aifId === fund.id)?.lastInspectionDate || 'Dec 2024' : 'Dec 2024'}</div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        <div className="flex flex-col gap-3 pt-2 border-t">
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              className="flex-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.location.href = `/aif/${fund.id || index}`;
-                              }}
-                              data-testid={`view-details-${fund.id || index}`}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              View Details
-                            </Button>
-                            <ExpressInterestButton
-                              productType="aif"
-                              productId={fund.id || `aif-${index}`}
-                              productName={fund.fundName || fund.schemaName || 'AIF Fund'}
-                              minInvestment={fund.minimumInvestment || fund.minInvestment}
-                              size="sm"
-                              className="flex-1 bg-finance-blue hover:bg-blue-700"
-                            />
-                          </div>
-                          <div className="text-xs text-gray-500 text-center">
-                            <Clock className="w-3 h-3 inline mr-1" />
-                            Updated: {fund.lastUpdated || 'Jan 2025'}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
               </div>
-            </section>
-
-          </TabsContent>
-
-          <TabsContent value="categories" className="space-y-6" data-testid="categories-section">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              <Card className="border-l-4 border-l-green-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-700">
-                    <Shield className="h-5 w-5" />
-                    Category I AIFs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">
-                    Venture Capital, Infrastructure, SME funds with specific investment focus and regulatory benefits.
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Funds:</span>
-                      <span className="font-semibold">156</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Avg. Returns:</span>
-                      <span className="font-semibold text-green-600">+16.8%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Min Investment:</span>
-                      <span className="font-semibold">₹1 Cr</span>
-                    </div>
-                  </div>
-                  <Button variant="outline" className="w-full mt-4">
-                    Explore Category I
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-l-4 border-l-blue-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-700">
-                    <Building2 className="h-5 w-5" />
-                    Category II AIFs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">
-                    Private Equity, Debt funds for sophisticated investors seeking alternative strategies.
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Funds:</span>
-                      <span className="font-semibold">287</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Avg. Returns:</span>
-                      <span className="font-semibold text-green-600">+22.4%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Min Investment:</span>
-                      <span className="font-semibold">₹1 Cr</span>
-                    </div>
-                  </div>
-                  <Button variant="outline" className="w-full mt-4">
-                    Explore Category II
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-l-4 border-l-purple-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-purple-700">
-                    <TrendingUp className="h-5 w-5" />
-                    Category III AIFs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">
-                    Hedge funds with diverse trading strategies for high net worth and institutional investors.
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Funds:</span>
-                      <span className="font-semibold">89</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Avg. Returns:</span>
-                      <span className="font-semibold text-green-600">+28.9%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Min Investment:</span>
-                      <span className="font-semibold">₹1 Cr</span>
-                    </div>
-                  </div>
-                  <Button variant="outline" className="w-full mt-4">
-                    Explore Category III
-                  </Button>
-                </CardContent>
-              </Card>
-
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[180px]" data-testid="filter-category"><SelectValue placeholder="Category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="category_i">Category I</SelectItem>
+                  <SelectItem value="category_ii">Category II</SelectItem>
+                  <SelectItem value="category_iii">Category III</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-[180px]" data-testid="filter-status"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="soft_close">Soft Close</SelectItem>
+                  <SelectItem value="hard_close">Hard Close</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </TabsContent>
 
-          <TabsContent value="analytics" className="space-y-6" data-testid="analytics-section">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChart className="h-5 w-5 text-finance-blue" />
-                    AIF Market Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <div>
-                        <p className="font-semibold">Category I</p>
-                        <p className="text-sm text-gray-600">Infrastructure & VC</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">29.8%</p>
-                        <p className="text-sm">156 funds</p>
-                      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayData.map((scheme: any) => (
+                <Card key={scheme.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/aif/${scheme.id}`)} data-testid={`aif-scheme-${scheme.id}`}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">{scheme.name}</CardTitle>
+                      <Badge variant="outline">{scheme.category || 'Cat II'}</Badge>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                      <div>
-                        <p className="font-semibold">Category II</p>
-                        <p className="text-sm text-gray-600">Private Equity & Debt</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-blue-600">54.6%</p>
-                        <p className="text-sm">287 funds</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                      <div>
-                        <p className="font-semibold">Category III</p>
-                        <p className="text-sm text-gray-600">Hedge Funds</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-purple-600">15.6%</p>
-                        <p className="text-sm">89 funds</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-finance-blue" />
-                    Performance Analytics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-medium">Average 1Y Returns</span>
-                        <span className="text-sm font-bold text-green-600">+22.32%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{width: '75%'}}></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-medium">Average 3Y Returns</span>
-                        <span className="text-sm font-bold text-blue-600">+18.76%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-blue-500 h-2 rounded-full" style={{width: '62%'}}></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-medium">Average 5Y Returns</span>
-                        <span className="text-sm font-bold text-purple-600">+16.43%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-purple-500 h-2 rounded-full" style={{width: '55%'}}></div>
-                      </div>
-                    </div>
-                    <div className="pt-2 border-t">
+                    <CardDescription>{scheme.fundHouseName}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
                       <div className="flex justify-between text-sm">
-                        <span>Total Industry AUM:</span>
-                        <span className="font-bold">₹6,78,945 Cr</span>
+                        <span className="text-gray-500">Min Investment</span>
+                        <span className="font-semibold">₹{(parseFloat(scheme.minInvestment || '10000000') / 10000000).toFixed(0)} Cr</span>
                       </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">1Y Returns</span>
+                        <span className={`font-semibold ${parseFloat(scheme.return1Y || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {parseFloat(scheme.return1Y || '0') >= 0 ? '+' : ''}{scheme.return1Y || 'N/A'}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">AUM</span>
+                        <span className="font-semibold">₹{(parseFloat(scheme.aum || '0') / 10000000).toFixed(0)} Cr</span>
+                      </div>
+                      <ExpressInterestButton productId={scheme.id} productType="aif" productName={scheme.name} />
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </TabsContent>
 
-          <TabsContent value="compliance" className="space-y-6" data-testid="compliance-section">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* SEBI Registration Status */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-green-600" />
-                    SEBI Registration Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isSEBILoading ? (
-                    <div className="space-y-3">
-                      <div className="animate-pulse bg-gray-200 h-4 rounded"></div>
-                      <div className="animate-pulse bg-gray-200 h-4 rounded w-3/4"></div>
-                      <div className="animate-pulse bg-gray-200 h-4 rounded w-1/2"></div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <div>
-                          <p className="font-medium text-green-800">Active AIFs</p>
-                          <p className="text-sm text-green-600">Regulatory compliant</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-green-600">{Array.isArray(sebiAIF) ? sebiAIF.length : 532}</p>
-                          <p className="text-xs text-green-600">Registered</p>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Category I Funds:</span>
-                          <span className="font-medium">{Array.isArray(sebiAIF) ? sebiAIF.filter((f: any) => f.category === 'Category I').length : 156}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Category II Funds:</span>
-                          <span className="font-medium">{Array.isArray(sebiAIF) ? sebiAIF.filter((f: any) => f.category === 'Category II').length : 287}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Category III Funds:</span>
-                          <span className="font-medium">{Array.isArray(sebiAIF) ? sebiAIF.filter((f: any) => f.category === 'Category III').length : 89}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+          <TabsContent value="proposals">
+            <ProposalsTab productType={PRODUCT_TYPE} onApprove={() => setActiveTab("cart")} />
+          </TabsContent>
+
+          <TabsContent value="cart">
+            <CartTab productType={PRODUCT_TYPE} onCheckout={() => setActiveTab("orders")} />
+          </TabsContent>
+
+          <TabsContent value="orders">
+            <OrdersTab productType={PRODUCT_TYPE} />
+          </TabsContent>
+
+          <TabsContent value="portfolio">
+            <PortfolioTab productType={PRODUCT_TYPE} />
+          </TabsContent>
+
+          <TabsContent value="tools">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/calculators')}>
+                <CardContent className="p-6 text-center">
+                  <Calculator className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                  <h3 className="font-semibold text-lg mb-2">Investment Calculator</h3>
+                  <p className="text-sm text-gray-500">Calculate returns on AIF investments</p>
                 </CardContent>
               </Card>
-
-              {/* Enforcement Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-orange-600" />
-                    Recent Enforcement Actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {Array.isArray(complianceData) && complianceData.length > 0 ? (
-                    <div className="space-y-3">
-                      {(complianceData as any[]).slice(0, 5).map((action: any, index: number) => (
-                        <div key={index} className="p-3 border border-orange-200 bg-orange-50 rounded-lg">
-                          <div className="flex justify-between items-start mb-2">
-                            <p className="font-medium text-orange-800 text-sm">{action.entity || 'AIF Entity'}</p>
-                            <span className="text-xs text-orange-600">{action.date || 'Dec 2024'}</span>
-                          </div>
-                          <p className="text-xs text-orange-700">{action.action || 'Compliance review completed'}</p>
-                          {action.penalty && (
-                            <p className="text-xs text-red-600 mt-1">Penalty: ₹{action.penalty}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <Shield className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                      <p className="text-green-600 font-medium">All AIFs Compliant</p>
-                      <p className="text-sm text-gray-500">No recent enforcement actions</p>
-                    </div>
-                  )}
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <PieChart className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                  <h3 className="font-semibold text-lg mb-2">Risk Assessment</h3>
+                  <p className="text-sm text-gray-500">Evaluate your risk tolerance</p>
                 </CardContent>
               </Card>
-
-              {/* Regulatory Framework */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-finance-blue" />
-                    AIF Regulatory Framework
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-green-700">Category I AIFs</h4>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p>• Venture Capital Funds</p>
-                        <p>• Infrastructure Funds</p>
-                        <p>• SME Funds</p>
-                        <p>• Angel Funds</p>
-                      </div>
-                      <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
-                        Tax Pass-through & Regulatory Benefits
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-blue-700">Category II AIFs</h4>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p>• Private Equity Funds</p>
-                        <p>• Debt Funds</p>
-                        <p>• Real Estate Funds</p>
-                        <p>• Fund of Funds</p>
-                      </div>
-                      <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                        No Special Incentives
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-purple-700">Category III AIFs</h4>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p>• Hedge Funds</p>
-                        <p>• PIPE Funds</p>
-                        <p>• Listed/Liquid Security Funds</p>
-                        <p>• Open-ended Funds</p>
-                      </div>
-                      <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded">
-                        Higher Leverage Allowed
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <h5 className="font-medium text-gray-800 mb-2">Key SEBI Requirements</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                      <div>
-                        <p>• Minimum corpus: ₹20 Crores</p>
-                        <p>• Minimum investment: ₹1 Crore</p>
-                        <p>• Maximum 1000 investors</p>
-                      </div>
-                      <div>
-                        <p>• Lock-in period: 3 years</p>
-                        <p>• Quarterly reporting mandatory</p>
-                        <p>• Annual compliance audit</p>
-                      </div>
-                    </div>
-                  </div>
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <Target className="w-12 h-12 text-purple-600 mx-auto mb-4" />
+                  <h3 className="font-semibold text-lg mb-2">Goal Planning</h3>
+                  <p className="text-sm text-gray-500">Plan your investment goals</p>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          <TabsContent value="compare" className="space-y-6" data-testid="compare-section">
-            <Card>
-              <CardHeader>
-                <CardTitle>Fund Comparison Tool</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <Award className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Compare AIF Funds</h3>
-                  <p className="text-gray-500 text-center mb-6 max-w-md mx-auto">
-                    Select multiple AIF funds to compare their performance, fees, and investment strategies side by side.
-                  </p>
-                  <Button className="bg-finance-blue hover:bg-blue-700">
-                    Start Comparing
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
-
       </main>
     </div>
   );

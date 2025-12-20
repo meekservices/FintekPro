@@ -134,6 +134,7 @@ import GlobalTrading from "@/pages/global-trading";
 import IntelligentTaxHub from "@/pages/intelligent-tax-hub";
 import TaxReminderSubscription from "@/pages/tax-reminder-subscription";
 import MLDs from "@/pages/mlds";
+import UnifiedCart from "@/pages/unified-cart";
 import Insurance from "@/pages/insurance";
 import BankingProducts from "@/pages/banking-products";
 import Bonds from "@/pages/bonds";
@@ -290,6 +291,8 @@ function UserProtectedRoutes() {
         <Route path="/domestic-trading" component={DomesticTrading} />
         <Route path="/global-trading" component={GlobalTrading} />
         <Route path="/cart" component={Cart} />
+        <Route path="/unified-cart" component={UnifiedCart} />
+        <Route path="/investment-cart" component={UnifiedCart} />
         <Route path="/orders" component={Orders} />
         <Route path="/api-monitor" component={ApiMonitorDemo} />
         <Route path="/icici-loans" component={ICICILoans} />
