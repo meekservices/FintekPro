@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BookMeetingDialog } from "@/components/BookMeetingDialog";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, AlertCircle, Brain, Target, DollarSign, BarChart3, Lightbulb, Bell, CheckCircle, XCircle, Activity, PieChart as PieChartIcon, TrendingDown as TrendingDownIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, Brain, Target, DollarSign, BarChart3, Lightbulb, Bell, CheckCircle, XCircle, Activity, PieChart as PieChartIcon, TrendingDown as TrendingDownIcon, Video } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -89,6 +90,7 @@ type NewIdeaFormData = z.infer<typeof newIdeaSchema>;
 export default function InvestmentDashboard() {
   const [selectedTab, setSelectedTab] = useState('overview');
   const [selectedIdea, setSelectedIdea] = useState<InvestmentIdea | null>(null);
+  const [showBookMeeting, setShowBookMeeting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -249,6 +251,18 @@ export default function InvestmentDashboard() {
               </p>
             </div>
             
+            
+            {/* Book Meeting Button */}
+            <Button
+              variant="outline"
+              onClick={() => setShowBookMeeting(true)}
+              className="gap-2"
+              data-testid="btn-book-meeting"
+            >
+              <Video className="w-4 h-4" />
+              Book Meeting
+            </Button>
+
             {/* Alert Notifications */}
             {unreadAlerts.length > 0 && (
               <div className="flex items-center gap-2">
@@ -989,6 +1003,12 @@ export default function InvestmentDashboard() {
             </DialogContent>
           </Dialog>
         )}
+
+      {/* Book Meeting Dialog */}
+      <BookMeetingDialog
+        open={showBookMeeting}
+        onOpenChange={setShowBookMeeting}
+      />
       </div>
     </div>
   );

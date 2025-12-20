@@ -17745,3 +17745,57 @@ export const insertInvestmentInquirySchema = createInsertSchema(investmentInquir
 export type InvestmentInquiry = typeof investmentInquiries.$inferSelect;
 export type InsertInvestmentInquiry = z.infer<typeof insertInvestmentInquirySchema>;
 
+// ============ MEETING BOOKINGS ============
+// Client-Agent meeting bookings via Zoho Meeting
+
+export const meetingBookingStatusEnum = pgEnum("meeting_booking_status", ["pending", "confirmed", "completed", "cancelled", "no_show"]);
+
+export const meetingBookings = pgTable("meeting_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Participants
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Meeting Details
+  topic: text("topic").notNull(),
+  description: text("description"),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  duration: integer("duration").default(30), // Duration in minutes
+  timezone: text("timezone").default("Asia/Kolkata"),
+  
+  // Zoho Meeting Integration
+  zohoMeetingId: text("zoho_meeting_id"),
+  joinLink: text("join_link"),
+  startLink: text("start_link"), // For host/agent
+  
+  // Status
+  status: text("status").default("pending"), // 'pending', 'confirmed', 'completed', 'cancelled', 'no_show'
+  
+  // Notes & Feedback
+  clientNotes: text("client_notes"),
+  agentNotes: text("agent_notes"),
+  outcome: text("outcome"), // Post-meeting outcome/summary
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  confirmedAt: timestamp("confirmed_at"),
+  completedAt: timestamp("completed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancellationReason: text("cancellation_reason"),
+}, (table) => [
+  index("idx_meeting_bookings_client").on(table.clientId),
+  index("idx_meeting_bookings_agent").on(table.agentId),
+  index("idx_meeting_bookings_status").on(table.status),
+  index("idx_meeting_bookings_scheduled").on(table.scheduledAt),
+]);
+
+export const insertMeetingBookingSchema = createInsertSchema(meetingBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MeetingBooking = typeof meetingBookings.$inferSelect;
+export type InsertMeetingBooking = z.infer<typeof insertMeetingBookingSchema>;
+
