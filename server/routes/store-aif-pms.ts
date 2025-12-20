@@ -4,6 +4,7 @@ import { aifMaster, pmsMaster, fundManagers, fundPerformanceMonthwise, fundPerfo
 import { eq, and, desc, asc, ilike, sql, gte, lte, or, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../middleware/roleMiddleware";
+import { fetchSebiAifListings, SebiAifListing } from "../services/sebi-aif-scraper";
 
 const router = Router();
 
@@ -1493,6 +1494,164 @@ router.put("/portfolio/admin/approve/:type/:id", requireAdmin, async (req, res) 
   } catch (error: any) {
     console.error("Error approving/rejecting holding:", error);
     res.status(500).json({ error: "Failed to process approval" });
+  }
+});
+
+// ============ AIF SEEDING (IMPORT FROM SEBI) ============
+
+// GET /aif/sebi/preview - Preview SEBI AIFs with duplicate detection
+router.get("/aif/sebi/preview", requireAdmin, async (req, res) => {
+  try {
+    console.log("[SEBI AIF Import] Fetching preview...");
+    
+    const result = await fetchSebiAifListings();
+    
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch SEBI AIF listings",
+        details: result.errors,
+      });
+    }
+    
+    // Get existing AIFs by registration number for duplicate detection
+    const existingAifs = await db
+      .select({ registrationNo: aifMaster.registrationNo })
+      .from(aifMaster)
+      .where(isNotNull(aifMaster.registrationNo));
+    
+    const existingRegNos = new Set(
+      existingAifs
+        .map(a => a.registrationNo?.trim().toUpperCase())
+        .filter(Boolean)
+    );
+    
+    // Mark duplicates
+    const listings = result.listings.map(listing => ({
+      ...listing,
+      isDuplicate: existingRegNos.has(listing.registrationNo.trim().toUpperCase()),
+    }));
+    
+    const newCount = listings.filter(l => !l.isDuplicate).length;
+    const duplicateCount = listings.filter(l => l.isDuplicate).length;
+    
+    console.log(`[SEBI AIF Import] Preview: ${listings.length} total, ${newCount} new, ${duplicateCount} duplicates`);
+    
+    res.json({
+      success: true,
+      listings,
+      summary: {
+        total: listings.length,
+        new: newCount,
+        duplicates: duplicateCount,
+      },
+    });
+  } catch (error: any) {
+    console.error("[SEBI AIF Import] Preview error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to preview SEBI AIFs",
+      details: error.message,
+    });
+  }
+});
+
+// POST /aif/sebi/import - Import selected AIFs from SEBI
+router.post("/aif/sebi/import", requireAdmin, async (req, res) => {
+  try {
+    const { listings } = req.body as { listings: SebiAifListing[] };
+    
+    if (!listings || !Array.isArray(listings) || listings.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No listings provided for import",
+      });
+    }
+    
+    console.log(`[SEBI AIF Import] Starting import of ${listings.length} AIFs...`);
+    
+    // Get existing registration numbers
+    const existingAifs = await db
+      .select({ registrationNo: aifMaster.registrationNo })
+      .from(aifMaster)
+      .where(isNotNull(aifMaster.registrationNo));
+    
+    const existingRegNoSet = new Set(
+      existingAifs
+        .map(a => a.registrationNo?.trim().toUpperCase())
+        .filter(Boolean)
+    );
+    
+    const imported: any[] = [];
+    const skipped: string[] = [];
+    const errors: string[] = [];
+    
+    for (const listing of listings) {
+      const normalizedRegNo = listing.registrationNo.trim().toUpperCase();
+      
+      // Skip if already exists
+      if (existingRegNoSet.has(normalizedRegNo)) {
+        skipped.push(listing.registrationNo);
+        continue;
+      }
+      
+      try {
+        // Determine default min investment based on category
+        let minInvestment = "10000000"; // ₹1 Cr default
+        if (listing.category === "Category III") {
+          minInvestment = "10000000"; // ₹1 Cr for Cat III
+        } else if (listing.category === "Category II") {
+          minInvestment = "10000000"; // ₹1 Cr for Cat II
+        } else {
+          minInvestment = "10000000"; // ₹1 Cr for Cat I
+        }
+        
+        const [newAif] = await db
+          .insert(aifMaster)
+          .values({
+            name: listing.name,
+            registrationNo: listing.registrationNo,
+            category: listing.category,
+            subcategory: listing.subcategory,
+            fundHouseName: listing.fundHouseName,
+            sponsor: listing.sponsor,
+            inceptionDate: listing.inceptionDate,
+            minInvestment,
+            fundStatus: "active",
+            isPublished: false, // Requires admin review
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+        
+        imported.push(newAif);
+        existingRegNoSet.add(normalizedRegNo);
+      } catch (itemError: any) {
+        console.error(`[SEBI AIF Import] Error importing ${listing.registrationNo}:`, itemError.message);
+        errors.push(`${listing.registrationNo}: ${itemError.message}`);
+      }
+    }
+    
+    console.log(`[SEBI AIF Import] Completed: ${imported.length} imported, ${skipped.length} skipped, ${errors.length} errors`);
+    
+    res.json({
+      success: true,
+      summary: {
+        imported: imported.length,
+        skipped: skipped.length,
+        errors: errors.length,
+      },
+      imported,
+      skipped,
+      errors,
+    });
+  } catch (error: any) {
+    console.error("[SEBI AIF Import] Import error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to import SEBI AIFs",
+      details: error.message,
+    });
   }
 });
 
