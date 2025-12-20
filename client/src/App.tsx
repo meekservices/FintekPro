@@ -277,6 +277,9 @@ function UserProtectedRoutes() {
         <Route path="/investment-dashboard" component={InvestmentDashboard} />
         <Route path="/ib-trading" component={IBTradingPage} />
         <Route path="/store" component={StorePage} />
+        <Route path="/store/pms" component={PMS} />
+        <Route path="/store/aif" component={AIF} />
+        <Route path="/store/mld" component={MldStore} />
         <Route path="/chat" component={AIChat} />
         <Route path="/alerts" component={AlertsPage} />
         <Route path="/gift-city" component={GiftCity} />
