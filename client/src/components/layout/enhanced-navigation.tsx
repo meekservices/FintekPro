@@ -185,7 +185,7 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "All Products", href: "/store", description: "View all financial products" },
             { name: "AIF", href: "/aif", description: "Alternative Investment Funds - Vendor-supplied (₹10L min)", badge: "PREMIUM" },
-            { name: "PMS", href: "/wealth-management", description: "Portfolio Management Services - AMC-supplied (₹50L min)", badge: "ELITE" },
+            { name: "PMS", href: "/pms", description: "Portfolio Management Services - AMC-supplied (₹50L min)", badge: "ELITE" },
             { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic and international funds" },
             { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings and opportunities" },
             { name: "Unlisted Shares", href: "/unlisted", description: "Unlisted securities" },
