@@ -5,6 +5,7 @@ import { eq, and, desc, asc, ilike, sql, gte, lte, or, isNotNull } from "drizzle
 import { z } from "zod";
 import { requireAdmin, requireAuth } from "../middleware/roleMiddleware";
 import { fetchSebiAifListings, SebiAifListing } from "../services/sebi-aif-scraper";
+import { fetchSebiPmsListings, SebiPmsListing } from "../services/sebi-pms-scraper";
 
 const router = Router();
 
@@ -1650,6 +1651,154 @@ router.post("/aif/sebi/import", requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to import SEBI AIFs",
+      details: error.message,
+    });
+  }
+});
+
+// ============ PMS SEEDING (IMPORT FROM SEBI) ============
+
+// GET /pms/sebi/preview - Preview SEBI PMS with duplicate detection
+router.get("/pms/sebi/preview", requireAdmin, async (req, res) => {
+  try {
+    console.log("[SEBI PMS Import] Fetching preview...");
+    
+    const result = await fetchSebiPmsListings();
+    
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch SEBI PMS listings",
+        details: result.errors,
+      });
+    }
+    
+    // Get existing PMS by registration number for duplicate detection
+    const existingPms = await db
+      .select({ registrationNo: pmsMaster.registrationNo })
+      .from(pmsMaster)
+      .where(isNotNull(pmsMaster.registrationNo));
+    
+    const existingRegNos = new Set(
+      existingPms
+        .map(p => p.registrationNo?.trim().toUpperCase())
+        .filter(Boolean)
+    );
+    
+    // Mark duplicates
+    const listings = result.listings.map(listing => ({
+      ...listing,
+      isDuplicate: existingRegNos.has(listing.registrationNo.trim().toUpperCase()),
+    }));
+    
+    const newCount = listings.filter(l => !l.isDuplicate).length;
+    const duplicateCount = listings.filter(l => l.isDuplicate).length;
+    
+    console.log(`[SEBI PMS Import] Preview: ${listings.length} total, ${newCount} new, ${duplicateCount} duplicates`);
+    
+    res.json({
+      success: true,
+      listings,
+      summary: {
+        total: listings.length,
+        new: newCount,
+        duplicates: duplicateCount,
+      },
+    });
+  } catch (error: any) {
+    console.error("[SEBI PMS Import] Preview error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to preview SEBI PMS",
+      details: error.message,
+    });
+  }
+});
+
+// POST /pms/sebi/import - Import selected PMS from SEBI
+router.post("/pms/sebi/import", requireAdmin, async (req, res) => {
+  try {
+    const { listings } = req.body as { listings: SebiPmsListing[] };
+    
+    if (!listings || !Array.isArray(listings) || listings.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No listings provided for import",
+      });
+    }
+    
+    console.log(`[SEBI PMS Import] Starting import of ${listings.length} PMS...`);
+    
+    // Get existing registration numbers
+    const existingPms = await db
+      .select({ registrationNo: pmsMaster.registrationNo })
+      .from(pmsMaster)
+      .where(isNotNull(pmsMaster.registrationNo));
+    
+    const existingRegNoSet = new Set(
+      existingPms
+        .map(p => p.registrationNo?.trim().toUpperCase())
+        .filter(Boolean)
+    );
+    
+    const imported: any[] = [];
+    const skipped: string[] = [];
+    const errors: string[] = [];
+    
+    for (const listing of listings) {
+      const normalizedRegNo = listing.registrationNo.trim().toUpperCase();
+      
+      // Skip if already exists
+      if (existingRegNoSet.has(normalizedRegNo)) {
+        skipped.push(listing.registrationNo);
+        continue;
+      }
+      
+      try {
+        const [newPms] = await db
+          .insert(pmsMaster)
+          .values({
+            name: listing.name,
+            registrationNo: listing.registrationNo,
+            strategy: listing.strategy,
+            style: listing.style,
+            fundHouseName: listing.fundHouseName,
+            sponsor: listing.sponsor,
+            inceptionDate: listing.inceptionDate,
+            minInvestment: "5000000", // ₹50L default for PMS
+            fundStatus: "active",
+            isPublished: false, // Requires admin review
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+        
+        imported.push(newPms);
+        existingRegNoSet.add(normalizedRegNo);
+      } catch (itemError: any) {
+        console.error(`[SEBI PMS Import] Error importing ${listing.registrationNo}:`, itemError.message);
+        errors.push(`${listing.registrationNo}: ${itemError.message}`);
+      }
+    }
+    
+    console.log(`[SEBI PMS Import] Completed: ${imported.length} imported, ${skipped.length} skipped, ${errors.length} errors`);
+    
+    res.json({
+      success: true,
+      summary: {
+        imported: imported.length,
+        skipped: skipped.length,
+        errors: errors.length,
+      },
+      imported,
+      skipped,
+      errors,
+    });
+  } catch (error: any) {
+    console.error("[SEBI PMS Import] Import error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to import SEBI PMS",
       details: error.message,
     });
   }

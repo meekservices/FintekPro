@@ -81,6 +81,7 @@ import StoreManagement from "@/pages/admin/store-management";
 import BondSeedAdmin from "@/pages/admin/bond-seed";
 import MldSeedAdmin from "@/pages/admin/mld-seed";
 import AifSeedAdmin from "@/pages/admin/aif-seed";
+import PmsSeedAdmin from "@/pages/admin/pms-seed";
 import MutualFundsSeeding from "@/pages/admin/mutual-funds-seeding";
 import SeedUnlistedPage from "@/pages/admin/seed-unlisted";
 import UnlistedPreviewPage from "@/pages/admin/unlisted-preview";
@@ -675,6 +676,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AifSeedAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/pms-seed">
+        {() => (
+          <AdminLayout>
+            <PmsSeedAdmin />
           </AdminLayout>
         )}
       </Route>
