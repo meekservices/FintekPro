@@ -684,9 +684,9 @@ router.get("/products/search", async (req, res) => {
           name: pmsMaster.name,
           strategy: pmsMaster.strategy,
           issuer: pmsMaster.fundHouseName,
-          nav: pmsMaster.nav,
-          returns1y: pmsMaster.returns1y,
-          returns3y: pmsMaster.returns3y,
+          nav: pmsMaster.latestNav,
+          returns1y: pmsMaster.return1Y,
+          returns3y: pmsMaster.return3Y,
           riskScore: pmsMaster.riskScore,
         })
         .from(pmsMaster)
@@ -723,9 +723,9 @@ router.get("/products/search", async (req, res) => {
           name: aifMaster.name,
           category: aifMaster.category,
           issuer: aifMaster.fundHouseName,
-          nav: aifMaster.nav,
-          returns1y: aifMaster.returns1y,
-          returns3y: aifMaster.returns3y,
+          nav: aifMaster.latestNav,
+          returns1y: aifMaster.return1Y,
+          returns3y: aifMaster.return3Y,
           riskScore: aifMaster.riskScore,
         })
         .from(aifMaster)
@@ -844,9 +844,9 @@ router.get("/products/:productType/:id", async (req, res) => {
           productType: "pms",
           category: pms.strategy,
           issuer: pms.fundHouseName,
-          currentPrice: pms.nav ? parseFloat(pms.nav) : null,
-          returns1y: pms.returns1y ? parseFloat(pms.returns1y) : null,
-          returns3y: pms.returns3y ? parseFloat(pms.returns3y) : null,
+          currentPrice: pms.latestNav ? parseFloat(pms.latestNav) : null,
+          returns1y: pms.return1Y ? parseFloat(pms.return1Y) : null,
+          returns3y: pms.return3Y ? parseFloat(pms.return3Y) : null,
           riskLevel: pms.riskScore ? `Score: ${pms.riskScore}` : null,
           identifier: pms.id,
           minInvestment: pms.minInvestment,
@@ -866,9 +866,9 @@ router.get("/products/:productType/:id", async (req, res) => {
           productType: "aif",
           category: aif.category,
           issuer: aif.fundHouseName,
-          currentPrice: aif.nav ? parseFloat(aif.nav) : null,
-          returns1y: aif.returns1y ? parseFloat(aif.returns1y) : null,
-          returns3y: aif.returns3y ? parseFloat(aif.returns3y) : null,
+          currentPrice: aif.latestNav ? parseFloat(aif.latestNav) : null,
+          returns1y: aif.return1Y ? parseFloat(aif.return1Y) : null,
+          returns3y: aif.return3Y ? parseFloat(aif.return3Y) : null,
           riskLevel: aif.riskScore ? `Score: ${aif.riskScore}` : null,
           identifier: aif.id,
           minInvestment: aif.minInvestment,
@@ -935,7 +935,7 @@ router.get("/portfolio/aif", requireAuth, async (req, res) => {
       .orderBy(desc(clientPortfolioAif.createdAt));
     
     // Calculate summary
-    const summary = holdings.reduce((acc, h) => {
+    const summaryData = holdings.reduce((acc, h) => {
       const value = parseFloat(h.holding.currentValue || "0");
       const invested = parseFloat(h.holding.capitalCalled || "0");
       acc.totalCurrentValue += value;
@@ -945,10 +945,14 @@ router.get("/portfolio/aif", requireAuth, async (req, res) => {
       return acc;
     }, { totalCurrentValue: 0, totalInvested: 0, totalCommitment: 0, holdings: 0 });
     
-    summary.totalGainLoss = summary.totalCurrentValue - summary.totalInvested;
-    summary.totalGainLossPercent = summary.totalInvested > 0 
-      ? ((summary.totalGainLoss / summary.totalInvested) * 100) 
-      : 0;
+    const totalGainLoss = summaryData.totalCurrentValue - summaryData.totalInvested;
+    const summary = {
+      ...summaryData,
+      totalGainLoss,
+      totalGainLossPercent: summaryData.totalInvested > 0 
+        ? ((totalGainLoss / summaryData.totalInvested) * 100) 
+        : 0,
+    };
     
     res.json({
       holdings: holdings.map(h => ({
@@ -1143,7 +1147,7 @@ router.get("/portfolio/pms", requireAuth, async (req, res) => {
       .orderBy(desc(clientPortfolioPms.createdAt));
     
     // Calculate summary
-    const summary = holdings.reduce((acc, h) => {
+    const summaryData = holdings.reduce((acc, h) => {
       const value = parseFloat(h.holding.currentValue || h.holding.corpusValue || "0");
       const invested = parseFloat(h.holding.totalInvested || h.holding.investedAmount || "0");
       acc.totalCurrentValue += value;
@@ -1152,10 +1156,14 @@ router.get("/portfolio/pms", requireAuth, async (req, res) => {
       return acc;
     }, { totalCurrentValue: 0, totalInvested: 0, holdings: 0 });
     
-    summary.totalGainLoss = summary.totalCurrentValue - summary.totalInvested;
-    summary.totalGainLossPercent = summary.totalInvested > 0 
-      ? ((summary.totalGainLoss / summary.totalInvested) * 100) 
-      : 0;
+    const totalGainLoss = summaryData.totalCurrentValue - summaryData.totalInvested;
+    const summary = {
+      ...summaryData,
+      totalGainLoss,
+      totalGainLossPercent: summaryData.totalInvested > 0 
+        ? ((totalGainLoss / summaryData.totalInvested) * 100) 
+        : 0,
+    };
     
     res.json({
       holdings: holdings.map(h => ({
@@ -1336,9 +1344,9 @@ router.get("/portfolio/admin/all", requireAdmin, async (req, res) => {
     const { status, type } = req.query;
     
     // Fetch AIF holdings
-    let aifHoldings = [];
+    let aifHoldings: Array<{ holding: typeof clientPortfolioAif.$inferSelect; client: typeof users.$inferSelect | null }> = [];
     if (!type || type === "aif") {
-      const aifConditions = [];
+      const aifConditions: any[] = [];
       if (status) aifConditions.push(eq(clientPortfolioAif.entryStatus, status as string));
       
       aifHoldings = await db
@@ -1353,9 +1361,9 @@ router.get("/portfolio/admin/all", requireAdmin, async (req, res) => {
     }
     
     // Fetch PMS holdings
-    let pmsHoldings = [];
+    let pmsHoldings: Array<{ holding: typeof clientPortfolioPms.$inferSelect; client: typeof users.$inferSelect | null }> = [];
     if (!type || type === "pms") {
-      const pmsConditions = [];
+      const pmsConditions: any[] = [];
       if (status) pmsConditions.push(eq(clientPortfolioPms.entryStatus, status as string));
       
       pmsHoldings = await db
