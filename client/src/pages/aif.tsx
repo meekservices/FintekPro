@@ -50,6 +50,9 @@ export default function AIF() {
   const [selectedAMC, setSelectedAMC] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
+  const [selectedRiskRating, setSelectedRiskRating] = useState("all");
+  const [minAUM, setMinAUM] = useState("");
+  const [maxAUM, setMaxAUM] = useState("");
 
   // Fetch AIF schemes from store API with filters
   const { data: aifResponse, isLoading: isAIFLoading } = useQuery<{ schemes: any[]; pagination: any }>({
@@ -62,6 +65,19 @@ export default function AIF() {
     }],
     refetchInterval: 300000,
   });
+
+  // Fetch SEBI registered AIFs for compliance section
+  const { data: sebiAIF, isLoading: isSEBILoading } = useQuery<any[]>({
+    queryKey: ["/api/store/aif/sebi/registered"],
+    enabled: false, // Disabled until endpoint is available
+  });
+
+  // Compliance data placeholder
+  const complianceData = {
+    totalRegistered: Array.isArray(sebiAIF) ? sebiAIF.length : 532,
+    activeCount: 485,
+    suspendedCount: 47,
+  };
 
   const displayData = aifResponse?.schemes || [];
   const pagination = aifResponse?.pagination;
