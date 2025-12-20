@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -180,8 +181,11 @@ export default function MldSeedAdmin() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showNseImportDialog, setShowNseImportDialog] = useState(false);
   const [importPreview, setImportPreview] = useState<BseImportPreviewResponse | null>(null);
+  const [nseImportPreview, setNseImportPreview] = useState<BseImportPreviewResponse | null>(null);
   const [selectedForImport, setSelectedForImport] = useState<Set<string>>(new Set());
+  const [selectedForNseImport, setSelectedForNseImport] = useState<Set<string>>(new Set());
   const [editingMld, setEditingMld] = useState<MldMaster | null>(null);
   const [mldForm, setMldForm] = useState(defaultMldForm);
 
@@ -299,6 +303,41 @@ export default function MldSeedAdmin() {
     },
   });
 
+  const previewNseImportMutation = useMutation({
+    mutationFn: (useSample: boolean) => 
+      apiRequest(`/api/store/admin/mld/import/nse/preview?useSample=${useSample}`),
+    onSuccess: (data: BseImportPreviewResponse) => {
+      setNseImportPreview(data);
+      const newItems = data.listings.filter(l => !l.isDuplicate);
+      setSelectedForNseImport(new Set(newItems.map(l => l.isin)));
+      toast({ title: "Preview Ready", description: `Found ${data.summary.newMLDs} new NSE MLDs to import` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to fetch NSE MLDs", variant: "destructive" });
+    },
+  });
+
+  const executeNseImportMutation = useMutation({
+    mutationFn: (listings: BseMldListing[]) => 
+      apiRequest("/api/store/admin/mld/import", {
+        method: "POST",
+        body: JSON.stringify({ listings, skipDuplicates: true }),
+      }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/admin/mld"] });
+      toast({ 
+        title: "Import Complete", 
+        description: `Imported ${data.summary?.imported || 0} NSE MLDs, skipped ${data.summary?.skipped || 0} duplicates` 
+      });
+      setShowNseImportDialog(false);
+      setNseImportPreview(null);
+      setSelectedForNseImport(new Set());
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to import NSE MLDs", variant: "destructive" });
+    },
+  });
+
   const handleImportSelected = () => {
     if (!importPreview) return;
     const selectedListings = importPreview.listings.filter(l => selectedForImport.has(l.isin) && !l.isDuplicate);
@@ -327,6 +366,36 @@ export default function MldSeedAdmin() {
 
   const clearSelection = () => {
     setSelectedForImport(new Set());
+  };
+
+  const handleNseImportSelected = () => {
+    if (!nseImportPreview) return;
+    const selectedListings = nseImportPreview.listings.filter(l => selectedForNseImport.has(l.isin) && !l.isDuplicate);
+    if (selectedListings.length === 0) {
+      toast({ title: "No Items Selected", description: "Please select at least one MLD to import", variant: "destructive" });
+      return;
+    }
+    executeNseImportMutation.mutate(selectedListings);
+  };
+
+  const toggleNseImportSelection = (isin: string) => {
+    const newSet = new Set(selectedForNseImport);
+    if (newSet.has(isin)) {
+      newSet.delete(isin);
+    } else {
+      newSet.add(isin);
+    }
+    setSelectedForNseImport(newSet);
+  };
+
+  const selectAllNseNew = () => {
+    if (!nseImportPreview) return;
+    const newItems = nseImportPreview.listings.filter(l => !l.isDuplicate);
+    setSelectedForNseImport(new Set(newItems.map(l => l.isin)));
+  };
+
+  const clearNseSelection = () => {
+    setSelectedForNseImport(new Set());
   };
 
   const handleSubmit = () => {
@@ -452,6 +521,13 @@ export default function MldSeedAdmin() {
             data-testid="btn-import-bse"
           >
             <CloudDownload className="w-4 h-4 mr-2" /> Import from BSE
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowNseImportDialog(true)} 
+            data-testid="btn-import-nse"
+          >
+            <CloudDownload className="w-4 h-4 mr-2" /> Import from NSE
           </Button>
           <Button onClick={() => setShowAddDialog(true)} data-testid="btn-add-mld">
             <Plus className="w-4 h-4 mr-2" /> Add MLD
@@ -1158,6 +1234,189 @@ export default function MldSeedAdmin() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 )}
                 Import {selectedForImport.size} Selected
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* NSE Import Dialog */}
+      <Dialog open={showNseImportDialog} onOpenChange={setShowNseImportDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CloudDownload className="w-5 h-5" />
+              Import MLDs from NSE
+            </DialogTitle>
+            <DialogDescription>
+              Import Market Linked Debentures from National Stock Exchange's debt segment.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!nseImportPreview ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <CloudDownload className="w-16 h-16 text-muted-foreground" />
+              <p className="text-muted-foreground text-center">
+                Fetch available MLD listings from NSE to import into your database.
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => previewNseImportMutation.mutate(false)}
+                  disabled={previewNseImportMutation.isPending}
+                  data-testid="btn-fetch-nse-live"
+                >
+                  {previewNseImportMutation.isPending && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  Fetch from NSE
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => previewNseImportMutation.mutate(true)}
+                  disabled={previewNseImportMutation.isPending}
+                  data-testid="btn-fetch-nse-sample"
+                >
+                  Use Sample Data
+                </Button>
+              </div>
+            </div>
+          ) : nseImportPreview.listings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <AlertTriangle className="w-16 h-16 text-yellow-500" />
+              <p className="text-muted-foreground text-center">
+                No MLD listings found. Try using sample data instead.
+              </p>
+              {nseImportPreview.errors.length > 0 && (
+                <div className="text-sm text-destructive max-w-md text-center">
+                  {nseImportPreview.errors.slice(0, 2).join(". ")}
+                </div>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNseImportPreview(null);
+                  previewNseImportMutation.mutate(true);
+                }}
+              >
+                Try Sample Data
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex gap-4">
+                  <Badge variant="outline" className="text-sm">
+                    Total: {nseImportPreview.summary.total}
+                  </Badge>
+                  <Badge variant="default" className="text-sm bg-green-600">
+                    New: {nseImportPreview.summary.newMLDs}
+                  </Badge>
+                  <Badge variant="secondary" className="text-sm">
+                    Duplicates: {nseImportPreview.summary.duplicates}
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={selectAllNseNew}>
+                    Select All New
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={clearNseSelection}>
+                    Clear
+                  </Button>
+                </div>
+              </div>
+
+              <ScrollArea className="h-[400px] border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox 
+                          checked={selectedForNseImport.size === nseImportPreview.listings.filter(l => !l.isDuplicate).length && selectedForNseImport.size > 0}
+                          onCheckedChange={(checked) => {
+                            if (checked) selectAllNseNew();
+                            else clearNseSelection();
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead>ISIN</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Issuer</TableHead>
+                      <TableHead>Maturity</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {nseImportPreview.listings.map((listing) => (
+                      <TableRow 
+                        key={listing.isin}
+                        className={listing.isDuplicate ? "opacity-50" : ""}
+                      >
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedForNseImport.has(listing.isin)}
+                            disabled={listing.isDuplicate}
+                            onCheckedChange={() => toggleNseImportSelection(listing.isin)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{listing.isin}</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={listing.name}>
+                          {listing.name}
+                        </TableCell>
+                        <TableCell>{listing.issuer}</TableCell>
+                        <TableCell>
+                          {listing.maturityDate ? (
+                            format(new Date(listing.maturityDate), "MMM yyyy")
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {listing.isDuplicate ? (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <XCircle className="w-3 h-3" /> Exists
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+                              <CheckCircle2 className="w-3 h-3" /> New
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+
+              {nseImportPreview.errors.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="w-4 h-4" />
+                  <AlertDescription>
+                    {nseImportPreview.errors.length} error(s) during fetch. Some listings may be incomplete.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowNseImportDialog(false);
+                setNseImportPreview(null);
+                setSelectedForNseImport(new Set());
+              }}
+            >
+              Cancel
+            </Button>
+            {nseImportPreview && (
+              <Button
+                onClick={handleNseImportSelected}
+                disabled={selectedForNseImport.size === 0 || executeNseImportMutation.isPending}
+                data-testid="btn-confirm-nse-import"
+              >
+                {executeNseImportMutation.isPending && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Import {selectedForNseImport.size} Selected
               </Button>
             )}
           </DialogFooter>

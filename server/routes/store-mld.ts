@@ -4,6 +4,7 @@ import { mldMaster, mldPriceHistory, mldMonthwisePerformance, clientPortfolioMld
 import { eq, desc, and, ilike, or, sql, gte, lte } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middleware/roleMiddleware";
 import { scrapeBseMldListings, generateSampleMldListings, type BseMldListing } from "../services/bse-mld-scraper";
+import { scrapeNseMldListings, generateSampleNseMldListings, type NseMldListing } from "../services/nse-mld-scraper";
 
 const router = Router();
 
@@ -770,7 +771,69 @@ router.get("/admin/mld/import/preview", requireAdmin, async (req, res) => {
   }
 });
 
-// POST /admin/mld/import - Import selected MLDs from BSE
+// GET /admin/mld/import/nse/preview - Preview MLDs from NSE before importing
+router.get("/admin/mld/import/nse/preview", requireAdmin, async (req, res) => {
+  try {
+    const { useSample } = req.query;
+    
+    let listings: NseMldListing[];
+    let errors: string[] = [];
+    
+    if (useSample === "true") {
+      console.log("[NSE Import] Using sample MLD data for preview");
+      listings = generateSampleNseMldListings();
+    } else {
+      console.log("[NSE Import] Scraping NSE for MLD listings...");
+      const result = await scrapeNseMldListings();
+      listings = result.listings;
+      errors = result.errors;
+      
+      if (listings.length === 0) {
+        console.log("[NSE Import] No live MLDs found, falling back to sample data");
+        listings = generateSampleNseMldListings();
+      }
+    }
+    
+    // Normalize ISINs - trim whitespace and uppercase for consistent comparison
+    const normalizeIsin = (isin: string) => isin.trim().toUpperCase();
+    
+    // Check for existing ISINs to mark duplicates
+    const existingIsins = await db
+      .select({ isin: mldMaster.isin })
+      .from(mldMaster);
+    
+    const existingIsinSet = new Set(existingIsins.map(e => normalizeIsin(e.isin)));
+    
+    const previewListings = listings.map(listing => ({
+      ...listing,
+      isin: normalizeIsin(listing.isin),
+      isDuplicate: existingIsinSet.has(normalizeIsin(listing.isin)),
+    }));
+    
+    const newCount = previewListings.filter(l => !l.isDuplicate).length;
+    const duplicateCount = previewListings.filter(l => l.isDuplicate).length;
+    
+    res.json({
+      success: true,
+      listings: previewListings,
+      summary: {
+        total: listings.length,
+        newMLDs: newCount,
+        duplicates: duplicateCount,
+      },
+      errors,
+    });
+  } catch (error: any) {
+    console.error("[NSE Import] Preview error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Failed to preview NSE MLDs",
+      details: error.message,
+    });
+  }
+});
+
+// POST /admin/mld/import - Import selected MLDs from BSE or NSE
 router.post("/admin/mld/import", requireAdmin, async (req, res) => {
   try {
     const { listings, skipDuplicates = true } = req.body;
@@ -779,21 +842,26 @@ router.post("/admin/mld/import", requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "No listings provided for import" });
     }
     
-    console.log(`[BSE Import] Starting import of ${listings.length} MLDs...`);
+    const source = listings[0]?.exchange || "BSE";
+    console.log(`[${source} Import] Starting import of ${listings.length} MLDs...`);
+    
+    // Normalize ISIN for consistent comparison
+    const normalizeIsin = (isin: string) => isin.trim().toUpperCase();
     
     // Get existing ISINs
     const existingIsins = await db
       .select({ isin: mldMaster.isin })
       .from(mldMaster);
-    const existingIsinSet = new Set(existingIsins.map(e => e.isin));
+    const existingIsinSet = new Set(existingIsins.map(e => normalizeIsin(e.isin)));
     
     const imported: any[] = [];
     const skipped: string[] = [];
     const errors: string[] = [];
     
-    for (const listing of listings as BseMldListing[]) {
+    for (const listing of listings as (BseMldListing | NseMldListing)[]) {
       try {
-        if (existingIsinSet.has(listing.isin)) {
+        const normalizedIsin = normalizeIsin(listing.isin);
+        if (existingIsinSet.has(normalizedIsin)) {
           if (skipDuplicates) {
             skipped.push(listing.isin);
             continue;
@@ -817,9 +885,9 @@ router.post("/admin/mld/import", requireAdmin, async (req, res) => {
             name: listing.name,
             issuer: listing.issuer,
             issueDate: listing.issueDate || new Date().toISOString().split("T")[0],
-            maturityDate: listing.maturityDate,
+            maturityDate: listing.maturityDate || new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
             faceValue: listing.faceValue,
-            couponRate: listing.couponRate,
+            couponRate: listing.couponRate || undefined,
             underlying: "NIFTY 50",
             payoffType,
             creditRating: listing.creditRating,
@@ -835,7 +903,7 @@ router.post("/admin/mld/import", requireAdmin, async (req, res) => {
           .returning();
         
         imported.push(newMld);
-        existingIsinSet.add(listing.isin);
+        existingIsinSet.add(normalizedIsin);
       } catch (itemError: any) {
         console.error(`[BSE Import] Error importing ${listing.isin}:`, itemError.message);
         errors.push(`${listing.isin}: ${itemError.message}`);
