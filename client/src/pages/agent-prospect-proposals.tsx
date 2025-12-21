@@ -205,12 +205,11 @@ export default function AgentProspectProposalsPage() {
 
   const generateProposalMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("/api/agent/prospect-proposals/generate", {
+      return await apiRequest("/api/agent/prospect-proposals/generate", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" }
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -225,12 +224,11 @@ export default function AgentProspectProposalsPage() {
 
   const createProposalMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("/api/agent/prospect-proposals", {
+      return await apiRequest("/api/agent/prospect-proposals", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" }
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -249,12 +247,11 @@ export default function AgentProspectProposalsPage() {
 
   const shareProposalMutation = useMutation({
     mutationFn: async ({ id, shareVia }: { id: string; shareVia: string }) => {
-      const res = await apiRequest(`/api/agent/prospect-proposals/${id}/share`, {
+      return await apiRequest(`/api/agent/prospect-proposals/${id}/share`, {
         method: "POST",
         body: JSON.stringify({ shareVia }),
         headers: { "Content-Type": "application/json" }
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -270,10 +267,9 @@ export default function AgentProspectProposalsPage() {
 
   const deleteProposalMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest(`/api/agent/prospect-proposals/${id}`, {
+      return await apiRequest(`/api/agent/prospect-proposals/${id}`, {
         method: "DELETE"
       });
-      return res.json();
     },
     onSuccess: () => {
       toast({ title: "Proposal Deleted" });
