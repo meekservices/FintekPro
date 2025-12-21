@@ -8,6 +8,20 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import multer from "multer";
+import * as pdfParse from "pdf-parse";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
+    }
+  }
+});
 
 const router = Router();
 
@@ -1250,6 +1264,279 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
   } catch (error: any) {
     console.error("Generate proposal error:", error);
     res.status(500).json({ error: error.message || "Failed to generate proposal" });
+  }
+});
+
+// ============ PDF HOLDING REPORT PARSING ============
+
+interface ParsedHolding {
+  fundName: string;
+  investedAmount: number;
+  currentValue: number;
+  units: number;
+  nav: number;
+  unrealizedGain: number;
+  unrealizedGainPercent: number;
+  xirr: number;
+  holdingDays?: number;
+  purchaseDate?: string;
+  assetClass: string;
+  category?: string;
+}
+
+interface ParsedClientInfo {
+  name: string;
+  crn?: string;
+  pan?: string;
+}
+
+interface ParsedHoldingReport {
+  clientInfo: ParsedClientInfo;
+  summary: {
+    totalInvested: number;
+    currentValue: number;
+    unrealizedGain: number;
+    unrealizedGainPercent: number;
+    xirr: number;
+  };
+  holdings: ParsedHolding[];
+  reportDate?: string;
+}
+
+function parseAmountFromText(text: string): number {
+  const cleaned = text.replace(/[₹,\s]/g, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
+function parsePercentFromText(text: string): number {
+  const match = text.match(/-?\d+\.?\d*/);
+  return match ? parseFloat(match[0]) : 0;
+}
+
+function parseHoldingReportPdf(text: string): ParsedHoldingReport {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  
+  // Extract client info
+  const clientInfo: ParsedClientInfo = { name: '' };
+  
+  // Look for client name and PAN
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // PAN pattern: AAAAA0000A
+    const panMatch = line.match(/PAN:\s*([A-Z]{5}[0-9]{4}[A-Z])/i);
+    if (panMatch) {
+      clientInfo.pan = panMatch[1].toUpperCase();
+    }
+    
+    // CRN pattern
+    const crnMatch = line.match(/CRN:\s*(\w+)/i);
+    if (crnMatch) {
+      clientInfo.crn = crnMatch[1];
+    }
+    
+    // Look for name before CRN/PAN
+    if (line.includes('Hello!')) {
+      // Name is usually in the lines after Hello
+      for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+        const nameLine = lines[j];
+        if (nameLine.match(/^[A-Z\s]+,?$/) && !nameLine.includes('CRN') && !nameLine.includes('PAN')) {
+          clientInfo.name = nameLine.replace(/,/g, '').trim();
+          break;
+        }
+      }
+    }
+  }
+  
+  // Extract summary - look for "Total Invested", "Current Value", etc.
+  let totalInvested = 0;
+  let currentValue = 0;
+  let totalUnrealizedGain = 0;
+  let totalXirr = 0;
+  
+  const summaryPattern = /Total Invested.*?₹([\d,]+).*?Current Value.*?₹([\d,]+).*?Unrealised Gain.*?₹([\d,]+).*?\(([\d.-]+)%\).*?XIRR.*?([\d.-]+)%/is;
+  const summaryMatch = text.match(summaryPattern);
+  if (summaryMatch) {
+    totalInvested = parseAmountFromText(summaryMatch[1]);
+    currentValue = parseAmountFromText(summaryMatch[2]);
+    totalUnrealizedGain = parseAmountFromText(summaryMatch[3]);
+    totalXirr = parseFloat(summaryMatch[5]) || 0;
+  } else {
+    // Alternative parsing - look for key-value pairs
+    const investedMatch = text.match(/Total Invested\s*₹([\d,]+)/i);
+    const valueMatch = text.match(/Current Value\s*₹([\d,]+)/i);
+    const gainMatch = text.match(/Unrealised Gain\s*₹([\d,]+)/i);
+    const xirrMatch = text.match(/XIRR\s*([\d.-]+)%/i);
+    
+    if (investedMatch) totalInvested = parseAmountFromText(investedMatch[1]);
+    if (valueMatch) currentValue = parseAmountFromText(valueMatch[1]);
+    if (gainMatch) totalUnrealizedGain = parseAmountFromText(gainMatch[1]);
+    if (xirrMatch) totalXirr = parseFloat(xirrMatch[1]) || 0;
+  }
+  
+  // Extract individual holdings
+  const holdings: ParsedHolding[] = [];
+  
+  // Pattern for mutual fund holdings: Fund Name (G) followed by amounts
+  // Look for patterns like: "Invesco India Large & Mid Cap Fund (G)     ₹1,00,000           ₹1,12,521"
+  const fundPatterns = [
+    /([A-Za-z\s&]+Fund\s*\([GD]\))\s*₹([\d,]+)\s*₹([\d,]+)\s*₹?([\d,-]+)\s*\(([\d.-]+)%\)\s*([\d.-]+)%\s*([\d.]+)%/gi,
+    /([A-Za-z\s&]+Fund\s*\([GD]\))\s*₹([\d,]+)\s*₹([\d,]+)\s*[₹\-]?([\d,]+)\s*\(?([+-]?[\d.]+)%?\)?\s*([+-]?[\d.]+)%/gi
+  ];
+  
+  // Also try to find the table section with fund details
+  const tableSection = text.match(/Equity Mutual Fund.*?Total\s*₹[\d,]+/is);
+  if (tableSection) {
+    const tableText = tableSection[0];
+    
+    // Match each fund entry with its details
+    const fundRegex = /([A-Za-z][A-Za-z\s&]+(?:Fund|Cap Fund|Flexicap Fund)[^₹]*)\s*₹([\d,]+)\s*₹([\d,]+)\s*[₹]?([-\d,]+)\s*\(?([+-]?[\d.]+)%?\)?\s*([+-]?[\d.]+)%?\s*([\d.]+)%/gi;
+    let match;
+    
+    while ((match = fundRegex.exec(tableText)) !== null) {
+      const fundName = match[1].replace(/\s+/g, ' ').trim();
+      const invested = parseAmountFromText(match[2]);
+      const current = parseAmountFromText(match[3]);
+      const gainAmount = parseAmountFromText(match[4]);
+      const gainPercent = parsePercentFromText(match[5]);
+      const xirr = parsePercentFromText(match[6]);
+      
+      if (fundName && invested > 0) {
+        holdings.push({
+          fundName,
+          investedAmount: invested,
+          currentValue: current,
+          units: 0,
+          nav: 0,
+          unrealizedGain: gainAmount,
+          unrealizedGainPercent: gainPercent,
+          xirr,
+          assetClass: 'Equity',
+          category: 'Mutual Fund'
+        });
+      }
+    }
+  }
+  
+  // If regex didn't work, try line-by-line parsing for known fund names
+  if (holdings.length === 0) {
+    const knownFundPatterns = [
+      /Invesco India.*Fund/i,
+      /Nippon India.*Fund/i,
+      /Sundaram.*Fund/i,
+      /JM.*Fund/i,
+      /HDFC.*Fund/i,
+      /ICICI.*Fund/i,
+      /SBI.*Fund/i,
+      /Axis.*Fund/i,
+      /Kotak.*Fund/i
+    ];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      for (const pattern of knownFundPatterns) {
+        if (pattern.test(line)) {
+          // Found a fund name, look for amounts in nearby lines
+          const combinedText = lines.slice(i, Math.min(i + 5, lines.length)).join(' ');
+          const amountMatch = combinedText.match(/₹([\d,]+).*?₹([\d,]+)/);
+          const percentMatch = combinedText.match(/\(([\d.-]+)%\)/);
+          const xirrMatch = combinedText.match(/([\d.-]+)%\s+[\d.]+%/);
+          
+          if (amountMatch) {
+            const fundName = line.match(/([A-Za-z][A-Za-z\s&]+(?:Fund|Cap Fund)[^₹]*)/)?.[1]?.trim() || line;
+            
+            holdings.push({
+              fundName: fundName.replace(/\s+/g, ' ').trim(),
+              investedAmount: parseAmountFromText(amountMatch[1]),
+              currentValue: parseAmountFromText(amountMatch[2]),
+              units: 0,
+              nav: 0,
+              unrealizedGain: 0,
+              unrealizedGainPercent: percentMatch ? parseFloat(percentMatch[1]) : 0,
+              xirr: xirrMatch ? parseFloat(xirrMatch[1]) : 0,
+              assetClass: 'Equity',
+              category: 'Mutual Fund'
+            });
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  // Parse detailed holdings section to get units and NAV
+  const detailPatterns = /Detailed Holdings Statement for ([^₹]+)\s+.*?Total\s+Invested.*?₹([\d,]+).*?Current.*?Value.*?₹([\d,]+).*?XIRR.*?([\d.-]+)%.*?Units:\s*([\d,.]+).*?NAV:\s*([\d,.]+)/gis;
+  let detailMatch;
+  while ((detailMatch = detailPatterns.exec(text)) !== null) {
+    const fundName = detailMatch[1].replace(/\s+/g, ' ').trim();
+    const units = parseFloat(detailMatch[5].replace(/,/g, '')) || 0;
+    const nav = parseFloat(detailMatch[6].replace(/,/g, '')) || 0;
+    
+    // Update existing holding with units and NAV
+    const holding = holdings.find(h => 
+      h.fundName.toLowerCase().includes(fundName.toLowerCase().split(' ')[0]) ||
+      fundName.toLowerCase().includes(h.fundName.toLowerCase().split(' ')[0])
+    );
+    if (holding) {
+      holding.units = units;
+      holding.nav = nav;
+    }
+  }
+  
+  // Extract report date
+  const dateMatch = text.match(/(\d{1,2}[-\/]?[A-Za-z]{3}[-\/]?\d{2,4}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/);
+  const reportDate = dateMatch ? dateMatch[1] : undefined;
+  
+  return {
+    clientInfo,
+    summary: {
+      totalInvested,
+      currentValue,
+      unrealizedGain: totalUnrealizedGain,
+      unrealizedGainPercent: totalInvested > 0 ? ((currentValue - totalInvested) / totalInvested) * 100 : 0,
+      xirr: totalXirr
+    },
+    holdings,
+    reportDate
+  };
+}
+
+// Parse holding report PDF
+router.post("/api/agent/parse-holding-report", upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: "PDF file is required" });
+    }
+
+    // Parse PDF
+    const pdfParseModule = (pdfParse as any).default || pdfParse;
+    const pdfData = await pdfParseModule(file.buffer);
+    const text = pdfData.text;
+    
+    console.log("[PDF Parse] Extracted text length:", text.length);
+    
+    // Parse the holding report
+    const parsedReport = parseHoldingReportPdf(text);
+    
+    console.log("[PDF Parse] Parsed holdings:", parsedReport.holdings.length);
+    console.log("[PDF Parse] Client info:", parsedReport.clientInfo);
+    
+    res.json({
+      success: true,
+      fileName: file.originalname,
+      parsedData: parsedReport,
+      rawTextLength: text.length
+    });
+  } catch (error: any) {
+    console.error("Parse holding report error:", error);
+    res.status(500).json({ error: error.message || "Failed to parse holding report" });
   }
 });
 

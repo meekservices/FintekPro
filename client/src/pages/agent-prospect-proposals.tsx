@@ -46,7 +46,9 @@ import {
   Loader2,
   X,
   Check,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  FileUp
 } from "lucide-react";
 
 // Product types for portfolio entry
@@ -183,6 +185,10 @@ export default function AgentProspectProposalsPage() {
   const [quickHoldings, setQuickHoldings] = useState<PortfolioHolding[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [productSearchResults, setProductSearchResults] = useState<SearchProduct[]>([]);
+  
+  // PDF Upload state
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [activeHoldingId, setActiveHoldingId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -417,6 +423,94 @@ export default function AgentProspectProposalsPage() {
     };
     setQuickHoldings([...quickHoldings, newHolding]);
     setActiveHoldingId(newHolding.id);
+  };
+
+  // Handle PDF upload for holding reports
+  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast({ title: "Invalid file type", description: "Please upload a PDF file", variant: "destructive" });
+      return;
+    }
+
+    setIsUploadingPdf(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/agent/parse-holding-report', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to parse PDF');
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.parsedData) {
+        const { clientInfo, summary, holdings } = result.parsedData;
+        
+        // Auto-fill client info if available
+        if (clientInfo.name && !prospectName) {
+          setProspectName(clientInfo.name);
+        }
+        if (clientInfo.pan) {
+          handlePanChange(clientInfo.pan);
+        }
+        
+        // Convert parsed holdings to quickHoldings format
+        const newHoldings: PortfolioHolding[] = holdings.map((h: any, idx: number) => ({
+          id: `pdf-holding-${Date.now()}-${idx}`,
+          productType: "mutual_fund",
+          productName: h.fundName,
+          quantity: h.units || 0,
+          currentPrice: h.nav || (h.currentValue / (h.units || 1)),
+          currentValue: h.currentValue,
+          returns1y: h.xirr || null,
+          category: h.category,
+          isManual: true,
+        }));
+
+        if (newHoldings.length > 0) {
+          setQuickHoldings(prev => [...prev, ...newHoldings]);
+          
+          // Set portfolio value from summary
+          if (summary.currentValue) {
+            setPortfolioValue(summary.currentValue.toString());
+          }
+          
+          toast({ 
+            title: "Holdings imported successfully", 
+            description: `Imported ${newHoldings.length} holdings from ${file.name}. Total value: ₹${summary.currentValue?.toLocaleString() || 'N/A'}` 
+          });
+        } else {
+          toast({ 
+            title: "No holdings found", 
+            description: "Could not extract holdings from the PDF. Please add them manually.", 
+            variant: "destructive" 
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("PDF upload error:", error);
+      toast({ 
+        title: "Failed to parse PDF", 
+        description: error.message || "Please try again or add holdings manually", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsUploadingPdf(false);
+      // Reset file input
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = '';
+      }
+    }
   };
 
   // Update holding - always recalculate currentValue from final price and quantity
@@ -1064,23 +1158,53 @@ export default function AgentProspectProposalsPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-sm font-medium">Client Holdings</Label>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={addHolding}
-                          className="text-xs"
-                          data-testid="btn-add-holding"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Add Holding
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            ref={pdfInputRef}
+                            accept=".pdf"
+                            onChange={handlePdfUpload}
+                            className="hidden"
+                            data-testid="input-pdf-upload"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => pdfInputRef.current?.click()}
+                            disabled={isUploadingPdf}
+                            className="text-xs"
+                            data-testid="btn-upload-pdf"
+                          >
+                            {isUploadingPdf ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                Parsing...
+                              </>
+                            ) : (
+                              <>
+                                <FileUp className="w-3 h-3 mr-1" />
+                                Upload PDF
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={addHolding}
+                            className="text-xs"
+                            data-testid="btn-add-holding"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add Holding
+                          </Button>
+                        </div>
                       </div>
 
                       {quickHoldings.length === 0 ? (
                         <div className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500">
                           <Wallet className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                           <p className="text-sm">No holdings added yet</p>
-                          <p className="text-xs mt-1">Click "Add Holding" to add client's investments</p>
+                          <p className="text-xs mt-1">Upload a holding report PDF or add holdings manually</p>
                         </div>
                       ) : (
                         <div className="space-y-2 max-h-80 overflow-y-auto">
