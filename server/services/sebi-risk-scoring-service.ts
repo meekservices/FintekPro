@@ -102,9 +102,11 @@ const DEFAULT_QUESTIONS = [
     type: "single_choice",
     options: [
       { code: "A", text: "More than 10 years", score: 5 },
-      { code: "B", text: "5-10 years", score: 4 },
-      { code: "C", text: "3-5 years", score: 3 },
-      { code: "D", text: "Less than 3 years", score: 1 }
+      { code: "B", text: "7-10 years", score: 5 },
+      { code: "C", text: "5-7 years", score: 4 },
+      { code: "D", text: "3-5 years", score: 3 },
+      { code: "E", text: "1-3 years", score: 2 },
+      { code: "F", text: "Less than 1 year", score: 1 }
     ]
   },
   // Risk Tolerance (Behavioral) Category
