@@ -212,12 +212,22 @@ export default function AgentProspectProposalsPage() {
       });
     },
     onSuccess: (data) => {
-      if (data.success) {
+      console.log("[AI Generate] Response received:", data);
+      if (data?.success && data?.generated) {
+        console.log("[AI Generate] Setting generated proposal:", data.generated);
         setGeneratedProposal(data.generated);
         toast({ title: "Proposal Generated", description: "AI recommendations are ready for review" });
+      } else if (data?.generated) {
+        console.log("[AI Generate] No success flag but has generated data");
+        setGeneratedProposal(data.generated);
+        toast({ title: "Proposal Generated", description: "AI recommendations are ready for review" });
+      } else {
+        console.error("[AI Generate] Unexpected response structure:", data);
+        toast({ title: "Generation Issue", description: "Response received but no recommendations found", variant: "destructive" });
       }
     },
     onError: (error: any) => {
+      console.error("[AI Generate] Error:", error);
       toast({ title: "Generation Failed", description: error.message, variant: "destructive" });
     }
   });
