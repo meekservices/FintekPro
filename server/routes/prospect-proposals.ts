@@ -51,6 +51,7 @@ router.post("/api/agent/prospect-proposals", async (req: Request, res: Response)
       prospectName,
       prospectEmail,
       prospectMobile,
+      prospectPan,
       proposalType,
       clientType,
       samplePortfolio,
@@ -109,6 +110,7 @@ router.post("/api/agent/prospect-proposals", async (req: Request, res: Response)
         prospectName,
         prospectEmail,
         prospectMobile,
+        prospectPan: prospectPan || null,
         proposalType,
         clientType: clientType || 'individual',
         samplePortfolio: samplePortfolio || null,
@@ -270,7 +272,7 @@ router.patch("/api/agent/prospect-proposals/:id", async (req: Request, res: Resp
 
     const updateData: any = { updatedAt: new Date() };
     const allowedFields = [
-      'prospectName', 'prospectEmail', 'prospectMobile',
+      'prospectName', 'prospectEmail', 'prospectMobile', 'prospectPan',
       'proposalTitle', 'executiveSummary', 'currentAnalysis',
       'recommendations', 'totalInvestmentAmount', 'projectedReturns',
       'projectedValue', 'targetAllocation', 'samplePortfolio', 'investmentGoals'

@@ -16767,6 +16767,7 @@ export const prospectProposals = pgTable("prospect_proposals", {
   prospectName: varchar("prospect_name").notNull(),
   prospectEmail: varchar("prospect_email"),
   prospectMobile: varchar("prospect_mobile"),
+  prospectPan: varchar("prospect_pan"), // PAN for auto-detecting client type
   
   // Proposal type
   proposalType: varchar("proposal_type").notNull(), // 'sample_portfolio' | 'fresh_investment'

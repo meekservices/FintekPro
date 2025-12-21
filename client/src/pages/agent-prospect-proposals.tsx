@@ -188,8 +188,46 @@ export default function AgentProspectProposalsPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Client type for AI-tailored recommendations
+  // PAN and Client type for AI-tailored recommendations
+  const [prospectPan, setProspectPan] = useState("");
   const [clientType, setClientType] = useState("individual");
+  const [panAutoDetected, setPanAutoDetected] = useState(false);
+
+  // Auto-detect client type from PAN (4th character indicates entity type)
+  const autoDetectClientTypeFromPan = (pan: string) => {
+    if (!pan || pan.length < 4) return null;
+    const entityChar = pan.charAt(3).toUpperCase();
+    // PAN 4th character entity mapping:
+    // P - Individual, C - Company, H - HUF, F - Firm/LLP, T - Trust, A - AOP, B - BOI, G - Government, L - Local Authority, J - Artificial Juridical Person
+    const entityMap: Record<string, string> = {
+      'P': 'individual', // Individual - could be upgraded to HNI based on investment amount
+      'C': 'corporate',  // Company
+      'H': 'trust',      // Hindu Undivided Family
+      'F': 'corporate',  // Firm/LLP
+      'T': 'trust',      // Trust
+      'A': 'institutional', // Association of Persons
+      'B': 'institutional', // Body of Individuals
+      'G': 'institutional', // Government
+      'L': 'institutional', // Local Authority
+      'J': 'institutional', // Artificial Juridical Person
+    };
+    return entityMap[entityChar] || null;
+  };
+
+  const handlePanChange = (value: string) => {
+    const upperValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    setProspectPan(upperValue);
+    setPanAutoDetected(false);
+    
+    // Auto-detect when valid PAN format is entered
+    if (upperValue.length === 10 && /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(upperValue)) {
+      const detectedType = autoDetectClientTypeFromPan(upperValue);
+      if (detectedType) {
+        setClientType(detectedType);
+        setPanAutoDetected(true);
+      }
+    }
+  };
   
   // Fresh investment fields
   const [goalType, setGoalType] = useState("wealth_creation");
@@ -318,11 +356,13 @@ export default function AgentProspectProposalsPage() {
     setProspectName("");
     setProspectEmail("");
     setProspectMobile("");
+    setProspectPan("");
     setProposalTitle("");
     setPortfolioValue("");
     setHoldingsText("");
     setQuickHoldings([]);
     setClientType("individual");
+    setPanAutoDetected(false);
     setGoalType("wealth_creation");
     setTargetAmount("");
     setTimeHorizon("medium_term");
@@ -532,6 +572,7 @@ export default function AgentProspectProposalsPage() {
       prospectName,
       prospectEmail,
       prospectMobile,
+      prospectPan: prospectPan || undefined,
       proposalType,
       proposalTitle,
       clientType,
@@ -865,24 +906,46 @@ export default function AgentProspectProposalsPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Client Type</Label>
-                <p className="text-xs text-muted-foreground">AI recommendations will be tailored based on client category</p>
-                <Select value={clientType} onValueChange={setClientType}>
-                  <SelectTrigger data-testid="select-client-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLIENT_TYPE_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex flex-col">
-                          <span>{opt.label}</span>
-                          <span className="text-xs text-muted-foreground">{opt.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Client PAN (Optional)</Label>
+                  <p className="text-xs text-muted-foreground">Enter PAN to auto-detect client type</p>
+                  <div className="relative">
+                    <Input 
+                      value={prospectPan} 
+                      onChange={(e) => handlePanChange(e.target.value)}
+                      placeholder="ABCDE1234F"
+                      maxLength={10}
+                      className="uppercase"
+                      data-testid="input-prospect-pan"
+                    />
+                    {panAutoDetected && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-green-600">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-xs">Auto-detected</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Client Type {panAutoDetected && <span className="text-green-600 text-xs ml-1">(from PAN)</span>}</Label>
+                  <p className="text-xs text-muted-foreground">AI recommendations will be tailored based on client category</p>
+                  <Select value={clientType} onValueChange={(val) => { setClientType(val); setPanAutoDetected(false); }}>
+                    <SelectTrigger data-testid="select-client-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLIENT_TYPE_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex flex-col">
+                            <span>{opt.label}</span>
+                            <span className="text-xs text-muted-foreground">{opt.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <Separator />
