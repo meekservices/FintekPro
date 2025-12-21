@@ -190,6 +190,8 @@ import GoalsPage from "@/pages/goals";
 import InvestableSurplusPage from "@/pages/investable-surplus";
 import TaxComplianceForm15Page from "@/pages/tax-compliance-form15";
 import RiskProfilingPage from "@/pages/risk-profiling";
+import RiskQuestionnaireBuilder from "@/pages/admin/risk-questionnaire-builder";
+import RiskComplianceExport from "@/pages/admin/risk-compliance-export";
 
 function UserProtectedRoutes() {
   return (
@@ -724,10 +726,21 @@ function AdminRoutes() {
       <Route path="/admin/compliance">
         {() => (
           <AdminLayout>
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-bold text-white mb-4">Compliance Dashboard</h2>
-              <p className="text-gray-400">Coming soon...</p>
-            </div>
+            <RiskComplianceExport />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/risk-questionnaire-builder">
+        {() => (
+          <AdminLayout>
+            <RiskQuestionnaireBuilder />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/risk-compliance-export">
+        {() => (
+          <AdminLayout>
+            <RiskComplianceExport />
           </AdminLayout>
         )}
       </Route>

@@ -847,6 +847,561 @@ class SEBIRiskScoringService {
     };
     return colors[code] || "#6b7280";
   }
+
+  // ============================================
+  // AI DYNAMIC RISK ENGINE
+  // ============================================
+
+  /**
+   * Analyze user behavior and create AI recommendation if risk profile adjustment needed
+   */
+  async analyzeAndRecommend(
+    userId: string,
+    triggerType: string,
+    triggerDetails: Record<string, any>
+  ): Promise<SebiAiRiskRecommendation | null> {
+    const currentAssessment = await this.getActiveAssessment(userId);
+    if (!currentAssessment) return null;
+
+    // Analyze based on trigger type
+    let suggestedProfileCode = currentAssessment.profileCode;
+    let recommendationType: "upgrade" | "downgrade" | "maintain" = "maintain";
+    let confidenceScore = 0.5;
+    let explanation = "";
+
+    switch (triggerType) {
+      case "large_inflow":
+        // Large inflow might indicate improved financial capacity
+        if (currentAssessment.profileCode !== "RP5") {
+          suggestedProfileCode = this.upgradeProfile(currentAssessment.profileCode);
+          recommendationType = "upgrade";
+          confidenceScore = 0.7;
+          explanation = `Significant capital inflow of ₹${triggerDetails.amount?.toLocaleString()} detected. This may indicate improved financial capacity and ability to take higher risk.`;
+        }
+        break;
+
+      case "large_outflow":
+        // Large outflow might indicate reduced capacity
+        suggestedProfileCode = this.downgradeProfile(currentAssessment.profileCode);
+        recommendationType = "downgrade";
+        confidenceScore = 0.75;
+        explanation = `Significant capital outflow of ₹${triggerDetails.amount?.toLocaleString()} detected. This may indicate reduced financial capacity, suggesting a more conservative approach.`;
+        break;
+
+      case "panic_selling":
+        // Panic selling indicates lower risk tolerance
+        suggestedProfileCode = this.downgradeProfile(currentAssessment.profileCode);
+        recommendationType = "downgrade";
+        confidenceScore = 0.85;
+        explanation = "Pattern of panic selling detected during market volatility. Behavioral analysis suggests lower actual risk tolerance than stated.";
+        break;
+
+      case "over_trading":
+        // Over-trading indicates speculative behavior - recommend downgrade for review
+        suggestedProfileCode = this.downgradeProfile(currentAssessment.profileCode);
+        recommendationType = "downgrade";
+        confidenceScore = 0.65;
+        explanation = "High frequency trading pattern detected. Behavioral analysis suggests speculative tendencies that may not align with stated risk tolerance. Consider reviewing investment goals and risk understanding.";
+        break;
+
+      case "age_band_crossing":
+        // Age milestone crossed
+        if (triggerDetails.newAge >= 60) {
+          suggestedProfileCode = "RP1";
+          recommendationType = "downgrade";
+          confidenceScore = 0.9;
+          explanation = "Client has crossed 60 years of age. Per SEBI guidelines, conservative risk profile is recommended.";
+        }
+        break;
+
+      default:
+        return null;
+    }
+
+    if (recommendationType === "maintain") return null;
+
+    // Create AI recommendation record
+    const [recommendation] = await db.insert(sebiAiRiskRecommendations).values({
+      userId,
+      currentAssessmentId: currentAssessment.id,
+      triggerType,
+      triggerDetails,
+      currentProfileCode: currentAssessment.profileCode,
+      suggestedProfileCode,
+      recommendationType,
+      confidenceScore: confidenceScore.toString(),
+      aiExplanation: explanation,
+      supportingData: triggerDetails,
+      aiModelUsed: "rule_based_v1",
+      aiEngineVersion: "1.0.0",
+      status: "pending",
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    }).returning();
+
+    // Log audit event
+    await this.logAuditEvent({
+      userId,
+      assessmentId: currentAssessment.id,
+      recommendationId: recommendation.id,
+      action: "ai_recommendation_created",
+      actionCategory: "ai",
+      actorRole: "system",
+      newValue: { triggerType, suggestedProfileCode, confidenceScore },
+      reason: explanation
+    });
+
+    return recommendation;
+  }
+
+  private upgradeProfile(current: string): string {
+    const order = ["RP1", "RP2", "RP3", "RP4", "RP5"];
+    const idx = order.indexOf(current);
+    return idx < order.length - 1 ? order[idx + 1] : current;
+  }
+
+  private downgradeProfile(current: string): string {
+    const order = ["RP1", "RP2", "RP3", "RP4", "RP5"];
+    const idx = order.indexOf(current);
+    return idx > 0 ? order[idx - 1] : current;
+  }
+
+  /**
+   * Resolve AI recommendation (accept/reject)
+   */
+  async resolveAiRecommendation(
+    recommendationId: string,
+    resolution: "accepted" | "rejected",
+    resolvedBy: string,
+    notes?: string
+  ) {
+    const [recommendation] = await db
+      .select()
+      .from(sebiAiRiskRecommendations)
+      .where(eq(sebiAiRiskRecommendations.id, recommendationId));
+
+    if (!recommendation) throw new Error("Recommendation not found");
+
+    await db
+      .update(sebiAiRiskRecommendations)
+      .set({
+        status: resolution,
+        resolutionType: resolution === "accepted" ? "client_reconfirmed" : "auto_rejected",
+        resolvedBy,
+        resolvedAt: new Date(),
+        resolutionNotes: notes
+      })
+      .where(eq(sebiAiRiskRecommendations.id, recommendationId));
+
+    // Log audit event
+    await this.logAuditEvent({
+      userId: recommendation.userId,
+      recommendationId,
+      action: "ai_recommendation_resolved",
+      actionCategory: "ai",
+      actorId: resolvedBy,
+      newValue: { resolution, notes }
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Get pending AI recommendations for a user
+   */
+  async getPendingRecommendations(userId: string) {
+    return db
+      .select()
+      .from(sebiAiRiskRecommendations)
+      .where(
+        and(
+          eq(sebiAiRiskRecommendations.userId, userId),
+          eq(sebiAiRiskRecommendations.status, "pending")
+        )
+      )
+      .orderBy(desc(sebiAiRiskRecommendations.createdAt));
+  }
+
+  // ============================================
+  // ADMIN ENDPOINTS
+  // ============================================
+
+  /**
+   * Get all categories (admin)
+   */
+  async getCategories() {
+    const categories = await db
+      .select()
+      .from(sebiQuestionnaireCategories)
+      .orderBy(sebiQuestionnaireCategories.sortOrder);
+
+    if (categories.length === 0) {
+      return DEFAULT_CATEGORIES.map((cat, idx) => ({
+        id: `default_${cat.code}`,
+        categoryCode: cat.code,
+        categoryName: cat.name,
+        weightPercentage: cat.weight,
+        sortOrder: idx + 1,
+        isActive: true
+      }));
+    }
+
+    return categories;
+  }
+
+  /**
+   * Get all questions (admin)
+   */
+  async getQuestions() {
+    const questions = await db
+      .select()
+      .from(sebiQuestionnaireQuestions)
+      .orderBy(sebiQuestionnaireQuestions.sortOrder);
+
+    // Get options for each question
+    const questionsWithOptions = await Promise.all(
+      questions.map(async (q) => {
+        const options = await db
+          .select()
+          .from(sebiQuestionnaireOptions)
+          .where(eq(sebiQuestionnaireOptions.questionId, q.id))
+          .orderBy(sebiQuestionnaireOptions.sortOrder);
+        return { ...q, options };
+      })
+    );
+
+    return questionsWithOptions;
+  }
+
+  /**
+   * Get product suitability matrix (admin)
+   */
+  async getProductMatrix() {
+    const matrix = await db
+      .select()
+      .from(sebiProductSuitabilityMatrix)
+      .orderBy(sebiProductSuitabilityMatrix.sortOrder);
+
+    return matrix;
+  }
+
+  /**
+   * Update category weights (admin)
+   */
+  async updateCategoryWeights(weights: Record<string, number>) {
+    for (const [code, weight] of Object.entries(weights)) {
+      await db
+        .update(sebiQuestionnaireCategories)
+        .set({ weightPercentage: weight.toString() })
+        .where(eq(sebiQuestionnaireCategories.categoryCode, code));
+    }
+    return { success: true };
+  }
+
+  /**
+   * Update product suitability (admin)
+   */
+  async updateProductSuitability(id: string, updates: Partial<SebiProductSuitabilityMatrix>) {
+    await db
+      .update(sebiProductSuitabilityMatrix)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(sebiProductSuitabilityMatrix.id, id));
+    return { success: true };
+  }
+
+  /**
+   * Create a new category (admin)
+   */
+  async createCategory(data: {
+    categoryCode: string;
+    categoryName: string;
+    weightPercentage: number;
+    sortOrder?: number;
+  }) {
+    const existingVersion = await db
+      .select()
+      .from(sebiQuestionnaireVersions)
+      .where(eq(sebiQuestionnaireVersions.status, "active"))
+      .limit(1);
+
+    let versionId: string;
+    if (existingVersion.length === 0) {
+      const [newVersion] = await db.insert(sebiQuestionnaireVersions).values({
+        versionNumber: "1.0",
+        status: "active",
+        effectiveFrom: new Date()
+      }).returning();
+      versionId = newVersion.id;
+    } else {
+      versionId = existingVersion[0].id;
+    }
+
+    const [category] = await db.insert(sebiQuestionnaireCategories).values({
+      versionId,
+      categoryCode: data.categoryCode,
+      categoryName: data.categoryName,
+      weightPercentage: data.weightPercentage.toString(),
+      sortOrder: data.sortOrder || 1,
+      isActive: true
+    }).returning();
+
+    return category;
+  }
+
+  /**
+   * Update a category (admin)
+   */
+  async updateCategory(id: string, updates: Partial<{
+    categoryName: string;
+    weightPercentage: number;
+    sortOrder: number;
+    isActive: boolean;
+  }>) {
+    const updateData: any = { ...updates };
+    if (updates.weightPercentage !== undefined) {
+      updateData.weightPercentage = updates.weightPercentage.toString();
+    }
+    await db
+      .update(sebiQuestionnaireCategories)
+      .set(updateData)
+      .where(eq(sebiQuestionnaireCategories.id, id));
+    return { success: true };
+  }
+
+  /**
+   * Create a new question (admin)
+   */
+  async createQuestion(data: {
+    categoryId: string;
+    questionCode: string;
+    questionText: string;
+    questionType?: string;
+    helpText?: string;
+    isMandatory?: boolean;
+    sortOrder?: number;
+    options?: Array<{ optionCode: string; optionText: string; score: number; sortOrder?: number }>;
+  }) {
+    const [question] = await db.insert(sebiQuestionnaireQuestions).values({
+      categoryId: data.categoryId,
+      questionCode: data.questionCode,
+      questionText: data.questionText,
+      questionType: data.questionType || "single_choice",
+      helpText: data.helpText,
+      isMandatory: data.isMandatory ?? true,
+      sortOrder: data.sortOrder || 1,
+      isActive: true
+    }).returning();
+
+    // Create options if provided
+    if (data.options && data.options.length > 0) {
+      for (const opt of data.options) {
+        await db.insert(sebiQuestionnaireOptions).values({
+          questionId: question.id,
+          optionCode: opt.optionCode,
+          optionText: opt.optionText,
+          score: opt.score,
+          sortOrder: opt.sortOrder || 1,
+          isActive: true
+        });
+      }
+    }
+
+    return question;
+  }
+
+  /**
+   * Update a question (admin)
+   */
+  async updateQuestion(id: string, updates: Partial<{
+    questionText: string;
+    helpText: string;
+    isMandatory: boolean;
+    sortOrder: number;
+    isActive: boolean;
+  }>) {
+    await db
+      .update(sebiQuestionnaireQuestions)
+      .set(updates)
+      .where(eq(sebiQuestionnaireQuestions.id, id));
+    return { success: true };
+  }
+
+  /**
+   * Soft delete a question (admin)
+   */
+  async deleteQuestion(id: string) {
+    await db
+      .update(sebiQuestionnaireQuestions)
+      .set({ isActive: false })
+      .where(eq(sebiQuestionnaireQuestions.id, id));
+    return { success: true };
+  }
+
+  /**
+   * Create a new product suitability entry (admin)
+   */
+  async createProductSuitability(data: {
+    productType: string;
+    productTypeLabel: string;
+    allowedRP1?: boolean;
+    allowedRP2?: boolean;
+    allowedRP3?: boolean;
+    allowedRP4?: boolean;
+    allowedRP5?: boolean;
+    minInvestmentAmount?: string;
+    requiresAccreditedInvestor?: boolean;
+    requiresEnhancedKyc?: boolean;
+    sortOrder?: number;
+  }) {
+    const [product] = await db.insert(sebiProductSuitabilityMatrix).values({
+      productType: data.productType,
+      productTypeLabel: data.productTypeLabel,
+      allowedRP1: data.allowedRP1 ?? false,
+      allowedRP2: data.allowedRP2 ?? false,
+      allowedRP3: data.allowedRP3 ?? false,
+      allowedRP4: data.allowedRP4 ?? false,
+      allowedRP5: data.allowedRP5 ?? false,
+      minInvestmentAmount: data.minInvestmentAmount,
+      requiresAccreditedInvestor: data.requiresAccreditedInvestor ?? false,
+      requiresEnhancedKyc: data.requiresEnhancedKyc ?? false,
+      sortOrder: data.sortOrder || 99,
+      isActive: true
+    }).returning();
+
+    return product;
+  }
+
+  // ============================================
+  // COMPLIANCE EXPORT
+  // ============================================
+
+  /**
+   * Generate SEBI compliance report
+   */
+  async generateComplianceReport(options: {
+    fromDate: Date;
+    toDate: Date;
+    reportType: "summary" | "detailed" | "audit";
+  }) {
+    const { fromDate, toDate, reportType } = options;
+
+    // Get all assessments in date range
+    const assessments = await db
+      .select()
+      .from(sebiClientRiskAssessments)
+      .where(
+        and(
+          gte(sebiClientRiskAssessments.createdAt, fromDate),
+          lte(sebiClientRiskAssessments.createdAt, toDate)
+        )
+      )
+      .orderBy(sebiClientRiskAssessments.createdAt);
+
+    // Get audit logs
+    const auditLogs = await db
+      .select()
+      .from(sebiRiskAuditLogs)
+      .where(
+        and(
+          gte(sebiRiskAuditLogs.timestamp, fromDate),
+          lte(sebiRiskAuditLogs.timestamp, toDate)
+        )
+      )
+      .orderBy(sebiRiskAuditLogs.timestamp);
+
+    // Calculate summary statistics
+    const summary = {
+      reportGeneratedAt: new Date().toISOString(),
+      reportPeriod: { fromDate: fromDate.toISOString(), toDate: toDate.toISOString() },
+      totalAssessments: assessments.length,
+      assessmentsByProfile: {} as Record<string, number>,
+      overridesApplied: assessments.filter(a => a.hasOverride).length,
+      overridesByType: {} as Record<string, number>,
+      auditLogCount: auditLogs.length,
+      auditLogsByCategory: {} as Record<string, number>
+    };
+
+    // Count by profile
+    for (const a of assessments) {
+      summary.assessmentsByProfile[a.profileCode] = (summary.assessmentsByProfile[a.profileCode] || 0) + 1;
+      if (a.hasOverride && a.overrideType) {
+        summary.overridesByType[a.overrideType] = (summary.overridesByType[a.overrideType] || 0) + 1;
+      }
+    }
+
+    // Count audit logs by category
+    for (const log of auditLogs) {
+      if (log.actionCategory) {
+        summary.auditLogsByCategory[log.actionCategory] = (summary.auditLogsByCategory[log.actionCategory] || 0) + 1;
+      }
+    }
+
+    if (reportType === "summary") {
+      return { summary };
+    }
+
+    if (reportType === "detailed") {
+      return {
+        summary,
+        assessments: assessments.map(a => ({
+          id: a.id,
+          pan: a.pan,
+          profileCode: a.profileCode,
+          rawScore: a.rawScore,
+          adjustedScore: a.adjustedScore,
+          hasOverride: a.hasOverride,
+          overrideType: a.overrideType,
+          overrideReason: a.overrideReason,
+          createdAt: a.createdAt
+        }))
+      };
+    }
+
+    // Full audit report
+    return {
+      summary,
+      assessments,
+      auditLogs
+    };
+  }
+
+  /**
+   * Export compliance data as CSV
+   */
+  async exportComplianceCSV(options: { fromDate: Date; toDate: Date }) {
+    const { assessments, auditLogs } = await this.generateComplianceReport({
+      ...options,
+      reportType: "audit"
+    }) as any;
+
+    // Generate CSV content
+    const assessmentHeaders = ["Assessment ID", "PAN", "Profile Code", "Raw Score", "Adjusted Score", "Override Applied", "Override Type", "Override Reason", "Assessment Date"];
+    const assessmentRows = assessments.map((a: any) => [
+      a.id,
+      a.pan,
+      a.profileCode,
+      a.rawScore,
+      a.adjustedScore,
+      a.hasOverride ? "Yes" : "No",
+      a.overrideType || "",
+      a.overrideReason || "",
+      new Date(a.createdAt).toISOString()
+    ]);
+
+    const auditHeaders = ["Timestamp", "User ID", "Action", "Category", "Actor Role", "Reason"];
+    const auditRows = auditLogs.map((l: any) => [
+      new Date(l.timestamp).toISOString(),
+      l.userId || "",
+      l.action,
+      l.actionCategory,
+      l.actorRole || "",
+      l.reason || ""
+    ]);
+
+    return {
+      assessmentsCSV: [assessmentHeaders, ...assessmentRows].map(row => row.join(",")).join("\n"),
+      auditLogsCSV: [auditHeaders, ...auditRows].map(row => row.join(",")).join("\n")
+    };
+  }
 }
 
 export const sebiRiskScoringService = new SEBIRiskScoringService();
