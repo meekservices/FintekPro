@@ -10,7 +10,8 @@ import {
   users,
   marketData,
   investmentProposals,
-  investmentProposalItems
+  investmentProposalItems,
+  mutualFunds
 } from "@shared/schema";
 import type { 
   AiProfitPick, 
@@ -22,7 +23,7 @@ import type {
   AiTalkingPoint,
   InsertAiTalkingPoint
 } from "@shared/schema";
-import { eq, and, desc, asc, gte, lte, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or } from "drizzle-orm";
 let GoogleGenerativeAI: any;
 try {
   GoogleGenerativeAI = require("@google/generative-ai").GoogleGenerativeAI;
@@ -82,6 +83,119 @@ class AIInvestmentService {
     } else {
       console.log("⚠️ AI Investment Service running without Gemini (using rule-based analysis)");
     }
+  }
+
+  /**
+   * Get store-eligible mutual funds for AI recommendations
+   * Only returns funds that are:
+   * 1. Published in the store (is_published = true)
+   * 2. Match the correct plan type based on store settings
+   * 
+   * REGULATORY COMPLIANCE: Only recommends funds available in the store
+   */
+  async getStoreEligibleMutualFunds(options: {
+    category?: string;
+    riskLevel?: string;
+    limit?: number;
+  } = {}): Promise<StockAnalysis[]> {
+    try {
+      const { category, riskLevel, limit = 20 } = options;
+
+      // Query only published funds with regular plan type (since direct is not enabled)
+      // This ensures regulatory compliance - only recommend what's in the store
+      const conditions = [
+        eq(mutualFunds.isPublished, true),
+        eq(mutualFunds.planType, 'regular') // Only regular schemes - direct not enabled in store
+      ];
+
+      if (category) {
+        conditions.push(ilike(mutualFunds.category, `%${category}%`));
+      }
+
+      if (riskLevel) {
+        conditions.push(ilike(mutualFunds.riskLevel, `%${riskLevel}%`));
+      }
+
+      const eligibleFunds = await db
+        .select({
+          id: mutualFunds.id,
+          schemeName: mutualFunds.schemeName,
+          schemeCode: mutualFunds.schemeCode,
+          category: mutualFunds.category,
+          fundHouse: mutualFunds.fundHouse,
+          nav: mutualFunds.nav,
+          returns1y: mutualFunds.returns1y,
+          returns3y: mutualFunds.returns3y,
+          riskLevel: mutualFunds.riskLevel,
+          planType: mutualFunds.planType,
+        })
+        .from(mutualFunds)
+        .where(and(...conditions))
+        .limit(limit);
+
+      // Convert to StockAnalysis format for compatibility
+      return eligibleFunds.map(fund => {
+        const nav = parseFloat(fund.nav || '0');
+        const returns1y = parseFloat(fund.returns1y || '0');
+        
+        // Determine time horizon and risk based on category
+        let timeHorizon: 'ultra_short' | 'short' | 'medium' | 'long' = 'medium';
+        let risk: 'low' | 'moderate' | 'high' | 'very_high' = 'moderate';
+        
+        const categoryLower = (fund.category || '').toLowerCase();
+        if (categoryLower.includes('liquid') || categoryLower.includes('overnight') || categoryLower.includes('money market')) {
+          timeHorizon = 'ultra_short';
+          risk = 'low';
+        } else if (categoryLower.includes('ultra short') || categoryLower.includes('low duration')) {
+          timeHorizon = 'short';
+          risk = 'low';
+        } else if (categoryLower.includes('equity') || categoryLower.includes('small cap') || categoryLower.includes('mid cap')) {
+          timeHorizon = 'long';
+          risk = categoryLower.includes('small') ? 'high' : 'moderate';
+        } else if (categoryLower.includes('debt') || categoryLower.includes('bond')) {
+          timeHorizon = 'medium';
+          risk = 'low';
+        }
+
+        // Calculate profit score based on returns and risk
+        const profitScore = Math.min(95, Math.max(50, 70 + (returns1y * 2)));
+
+        return {
+          symbol: fund.schemeCode || fund.id,
+          stockName: fund.schemeName || 'Unknown Fund',
+          currentPrice: nav,
+          targetPrice: nav * (1 + (returns1y / 100) * 0.8), // Conservative target
+          upsidePercent: returns1y * 0.8,
+          profitScore: Math.round(profitScore),
+          signalType: 'buy' as const,
+          timeHorizon,
+          riskLevel: risk,
+          sector: fund.category || 'Mutual Fund',
+          aiReason: `${fund.fundHouse} ${fund.category} fund with ${returns1y.toFixed(1)}% 1-year returns. Regular plan available in store.`,
+          keyFactors: [
+            `Fund House: ${fund.fundHouse}`,
+            `Category: ${fund.category}`,
+            `1Y Returns: ${returns1y.toFixed(1)}%`
+          ],
+          riskFactors: this.getCategoryRiskFactors(fund.category || '')
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching store-eligible mutual funds:', error);
+      return [];
+    }
+  }
+
+  private getCategoryRiskFactors(category: string): string[] {
+    const categoryLower = category.toLowerCase();
+    if (categoryLower.includes('equity')) {
+      return ['Market volatility', 'Sector concentration'];
+    } else if (categoryLower.includes('debt') || categoryLower.includes('bond')) {
+      return ['Interest rate sensitivity', 'Credit risk'];
+    } else if (categoryLower.includes('liquid') || categoryLower.includes('overnight')) {
+      return ['Lower returns compared to equity'];
+    }
+    return ['Market conditions', 'Fund performance'];
   }
 
   async getClientPortfolio(clientId: string): Promise<{ portfolio: any; holdings: PortfolioHolding[] } | null> {
@@ -436,6 +550,7 @@ Provide a JSON response with:
       existingHoldings: string[];
     }
   ): Promise<StockAnalysis[]> {
+    // Stock universe - these are equities/stocks, not mutual funds from store
     const stockUniverse: StockAnalysis[] = [
       {
         symbol: "RELIANCE",
@@ -586,73 +701,38 @@ Provide a JSON response with:
         aiReason: "Consumer finance leader with strong AUM growth. Digital lending platform showing strong traction.",
         keyFactors: ["AUM growth", "Customer acquisition", "Cross-selling"],
         riskFactors: ["Interest rate sensitivity", "Regulatory changes"]
-      },
-      {
-        symbol: "LIQUIDBEES",
-        stockName: "Nippon India ETF Liquid BeES",
-        currentPrice: 1000,
-        targetPrice: 1065,
-        upsidePercent: 6.5,
-        profitScore: 85,
-        signalType: 'buy',
-        timeHorizon: 'ultra_short',
-        riskLevel: 'low',
-        sector: "Liquid Fund",
-        aiReason: "Highly liquid ETF with minimal risk, ideal for parking funds for 7 days to 1 year. Provides better returns than savings account.",
-        keyFactors: ["High liquidity", "Low expense ratio", "Instant redemption"],
-        riskFactors: ["Lower returns compared to equity"]
-      },
-      {
-        symbol: "ICICIMCAP",
-        stockName: "ICICI Prudential Money Market Fund",
-        currentPrice: 100,
-        targetPrice: 107,
-        upsidePercent: 7.0,
-        profitScore: 83,
-        signalType: 'buy',
-        timeHorizon: 'ultra_short',
-        riskLevel: 'low',
-        sector: "Money Market",
-        aiReason: "Invests in money market instruments with maturity up to 1 year. Suitable for ultra short-term parking of funds.",
-        keyFactors: ["Capital preservation", "Stable returns", "Low volatility"],
-        riskFactors: ["Interest rate changes", "Credit risk"]
-      },
-      {
-        symbol: "HABORNED",
-        stockName: "HDFC Overnight Fund",
-        currentPrice: 100,
-        targetPrice: 106,
-        upsidePercent: 6.0,
-        profitScore: 90,
-        signalType: 'buy',
-        timeHorizon: 'ultra_short',
-        riskLevel: 'low',
-        sector: "Overnight Fund",
-        aiReason: "Invests in overnight securities with virtually no credit or interest rate risk. Perfect for 7-90 day investment horizon.",
-        keyFactors: ["Negligible risk", "Daily liquidity", "Predictable returns"],
-        riskFactors: ["Lower returns"]
-      },
-      {
-        symbol: "SBILTSBF",
-        stockName: "SBI Ultra Short Duration Fund",
-        currentPrice: 100,
-        targetPrice: 107.5,
-        upsidePercent: 7.5,
-        profitScore: 82,
-        signalType: 'buy',
-        timeHorizon: 'ultra_short',
-        riskLevel: 'low',
-        sector: "Ultra Short Duration",
-        aiReason: "Invests in debt and money market instruments with Macaulay duration of 3-6 months. Ideal for 3-12 month investment horizon.",
-        keyFactors: ["Higher yield", "Moderate duration", "Quality portfolio"],
-        riskFactors: ["Interest rate sensitivity", "Credit risk"]
       }
+      // REMOVED: Hardcoded mutual fund recommendations (LIQUIDBEES, ICICIMCAP, HABORNED, SBILTSBF)
+      // These must come from store-eligible funds for regulatory compliance
     ];
 
-    let filteredStocks = stockUniverse.filter(s => !options.existingHoldings.includes(s.symbol));
+    // For mutual fund recommendations, fetch from store-eligible funds
+    // REGULATORY COMPLIANCE: Only recommend Regular plan funds that are published in store
+    const mappedHorizon = options.timeHorizon ? this.mapTimeHorizon(options.timeHorizon) : null;
+    
+    // Determine category filter based on time horizon for mutual funds
+    let mfCategory: string | undefined;
+    if (mappedHorizon === 'ultra_short') {
+      mfCategory = 'liquid'; // Includes Liquid, Money Market, Overnight, Ultra Short
+    } else if (mappedHorizon === 'short') {
+      mfCategory = 'short';
+    } else if (mappedHorizon === 'long') {
+      mfCategory = 'equity';
+    }
 
-    if (options.timeHorizon) {
-      const mappedHorizon = this.mapTimeHorizon(options.timeHorizon);
+    // Fetch store-eligible mutual funds (only Regular plans that are published)
+    const storeEligibleFunds = await this.getStoreEligibleMutualFunds({
+      category: mfCategory,
+      riskLevel: options.riskLevel,
+      limit: 10
+    });
+
+    // Combine stock and mutual fund recommendations
+    let combinedUniverse = [...stockUniverse, ...storeEligibleFunds];
+    
+    let filteredStocks = combinedUniverse.filter(s => !options.existingHoldings.includes(s.symbol));
+
+    if (mappedHorizon) {
       filteredStocks = filteredStocks.filter(s => s.timeHorizon === mappedHorizon);
     }
 
