@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookMeetingDialog } from "@/components/BookMeetingDialog";
+import { RequestMeetingDialog } from "@/components/RequestMeetingDialog";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -1004,8 +1004,8 @@ export default function InvestmentDashboard() {
           </Dialog>
         )}
 
-      {/* Book Meeting Dialog */}
-      <BookMeetingDialog
+      {/* Request Meeting Dialog */}
+      <RequestMeetingDialog
         open={showBookMeeting}
         onOpenChange={setShowBookMeeting}
       />

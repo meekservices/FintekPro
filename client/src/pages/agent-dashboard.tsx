@@ -271,6 +271,54 @@ export default function AgentDashboard() {
     }
   });
 
+  // Fetch pending meeting requests from clients
+  const { data: pendingRequestsData, isLoading: pendingRequestsLoading } = useQuery<{ requests: MeetingBooking[] }>({
+    queryKey: ["/api/meetings/pending-requests"],
+    queryFn: async () => {
+      const response = await apiRequest("/api/meetings/pending-requests");
+      return response;
+    }
+  });
+
+  // Approve meeting request mutation
+  const approveMeetingMutation = useMutation({
+    mutationFn: async ({ id, scheduledAt, agentNotes }: { id: string; scheduledAt?: string; agentNotes?: string }) => {
+      const response = await apiRequest(`/api/meetings/${id}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ scheduledAt, agentNotes }),
+        headers: { "Content-Type": "application/json" }
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Meeting request approved and scheduled" });
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings/pending-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings/agent-bookings"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Decline meeting request mutation
+  const declineMeetingMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
+      const response = await apiRequest(`/api/meetings/${id}/decline`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+        headers: { "Content-Type": "application/json" }
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Request Declined", description: "The meeting request has been declined" });
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings/pending-requests"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
   // Create notification trigger mutation
   const createNotificationMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -1805,6 +1853,76 @@ export default function AgentDashboard() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Pending Meeting Requests Section */}
+              {pendingRequestsData?.requests && pendingRequestsData.requests.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold mb-3 text-orange-700 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Pending Meeting Requests ({pendingRequestsData.requests.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {pendingRequestsData.requests.map((request) => (
+                      <div key={request.id} className="border-2 border-orange-200 rounded-lg p-4 bg-orange-50 dark:bg-orange-950" data-testid={`request-card-${request.id}`}>
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1 flex-1">
+                            <h4 className="font-medium">{request.topic}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              From: {request.clientName || "Client"} {request.clientEmail && `(${request.clientEmail})`}
+                            </p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Preferred: {new Date(request.scheduledAt).toLocaleDateString()}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {new Date(request.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span>{request.duration} min</span>
+                            </div>
+                            {request.clientNotes && (
+                              <p className="text-sm text-muted-foreground mt-2 italic">
+                                Notes: {request.clientNotes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => approveMeetingMutation.mutate({ id: request.id })}
+                              disabled={approveMeetingMutation.isPending}
+                              data-testid={`button-approve-${request.id}`}
+                            >
+                              {approveMeetingMutation.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle className="mr-1 h-3 w-3" />
+                                  Approve
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:bg-red-50"
+                              onClick={() => declineMeetingMutation.mutate({ id: request.id })}
+                              disabled={declineMeetingMutation.isPending}
+                              data-testid={`button-decline-${request.id}`}
+                            >
+                              <XCircle className="mr-1 h-3 w-3" />
+                              Decline
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {meetingsLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
