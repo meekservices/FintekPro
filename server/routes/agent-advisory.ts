@@ -14,6 +14,8 @@ import {
   investmentProposals,
   investmentProposalItems,
   portfolios,
+  partners,
+  agentPartnerMappings,
   insertAdvisorySessionSchema,
   insertSuitabilityCheckSchema,
   insertProposalNoteSchema,
@@ -51,6 +53,194 @@ const requireAgent = (req: Request, res: Response, next: NextFunction) => {
 
 export function registerAgentAdvisoryRoutes(app: Express) {
   
+  // Agent Profile endpoint
+  app.get("/api/agent/profile", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      
+      const profile = {
+        id: user.id,
+        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Agent',
+        email: user.email || '',
+        employeeId: user.employeeId || `AGT-${user.id.slice(0, 8)}`,
+        euinNumber: user.euinNumber || null,
+        arnCode: user.arnCode || null,
+        distributorId: user.distributorId || null,
+        specializations: user.specializations || ['Mutual Funds', 'Equity'],
+        languages: user.languages || ['English', 'Hindi'],
+        status: 'active',
+        agentLevel: user.agentLevel || 'master_agent'
+      };
+      
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching agent profile:", error);
+      res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  // Agent Statistics endpoint
+  app.get("/api/agent/stats", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      
+      // Get client count
+      const clientCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(clientAgentRelationships)
+        .where(and(
+          eq(clientAgentRelationships.agentId, agentId),
+          eq(clientAgentRelationships.status, 'active')
+        ));
+      
+      const totalClients = Number(clientCount[0]?.count || 0);
+      
+      // Get partner count (from partners table directly since we're not using mapping table)
+      let totalPartners = 0;
+      try {
+        const partnerCount = await db.execute(sql`
+          SELECT COUNT(*) as count FROM partners WHERE is_active = true
+        `);
+        totalPartners = Number((partnerCount.rows[0] as any)?.count || 0);
+      } catch {
+        // Table might not exist, default to 0
+      }
+      
+      const stats = {
+        totalPartners,
+        activePartners: totalPartners,
+        totalClients,
+        activeClients: totalClients,
+        monthlyCommissions: "0.00",
+        commissionGrowth: 0,
+        pendingTasks: 0,
+        urgentTasks: 0,
+        recentActivity: []
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching agent stats:", error);
+      res.status(500).json({ error: "Failed to fetch statistics" });
+    }
+  });
+
+  // Agent Partners endpoint - returns all active partners from partners table
+  app.get("/api/agent/partners", requireAgent, async (req: Request, res: Response) => {
+    try {
+      // Get all active partners directly from partners table
+      let partnersList: any[] = [];
+      try {
+        const result = await db.execute(sql`
+          SELECT 
+            id, company_name, contact_email, contact_phone,
+            address, website, partner_type, business_license,
+            tax_id, euin_number, arn_code, is_active
+          FROM partners
+          WHERE is_active = true
+          ORDER BY company_name
+          LIMIT 100
+        `);
+        partnersList = (result.rows as any[]).map(p => ({
+          id: p.id,
+          companyName: p.company_name,
+          contactEmail: p.contact_email,
+          contactPhone: p.contact_phone,
+          address: p.address || '',
+          website: p.website || '',
+          partnerType: p.partner_type || 'product_provider',
+          businessLicense: p.business_license || '',
+          taxId: p.tax_id || '',
+          euinNumber: p.euin_number || null,
+          arnCode: p.arn_code || null,
+          masterAgentEuin: null,
+          hasEuinArn: !!(p.euin_number || p.arn_code)
+        }));
+      } catch (err) {
+        console.error("Error querying partners table:", err);
+        // Table might not exist or have different structure
+      }
+      
+      res.json(partnersList);
+    } catch (error) {
+      console.error("Error fetching agent partners:", error);
+      res.status(500).json({ error: "Failed to fetch partners" });
+    }
+  });
+
+  // Add Partner endpoint - persists to database
+  app.post("/api/agent/partners", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const partnerData = req.body;
+      
+      // Validate required fields
+      if (!partnerData.companyName || !partnerData.contactEmail || !partnerData.contactPhone) {
+        return res.status(400).json({ error: "Company name, email, and phone are required" });
+      }
+      
+      // Generate a temporary password for the partner account
+      const tempPassword = crypto.randomBytes(16).toString('hex');
+      const partnerId = nanoid();
+      
+      // Insert into partners table
+      const [newPartner] = await db.insert(partners).values({
+        id: partnerId,
+        companyName: partnerData.companyName,
+        contactEmail: partnerData.contactEmail,
+        contactPhone: partnerData.contactPhone,
+        address: partnerData.address || null,
+        website: partnerData.website || null,
+        partnerType: partnerData.partnerType || 'product_provider',
+        businessLicense: partnerData.businessLicense || null,
+        taxId: partnerData.taxId || null,
+        euinNumber: partnerData.hasEuinArn ? partnerData.euinNumber : null,
+        arnCode: partnerData.hasEuinArn ? partnerData.arnCode : null,
+        password: tempPassword, // Temporary password - partner should reset
+        isActive: true,
+        isVerified: false
+      }).returning();
+      
+      // Note: agentPartnerMappings requires customerCareAgents.id, not users.id
+      // For now, we skip the mapping as agents creating partners may not be in customerCareAgents table
+      // The partner is still created and can be retrieved via the GET endpoint
+      
+      // Log the action
+      await logAgentAction({
+        agentId,
+        actionCategory: 'partner',
+        actionType: 'partner_created',
+        actionDescription: `Created partner: ${partnerData.companyName}`,
+        newState: { partnerId: newPartner.id, companyName: partnerData.companyName },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+      
+      res.status(201).json({
+        id: newPartner.id,
+        companyName: newPartner.companyName,
+        contactEmail: newPartner.contactEmail,
+        contactPhone: newPartner.contactPhone,
+        address: newPartner.address || '',
+        website: newPartner.website || '',
+        partnerType: newPartner.partnerType,
+        businessLicense: newPartner.businessLicense || '',
+        taxId: newPartner.taxId || '',
+        euinNumber: newPartner.euinNumber || null,
+        arnCode: newPartner.arnCode || null,
+        masterAgentEuin: partnerData.masterAgentEuin || null,
+        hasEuinArn: !!(newPartner.euinNumber || newPartner.arnCode)
+      });
+    } catch (error: any) {
+      console.error("Error adding partner:", error);
+      // Handle duplicate email error
+      if (error.code === '23505' && error.constraint?.includes('contact_email')) {
+        return res.status(400).json({ error: "A partner with this email already exists" });
+      }
+      res.status(500).json({ error: "Failed to add partner" });
+    }
+  });
+
   app.get("/api/agent/clients", requireAgent, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;

@@ -383,12 +383,7 @@ function ClientProfileCompletion() {
 export default function AgentPortal() {
   const { toast } = useToast();
   
-  // Get current user role from session
-  const { data: currentUser } = useQuery({
-    queryKey: ['/api/user/profile'],
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-  
+  // All hooks must be called before any conditional returns (React Rules of Hooks)
   // State management
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showAddPartnerDialog, setShowAddPartnerDialog] = useState(false);
@@ -427,74 +422,125 @@ export default function AgentPortal() {
       masterAgentEuin: ""
     }
   });
+  
+  // Get current user role from session with proper error handling
+  const { data: currentUser, isLoading: userLoading, isError: userError } = useQuery({
+    queryKey: ['/api/user/profile'],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: false, // Don't retry on auth failures
+  });
 
-  // Fetch agent profile and data
+  // Fetch agent profile and data (enabled only when authenticated)
   const { data: agentProfile } = useQuery<AgentProfile>({
     queryKey: ['/api/agent/profile'],
     refetchInterval: 60000,
+    enabled: !!currentUser,
   });
 
-  // Fetch agent's partners
+  // Fetch agent's partners (enabled only when authenticated)
   const { data: partnersData = [], isLoading: partnersLoading } = useQuery<AgentPartner[]>({
     queryKey: ['/api/agent/partners'],
     refetchInterval: 60000,
+    enabled: !!currentUser,
   });
 
-  // Fetch agent's clients
+  // Fetch agent's clients (enabled only when authenticated)
   const { data: clientsData = [], isLoading: clientsLoading } = useQuery<any[]>({
     queryKey: ['/api/agent/clients', { searchTerm }],
     refetchInterval: 60000,
+    enabled: !!currentUser,
   });
 
-  // Fetch agent statistics
+  // Fetch agent statistics (enabled only when authenticated)
   const { data: agentStats } = useQuery<AgentStats>({
     queryKey: ['/api/agent/stats'],
     refetchInterval: 30000,
+    enabled: !!currentUser,
   });
 
-  // Partner management mutations
+  // Partner management mutations using apiRequest
   const addPartnerMutation = useMutation({
-    mutationFn: async (partnerData: PartnerFormData) => {
-      const response = await fetch('/api/agent/partners', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(partnerData)
-      });
-      if (!response.ok) throw new Error('Failed to add partner');
-      return response.json();
-    },
+    mutationFn: (partnerData: PartnerFormData) => 
+      apiRequest('/api/agent/partners', { 
+        method: 'POST', 
+        body: JSON.stringify(partnerData),
+        headers: { 'Content-Type': 'application/json' }
+      }),
     onSuccess: () => {
       toast({ title: "Success", description: "Partner added successfully" });
       setShowAddPartnerDialog(false);
       partnerForm.reset();
       queryClient.invalidateQueries({ queryKey: ['/api/agent/partners'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/stats'] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to add partner", variant: "destructive" });
     }
   });
 
-  // Client management mutations
+  // Client management mutations using apiRequest
   const addClientMutation = useMutation({
-    mutationFn: async (clientData: ClientFormData) => {
-      const response = await fetch('/api/agent/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(clientData)
-      });
-      if (!response.ok) throw new Error('Failed to add client');
-      return response.json();
-    },
+    mutationFn: (clientData: ClientFormData) => 
+      apiRequest('/api/agent/clients', { 
+        method: 'POST', 
+        body: JSON.stringify(clientData),
+        headers: { 'Content-Type': 'application/json' }
+      }),
     onSuccess: () => {
       toast({ title: "Success", description: "Client added successfully" });
       setShowAddClientDialog(false);
       clientForm.reset();
       queryClient.invalidateQueries({ queryKey: ['/api/agent/clients'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/stats'] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to add client", variant: "destructive" });
     }
   });
+
+  // Show login prompt if not authenticated (after all hooks)
+  if (userError || (!userLoading && !currentUser)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 flex items-center justify-center" data-testid="agent-portal-login">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Partner Portal Access
+            </CardTitle>
+            <CardDescription>
+              Please log in to access the Partner Portal
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              The Partner Portal provides tools for managing clients, partners, and commissions.
+            </p>
+            <Button 
+              className="w-full" 
+              onClick={() => window.location.href = '/login'}
+              data-testid="button-login"
+            >
+              <Shield className="w-4 h-4 mr-2" />
+              Log In to Continue
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (userLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading Partner Portal...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleAddPartner = (data: PartnerFormData) => {
     // If partner doesn't have EUIN/ARN, use master agent EUIN
