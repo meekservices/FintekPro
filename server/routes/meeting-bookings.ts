@@ -83,7 +83,7 @@ router.post("/book", async (req, res) => {
       success: true,
       booking: {
         ...booking,
-        agentName: agent[0].fullName || agent[0].username,
+        agentName: `${agent[0].firstName || ""} ${agent[0].lastName || ""}`.trim() || agent[0].userId,
         agentEmail: agent[0].email,
       },
     });
@@ -122,13 +122,13 @@ router.get("/my-bookings", async (req, res) => {
     const bookingsWithAgents = await Promise.all(
       bookings.map(async (booking) => {
         const agent = await db
-          .select({ fullName: users.fullName, email: users.email })
+          .select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
           .from(users)
           .where(eq(users.id, booking.agentId))
           .limit(1);
         return {
           ...booking,
-          agentName: agent[0]?.fullName || "Agent",
+          agentName: agent[0] ? `${agent[0].firstName || ""} ${agent[0].lastName || ""}`.trim() || "Agent" : "Agent",
           agentEmail: agent[0]?.email,
         };
       })
@@ -143,9 +143,14 @@ router.get("/my-bookings", async (req, res) => {
 
 router.get("/agent-bookings", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
-    if (!userId) {
+    const user = (req as any).user;
+    if (!user?.id) {
       return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const userRoles = user.roles || [];
+    if (!userRoles.some((r: string) => ["agent", "admin", "partner"].includes(r))) {
+      return res.status(403).json({ error: "Access denied. Agent role required." });
     }
 
     const bookings = await db
@@ -163,19 +168,19 @@ router.get("/agent-bookings", async (req, res) => {
         createdAt: meetingBookings.createdAt,
       })
       .from(meetingBookings)
-      .where(eq(meetingBookings.agentId, userId))
+      .where(eq(meetingBookings.agentId, user.id))
       .orderBy(desc(meetingBookings.scheduledAt));
 
     const bookingsWithClients = await Promise.all(
       bookings.map(async (booking) => {
         const client = await db
-          .select({ fullName: users.fullName, email: users.email })
+          .select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
           .from(users)
           .where(eq(users.id, booking.clientId))
           .limit(1);
         return {
           ...booking,
-          clientName: client[0]?.fullName || "Client",
+          clientName: client[0] ? `${client[0].firstName || ""} ${client[0].lastName || ""}`.trim() || "Client" : "Client",
           clientEmail: client[0]?.email,
         };
       })
@@ -268,17 +273,150 @@ router.get("/available-agents", async (req, res) => {
     const agents = await db
       .select({
         id: users.id,
-        fullName: users.fullName,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
-        role: users.role,
+        roles: users.roles,
       })
-      .from(users)
-      .where(eq(users.role, "agent"));
+      .from(users);
 
-    res.json({ agents });
+    const filteredAgents = agents.filter(a => a.roles?.includes("agent")).map(a => ({
+      id: a.id,
+      fullName: `${a.firstName || ""} ${a.lastName || ""}`.trim() || "Agent",
+      email: a.email,
+      role: "agent",
+    }));
+
+    res.json({ agents: filteredAgents });
   } catch (error: any) {
     console.error("Fetch agents error:", error);
     res.status(500).json({ error: "Failed to fetch agents" });
+  }
+});
+
+const agentBookMeetingSchema = z.object({
+  clientId: z.string().min(1, "Client ID is required"),
+  topic: z.string().min(3, "Topic must be at least 3 characters"),
+  description: z.string().optional(),
+  scheduledAt: z.string().transform((val) => new Date(val)),
+  duration: z.number().min(15).max(120).default(30),
+  timezone: z.string().default("Asia/Kolkata"),
+  agentNotes: z.string().optional(),
+});
+
+router.post("/agent-book", async (req, res) => {
+  try {
+    const agentId = (req as any).user?.id;
+    if (!agentId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const data = agentBookMeetingSchema.parse(req.body);
+
+    const agent = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, agentId))
+      .limit(1);
+
+    const agentRoles = agent[0].roles || [];
+    if (agent.length === 0 || !agentRoles.some((r: string) => ["agent", "admin", "partner"].includes(r))) {
+      return res.status(403).json({ error: "Only agents can schedule meetings" });
+    }
+
+    const client = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, data.clientId))
+      .limit(1);
+
+    if (client.length === 0) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+
+    const participantEmails = [
+      client[0].email,
+      agent[0].email,
+    ].filter(Boolean) as string[];
+
+    const zohoMeeting = await zohoMeetingService.createMeeting({
+      topic: data.topic,
+      agenda: data.description,
+      startTime: data.scheduledAt,
+      duration: data.duration,
+      timezone: data.timezone,
+      participantEmails,
+    });
+
+    const [booking] = await db
+      .insert(meetingBookings)
+      .values({
+        clientId: data.clientId,
+        agentId: agentId,
+        topic: data.topic,
+        description: data.description,
+        scheduledAt: data.scheduledAt,
+        duration: data.duration,
+        timezone: data.timezone,
+        zohoMeetingId: zohoMeeting.meetingId,
+        joinLink: zohoMeeting.joinLink,
+        startLink: zohoMeeting.startLink,
+        status: "confirmed",
+        agentNotes: data.agentNotes,
+        confirmedAt: new Date(),
+      })
+      .returning();
+
+    res.json({
+      success: true,
+      booking: {
+        ...booking,
+        clientName: `${client[0].firstName || ""} ${client[0].lastName || ""}`.trim() || client[0].userId,
+        clientEmail: client[0].email,
+      },
+    });
+  } catch (error: any) {
+    console.error("Agent meeting booking error:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    res.status(500).json({ error: error.message || "Failed to book meeting" });
+  }
+});
+
+router.get("/agent-clients", async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const userRoles = user.roles || [];
+    if (!userRoles.some((r: string) => ["agent", "admin", "partner"].includes(r))) {
+      return res.status(403).json({ error: "Access denied. Agent role required." });
+    }
+
+    const allUsers = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        userId: users.userId,
+        roles: users.roles,
+      })
+      .from(users);
+
+    const clients = allUsers.filter(u => u.roles?.includes("user")).map(u => ({
+      id: u.id,
+      fullName: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.userId,
+      email: u.email,
+    }));
+
+    res.json({ clients });
+  } catch (error: any) {
+    console.error("Fetch clients error:", error);
+    res.status(500).json({ error: "Failed to fetch clients" });
   }
 });
 

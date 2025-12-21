@@ -46,7 +46,9 @@ import {
   AlertTriangle,
   ChevronRight,
   BarChart3,
-  DollarSign
+  DollarSign,
+  Video,
+  ExternalLink
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -170,6 +172,29 @@ interface ClientOverview {
   complianceScore: number;
 }
 
+interface MeetingBooking {
+  id: string;
+  topic: string;
+  description?: string;
+  scheduledAt: string;
+  duration: number;
+  status: string;
+  startLink?: string;
+  joinLink?: string;
+  clientId: string;
+  clientName?: string;
+  clientEmail?: string;
+  clientNotes?: string;
+  createdAt: string;
+}
+
+interface MeetingClient {
+  id: string;
+  fullName: string;
+  email: string;
+  username: string;
+}
+
 export default function AgentDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -182,6 +207,15 @@ export default function AgentDashboard() {
   const [proposalDialog, setProposalDialog] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<InvestmentProposal | null>(null);
   const [proposalFilter, setProposalFilter] = useState<string>("all");
+
+  // Meeting states
+  const [meetingDialog, setMeetingDialog] = useState(false);
+  const [meetingClientId, setMeetingClientId] = useState("");
+  const [meetingTopic, setMeetingTopic] = useState("");
+  const [meetingDescription, setMeetingDescription] = useState("");
+  const [meetingDate, setMeetingDate] = useState("");
+  const [meetingTime, setMeetingTime] = useState("");
+  const [meetingDuration, setMeetingDuration] = useState(30);
 
   // Fetch CKYC clients for care agents
   const { data: ckycClients, isLoading: clientsLoading } = useQuery<CkycClient[]>({
@@ -215,6 +249,24 @@ export default function AgentDashboard() {
     queryKey: ["/api/clients"],
     queryFn: async () => {
       const response = await apiRequest("/api/clients");
+      return response;
+    }
+  });
+
+  // Fetch agent's meeting bookings
+  const { data: meetingsData, isLoading: meetingsLoading } = useQuery<{ bookings: MeetingBooking[] }>({
+    queryKey: ["/api/meetings/agent-bookings"],
+    queryFn: async () => {
+      const response = await apiRequest("/api/meetings/agent-bookings");
+      return response;
+    }
+  });
+
+  // Fetch clients for meetings
+  const { data: meetingClientsData, isLoading: meetingClientsLoading } = useQuery<{ clients: MeetingClient[] }>({
+    queryKey: ["/api/meetings/agent-clients"],
+    queryFn: async () => {
+      const response = await apiRequest("/api/meetings/agent-clients");
       return response;
     }
   });
@@ -278,6 +330,70 @@ export default function AgentDashboard() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   });
+
+  // Schedule meeting mutation
+  const scheduleMeetingMutation = useMutation({
+    mutationFn: async (data: { clientId: string; topic: string; description?: string; scheduledAt: string; duration: number }) => {
+      const response = await apiRequest("/api/meetings/agent-book", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Meeting scheduled successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings/agent-bookings"] });
+      setMeetingDialog(false);
+      resetMeetingForm();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Cancel meeting mutation
+  const cancelMeetingMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      const response = await apiRequest(`/api/meetings/${meetingId}/cancel`, {
+        method: "PATCH",
+        body: JSON.stringify({ reason: "Cancelled by agent" }),
+        headers: { "Content-Type": "application/json" }
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Meeting cancelled" });
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings/agent-bookings"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const resetMeetingForm = () => {
+    setMeetingClientId("");
+    setMeetingTopic("");
+    setMeetingDescription("");
+    setMeetingDate("");
+    setMeetingTime("");
+    setMeetingDuration(30);
+  };
+
+  const handleScheduleMeeting = () => {
+    if (!meetingClientId || !meetingTopic || !meetingDate || !meetingTime) {
+      toast({ title: "Error", description: "Please fill all required fields", variant: "destructive" });
+      return;
+    }
+    const scheduledAt = new Date(`${meetingDate}T${meetingTime}`).toISOString();
+    scheduleMeetingMutation.mutate({
+      clientId: meetingClientId,
+      topic: meetingTopic,
+      description: meetingDescription,
+      scheduledAt,
+      duration: meetingDuration
+    });
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
@@ -451,6 +567,10 @@ export default function AgentDashboard() {
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell size={16} />
             Notifications
+          </TabsTrigger>
+          <TabsTrigger value="meetings" className="flex items-center gap-2" data-testid="tab-meetings">
+            <Video size={16} />
+            Meetings
           </TabsTrigger>
         </ScrollableTabsList>
 
@@ -1558,6 +1678,242 @@ export default function AgentDashboard() {
                   are now secured under agent access for enhanced regulatory compliance.
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Meetings Tab */}
+        <TabsContent value="meetings" className="space-y-4" data-testid="content-meetings">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Video className="h-5 w-5 text-blue-600" />
+                    Client Meetings
+                  </CardTitle>
+                  <CardDescription>Schedule and manage video meetings with your clients via Zoho Meetings</CardDescription>
+                </div>
+                <Dialog open={meetingDialog} onOpenChange={setMeetingDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="flex items-center gap-2" data-testid="button-schedule-meeting">
+                      <Plus size={16} />
+                      Schedule Meeting
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Schedule New Meeting</DialogTitle>
+                      <DialogDescription>Book a video call with your client</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="meeting-client">Select Client *</Label>
+                        <Select value={meetingClientId} onValueChange={setMeetingClientId}>
+                          <SelectTrigger id="meeting-client" data-testid="select-meeting-client">
+                            <SelectValue placeholder="Choose a client" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {meetingClientsData?.clients?.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.fullName} ({client.email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="meeting-topic">Topic *</Label>
+                        <Input
+                          id="meeting-topic"
+                          placeholder="e.g., Portfolio Review, Investment Discussion"
+                          value={meetingTopic}
+                          onChange={(e) => setMeetingTopic(e.target.value)}
+                          data-testid="input-meeting-topic"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="meeting-description">Description</Label>
+                        <Textarea
+                          id="meeting-description"
+                          placeholder="Meeting agenda or notes..."
+                          value={meetingDescription}
+                          onChange={(e) => setMeetingDescription(e.target.value)}
+                          data-testid="input-meeting-description"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="meeting-date">Date *</Label>
+                          <Input
+                            id="meeting-date"
+                            type="date"
+                            value={meetingDate}
+                            onChange={(e) => setMeetingDate(e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            data-testid="input-meeting-date"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="meeting-time">Time *</Label>
+                          <Input
+                            id="meeting-time"
+                            type="time"
+                            value={meetingTime}
+                            onChange={(e) => setMeetingTime(e.target.value)}
+                            data-testid="input-meeting-time"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="meeting-duration">Duration (minutes)</Label>
+                        <Select value={meetingDuration.toString()} onValueChange={(v) => setMeetingDuration(parseInt(v))}>
+                          <SelectTrigger id="meeting-duration" data-testid="select-meeting-duration">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="15">15 minutes</SelectItem>
+                            <SelectItem value="30">30 minutes</SelectItem>
+                            <SelectItem value="45">45 minutes</SelectItem>
+                            <SelectItem value="60">1 hour</SelectItem>
+                            <SelectItem value="90">1.5 hours</SelectItem>
+                            <SelectItem value="120">2 hours</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={handleScheduleMeeting}
+                        disabled={scheduleMeetingMutation.isPending}
+                        data-testid="button-confirm-schedule"
+                      >
+                        {scheduleMeetingMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Scheduling...
+                          </>
+                        ) : (
+                          <>
+                            <Video className="mr-2 h-4 w-4" />
+                            Schedule Meeting
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {meetingsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : meetingsData?.bookings && meetingsData.bookings.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Upcoming Meetings */}
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3 text-green-700 flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Upcoming Meetings
+                    </h3>
+                    <div className="space-y-3">
+                      {meetingsData.bookings
+                        .filter((m) => new Date(m.scheduledAt) >= new Date() && m.status === "confirmed")
+                        .map((meeting) => (
+                          <div key={meeting.id} className="border rounded-lg p-4 bg-green-50 dark:bg-green-950" data-testid={`meeting-card-${meeting.id}`}>
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <h4 className="font-medium">{meeting.topic}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  Client: {meeting.clientName || "Unknown"}
+                                </p>
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    {new Date(meeting.scheduledAt).toLocaleDateString()}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {new Date(meeting.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                  <span>{meeting.duration} min</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {meeting.startLink && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => window.open(meeting.startLink, '_blank')}
+                                    data-testid={`button-start-meeting-${meeting.id}`}
+                                  >
+                                    <ExternalLink className="mr-1 h-3 w-3" />
+                                    Start
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 hover:bg-red-50"
+                                  onClick={() => cancelMeetingMutation.mutate(meeting.id)}
+                                  disabled={cancelMeetingMutation.isPending}
+                                  data-testid={`button-cancel-meeting-${meeting.id}`}
+                                >
+                                  <XCircle className="mr-1 h-3 w-3" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      {meetingsData.bookings.filter((m) => new Date(m.scheduledAt) >= new Date() && m.status === "confirmed").length === 0 && (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No upcoming meetings scheduled</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Past Meetings */}
+                  <div className="mt-6">
+                    <h3 className="text-sm font-semibold mb-3 text-gray-600 flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Past Meetings
+                    </h3>
+                    <div className="space-y-2">
+                      {meetingsData.bookings
+                        .filter((m) => new Date(m.scheduledAt) < new Date() || m.status !== "confirmed")
+                        .slice(0, 5)
+                        .map((meeting) => (
+                          <div key={meeting.id} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-900 opacity-75">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-medium text-sm">{meeting.topic}</h4>
+                                <p className="text-xs text-muted-foreground">
+                                  {meeting.clientName} • {new Date(meeting.scheduledAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <Badge variant={meeting.status === "cancelled" ? "destructive" : "secondary"}>
+                                {meeting.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Video className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Meetings Scheduled</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Schedule your first video meeting with a client using Zoho Meetings
+                  </p>
+                  <Button onClick={() => setMeetingDialog(true)} data-testid="button-schedule-first-meeting">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Schedule Meeting
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
