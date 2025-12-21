@@ -515,6 +515,46 @@ export function PortfolioEditor({
     }
   }, [importPreview, holdings, toast]);
 
+  // Calculate portfolio summary (moved before fetchAIInsights to avoid initialization error)
+  const summary = useMemo<PortfolioSummary>(() => {
+    const totalInvestment = holdings.reduce(
+      (sum, h) => sum + h.quantity * h.buyPrice,
+      0
+    );
+    const totalCurrentValue = holdings.reduce(
+      (sum, h) => sum + h.currentValue,
+      0
+    );
+    const totalGainLoss = totalCurrentValue - totalInvestment;
+    const totalGainLossPercent =
+      totalInvestment > 0 ? (totalGainLoss / totalInvestment) * 100 : 0;
+
+    const assetAllocation: Record<string, { value: number; percent: number }> = {};
+    holdings.forEach((h) => {
+      const assetClass = h.assetClass || "other";
+      if (!assetAllocation[assetClass]) {
+        assetAllocation[assetClass] = { value: 0, percent: 0 };
+      }
+      assetAllocation[assetClass].value += h.currentValue;
+    });
+
+    Object.keys(assetAllocation).forEach((key) => {
+      assetAllocation[key].percent =
+        totalCurrentValue > 0
+          ? (assetAllocation[key].value / totalCurrentValue) * 100
+          : 0;
+    });
+
+    return {
+      totalInvestment,
+      totalCurrentValue,
+      totalGainLoss,
+      totalGainLossPercent,
+      holdingsCount: holdings.length,
+      assetAllocation,
+    };
+  }, [holdings]);
+
   // Fetch AI insights
   const fetchAIInsights = useCallback(async () => {
     if (holdings.length === 0) {
@@ -581,46 +621,6 @@ export function PortfolioEditor({
     enabled: searchQuery.length >= 2,
     staleTime: 30000,
   });
-
-  // Calculate portfolio summary
-  const summary = useMemo<PortfolioSummary>(() => {
-    const totalInvestment = holdings.reduce(
-      (sum, h) => sum + h.quantity * h.buyPrice,
-      0
-    );
-    const totalCurrentValue = holdings.reduce(
-      (sum, h) => sum + h.currentValue,
-      0
-    );
-    const totalGainLoss = totalCurrentValue - totalInvestment;
-    const totalGainLossPercent =
-      totalInvestment > 0 ? (totalGainLoss / totalInvestment) * 100 : 0;
-
-    const assetAllocation: Record<string, { value: number; percent: number }> = {};
-    holdings.forEach((h) => {
-      const assetClass = h.assetClass || "other";
-      if (!assetAllocation[assetClass]) {
-        assetAllocation[assetClass] = { value: 0, percent: 0 };
-      }
-      assetAllocation[assetClass].value += h.currentValue;
-    });
-
-    Object.keys(assetAllocation).forEach((key) => {
-      assetAllocation[key].percent =
-        totalCurrentValue > 0
-          ? (assetAllocation[key].value / totalCurrentValue) * 100
-          : 0;
-    });
-
-    return {
-      totalInvestment,
-      totalCurrentValue,
-      totalGainLoss,
-      totalGainLossPercent,
-      holdingsCount: holdings.length,
-      assetAllocation,
-    };
-  }, [holdings]);
 
   // Add new row
   const addRow = useCallback(() => {
