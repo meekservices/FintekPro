@@ -192,6 +192,16 @@ export default function AgentProspectProposalsPage() {
 
   const { data: proposalsData, isLoading } = useQuery<{ proposals: ProspectProposal[]; stats: ProposalStats }>({
     queryKey: ["/api/agent/prospect-proposals", filterStatus],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterStatus && filterStatus !== "all") {
+        params.append("status", filterStatus);
+      }
+      const url = `/api/agent/prospect-proposals${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch proposals");
+      return res.json();
+    },
   });
 
   const proposals = proposalsData?.proposals || [];
