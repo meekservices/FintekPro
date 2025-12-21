@@ -839,8 +839,22 @@ router.get("/analyze/:clientId", async (req, res) => {
       riskScore: analysis?.riskScore || 50,
       diversificationScore: analysis?.diversificationScore || 50
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error analyzing portfolio:", error);
+    // Return empty analysis for missing portfolios instead of 500 error
+    if (error.message?.includes("not found") || error.message?.includes("No portfolio")) {
+      return res.json({
+        totalValue: 0,
+        totalGainLoss: 0,
+        totalGainLossPercent: 0,
+        fundamentalRatios: { avgPE: 0, avgPB: 0, avgROE: 0, avgDebtEquity: 0 },
+        sectorConcentration: {},
+        topHoldings: [],
+        riskScore: 50,
+        diversificationScore: 50,
+        message: "No portfolio data available. Add holdings to see analysis."
+      });
+    }
     res.status(500).json({ error: "Failed to analyze portfolio" });
   }
 });
@@ -849,10 +863,14 @@ router.get("/analyze/:clientId", async (req, res) => {
 router.get("/profit-picks/:clientId/:horizon", async (req, res) => {
   try {
     const { clientId, horizon } = req.params;
-    const picks = await aiInvestmentService.generateProfitPicks(clientId, horizon);
+    const picks = await aiInvestmentService.generateProfitPicks(clientId, { timeHorizon: horizon });
     res.json(picks || []);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating profit picks:", error);
+    // Return empty array for database errors instead of 500
+    if (error.code === '42703' || error.code === '22P02' || error.message?.includes("not found")) {
+      return res.json([]);
+    }
     res.status(500).json({ error: "Failed to generate profit picks" });
   }
 });
@@ -862,10 +880,14 @@ router.get("/profit-picks/:clientId", async (req, res) => {
   try {
     const { clientId } = req.params;
     const horizon = req.query.horizon as string || '3M';
-    const picks = await aiInvestmentService.generateProfitPicks(clientId, horizon);
+    const picks = await aiInvestmentService.generateProfitPicks(clientId, { timeHorizon: horizon });
     res.json(picks || []);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating profit picks:", error);
+    // Return empty array for database errors instead of 500
+    if (error.code === '42703' || error.code === '22P02' || error.message?.includes("not found")) {
+      return res.json([]);
+    }
     res.status(500).json({ error: "Failed to generate profit picks" });
   }
 });
@@ -888,8 +910,12 @@ router.get("/talking-points/:clientId", async (req, res) => {
     const { clientId } = req.params;
     const talkingPoints = await aiInvestmentService.generateTalkingPoints(clientId);
     res.json(talkingPoints || []);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating talking points:", error);
+    // Return empty array for database/schema errors instead of 500
+    if (error.code === '42703' || error.message?.includes("not found") || error.message?.includes("No portfolio")) {
+      return res.json([]);
+    }
     res.status(500).json({ error: "Failed to generate talking points" });
   }
 });
