@@ -984,6 +984,7 @@ export default function AgentProspectProposalsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="ultra_short_term">Ultra Short Term (7 days - 1 year)</SelectItem>
                         <SelectItem value="short_term">Short Term (1-3 years)</SelectItem>
                         <SelectItem value="medium_term">Medium Term (3-7 years)</SelectItem>
                         <SelectItem value="long_term">Long Term (7+ years)</SelectItem>

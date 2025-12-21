@@ -586,13 +586,74 @@ Provide a JSON response with:
         aiReason: "Consumer finance leader with strong AUM growth. Digital lending platform showing strong traction.",
         keyFactors: ["AUM growth", "Customer acquisition", "Cross-selling"],
         riskFactors: ["Interest rate sensitivity", "Regulatory changes"]
+      },
+      {
+        symbol: "LIQUIDBEES",
+        stockName: "Nippon India ETF Liquid BeES",
+        currentPrice: 1000,
+        targetPrice: 1065,
+        upsidePercent: 6.5,
+        profitScore: 85,
+        signalType: 'buy',
+        timeHorizon: 'ultra_short',
+        riskLevel: 'low',
+        sector: "Liquid Fund",
+        aiReason: "Highly liquid ETF with minimal risk, ideal for parking funds for 7 days to 1 year. Provides better returns than savings account.",
+        keyFactors: ["High liquidity", "Low expense ratio", "Instant redemption"],
+        riskFactors: ["Lower returns compared to equity"]
+      },
+      {
+        symbol: "ICICIMCAP",
+        stockName: "ICICI Prudential Money Market Fund",
+        currentPrice: 100,
+        targetPrice: 107,
+        upsidePercent: 7.0,
+        profitScore: 83,
+        signalType: 'buy',
+        timeHorizon: 'ultra_short',
+        riskLevel: 'low',
+        sector: "Money Market",
+        aiReason: "Invests in money market instruments with maturity up to 1 year. Suitable for ultra short-term parking of funds.",
+        keyFactors: ["Capital preservation", "Stable returns", "Low volatility"],
+        riskFactors: ["Interest rate changes", "Credit risk"]
+      },
+      {
+        symbol: "HABORNED",
+        stockName: "HDFC Overnight Fund",
+        currentPrice: 100,
+        targetPrice: 106,
+        upsidePercent: 6.0,
+        profitScore: 90,
+        signalType: 'buy',
+        timeHorizon: 'ultra_short',
+        riskLevel: 'low',
+        sector: "Overnight Fund",
+        aiReason: "Invests in overnight securities with virtually no credit or interest rate risk. Perfect for 7-90 day investment horizon.",
+        keyFactors: ["Negligible risk", "Daily liquidity", "Predictable returns"],
+        riskFactors: ["Lower returns"]
+      },
+      {
+        symbol: "SBILTSBF",
+        stockName: "SBI Ultra Short Duration Fund",
+        currentPrice: 100,
+        targetPrice: 107.5,
+        upsidePercent: 7.5,
+        profitScore: 82,
+        signalType: 'buy',
+        timeHorizon: 'ultra_short',
+        riskLevel: 'low',
+        sector: "Ultra Short Duration",
+        aiReason: "Invests in debt and money market instruments with Macaulay duration of 3-6 months. Ideal for 3-12 month investment horizon.",
+        keyFactors: ["Higher yield", "Moderate duration", "Quality portfolio"],
+        riskFactors: ["Interest rate sensitivity", "Credit risk"]
       }
     ];
 
     let filteredStocks = stockUniverse.filter(s => !options.existingHoldings.includes(s.symbol));
 
     if (options.timeHorizon) {
-      filteredStocks = filteredStocks.filter(s => s.timeHorizon === options.timeHorizon);
+      const mappedHorizon = this.mapTimeHorizon(options.timeHorizon);
+      filteredStocks = filteredStocks.filter(s => s.timeHorizon === mappedHorizon);
     }
 
     const targetRiskLevel = options.riskLevel || this.mapRiskProfile(clientRiskProfile);
@@ -616,6 +677,16 @@ Provide a JSON response with:
       aggressive: 'high'
     };
     return mapping[profile] || 'moderate';
+  }
+
+  private mapTimeHorizon(frontendHorizon: string): string {
+    const mapping: Record<string, string> = {
+      ultra_short_term: 'ultra_short',
+      short_term: 'short',
+      medium_term: 'medium',
+      long_term: 'long'
+    };
+    return mapping[frontendHorizon] || frontendHorizon;
   }
 
   async generateAlerts(clientId: string): Promise<PortfolioAlert[]> {
