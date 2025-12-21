@@ -189,6 +189,7 @@ import AIProposalReviewPage from "@/pages/ai-proposal-review";
 import GoalsPage from "@/pages/goals";
 import InvestableSurplusPage from "@/pages/investable-surplus";
 import TaxComplianceForm15Page from "@/pages/tax-compliance-form15";
+import RiskProfilingPage from "@/pages/risk-profiling";
 
 function UserProtectedRoutes() {
   return (
@@ -197,6 +198,7 @@ function UserProtectedRoutes() {
         <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
         <Route path="/portfolio" component={Portfolio} />
+        <Route path="/risk-profiling" component={RiskProfilingPage} />
         <Route path="/analytics" component={PredictiveAnalytics} />
         <Route path="/comprehensive-portfolio">{() => {
           const ComprehensivePortfolio = lazy(() => import("@/pages/comprehensive-portfolio"));

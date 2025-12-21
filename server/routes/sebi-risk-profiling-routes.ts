@@ -15,9 +15,9 @@ const router = Router();
 
 /**
  * GET /api/sebi-risk-profiling/questionnaire
- * Get the active risk assessment questionnaire
+ * Get the active risk assessment questionnaire (requires auth)
  */
-router.get("/questionnaire", async (req, res) => {
+router.get("/questionnaire", requireAuth, async (req, res) => {
   try {
     const questionnaire = await sebiRiskScoringService.getQuestionnaire();
     res.json({
@@ -342,6 +342,170 @@ router.post("/initialize", requireAdmin, async (req, res) => {
       success: false,
       error: "Failed to initialize data",
       message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/sebi-risk-profiling/my-profile
+ * Get current user's risk profile (for client dashboard/badges)
+ */
+router.get("/my-profile", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated"
+      });
+    }
+
+    const assessment = await sebiRiskScoringService.getActiveAssessment(user.id);
+    
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        error: "No risk profile found. Please complete risk assessment."
+      });
+    }
+
+    // Transform to frontend-expected format
+    res.json({
+      id: assessment.id,
+      userId: assessment.userId,
+      panNumber: assessment.pan,
+      riskScore: parseFloat(String(assessment.adjustedScore || assessment.rawScore)),
+      riskTier: assessment.profileCode,
+      tierLabel: assessment.profileCode === 'RP1' ? 'Conservative' :
+                 assessment.profileCode === 'RP2' ? 'Moderately Conservative' :
+                 assessment.profileCode === 'RP3' ? 'Moderate' :
+                 assessment.profileCode === 'RP4' ? 'Moderately Aggressive' :
+                 'Aggressive',
+      assessmentDate: assessment.createdAt,
+      validUntil: assessment.expiresAt || new Date(new Date(assessment.createdAt).getTime() + 365 * 24 * 60 * 60 * 1000),
+      categoryScores: assessment.categoryScores || {},
+      sebiOverrideApplied: assessment.hasOverride || false,
+      sebiOverrideReason: assessment.overrideReason,
+      originalTier: assessment.originalProfileCode
+    });
+  } catch (error: any) {
+    console.error("Error fetching user risk profile:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch risk profile"
+    });
+  }
+});
+
+/**
+ * POST /api/sebi-risk-profiling/submit-assessment
+ * Submit risk assessment with questionnaire responses (auth required)
+ */
+router.post("/submit-assessment", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated"
+      });
+    }
+
+    const { questionnaireVersion, responses } = req.body;
+
+    if (!questionnaireVersion || !responses || Object.keys(responses).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Questionnaire version and responses are required"
+      });
+    }
+
+    // Convert responses object to answers array
+    const answers = Object.entries(responses).map(([questionId, response]: [string, any]) => ({
+      questionId: parseInt(questionId),
+      selectedOption: response.selectedOption,
+      score: response.score,
+      questionCode: `Q_${questionId}`,
+      optionCode: response.selectedOption
+    }));
+
+    // Get client info from user profile
+    const clientInfo = {
+      age: user.dateOfBirth ? Math.floor((Date.now() - new Date(user.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : undefined
+    };
+
+    // Calculate score
+    const scoreResult = await sebiRiskScoringService.calculateRiskScore(answers, clientInfo);
+
+    // Save assessment
+    const assessment = await sebiRiskScoringService.saveAssessment(
+      user.id,
+      user.pan?.toUpperCase() || 'PENDING',
+      scoreResult,
+      answers,
+      {
+        assessmentType: "initial",
+        questionnaireVersion,
+        clientIp: req.ip || '',
+        assessorRole: "client"
+      }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        assessment,
+        scoreResult
+      }
+    });
+  } catch (error: any) {
+    console.error("Error submitting risk assessment:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to submit risk assessment",
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/sebi-risk-profiling/product-eligibility
+ * Get product eligibility for current user's risk profile
+ */
+router.get("/product-eligibility", requireAuth, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated"
+      });
+    }
+
+    const assessment = await sebiRiskScoringService.getActiveAssessment(user.id);
+    
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        error: "No risk profile found"
+      });
+    }
+
+    const matrix = await sebiRiskScoringService.getProductEligibilityMatrix(assessment.profileCode);
+    
+    // Transform to frontend-expected format
+    const eligibility = matrix.map(item => ({
+      productType: item.productTypeLabel,
+      isEligible: item.isEligible,
+      reason: item.reason
+    }));
+
+    res.json(eligibility);
+  } catch (error: any) {
+    console.error("Error fetching product eligibility:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch product eligibility"
     });
   }
 });
