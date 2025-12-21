@@ -11,7 +11,13 @@ import {
   marketData,
   investmentProposals,
   investmentProposalItems,
-  mutualFunds
+  mutualFunds,
+  aifMaster,
+  pmsMaster,
+  mldMaster,
+  unlistedCompanies,
+  corporateBonds,
+  ncdPublicIssues
 } from "@shared/schema";
 import type { 
   AiProfitPick, 
@@ -196,6 +202,355 @@ class AIInvestmentService {
       return ['Lower returns compared to equity'];
     }
     return ['Market conditions', 'Fund performance'];
+  }
+
+  /**
+   * Get store-eligible AIFs for AI recommendations
+   * Only returns AIFs that are published and active
+   */
+  async getStoreEligibleAIF(options: {
+    category?: string;
+    riskScore?: number;
+    limit?: number;
+  } = {}): Promise<StockAnalysis[]> {
+    try {
+      const { category, riskScore, limit = 10 } = options;
+
+      const conditions = [
+        eq(aifMaster.isPublished, true),
+        eq(aifMaster.fundStatus, 'active')
+      ];
+
+      if (category) {
+        conditions.push(ilike(aifMaster.category, `%${category}%`));
+      }
+
+      const eligibleAIFs = await db
+        .select()
+        .from(aifMaster)
+        .where(and(...conditions))
+        .limit(limit);
+
+      return eligibleAIFs.map(aif => {
+        const nav = parseFloat(aif.latestNav || '100');
+        const returns1y = parseFloat(aif.return1Y || '0');
+        const minInvestment = parseFloat(aif.minInvestment || '10000000');
+        const risk = (aif.riskScore || 5) > 7 ? 'very_high' : (aif.riskScore || 5) > 5 ? 'high' : 'moderate';
+
+        return {
+          symbol: aif.registrationNo || aif.id,
+          stockName: aif.name,
+          currentPrice: nav,
+          targetPrice: nav * 1.15,
+          upsidePercent: 15,
+          profitScore: Math.min(90, 70 + (returns1y > 0 ? returns1y / 2 : 0)),
+          signalType: 'buy' as const,
+          timeHorizon: 'long' as const,
+          riskLevel: risk as 'low' | 'moderate' | 'high' | 'very_high',
+          sector: `AIF - ${aif.category || 'Category II'}`,
+          aiReason: `${aif.fundHouseName || 'AIF'} - ${aif.subcategory || aif.category} fund. Min investment ₹${(minInvestment / 10000000).toFixed(1)}Cr.`,
+          keyFactors: [
+            `Category: ${aif.category}`,
+            `Style: ${aif.style || 'Growth'}`,
+            `AUM: ₹${(parseFloat(aif.aum || '0') / 10000000).toFixed(0)}Cr`
+          ],
+          riskFactors: ['Illiquid investment', 'Long lock-in period', 'Higher minimum investment']
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching store-eligible AIFs:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get store-eligible PMS for AI recommendations
+   * Only returns PMS schemes that are published and active
+   */
+  async getStoreEligiblePMS(options: {
+    strategy?: string;
+    limit?: number;
+  } = {}): Promise<StockAnalysis[]> {
+    try {
+      const { strategy, limit = 10 } = options;
+
+      const conditions = [
+        eq(pmsMaster.isPublished, true),
+        eq(pmsMaster.fundStatus, 'active')
+      ];
+
+      if (strategy) {
+        conditions.push(ilike(pmsMaster.strategy, `%${strategy}%`));
+      }
+
+      const eligiblePMS = await db
+        .select()
+        .from(pmsMaster)
+        .where(and(...conditions))
+        .limit(limit);
+
+      return eligiblePMS.map(pms => {
+        const nav = parseFloat(pms.latestNav || '100');
+        const returns1y = parseFloat(pms.return1Y || '0');
+        const minInvestment = parseFloat(pms.minInvestment || '5000000');
+        const risk = (pms.riskScore || 5) > 7 ? 'high' : (pms.riskScore || 5) > 4 ? 'moderate' : 'low';
+
+        return {
+          symbol: pms.registrationNo || pms.id,
+          stockName: pms.name,
+          currentPrice: nav,
+          targetPrice: nav * (1 + (returns1y / 100) * 0.8),
+          upsidePercent: returns1y * 0.8,
+          profitScore: Math.min(92, 72 + (returns1y > 0 ? returns1y / 2 : 0)),
+          signalType: 'buy' as const,
+          timeHorizon: 'long' as const,
+          riskLevel: risk as 'low' | 'moderate' | 'high' | 'very_high',
+          sector: `PMS - ${pms.strategy || 'Multi-Cap'}`,
+          aiReason: `${pms.fundHouseName || 'PMS'} - ${pms.strategy || 'Diversified'} strategy. Min investment ₹${(minInvestment / 100000).toFixed(0)}L.`,
+          keyFactors: [
+            `Strategy: ${pms.strategy || 'Multi-Cap'}`,
+            `Style: ${pms.style || 'Growth'}`,
+            `1Y Returns: ${returns1y.toFixed(1)}%`
+          ],
+          riskFactors: ['Market-linked returns', 'No guaranteed returns', 'Management fee applicable']
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching store-eligible PMS:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get store-eligible MLDs for AI recommendations
+   * Only returns MLDs that are published and active
+   */
+  async getStoreEligibleMLD(options: {
+    payoffType?: string;
+    limit?: number;
+  } = {}): Promise<StockAnalysis[]> {
+    try {
+      const { payoffType, limit = 10 } = options;
+
+      const conditions = [
+        eq(mldMaster.isPublished, true),
+        eq(mldMaster.status, 'active')
+      ];
+
+      if (payoffType) {
+        conditions.push(eq(mldMaster.payoffType, payoffType));
+      }
+
+      const eligibleMLDs = await db
+        .select()
+        .from(mldMaster)
+        .where(and(...conditions))
+        .limit(limit);
+
+      return eligibleMLDs.map(mld => {
+        const price = parseFloat(mld.latestPrice || mld.faceValue || '1000000');
+        const ytm = parseFloat(mld.ytm || '8');
+        const risk = (mld.riskScore || 5) > 6 ? 'high' : (mld.riskScore || 5) > 3 ? 'moderate' : 'low';
+
+        return {
+          symbol: mld.isin,
+          stockName: mld.name,
+          currentPrice: price,
+          targetPrice: price * (1 + ytm / 100),
+          upsidePercent: ytm,
+          profitScore: Math.min(88, 70 + ytm),
+          signalType: 'buy' as const,
+          timeHorizon: 'medium' as const,
+          riskLevel: risk as 'low' | 'moderate' | 'high' | 'very_high',
+          sector: `MLD - ${mld.payoffType || 'Structured'}`,
+          aiReason: `${mld.issuer} MLD linked to ${mld.underlying}. Rating: ${mld.rating || 'AA'}. YTM: ${ytm.toFixed(1)}%.`,
+          keyFactors: [
+            `Underlying: ${mld.underlying}`,
+            `Payoff Type: ${mld.payoffType}`,
+            `Rating: ${mld.rating || 'AA'}`
+          ],
+          riskFactors: ['Credit risk', 'Market-linked returns', 'Illiquid until maturity']
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching store-eligible MLDs:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get store-eligible Unlisted Stocks for AI recommendations
+   * Only returns unlisted companies with published pricing and not suspended
+   */
+  async getStoreEligibleUnlistedStocks(options: {
+    sector?: string;
+    limit?: number;
+  } = {}): Promise<StockAnalysis[]> {
+    try {
+      const { sector, limit = 10 } = options;
+
+      const conditions = [
+        eq(unlistedCompanies.pricingStatus, 'published'),
+        eq(unlistedCompanies.status, 'active'),
+        eq(unlistedCompanies.tradingSuspended, false)
+      ];
+
+      if (sector) {
+        conditions.push(ilike(unlistedCompanies.sector, `%${sector}%`));
+      }
+
+      const eligibleUnlisted = await db
+        .select()
+        .from(unlistedCompanies)
+        .where(and(...conditions))
+        .limit(limit);
+
+      return eligibleUnlisted.map(company => {
+        const buyPrice = parseFloat(company.publishedBuyPrice || '0');
+        const sellPrice = parseFloat(company.publishedSellPrice || '0');
+        const avgPrice = (buyPrice + sellPrice) / 2 || 1000;
+
+        return {
+          symbol: company.cin || company.id,
+          stockName: company.name,
+          currentPrice: avgPrice,
+          targetPrice: avgPrice * 1.25,
+          upsidePercent: 25,
+          profitScore: 75,
+          signalType: 'buy' as const,
+          timeHorizon: 'long' as const,
+          riskLevel: 'very_high' as const,
+          sector: `Unlisted - ${company.sector || 'Private'}`,
+          aiReason: `${company.name} - ${company.industry || company.sector} sector unlisted company. Pre-IPO opportunity.`,
+          keyFactors: [
+            `Sector: ${company.sector}`,
+            `Industry: ${company.industry || 'N/A'}`,
+            `Listing Stage: ${company.listingStage || 'Unlisted'}`
+          ],
+          riskFactors: ['High illiquidity', 'No price discovery', 'Regulatory risk', 'Lock-in period']
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching store-eligible unlisted stocks:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get store-eligible Bonds for AI recommendations
+   * Only returns active corporate bonds
+   */
+  async getStoreEligibleBonds(options: {
+    bondType?: string;
+    creditRating?: string;
+    limit?: number;
+  } = {}): Promise<StockAnalysis[]> {
+    try {
+      const { bondType, creditRating, limit = 10 } = options;
+
+      const conditions = [
+        eq(corporateBonds.tradingStatus, 'active')
+      ];
+
+      if (bondType) {
+        conditions.push(eq(corporateBonds.bondType, bondType));
+      }
+
+      if (creditRating) {
+        conditions.push(ilike(corporateBonds.creditRating, `%${creditRating}%`));
+      }
+
+      const eligibleBonds = await db
+        .select()
+        .from(corporateBonds)
+        .where(and(...conditions))
+        .limit(limit);
+
+      return eligibleBonds.map(bond => {
+        const price = parseFloat(bond.currentPrice || bond.faceValue || '1000');
+        const ytm = parseFloat(bond.yieldToMaturity || '8');
+        const coupon = parseFloat(bond.couponRate || '7');
+        const ratingScore = bond.creditRating?.includes('AAA') ? 1 : bond.creditRating?.includes('AA') ? 2 : 3;
+        const risk = ratingScore === 1 ? 'low' : ratingScore === 2 ? 'moderate' : 'high';
+
+        return {
+          symbol: bond.isin,
+          stockName: bond.bondName,
+          currentPrice: price,
+          targetPrice: price * (1 + ytm / 100),
+          upsidePercent: ytm,
+          profitScore: Math.min(85, 65 + ytm + (3 - ratingScore) * 5),
+          signalType: 'buy' as const,
+          timeHorizon: 'medium' as const,
+          riskLevel: risk as 'low' | 'moderate' | 'high' | 'very_high',
+          sector: `Bond - ${bond.bondType || 'Corporate'}`,
+          aiReason: `${bond.issuer} ${bond.bondType} bond. Rating: ${bond.creditRating}. Coupon: ${coupon.toFixed(2)}%, YTM: ${ytm.toFixed(2)}%.`,
+          keyFactors: [
+            `Credit Rating: ${bond.creditRating}`,
+            `Coupon: ${coupon.toFixed(2)}%`,
+            `YTM: ${ytm.toFixed(2)}%`
+          ],
+          riskFactors: bond.secured ? ['Interest rate risk'] : ['Credit risk', 'Interest rate risk']
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching store-eligible bonds:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get store-eligible NCDs for AI recommendations
+   * Only returns open or listed NCDs
+   */
+  async getStoreEligibleNCDs(options: {
+    limit?: number;
+  } = {}): Promise<StockAnalysis[]> {
+    try {
+      const { limit = 10 } = options;
+
+      const eligibleNCDs = await db
+        .select()
+        .from(ncdPublicIssues)
+        .where(
+          or(
+            eq(ncdPublicIssues.issueStatus, 'open'),
+            eq(ncdPublicIssues.issueStatus, 'listed')
+          )
+        )
+        .limit(limit);
+
+      return eligibleNCDs.map(ncd => {
+        const faceValue = parseFloat(ncd.faceValue || '1000');
+        const coupon = parseFloat(ncd.couponRate || '8');
+        const yield_ = parseFloat(ncd.effectiveYield || ncd.couponRate || '8');
+        const ratingScore = ncd.creditRating?.includes('AAA') ? 1 : ncd.creditRating?.includes('AA') ? 2 : 3;
+        const risk = ratingScore === 1 ? 'low' : ratingScore === 2 ? 'moderate' : 'high';
+
+        return {
+          symbol: ncd.isin || ncd.issueId,
+          stockName: ncd.issueName,
+          currentPrice: faceValue,
+          targetPrice: faceValue * (1 + yield_ / 100),
+          upsidePercent: yield_,
+          profitScore: Math.min(82, 62 + yield_ + (3 - ratingScore) * 5),
+          signalType: 'buy' as const,
+          timeHorizon: 'medium' as const,
+          riskLevel: risk as 'low' | 'moderate' | 'high' | 'very_high',
+          sector: `NCD - ${ncd.ncdCategory || 'Secured'}`,
+          aiReason: `${ncd.issuerName} NCD issue. Rating: ${ncd.creditRating} (${ncd.ratingAgency}). Coupon: ${coupon.toFixed(2)}%, Tenor: ${ncd.tenorYears}Y.`,
+          keyFactors: [
+            `Credit Rating: ${ncd.creditRating}`,
+            `Coupon: ${coupon.toFixed(2)}%`,
+            `Tenor: ${ncd.tenorYears} years`
+          ],
+          riskFactors: ncd.secured ? ['Interest rate sensitivity'] : ['Credit risk', 'Interest rate sensitivity']
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching store-eligible NCDs:', error);
+      return [];
+    }
   }
 
   async getClientPortfolio(clientId: string): Promise<{ portfolio: any; holdings: PortfolioHolding[] } | null> {
@@ -706,8 +1061,7 @@ Provide a JSON response with:
       // These must come from store-eligible funds for regulatory compliance
     ];
 
-    // For mutual fund recommendations, fetch from store-eligible funds
-    // REGULATORY COMPLIANCE: Only recommend Regular plan funds that are published in store
+    // REGULATORY COMPLIANCE: Only recommend products that are published/enabled in store
     const mappedHorizon = options.timeHorizon ? this.mapTimeHorizon(options.timeHorizon) : null;
     
     // Determine category filter based on time horizon for mutual funds
@@ -720,15 +1074,37 @@ Provide a JSON response with:
       mfCategory = 'equity';
     }
 
-    // Fetch store-eligible mutual funds (only Regular plans that are published)
-    const storeEligibleFunds = await this.getStoreEligibleMutualFunds({
-      category: mfCategory,
-      riskLevel: options.riskLevel,
-      limit: 10
-    });
+    // Fetch all store-eligible products in parallel for efficiency
+    const [
+      storeEligibleFunds,
+      storeEligibleAIFs,
+      storeEligiblePMS,
+      storeEligibleMLDs,
+      storeEligibleUnlisted,
+      storeEligibleBonds,
+      storeEligibleNCDs
+    ] = await Promise.all([
+      this.getStoreEligibleMutualFunds({ category: mfCategory, riskLevel: options.riskLevel, limit: 10 }),
+      this.getStoreEligibleAIF({ limit: 5 }),
+      this.getStoreEligiblePMS({ limit: 5 }),
+      this.getStoreEligibleMLD({ limit: 5 }),
+      this.getStoreEligibleUnlistedStocks({ limit: 5 }),
+      this.getStoreEligibleBonds({ limit: 5 }),
+      this.getStoreEligibleNCDs({ limit: 5 })
+    ]);
 
-    // Combine stock and mutual fund recommendations
-    let combinedUniverse = [...stockUniverse, ...storeEligibleFunds];
+    // Combine all product types with stock recommendations
+    // Each product type filters by store availability (published/active)
+    let combinedUniverse = [
+      ...stockUniverse,
+      ...storeEligibleFunds,      // Mutual Funds (Regular plans only)
+      ...storeEligibleAIFs,       // Alternative Investment Funds
+      ...storeEligiblePMS,        // Portfolio Management Services
+      ...storeEligibleMLDs,       // Market Linked Debentures
+      ...storeEligibleUnlisted,   // Unlisted Stocks
+      ...storeEligibleBonds,      // Corporate Bonds
+      ...storeEligibleNCDs        // Non-Convertible Debentures
+    ];
     
     let filteredStocks = combinedUniverse.filter(s => !options.existingHoldings.includes(s.symbol));
 
