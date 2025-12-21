@@ -17803,3 +17803,387 @@ export const insertMeetingBookingSchema = createInsertSchema(meetingBookings).om
 export type MeetingBooking = typeof meetingBookings.$inferSelect;
 export type InsertMeetingBooking = z.infer<typeof insertMeetingBookingSchema>;
 
+// ============================================
+// SEBI-ALIGNED CLIENT RISK PROFILING ENGINE
+// ============================================
+
+// Risk Profile Master (5-Tier Taxonomy per SEBI guidelines)
+export const sebiRiskProfilesMaster = pgTable("sebi_risk_profiles_master", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileCode: varchar("profile_code").notNull().unique(), // RP1, RP2, RP3, RP4, RP5
+  profileName: varchar("profile_name").notNull(), // Conservative, Moderately Conservative, etc.
+  riskBand: varchar("risk_band").notNull(), // very_low, low_moderate, moderate, moderate_high, high
+  description: text("description"),
+  scoreRangeMin: integer("score_range_min").notNull(), // e.g., 0, 31, 46, 61, 76
+  scoreRangeMax: integer("score_range_max").notNull(), // e.g., 30, 45, 60, 75, 100
+  colorCode: varchar("color_code"), // For UI display
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Questionnaire Versions (for audit compliance)
+export const sebiQuestionnaireVersions = pgTable("sebi_questionnaire_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  versionNumber: varchar("version_number").notNull().unique(), // v1.0, v1.1, v2.0
+  versionName: varchar("version_name"),
+  effectiveFrom: timestamp("effective_from").notNull(),
+  effectiveTo: timestamp("effective_to"), // null means current
+  isActive: boolean("is_active").default(true),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvalDate: timestamp("approval_date"),
+  changeLog: text("change_log"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_sebi_questionnaire_versions_active").on(table.isActive),
+]);
+
+// Questionnaire Categories with Weights
+export const sebiQuestionnaireCategories = pgTable("sebi_questionnaire_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  versionId: varchar("version_id").references(() => sebiQuestionnaireVersions.id).notNull(),
+  categoryCode: varchar("category_code").notNull(), // age, income_stability, net_worth, horizon, risk_tolerance, experience
+  categoryName: varchar("category_name").notNull(),
+  weightPercentage: decimal("weight_percentage", { precision: 5, scale: 2 }).notNull(), // 15, 20, 20, 20, 15, 10
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_sebi_questionnaire_categories_version").on(table.versionId),
+]);
+
+// Configurable Questions
+export const sebiQuestionnaireQuestions = pgTable("sebi_questionnaire_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").references(() => sebiQuestionnaireCategories.id).notNull(),
+  versionId: varchar("version_id").references(() => sebiQuestionnaireVersions.id).notNull(),
+  questionCode: varchar("question_code").notNull(), // Q_AGE_01, Q_INCOME_01
+  questionText: text("question_text").notNull(),
+  questionType: varchar("question_type").notNull(), // single_choice, multiple_choice, scale, scenario
+  helpText: text("help_text"),
+  isMandatory: boolean("is_mandatory").default(true),
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_sebi_questionnaire_questions_category").on(table.categoryId),
+  index("idx_sebi_questionnaire_questions_version").on(table.versionId),
+]);
+
+// Question Options with Scores
+export const sebiQuestionnaireOptions = pgTable("sebi_questionnaire_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  questionId: varchar("question_id").references(() => sebiQuestionnaireQuestions.id).notNull(),
+  optionCode: varchar("option_code").notNull(), // A, B, C, D
+  optionText: text("option_text").notNull(),
+  score: integer("score").notNull(), // 1-5 typically
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_sebi_questionnaire_options_question").on(table.questionId),
+]);
+
+// Client Risk Assessments
+export const sebiClientRiskAssessments = pgTable("sebi_client_risk_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  pan: varchar("pan").notNull(), // Risk profile stored at PAN level
+  
+  // Questionnaire Version Used
+  questionnaireVersionId: varchar("questionnaire_version_id").references(() => sebiQuestionnaireVersions.id).notNull(),
+  
+  // Scoring
+  rawScore: decimal("raw_score", { precision: 5, scale: 2 }).notNull(), // Weighted calculation result
+  adjustedScore: decimal("adjusted_score", { precision: 5, scale: 2 }), // After SEBI overrides
+  
+  // Assigned Profile
+  profileId: varchar("profile_id").references(() => sebiRiskProfilesMaster.id).notNull(),
+  profileCode: varchar("profile_code").notNull(), // RP1-RP5
+  
+  // Override Details
+  hasOverride: boolean("has_override").default(false),
+  overrideReason: text("override_reason"),
+  overrideType: varchar("override_type"), // age_horizon, no_emergency_fund, high_liabilities
+  originalProfileCode: varchar("original_profile_code"), // Profile before override
+  
+  // Category-wise Scores
+  categoryScores: jsonb("category_scores").$type<{
+    categoryCode: string;
+    categoryName: string;
+    weight: number;
+    rawScore: number;
+    weightedScore: number;
+  }[]>(),
+  
+  // Individual Answers
+  answers: jsonb("answers").$type<{
+    questionId: string;
+    questionCode: string;
+    optionId: string;
+    optionCode: string;
+    score: number;
+  }[]>(),
+  
+  // Assessment Context
+  assessmentType: varchar("assessment_type").default("initial"), // initial, periodic, event_triggered, ai_suggested
+  triggerEvent: varchar("trigger_event"), // What triggered this assessment
+  
+  // Lifecycle
+  status: varchar("status").default("active"), // active, superseded, archived
+  expiresAt: timestamp("expires_at"), // Annual revalidation
+  nextReviewDate: timestamp("next_review_date"),
+  
+  // Consent
+  clientConsentAt: timestamp("client_consent_at"),
+  clientConsentIp: varchar("client_consent_ip"),
+  
+  // Agent/Admin Context
+  assessedBy: varchar("assessed_by").references(() => users.id),
+  assessorRole: varchar("assessor_role"), // client, agent, admin
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_sebi_client_risk_assessments_user").on(table.userId),
+  index("idx_sebi_client_risk_assessments_pan").on(table.pan),
+  index("idx_sebi_client_risk_assessments_profile").on(table.profileCode),
+  index("idx_sebi_client_risk_assessments_status").on(table.status),
+  index("idx_sebi_client_risk_assessments_created").on(table.createdAt),
+]);
+
+// Product Suitability Matrix (Hard Gate)
+export const sebiProductSuitabilityMatrix = pgTable("sebi_product_suitability_matrix", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productType: varchar("product_type").notNull(), // liquid_mf, hybrid_mf, equity_mf, pms, aif_cat1, aif_cat2, aif_cat3, reit, invit, mld, unlisted_equity
+  productTypeLabel: varchar("product_type_label").notNull(), // Display name
+  
+  // Risk Profile Eligibility (true = allowed)
+  allowedRP1: boolean("allowed_rp1").default(false), // Conservative
+  allowedRP2: boolean("allowed_rp2").default(false), // Moderately Conservative
+  allowedRP3: boolean("allowed_rp3").default(false), // Moderate
+  allowedRP4: boolean("allowed_rp4").default(false), // Moderately Aggressive
+  allowedRP5: boolean("allowed_rp5").default(false), // Aggressive
+  
+  // Additional Constraints
+  minInvestmentAmount: decimal("min_investment_amount", { precision: 15, scale: 2 }),
+  requiresAccreditedInvestor: boolean("requires_accredited_investor").default(false),
+  requiresEnhancedKyc: boolean("requires_enhanced_kyc").default(false),
+  minNetWorth: decimal("min_net_worth", { precision: 15, scale: 2 }),
+  
+  // Regulatory Reference
+  sebiCircularRef: varchar("sebi_circular_ref"),
+  regulatoryNote: text("regulatory_note"),
+  
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_sebi_product_suitability_product_type").on(table.productType),
+]);
+
+// AI Risk Recommendations (Dynamic Engine)
+export const sebiAiRiskRecommendations = pgTable("sebi_ai_risk_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  currentAssessmentId: varchar("current_assessment_id").references(() => sebiClientRiskAssessments.id),
+  
+  // Trigger
+  triggerType: varchar("trigger_type").notNull(), // large_inflow, large_outflow, liability_added, income_change, age_band_crossing, panic_selling, over_trading
+  triggerDetails: jsonb("trigger_details"),
+  
+  // AI Analysis
+  currentProfileCode: varchar("current_profile_code").notNull(),
+  suggestedProfileCode: varchar("suggested_profile_code").notNull(),
+  recommendationType: varchar("recommendation_type").notNull(), // upgrade, downgrade, maintain
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }).notNull(), // 0.00 to 1.00
+  
+  // Explanation (mandatory for audit)
+  aiExplanation: text("ai_explanation").notNull(),
+  supportingData: jsonb("supporting_data").$type<{
+    portfolioVolatility?: number;
+    drawdownHistory?: number[];
+    transactionBehavior?: string;
+    concentrationRisk?: number;
+  }>(),
+  
+  // AI Metadata
+  aiModelUsed: varchar("ai_model_used"),
+  aiEngineVersion: varchar("ai_engine_version"),
+  
+  // Status & Resolution
+  status: varchar("status").default("pending"), // pending, accepted, rejected, expired
+  resolutionType: varchar("resolution_type"), // client_reconfirmed, agent_approved, auto_rejected
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  // New Assessment (if accepted)
+  newAssessmentId: varchar("new_assessment_id").references(() => sebiClientRiskAssessments.id),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"), // Recommendations expire if not acted upon
+}, (table) => [
+  index("idx_sebi_ai_risk_recommendations_user").on(table.userId),
+  index("idx_sebi_ai_risk_recommendations_status").on(table.status),
+  index("idx_sebi_ai_risk_recommendations_created").on(table.createdAt),
+]);
+
+// Risk Profiling Audit Logs (8-year retention)
+export const sebiRiskAuditLogs = pgTable("sebi_risk_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Reference
+  userId: varchar("user_id").references(() => users.id),
+  assessmentId: varchar("assessment_id").references(() => sebiClientRiskAssessments.id),
+  recommendationId: varchar("recommendation_id").references(() => sebiAiRiskRecommendations.id),
+  
+  // Action
+  action: varchar("action").notNull(), // assessment_started, assessment_completed, profile_assigned, override_applied, ai_recommendation_created, ai_recommendation_resolved, consent_recorded, product_blocked, mismatch_consent
+  actionCategory: varchar("action_category").notNull(), // assessment, override, ai, consent, product_gate
+  
+  // Actor
+  actorId: varchar("actor_id").references(() => users.id),
+  actorRole: varchar("actor_role"), // client, agent, admin, system
+  
+  // Details
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  reason: text("reason"),
+  
+  // Context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id"),
+  
+  // Compliance
+  questionnaireVersion: varchar("questionnaire_version"),
+  isRegulatorAuditable: boolean("is_regulator_auditable").default(true),
+  complianceNote: text("compliance_note"),
+  
+  // Retention (8 years per SEBI)
+  retentionExpiresAt: timestamp("retention_expires_at"),
+  
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_sebi_risk_audit_user").on(table.userId),
+  index("idx_sebi_risk_audit_assessment").on(table.assessmentId),
+  index("idx_sebi_risk_audit_action").on(table.action),
+  index("idx_sebi_risk_audit_category").on(table.actionCategory),
+  index("idx_sebi_risk_audit_timestamp").on(table.timestamp),
+]);
+
+// Goal-specific Risk Profile Overrides
+export const sebiGoalRiskProfiles = pgTable("sebi_goal_risk_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  goalId: varchar("goal_id").notNull(), // Reference to financial goals
+  goalName: varchar("goal_name").notNull(),
+  
+  // Override Profile
+  profileCode: varchar("profile_code").notNull(), // Can differ from primary profile
+  profileId: varchar("profile_id").references(() => sebiRiskProfilesMaster.id).notNull(),
+  
+  // Justification
+  overrideReason: text("override_reason"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  // Validity
+  isActive: boolean("is_active").default(true),
+  expiresAt: timestamp("expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_sebi_goal_risk_profiles_user").on(table.userId),
+  index("idx_sebi_goal_risk_profiles_goal").on(table.goalId),
+]);
+
+// Insert Schemas and Types
+export const insertSebiRiskProfilesMasterSchema = createInsertSchema(sebiRiskProfilesMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SebiRiskProfileMaster = typeof sebiRiskProfilesMaster.$inferSelect;
+export type InsertSebiRiskProfileMaster = z.infer<typeof insertSebiRiskProfilesMasterSchema>;
+
+export const insertSebiQuestionnaireVersionSchema = createInsertSchema(sebiQuestionnaireVersions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SebiQuestionnaireVersion = typeof sebiQuestionnaireVersions.$inferSelect;
+export type InsertSebiQuestionnaireVersion = z.infer<typeof insertSebiQuestionnaireVersionSchema>;
+
+export const insertSebiQuestionnaireCategorySchema = createInsertSchema(sebiQuestionnaireCategories).omit({
+  id: true,
+  createdAt: true,
+});
+export type SebiQuestionnaireCategory = typeof sebiQuestionnaireCategories.$inferSelect;
+export type InsertSebiQuestionnaireCategory = z.infer<typeof insertSebiQuestionnaireCategorySchema>;
+
+export const insertSebiQuestionnaireQuestionSchema = createInsertSchema(sebiQuestionnaireQuestions).omit({
+  id: true,
+  createdAt: true,
+});
+export type SebiQuestionnaireQuestion = typeof sebiQuestionnaireQuestions.$inferSelect;
+export type InsertSebiQuestionnaireQuestion = z.infer<typeof insertSebiQuestionnaireQuestionSchema>;
+
+export const insertSebiQuestionnaireOptionSchema = createInsertSchema(sebiQuestionnaireOptions).omit({
+  id: true,
+  createdAt: true,
+});
+export type SebiQuestionnaireOption = typeof sebiQuestionnaireOptions.$inferSelect;
+export type InsertSebiQuestionnaireOption = z.infer<typeof insertSebiQuestionnaireOptionSchema>;
+
+export const insertSebiClientRiskAssessmentSchema = createInsertSchema(sebiClientRiskAssessments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SebiClientRiskAssessment = typeof sebiClientRiskAssessments.$inferSelect;
+export type InsertSebiClientRiskAssessment = z.infer<typeof insertSebiClientRiskAssessmentSchema>;
+
+export const insertSebiProductSuitabilityMatrixSchema = createInsertSchema(sebiProductSuitabilityMatrix).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SebiProductSuitabilityMatrix = typeof sebiProductSuitabilityMatrix.$inferSelect;
+export type InsertSebiProductSuitabilityMatrix = z.infer<typeof insertSebiProductSuitabilityMatrixSchema>;
+
+export const insertSebiAiRiskRecommendationSchema = createInsertSchema(sebiAiRiskRecommendations).omit({
+  id: true,
+  createdAt: true,
+});
+export type SebiAiRiskRecommendation = typeof sebiAiRiskRecommendations.$inferSelect;
+export type InsertSebiAiRiskRecommendation = z.infer<typeof insertSebiAiRiskRecommendationSchema>;
+
+export const insertSebiRiskAuditLogSchema = createInsertSchema(sebiRiskAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+export type SebiRiskAuditLog = typeof sebiRiskAuditLogs.$inferSelect;
+export type InsertSebiRiskAuditLog = z.infer<typeof insertSebiRiskAuditLogSchema>;
+
+export const insertSebiGoalRiskProfileSchema = createInsertSchema(sebiGoalRiskProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SebiGoalRiskProfile = typeof sebiGoalRiskProfiles.$inferSelect;
+export type InsertSebiGoalRiskProfile = z.infer<typeof insertSebiGoalRiskProfileSchema>;
+
+// SEBI Risk Profile Enums for type safety
+export const SebiRiskProfileCodeEnum = z.enum(['RP1', 'RP2', 'RP3', 'RP4', 'RP5']);
+export const SebiRiskBandEnum = z.enum(['very_low', 'low_moderate', 'moderate', 'moderate_high', 'high']);
+export const SebiAssessmentTypeEnum = z.enum(['initial', 'periodic', 'event_triggered', 'ai_suggested']);
+export const SebiOverrideTypeEnum = z.enum(['age_horizon', 'no_emergency_fund', 'high_liabilities', 'manual_downgrade']);
+export const SebiAiTriggerTypeEnum = z.enum(['large_inflow', 'large_outflow', 'liability_added', 'income_change', 'age_band_crossing', 'panic_selling', 'over_trading']);
+
