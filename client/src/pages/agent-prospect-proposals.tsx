@@ -1240,8 +1240,11 @@ export default function AgentProspectProposalsPage() {
                                   <Popover 
                                     open={searchOpen && activeHoldingId === holding.id} 
                                     onOpenChange={(open) => {
-                                      setSearchOpen(open);
-                                      if (open) setActiveHoldingId(holding.id);
+                                      if (!open) {
+                                        setSearchOpen(false);
+                                        setProductSearchQuery("");
+                                        setProductSearchResults([]);
+                                      }
                                     }}
                                   >
                                     <PopoverTrigger asChild>
@@ -1252,20 +1255,34 @@ export default function AgentProspectProposalsPage() {
                                               ? "Enter product name manually"
                                               : "Search product name..."
                                           }
-                                          value={activeHoldingId === holding.id && searchOpen ? productSearchQuery : holding.productName}
+                                          value={
+                                            activeHoldingId === holding.id && searchOpen 
+                                              ? productSearchQuery 
+                                              : holding.productName
+                                          }
                                           onChange={(e) => {
+                                            const value = e.target.value;
                                             if (!["fd", "insurance", "gold", "real_estate", "other"].includes(holding.productType)) {
-                                              setActiveHoldingId(holding.id);
-                                              setSearchOpen(true);
-                                              handleProductSearch(e.target.value, holding.productType);
+                                              // For searchable product types
+                                              if (activeHoldingId !== holding.id) {
+                                                setActiveHoldingId(holding.id);
+                                              }
+                                              if (!searchOpen) {
+                                                setSearchOpen(true);
+                                              }
+                                              // handleProductSearch sets productSearchQuery and triggers debounced search
+                                              handleProductSearch(value, holding.productType);
                                             } else {
-                                              updateHolding(holding.id, { productName: e.target.value, isManual: true });
+                                              // For manual entry product types
+                                              updateHolding(holding.id, { productName: value, isManual: true });
                                             }
                                           }}
                                           onFocus={() => {
                                             if (!["fd", "insurance", "gold", "real_estate", "other"].includes(holding.productType)) {
                                               setActiveHoldingId(holding.id);
                                               setSearchOpen(true);
+                                              // Initialize search query with existing product name if any
+                                              setProductSearchQuery(holding.productName || "");
                                             }
                                           }}
                                           className="h-9 text-xs pr-8"
@@ -1274,7 +1291,7 @@ export default function AgentProspectProposalsPage() {
                                         {isSearching && activeHoldingId === holding.id && (
                                           <Loader2 className="w-4 h-4 absolute right-2 top-2.5 animate-spin text-gray-400" />
                                         )}
-                                        {holding.productName && !isSearching && (
+                                        {holding.productName && !isSearching && !(activeHoldingId === holding.id && searchOpen) && (
                                           <Check className="w-4 h-4 absolute right-2 top-2.5 text-green-500" />
                                         )}
                                       </div>
