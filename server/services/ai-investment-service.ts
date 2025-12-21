@@ -992,6 +992,26 @@ Provide a JSON response with:
 
     return { proposalId: proposal.id, itemCount: picks.length };
   }
+
+  // Check benchmark alerts for a client - returns active alerts or generates new ones
+  async checkBenchmarkAlerts(clientId: string): Promise<PortfolioAlert[]> {
+    // First, try to get existing active alerts
+    const existingAlerts = await this.getClientAlerts(clientId, 'active');
+    
+    if (existingAlerts.length > 0) {
+      return existingAlerts;
+    }
+    
+    // If no active alerts, generate new ones
+    try {
+      const generatedAlerts = await this.generateAlerts(clientId);
+      return generatedAlerts;
+    } catch (error) {
+      // If alert generation fails (e.g., no portfolio), return empty array
+      console.log('No alerts generated for client:', clientId);
+      return [];
+    }
+  }
 }
 
 export const aiInvestmentService = new AIInvestmentService();
