@@ -16771,6 +16771,9 @@ export const prospectProposals = pgTable("prospect_proposals", {
   // Proposal type
   proposalType: varchar("proposal_type").notNull(), // 'sample_portfolio' | 'fresh_investment'
   
+  // Client type for AI-tailored recommendations
+  clientType: varchar("client_type").default("individual"), // individual, hni, ultra_hni, corporate, nri, trust, institutional
+  
   // For sample portfolio type - input portfolio data
   samplePortfolio: jsonb("sample_portfolio").$type<{
     totalValue: number;

@@ -147,6 +147,16 @@ const GOAL_TYPE_OPTIONS = [
   { value: "custom", label: "Custom Goal" },
 ];
 
+const CLIENT_TYPE_OPTIONS = [
+  { value: "individual", label: "Individual", description: "Retail investor with standard investment needs" },
+  { value: "hni", label: "High Net Worth (HNI)", description: "₹50L+ investible surplus, eligible for PMS/AIF" },
+  { value: "ultra_hni", label: "Ultra HNI", description: "₹5Cr+ investible, access to exclusive products" },
+  { value: "corporate", label: "Corporate/Business", description: "Company treasury or business investment" },
+  { value: "nri", label: "NRI", description: "Non-Resident Indian with forex considerations" },
+  { value: "trust", label: "Trust/Family Office", description: "Trust or family office with special requirements" },
+  { value: "institutional", label: "Institutional", description: "Banks, NBFCs, or institutional investors" },
+];
+
 export default function AgentProspectProposalsPage() {
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -177,6 +187,9 @@ export default function AgentProspectProposalsPage() {
   const [activeHoldingId, setActiveHoldingId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Client type for AI-tailored recommendations
+  const [clientType, setClientType] = useState("individual");
   
   // Fresh investment fields
   const [goalType, setGoalType] = useState("wealth_creation");
@@ -309,6 +322,7 @@ export default function AgentProspectProposalsPage() {
     setPortfolioValue("");
     setHoldingsText("");
     setQuickHoldings([]);
+    setClientType("individual");
     setGoalType("wealth_creation");
     setTargetAmount("");
     setTimeHorizon("medium_term");
@@ -435,7 +449,7 @@ export default function AgentProspectProposalsPage() {
   const handleGenerate = () => {
     setIsGenerating(true);
     
-    let data: any = { proposalType };
+    let data: any = { proposalType, clientType };
     
     if (proposalType === "sample_portfolio") {
       let holdings: any[] = [];
@@ -520,6 +534,7 @@ export default function AgentProspectProposalsPage() {
       prospectMobile,
       proposalType,
       proposalTitle,
+      clientType,
       executiveSummary: generatedProposal.executiveSummary,
       currentAnalysis: generatedProposal.currentAnalysis,
       recommendations: generatedProposal.recommendations,
@@ -848,6 +863,26 @@ export default function AgentProspectProposalsPage() {
                   placeholder="e.g., Personalized Wealth Creation Strategy"
                   data-testid="input-proposal-title"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Client Type</Label>
+                <p className="text-xs text-muted-foreground">AI recommendations will be tailored based on client category</p>
+                <Select value={clientType} onValueChange={setClientType}>
+                  <SelectTrigger data-testid="select-client-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLIENT_TYPE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex flex-col">
+                          <span>{opt.label}</span>
+                          <span className="text-xs text-muted-foreground">{opt.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <Separator />
