@@ -132,11 +132,11 @@ export default function ListedStocksSeed() {
     mutationFn: async () => {
       return await apiRequest('/api/admin/exchange-sync/nse', {
         method: 'POST',
-        body: JSON.stringify({ topOnly: true }),
+        body: JSON.stringify({ topOnly: false }),
       });
     },
     onSuccess: () => {
-      toast({ title: "NSE Sync Started", description: "Fetching stocks from NSE..." });
+      toast({ title: "NSE Sync Started", description: "Fetching all NSE stocks. This may take several minutes..." });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to start NSE sync", variant: "destructive" });
@@ -147,11 +147,11 @@ export default function ListedStocksSeed() {
     mutationFn: async () => {
       return await apiRequest('/api/admin/exchange-sync/bse', {
         method: 'POST',
-        body: JSON.stringify({ topOnly: true }),
+        body: JSON.stringify({ topOnly: false }),
       });
     },
     onSuccess: () => {
-      toast({ title: "BSE Sync Started", description: "Fetching stocks from BSE..." });
+      toast({ title: "BSE Sync Started", description: "Fetching all BSE stocks. This may take several minutes..." });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to start BSE sync", variant: "destructive" });

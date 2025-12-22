@@ -10,12 +10,12 @@ class StockSyncScheduler {
       return;
     }
 
-    // Schedule NSE sync daily at 6:00 AM IST (00:30 UTC)
+    // Schedule NSE sync daily at 6:00 AM IST (00:30 UTC) - full sync
     cron.schedule('30 0 * * *', async () => {
-      console.log('[Stock Sync Scheduler] Starting scheduled NSE sync...');
+      console.log('[Stock Sync Scheduler] Starting scheduled NSE full sync...');
       try {
-        await exchangeStockService.syncNSEStocks({ topOnly: true });
-        console.log('[Stock Sync Scheduler] NSE sync completed');
+        await exchangeStockService.syncNSEStocks({ topOnly: false });
+        console.log('[Stock Sync Scheduler] NSE full sync completed');
       } catch (error) {
         console.error('[Stock Sync Scheduler] NSE sync failed:', error);
       }
@@ -23,12 +23,12 @@ class StockSyncScheduler {
       timezone: 'Asia/Kolkata'
     });
 
-    // Schedule BSE sync daily at 6:30 AM IST (01:00 UTC)
+    // Schedule BSE sync daily at 6:30 AM IST (01:00 UTC) - full sync
     cron.schedule('0 1 * * *', async () => {
-      console.log('[Stock Sync Scheduler] Starting scheduled BSE sync...');
+      console.log('[Stock Sync Scheduler] Starting scheduled BSE full sync...');
       try {
-        await exchangeStockService.syncBSEStocks({ topOnly: true });
-        console.log('[Stock Sync Scheduler] BSE sync completed');
+        await exchangeStockService.syncBSEStocks({ topOnly: false });
+        console.log('[Stock Sync Scheduler] BSE full sync completed');
       } catch (error) {
         console.error('[Stock Sync Scheduler] BSE sync failed:', error);
       }
@@ -41,14 +41,14 @@ class StockSyncScheduler {
   }
 
   async runManualSync(exchange: 'NSE' | 'BSE' | 'BOTH' = 'BOTH') {
-    console.log(`[Stock Sync Scheduler] Manual sync triggered for ${exchange}`);
+    console.log(`[Stock Sync Scheduler] Manual full sync triggered for ${exchange}`);
     
     if (exchange === 'NSE' || exchange === 'BOTH') {
-      await exchangeStockService.syncNSEStocks({ topOnly: true });
+      await exchangeStockService.syncNSEStocks({ topOnly: false });
     }
     
     if (exchange === 'BSE' || exchange === 'BOTH') {
-      await exchangeStockService.syncBSEStocks({ topOnly: true });
+      await exchangeStockService.syncBSEStocks({ topOnly: false });
     }
   }
 }
