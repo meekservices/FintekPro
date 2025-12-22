@@ -654,7 +654,7 @@ class AIInvestmentService {
           timeHorizon,
           riskLevel: stockRiskLevel,
           sector: stock.sector || stock.industry || 'Diversified',
-          aiReason: `${stock.companyName} (${stock.symbol}) - ${stock.marketCap || 'Mid Cap'} stock in ${stock.sector || stock.industry || 'diversified'} sector. ${returns1Y > 0 ? `1Y returns: ${returns1Y.toFixed(1)}%.` : ''} Exchange: ${stock.exchange || 'NSE/BSE'}.`,
+          aiReason: `${stock.companyName} (${stock.symbol}) - ${stock.marketCap || 'Mid Cap'} stock in ${stock.sector || stock.industry || 'diversified'} sector. ${returns1Y > 0 ? `1Y returns: ${returns1Y.toFixed(1)}%.` : ''} Exchange: ${stock.nseCode ? 'NSE' : stock.bseCode ? 'BSE' : 'NSE/BSE'}.`,
           keyFactors: [
             stock.marketCap ? `Market Cap: ${stock.marketCap}` : 'Established company',
             stock.sector ? `Sector: ${stock.sector}` : 'Diversified business',
