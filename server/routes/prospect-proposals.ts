@@ -4,9 +4,380 @@ import {
   prospectProposals, 
   prospectProposalEvents, 
   onboardingInvitations,
-  users 
+  users,
+  mutualFunds,
+  corporateBonds,
+  aifMaster,
+  pmsMaster,
+  mldMaster
 } from "@shared/schema";
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
+
+// Helper functions to fetch store-eligible products
+async function getStoreEligibleMutualFunds(options: {
+  category?: string;
+  riskLevel?: string;
+  limit?: number;
+} = {}) {
+  const { category, riskLevel, limit = 20 } = options;
+  
+  const conditions = [
+    eq(mutualFunds.isPublished, true),
+    eq(mutualFunds.planType, 'regular') // Only regular schemes - direct not enabled in store
+  ];
+  
+  if (category) {
+    conditions.push(ilike(mutualFunds.category, `%${category}%`));
+  }
+  
+  if (riskLevel) {
+    conditions.push(ilike(mutualFunds.riskLevel, `%${riskLevel}%`));
+  }
+  
+  return db
+    .select({
+      id: mutualFunds.id,
+      schemeName: mutualFunds.schemeName,
+      schemeCode: mutualFunds.schemeCode,
+      category: mutualFunds.category,
+      fundHouse: mutualFunds.fundHouse,
+      nav: mutualFunds.nav,
+      returns1y: mutualFunds.returns1y,
+      returns3y: mutualFunds.returns3y,
+      returns5y: mutualFunds.returns5y,
+      riskLevel: mutualFunds.riskLevel,
+      planType: mutualFunds.planType,
+      minInvestmentAmount: mutualFunds.minInvestmentAmount,
+      minSipAmount: mutualFunds.minSipAmount,
+    })
+    .from(mutualFunds)
+    .where(and(...conditions))
+    .limit(limit);
+}
+
+async function getStoreEligibleBonds(options: { limit?: number; category?: string } = {}) {
+  const { limit = 10, category } = options;
+  
+  const conditions = [eq(corporateBonds.isPublished, true)];
+  
+  if (category) {
+    conditions.push(ilike(corporateBonds.issuerType, `%${category}%`));
+  }
+  
+  return db
+    .select({
+      id: corporateBonds.id,
+      issuerName: corporateBonds.issuerName,
+      isin: corporateBonds.isin,
+      couponRate: corporateBonds.couponRate,
+      maturityDate: corporateBonds.maturityDate,
+      faceValue: corporateBonds.faceValue,
+      creditRating: corporateBonds.creditRating,
+      minInvestment: corporateBonds.minInvestment,
+      issuerType: corporateBonds.issuerType,
+    })
+    .from(corporateBonds)
+    .where(and(...conditions))
+    .limit(limit);
+}
+
+async function getStoreEligibleAIFs(options: { limit?: number } = {}) {
+  const { limit = 5 } = options;
+  
+  return db
+    .select({
+      id: aifMaster.id,
+      fundName: aifMaster.fundName,
+      fundCode: aifMaster.fundCode,
+      fundManager: aifMaster.fundManager,
+      category: aifMaster.category,
+      minInvestment: aifMaster.minInvestment,
+      targetReturn: aifMaster.targetReturn,
+      riskLevel: aifMaster.riskLevel,
+    })
+    .from(aifMaster)
+    .where(eq(aifMaster.isPublished, true))
+    .limit(limit);
+}
+
+async function getStoreEligiblePMS(options: { limit?: number } = {}) {
+  const { limit = 5 } = options;
+  
+  return db
+    .select({
+      id: pmsMaster.id,
+      schemeName: pmsMaster.schemeName,
+      schemeCode: pmsMaster.schemeCode,
+      portfolioManager: pmsMaster.portfolioManager,
+      investmentStrategy: pmsMaster.investmentStrategy,
+      minInvestment: pmsMaster.minInvestment,
+      targetReturn: pmsMaster.targetReturn,
+      riskLevel: pmsMaster.riskLevel,
+    })
+    .from(pmsMaster)
+    .where(eq(pmsMaster.isPublished, true))
+    .limit(limit);
+}
+
+async function getStoreEligibleMLDs(options: { limit?: number } = {}) {
+  const { limit = 5 } = options;
+  
+  return db
+    .select({
+      id: mldMaster.id,
+      productName: mldMaster.productName,
+      productCode: mldMaster.productCode,
+      issuer: mldMaster.issuer,
+      structureType: mldMaster.structureType,
+      minInvestment: mldMaster.minInvestment,
+      expectedReturn: mldMaster.expectedReturn,
+      riskLevel: mldMaster.riskLevel,
+    })
+    .from(mldMaster)
+    .where(eq(mldMaster.isPublished, true))
+    .limit(limit);
+}
+
+// Build dynamic recommendations from actual store products
+async function buildDynamicRecommendations(options: {
+  totalAmount: number;
+  clientType: string;
+  riskTolerance?: string;
+  includeEquity?: boolean;
+  includeDebt?: boolean;
+  includePremium?: boolean;
+  allocations: Record<string, number>; // e.g., { 'Large Cap': 25, 'Mid Cap': 20, 'Debt': 25 }
+}): Promise<any[]> {
+  const { totalAmount, clientType, riskTolerance = 'moderate', includePremium = false, allocations } = options;
+  const recommendations: any[] = [];
+  
+  // Fetch actual store products
+  const [largeCaps, midCaps, flexiCaps, debtFunds, liquidFunds, bonds, aiFs, pmsProducts, mlds] = await Promise.all([
+    getStoreEligibleMutualFunds({ category: 'Large Cap', limit: 5 }),
+    getStoreEligibleMutualFunds({ category: 'Mid Cap', limit: 5 }),
+    getStoreEligibleMutualFunds({ category: 'Flexi', limit: 5 }),
+    getStoreEligibleMutualFunds({ category: 'Debt', limit: 5 }),
+    getStoreEligibleMutualFunds({ category: 'Liquid', limit: 5 }),
+    getStoreEligibleBonds({ limit: 5 }),
+    includePremium ? getStoreEligibleAIFs({ limit: 3 }) : Promise.resolve([]),
+    includePremium ? getStoreEligiblePMS({ limit: 3 }) : Promise.resolve([]),
+    includePremium ? getStoreEligibleMLDs({ limit: 3 }) : Promise.resolve([])
+  ]);
+  
+  // Build mutual fund recommendations from actual store products
+  let usedAllocation = 0;
+  
+  // Large Cap allocation
+  if (allocations['Large Cap'] && largeCaps.length > 0) {
+    const fund = largeCaps[0];
+    recommendations.push({
+      productType: 'mutual_fund',
+      productName: fund.schemeName,
+      productCode: fund.schemeCode,
+      amc: fund.fundHouse,
+      category: fund.category,
+      recommendedAmount: Math.round(totalAmount * allocations['Large Cap'] / 100),
+      allocationPercentage: allocations['Large Cap'],
+      investmentType: 'lumpsum',
+      returns1Y: parseFloat(fund.returns1y || '0'),
+      returns3Y: parseFloat(fund.returns3y || '0'),
+      returns5Y: parseFloat(fund.returns5y || '0'),
+      riskRating: fund.riskLevel || 'Moderately High',
+      planType: fund.planType, // Will be 'regular' since we filter for it
+      selectionReason: `Store-eligible ${fund.category} fund with consistent performance. Regular plan for commission-eligible investment.`
+    });
+    usedAllocation += allocations['Large Cap'];
+  }
+  
+  // Mid Cap allocation
+  if (allocations['Mid Cap'] && midCaps.length > 0) {
+    const fund = midCaps[0];
+    recommendations.push({
+      productType: 'mutual_fund',
+      productName: fund.schemeName,
+      productCode: fund.schemeCode,
+      amc: fund.fundHouse,
+      category: fund.category,
+      recommendedAmount: Math.round(totalAmount * allocations['Mid Cap'] / 100),
+      allocationPercentage: allocations['Mid Cap'],
+      investmentType: 'sip',
+      sipAmount: Math.round(totalAmount * allocations['Mid Cap'] / 100 / 12),
+      returns1Y: parseFloat(fund.returns1y || '0'),
+      returns3Y: parseFloat(fund.returns3y || '0'),
+      returns5Y: parseFloat(fund.returns5y || '0'),
+      riskRating: fund.riskLevel || 'High',
+      planType: fund.planType,
+      selectionReason: `Store-eligible ${fund.category} fund for growth. SIP recommended for volatility averaging.`
+    });
+    usedAllocation += allocations['Mid Cap'];
+  }
+  
+  // Flexi Cap allocation
+  if (allocations['Flexi Cap'] && flexiCaps.length > 0) {
+    const fund = flexiCaps[0];
+    recommendations.push({
+      productType: 'mutual_fund',
+      productName: fund.schemeName,
+      productCode: fund.schemeCode,
+      amc: fund.fundHouse,
+      category: fund.category,
+      recommendedAmount: Math.round(totalAmount * allocations['Flexi Cap'] / 100),
+      allocationPercentage: allocations['Flexi Cap'],
+      investmentType: 'sip',
+      sipAmount: Math.round(totalAmount * allocations['Flexi Cap'] / 100 / 12),
+      returns1Y: parseFloat(fund.returns1y || '0'),
+      returns3Y: parseFloat(fund.returns3y || '0'),
+      returns5Y: parseFloat(fund.returns5y || '0'),
+      riskRating: fund.riskLevel || 'Moderately High',
+      planType: fund.planType,
+      selectionReason: `Store-eligible ${fund.category} fund offering flexibility across market caps.`
+    });
+    usedAllocation += allocations['Flexi Cap'];
+  }
+  
+  // Debt/Corporate Bond allocation
+  if ((allocations['Debt'] || allocations['Corporate Bond']) && debtFunds.length > 0) {
+    const allocation = allocations['Debt'] || allocations['Corporate Bond'];
+    const fund = debtFunds[0];
+    recommendations.push({
+      productType: 'mutual_fund',
+      productName: fund.schemeName,
+      productCode: fund.schemeCode,
+      amc: fund.fundHouse,
+      category: fund.category,
+      recommendedAmount: Math.round(totalAmount * allocation / 100),
+      allocationPercentage: allocation,
+      investmentType: 'lumpsum',
+      returns1Y: parseFloat(fund.returns1y || '0'),
+      returns3Y: parseFloat(fund.returns3y || '0'),
+      returns5Y: parseFloat(fund.returns5y || '0'),
+      riskRating: fund.riskLevel || 'Moderate',
+      planType: fund.planType,
+      selectionReason: `Store-eligible debt fund for portfolio stability and regular income generation.`
+    });
+    usedAllocation += allocation;
+  }
+  
+  // Liquid Fund allocation
+  if (allocations['Liquid'] && liquidFunds.length > 0) {
+    const fund = liquidFunds[0];
+    recommendations.push({
+      productType: 'mutual_fund',
+      productName: fund.schemeName,
+      productCode: fund.schemeCode,
+      amc: fund.fundHouse,
+      category: fund.category,
+      recommendedAmount: Math.round(totalAmount * allocations['Liquid'] / 100),
+      allocationPercentage: allocations['Liquid'],
+      investmentType: 'lumpsum',
+      returns1Y: parseFloat(fund.returns1y || '0'),
+      riskRating: fund.riskLevel || 'Low',
+      planType: fund.planType,
+      selectionReason: `Store-eligible liquid fund for emergency liquidity and T+0 redemption facility.`
+    });
+    usedAllocation += allocations['Liquid'];
+  }
+  
+  // Bond allocation (for corporate/institutional clients)
+  if (allocations['Bonds'] && bonds.length > 0) {
+    const bond = bonds[0];
+    recommendations.push({
+      productType: 'bond',
+      productName: `${bond.issuerName} - ${bond.couponRate}%`,
+      productCode: bond.isin,
+      amc: bond.issuerName,
+      category: bond.issuerType || 'Corporate NCD',
+      recommendedAmount: Math.round(totalAmount * allocations['Bonds'] / 100),
+      allocationPercentage: allocations['Bonds'],
+      investmentType: 'lumpsum',
+      returns1Y: parseFloat(bond.couponRate || '0'),
+      riskRating: bond.creditRating || 'Moderate',
+      selectionReason: `${bond.creditRating}-rated bond for stable income and capital preservation.`
+    });
+    usedAllocation += allocations['Bonds'];
+  }
+  
+  // Premium products for HNI/Ultra HNI
+  if (includePremium) {
+    // PMS allocation
+    if (allocations['PMS'] && pmsProducts.length > 0) {
+      const pms = pmsProducts[0];
+      recommendations.push({
+        productType: 'pms',
+        productName: pms.schemeName,
+        productCode: pms.schemeCode,
+        amc: pms.portfolioManager,
+        category: pms.investmentStrategy || 'PMS',
+        recommendedAmount: Math.round(totalAmount * allocations['PMS'] / 100),
+        allocationPercentage: allocations['PMS'],
+        investmentType: 'lumpsum',
+        minInvestment: parseFloat(pms.minInvestment || '5000000'),
+        returns1Y: parseFloat(pms.targetReturn || '0'),
+        riskRating: pms.riskLevel || 'Moderately High',
+        selectionReason: `Premium PMS for alpha generation with professional portfolio management.`
+      });
+      usedAllocation += allocations['PMS'];
+    }
+    
+    // AIF allocation
+    if (allocations['AIF'] && aiFs.length > 0) {
+      const aif = aiFs[0];
+      recommendations.push({
+        productType: 'aif',
+        productName: aif.fundName,
+        productCode: aif.fundCode,
+        amc: aif.fundManager,
+        category: aif.category || 'AIF',
+        recommendedAmount: Math.round(totalAmount * allocations['AIF'] / 100),
+        allocationPercentage: allocations['AIF'],
+        investmentType: 'lumpsum',
+        minInvestment: parseFloat(aif.minInvestment || '10000000'),
+        returns1Y: parseFloat(aif.targetReturn || '0'),
+        riskRating: aif.riskLevel || 'High',
+        selectionReason: `Alternative investment fund for concentrated high-conviction exposure.`
+      });
+      usedAllocation += allocations['AIF'];
+    }
+    
+    // MLD allocation
+    if (allocations['Alternatives'] && mlds.length > 0) {
+      const mld = mlds[0];
+      recommendations.push({
+        productType: 'mld',
+        productName: mld.productName,
+        productCode: mld.productCode,
+        amc: mld.issuer,
+        category: mld.structureType || 'Market Linked Debenture',
+        recommendedAmount: Math.round(totalAmount * allocations['Alternatives'] / 100),
+        allocationPercentage: allocations['Alternatives'],
+        investmentType: 'lumpsum',
+        minInvestment: parseFloat(mld.minInvestment || '1000000'),
+        returns1Y: parseFloat(mld.expectedReturn || '0'),
+        riskRating: mld.riskLevel || 'Moderately High',
+        selectionReason: `Market-linked structured product for tax-efficient equity-linked returns.`
+      });
+      usedAllocation += allocations['Alternatives'];
+    }
+  }
+  
+  // If no store products found, provide informative fallback
+  if (recommendations.length === 0) {
+    recommendations.push({
+      productType: 'mutual_fund',
+      productName: 'Store products pending configuration',
+      productCode: 'PENDING',
+      amc: 'Configure Store',
+      category: 'Awaiting Setup',
+      recommendedAmount: totalAmount,
+      allocationPercentage: 100,
+      investmentType: 'lumpsum',
+      riskRating: 'N/A',
+      selectionReason: 'Please configure store-eligible mutual funds (Regular plan) to generate personalized recommendations.'
+    });
+  }
+  
+  return recommendations;
+}
 import { nanoid } from "nanoid";
 import multer from "multer";
 import { PDFParse } from "pdf-parse";
