@@ -1428,6 +1428,39 @@ async function generateExistingPortfolioAnalysis(
       const gainLoss = currentValue - investedAmount;
       const gainLossPercent = investedAmount > 0 ? ((currentValue - investedAmount) / investedAmount) * 100 : 0;
       
+      // Derive recommendation type based on performance metrics
+      let recommendationType: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' = 'HOLD';
+      
+      // Benchmark returns by product type
+      const benchmarkReturn = holding.type === 'bond' || holding.type === 'debt' ? 7 :
+                              holding.type === 'stock' ? 12 : 10;
+      
+      const outperforming = returns1Y > benchmarkReturn + 2;
+      const underperforming = returns1Y < benchmarkReturn - 5;
+      const significantLoss = gainLossPercent < -15;
+      const moderateLoss = gainLossPercent < -5 && gainLossPercent >= -15;
+      const strongGain = gainLossPercent > 25;
+      
+      if (underperforming && significantLoss) {
+        // Severely underperforming with big losses - SELL
+        recommendationType = 'SELL';
+      } else if (underperforming && moderateLoss) {
+        // Underperforming with moderate loss - consider switching
+        recommendationType = 'SWITCH';
+      } else if (outperforming && strongGain) {
+        // Strong performer with gains - accumulate more
+        recommendationType = 'BUY';
+      } else if (outperforming) {
+        // Outperforming - keep holding
+        recommendationType = 'HOLD';
+      } else if (returns1Y >= benchmarkReturn - 2) {
+        // Meeting benchmark - HOLD
+        recommendationType = 'HOLD';
+      } else {
+        // Slightly below benchmark - consider switching
+        recommendationType = 'SWITCH';
+      }
+      
       // Create a product-like object for generateAnalyticalRationale
       const product = {
         schemeName: holding.name,
@@ -1441,18 +1474,18 @@ async function generateExistingPortfolioAnalysis(
         exitLoad: holding.exitLoad,
       };
       
-      // Generate analytical data using existing function
+      // Generate analytical data using existing function with correct recommendation type
       const analyticalData = generateAnalyticalRationale(
         product,
         holding.type,
-        returns1Y,
-        returns3Y
+        recommendationType
       );
       
       return {
         ...holding,
         gainLoss,
         gainLossPercent,
+        recommendationType,
         ...analyticalData,
       };
     });
