@@ -169,6 +169,7 @@ import LeadProspecting from "@/pages/admin/lead-prospecting";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 import AgentPerformanceDashboard from "@/pages/admin/agent-performance";
+import DemoProposalsTracking from "@/pages/admin/demo-proposals";
 import AdminTaskOversight from "@/pages/admin/task-oversight";
 import UserManagement from "@/pages/admin/user-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
@@ -522,6 +523,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AgentPerformanceDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/demo-proposals">
+        {() => (
+          <AdminLayout>
+            <DemoProposalsTracking />
           </AdminLayout>
         )}
       </Route>

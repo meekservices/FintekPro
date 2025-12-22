@@ -96,6 +96,7 @@ import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import * as schema from "@shared/schema";
 import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import listedStocksAdminRoutes from "./routes/listed-stocks-admin";
+import demoProposalsRoutes from "./routes/demo-proposals";
 import exchangeStockSyncRoutes from './routes/exchange-stock-sync';
 import unifiedCartRoutes from "./routes/unified-cart";
 import aiProposalRoutes from "./routes/ai-proposal-routes";
@@ -336,6 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin", requireAdmin, adminMutualFundsRoutes);
   app.use("/api/unified-cart", unifiedCartRoutes);
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
+  app.use("/api/admin/demo-proposals", requireAdmin, demoProposalsRoutes);
   app.use("/api/admin/exchange-sync", requireAdmin, exchangeStockSyncRoutes);
   // AI Proposal Engine Routes
   app.use("/api/ai-proposals", aiProposalRoutes);

@@ -89,6 +89,12 @@ const adminNavItems = [
     description: "Monitor all agents' performance metrics"
   },
   {
+    title: "Demo Proposals",
+    href: "/admin/demo-proposals",
+    icon: Target,
+    description: "Track demo proposals & conversions"
+  },
+  {
     title: "AI Insights",
     href: "/admin/ai-insights",
     icon: Lightbulb,
