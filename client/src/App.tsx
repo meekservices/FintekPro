@@ -101,6 +101,7 @@ import AgentClientsPage from "@/pages/agent-clients";
 import AgentProspectProposalsPage from "@/pages/agent-prospect-proposals";
 import AgentInvestmentAdvisory from "@/pages/agent-investment-advisory";
 import AgentProposalsPage from "@/pages/agent-proposals";
+import AgentBondRecommendations from "@/pages/agent-bond-recommendations";
 import AgentTreasuryPage from "@/pages/agent-treasury";
 import AgentTaxCasesPage from "@/pages/agent-tax-cases";
 import AgentRevenueCockpit from "@/pages/agent-revenue-cockpit";
@@ -893,6 +894,13 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentInvestmentAdvisory />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/bond-recommendations">
+        {() => (
+          <AgentLayout>
+            <AgentBondRecommendations />
           </AgentLayout>
         )}
       </Route>
