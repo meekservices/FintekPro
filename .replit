@@ -45,3 +45,6 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
+
+[userenv.production]
+CASHFREE_ENVIRONMENT = "PRODUCTION"
