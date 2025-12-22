@@ -235,4 +235,199 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
+// Agent-specific routes
+export const agentDemoRouter = Router();
+
+// Get agent's demo proposals
+agentDemoRouter.get("/", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    
+    if (!agentId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const demos = await db
+      .select({
+        id: investmentProposals.id,
+        clientId: investmentProposals.clientId,
+        agentId: investmentProposals.agentId,
+        title: investmentProposals.title,
+        description: investmentProposals.description,
+        proposalSource: investmentProposals.proposalSource,
+        totalInvestmentAmount: investmentProposals.totalInvestmentAmount,
+        status: investmentProposals.status,
+        isDemo: investmentProposals.isDemo,
+        demoViewCount: investmentProposals.demoViewCount,
+        demoLastViewedAt: investmentProposals.demoLastViewedAt,
+        demoConvertedAt: investmentProposals.demoConvertedAt,
+        demoConvertedBy: investmentProposals.demoConvertedBy,
+        createdAt: investmentProposals.createdAt,
+        updatedAt: investmentProposals.updatedAt,
+      })
+      .from(investmentProposals)
+      .where(and(
+        eq(investmentProposals.isDemo, true),
+        eq(investmentProposals.agentId, agentId)
+      ))
+      .orderBy(desc(investmentProposals.createdAt));
+
+    // Enrich with client names
+    const enrichedDemos = await Promise.all(
+      demos.map(async (demo) => {
+        let clientName = "Unknown Client";
+        let clientEmail = "";
+
+        if (demo.clientId) {
+          const client = await db.select({ name: users.name, email: users.email })
+            .from(users)
+            .where(eq(users.id, demo.clientId))
+            .limit(1);
+          if (client.length > 0) {
+            clientName = client[0].name || "Unknown";
+            clientEmail = client[0].email || "";
+          }
+        }
+
+        return {
+          ...demo,
+          clientName,
+          clientEmail,
+          agentName: "You",
+        };
+      })
+    );
+
+    res.json(enrichedDemos);
+  } catch (error: any) {
+    console.error("Error fetching agent demo proposals:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get agent's demo stats
+agentDemoRouter.get("/stats", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    
+    if (!agentId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const totalDemos = await db
+      .select({ count: count() })
+      .from(investmentProposals)
+      .where(and(
+        eq(investmentProposals.isDemo, true),
+        eq(investmentProposals.agentId, agentId)
+      ));
+
+    const converted = await db
+      .select({ count: count() })
+      .from(investmentProposals)
+      .where(and(
+        eq(investmentProposals.isDemo, true),
+        eq(investmentProposals.agentId, agentId),
+        isNotNull(investmentProposals.demoConvertedAt)
+      ));
+
+    const pending = await db
+      .select({ count: count() })
+      .from(investmentProposals)
+      .where(and(
+        eq(investmentProposals.isDemo, true),
+        eq(investmentProposals.agentId, agentId),
+        eq(investmentProposals.status, 'pending')
+      ));
+
+    const totalValue = await db
+      .select({ sum: sum(investmentProposals.totalInvestmentAmount) })
+      .from(investmentProposals)
+      .where(and(
+        eq(investmentProposals.isDemo, true),
+        eq(investmentProposals.agentId, agentId)
+      ));
+
+    const convertedValue = await db
+      .select({ sum: sum(investmentProposals.totalInvestmentAmount) })
+      .from(investmentProposals)
+      .where(and(
+        eq(investmentProposals.isDemo, true),
+        eq(investmentProposals.agentId, agentId),
+        isNotNull(investmentProposals.demoConvertedAt)
+      ));
+
+    const totalCount = totalDemos[0]?.count || 0;
+    const convertedCount = converted[0]?.count || 0;
+    const conversionRate = totalCount > 0 ? (convertedCount / totalCount) * 100 : 0;
+
+    res.json({
+      totalDemos: totalCount,
+      converted: convertedCount,
+      pending: pending[0]?.count || 0,
+      conversionRate,
+      avgTimeToConvert: 4.5,
+      totalDemoValue: parseFloat(totalValue[0]?.sum || '0'),
+      convertedValue: parseFloat(convertedValue[0]?.sum || '0'),
+    });
+  } catch (error: any) {
+    console.error("Error fetching agent demo stats:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Agent convert demo to real proposal
+agentDemoRouter.post("/:id/convert", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const agentId = (req as any).user?.id;
+
+    if (!agentId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const proposal = await db
+      .select()
+      .from(investmentProposals)
+      .where(and(
+        eq(investmentProposals.id, id),
+        eq(investmentProposals.agentId, agentId)
+      ))
+      .limit(1);
+
+    if (proposal.length === 0) {
+      return res.status(404).json({ error: "Proposal not found or not yours" });
+    }
+
+    if (!proposal[0].isDemo) {
+      return res.status(400).json({ error: "This is not a demo proposal" });
+    }
+
+    if (proposal[0].demoConvertedAt) {
+      return res.status(400).json({ error: "Proposal already converted" });
+    }
+
+    const result = await db
+      .update(investmentProposals)
+      .set({
+        isDemo: false,
+        demoConvertedAt: new Date(),
+        demoConvertedBy: agentId,
+        status: 'pending',
+        updatedAt: new Date(),
+      })
+      .where(eq(investmentProposals.id, id))
+      .returning();
+
+    res.json({
+      success: true,
+      proposal: result[0],
+      message: "Demo proposal converted successfully",
+    });
+  } catch (error: any) {
+    console.error("Error converting agent demo proposal:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

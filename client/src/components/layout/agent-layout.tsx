@@ -17,7 +17,8 @@ import {
   Wallet,
   Target,
   CheckSquare,
-  Landmark
+  Landmark,
+  TrendingUp
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,12 @@ const agentNavItems = [
     href: "/bond-recommendations",
     icon: Landmark,
     description: "AI-powered bond portfolio recommendations"
+  },
+  {
+    title: "Demo Progress",
+    href: "/demo-progress",
+    icon: TrendingUp,
+    description: "Track demo conversions and performance"
   },
   {
     title: "Proposals",
