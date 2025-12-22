@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   CheckCircle,
   Clock,
@@ -15,7 +18,9 @@ import {
   Shield,
   Bell,
   ArrowRight,
-  ListTodo
+  ListTodo,
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 
 interface ClientTask {
@@ -60,122 +65,25 @@ const STATUS_CONFIG = {
 export default function ClientTasks() {
   const [activeTab, setActiveTab] = useState("all");
 
-  const sampleTasks: ClientTask[] = [
-    {
-      id: '1',
-      title: 'Complete KYC Renewal',
-      description: 'Your KYC documents are expiring on January 15, 2025. Please update your documents to continue trading.',
-      type: 'kyc_renewal',
-      priority: 'high',
-      status: 'pending',
-      dueDate: '2025-01-15',
-      actionLabel: 'Update KYC',
-      actionRoute: '/kyc-dashboard'
+  const { data: tasksResponse, isLoading, refetch } = useQuery<{ tasks: ClientTask[] }>({
+    queryKey: ['/api/tasks/user'],
+    queryFn: async () => {
+      try {
+        const data = await apiRequest('/api/tasks/user');
+        return data;
+      } catch {
+        return { tasks: [] };
+      }
     },
-    {
-      id: '2',
-      title: 'Upload PAN Card Copy',
-      description: 'Please upload a clear copy of your PAN card for account verification.',
-      type: 'document_submission',
-      priority: 'medium',
-      status: 'pending',
-      dueDate: '2024-12-28',
-      actionLabel: 'Upload Document',
-      actionRoute: '/profile'
-    },
-    {
-      id: '3',
-      title: 'SIP Payment Due',
-      description: 'Your monthly SIP payment of ₹25,000 is scheduled for debit.',
-      type: 'payment_due',
-      priority: 'high',
-      status: 'pending',
-      dueDate: '2024-12-25',
-      actionLabel: 'View Details',
-      actionRoute: '/mutual-funds'
-    },
-    {
-      id: '4',
-      title: 'Quarterly Portfolio Review',
-      description: 'Your Q4 portfolio review meeting is scheduled with your advisor.',
-      type: 'review_scheduled',
-      priority: 'medium',
-      status: 'pending',
-      dueDate: '2024-12-30',
-      actionLabel: 'Join Meeting',
-      actionRoute: '/portfolio'
-    },
-    {
-      id: '5',
-      title: 'Review Exit Alert - HDFC Bank',
-      description: 'Your stock has reached the target price. Review and take action on the exit recommendation.',
-      type: 'action_required',
-      priority: 'high',
-      status: 'pending',
-      dueDate: '2024-12-23',
-      actionLabel: 'Review Alert',
-      actionRoute: '/portfolio'
-    },
-    {
-      id: '6',
-      title: 'Portfolio Rebalancing Needed',
-      description: 'Your equity allocation has drifted from target. Consider rebalancing your portfolio.',
-      type: 'action_required',
-      priority: 'medium',
-      status: 'pending',
-      dueDate: '2024-12-27',
-      actionLabel: 'View Suggestions',
-      actionRoute: '/portfolio'
-    },
-    {
-      id: '7',
-      title: 'Nominee Details Update',
-      description: 'Nominee details submission was completed successfully.',
-      type: 'document_submission',
-      priority: 'low',
-      status: 'completed',
-      dueDate: '2024-12-10',
-      actionLabel: 'View Details',
-      actionRoute: '/profile'
-    },
-    {
-      id: '8',
-      title: 'Tax Statement Download',
-      description: 'Annual tax statement for FY 2023-24 was overdue. Please download now.',
-      type: 'document_submission',
-      priority: 'high',
-      status: 'overdue',
-      dueDate: '2024-12-15',
-      actionLabel: 'Download',
-      actionRoute: '/capital-gains'
-    },
-    {
-      id: '9',
-      title: 'Insurance Premium Due',
-      description: 'Your term insurance premium payment was pending.',
-      type: 'payment_due',
-      priority: 'high',
-      status: 'overdue',
-      dueDate: '2024-12-18',
-      actionLabel: 'Pay Now',
-      actionRoute: '/insurance'
-    },
-    {
-      id: '10',
-      title: 'Annual Review Completed',
-      description: 'Your annual portfolio review meeting with advisor was successfully completed.',
-      type: 'review_scheduled',
-      priority: 'medium',
-      status: 'completed',
-      dueDate: '2024-12-05'
-    }
-  ];
+  });
+
+  const tasks: ClientTask[] = tasksResponse?.tasks || [];
 
   const stats: TaskStats = {
-    pending: sampleTasks.filter(t => t.status === 'pending').length,
-    completedThisMonth: sampleTasks.filter(t => t.status === 'completed').length,
-    overdue: sampleTasks.filter(t => t.status === 'overdue').length,
-    dueThisWeek: sampleTasks.filter(t => {
+    pending: tasks.filter(t => t.status === 'pending').length,
+    completedThisMonth: tasks.filter(t => t.status === 'completed').length,
+    overdue: tasks.filter(t => t.status === 'overdue').length,
+    dueThisWeek: tasks.filter(t => {
       const today = new Date();
       const dueDate = new Date(t.dueDate);
       const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -183,7 +91,7 @@ export default function ClientTasks() {
     }).length
   };
 
-  const filteredTasks = sampleTasks.filter(task => {
+  const filteredTasks = tasks.filter(task => {
     if (activeTab === 'all') return true;
     return task.status === activeTab;
   });

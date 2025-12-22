@@ -40,26 +40,14 @@ interface YieldCurveData {
   };
 }
 
-const mockYieldCurveData: YieldCurveData = {
+const defaultYieldCurveData: YieldCurveData = {
   currentDate: new Date().toISOString().split('T')[0],
   historicalDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-  data: [
-    { maturity: "91D", maturityYears: 0.25, currentYield: 6.45, historicalYield: 6.35, change: 0.10, benchmark: "T-Bill 91D" },
-    { maturity: "182D", maturityYears: 0.5, currentYield: 6.72, historicalYield: 6.55, change: 0.17, benchmark: "T-Bill 182D" },
-    { maturity: "364D", maturityYears: 1, currentYield: 6.95, historicalYield: 6.78, change: 0.17, benchmark: "T-Bill 364D" },
-    { maturity: "2Y", maturityYears: 2, currentYield: 7.05, historicalYield: 6.92, change: 0.13, benchmark: "GS 2Y" },
-    { maturity: "3Y", maturityYears: 3, currentYield: 7.12, historicalYield: 7.02, change: 0.10, benchmark: "GS 3Y" },
-    { maturity: "5Y", maturityYears: 5, currentYield: 7.18, historicalYield: 7.08, change: 0.10, benchmark: "GS 5Y" },
-    { maturity: "7Y", maturityYears: 7, currentYield: 7.22, historicalYield: 7.15, change: 0.07, benchmark: "GS 7Y" },
-    { maturity: "10Y", maturityYears: 10, currentYield: 7.25, historicalYield: 7.18, change: 0.07, benchmark: "GS 10Y" },
-    { maturity: "15Y", maturityYears: 15, currentYield: 7.32, historicalYield: 7.25, change: 0.07, benchmark: "GS 15Y" },
-    { maturity: "20Y", maturityYears: 20, currentYield: 7.38, historicalYield: 7.30, change: 0.08, benchmark: "GS 20Y" },
-    { maturity: "30Y", maturityYears: 30, currentYield: 7.42, historicalYield: 7.35, change: 0.07, benchmark: "GS 30Y" },
-  ],
+  data: [],
   summary: {
-    shortTermAvg: 6.71,
-    longTermAvg: 7.28,
-    spread: 0.57,
+    shortTermAvg: 0,
+    longTermAvg: 0,
+    spread: 0,
     curveShape: 'normal'
   }
 };
@@ -80,7 +68,7 @@ export function YieldCurveChart() {
     staleTime: 60000,
   });
 
-  const chartData = yieldData || mockYieldCurveData;
+  const chartData = yieldData || defaultYieldCurveData;
 
   const curveShapeColor = useMemo(() => {
     switch (chartData.summary.curveShape) {

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface LoanApplicationStatus {
   applicationId: string;
@@ -65,86 +66,30 @@ export default function LoanDashboard() {
   const [applicationId, setApplicationId] = useState("");
   const [lenderId, setLenderId] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
-  // Mock data - in real app this would come from API
+  const { data: applicationsResponse, isLoading, refetch } = useQuery<{ applications: LoanApplicationStatus[] }>({
+    queryKey: ['/api/loans/applications'],
+    queryFn: async () => {
+      try {
+        const data = await apiRequest('/api/loans/applications');
+        return data;
+      } catch {
+        return { applications: [] };
+      }
+    },
+  });
+  
+  const applications = applicationsResponse?.applications || [];
+  
   const loanSummary: LoanSummary = {
-    totalApplications: 4,
-    approved: 2,
-    pending: 1,
-    disbursed: 1,
-    totalLoanAmount: 1200000,
-    monthlyEMI: 31500
+    totalApplications: applications.length,
+    approved: applications.filter(a => a.status === 'approved').length,
+    pending: applications.filter(a => a.status === 'under_review' || a.status === 'pending').length,
+    disbursed: applications.filter(a => a.status === 'disbursed').length,
+    totalLoanAmount: applications.reduce((sum, a) => sum + a.amount, 0),
+    monthlyEMI: applications.filter(a => a.status !== 'rejected').reduce((sum, a) => sum + a.emi, 0)
   };
-
-  const mockApplications: LoanApplicationStatus[] = [
-    {
-      applicationId: "ICICI-1757389456789",
-      lenderId: "icici",
-      lenderName: "ICICI Bank",
-      status: "approved",
-      stage: "Credit assessment completed",
-      amount: 500000,
-      emi: 10435,
-      interestRate: 10.5,
-      tenure: 60,
-      appliedDate: "2024-09-07",
-      lastUpdated: "2024-09-09",
-      nextSteps: ["Final approval pending", "Disbursement in 1-2 days"],
-      documentsRequired: [
-        { name: "Latest salary slips", status: "verified", required: true },
-        { name: "Bank statements", status: "pending", required: true }
-      ],
-      estimatedDisbursementDate: "2024-09-11"
-    },
-    {
-      applicationId: "HDFC-1757389567890",
-      lenderId: "hdfc",
-      lenderName: "HDFC Bank",
-      status: "under_review",
-      stage: "Document verification in progress",
-      amount: 300000,
-      emi: 6789,
-      interestRate: 11.25,
-      tenure: 48,
-      appliedDate: "2024-09-05",
-      lastUpdated: "2024-09-09",
-      nextSteps: ["Upload pending documents", "Wait for verification"],
-      documentsRequired: [
-        { name: "ITR documents", status: "pending", required: true },
-        { name: "Form 16", status: "not_submitted", required: true }
-      ],
-      estimatedDisbursementDate: "2024-09-14"
-    },
-    {
-      applicationId: "TATA-1757389678901",
-      lenderId: "tata_capital",
-      lenderName: "Tata Capital",
-      status: "approved",
-      stage: "Loan approved - Ready for disbursement",
-      amount: 200000,
-      emi: 4876,
-      interestRate: 12.0,
-      tenure: 36,
-      appliedDate: "2024-09-08",
-      lastUpdated: "2024-09-09",
-      nextSteps: ["E-sign loan agreement", "Provide bank account details"],
-      estimatedDisbursementDate: "2024-09-10"
-    },
-    {
-      applicationId: "BAJAJ-1757389789012",
-      lenderId: "bajaj_finance",
-      lenderName: "Bajaj Finance",
-      status: "disbursed",
-      stage: "Loan disbursed successfully",
-      amount: 150000,
-      emi: 3456,
-      interestRate: 13.5,
-      tenure: 48,
-      appliedDate: "2024-09-06",
-      lastUpdated: "2024-09-08",
-      nextSteps: ["First EMI due on 15th of next month"]
-    }
-  ];
 
   const checkStatusMutation = useMutation({
     mutationFn: async ({ applicationId, lenderId }: { applicationId: string; lenderId: string }) => {
@@ -304,7 +249,7 @@ export default function LoanDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {mockApplications.map((application) => (
+                  {applications.map((application) => (
                     <Card key={application.applicationId} className="border-l-4 border-l-blue-500">
                       <CardContent className="py-4">
                         <div className="flex items-center justify-between mb-4">

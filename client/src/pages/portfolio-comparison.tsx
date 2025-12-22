@@ -74,51 +74,21 @@ function PortfolioSearchInput({ onPortfolioSelect, selectedPortfolios }: {
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Mock portfolio data for demonstration
-  const { data: portfolios, isLoading } = useQuery({
+  const { data: portfoliosResponse, isLoading } = useQuery<{ portfolios: PortfolioData[] }>({
     queryKey: ['/api/portfolios'],
-    enabled: false // We'll use mock data for now
+    queryFn: async () => {
+      try {
+        const data = await apiRequest('/api/portfolios');
+        return data;
+      } catch {
+        return { portfolios: [] };
+      }
+    },
   });
 
-  const mockPortfolios: PortfolioData[] = [
-    {
-      id: "portfolio-1",
-      name: "Growth Portfolio",
-      description: "Aggressive growth focused portfolio",
-      totalValue: 500000,
-      holdings: []
-    },
-    {
-      id: "portfolio-2", 
-      name: "Balanced Portfolio",
-      description: "Balanced equity and debt portfolio",
-      totalValue: 750000,
-      holdings: []
-    },
-    {
-      id: "portfolio-3",
-      name: "Conservative Portfolio", 
-      description: "Low risk fixed income portfolio",
-      totalValue: 300000,
-      holdings: []
-    },
-    {
-      id: "portfolio-4",
-      name: "Tech Portfolio",
-      description: "Technology sector focused portfolio",
-      totalValue: 600000,
-      holdings: []
-    },
-    {
-      id: "portfolio-5",
-      name: "Dividend Portfolio",
-      description: "High dividend yield portfolio",
-      totalValue: 450000,
-      holdings: []
-    }
-  ];
+  const availablePortfolios = portfoliosResponse?.portfolios || [];
 
-  const filteredResults = mockPortfolios.filter(portfolio => 
+  const filteredResults = availablePortfolios.filter(portfolio => 
     portfolio.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
     !selectedPortfolios.some(selected => selected.id === portfolio.id)
   ).slice(0, 5);

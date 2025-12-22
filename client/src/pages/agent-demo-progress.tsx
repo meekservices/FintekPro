@@ -127,71 +127,7 @@ export default function AgentDemoProgress() {
     },
   });
 
-  // Sample data for demonstration
-  const sampleDemos: DemoProposal[] = [
-    {
-      id: "DEMO-001",
-      clientId: "c1",
-      clientName: "Rahul Sharma",
-      clientEmail: "rahul@example.com",
-      agentId: "current",
-      agentName: "You",
-      title: "Balanced Growth Portfolio",
-      description: "Diversified portfolio with equity and debt mix",
-      proposalSource: "agent",
-      totalInvestmentAmount: "500000",
-      status: "pending",
-      isDemo: true,
-      demoViewCount: 5,
-      demoLastViewedAt: new Date().toISOString(),
-      demoConvertedAt: null,
-      demoConvertedBy: null,
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: "DEMO-002",
-      clientId: "c2",
-      clientName: "Anita Patel",
-      clientEmail: "anita@example.com",
-      agentId: "current",
-      agentName: "You",
-      title: "High Growth Equity Portfolio",
-      description: "Aggressive equity-focused portfolio",
-      proposalSource: "ai",
-      totalInvestmentAmount: "1000000",
-      status: "converted",
-      isDemo: true,
-      demoViewCount: 8,
-      demoLastViewedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      demoConvertedAt: new Date().toISOString(),
-      demoConvertedBy: "Agent",
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: "DEMO-003",
-      clientId: "c3",
-      clientName: "Suresh Kumar",
-      clientEmail: "suresh@example.com",
-      agentId: "current",
-      agentName: "You",
-      title: "Tax Saving ELSS Portfolio",
-      description: "ELSS-focused portfolio for tax savings",
-      proposalSource: "agent",
-      totalInvestmentAmount: "150000",
-      status: "pending",
-      isDemo: true,
-      demoViewCount: 2,
-      demoLastViewedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      demoConvertedAt: null,
-      demoConvertedBy: null,
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
-
-  const demos = demoProposals.length > 0 ? demoProposals : sampleDemos;
+  const demos = demoProposals;
 
   // Calculate stats
   const calculatedStats: DemoStats = stats || {
