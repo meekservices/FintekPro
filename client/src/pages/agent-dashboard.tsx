@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import AINextActions from "@/components/agent/ai-next-actions";
 import { 
   Shield, 
   Bell, 
@@ -48,7 +49,8 @@ import {
   BarChart3,
   DollarSign,
   Video,
-  ExternalLink
+  ExternalLink,
+  Brain
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -619,6 +621,10 @@ export default function AgentDashboard() {
           <TabsTrigger value="meetings" className="flex items-center gap-2" data-testid="tab-meetings">
             <Video size={16} />
             Meetings
+          </TabsTrigger>
+          <TabsTrigger value="ai-actions" className="flex items-center gap-2" data-testid="tab-ai-actions">
+            <Brain size={16} />
+            AI Actions
           </TabsTrigger>
         </ScrollableTabsList>
 
@@ -2034,6 +2040,11 @@ export default function AgentDashboard() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* AI Next-Best-Actions Tab */}
+        <TabsContent value="ai-actions" className="space-y-4" data-testid="content-ai-actions">
+          <AINextActions />
         </TabsContent>
       </Tabs>
 
