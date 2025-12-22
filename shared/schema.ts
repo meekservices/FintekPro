@@ -3363,6 +3363,89 @@ export const mutualFunds = pgTable("mutual_funds", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+// Listed Stocks table for equity recommendations
+export const listedStocks = pgTable("listed_stocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Stock identification
+  symbol: varchar("symbol").notNull().unique(), // NSE symbol (e.g., 'RELIANCE', 'TCS')
+  isin: varchar("isin").unique(), // ISIN code
+  bseCode: varchar("bse_code"), // BSE scrip code
+  nseCode: varchar("nse_code"), // NSE series (EQ, BE, etc.)
+  companyName: text("company_name").notNull(),
+  
+  // Classification
+  sector: varchar("sector"), // IT, Banking, Pharma, FMCG, etc.
+  industry: varchar("industry"), // More specific classification
+  marketCap: varchar("market_cap"), // Large Cap, Mid Cap, Small Cap
+  indexMembership: jsonb("index_membership").default([]), // ['NIFTY50', 'SENSEX', 'NIFTY100', etc.]
+  
+  // Price data
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }),
+  previousClose: decimal("previous_close", { precision: 15, scale: 2 }),
+  dayChange: decimal("day_change", { precision: 10, scale: 2 }),
+  dayChangePercent: decimal("day_change_percent", { precision: 8, scale: 4 }),
+  weekHigh52: decimal("week_high_52", { precision: 15, scale: 2 }),
+  weekLow52: decimal("week_low_52", { precision: 15, scale: 2 }),
+  
+  // Fundamentals
+  marketCapValue: decimal("market_cap_value", { precision: 20, scale: 2 }), // Market cap in crores
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
+  dividendYield: decimal("dividend_yield", { precision: 8, scale: 4 }),
+  eps: decimal("eps", { precision: 15, scale: 2 }),
+  bookValue: decimal("book_value", { precision: 15, scale: 2 }),
+  roe: decimal("roe", { precision: 8, scale: 2 }), // Return on Equity %
+  roce: decimal("roce", { precision: 8, scale: 2 }), // Return on Capital Employed %
+  
+  // Performance
+  returns1M: decimal("returns_1m", { precision: 8, scale: 4 }),
+  returns3M: decimal("returns_3m", { precision: 8, scale: 4 }),
+  returns6M: decimal("returns_6m", { precision: 8, scale: 4 }),
+  returns1Y: decimal("returns_1y", { precision: 8, scale: 4 }),
+  returns3Y: decimal("returns_3y", { precision: 8, scale: 4 }),
+  returns5Y: decimal("returns_5y", { precision: 8, scale: 4 }),
+  
+  // Risk metrics
+  beta: decimal("beta", { precision: 6, scale: 4 }),
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  riskLevel: varchar("risk_level"), // Low, Moderate, High, Very High
+  
+  // Analyst ratings
+  analystRating: varchar("analyst_rating"), // Strong Buy, Buy, Hold, Sell, Strong Sell
+  targetPrice: decimal("target_price", { precision: 15, scale: 2 }),
+  numberOfAnalysts: integer("number_of_analysts"),
+  
+  // Trading info
+  averageVolume: decimal("average_volume", { precision: 15, scale: 0 }),
+  faceValue: decimal("face_value", { precision: 10, scale: 2 }).default("10"),
+  lotSize: integer("lot_size").default(1),
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }).default("0"),
+  
+  // Publishing controls
+  isPublished: boolean("is_published").default(false),
+  publishedAt: timestamp("published_at"),
+  publishedBy: varchar("published_by"),
+  
+  // Stock selection reason (for AI recommendations)
+  selectionNotes: text("selection_notes"), // Why this stock is recommended
+  investmentThesis: text("investment_thesis"), // Investment thesis/rationale
+  
+  // Metadata
+  dataSource: varchar("data_source").default("nse"), // 'nse', 'bse', 'manual'
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertListedStockSchema = createInsertSchema(listedStocks).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export type ListedStock = typeof listedStocks.$inferSelect;
+export type InsertListedStock = z.infer<typeof insertListedStockSchema>;
+
 // AMC (Asset Management Company) control table for bulk publishing
 export const mutualFundAmcs = pgTable("mutual_fund_amcs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
