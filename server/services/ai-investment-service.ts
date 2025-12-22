@@ -17,7 +17,8 @@ import {
   mldMaster,
   unlistedCompanies,
   corporateBonds,
-  ncdPublicIssues
+  ncdPublicIssues,
+  listedStocks
 } from "@shared/schema";
 import type { 
   AiProfitPick, 
@@ -548,6 +549,117 @@ class AIInvestmentService {
     }
   }
 
+  /**
+   * Get store-eligible Listed Stocks for AI recommendations
+   * Fetches from the synced NSE/BSE stock database
+   * Applies risk-based filtering based on market cap
+   */
+  async getStoreEligibleListedStocks(options: {
+    riskLevel?: string;
+    sectors?: string[];
+    limit?: number;
+  } = {}): Promise<StockAnalysis[]> {
+    try {
+      const { riskLevel, sectors, limit = 30 } = options;
+
+      const conditions = [eq(listedStocks.isPublished, true)];
+
+      const stocks = await db
+        .select()
+        .from(listedStocks)
+        .where(and(...conditions))
+        .limit(limit * 3);
+
+      if (!stocks.length) {
+        console.log('[AI Service] No published stocks found in database');
+        return [];
+      }
+
+      const riskToMarketCap: Record<string, string[]> = {
+        'conservative': ['Large Cap'],
+        'moderate': ['Large Cap', 'Mid Cap'],
+        'aggressive': ['Large Cap', 'Mid Cap', 'Small Cap'],
+        'very_aggressive': ['Mid Cap', 'Small Cap']
+      };
+
+      const allowedMarketCaps = riskLevel ? riskToMarketCap[riskLevel] || ['Large Cap', 'Mid Cap'] : ['Large Cap', 'Mid Cap', 'Small Cap'];
+
+      const sectorSet = new Set<string>();
+      const filteredStocks = stocks
+        .filter(stock => {
+          const marketCap = stock.marketCap || 'Large Cap';
+          if (!allowedMarketCaps.includes(marketCap)) return false;
+          if (sectors && sectors.length > 0) {
+            if (!stock.sector || !sectors.some(s => stock.sector?.toLowerCase().includes(s.toLowerCase()))) {
+              return false;
+            }
+          }
+          if (stock.sector && sectorSet.size < 10) {
+            if (sectorSet.has(stock.sector) && sectorSet.size >= 5) {
+              return Math.random() > 0.5;
+            }
+            sectorSet.add(stock.sector);
+          }
+          return true;
+        })
+        .slice(0, limit);
+
+      return filteredStocks.map(stock => {
+        const currentPrice = parseFloat(stock.currentPrice || '0');
+        const previousClose = parseFloat(stock.previousClose || '0');
+        const dayChangePercent = parseFloat(stock.dayChangePercent || '0');
+        const returns1Y = parseFloat(stock.returns1Y || '0');
+        
+        const estimatedUpside = Math.max(5, Math.min(25, 10 + returns1Y * 0.3 + Math.random() * 5));
+        const targetPrice = currentPrice * (1 + estimatedUpside / 100);
+        
+        const profitScore = Math.min(95, Math.max(50, 
+          70 + 
+          (returns1Y > 20 ? 10 : returns1Y > 0 ? 5 : 0) +
+          (dayChangePercent > 0 ? 3 : -2) +
+          (stock.marketCap === 'Large Cap' ? 5 : stock.marketCap === 'Mid Cap' ? 2 : 0)
+        ));
+
+        const signalType: 'buy' | 'sell' | 'hold' = 
+          estimatedUpside > 15 ? 'buy' : estimatedUpside > 5 ? 'hold' : 'sell';
+
+        const stockRiskLevel: 'low' | 'moderate' | 'high' | 'very_high' = 
+          stock.marketCap === 'Large Cap' ? 'low' :
+          stock.marketCap === 'Mid Cap' ? 'moderate' : 'high';
+
+        const timeHorizon: 'ultra_short' | 'short' | 'medium' | 'long' = 
+          stock.marketCap === 'Large Cap' ? 'long' :
+          stock.marketCap === 'Mid Cap' ? 'medium' : 'short';
+
+        return {
+          symbol: stock.symbol,
+          stockName: stock.companyName,
+          currentPrice,
+          targetPrice,
+          upsidePercent: estimatedUpside,
+          profitScore: Math.round(profitScore),
+          signalType,
+          timeHorizon,
+          riskLevel: stockRiskLevel,
+          sector: stock.sector || stock.industry || 'Diversified',
+          aiReason: `${stock.companyName} (${stock.symbol}) - ${stock.marketCap || 'Mid Cap'} stock in ${stock.sector || stock.industry || 'diversified'} sector. ${returns1Y > 0 ? `1Y returns: ${returns1Y.toFixed(1)}%.` : ''} Exchange: ${stock.exchange || 'NSE/BSE'}.`,
+          keyFactors: [
+            stock.marketCap ? `Market Cap: ${stock.marketCap}` : 'Established company',
+            stock.sector ? `Sector: ${stock.sector}` : 'Diversified business',
+            returns1Y > 15 ? 'Strong momentum' : returns1Y > 0 ? 'Positive returns' : 'Value opportunity'
+          ],
+          riskFactors: [
+            stock.marketCap === 'Small Cap' ? 'Higher volatility' : 'Market risk',
+            'Sector-specific risks'
+          ]
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching store-eligible listed stocks:', error);
+      return [];
+    }
+  }
+
   async getClientPortfolio(clientId: string): Promise<{ portfolio: any; holdings: PortfolioHolding[] } | null> {
     const [portfolio] = await db
       .select()
@@ -901,161 +1013,14 @@ Provide a JSON response with:
       existingHoldings: string[];
     }
   ): Promise<StockAnalysis[]> {
-    // Stock universe - these are equities/stocks, not mutual funds from store
-    const stockUniverse: StockAnalysis[] = [
-      {
-        symbol: "RELIANCE",
-        stockName: "Reliance Industries Ltd",
-        currentPrice: 2850,
-        targetPrice: 3200,
-        upsidePercent: 12.28,
-        profitScore: 85,
-        signalType: 'buy',
-        timeHorizon: 'medium',
-        riskLevel: 'moderate',
-        sector: "Energy",
-        aiReason: "Strong retail and digital business growth with stable refining margins. Jio Platforms continues to show robust subscriber additions.",
-        keyFactors: ["Retail expansion", "5G rollout catalyst", "Green energy investments"],
-        riskFactors: ["Oil price volatility", "High capital expenditure"]
-      },
-      {
-        symbol: "HDFCBANK",
-        stockName: "HDFC Bank Ltd",
-        currentPrice: 1680,
-        targetPrice: 1900,
-        upsidePercent: 13.10,
-        profitScore: 88,
-        signalType: 'buy',
-        timeHorizon: 'medium',
-        riskLevel: 'low',
-        sector: "Banking",
-        aiReason: "Best-in-class asset quality with consistent loan growth. Post-merger integration proceeding smoothly with synergy benefits.",
-        keyFactors: ["Strong NIM", "Digital banking leadership", "Low NPA ratio"],
-        riskFactors: ["Interest rate sensitivity", "Competition from fintech"]
-      },
-      {
-        symbol: "TCS",
-        stockName: "Tata Consultancy Services",
-        currentPrice: 4150,
-        targetPrice: 4600,
-        upsidePercent: 10.84,
-        profitScore: 82,
-        signalType: 'buy',
-        timeHorizon: 'long',
-        riskLevel: 'low',
-        sector: "Technology",
-        aiReason: "Market leader in IT services with strong deal pipeline. AI/ML investments positioning well for future growth.",
-        keyFactors: ["Consistent dividend payer", "Strong brand", "AI integration"],
-        riskFactors: ["Currency fluctuation", "Tech spending slowdown"]
-      },
-      {
-        symbol: "INFY",
-        stockName: "Infosys Ltd",
-        currentPrice: 1820,
-        targetPrice: 2100,
-        upsidePercent: 15.38,
-        profitScore: 80,
-        signalType: 'buy',
-        timeHorizon: 'medium',
-        riskLevel: 'low',
-        sector: "Technology",
-        aiReason: "Strong large deal momentum with improving margins. Cloud and digital services driving growth.",
-        keyFactors: ["Large deal wins", "Operating margin improvement", "Digital transformation leader"],
-        riskFactors: ["Client concentration", "Visa regulations"]
-      },
-      {
-        symbol: "BHARTIARTL",
-        stockName: "Bharti Airtel Ltd",
-        currentPrice: 1580,
-        targetPrice: 1850,
-        upsidePercent: 17.09,
-        profitScore: 84,
-        signalType: 'buy',
-        timeHorizon: 'medium',
-        riskLevel: 'moderate',
-        sector: "Telecom",
-        aiReason: "Market share gains with ARPU improvement. 5G network expansion creating new revenue streams.",
-        keyFactors: ["5G monetization", "Africa business growth", "ARPU expansion"],
-        riskFactors: ["Spectrum cost", "Competition from Jio"]
-      },
-      {
-        symbol: "TATAMOTORS",
-        stockName: "Tata Motors Ltd",
-        currentPrice: 980,
-        targetPrice: 1180,
-        upsidePercent: 20.41,
-        profitScore: 78,
-        signalType: 'buy',
-        timeHorizon: 'short',
-        riskLevel: 'high',
-        sector: "Automobile",
-        aiReason: "JLR turnaround story with strong EV pipeline. Domestic EV market leadership strengthening.",
-        keyFactors: ["EV market share", "JLR profitability", "Chip shortage easing"],
-        riskFactors: ["Commodity prices", "Currency volatility", "EV competition"]
-      },
-      {
-        symbol: "SBIN",
-        stockName: "State Bank of India",
-        currentPrice: 820,
-        targetPrice: 950,
-        upsidePercent: 15.85,
-        profitScore: 79,
-        signalType: 'buy',
-        timeHorizon: 'medium',
-        riskLevel: 'moderate',
-        sector: "Banking",
-        aiReason: "Improved asset quality with strong credit growth. Digital transformation driving efficiency.",
-        keyFactors: ["Credit cost reduction", "CASA ratio improvement", "Government support"],
-        riskFactors: ["PSU bank challenges", "Rate sensitivity"]
-      },
-      {
-        symbol: "WIPRO",
-        stockName: "Wipro Ltd",
-        currentPrice: 520,
-        targetPrice: 600,
-        upsidePercent: 15.38,
-        profitScore: 72,
-        signalType: 'buy',
-        timeHorizon: 'medium',
-        riskLevel: 'moderate',
-        sector: "Technology",
-        aiReason: "Turnaround story with focus on large deals. Improved deal win momentum in recent quarters.",
-        keyFactors: ["Large deal wins", "Margin improvement focus", "Capco integration"],
-        riskFactors: ["Client attrition", "Execution risk"]
-      },
-      {
-        symbol: "ICICIBANK",
-        stockName: "ICICI Bank Ltd",
-        currentPrice: 1240,
-        targetPrice: 1420,
-        upsidePercent: 14.52,
-        profitScore: 86,
-        signalType: 'buy',
-        timeHorizon: 'long',
-        riskLevel: 'low',
-        sector: "Banking",
-        aiReason: "Strong retail franchise with best-in-class digital capabilities. Consistent earnings growth trajectory.",
-        keyFactors: ["Digital banking", "Loan growth", "Asset quality"],
-        riskFactors: ["Retail NPAs", "Competition"]
-      },
-      {
-        symbol: "BAJFINANCE",
-        stockName: "Bajaj Finance Ltd",
-        currentPrice: 6800,
-        targetPrice: 7800,
-        upsidePercent: 14.71,
-        profitScore: 81,
-        signalType: 'buy',
-        timeHorizon: 'medium',
-        riskLevel: 'moderate',
-        sector: "NBFC",
-        aiReason: "Consumer finance leader with strong AUM growth. Digital lending platform showing strong traction.",
-        keyFactors: ["AUM growth", "Customer acquisition", "Cross-selling"],
-        riskFactors: ["Interest rate sensitivity", "Regulatory changes"]
-      }
-      // REMOVED: Hardcoded mutual fund recommendations (LIQUIDBEES, ICICIMCAP, HABORNED, SBILTSBF)
-      // These must come from store-eligible funds for regulatory compliance
-    ];
+    // Fetch listed stocks from database (synced from NSE/BSE)
+    // This replaces the hardcoded stock list with actual published stocks
+    const stockUniverse = await this.getStoreEligibleListedStocks({
+      riskLevel: clientRiskProfile,
+      limit: 30
+    });
+
+    console.log(`[AI Service] Fetched ${stockUniverse.length} listed stocks from database for risk profile: ${clientRiskProfile}`);
 
     // REGULATORY COMPLIANCE: Only recommend products that are published/enabled in store
     const mappedHorizon = options.timeHorizon ? this.mapTimeHorizon(options.timeHorizon) : null;
