@@ -11838,6 +11838,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Client Tasks API endpoints for user action items
+  app.get("/api/tasks/user", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const tasks = await storage.getClientTasks(userId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching client tasks:", error);
+      res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+  });
+
+  app.post("/api/tasks/user", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      // Validate and sanitize - only allow specific fields
+      const { title, description, type, priority, dueDate, actionLabel, actionRoute, metadata } = req.body;
+      if (!title || !type || !dueDate) {
+        return res.status(400).json({ error: "Missing required fields: title, type, dueDate" });
+      }
+      const taskData = {
+        userId,
+        title: String(title),
+        description: description ? String(description) : undefined,
+        type: String(type),
+        priority: priority || 'medium',
+        dueDate: String(dueDate),
+        actionLabel: actionLabel ? String(actionLabel) : undefined,
+        actionRoute: actionRoute ? String(actionRoute) : undefined,
+        metadata: metadata || undefined
+      };
+      const task = await storage.createClientTask(taskData);
+      res.json(task);
+    } catch (error) {
+      console.error("Error creating client task:", error);
+      res.status(500).json({ error: "Failed to create task" });
+    }
+  });
+
+  app.patch("/api/tasks/user/:taskId", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { taskId } = req.params;
+      // Whitelist only mutable fields - prevent userId/id modification
+      const { title, description, priority, status, dueDate, actionLabel, actionRoute, completedAt } = req.body;
+      const updates: Record<string, any> = {};
+      if (title !== undefined) updates.title = String(title);
+      if (description !== undefined) updates.description = String(description);
+      if (priority !== undefined) updates.priority = String(priority);
+      if (status !== undefined) updates.status = String(status);
+      if (dueDate !== undefined) updates.dueDate = String(dueDate);
+      if (actionLabel !== undefined) updates.actionLabel = String(actionLabel);
+      if (actionRoute !== undefined) updates.actionRoute = String(actionRoute);
+      if (completedAt !== undefined) updates.completedAt = completedAt ? new Date(completedAt) : null;
+      
+      const task = await storage.updateClientTask(taskId, userId, updates);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      res.json(task);
+    } catch (error) {
+      console.error("Error updating client task:", error);
+      res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  app.delete("/api/tasks/user/:taskId", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { taskId } = req.params;
+      const deleted = await storage.deleteClientTask(taskId, userId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting client task:", error);
+      res.status(500).json({ error: "Failed to delete task" });
+    }
+  });
+
+  // Loan Applications API endpoints
+  app.get("/api/loans/applications", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const applications = await storage.getLoanApplications(userId);
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching loan applications:", error);
+      res.status(500).json({ error: "Failed to fetch loan applications" });
+    }
+  });
+
+  app.get("/api/loans/applications/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const application = await storage.getLoanApplicationById(id, userId);
+      if (!application) {
+        return res.status(404).json({ error: "Loan application not found" });
+      }
+      res.json(application);
+    } catch (error) {
+      console.error("Error fetching loan application:", error);
+      res.status(500).json({ error: "Failed to fetch loan application" });
+    }
+  });
+
+  app.post("/api/loans/applications", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      // Validate and sanitize - only allow specific fields from InsertLoanApplicationMarketplace
+      const { 
+        loanProductId, 
+        loanType, 
+        amount, 
+        tenure, 
+        interestRateType, 
+        purpose,
+        collateralType,
+        collateralValue,
+        guarantorDetails
+      } = req.body;
+      
+      if (!loanProductId || !loanType || !amount || !tenure) {
+        return res.status(400).json({ 
+          error: "Missing required fields: loanProductId, loanType, amount, tenure" 
+        });
+      }
+      
+      const applicationData = {
+        userId,
+        loanProductId: String(loanProductId),
+        loanType: String(loanType),
+        amount: Number(amount),
+        tenure: Number(tenure),
+        interestRateType: interestRateType ? String(interestRateType) : 'fixed',
+        purpose: purpose ? String(purpose) : undefined,
+        collateralType: collateralType ? String(collateralType) : undefined,
+        collateralValue: collateralValue ? Number(collateralValue) : undefined,
+        guarantorDetails: guarantorDetails || undefined,
+        status: 'draft'
+      };
+      
+      const application = await storage.createLoanApplication(applicationData);
+      res.json(application);
+    } catch (error) {
+      console.error("Error creating loan application:", error);
+      res.status(500).json({ error: "Failed to create loan application" });
+    }
+  });
   // Insurance Holdings Routes
   // In-memory OTP storage for government scheme refresh (consider Redis for production)
   const governmentSchemeOtpStore = new Map<string, { otp: string; expiresAt: Date; userId: string; schemeType: string }>();

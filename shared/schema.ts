@@ -2397,6 +2397,33 @@ export const supportStepComments = pgTable("support_step_comments", {
   isInternal: boolean("is_internal").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Client tasks for tracking user action items and deadlines
+export const clientTasks = pgTable("client_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  // Task details
+  title: varchar("title").notNull(),
+  description: text("description"),
+  type: varchar("type").notNull(), // 'kyc_renewal', 'document_submission', 'payment_due', 'review_scheduled', 'action_required'
+  priority: varchar("priority").default("medium"), // 'low', 'medium', 'high'
+  status: varchar("status").default("pending"), // 'pending', 'completed', 'overdue'
+  // Due date and completion
+  dueDate: date("due_date").notNull(),
+  completedAt: timestamp("completed_at"),
+  // Action configuration
+  actionLabel: varchar("action_label"), // Button text like 'Update KYC', 'Pay Now'
+  actionRoute: varchar("action_route"), // Route to navigate on action click
+  // Metadata
+  metadata: jsonb("metadata"), // Additional task-specific data
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertClientTaskSchema = createInsertSchema(clientTasks).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertClientTask = z.infer<typeof insertClientTaskSchema>;
+export type ClientTask = typeof clientTasks.$inferSelect;
+
 // Product applications for tracking user applications
 export const productApplications = pgTable("product_applications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
