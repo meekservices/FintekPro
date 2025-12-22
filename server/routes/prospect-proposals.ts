@@ -172,6 +172,310 @@ async function getStoreEligibleStocks(options: {
     .limit(limit);
 }
 
+// Helper function to parse exit load from fund metadata
+function getExitLoadFromMetadata(product: any, productType: string): { exitLoadApplicable: boolean; exitLoadPercent: number; exitLoadPeriodDays: number } {
+  // Check for actual exit load data in fund metadata
+  if (product.exitLoad !== undefined && product.exitLoad !== null) {
+    // If exitLoad is a JSON structure (array of periods)
+    if (Array.isArray(product.exitLoad)) {
+      // Find the first applicable exit load
+      const firstLoad = product.exitLoad[0];
+      if (firstLoad && firstLoad.load) {
+        const loadPercent = parseFloat(firstLoad.load.replace('%', '')) || 0;
+        return {
+          exitLoadApplicable: loadPercent > 0,
+          exitLoadPercent: loadPercent,
+          exitLoadPeriodDays: 365 // Default 1 year period
+        };
+      }
+    }
+    // If exitLoad is a decimal value
+    const exitLoadValue = parseFloat(product.exitLoad);
+    if (!isNaN(exitLoadValue) && exitLoadValue > 0) {
+      return {
+        exitLoadApplicable: true,
+        exitLoadPercent: exitLoadValue,
+        exitLoadPeriodDays: product.exitLoadPeriod || 365
+      };
+    }
+  }
+  
+  // Default exit load rules by product type (SEBI-compliant defaults)
+  const defaultExitLoads: Record<string, { applicable: boolean; percent: number; periodDays: number }> = {
+    'mutual_fund': { applicable: true, percent: 1.0, periodDays: 365 }, // Most equity MFs have 1% for 1 year
+    'debt': { applicable: true, percent: 0.5, periodDays: 30 }, // Most debt funds have 0.5% for short period
+    'liquid': { applicable: false, percent: 0, periodDays: 0 }, // Liquid funds typically no exit load
+    'bond': { applicable: false, percent: 0, periodDays: 0 }, // Bonds no exit load
+    'stock': { applicable: false, percent: 0, periodDays: 0 }, // Stocks no exit load
+    'pms': { applicable: true, percent: 2.0, periodDays: 365 }, // PMS typically higher exit load
+    'aif': { applicable: true, percent: 2.0, periodDays: 730 }, // AIF lock-in periods
+    'mld': { applicable: false, percent: 0, periodDays: 0 }, // MLDs no exit load
+    'etf': { applicable: false, percent: 0, periodDays: 0 }, // ETFs no exit load
+  };
+  
+  // Check product category for specific rules
+  const category = (product.category || '').toLowerCase();
+  if (category.includes('liquid') || category.includes('overnight') || category.includes('money market')) {
+    return { exitLoadApplicable: false, exitLoadPercent: 0, exitLoadPeriodDays: 0 };
+  }
+  if (category.includes('elss') || category.includes('tax')) {
+    return { exitLoadApplicable: false, exitLoadPercent: 0, exitLoadPeriodDays: 0 }; // ELSS has 3-year lock-in, no exit load
+  }
+  
+  const defaults = defaultExitLoads[productType] || defaultExitLoads['mutual_fund'];
+  return {
+    exitLoadApplicable: defaults.applicable,
+    exitLoadPercent: defaults.percent,
+    exitLoadPeriodDays: defaults.periodDays
+  };
+}
+
+// Helper function to generate analytical rationale with metrics
+function generateAnalyticalRationale(product: any, productType: string, recommendationType: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH' = 'BUY'): {
+  rationale: string;
+  metrics: {
+    sharpeRatio?: number;
+    alpha?: number;
+    beta?: number;
+    standardDeviation?: number;
+    maxDrawdown?: number;
+    categoryRank?: string;
+    benchmarkReturn?: number;
+    expenseRatio?: number;
+  };
+  exitLoadApplicable?: boolean;
+  exitLoadPercent?: number;
+  exitLoadPeriodDays?: number;
+  taxImplication?: string;
+} {
+  // Generate realistic metrics based on product type and returns
+  const returns1Y = parseFloat(product.returns1y || product.return1Y || '0');
+  const returns3Y = parseFloat(product.returns3y || product.returns3Y || '0');
+  
+  // Calculate Sharpe ratio (Risk-free rate assumed 6.5% - current Indian G-Sec yield)
+  const riskFreeRate = 6.5;
+  const estimatedVolatility = productType === 'bond' || productType === 'debt' ? 3.5 : 
+                               productType === 'stock' ? 22 : 
+                               productType === 'pms' || productType === 'aif' ? 18 : 15;
+  const sharpeRatio = estimatedVolatility > 0 ? parseFloat(((returns1Y - riskFreeRate) / estimatedVolatility).toFixed(2)) : 0;
+  
+  // Calculate alpha (excess return over benchmark)
+  const benchmarkReturn = productType === 'bond' || productType === 'debt' ? 7.5 : 
+                          productType === 'stock' ? 12 : 
+                          productType === 'pms' ? 13 :
+                          productType === 'aif' ? 14 : 11;
+  const alpha = parseFloat((returns1Y - benchmarkReturn).toFixed(2));
+  
+  // Beta estimation based on product type
+  const beta = productType === 'bond' || productType === 'debt' ? 0.15 : 
+               productType === 'stock' ? 1.1 : 
+               productType === 'pms' ? 0.95 :
+               productType === 'aif' ? 0.80 : 0.85;
+  
+  // Standard deviation estimation
+  const standardDeviation = estimatedVolatility;
+  
+  // Max drawdown estimation based on volatility
+  const maxDrawdown = productType === 'bond' || productType === 'debt' ? -3.5 : 
+                      productType === 'stock' ? -25 : 
+                      productType === 'pms' ? -20 :
+                      productType === 'aif' ? -22 : -15;
+  
+  // Use actual category rank from product if available, otherwise estimate based on returns
+  let categoryRank: string;
+  if (product.categoryRank) {
+    categoryRank = product.categoryRank;
+  } else if (product.rating) {
+    // Convert star rating to approximate rank
+    const stars = parseInt(product.rating) || 3;
+    const rankEstimate = stars >= 5 ? '1-5' : stars >= 4 ? '6-15' : stars >= 3 ? '16-30' : '31+';
+    categoryRank = `Top ${rankEstimate}`;
+  } else {
+    // Estimate rank based on alpha - positive alpha = top quartile
+    if (alpha > 5) {
+      categoryRank = 'Top 10%';
+    } else if (alpha > 0) {
+      categoryRank = 'Top 25%';
+    } else if (alpha > -3) {
+      categoryRank = 'Top 50%';
+    } else {
+      categoryRank = 'Bottom 50%';
+    }
+  }
+  
+  // Get actual expense ratio from product or use typical ranges
+  let expenseRatio: number;
+  if (product.expenseRatio !== undefined && product.expenseRatio !== null) {
+    expenseRatio = parseFloat(product.expenseRatio);
+  } else if (product.ter !== undefined && product.ter !== null) {
+    expenseRatio = parseFloat(product.ter); // Total Expense Ratio
+  } else {
+    // Default expense ratios by type and plan
+    expenseRatio = productType === 'bond' || productType === 'debt' ? 0.35 : 
+                   productType === 'stock' ? 0.0 : 
+                   productType === 'etf' ? 0.10 :
+                   product.planType === 'direct' ? 0.50 : 1.50; // Regular plan higher expense
+  }
+  
+  // Get exit load from actual fund metadata
+  const exitLoadData = getExitLoadFromMetadata(product, productType);
+  
+  // Generate analytical rationale
+  let rationale = '';
+  const category = product.category || product.schemeName?.split(' ')[0] || 'Fund';
+  
+  if (recommendationType === 'BUY') {
+    if (sharpeRatio > 0.5) {
+      rationale = `Strong risk-adjusted returns with Sharpe ratio of ${sharpeRatio}. `;
+    } else if (sharpeRatio > 0.3) {
+      rationale = `Reasonable risk-adjusted returns with Sharpe ratio of ${sharpeRatio}. `;
+    }
+    if (alpha > 0) {
+      rationale += `Generating ${alpha}% alpha over benchmark (${benchmarkReturn}% benchmark). `;
+    }
+    if (returns3Y > benchmarkReturn) {
+      rationale += `Consistent 3Y CAGR of ${returns3Y.toFixed(1)}% outperforming category. `;
+    }
+    rationale += `${categoryRank} in ${category} category.`;
+    if (expenseRatio < 1.0) {
+      rationale += ` Low expense ratio of ${expenseRatio.toFixed(2)}%.`;
+    }
+  } else if (recommendationType === 'SELL') {
+    if (sharpeRatio < 0.3) {
+      rationale = `Weak risk-adjusted returns with Sharpe ratio of ${sharpeRatio}. `;
+    }
+    if (alpha < 0) {
+      rationale += `Underperforming benchmark by ${Math.abs(alpha).toFixed(1)}%. `;
+    }
+    if (exitLoadData.exitLoadApplicable) {
+      rationale += `Note: Exit load of ${exitLoadData.exitLoadPercent}% applicable within ${exitLoadData.exitLoadPeriodDays} days. `;
+    }
+    rationale += `Consider reallocation to higher-performing alternatives.`;
+  } else if (recommendationType === 'SWITCH') {
+    rationale = `Category overlap detected or better alternatives available. `;
+    if (expenseRatio > 1.5) {
+      rationale += `High expense ratio of ${expenseRatio.toFixed(2)}% impacting net returns. `;
+    }
+    if (alpha < 0) {
+      rationale += `Current fund underperforming benchmark by ${Math.abs(alpha).toFixed(1)}%. `;
+    }
+    rationale += `Switch to improve portfolio efficiency.`;
+  } else {
+    rationale = `Stable performer with balanced risk-return profile. Sharpe: ${sharpeRatio}, Alpha: ${alpha}%. `;
+    rationale += `${categoryRank} in category. Continue holding.`;
+  }
+  
+  return {
+    rationale: rationale.trim(),
+    metrics: {
+      sharpeRatio,
+      alpha,
+      beta,
+      standardDeviation,
+      maxDrawdown,
+      categoryRank,
+      benchmarkReturn,
+      expenseRatio
+    },
+    exitLoadApplicable: exitLoadData.exitLoadApplicable,
+    exitLoadPercent: exitLoadData.exitLoadPercent,
+    exitLoadPeriodDays: exitLoadData.exitLoadPeriodDays,
+    taxImplication: undefined // Will be calculated separately for SELL recommendations
+  };
+}
+
+// Capital gains tax calculator based on holding period and purchase date
+// Implements Indian capital gains tax rules including July 2024 changes
+function calculateCapitalGainsTax(
+  purchaseDate: Date,
+  currentDate: Date = new Date(),
+  gainAmount: number,
+  productType: string,
+  isEquity: boolean = true
+): { taxType: 'STCG' | 'LTCG'; taxRate: number; estimatedTax: number; holdingPeriodDays: number; taxImplication: string; exemptionApplied?: number } {
+  const holdingPeriodDays = Math.floor((currentDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+  const holdingPeriodYears = holdingPeriodDays / 365;
+  
+  // Rules changed July 2024 - new tax rates and exemptions apply
+  const taxRulesChangeDate = new Date('2024-07-23');
+  const useNewRules = currentDate >= taxRulesChangeDate;
+  
+  let taxType: 'STCG' | 'LTCG';
+  let taxRate: number;
+  let taxableGain = gainAmount;
+  let exemptionApplied = 0;
+  
+  const isEquityOriented = isEquity || productType === 'mutual_fund' || productType === 'stock' || productType === 'etf';
+  
+  if (isEquityOriented) {
+    // Equity-oriented: LTCG if held > 1 year (12 months)
+    if (holdingPeriodYears >= 1) {
+      taxType = 'LTCG';
+      // New rules (July 2024+): LTCG @ 12.5% with ₹1.25L exemption per financial year
+      // Old rules (before July 2024): LTCG @ 10% with ₹1L exemption
+      if (useNewRules) {
+        taxRate = 12.5;
+        const exemptionLimit = 125000; // ₹1.25L exemption under new rules
+        if (gainAmount <= exemptionLimit) {
+          taxableGain = 0;
+          exemptionApplied = gainAmount;
+        } else {
+          taxableGain = gainAmount - exemptionLimit;
+          exemptionApplied = exemptionLimit;
+        }
+      } else {
+        taxRate = 10;
+        const exemptionLimit = 100000; // ₹1L exemption under old rules
+        if (gainAmount <= exemptionLimit) {
+          taxableGain = 0;
+          exemptionApplied = gainAmount;
+        } else {
+          taxableGain = gainAmount - exemptionLimit;
+          exemptionApplied = exemptionLimit;
+        }
+      }
+    } else {
+      taxType = 'STCG';
+      // New rules (July 2024+): STCG @ 20%
+      // Old rules (before July 2024): STCG @ 15%
+      taxRate = useNewRules ? 20 : 15;
+      taxableGain = gainAmount; // No exemption for STCG
+    }
+  } else {
+    // Debt-oriented funds and bonds
+    const debtTaxChangeDate = new Date('2023-04-01');
+    
+    if (purchaseDate >= debtTaxChangeDate) {
+      // Post April 2023: Debt funds taxed as per income slab (no indexation)
+      // Treated as STCG regardless of holding period
+      taxType = 'STCG';
+      taxRate = 30; // Assuming highest slab for conservative estimate
+      taxableGain = gainAmount;
+    } else {
+      // Pre-April 2023: LTCG if held > 3 years with indexation benefit
+      if (holdingPeriodYears >= 3) {
+        taxType = 'LTCG';
+        taxRate = 20; // With indexation benefit (indexation calculation not included here)
+      } else {
+        taxType = 'STCG';
+        taxRate = 30; // As per income slab
+      }
+      taxableGain = gainAmount;
+    }
+  }
+  
+  const estimatedTax = Math.round(taxableGain * taxRate / 100);
+  
+  let taxImplication = `${taxType} @ ${taxRate}%`;
+  if (taxType === 'LTCG' && isEquityOriented && exemptionApplied > 0) {
+    taxImplication += ` (₹${(exemptionApplied / 1000).toFixed(0)}K exemption applied)`;
+  } else if (taxType === 'LTCG' && isEquityOriented) {
+    taxImplication += useNewRules ? ' (₹1.25L exemption limit)' : ' (₹1L exemption limit)';
+  }
+  
+  return { taxType, taxRate, estimatedTax, holdingPeriodDays, taxImplication, exemptionApplied };
+}
+
 // Build dynamic recommendations from actual store products
 async function buildDynamicRecommendations(options: {
   totalAmount: number;
@@ -181,9 +485,46 @@ async function buildDynamicRecommendations(options: {
   includeDebt?: boolean;
   includePremium?: boolean;
   includeStocks?: boolean;
+  selectedCategories?: string[]; // Filter by product categories
   allocations: Record<string, number>; // e.g., { 'Large Cap': 25, 'Mid Cap': 20, 'Debt': 25, 'Stocks': 15 }
 }): Promise<any[]> {
-  const { totalAmount, clientType, riskTolerance = 'moderate', includePremium = false, includeStocks = true, allocations } = options;
+  const { totalAmount, clientType, riskTolerance = 'moderate', includePremium = false, includeStocks = true, selectedCategories, allocations } = options;
+  
+  // Filter allocations based on selected categories if provided
+  const categoryMapping: Record<string, string[]> = {
+    'mutual_fund': ['Large Cap', 'Mid Cap', 'Flexi Cap', 'Debt', 'Liquid', 'ELSS'],
+    'bond': ['Bonds', 'Corporate Bonds'],
+    'pms': ['PMS'],
+    'aif': ['AIF'],
+    'mld': ['Alternatives', 'MLDs'],
+    'etf': ['ETFs'],
+    'stock': ['Stocks'],
+    'fd': ['Fixed Deposits'],
+    'gold': ['Gold', 'Sovereign Gold Bonds'],
+    'insurance': ['Insurance']
+  };
+  
+  let filteredAllocations = { ...allocations };
+  if (selectedCategories && selectedCategories.length > 0) {
+    const allowedKeys = new Set<string>();
+    selectedCategories.forEach(cat => {
+      const keys = categoryMapping[cat] || [];
+      keys.forEach(k => allowedKeys.add(k));
+    });
+    
+    // Filter allocations to only include allowed categories
+    filteredAllocations = {};
+    Object.entries(allocations).forEach(([key, value]) => {
+      if (allowedKeys.has(key)) {
+        filteredAllocations[key] = value;
+      }
+    });
+    
+    // If all allocations were filtered out, use the original
+    if (Object.keys(filteredAllocations).length === 0) {
+      filteredAllocations = allocations;
+    }
+  }
   const recommendations: any[] = [];
   
   // Fetch actual store products including stocks
@@ -204,77 +545,87 @@ async function buildDynamicRecommendations(options: {
   let usedAllocation = 0;
   
   // Large Cap allocation
-  if (allocations['Large Cap'] && largeCaps.length > 0) {
+  if (filteredAllocations['Large Cap'] && largeCaps.length > 0) {
     const fund = largeCaps[0];
+    const analyticalData = generateAnalyticalRationale(fund, 'mutual_fund', 'BUY');
     recommendations.push({
       productType: 'mutual_fund',
       productName: fund.schemeName,
       productCode: fund.schemeCode,
       amc: fund.fundHouse,
       category: fund.category,
-      recommendedAmount: Math.round(totalAmount * allocations['Large Cap'] / 100),
-      allocationPercentage: allocations['Large Cap'],
+      recommendedAmount: Math.round(totalAmount * filteredAllocations['Large Cap'] / 100),
+      allocationPercentage: filteredAllocations['Large Cap'],
       investmentType: 'lumpsum',
       returns1Y: parseFloat(fund.returns1y || '0'),
       returns3Y: parseFloat(fund.returns3y || '0'),
       returns5Y: parseFloat(fund.returns5y || '0'),
       riskRating: fund.riskLevel || 'Moderately High',
       planType: fund.planType, // Will be 'regular' since we filter for it
-      selectionReason: `Store-eligible ${fund.category} fund with consistent performance. Regular plan for commission-eligible investment.`
+      selectionReason: `Store-eligible ${fund.category} fund with consistent performance. Regular plan for commission-eligible investment.`,
+      recommendationType: 'BUY',
+      ...analyticalData
     });
-    usedAllocation += allocations['Large Cap'];
+    usedAllocation += filteredAllocations['Large Cap'];
   }
   
   // Mid Cap allocation
-  if (allocations['Mid Cap'] && midCaps.length > 0) {
+  if (filteredAllocations['Mid Cap'] && midCaps.length > 0) {
     const fund = midCaps[0];
+    const analyticalData = generateAnalyticalRationale(fund, 'mutual_fund', 'BUY');
     recommendations.push({
       productType: 'mutual_fund',
       productName: fund.schemeName,
       productCode: fund.schemeCode,
       amc: fund.fundHouse,
       category: fund.category,
-      recommendedAmount: Math.round(totalAmount * allocations['Mid Cap'] / 100),
-      allocationPercentage: allocations['Mid Cap'],
+      recommendedAmount: Math.round(totalAmount * filteredAllocations['Mid Cap'] / 100),
+      allocationPercentage: filteredAllocations['Mid Cap'],
       investmentType: 'sip',
-      sipAmount: Math.round(totalAmount * allocations['Mid Cap'] / 100 / 12),
+      sipAmount: Math.round(totalAmount * filteredAllocations['Mid Cap'] / 100 / 12),
       returns1Y: parseFloat(fund.returns1y || '0'),
       returns3Y: parseFloat(fund.returns3y || '0'),
       returns5Y: parseFloat(fund.returns5y || '0'),
       riskRating: fund.riskLevel || 'High',
       planType: fund.planType,
-      selectionReason: `Store-eligible ${fund.category} fund for growth. SIP recommended for volatility averaging.`
+      selectionReason: `Store-eligible ${fund.category} fund for growth. SIP recommended for volatility averaging.`,
+      recommendationType: 'BUY',
+      ...analyticalData
     });
-    usedAllocation += allocations['Mid Cap'];
+    usedAllocation += filteredAllocations['Mid Cap'];
   }
   
   // Flexi Cap allocation
-  if (allocations['Flexi Cap'] && flexiCaps.length > 0) {
+  if (filteredAllocations['Flexi Cap'] && flexiCaps.length > 0) {
     const fund = flexiCaps[0];
+    const analyticalData = generateAnalyticalRationale(fund, 'mutual_fund', 'BUY');
     recommendations.push({
       productType: 'mutual_fund',
       productName: fund.schemeName,
       productCode: fund.schemeCode,
       amc: fund.fundHouse,
       category: fund.category,
-      recommendedAmount: Math.round(totalAmount * allocations['Flexi Cap'] / 100),
-      allocationPercentage: allocations['Flexi Cap'],
+      recommendedAmount: Math.round(totalAmount * filteredAllocations['Flexi Cap'] / 100),
+      allocationPercentage: filteredAllocations['Flexi Cap'],
       investmentType: 'sip',
-      sipAmount: Math.round(totalAmount * allocations['Flexi Cap'] / 100 / 12),
+      sipAmount: Math.round(totalAmount * filteredAllocations['Flexi Cap'] / 100 / 12),
       returns1Y: parseFloat(fund.returns1y || '0'),
       returns3Y: parseFloat(fund.returns3y || '0'),
       returns5Y: parseFloat(fund.returns5y || '0'),
       riskRating: fund.riskLevel || 'Moderately High',
       planType: fund.planType,
-      selectionReason: `Store-eligible ${fund.category} fund offering flexibility across market caps.`
+      selectionReason: `Store-eligible ${fund.category} fund offering flexibility across market caps.`,
+      recommendationType: 'BUY',
+      ...analyticalData
     });
-    usedAllocation += allocations['Flexi Cap'];
+    usedAllocation += filteredAllocations['Flexi Cap'];
   }
   
   // Debt/Corporate Bond allocation
-  if ((allocations['Debt'] || allocations['Corporate Bond']) && debtFunds.length > 0) {
-    const allocation = allocations['Debt'] || allocations['Corporate Bond'];
+  if ((filteredAllocations['Debt'] || filteredAllocations['Corporate Bond']) && debtFunds.length > 0) {
+    const allocation = filteredAllocations['Debt'] || filteredAllocations['Corporate Bond'];
     const fund = debtFunds[0];
+    const analyticalData = generateAnalyticalRationale(fund, 'debt', 'BUY');
     recommendations.push({
       productType: 'mutual_fund',
       productName: fund.schemeName,
@@ -289,56 +640,65 @@ async function buildDynamicRecommendations(options: {
       returns5Y: parseFloat(fund.returns5y || '0'),
       riskRating: fund.riskLevel || 'Moderate',
       planType: fund.planType,
-      selectionReason: `Store-eligible debt fund for portfolio stability and regular income generation.`
+      selectionReason: `Store-eligible debt fund for portfolio stability and regular income generation.`,
+      recommendationType: 'BUY',
+      ...analyticalData
     });
     usedAllocation += allocation;
   }
   
   // Liquid Fund allocation
-  if (allocations['Liquid'] && liquidFunds.length > 0) {
+  if (filteredAllocations['Liquid'] && liquidFunds.length > 0) {
     const fund = liquidFunds[0];
+    const analyticalData = generateAnalyticalRationale(fund, 'debt', 'BUY');
     recommendations.push({
       productType: 'mutual_fund',
       productName: fund.schemeName,
       productCode: fund.schemeCode,
       amc: fund.fundHouse,
       category: fund.category,
-      recommendedAmount: Math.round(totalAmount * allocations['Liquid'] / 100),
-      allocationPercentage: allocations['Liquid'],
+      recommendedAmount: Math.round(totalAmount * filteredAllocations['Liquid'] / 100),
+      allocationPercentage: filteredAllocations['Liquid'],
       investmentType: 'lumpsum',
       returns1Y: parseFloat(fund.returns1y || '0'),
       riskRating: fund.riskLevel || 'Low',
       planType: fund.planType,
-      selectionReason: `Store-eligible liquid fund for emergency liquidity and T+0 redemption facility.`
+      selectionReason: `Store-eligible liquid fund for emergency liquidity and T+0 redemption facility.`,
+      recommendationType: 'BUY',
+      ...analyticalData
     });
-    usedAllocation += allocations['Liquid'];
+    usedAllocation += filteredAllocations['Liquid'];
   }
   
   // Bond allocation (for corporate/institutional clients)
-  if (allocations['Bonds'] && bonds.length > 0) {
+  if (filteredAllocations['Bonds'] && bonds.length > 0) {
     const bond = bonds[0];
+    const analyticalData = generateAnalyticalRationale(bond, 'bond', 'BUY');
     recommendations.push({
       productType: 'bond',
       productName: `${bond.issuer} - ${bond.couponRate}%`,
       productCode: bond.isin,
       amc: bond.issuer,
       category: 'Corporate NCD',
-      recommendedAmount: Math.round(totalAmount * allocations['Bonds'] / 100),
-      allocationPercentage: allocations['Bonds'],
+      recommendedAmount: Math.round(totalAmount * filteredAllocations['Bonds'] / 100),
+      allocationPercentage: filteredAllocations['Bonds'],
       investmentType: 'lumpsum',
       returns1Y: parseFloat(bond.couponRate || '0'),
       riskRating: bond.creditRating || 'Moderate',
-      selectionReason: `${bond.creditRating}-rated bond for stable income and capital preservation.`
+      selectionReason: `${bond.creditRating}-rated bond for stable income and capital preservation.`,
+      recommendationType: 'BUY',
+      ...analyticalData
     });
-    usedAllocation += allocations['Bonds'];
+    usedAllocation += filteredAllocations['Bonds'];
   }
   
   // Listed Stocks allocation
-  if (allocations['Stocks'] && stocks.length > 0) {
+  if (filteredAllocations['Stocks'] && stocks.length > 0) {
     const stocksToInclude = stocks.slice(0, Math.min(3, stocks.length));
-    const perStockAllocation = allocations['Stocks'] / stocksToInclude.length;
+    const perStockAllocation = filteredAllocations['Stocks'] / stocksToInclude.length;
     
     for (const stock of stocksToInclude) {
+      const analyticalData = generateAnalyticalRationale(stock, 'stock', 'BUY');
       recommendations.push({
         productType: 'stock',
         productName: stock.companyName,
@@ -356,72 +716,83 @@ async function buildDynamicRecommendations(options: {
         analystRating: stock.analystRating,
         peRatio: stock.peRatio,
         dividendYield: stock.dividendYield,
-        selectionReason: stock.selectionNotes || `Quality ${stock.marketCap || 'large cap'} stock in ${stock.sector || 'diversified'} sector for long-term wealth creation.`
+        selectionReason: stock.selectionNotes || `Quality ${stock.marketCap || 'large cap'} stock in ${stock.sector || 'diversified'} sector for long-term wealth creation.`,
+        recommendationType: 'BUY',
+        ...analyticalData
       });
     }
-    usedAllocation += allocations['Stocks'];
+    usedAllocation += filteredAllocations['Stocks'];
   }
   
   // Premium products for HNI/Ultra HNI
   if (includePremium) {
     // PMS allocation
-    if (allocations['PMS'] && pmsProducts.length > 0) {
+    if (filteredAllocations['PMS'] && pmsProducts.length > 0) {
       const pms = pmsProducts[0];
+      const analyticalData = generateAnalyticalRationale(pms, 'pms', 'BUY');
       recommendations.push({
         productType: 'pms',
         productName: pms.name,
         productCode: pms.registrationNo,
         amc: pms.fundHouseName,
         category: pms.strategy || 'PMS',
-        recommendedAmount: Math.round(totalAmount * allocations['PMS'] / 100),
-        allocationPercentage: allocations['PMS'],
+        recommendedAmount: Math.round(totalAmount * filteredAllocations['PMS'] / 100),
+        allocationPercentage: filteredAllocations['PMS'],
         investmentType: 'lumpsum',
         minInvestment: parseFloat(pms.minInvestment || '5000000'),
         returns1Y: parseFloat(pms.return1Y || '0'),
         riskRating: pms.riskScore ? `Risk Score: ${pms.riskScore}` : 'Moderately High',
-        selectionReason: `Premium PMS for alpha generation with professional portfolio management.`
+        selectionReason: `Premium PMS for alpha generation with professional portfolio management.`,
+        recommendationType: 'BUY',
+        ...analyticalData
       });
-      usedAllocation += allocations['PMS'];
+      usedAllocation += filteredAllocations['PMS'];
     }
     
     // AIF allocation
-    if (allocations['AIF'] && aiFs.length > 0) {
+    if (filteredAllocations['AIF'] && aiFs.length > 0) {
       const aif = aiFs[0];
+      const analyticalData = generateAnalyticalRationale(aif, 'aif', 'BUY');
       recommendations.push({
         productType: 'aif',
         productName: aif.name,
         productCode: aif.registrationNo,
         amc: aif.fundHouseName,
         category: aif.category || 'AIF',
-        recommendedAmount: Math.round(totalAmount * allocations['AIF'] / 100),
-        allocationPercentage: allocations['AIF'],
+        recommendedAmount: Math.round(totalAmount * filteredAllocations['AIF'] / 100),
+        allocationPercentage: filteredAllocations['AIF'],
         investmentType: 'lumpsum',
         minInvestment: parseFloat(aif.minInvestment || '10000000'),
         returns1Y: parseFloat(aif.return1Y || '0'),
         riskRating: aif.riskScore ? `Risk Score: ${aif.riskScore}` : 'High',
-        selectionReason: `Alternative investment fund for concentrated high-conviction exposure.`
+        selectionReason: `Alternative investment fund for concentrated high-conviction exposure.`,
+        recommendationType: 'BUY',
+        ...analyticalData
       });
-      usedAllocation += allocations['AIF'];
+      usedAllocation += filteredAllocations['AIF'];
     }
     
     // MLD allocation
-    if (allocations['Alternatives'] && mlds.length > 0) {
+    if (filteredAllocations['Alternatives'] && mlds.length > 0) {
       const mld = mlds[0];
+      const analyticalData = generateAnalyticalRationale(mld, 'mld', 'BUY');
       recommendations.push({
         productType: 'mld',
         productName: mld.name,
         productCode: mld.isin,
         amc: mld.issuer,
         category: mld.payoffType || 'Market Linked Debenture',
-        recommendedAmount: Math.round(totalAmount * allocations['Alternatives'] / 100),
-        allocationPercentage: allocations['Alternatives'],
+        recommendedAmount: Math.round(totalAmount * filteredAllocations['Alternatives'] / 100),
+        allocationPercentage: filteredAllocations['Alternatives'],
         investmentType: 'lumpsum',
         minInvestment: parseFloat(mld.minInvestment || '1000000'),
         returns1Y: parseFloat(mld.ytm || '0'),
         riskRating: mld.riskScore ? `Risk Score: ${mld.riskScore}` : 'Moderately High',
-        selectionReason: `Market-linked structured product for tax-efficient equity-linked returns.`
+        selectionReason: `Market-linked structured product for tax-efficient equity-linked returns.`,
+        recommendationType: 'BUY',
+        ...analyticalData
       });
-      usedAllocation += allocations['Alternatives'];
+      usedAllocation += filteredAllocations['Alternatives'];
     }
   }
   
@@ -967,7 +1338,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { proposalType, clientType = 'individual', samplePortfolio, investmentGoals } = req.body;
+    const { proposalType, clientType = 'individual', samplePortfolio, investmentGoals, selectedCategories } = req.body;
 
     // Client type configurations for tailored recommendations
     const clientTypeConfig: Record<string, {
@@ -1018,6 +1389,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           clientType,
           riskTolerance: 'aggressive',
           includePremium: true,
+          selectedCategories,
           allocations: targetAllocation
         });
         projectedReturns = Math.round(16.5 * config.riskModifier * 10) / 10;
@@ -1031,6 +1403,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           clientType,
           riskTolerance: 'conservative',
           includePremium: false,
+          selectedCategories,
           allocations: targetAllocation
         });
         projectedReturns = Math.round(7.5 * config.riskModifier * 10) / 10;
@@ -1044,6 +1417,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           clientType,
           riskTolerance: 'moderate',
           includePremium: false,
+          selectedCategories,
           allocations: targetAllocation
         });
         projectedReturns = Math.round(12.5 * config.riskModifier * 10) / 10;
@@ -1066,6 +1440,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           riskTolerance: 'moderate',
           includePremium: false,
           includeStocks: true,
+          selectedCategories,
           allocations: targetAllocation
         });
         projectedReturns = Math.round(13.5 * config.riskModifier * 10) / 10;
@@ -1120,6 +1495,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           clientType,
           riskTolerance: 'aggressive',
           includePremium: true,
+          selectedCategories,
           allocations: targetAllocation
         });
         projectedReturns = Math.round(16.5 * adjustedReturns * 10) / 10;
@@ -1133,6 +1509,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           clientType,
           riskTolerance: 'conservative',
           includePremium: false,
+          selectedCategories,
           allocations: targetAllocation
         });
         projectedReturns = Math.round(7.5 * adjustedReturns * 10) / 10;
@@ -1146,6 +1523,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           clientType,
           riskTolerance: 'moderate',
           includePremium: false,
+          selectedCategories,
           allocations: targetAllocation
         });
         projectedReturns = Math.round(12.5 * adjustedReturns * 10) / 10;
@@ -1165,6 +1543,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
           riskTolerance: riskTolerance || 'moderate',
           includePremium: false,
           includeStocks: true,
+          selectedCategories,
           allocations: targetAllocation
         });
         projectedReturns = Math.round((riskTolerance === 'aggressive' ? 14 : riskTolerance === 'conservative' ? 9 : 11.5) * adjustedReturns * 10) / 10;

@@ -18,6 +18,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { PortfolioEditor } from "@/components/portfolio/PortfolioEditor";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Plus,
   FileText,
@@ -48,7 +50,10 @@ import {
   Check,
   AlertCircle,
   Upload,
-  FileUp
+  FileUp,
+  Info,
+  TrendingDown,
+  Scale
 } from "lucide-react";
 
 // Product types for portfolio entry
@@ -78,6 +83,27 @@ interface PortfolioHolding {
   category?: string;
   issuer?: string;
   isManual: boolean;
+  purchaseDate?: string;
+  purchasePrice?: number;
+  // AI recommendation fields populated after analysis
+  aiRecommendation?: 'BUY' | 'SELL' | 'HOLD' | 'SWITCH';
+  aiRationale?: string;
+  aiMetrics?: {
+    sharpeRatio?: number;
+    alpha?: number;
+    beta?: number;
+    standardDeviation?: number;
+    maxDrawdown?: number;
+    categoryRank?: string;
+    benchmarkReturn?: number;
+    expenseRatio?: number;
+    exitLoadApplicable?: boolean;
+    exitLoadPercent?: number;
+    holdingPeriodDays?: number;
+    capitalGainsTaxType?: 'STCG' | 'LTCG';
+    taxRate?: number;
+    estimatedTax?: number;
+  };
 }
 
 interface SearchProduct {
@@ -198,6 +224,23 @@ export default function AgentProspectProposalsPage() {
   const [prospectPan, setProspectPan] = useState("");
   const [clientType, setClientType] = useState("individual");
   const [panAutoDetected, setPanAutoDetected] = useState(false);
+  
+  // Product category filter for AI recommendations
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([
+    "mutual_fund", "bond", "pms", "aif", "etf"
+  ]);
+
+const RECOMMENDATION_CATEGORIES = [
+  { value: "mutual_fund", label: "Mutual Funds", description: "Equity, Debt, Hybrid schemes" },
+  { value: "bond", label: "Bonds/NCDs", description: "Government securities, Corporate bonds" },
+  { value: "pms", label: "PMS", description: "Portfolio Management Services (₹50L+)" },
+  { value: "aif", label: "AIF", description: "Alternative Investment Funds (₹1Cr+)" },
+  { value: "mld", label: "MLDs", description: "Market Linked Debentures" },
+  { value: "etf", label: "ETFs", description: "Exchange Traded Funds" },
+  { value: "fd", label: "Fixed Deposits", description: "Bank & Corporate FDs" },
+  { value: "gold", label: "Gold", description: "SGBs, Gold ETFs, Digital Gold" },
+  { value: "insurance", label: "Insurance/ULIP", description: "Term, Endowment, ULIPs" },
+];
 
   // Auto-detect client type from PAN (4th character indicates entity type)
   const autoDetectClientTypeFromPan = (pan: string) => {
@@ -376,6 +419,7 @@ export default function AgentProspectProposalsPage() {
     setLumpsum("");
     setRiskTolerance("moderate");
     setGeneratedProposal(null);
+    setSelectedCategories(["mutual_fund", "bond", "pms", "aif", "etf"]);
   };
 
   // Product search function
@@ -583,7 +627,7 @@ export default function AgentProspectProposalsPage() {
   const handleGenerate = () => {
     setIsGenerating(true);
     
-    let data: any = { proposalType, clientType };
+    let data: any = { proposalType, clientType, selectedCategories };
     
     if (proposalType === "sample_portfolio") {
       let holdings: any[] = [];
@@ -1042,6 +1086,72 @@ export default function AgentProspectProposalsPage() {
                 </div>
               </div>
 
+              {/* Product Category Selection for AI Recommendations */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Product Categories for AI Recommendations</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-4 h-4 text-gray-400" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Select which product categories the AI should consider when generating recommendations. HNI/Ultra HNI clients automatically unlock PMS and AIF options.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {RECOMMENDATION_CATEGORIES.map((cat) => {
+                    const isDisabled = (cat.value === "pms" || cat.value === "aif") && 
+                      !["hni", "ultra_hni", "institutional", "corporate"].includes(clientType);
+                    return (
+                      <div 
+                        key={cat.value}
+                        className={`flex items-start gap-2 p-2 rounded-lg border transition-colors ${
+                          selectedCategories.includes(cat.value) 
+                            ? "border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950" 
+                            : "border-gray-200 dark:border-gray-700"
+                        } ${isDisabled ? "opacity-50" : "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"}`}
+                        onClick={() => {
+                          if (isDisabled) return;
+                          if (selectedCategories.includes(cat.value)) {
+                            setSelectedCategories(selectedCategories.filter(c => c !== cat.value));
+                          } else {
+                            setSelectedCategories([...selectedCategories, cat.value]);
+                          }
+                        }}
+                      >
+                        <Checkbox
+                          checked={selectedCategories.includes(cat.value)}
+                          disabled={isDisabled}
+                          onCheckedChange={(checked) => {
+                            if (isDisabled) return;
+                            if (checked) {
+                              setSelectedCategories([...selectedCategories, cat.value]);
+                            } else {
+                              setSelectedCategories(selectedCategories.filter(c => c !== cat.value));
+                            }
+                          }}
+                          className="mt-0.5"
+                          data-testid={`checkbox-category-${cat.value}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{cat.label}</p>
+                          <p className="text-xs text-gray-500 truncate">{cat.description}</p>
+                          {isDisabled && (
+                            <p className="text-xs text-amber-600 mt-0.5">HNI/Ultra HNI only</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Selected: {selectedCategories.length} categories
+                </p>
+              </div>
+
               <Separator />
 
               <TabsContent value="fresh_investment" className="space-y-4 mt-0">
@@ -1387,10 +1497,57 @@ export default function AgentProspectProposalsPage() {
                                         1Y Return: {holding.returns1y.toFixed(1)}%
                                       </span>
                                     )}
+                                    {/* AI Recommendation Badge */}
+                                    {holding.aiRecommendation && (
+                                      <Badge 
+                                        className={`text-xs ${
+                                          holding.aiRecommendation === 'BUY' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                                          holding.aiRecommendation === 'SELL' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                                          holding.aiRecommendation === 'SWITCH' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
+                                          'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                        }`}
+                                        data-testid={`badge-ai-reco-${idx}`}
+                                      >
+                                        {holding.aiRecommendation === 'BUY' && <TrendingUp className="w-3 h-3 mr-1" />}
+                                        {holding.aiRecommendation === 'SELL' && <TrendingDown className="w-3 h-3 mr-1" />}
+                                        {holding.aiRecommendation === 'HOLD' && <Scale className="w-3 h-3 mr-1" />}
+                                        AI: {holding.aiRecommendation}
+                                      </Badge>
+                                    )}
                                   </div>
                                   <div className="font-medium text-blue-700">
                                     Value: ₹{holding.currentValue.toLocaleString('en-IN')}
                                   </div>
+                                </div>
+                              )}
+                              {/* AI Rationale Row */}
+                              {holding.aiRationale && (
+                                <div className="text-xs px-1 py-1.5 bg-gray-50 dark:bg-gray-900 rounded mt-1">
+                                  <p className="text-gray-600 dark:text-gray-400 font-medium mb-1">AI Analysis:</p>
+                                  <p className="text-gray-700 dark:text-gray-300">{holding.aiRationale}</p>
+                                  {holding.aiMetrics && (
+                                    <div className="flex flex-wrap gap-2 mt-1.5">
+                                      {holding.aiMetrics.sharpeRatio !== undefined && (
+                                        <span className="text-gray-500">Sharpe: {holding.aiMetrics.sharpeRatio.toFixed(2)}</span>
+                                      )}
+                                      {holding.aiMetrics.alpha !== undefined && (
+                                        <span className={holding.aiMetrics.alpha >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                          Alpha: {holding.aiMetrics.alpha.toFixed(2)}%
+                                        </span>
+                                      )}
+                                      {holding.aiMetrics.categoryRank && (
+                                        <span className="text-gray-500">Rank: {holding.aiMetrics.categoryRank}</span>
+                                      )}
+                                      {holding.aiMetrics.exitLoadApplicable && (
+                                        <span className="text-amber-600">Exit Load: {holding.aiMetrics.exitLoadPercent}%</span>
+                                      )}
+                                      {holding.aiMetrics.capitalGainsTaxType && (
+                                        <span className="text-purple-600">
+                                          {holding.aiMetrics.capitalGainsTaxType} @ {holding.aiMetrics.taxRate}%
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1492,17 +1649,63 @@ export default function AgentProspectProposalsPage() {
 
                     <div>
                       <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Recommended Products ({generatedProposal.recommendations?.length || 0})</h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
                         {generatedProposal.recommendations?.map((rec: any, idx: number) => (
-                          <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-3 flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{rec.productName}</p>
-                              <p className="text-xs text-gray-500">{rec.category} • {rec.riskRating}</p>
+                          <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-3 space-y-2">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm">{rec.productName}</p>
+                                  {rec.recommendationType && (
+                                    <Badge 
+                                      className={`text-xs ${
+                                        rec.recommendationType === 'BUY' ? 'bg-green-100 text-green-700' :
+                                        rec.recommendationType === 'SELL' ? 'bg-red-100 text-red-700' :
+                                        rec.recommendationType === 'SWITCH' ? 'bg-amber-100 text-amber-700' :
+                                        'bg-blue-100 text-blue-700'
+                                      }`}
+                                    >
+                                      {rec.recommendationType}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500">{rec.category} • {rec.riskRating}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-sm">₹{(rec.recommendedAmount || 0).toLocaleString('en-IN')}</p>
+                                <p className="text-xs text-gray-500">{rec.allocationPercentage}%</p>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-bold text-sm">₹{rec.recommendedAmount.toLocaleString('en-IN')}</p>
-                              <p className="text-xs text-gray-500">{rec.allocationPercentage}%</p>
-                            </div>
+                            {/* AI Rationale with Metrics */}
+                            {rec.rationale && (
+                              <div className="text-xs bg-gray-50 dark:bg-gray-900 rounded p-2">
+                                <p className="text-gray-700 dark:text-gray-300">{rec.rationale}</p>
+                                {rec.metrics && (
+                                  <div className="flex flex-wrap gap-2 mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                                    {rec.metrics.sharpeRatio && (
+                                      <span className="text-gray-500">Sharpe: {rec.metrics.sharpeRatio}</span>
+                                    )}
+                                    {rec.metrics.alpha && (
+                                      <span className={parseFloat(rec.metrics.alpha) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                        Alpha: {rec.metrics.alpha}%
+                                      </span>
+                                    )}
+                                    {rec.metrics.categoryRank && (
+                                      <span className="text-gray-500">Rank: {rec.metrics.categoryRank}</span>
+                                    )}
+                                    {rec.metrics.expenseRatio && (
+                                      <span className="text-gray-500">Expense: {rec.metrics.expenseRatio}%</span>
+                                    )}
+                                    {rec.exitLoadApplicable && (
+                                      <span className="text-amber-600">Exit Load: {rec.exitLoadPercent}%</span>
+                                    )}
+                                    {rec.taxImplication && (
+                                      <span className="text-purple-600">{rec.taxImplication}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1590,6 +1793,7 @@ export default function AgentProspectProposalsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Action</TableHead>
                         <TableHead>Product</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead>Amount</TableHead>
@@ -1598,12 +1802,45 @@ export default function AgentProspectProposalsPage() {
                     </TableHeader>
                     <TableBody>
                       {selectedProposal.recommendations.map((rec: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-medium">{rec.productName}</TableCell>
-                          <TableCell>{rec.category}</TableCell>
-                          <TableCell>₹{rec.recommendedAmount?.toLocaleString('en-IN')}</TableCell>
-                          <TableCell>{rec.allocationPercentage}%</TableCell>
-                        </TableRow>
+                        <>
+                          <TableRow key={idx}>
+                            <TableCell>
+                              <Badge 
+                                className={`text-xs ${
+                                  rec.recommendationType === 'BUY' ? 'bg-green-100 text-green-700' :
+                                  rec.recommendationType === 'SELL' ? 'bg-red-100 text-red-700' :
+                                  rec.recommendationType === 'SWITCH' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-blue-100 text-blue-700'
+                                }`}
+                              >
+                                {rec.recommendationType || 'BUY'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-medium">{rec.productName}</TableCell>
+                            <TableCell>{rec.category}</TableCell>
+                            <TableCell>₹{rec.recommendedAmount?.toLocaleString('en-IN')}</TableCell>
+                            <TableCell>{rec.allocationPercentage}%</TableCell>
+                          </TableRow>
+                          {rec.rationale && (
+                            <TableRow key={`${idx}-rationale`} className="bg-gray-50 dark:bg-gray-900">
+                              <TableCell colSpan={5} className="text-xs py-2">
+                                <div className="space-y-1">
+                                  <p className="text-gray-700 dark:text-gray-300">{rec.rationale}</p>
+                                  {(rec.exitLoadApplicable || rec.taxImplication) && (
+                                    <div className="flex gap-3">
+                                      {rec.exitLoadApplicable && (
+                                        <span className="text-amber-600">Exit Load: {rec.exitLoadPercent}%</span>
+                                      )}
+                                      {rec.taxImplication && (
+                                        <span className="text-purple-600">{rec.taxImplication}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
                       ))}
                     </TableBody>
                   </Table>
