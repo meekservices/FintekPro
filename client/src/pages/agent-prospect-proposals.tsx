@@ -1725,31 +1725,84 @@ const RECOMMENDATION_CATEGORIES = [
                             </div>
                             {/* AI Rationale with Metrics */}
                             {rec.rationale && (
-                              <div className="text-xs bg-gray-50 dark:bg-gray-900 rounded p-2">
+                              <div className="text-xs bg-gray-50 dark:bg-gray-900 rounded p-2 space-y-2">
                                 <p className="text-gray-700 dark:text-gray-300">{rec.rationale}</p>
                                 {rec.metrics && (
-                                  <div className="flex flex-wrap gap-2 mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700">
-                                    {rec.metrics.sharpeRatio && (
-                                      <span className="text-gray-500">Sharpe: {rec.metrics.sharpeRatio}</span>
+                                  <>
+                                    {/* Valuation Metrics Row */}
+                                    <div className="flex flex-wrap gap-3 pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                                      {rec.metrics.pe > 0 && (
+                                        <span className="bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded text-blue-700 dark:text-blue-400">
+                                          P/E: {rec.metrics.pe}x {rec.metrics.peVsCat !== 0 && <span className={rec.metrics.peVsCat < 0 ? 'text-green-600' : 'text-amber-600'}>({rec.metrics.peVsCat > 0 ? '+' : ''}{rec.metrics.peVsCat}%)</span>}
+                                        </span>
+                                      )}
+                                      {rec.metrics.pbRatio > 0 && (
+                                        <span className="bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded text-purple-700 dark:text-purple-400">
+                                          P/B: {rec.metrics.pbRatio}x
+                                        </span>
+                                      )}
+                                      {rec.metrics.roe > 0 && (
+                                        <span className={`px-1.5 py-0.5 rounded ${rec.metrics.roe >= 15 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600'}`}>
+                                          ROE: {rec.metrics.roe}%
+                                        </span>
+                                      )}
+                                      {rec.metrics.epsGrowth3Y && rec.metrics.epsGrowth3Y !== 0 && (
+                                        <span className={`px-1.5 py-0.5 rounded ${rec.metrics.epsGrowth3Y > 12 ? 'bg-green-50 dark:bg-green-900/30 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                          EPS 3Y: {rec.metrics.epsGrowth3Y}%
+                                        </span>
+                                      )}
+                                      {rec.metrics.dividendYield > 0 && (
+                                        <span className="bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-400">
+                                          Div: {rec.metrics.dividendYield}%
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* Risk & Performance Metrics Row */}
+                                    <div className="flex flex-wrap gap-3">
+                                      {rec.metrics.sharpeRatio !== undefined && (
+                                        <span className={`text-gray-600 dark:text-gray-400 ${rec.metrics.sharpeRatio > 0.5 ? 'font-medium' : ''}`}>
+                                          Sharpe: {rec.metrics.sharpeRatio}
+                                        </span>
+                                      )}
+                                      {rec.metrics.alpha !== undefined && (
+                                        <span className={rec.metrics.alpha >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                          Alpha: {rec.metrics.alpha > 0 ? '+' : ''}{rec.metrics.alpha}%
+                                        </span>
+                                      )}
+                                      {rec.metrics.downsideCapture && (
+                                        <span className={`${rec.metrics.downsideCapture < 90 ? 'text-green-600' : rec.metrics.downsideCapture > 110 ? 'text-red-600' : 'text-gray-500'}`}>
+                                          Downside: {rec.metrics.downsideCapture}%
+                                        </span>
+                                      )}
+                                      {rec.metrics.styleBox && (
+                                        <span className="text-indigo-600 dark:text-indigo-400">
+                                          {rec.metrics.styleBox}
+                                        </span>
+                                      )}
+                                      {rec.metrics.categoryRank && (
+                                        <span className="text-gray-500">{rec.metrics.categoryRank}</span>
+                                      )}
+                                      {rec.metrics.expenseRatio !== undefined && rec.metrics.expenseRatio > 0 && (
+                                        <span className={`${rec.metrics.expenseRatio < 1 ? 'text-green-600' : 'text-gray-500'}`}>
+                                          TER: {rec.metrics.expenseRatio.toFixed(2)}%
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* Additional Info Row */}
+                                    {(rec.exitLoadApplicable || rec.taxImplication || rec.metrics.aum) && (
+                                      <div className="flex flex-wrap gap-3 text-gray-500">
+                                        {rec.metrics.aum && (
+                                          <span>AUM: {rec.metrics.aum}</span>
+                                        )}
+                                        {rec.exitLoadApplicable && (
+                                          <span className="text-amber-600">Exit Load: {rec.exitLoadPercent}%</span>
+                                        )}
+                                        {rec.taxImplication && (
+                                          <span className="text-purple-600">{rec.taxImplication}</span>
+                                        )}
+                                      </div>
                                     )}
-                                    {rec.metrics.alpha && (
-                                      <span className={parseFloat(rec.metrics.alpha) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                        Alpha: {rec.metrics.alpha}%
-                                      </span>
-                                    )}
-                                    {rec.metrics.categoryRank && (
-                                      <span className="text-gray-500">Rank: {rec.metrics.categoryRank}</span>
-                                    )}
-                                    {rec.metrics.expenseRatio && (
-                                      <span className="text-gray-500">Expense: {rec.metrics.expenseRatio}%</span>
-                                    )}
-                                    {rec.exitLoadApplicable && (
-                                      <span className="text-amber-600">Exit Load: {rec.exitLoadPercent}%</span>
-                                    )}
-                                    {rec.taxImplication && (
-                                      <span className="text-purple-600">{rec.taxImplication}</span>
-                                    )}
-                                  </div>
+                                  </>
                                 )}
                               </div>
                             )}
@@ -1829,10 +1882,42 @@ const RECOMMENDATION_CATEGORIES = [
                                   </p>
                                 </div>
                               </div>
-                              {holding.rationale && (
-                                <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1.5 bg-gray-50 dark:bg-gray-900 rounded p-1.5">
-                                  {holding.rationale}
-                                </p>
+                              {/* Rationale and Metrics */}
+                              {(holding.rationale || holding.metrics) && (
+                                <div className="mt-1.5 bg-gray-50 dark:bg-gray-900 rounded p-1.5 space-y-1">
+                                  {holding.rationale && (
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400">
+                                      {holding.rationale}
+                                    </p>
+                                  )}
+                                  {holding.metrics && (
+                                    <div className="flex flex-wrap gap-1.5 text-[9px]">
+                                      {holding.metrics.pe > 0 && (
+                                        <span className="bg-blue-50 dark:bg-blue-900/30 px-1 py-0.5 rounded text-blue-600">
+                                          P/E: {holding.metrics.pe}x
+                                        </span>
+                                      )}
+                                      {holding.metrics.pbRatio > 0 && (
+                                        <span className="bg-purple-50 dark:bg-purple-900/30 px-1 py-0.5 rounded text-purple-600">
+                                          P/B: {holding.metrics.pbRatio}x
+                                        </span>
+                                      )}
+                                      {holding.metrics.roe > 0 && (
+                                        <span className={`px-1 py-0.5 rounded ${holding.metrics.roe >= 15 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                                          ROE: {holding.metrics.roe}%
+                                        </span>
+                                      )}
+                                      {holding.metrics.sharpeRatio !== undefined && (
+                                        <span className="text-gray-500">Sharpe: {holding.metrics.sharpeRatio}</span>
+                                      )}
+                                      {holding.metrics.alpha !== undefined && (
+                                        <span className={holding.metrics.alpha >= 0 ? 'text-green-600' : 'text-red-500'}>
+                                          α: {holding.metrics.alpha > 0 ? '+' : ''}{holding.metrics.alpha}%
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
                           ))}
