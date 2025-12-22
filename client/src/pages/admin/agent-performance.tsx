@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -26,7 +29,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Clock,
-  UserX
+  UserX,
+  Loader2
 } from "lucide-react";
 import {
   BarChart,
@@ -40,7 +44,7 @@ import {
 } from "recharts";
 
 interface AgentData {
-  id: number;
+  id: string;
   name: string;
   aum: number;
   revenueMTD: number;
@@ -51,24 +55,67 @@ interface AgentData {
   lastActive: string;
 }
 
-const sampleAgents: AgentData[] = [
-  { id: 1, name: "Rajesh Kumar", aum: 45000000, revenueMTD: 425000, clients: 48, conversionRate: 72.5, trend: "up", status: "active", lastActive: "2 hours ago" },
-  { id: 2, name: "Priya Sharma", aum: 38000000, revenueMTD: 380000, clients: 42, conversionRate: 68.3, trend: "up", status: "active", lastActive: "1 hour ago" },
-  { id: 3, name: "Amit Patel", aum: 32000000, revenueMTD: 295000, clients: 35, conversionRate: 65.0, trend: "stable", status: "active", lastActive: "30 mins ago" },
-  { id: 4, name: "Sneha Reddy", aum: 28500000, revenueMTD: 265000, clients: 31, conversionRate: 61.2, trend: "up", status: "active", lastActive: "4 hours ago" },
-  { id: 5, name: "Vikram Singh", aum: 25000000, revenueMTD: 220000, clients: 28, conversionRate: 58.7, trend: "down", status: "active", lastActive: "1 day ago" },
-  { id: 6, name: "Anita Desai", aum: 22000000, revenueMTD: 185000, clients: 25, conversionRate: 55.4, trend: "stable", status: "active", lastActive: "3 hours ago" },
-  { id: 7, name: "Kiran Mehta", aum: 18500000, revenueMTD: 145000, clients: 20, conversionRate: 48.2, trend: "down", status: "warning", lastActive: "3 days ago" },
-  { id: 8, name: "Suresh Nair", aum: 12000000, revenueMTD: 95000, clients: 15, conversionRate: 42.5, trend: "down", status: "warning", lastActive: "5 days ago" },
-  { id: 9, name: "Deepak Joshi", aum: 8500000, revenueMTD: 62000, clients: 10, conversionRate: 35.0, trend: "down", status: "inactive", lastActive: "2 weeks ago" },
-  { id: 10, name: "Meena Iyer", aum: 5000000, revenueMTD: 38000, clients: 8, conversionRate: 28.5, trend: "down", status: "inactive", lastActive: "3 weeks ago" },
-];
+interface ApiAgent {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  status: string;
+  totalClientsAssigned: number;
+  activeClientsCount: number;
+  totalCommissionsEarned: string;
+  totalCommissionsPaid: string;
+  pendingCommissions: string;
+  customerSatisfactionRating: string | null;
+  totalTicketsHandled: number;
+  updatedAt: string;
+  createdAt: string;
+}
 
-const revenueByAgentData = sampleAgents.slice(0, 8).map(agent => ({
-  name: agent.name.split(" ")[0],
-  revenue: agent.revenueMTD / 1000,
-  aum: agent.aum / 1000000
-}));
+function getLastActiveText(updatedAt: string): string {
+  const now = new Date();
+  const updated = new Date(updatedAt);
+  const diffMs = now.getTime() - updated.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 60) return `${diffMins} mins ago`;
+  if (diffHours < 24) return `${diffHours} hours ago`;
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  return `${Math.floor(diffDays / 30)} months ago`;
+}
+
+function transformApiAgentToAgentData(agent: ApiAgent): AgentData {
+  const commissions = parseFloat(agent.totalCommissionsEarned || "0");
+  const pendingComm = parseFloat(agent.pendingCommissions || "0");
+  const totalClients = agent.totalClientsAssigned || 0;
+  const activeClients = agent.activeClientsCount || 0;
+  
+  const conversionRate = totalClients > 0 ? (activeClients / totalClients) * 100 : 
+    (agent.customerSatisfactionRating ? parseFloat(agent.customerSatisfactionRating) * 20 : 50);
+  
+  let trend: "up" | "down" | "stable" = "stable";
+  if (pendingComm > commissions * 0.2) trend = "up";
+  else if (activeClients === 0 && totalClients > 0) trend = "down";
+  
+  let status: "active" | "inactive" | "warning" = "active";
+  if (agent.status === "inactive") status = "inactive";
+  else if (agent.status === "on_leave" || agent.status === "warning") status = "warning";
+  
+  return {
+    id: agent.id,
+    name: agent.fullName,
+    aum: commissions * 100,
+    revenueMTD: commissions + pendingComm,
+    clients: totalClients,
+    conversionRate: Math.min(100, Math.max(0, conversionRate)),
+    trend,
+    status,
+    lastActive: getLastActiveText(agent.updatedAt)
+  };
+}
 
 const CHART_COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#6366f1"];
 
@@ -88,12 +135,28 @@ export default function AgentPerformanceDashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [performanceFilter, setPerformanceFilter] = useState("all");
 
-  const totalAgents = sampleAgents.length;
-  const totalAUM = sampleAgents.reduce((sum, agent) => sum + agent.aum, 0);
-  const totalRevenue = sampleAgents.reduce((sum, agent) => sum + agent.revenueMTD, 0);
-  const avgConversionRate = sampleAgents.reduce((sum, agent) => sum + agent.conversionRate, 0) / totalAgents;
+  const { data: agentsResponse, isLoading, refetch } = useQuery<{ agents: ApiAgent[] }>({
+    queryKey: ["/api/admin/agents"],
+    queryFn: async () => {
+      const response = await apiRequest("/api/admin/agents");
+      return response;
+    }
+  });
 
-  const filteredAgents = sampleAgents.filter(agent => {
+  const agents: AgentData[] = (agentsResponse?.agents || []).map(transformApiAgentToAgentData);
+  
+  const revenueByAgentData = agents.slice(0, 8).map(agent => ({
+    name: agent.name.split(" ")[0],
+    revenue: agent.revenueMTD / 1000,
+    aum: agent.aum / 1000000
+  }));
+
+  const totalAgents = agents.length;
+  const totalAUM = agents.reduce((sum, agent) => sum + agent.aum, 0);
+  const totalRevenue = agents.reduce((sum, agent) => sum + agent.revenueMTD, 0);
+  const avgConversionRate = totalAgents > 0 ? agents.reduce((sum, agent) => sum + agent.conversionRate, 0) / totalAgents : 0;
+
+  const filteredAgents = agents.filter(agent => {
     const matchesSearch = agent.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || agent.status === statusFilter;
     const matchesPerformance = performanceFilter === "all" ||
@@ -103,9 +166,13 @@ export default function AgentPerformanceDashboard() {
     return matchesSearch && matchesStatus && matchesPerformance;
   });
 
-  const agentsNeedingAttention = sampleAgents.filter(
+  const agentsNeedingAttention = agents.filter(
     agent => agent.status === "warning" || agent.status === "inactive" || agent.conversionRate < 45
   );
+  
+  const handleRefresh = () => {
+    refetch();
+  };
 
   const getTrendIcon = (trend: string) => {
     if (trend === "up") return <ArrowUpRight className="h-4 w-4 text-green-400" />;
@@ -127,8 +194,14 @@ export default function AgentPerformanceDashboard() {
           <p className="text-gray-400 mt-1">Monitor and analyze all agents' performance metrics</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800" data-testid="button-refresh">
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            className="border-gray-700 text-gray-300 hover:bg-gray-800" 
+            data-testid="button-refresh"
+            onClick={handleRefresh}
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
             Refresh
           </Button>
           <Button className="bg-blue-600 hover:bg-blue-700" data-testid="button-export">
@@ -145,8 +218,12 @@ export default function AgentPerformanceDashboard() {
             <Users className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="text-total-agents">{totalAgents}</div>
-            <p className="text-xs text-green-400 mt-1">+2 this month</p>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16 bg-gray-700" />
+            ) : (
+              <div className="text-2xl font-bold text-white" data-testid="text-total-agents">{totalAgents}</div>
+            )}
+            <p className="text-xs text-gray-400 mt-1">Real-time count</p>
           </CardContent>
         </Card>
 
@@ -156,8 +233,12 @@ export default function AgentPerformanceDashboard() {
             <Wallet className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="text-total-aum">{formatCurrency(totalAUM)}</div>
-            <p className="text-xs text-green-400 mt-1">+8.5% from last month</p>
+            {isLoading ? (
+              <Skeleton className="h-8 w-24 bg-gray-700" />
+            ) : (
+              <div className="text-2xl font-bold text-white" data-testid="text-total-aum">{formatCurrency(totalAUM)}</div>
+            )}
+            <p className="text-xs text-gray-400 mt-1">Based on commissions</p>
           </CardContent>
         </Card>
 
@@ -167,8 +248,12 @@ export default function AgentPerformanceDashboard() {
             <IndianRupee className="h-4 w-4 text-purple-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="text-total-revenue">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-green-400 mt-1">+12.3% from last month</p>
+            {isLoading ? (
+              <Skeleton className="h-8 w-24 bg-gray-700" />
+            ) : (
+              <div className="text-2xl font-bold text-white" data-testid="text-total-revenue">{formatCurrency(totalRevenue)}</div>
+            )}
+            <p className="text-xs text-gray-400 mt-1">Total commissions</p>
           </CardContent>
         </Card>
 
@@ -178,7 +263,11 @@ export default function AgentPerformanceDashboard() {
             <Target className="h-4 w-4 text-amber-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="text-avg-conversion">{avgConversionRate.toFixed(1)}%</div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16 bg-gray-700" />
+            ) : (
+              <div className="text-2xl font-bold text-white" data-testid="text-avg-conversion">{avgConversionRate.toFixed(1)}%</div>
+            )}
             <p className="text-xs text-amber-400 mt-1">Target: 60%</p>
           </CardContent>
         </Card>
