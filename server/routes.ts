@@ -116,6 +116,7 @@ import storeAifPmsRoutes from "./routes/store-aif-pms";
 import storeMldRoutes from "./routes/store-mld";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
 import unifiedAdvisoryRoutes from "./routes/unified-advisory-routes";
+import bondRecommendationsRoutes from "./routes/bond-recommendations";
 import { taxRoutes } from "./tax-routes";
 import meetingBookingsRoutes from "./routes/meeting-bookings";
 import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
@@ -355,6 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/store", storeMldRoutes);
   app.use("/api/ai-investment", aiInvestmentRoutes);
   app.use("/api/unified-advisory", unifiedAdvisoryRoutes);
+  app.use("/api/bond-recommendations", bondRecommendationsRoutes);
   app.use("/api/tax", taxRoutes);
   app.use("/api/meetings", meetingBookingsRoutes);
   app.use("/api/sebi-risk-profiling", sebiRiskProfilingRoutes);
