@@ -89,6 +89,18 @@ const adminNavItems = [
     description: "Monitor all agents' performance metrics"
   },
   {
+    title: "AI Insights",
+    href: "/admin/ai-insights",
+    icon: Lightbulb,
+    description: "AI-powered platform trends & risk alerts"
+  },
+  {
+    title: "Task Oversight",
+    href: "/admin/task-oversight",
+    icon: ClipboardList,
+    description: "Monitor all agents' tasks & compliance"
+  },
+  {
     title: "Users & Access",
     href: "/admin/users",
     icon: Users,

@@ -168,6 +168,7 @@ import LeadProspecting from "@/pages/admin/lead-prospecting";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
 import AgentPerformanceDashboard from "@/pages/admin/agent-performance";
+import AdminTaskOversight from "@/pages/admin/task-oversight";
 import UserManagement from "@/pages/admin/user-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
@@ -199,6 +200,11 @@ import TaxComplianceForm15Page from "@/pages/tax-compliance-form15";
 import RiskProfilingPage from "@/pages/risk-profiling";
 import RiskQuestionnaireBuilder from "@/pages/admin/risk-questionnaire-builder";
 import RiskComplianceExport from "@/pages/admin/risk-compliance-export";
+import AdminReportsHub from "@/pages/admin/reports-hub";
+import AdminAIInsights from "@/pages/admin/ai-insights";
+import ClientTasks from "@/pages/client-tasks";
+import ClientAIRecommendations from "@/pages/client-ai-recommendations";
+import ClientReports from "@/pages/client-reports";
 
 function UserProtectedRoutes() {
   return (
@@ -253,6 +259,9 @@ function UserProtectedRoutes() {
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
         <Route path="/reports" component={ReportsHub} />
+        <Route path="/my-tasks" component={ClientTasks} />
+        <Route path="/ai-recommendations" component={ClientAIRecommendations} />
+        <Route path="/my-reports" component={ClientReports} />
         <Route path="/transaction-reports" component={TransactionReports} />
         {/* Unified Tax & Compliance Module */}
         <Route path="/tax/itr" component={TaxITRPage} />
@@ -515,6 +524,20 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/ai-insights">
+        {() => (
+          <AdminLayout>
+            <AdminAIInsights />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/task-oversight">
+        {() => (
+          <AdminLayout>
+            <AdminTaskOversight />
+          </AdminLayout>
+        )}
+      </Route>
       <Route path="/admin/duplicates">
         {() => (
           <AdminLayout>
@@ -737,10 +760,7 @@ function AdminRoutes() {
       <Route path="/admin/reports">
         {() => (
           <AdminLayout>
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-bold text-white mb-4">Reports & Analytics</h2>
-              <p className="text-gray-400">Coming soon...</p>
-            </div>
+            <AdminReportsHub />
           </AdminLayout>
         )}
       </Route>
