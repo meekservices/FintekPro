@@ -2469,6 +2469,13 @@ export const investmentProposals = pgTable("investment_proposals", {
   remindersSent: integer("reminders_sent").default(0),
   lastReminderAt: timestamp("last_reminder_at"),
   
+  // Demo proposal tracking
+  isDemo: boolean("is_demo").default(false), // Whether this is a demo proposal
+  demoConvertedAt: timestamp("demo_converted_at"), // When demo was converted to real proposal
+  demoConvertedBy: varchar("demo_converted_by"), // Who converted the demo
+  demoViewCount: integer("demo_view_count").default(0), // Number of times demo was viewed
+  demoLastViewedAt: timestamp("demo_last_viewed_at"), // Last time demo was viewed
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
