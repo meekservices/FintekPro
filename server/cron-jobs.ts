@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { storage } from './storage';
 import { DealMatcherService } from './services/deal-matcher';
 import { probe42Service } from './services/probe42-service';
+import { stockSyncScheduler } from './services/stock-sync-scheduler';
 
 /**
  * Initialize scheduled cron jobs
@@ -111,5 +112,6 @@ export function initializeCronJobs(): void {
     }
   });
 
+  stockSyncScheduler.initialize();
   console.log('✓ Cron jobs initialized successfully');
 }

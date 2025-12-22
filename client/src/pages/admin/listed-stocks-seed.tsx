@@ -1,20 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   ArrowLeft, Search, Loader2, TrendingUp, CheckCircle, 
-  AlertCircle, Sprout, Package, BarChart3, Building2,
-  RefreshCw, Plus, Eye, EyeOff
+  AlertCircle, Package, BarChart3, Building2,
+  RefreshCw, Eye, EyeOff, Download, Clock
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -37,7 +37,20 @@ interface ListedStock {
   analystRating?: string;
   targetPrice?: string;
   isPublished: boolean;
-  selectionNotes?: string;
+  lastUpdated?: string;
+}
+
+interface SyncProgress {
+  exchange: 'NSE' | 'BSE';
+  status: 'idle' | 'fetching_symbols' | 'fetching_details' | 'saving' | 'complete' | 'error';
+  total: number;
+  processed: number;
+  added: number;
+  updated: number;
+  errors: number;
+  startedAt?: string;
+  completedAt?: string;
+  errorMessage?: string;
 }
 
 const SECTORS = [
@@ -65,52 +78,83 @@ export default function ListedStocksSeed() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [marketCapFilter, setMarketCapFilter] = useState<string>("all");
+  const [exchangeFilter, setExchangeFilter] = useState<string>("all");
   const [selectedStocks, setSelectedStocks] = useState<Set<string>>(new Set());
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newStock, setNewStock] = useState({
-    symbol: "",
-    companyName: "",
-    isin: "",
-    bseCode: "",
-    nseCode: "",
-    sector: "",
-    industry: "",
-    marketCap: "",
-    currentPrice: "",
-    peRatio: "",
-    pbRatio: "",
-    dividendYield: "",
-    return1Year: "",
-    return3Year: "",
-    analystRating: "",
-    targetPrice: "",
-    selectionNotes: ""
-  });
+  const [nseProgress, setNseProgress] = useState<SyncProgress | null>(null);
+  const [bseProgress, setBseProgress] = useState<SyncProgress | null>(null);
 
   const { data: stocks, isLoading, refetch } = useQuery<ListedStock[]>({
     queryKey: ['/api/admin/listed-stocks'],
   });
 
-  const addStockMutation = useMutation({
-    mutationFn: async (stock: typeof newStock) => {
-      return await apiRequest('/api/admin/listed-stocks', {
+  // Poll for sync progress when syncing
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    const pollProgress = async () => {
+      try {
+        const [nseRes, bseRes] = await Promise.all([
+          fetch('/api/admin/exchange-sync/progress/nse').then(r => r.json()),
+          fetch('/api/admin/exchange-sync/progress/bse').then(r => r.json())
+        ]);
+        setNseProgress(nseRes);
+        setBseProgress(bseRes);
+
+        // Refetch stocks when sync completes
+        if (nseRes.status === 'complete' || bseRes.status === 'complete') {
+          refetch();
+        }
+
+        // Stop polling if both are idle/complete/error
+        const nseActive = ['fetching_symbols', 'fetching_details', 'saving'].includes(nseRes.status);
+        const bseActive = ['fetching_symbols', 'fetching_details', 'saving'].includes(bseRes.status);
+        if (!nseActive && !bseActive && interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+      } catch (error) {
+        console.error('Error polling sync progress:', error);
+      }
+    };
+
+    // Initial fetch
+    pollProgress();
+
+    // Start polling
+    interval = setInterval(pollProgress, 2000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [refetch]);
+
+  const syncNSEMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('/api/admin/exchange-sync/nse', {
         method: 'POST',
-        body: JSON.stringify(stock),
+        body: JSON.stringify({ topOnly: true }),
       });
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Stock added successfully" });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/listed-stocks'] });
-      setShowAddForm(false);
-      setNewStock({
-        symbol: "", companyName: "", isin: "", bseCode: "", nseCode: "",
-        sector: "", industry: "", marketCap: "", currentPrice: "",
-        peRatio: "", pbRatio: "", dividendYield: "", return1Year: "",
-        return3Year: "", analystRating: "", targetPrice: "", selectionNotes: ""
-      });
+      toast({ title: "NSE Sync Started", description: "Fetching stocks from NSE..." });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to add stock", variant: "destructive" });
+      toast({ title: "Error", description: error.message || "Failed to start NSE sync", variant: "destructive" });
+    }
+  });
+
+  const syncBSEMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('/api/admin/exchange-sync/bse', {
+        method: 'POST',
+        body: JSON.stringify({ topOnly: true }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "BSE Sync Started", description: "Fetching stocks from BSE..." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to start BSE sync", variant: "destructive" });
     }
   });
 
@@ -147,455 +191,429 @@ export default function ListedStocksSeed() {
     }
   });
 
-  const filteredStocks = (stocks || []).filter(stock => {
-    const matchesSearch = !searchQuery || 
+  const filteredStocks = stocks?.filter(stock => {
+    const matchesSearch = searchQuery === "" || 
       stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      stock.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      stock.sector?.toLowerCase().includes(searchQuery.toLowerCase());
+      stock.companyName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSector = sectorFilter === "all" || stock.sector === sectorFilter;
     const matchesMarketCap = marketCapFilter === "all" || stock.marketCap === marketCapFilter;
-    return matchesSearch && matchesSector && matchesMarketCap;
-  });
+    const matchesExchange = exchangeFilter === "all" || 
+      (exchangeFilter === "NSE" && stock.nseCode) ||
+      (exchangeFilter === "BSE" && stock.bseCode);
+    return matchesSearch && matchesSector && matchesMarketCap && matchesExchange;
+  }) || [];
 
-  const publishedCount = (stocks || []).filter(s => s.isPublished).length;
-  const totalCount = (stocks || []).length;
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedStocks(new Set(filteredStocks.map(s => s.id)));
-    } else {
+  const handleSelectAll = () => {
+    if (selectedStocks.size === filteredStocks.length) {
       setSelectedStocks(new Set());
+    } else {
+      setSelectedStocks(new Set(filteredStocks.map(s => s.id)));
     }
   };
 
-  const handleSelectStock = (id: string, checked: boolean) => {
-    const newSet = new Set(selectedStocks);
-    if (checked) {
-      newSet.add(id);
+  const handleSelectStock = (id: string) => {
+    const newSelected = new Set(selectedStocks);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
     } else {
-      newSet.delete(id);
+      newSelected.add(id);
     }
-    setSelectedStocks(newSet);
+    setSelectedStocks(newSelected);
   };
+
+  const getProgressPercent = (progress: SyncProgress | null) => {
+    if (!progress || progress.total === 0) return 0;
+    return Math.round((progress.processed / progress.total) * 100);
+  };
+
+  const isSyncing = (progress: SyncProgress | null) => {
+    return progress && ['fetching_symbols', 'fetching_details', 'saving'].includes(progress.status);
+  };
+
+  const publishedCount = stocks?.filter(s => s.isPublished).length || 0;
+  const totalCount = stocks?.length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/store">
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid="button-back">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Store
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <TrendingUp className="w-8 h-8 text-blue-400" />
-              Listed Stocks Seed Management
-            </h1>
-            <p className="text-gray-400">Manage listed stocks for AI investment recommendations</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-gray-800/50 border-gray-700">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Package className="w-8 h-8 text-blue-400" />
-                <div>
-                  <p className="text-2xl font-bold">{totalCount}</p>
-                  <p className="text-sm text-gray-400">Total Stocks</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-800/50 border-gray-700">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-8 h-8 text-green-400" />
-                <div>
-                  <p className="text-2xl font-bold">{publishedCount}</p>
-                  <p className="text-sm text-gray-400">Published</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-800/50 border-gray-700">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-8 h-8 text-yellow-400" />
-                <div>
-                  <p className="text-2xl font-bold">{totalCount - publishedCount}</p>
-                  <p className="text-sm text-gray-400">Unpublished</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-800/50 border-gray-700">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <BarChart3 className="w-8 h-8 text-purple-400" />
-                <div>
-                  <p className="text-2xl font-bold">{selectedStocks.size}</p>
-                  <p className="text-sm text-gray-400">Selected</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="bg-gray-800/50 border-gray-700">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Sprout className="w-5 h-5 text-emerald-400" />
-                  Listed Stocks Inventory
-                </CardTitle>
-                <CardDescription>
-                  Add and manage stocks for AI-powered investment proposals
-                </CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => refetch()}
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-600"
-                  data-testid="button-refresh"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
-                </Button>
-                <Button
-                  onClick={() => setShowAddForm(!showAddForm)}
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                  data-testid="button-add-stock"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Stock
-                </Button>
-              </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Link href="/admin/store-management">
+              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" data-testid="button-back">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Store
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <TrendingUp className="h-6 w-6 text-green-400" />
+                Listed Stocks - Exchange Sync
+              </h1>
+              <p className="text-slate-400 text-sm">Sync stock data from NSE and BSE exchanges</p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {showAddForm && (
-              <Card className="bg-gray-900/50 border-gray-600">
-                <CardHeader>
-                  <CardTitle className="text-lg">Add New Stock</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                      <Label>Symbol *</Label>
-                      <Input
-                        value={newStock.symbol}
-                        onChange={(e) => setNewStock({ ...newStock, symbol: e.target.value.toUpperCase() })}
-                        placeholder="RELIANCE"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-symbol"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Company Name *</Label>
-                      <Input
-                        value={newStock.companyName}
-                        onChange={(e) => setNewStock({ ...newStock, companyName: e.target.value })}
-                        placeholder="Reliance Industries Limited"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-company-name"
-                      />
-                    </div>
-                    <div>
-                      <Label>ISIN</Label>
-                      <Input
-                        value={newStock.isin}
-                        onChange={(e) => setNewStock({ ...newStock, isin: e.target.value.toUpperCase() })}
-                        placeholder="INE002A01018"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-isin"
-                      />
-                    </div>
-                    <div>
-                      <Label>BSE Code</Label>
-                      <Input
-                        value={newStock.bseCode}
-                        onChange={(e) => setNewStock({ ...newStock, bseCode: e.target.value })}
-                        placeholder="500325"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-bse-code"
-                      />
-                    </div>
-                    <div>
-                      <Label>NSE Code</Label>
-                      <Input
-                        value={newStock.nseCode}
-                        onChange={(e) => setNewStock({ ...newStock, nseCode: e.target.value.toUpperCase() })}
-                        placeholder="RELIANCE"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-nse-code"
-                      />
-                    </div>
-                    <div>
-                      <Label>Sector</Label>
-                      <Select value={newStock.sector} onValueChange={(v) => setNewStock({ ...newStock, sector: v })}>
-                        <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-sector">
-                          <SelectValue placeholder="Select sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTORS.map((s) => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Market Cap</Label>
-                      <Select value={newStock.marketCap} onValueChange={(v) => setNewStock({ ...newStock, marketCap: v })}>
-                        <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-market-cap">
-                          <SelectValue placeholder="Select market cap" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MARKET_CAPS.map((m) => (
-                            <SelectItem key={m} value={m}>{m}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Current Price (₹)</Label>
-                      <Input
-                        type="number"
-                        value={newStock.currentPrice}
-                        onChange={(e) => setNewStock({ ...newStock, currentPrice: e.target.value })}
-                        placeholder="1500.00"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-current-price"
-                      />
-                    </div>
-                    <div>
-                      <Label>P/E Ratio</Label>
-                      <Input
-                        type="number"
-                        value={newStock.peRatio}
-                        onChange={(e) => setNewStock({ ...newStock, peRatio: e.target.value })}
-                        placeholder="25.5"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-pe-ratio"
-                      />
-                    </div>
-                    <div>
-                      <Label>Dividend Yield (%)</Label>
-                      <Input
-                        type="number"
-                        value={newStock.dividendYield}
-                        onChange={(e) => setNewStock({ ...newStock, dividendYield: e.target.value })}
-                        placeholder="1.2"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-dividend-yield"
-                      />
-                    </div>
-                    <div>
-                      <Label>1Y Return (%)</Label>
-                      <Input
-                        type="number"
-                        value={newStock.return1Year}
-                        onChange={(e) => setNewStock({ ...newStock, return1Year: e.target.value })}
-                        placeholder="15.5"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-return-1y"
-                      />
-                    </div>
-                    <div>
-                      <Label>Analyst Rating</Label>
-                      <Select value={newStock.analystRating} onValueChange={(v) => setNewStock({ ...newStock, analystRating: v })}>
-                        <SelectTrigger className="bg-gray-800 border-gray-600" data-testid="select-analyst-rating">
-                          <SelectValue placeholder="Select rating" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Strong Buy">Strong Buy</SelectItem>
-                          <SelectItem value="Buy">Buy</SelectItem>
-                          <SelectItem value="Hold">Hold</SelectItem>
-                          <SelectItem value="Sell">Sell</SelectItem>
-                          <SelectItem value="Strong Sell">Strong Sell</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Target Price (₹)</Label>
-                      <Input
-                        type="number"
-                        value={newStock.targetPrice}
-                        onChange={(e) => setNewStock({ ...newStock, targetPrice: e.target.value })}
-                        placeholder="1800.00"
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-target-price"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Selection Notes</Label>
-                      <Input
-                        value={newStock.selectionNotes}
-                        onChange={(e) => setNewStock({ ...newStock, selectionNotes: e.target.value })}
-                        placeholder="Why this stock is recommended..."
-                        className="bg-gray-800 border-gray-600"
-                        data-testid="input-selection-notes"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      onClick={() => addStockMutation.mutate(newStock)}
-                      disabled={!newStock.symbol || !newStock.companyName || addStockMutation.isPending}
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                      data-testid="button-save-stock"
-                    >
-                      {addStockMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                      Save Stock
-                    </Button>
-                    <Button
-                      onClick={() => setShowAddForm(false)}
-                      variant="outline"
-                      className="border-gray-600"
-                      data-testid="button-cancel-add"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+          </div>
+          <Button onClick={() => refetch()} variant="outline" size="sm" data-testid="button-refresh">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
 
+        {/* Exchange Sync Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* NSE Sync Card */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-500/20">
+                    <Building2 className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg text-white">NSE Exchange</CardTitle>
+                    <CardDescription className="text-slate-400">National Stock Exchange</CardDescription>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => syncNSEMutation.mutate()}
+                  disabled={isSyncing(nseProgress) || syncNSEMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-sync-nse"
+                >
+                  {isSyncing(nseProgress) ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  {isSyncing(nseProgress) ? 'Syncing...' : 'Sync NSE'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {nseProgress && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-400">Status:</span>
+                    <Badge variant={nseProgress.status === 'complete' ? 'default' : nseProgress.status === 'error' ? 'destructive' : 'secondary'}>
+                      {nseProgress.status === 'complete' ? 'Complete' : 
+                       nseProgress.status === 'error' ? 'Error' :
+                       nseProgress.status === 'idle' ? 'Ready' :
+                       'Syncing...'}
+                    </Badge>
+                  </div>
+                  {isSyncing(nseProgress) && (
+                    <>
+                      <Progress value={getProgressPercent(nseProgress)} className="h-2" />
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>Processing: {nseProgress.processed}/{nseProgress.total}</span>
+                        <span>{getProgressPercent(nseProgress)}%</span>
+                      </div>
+                    </>
+                  )}
+                  {nseProgress.status === 'complete' && (
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 rounded bg-green-500/20">
+                        <div className="text-green-400 font-semibold">{nseProgress.added}</div>
+                        <div className="text-xs text-slate-400">Synced</div>
+                      </div>
+                      <div className="p-2 rounded bg-yellow-500/20">
+                        <div className="text-yellow-400 font-semibold">{nseProgress.updated}</div>
+                        <div className="text-xs text-slate-400">Updated</div>
+                      </div>
+                      <div className="p-2 rounded bg-red-500/20">
+                        <div className="text-red-400 font-semibold">{nseProgress.errors}</div>
+                        <div className="text-xs text-slate-400">Errors</div>
+                      </div>
+                    </div>
+                  )}
+                  {nseProgress.completedAt && (
+                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                      <Clock className="h-3 w-3" />
+                      Last sync: {new Date(nseProgress.completedAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* BSE Sync Card */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-orange-500/20">
+                    <BarChart3 className="h-5 w-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg text-white">BSE Exchange</CardTitle>
+                    <CardDescription className="text-slate-400">Bombay Stock Exchange</CardDescription>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => syncBSEMutation.mutate()}
+                  disabled={isSyncing(bseProgress) || syncBSEMutation.isPending}
+                  className="bg-orange-600 hover:bg-orange-700"
+                  data-testid="button-sync-bse"
+                >
+                  {isSyncing(bseProgress) ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  {isSyncing(bseProgress) ? 'Syncing...' : 'Sync BSE'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {bseProgress && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-400">Status:</span>
+                    <Badge variant={bseProgress.status === 'complete' ? 'default' : bseProgress.status === 'error' ? 'destructive' : 'secondary'}>
+                      {bseProgress.status === 'complete' ? 'Complete' : 
+                       bseProgress.status === 'error' ? 'Error' :
+                       bseProgress.status === 'idle' ? 'Ready' :
+                       'Syncing...'}
+                    </Badge>
+                  </div>
+                  {isSyncing(bseProgress) && (
+                    <>
+                      <Progress value={getProgressPercent(bseProgress)} className="h-2" />
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>Processing: {bseProgress.processed}/{bseProgress.total}</span>
+                        <span>{getProgressPercent(bseProgress)}%</span>
+                      </div>
+                    </>
+                  )}
+                  {bseProgress.status === 'complete' && (
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 rounded bg-green-500/20">
+                        <div className="text-green-400 font-semibold">{bseProgress.added}</div>
+                        <div className="text-xs text-slate-400">Synced</div>
+                      </div>
+                      <div className="p-2 rounded bg-yellow-500/20">
+                        <div className="text-yellow-400 font-semibold">{bseProgress.updated}</div>
+                        <div className="text-xs text-slate-400">Updated</div>
+                      </div>
+                      <div className="p-2 rounded bg-red-500/20">
+                        <div className="text-red-400 font-semibold">{bseProgress.errors}</div>
+                        <div className="text-xs text-slate-400">Errors</div>
+                      </div>
+                    </div>
+                  )}
+                  {bseProgress.completedAt && (
+                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                      <Clock className="h-3 w-3" />
+                      Last sync: {new Date(bseProgress.completedAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <Package className="h-8 w-8 text-blue-400" />
+                <div>
+                  <div className="text-2xl font-bold text-white">{totalCount}</div>
+                  <div className="text-sm text-slate-400">Total Stocks</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-8 w-8 text-green-400" />
+                <div>
+                  <div className="text-2xl font-bold text-white">{publishedCount}</div>
+                  <div className="text-sm text-slate-400">Published</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-8 w-8 text-yellow-400" />
+                <div>
+                  <div className="text-2xl font-bold text-white">{totalCount - publishedCount}</div>
+                  <div className="text-sm text-slate-400">Unpublished</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="h-8 w-8 text-purple-400" />
+                <div>
+                  <div className="text-2xl font-bold text-white">{filteredStocks.length}</div>
+                  <div className="text-sm text-slate-400">Filtered</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters and Bulk Actions */}
+        <Card className="bg-slate-800 border-slate-700 mb-6">
+          <CardContent className="pt-4">
             <div className="flex flex-wrap items-center gap-4">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
+                  placeholder="Search by symbol or company name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search stocks..."
-                  className="pl-10 bg-gray-800 border-gray-600"
+                  className="pl-10 bg-slate-700 border-slate-600 text-white"
                   data-testid="input-search"
                 />
               </div>
+              <Select value={exchangeFilter} onValueChange={setExchangeFilter}>
+                <SelectTrigger className="w-[150px] bg-slate-700 border-slate-600 text-white" data-testid="select-exchange">
+                  <SelectValue placeholder="Exchange" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Exchanges</SelectItem>
+                  <SelectItem value="NSE">NSE</SelectItem>
+                  <SelectItem value="BSE">BSE</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                <SelectTrigger className="w-[180px] bg-gray-800 border-gray-600" data-testid="filter-sector">
-                  <SelectValue placeholder="Filter by sector" />
+                <SelectTrigger className="w-[180px] bg-slate-700 border-slate-600 text-white" data-testid="select-sector">
+                  <SelectValue placeholder="Sector" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sectors</SelectItem>
-                  {SECTORS.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  {SECTORS.map(sector => (
+                    <SelectItem key={sector} value={sector}>{sector}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <Select value={marketCapFilter} onValueChange={setMarketCapFilter}>
-                <SelectTrigger className="w-[150px] bg-gray-800 border-gray-600" data-testid="filter-market-cap">
+                <SelectTrigger className="w-[150px] bg-slate-700 border-slate-600 text-white" data-testid="select-marketcap">
                   <SelectValue placeholder="Market Cap" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Caps</SelectItem>
-                  {MARKET_CAPS.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  {MARKET_CAPS.map(cap => (
+                    <SelectItem key={cap} value={cap}>{cap}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
               {selectedStocks.size > 0 && (
-                <div className="flex gap-2">
-                  <Button
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-sm text-slate-400">{selectedStocks.size} selected</span>
+                  <Button 
+                    size="sm" 
                     onClick={() => bulkPublishMutation.mutate({ ids: Array.from(selectedStocks), isPublished: true })}
                     disabled={bulkPublishMutation.isPending}
-                    size="sm"
                     className="bg-green-600 hover:bg-green-700"
                     data-testid="button-bulk-publish"
                   >
-                    <Eye className="w-4 h-4 mr-2" />
-                    Publish ({selectedStocks.size})
+                    <Eye className="h-4 w-4 mr-1" />
+                    Publish
                   </Button>
-                  <Button
+                  <Button 
+                    size="sm" 
+                    variant="outline"
                     onClick={() => bulkPublishMutation.mutate({ ids: Array.from(selectedStocks), isPublished: false })}
                     disabled={bulkPublishMutation.isPending}
-                    size="sm"
-                    variant="outline"
-                    className="border-gray-600"
+                    className="border-slate-600"
                     data-testid="button-bulk-unpublish"
                   >
-                    <EyeOff className="w-4 h-4 mr-2" />
-                    Unpublish ({selectedStocks.size})
+                    <EyeOff className="h-4 w-4 mr-1" />
+                    Unpublish
                   </Button>
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
 
+        {/* Stocks Table */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Synced Stocks</CardTitle>
+            <CardDescription className="text-slate-400">
+              Manage stocks synced from NSE and BSE exchanges
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
               </div>
             ) : filteredStocks.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                <Building2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No stocks found. Add your first stock to get started.</p>
+              <div className="text-center py-12 text-slate-400">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No stocks found. Click "Sync NSE" or "Sync BSE" to fetch stocks.</p>
               </div>
             ) : (
-              <ScrollArea className="h-[500px]">
+              <ScrollArea className="h-[600px]">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-gray-700">
-                      <TableHead className="w-12">
-                        <Checkbox
+                    <TableRow className="border-slate-700">
+                      <TableHead className="w-[50px]">
+                        <Checkbox 
                           checked={selectedStocks.size === filteredStocks.length && filteredStocks.length > 0}
                           onCheckedChange={handleSelectAll}
                           data-testid="checkbox-select-all"
                         />
                       </TableHead>
-                      <TableHead>Symbol</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Sector</TableHead>
-                      <TableHead>Market Cap</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                      <TableHead className="text-right">P/E</TableHead>
-                      <TableHead className="text-right">1Y Return</TableHead>
-                      <TableHead>Rating</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-center">Action</TableHead>
+                      <TableHead className="text-slate-300">Symbol</TableHead>
+                      <TableHead className="text-slate-300">Company</TableHead>
+                      <TableHead className="text-slate-300">Exchange</TableHead>
+                      <TableHead className="text-slate-300">Sector</TableHead>
+                      <TableHead className="text-slate-300">Market Cap</TableHead>
+                      <TableHead className="text-slate-300 text-right">Price</TableHead>
+                      <TableHead className="text-slate-300 text-right">P/E</TableHead>
+                      <TableHead className="text-slate-300 text-right">1Y Return</TableHead>
+                      <TableHead className="text-slate-300">Status</TableHead>
+                      <TableHead className="text-slate-300 w-[100px]">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredStocks.map((stock) => (
-                      <TableRow key={stock.id} className="border-gray-700 hover:bg-gray-800/50">
+                      <TableRow key={stock.id} className="border-slate-700 hover:bg-slate-700/50" data-testid={`row-stock-${stock.id}`}>
                         <TableCell>
-                          <Checkbox
+                          <Checkbox 
                             checked={selectedStocks.has(stock.id)}
-                            onCheckedChange={(checked) => handleSelectStock(stock.id, !!checked)}
-                            data-testid={`checkbox-stock-${stock.id}`}
+                            onCheckedChange={() => handleSelectStock(stock.id)}
                           />
                         </TableCell>
-                        <TableCell className="font-medium text-blue-400">{stock.symbol}</TableCell>
+                        <TableCell className="font-medium text-white">{stock.symbol}</TableCell>
+                        <TableCell className="text-slate-300 max-w-[200px] truncate">
+                          {stock.companyName}
+                        </TableCell>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{stock.companyName}</p>
-                            {stock.isin && <p className="text-xs text-gray-400">{stock.isin}</p>}
+                          <div className="flex gap-1">
+                            {stock.nseCode && <Badge variant="outline" className="text-blue-400 border-blue-400">NSE</Badge>}
+                            {stock.bseCode && <Badge variant="outline" className="text-orange-400 border-orange-400">BSE</Badge>}
                           </div>
                         </TableCell>
+                        <TableCell className="text-slate-400">{stock.sector || '-'}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {stock.sector || 'N/A'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            className={
+                          {stock.marketCap && (
+                            <Badge variant="secondary" className={
                               stock.marketCap === 'Large Cap' ? 'bg-blue-500/20 text-blue-400' :
-                              stock.marketCap === 'Mid Cap' ? 'bg-purple-500/20 text-purple-400' :
-                              stock.marketCap === 'Small Cap' ? 'bg-orange-500/20 text-orange-400' :
-                              'bg-gray-500/20 text-gray-400'
-                            }
-                          >
-                            {stock.marketCap || 'N/A'}
-                          </Badge>
+                              stock.marketCap === 'Mid Cap' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-purple-500/20 text-purple-400'
+                            }>
+                              {stock.marketCap}
+                            </Badge>
+                          )}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {stock.currentPrice ? `₹${parseFloat(stock.currentPrice).toLocaleString('en-IN')}` : '-'}
+                        <TableCell className="text-right font-mono text-white">
+                          {stock.currentPrice ? `₹${parseFloat(stock.currentPrice).toLocaleString()}` : '-'}
                         </TableCell>
                         <TableCell className="text-right font-mono">
                           {stock.peRatio ? parseFloat(stock.peRatio).toFixed(1) : '-'}
@@ -608,38 +626,26 @@ export default function ListedStocksSeed() {
                           ) : '-'}
                         </TableCell>
                         <TableCell>
-                          {stock.analystRating ? (
-                            <Badge 
-                              className={
-                                stock.analystRating.includes('Buy') ? 'bg-green-500/20 text-green-400' :
-                                stock.analystRating === 'Hold' ? 'bg-yellow-500/20 text-yellow-400' :
-                                'bg-red-500/20 text-red-400'
-                              }
-                            >
-                              {stock.analystRating}
-                            </Badge>
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge 
-                            className={stock.isPublished 
-                              ? 'bg-green-500/20 text-green-400' 
-                              : 'bg-gray-500/20 text-gray-400'
-                            }
-                          >
+                          <Badge variant={stock.isPublished ? "default" : "secondary"}>
                             {stock.isPublished ? 'Published' : 'Draft'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell>
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => togglePublishMutation.mutate({ id: stock.id, isPublished: !stock.isPublished })}
+                            onClick={() => togglePublishMutation.mutate({ 
+                              id: stock.id, 
+                              isPublished: !stock.isPublished 
+                            })}
                             disabled={togglePublishMutation.isPending}
-                            className={stock.isPublished ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}
                             data-testid={`button-toggle-${stock.id}`}
                           >
-                            {stock.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            {stock.isPublished ? (
+                              <EyeOff className="h-4 w-4 text-slate-400" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-green-400" />
+                            )}
                           </Button>
                         </TableCell>
                       </TableRow>
