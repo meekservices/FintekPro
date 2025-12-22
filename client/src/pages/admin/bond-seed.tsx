@@ -220,7 +220,7 @@ export default function BondSeedAdmin() {
   });
 
   const publishBondsMutation = useMutation({
-    mutationFn: (bondIds: string[]) => apiRequest('/api/admin/bond-seed/publish', { 
+    mutationFn: (bondIds: string[]) => apiRequest('/api/admin/bond-seed/catalog/bulk-publish', { 
       method: 'POST',
       body: JSON.stringify({ bondIds })
     }),
