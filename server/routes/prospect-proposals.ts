@@ -1376,6 +1376,144 @@ router.post("/api/public/proposal/:shareToken/onboarding-click", async (req: Req
 
 // ============ AI PROPOSAL GENERATION ============
 
+// Generate AI analysis for existing portfolio holdings
+async function generateExistingPortfolioAnalysis(
+  prospectPan?: string,
+  prospectEmail?: string,
+  samplePortfolio?: any
+): Promise<{
+  holdings: any[];
+  summary: {
+    totalValue: number;
+    totalHoldings: number;
+    buyCount: number;
+    holdCount: number;
+    sellCount: number;
+    switchCount: number;
+  };
+  analysisNote: string;
+} | null> {
+  try {
+    let existingHoldings: any[] = [];
+    let dataSource = 'none';
+
+    // Try to fetch from database using PAN first
+    if (prospectPan) {
+      // Look for client portfolio by PAN
+      const [clientUser] = await db.select()
+        .from(users)
+        .where(eq(users.pan, prospectPan))
+        .limit(1);
+
+      if (clientUser) {
+        // Fetch portfolio holdings from various sources
+        const [mfHoldings, stockHoldings, bondHoldings] = await Promise.all([
+          db.select().from(clientPortfolioHoldings).where(eq(clientPortfolioHoldings.userId, clientUser.id)),
+          db.select().from(stockHoldings).where(eq(stockHoldings.userId, clientUser.id)).catch(() => []),
+          db.select().from(bondHoldings).where(eq(bondHoldings.userId, clientUser.id)).catch(() => [])
+        ]);
+
+        existingHoldings = [
+          ...mfHoldings.map(h => ({
+            id: h.id,
+            name: h.schemeName || h.productName || 'Unknown Fund',
+            type: 'mutual_fund',
+            currentValue: parseFloat(String(h.currentValue || 0)),
+            investedAmount: parseFloat(String(h.investedAmount || 0)),
+            returns1Y: h.returns1Y || 0,
+            category: h.category,
+            holdingDays: h.holdingDays,
+          })),
+          // Add stocks and bonds if available
+        ];
+        dataSource = 'database';
+      }
+    }
+
+    // If no database records, try sample portfolio holdings
+    if (existingHoldings.length === 0 && samplePortfolio?.holdings?.length > 0) {
+      existingHoldings = samplePortfolio.holdings.map((h: any, idx: number) => ({
+        id: `sample-${idx}`,
+        name: h.name || `Holding ${idx + 1}`,
+        type: h.type || 'mutual_fund',
+        currentValue: h.currentValue || 0,
+        investedAmount: h.investedAmount || h.currentValue * 0.9, // Estimate if not provided
+        returns1Y: h.returns1Y || 10,
+        category: h.category,
+        holdingDays: h.holdingDays || 365,
+      }));
+      dataSource = 'sample_portfolio';
+    }
+
+    if (existingHoldings.length === 0) {
+      return null;
+    }
+
+    // Generate AI recommendations for each holding
+    const analyzedHoldings = existingHoldings.map(holding => {
+      const returns1Y = holding.returns1Y || 0;
+      const returns3Y = holding.returns3Y || returns1Y * 0.9;
+      const investedAmount = holding.investedAmount || holding.currentValue;
+      const currentValue = holding.currentValue;
+      const gainLoss = currentValue - investedAmount;
+      const gainLossPercent = investedAmount > 0 ? ((currentValue - investedAmount) / investedAmount) * 100 : 0;
+      
+      // Create a product-like object for generateAnalyticalRationale
+      const product = {
+        schemeName: holding.name,
+        name: holding.name,
+        category: holding.category,
+        returns1y: returns1Y,
+        returns3y: returns3Y,
+        standardDeviation: 15, // Default
+        ter: 1.5, // Default expense ratio
+        categoryRank: holding.categoryRank,
+        exitLoad: holding.exitLoad,
+      };
+      
+      // Generate analytical data using existing function
+      const analyticalData = generateAnalyticalRationale(
+        product,
+        holding.type,
+        returns1Y,
+        returns3Y
+      );
+      
+      return {
+        ...holding,
+        gainLoss,
+        gainLossPercent,
+        ...analyticalData,
+      };
+    });
+
+    // Calculate summary
+    const summary = {
+      totalValue: analyzedHoldings.reduce((sum, h) => sum + h.currentValue, 0),
+      totalHoldings: analyzedHoldings.length,
+      buyCount: analyzedHoldings.filter(h => h.recommendationType === 'BUY').length,
+      holdCount: analyzedHoldings.filter(h => h.recommendationType === 'HOLD').length,
+      sellCount: analyzedHoldings.filter(h => h.recommendationType === 'SELL').length,
+      switchCount: analyzedHoldings.filter(h => h.recommendationType === 'SWITCH').length,
+    };
+
+    const analysisNote = dataSource === 'database' 
+      ? `Analysis based on ${analyzedHoldings.length} holdings from client's actual portfolio (PAN: ${prospectPan?.slice(0, 5)}XXXXX).`
+      : dataSource === 'sample_portfolio'
+        ? `Analysis based on ${analyzedHoldings.length} holdings from the provided sample portfolio.`
+        : 'No existing holdings found for analysis.';
+
+    return {
+      holdings: analyzedHoldings,
+      summary,
+      analysisNote,
+    };
+  } catch (error) {
+    console.error('Error generating existing portfolio analysis:', error);
+    return null;
+  }
+}
+
 // Generate AI recommendations based on input
 router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: Response) => {
   try {
@@ -1384,7 +1522,16 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { proposalType, clientType = 'individual', samplePortfolio, investmentGoals, selectedCategories } = req.body;
+    const { 
+      proposalType, 
+      clientType = 'individual', 
+      samplePortfolio, 
+      investmentGoals, 
+      selectedCategories,
+      includeExistingPortfolio = false,
+      prospectPan,
+      prospectEmail
+    } = req.body;
 
     // Client type configurations for tailored recommendations
     const clientTypeConfig: Record<string, {
@@ -1600,6 +1747,12 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
       projectedValue = Math.round(totalAmount * Math.pow(1 + projectedReturns/100, years));
     }
 
+    // Generate existing portfolio analysis if requested
+    let existingPortfolioAnalysis: any = null;
+    if (includeExistingPortfolio) {
+      existingPortfolioAnalysis = await generateExistingPortfolioAnalysis(prospectPan, prospectEmail, samplePortfolio);
+    }
+
     res.json({
       success: true,
       generated: {
@@ -1610,6 +1763,7 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
         projectedReturns,
         projectedValue,
         totalInvestmentAmount: recommendations.reduce((sum, r) => sum + r.recommendedAmount, 0),
+        existingPortfolioAnalysis,
       }
     });
   } catch (error: any) {
