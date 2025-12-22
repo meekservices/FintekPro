@@ -959,6 +959,9 @@ export default function StoreManagement() {
                                 if (slug === 'mld' || slug === 'structured-products' || cat.name.includes('MLD') || cat.name.includes('Market Linked')) {
                                   return '/admin/mld-seed';
                                 }
+                                if (slug === 'stocks' || slug === 'listed-stocks' || slug === 'equities' || cat.name.includes('Listed Stocks') || cat.name.includes('Equities')) {
+                                  return '/admin/listed-stocks-seed';
+                                }
                                 return `/admin/store/seed/${slug}`;
                               };
                               return (

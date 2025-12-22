@@ -83,6 +83,7 @@ import MldSeedAdmin from "@/pages/admin/mld-seed";
 import AifSeedAdmin from "@/pages/admin/aif-seed";
 import PmsSeedAdmin from "@/pages/admin/pms-seed";
 import MutualFundsSeeding from "@/pages/admin/mutual-funds-seeding";
+import ListedStocksSeed from "@/pages/admin/listed-stocks-seed";
 import SeedUnlistedPage from "@/pages/admin/seed-unlisted";
 import UnlistedPreviewPage from "@/pages/admin/unlisted-preview";
 import UnlistedPricingPreviewPage from "@/pages/admin/unlisted-pricing-preview";
@@ -710,6 +711,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <MutualFundsSeeding />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/listed-stocks-seed">
+        {() => (
+          <AdminLayout>
+            <ListedStocksSeed />
           </AdminLayout>
         )}
       </Route>
