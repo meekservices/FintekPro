@@ -30,12 +30,7 @@ import type {
   InsertAiTalkingPoint
 } from "@shared/schema";
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or } from "drizzle-orm";
-let GoogleGenerativeAI: any;
-try {
-  GoogleGenerativeAI = require("@google/generative-ai").GoogleGenerativeAI;
-} catch {
-  GoogleGenerativeAI = null;
-}
+import { GoogleGenAI } from "@google/genai";
 
 interface PortfolioHolding {
   id: string;
@@ -79,12 +74,12 @@ interface PortfolioMetrics {
 }
 
 class AIInvestmentService {
-  private genAI: any = null;
+  private genAI: GoogleGenAI | null = null;
 
   constructor() {
-    const apiKey = process.env.AI_INTEGRATIONS_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.AI_INTEGRATIONS_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.genAI = new GoogleGenAI({ apiKey });
       console.log("✅ AI Investment Service initialized with Gemini");
     } else {
       console.log("⚠️ AI Investment Service running without Gemini (using rule-based analysis)");
@@ -747,8 +742,6 @@ class AIInvestmentService {
     }
 
     try {
-      const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      
       const prompt = `Analyze this investment portfolio and provide insights:
 
 Portfolio Summary:
@@ -774,8 +767,11 @@ Provide a JSON response with:
   "recommendations": ["recommendation1", "recommendation2", "recommendation3"]
 }`;
 
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
+      const result = await this.genAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      const text = result.text || "";
       
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
