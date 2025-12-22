@@ -2341,9 +2341,11 @@ function CreateProposalDialog({ open, onOpenChange, clients, onSubmit, isLoading
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="moderate">Moderate</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="conservative">Conservative - Capital preservation</SelectItem>
+                          <SelectItem value="moderately_conservative">Moderately Conservative - Stability focused</SelectItem>
+                          <SelectItem value="moderate">Moderate - Balanced growth</SelectItem>
+                          <SelectItem value="moderately_aggressive">Moderately Aggressive - Growth oriented</SelectItem>
+                          <SelectItem value="aggressive">Aggressive - Maximum growth</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

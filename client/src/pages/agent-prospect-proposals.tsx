@@ -1114,7 +1114,9 @@ export default function AgentProspectProposalsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="conservative">Conservative - Capital preservation focus</SelectItem>
+                      <SelectItem value="moderately_conservative">Moderately Conservative - Stability with some growth</SelectItem>
                       <SelectItem value="moderate">Moderate - Balanced growth and stability</SelectItem>
+                      <SelectItem value="moderately_aggressive">Moderately Aggressive - Growth oriented</SelectItem>
                       <SelectItem value="aggressive">Aggressive - Maximum growth potential</SelectItem>
                     </SelectContent>
                   </Select>
