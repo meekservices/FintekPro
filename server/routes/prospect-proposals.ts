@@ -11,8 +11,8 @@ import { nanoid } from "nanoid";
 import multer from "multer";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pdfParseModule = require("pdf-parse");
-const pdfParse = pdfParseModule.PDFParse || pdfParseModule.default || pdfParseModule;
+const pdfParseLib = require("pdf-parse");
+const pdfParse = typeof pdfParseLib === 'function' ? pdfParseLib : (pdfParseLib.default || pdfParseLib);
 
 const upload = multer({
   storage: multer.memoryStorage(),
