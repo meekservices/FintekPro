@@ -178,6 +178,7 @@ export default function AgentInvestmentAdvisory() {
   const [activeTab, setActiveTab] = useState("portfolio");
   const [selectedClientId, setSelectedClientId] = useState<string>("demo-client-1");
   const [selectedHorizon, setSelectedHorizon] = useState<string>("3M");
+  const [selectedProductTypes, setSelectedProductTypes] = useState<string[]>(["stocks", "mutual_funds", "bonds", "etfs"]);
   const [showAddHoldingDialog, setShowAddHoldingDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -205,8 +206,30 @@ export default function AgentInvestmentAdvisory() {
   });
 
   const { data: profitPicks, isLoading: picksLoading, refetch: refetchPicks } = useQuery<AIProfitPick[]>({
-    queryKey: ['/api/ai-investment/profit-picks', selectedClientId, selectedHorizon],
+    queryKey: ['/api/ai-investment/profit-picks', selectedClientId, selectedHorizon, selectedProductTypes],
     enabled: !!selectedClientId && !!portfolio
+  });
+  
+  // Filter profit picks based on selected product types (client-side filtering)
+  const filteredProfitPicks = profitPicks?.filter(pick => {
+    if (selectedProductTypes.length === 0) return true;
+    // Map asset types to product categories
+    const assetTypeMap: Record<string, string> = {
+      'EQUITY': 'stocks',
+      'STOCK': 'stocks',
+      'MF': 'mutual_funds',
+      'MUTUAL_FUND': 'mutual_funds',
+      'BOND': 'bonds',
+      'NCD': 'bonds',
+      'ETF': 'etfs',
+      'GOLD': 'gold',
+      'SGB': 'gold',
+      'REIT': 'reits',
+      'INVIT': 'reits'
+    };
+    // Default to stocks if no mapping found
+    const productCategory = assetTypeMap[(pick as any).assetType?.toUpperCase()] || 'stocks';
+    return selectedProductTypes.includes(productCategory);
   });
 
   const { data: alerts, isLoading: alertsLoading } = useQuery<PortfolioAlert[]>({
@@ -754,29 +777,71 @@ export default function AgentInvestmentAdvisory() {
         </TabsContent>
 
         <TabsContent value="profit-picks" className="space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Label>Investment Horizon:</Label>
-              <Select value={selectedHorizon} onValueChange={setSelectedHorizon}>
-                <SelectTrigger className="w-32" data-testid="select-horizon">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1M">1 Month</SelectItem>
-                  <SelectItem value="3M">3 Months</SelectItem>
-                  <SelectItem value="6M">6 Months</SelectItem>
-                  <SelectItem value="1Y">1 Year</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col gap-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label>Investment Horizon:</Label>
+                  <Select value={selectedHorizon} onValueChange={setSelectedHorizon}>
+                    <SelectTrigger className="w-32" data-testid="select-horizon">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1M">1 Month</SelectItem>
+                      <SelectItem value="3M">3 Months</SelectItem>
+                      <SelectItem value="6M">6 Months</SelectItem>
+                      <SelectItem value="1Y">1 Year</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button 
+                onClick={() => refetchPicks()}
+                variant="outline"
+                data-testid="button-refresh-picks"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Picks
+              </Button>
             </div>
-            <Button 
-              onClick={() => refetchPicks()}
-              variant="outline"
-              data-testid="button-refresh-picks"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Picks
-            </Button>
+            
+            {/* Product Type Selection */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Label className="mr-2">Product Types:</Label>
+              {[
+                { id: 'stocks', label: 'Stocks', icon: TrendingUp },
+                { id: 'mutual_funds', label: 'Mutual Funds', icon: PieChart },
+                { id: 'bonds', label: 'Bonds/NCDs', icon: Briefcase },
+                { id: 'etfs', label: 'ETFs', icon: BarChart3 },
+                { id: 'gold', label: 'Gold/SGBs', icon: Target },
+                { id: 'reits', label: 'REITs/InvITs', icon: Building2 }
+              ].map(product => {
+                const Icon = product.icon;
+                const isSelected = selectedProductTypes.includes(product.id);
+                return (
+                  <Badge
+                    key={product.id}
+                    variant={isSelected ? "default" : "outline"}
+                    className={`cursor-pointer transition-all ${
+                      isSelected 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'hover:bg-primary/10'
+                    }`}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedProductTypes(prev => prev.filter(p => p !== product.id));
+                      } else {
+                        setSelectedProductTypes(prev => [...prev, product.id]);
+                      }
+                    }}
+                    data-testid={`badge-product-${product.id}`}
+                  >
+                    <Icon className="h-3 w-3 mr-1" />
+                    {product.label}
+                  </Badge>
+                );
+              })}
+            </div>
           </div>
 
           {picksLoading ? (
@@ -790,9 +855,9 @@ export default function AgentInvestmentAdvisory() {
                 </Card>
               ))}
             </div>
-          ) : profitPicks?.length ? (
+          ) : filteredProfitPicks?.length ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {profitPicks.map((pick) => (
+              {filteredProfitPicks.map((pick) => (
                 <Card key={pick.id} className="overflow-hidden" data-testid={`card-pick-${pick.symbol}`}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
@@ -1018,7 +1083,7 @@ export default function AgentInvestmentAdvisory() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {profitPicks?.length ? (
+              {filteredProfitPicks?.length ? (
                 <>
                   <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                     <h4 className="font-medium mb-3">Selected AI Recommendations</h4>
@@ -1033,7 +1098,7 @@ export default function AgentInvestmentAdvisory() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {profitPicks.filter(p => p.signal === 'BUY').slice(0, 5).map((pick) => (
+                        {filteredProfitPicks.filter(p => p.signal === 'BUY').slice(0, 5).map((pick) => (
                           <TableRow key={pick.id}>
                             <TableCell className="font-medium">{pick.symbol}</TableCell>
                             <TableCell>
