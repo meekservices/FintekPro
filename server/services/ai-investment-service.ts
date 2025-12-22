@@ -568,23 +568,33 @@ class AIInvestmentService {
         .select()
         .from(listedStocks)
         .where(and(...conditions))
-        .limit(limit * 3);
+        .limit(limit * 5);
 
       if (!stocks.length) {
         console.log('[AI Service] No published stocks found in database');
         return [];
       }
 
+      // Normalize risk level to handle both user profile values and standard names
+      const normalizedRisk = this.normalizeRiskLevel(riskLevel);
+
       const riskToMarketCap: Record<string, string[]> = {
         'conservative': ['Large Cap'],
+        'low': ['Large Cap'],
         'moderate': ['Large Cap', 'Mid Cap'],
+        'medium': ['Large Cap', 'Mid Cap'],
         'aggressive': ['Large Cap', 'Mid Cap', 'Small Cap'],
+        'high': ['Large Cap', 'Mid Cap', 'Small Cap'],
         'very_aggressive': ['Mid Cap', 'Small Cap']
       };
 
-      const allowedMarketCaps = riskLevel ? riskToMarketCap[riskLevel] || ['Large Cap', 'Mid Cap'] : ['Large Cap', 'Mid Cap', 'Small Cap'];
+      const allowedMarketCaps = normalizedRisk ? riskToMarketCap[normalizedRisk] || ['Large Cap'] : ['Large Cap', 'Mid Cap'];
 
-      const sectorSet = new Set<string>();
+      // Deterministic sector diversification: max 3 stocks per sector, max 10 sectors
+      const sectorCounts: Record<string, number> = {};
+      const maxStocksPerSector = 3;
+      const maxSectors = 10;
+
       const filteredStocks = stocks
         .filter(stock => {
           const marketCap = stock.marketCap || 'Large Cap';
@@ -594,15 +604,17 @@ class AIInvestmentService {
               return false;
             }
           }
-          if (stock.sector && sectorSet.size < 10) {
-            if (sectorSet.has(stock.sector) && sectorSet.size >= 5) {
-              return Math.random() > 0.5;
-            }
-            sectorSet.add(stock.sector);
-          }
+          const sector = stock.sector || 'Diversified';
+          const currentCount = sectorCounts[sector] || 0;
+          const uniqueSectors = Object.keys(sectorCounts).length;
+          if (currentCount >= maxStocksPerSector) return false;
+          if (currentCount === 0 && uniqueSectors >= maxSectors) return false;
+          sectorCounts[sector] = currentCount + 1;
           return true;
         })
         .slice(0, limit);
+
+      console.log(`[AI Service] Risk: ${riskLevel} -> ${normalizedRisk}, Allowed caps: ${allowedMarketCaps.join(', ')}, Found: ${filteredStocks.length} stocks`);
 
       return filteredStocks.map(stock => {
         const currentPrice = parseFloat(stock.currentPrice || '0');
@@ -1339,6 +1351,26 @@ Provide a JSON response with:
     if (hour < 12) return 'morning';
     if (hour < 17) return 'afternoon';
     return 'evening';
+  }
+
+  private normalizeRiskLevel(riskLevel?: string): string {
+    if (!riskLevel) return 'moderate';
+    const normalized = riskLevel.toLowerCase().trim();
+    const riskMap: Record<string, string> = {
+      'low': 'conservative',
+      'very_low': 'conservative',
+      'very low': 'conservative',
+      'conservative': 'conservative',
+      'medium': 'moderate',
+      'moderate': 'moderate',
+      'balanced': 'moderate',
+      'high': 'aggressive',
+      'aggressive': 'aggressive',
+      'very_high': 'very_aggressive',
+      'very high': 'very_aggressive',
+      'very_aggressive': 'very_aggressive'
+    };
+    return riskMap[normalized] || 'moderate';
   }
 
   async getClientProfitPicks(clientId: string, status?: string): Promise<AiProfitPick[]> {
