@@ -51,11 +51,17 @@ interface StockAnalysis {
   stockName: string;
   currentPrice: number;
   targetPrice: number;
+  stopLossPrice: number;
   upsidePercent: number;
+  downsidePercent: number;
   profitScore: number;
+  confidenceLevel: 'low' | 'medium' | 'high' | 'very_high';
   signalType: 'buy' | 'sell' | 'hold';
+  signalStrength: 'weak' | 'moderate' | 'strong';
   timeHorizon: 'ultra_short' | 'short' | 'medium' | 'long';
+  timeHorizonDays: number;
   riskLevel: 'low' | 'moderate' | 'high' | 'very_high';
+  riskScore: number;
   sector: string;
   aiReason: string;
   keyFactors: string[];
@@ -621,10 +627,19 @@ class AIInvestmentService {
         const previousClose = parseFloat(stock.previousClose || '0');
         const dayChangePercent = parseFloat(stock.dayChangePercent || '0');
         const returns1Y = parseFloat(stock.returns1Y || '0');
+        const beta = parseFloat(stock.beta || '1');
+        const low52Week = parseFloat(stock.low52Week || '0');
         
-        const estimatedUpside = Math.max(5, Math.min(25, 10 + returns1Y * 0.3 + Math.random() * 5));
+        // Calculate upside based on returns momentum and market cap
+        const estimatedUpside = Math.max(5, Math.min(30, 10 + returns1Y * 0.3 + (stock.marketCap === 'Large Cap' ? 2 : 5)));
         const targetPrice = currentPrice * (1 + estimatedUpside / 100);
         
+        // Calculate stop loss: 8-15% below current price based on volatility/beta
+        const stopLossPercent = Math.min(15, Math.max(8, 8 + (beta - 1) * 5));
+        const stopLossPrice = currentPrice * (1 - stopLossPercent / 100);
+        const downsidePercent = stopLossPercent;
+        
+        // Calculate profit score (0-100)
         const profitScore = Math.min(95, Math.max(50, 
           70 + 
           (returns1Y > 20 ? 10 : returns1Y > 0 ? 5 : 0) +
@@ -632,37 +647,62 @@ class AIInvestmentService {
           (stock.marketCap === 'Large Cap' ? 5 : stock.marketCap === 'Mid Cap' ? 2 : 0)
         ));
 
+        // Determine signal type and strength
         const signalType: 'buy' | 'sell' | 'hold' = 
           estimatedUpside > 15 ? 'buy' : estimatedUpside > 5 ? 'hold' : 'sell';
+        const signalStrength: 'weak' | 'moderate' | 'strong' = 
+          profitScore >= 85 ? 'strong' : profitScore >= 70 ? 'moderate' : 'weak';
 
+        // Calculate confidence level
+        const confidenceLevel: 'low' | 'medium' | 'high' | 'very_high' = 
+          profitScore >= 90 ? 'very_high' : 
+          profitScore >= 80 ? 'high' : 
+          profitScore >= 65 ? 'medium' : 'low';
+
+        // Risk assessment
         const stockRiskLevel: 'low' | 'moderate' | 'high' | 'very_high' = 
           stock.marketCap === 'Large Cap' ? 'low' :
           stock.marketCap === 'Mid Cap' ? 'moderate' : 'high';
+        const riskScore = stockRiskLevel === 'low' ? 25 : 
+          stockRiskLevel === 'moderate' ? 50 : 
+          stockRiskLevel === 'high' ? 75 : 90;
 
+        // Time horizon
         const timeHorizon: 'ultra_short' | 'short' | 'medium' | 'long' = 
           stock.marketCap === 'Large Cap' ? 'long' :
           stock.marketCap === 'Mid Cap' ? 'medium' : 'short';
+        const timeHorizonDays = timeHorizon === 'long' ? 365 : 
+          timeHorizon === 'medium' ? 180 : 
+          timeHorizon === 'short' ? 90 : 30;
 
         return {
           symbol: stock.symbol,
           stockName: stock.companyName,
           currentPrice,
           targetPrice,
+          stopLossPrice,
           upsidePercent: estimatedUpside,
+          downsidePercent,
           profitScore: Math.round(profitScore),
+          confidenceLevel,
           signalType,
+          signalStrength,
           timeHorizon,
+          timeHorizonDays,
           riskLevel: stockRiskLevel,
+          riskScore,
           sector: stock.sector || stock.industry || 'Diversified',
-          aiReason: `${stock.companyName} (${stock.symbol}) - ${stock.marketCap || 'Mid Cap'} stock in ${stock.sector || stock.industry || 'diversified'} sector. ${returns1Y > 0 ? `1Y returns: ${returns1Y.toFixed(1)}%.` : ''} Exchange: ${stock.nseCode ? 'NSE' : stock.bseCode ? 'BSE' : 'NSE/BSE'}.`,
+          aiReason: `${stock.companyName} (${stock.symbol}) - ${stock.marketCap || 'Mid Cap'} stock in ${stock.sector || stock.industry || 'diversified'} sector. Target: ₹${targetPrice.toFixed(0)} (+${estimatedUpside.toFixed(1)}%), Stop Loss: ₹${stopLossPrice.toFixed(0)} (-${stopLossPercent.toFixed(1)}%). ${returns1Y > 0 ? `1Y returns: ${returns1Y.toFixed(1)}%.` : ''} Risk-Reward: ${(estimatedUpside / stopLossPercent).toFixed(2)}:1.`,
           keyFactors: [
             stock.marketCap ? `Market Cap: ${stock.marketCap}` : 'Established company',
             stock.sector ? `Sector: ${stock.sector}` : 'Diversified business',
-            returns1Y > 15 ? 'Strong momentum' : returns1Y > 0 ? 'Positive returns' : 'Value opportunity'
+            returns1Y > 15 ? 'Strong momentum' : returns1Y > 0 ? 'Positive returns' : 'Value opportunity',
+            `Risk-Reward: ${(estimatedUpside / stopLossPercent).toFixed(2)}:1`
           ],
           riskFactors: [
             stock.marketCap === 'Small Cap' ? 'Higher volatility' : 'Market risk',
-            'Sector-specific risks'
+            'Sector-specific risks',
+            beta > 1.3 ? `High Beta (${beta.toFixed(2)})` : 'Normal volatility'
           ]
         };
       });
@@ -997,11 +1037,17 @@ Provide a JSON response with:
         symbol: pick.symbol,
         currentPrice: String(pick.currentPrice),
         targetPrice: String(pick.targetPrice),
+        stopLossPrice: String(pick.stopLossPrice),
         upsidePercent: String(pick.upsidePercent),
+        downsidePercent: String(pick.downsidePercent),
         profitScore: pick.profitScore,
+        confidenceLevel: pick.confidenceLevel,
         signalType: pick.signalType,
+        signalStrength: pick.signalStrength,
         timeHorizon: pick.timeHorizon,
+        timeHorizonDays: pick.timeHorizonDays,
         riskLevel: pick.riskLevel,
+        riskScore: pick.riskScore,
         sector: pick.sector,
         aiReason: pick.aiReason,
         keyFactors: pick.keyFactors,
