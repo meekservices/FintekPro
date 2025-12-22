@@ -167,6 +167,7 @@ import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
 import LeadProspecting from "@/pages/admin/lead-prospecting";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
 import MarketingAnalytics from "@/pages/admin/marketing-analytics";
+import AgentPerformanceDashboard from "@/pages/admin/agent-performance";
 import UserManagement from "@/pages/admin/user-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
@@ -504,6 +505,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <MarketingAnalytics />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/agent-performance">
+        {() => (
+          <AdminLayout>
+            <AgentPerformanceDashboard />
           </AdminLayout>
         )}
       </Route>

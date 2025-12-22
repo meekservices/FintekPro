@@ -83,6 +83,12 @@ const adminNavItems = [
     description: "Role-based commission configuration"
   },
   {
+    title: "Agent Performance",
+    href: "/admin/agent-performance",
+    icon: BarChart3,
+    description: "Monitor all agents' performance metrics"
+  },
+  {
     title: "Users & Access",
     href: "/admin/users",
     icon: Users,
