@@ -320,37 +320,70 @@ function generateAnalyticalRationale(product: any, productType: string, recommen
   // Get exit load from actual fund metadata
   const exitLoadData = getExitLoadFromMetadata(product, productType);
   
-  // Generate analytical rationale
+  // Generate analytical rationale - always produce meaningful text
   let rationale = '';
   const category = product.category || product.schemeName?.split(' ')[0] || 'Fund';
+  const productName = product.schemeName || product.name || product.companyName || 'This investment';
   
   if (recommendationType === 'BUY') {
+    // Build rationale with available metrics
+    const rationalePoints: string[] = [];
+    
     if (sharpeRatio > 0.5) {
-      rationale = `Strong risk-adjusted returns with Sharpe ratio of ${sharpeRatio}. `;
+      rationalePoints.push(`Strong risk-adjusted returns with Sharpe ratio of ${sharpeRatio}`);
     } else if (sharpeRatio > 0.3) {
-      rationale = `Reasonable risk-adjusted returns with Sharpe ratio of ${sharpeRatio}. `;
+      rationalePoints.push(`Reasonable risk-adjusted returns with Sharpe ratio of ${sharpeRatio}`);
+    } else if (sharpeRatio > 0) {
+      rationalePoints.push(`Sharpe ratio of ${sharpeRatio}`);
     }
-    if (alpha > 0) {
-      rationale += `Generating ${alpha}% alpha over benchmark (${benchmarkReturn}% benchmark). `;
+    
+    if (alpha > 2) {
+      rationalePoints.push(`generating ${alpha}% alpha over benchmark`);
+    } else if (alpha > 0) {
+      rationalePoints.push(`positive alpha of ${alpha}% vs benchmark`);
     }
+    
     if (returns3Y > benchmarkReturn) {
-      rationale += `Consistent 3Y CAGR of ${returns3Y.toFixed(1)}% outperforming category. `;
+      rationalePoints.push(`consistent 3Y CAGR of ${returns3Y.toFixed(1)}%`);
+    } else if (returns1Y > 0) {
+      rationalePoints.push(`1Y return of ${returns1Y.toFixed(1)}%`);
     }
-    rationale += `${categoryRank} in ${category} category.`;
-    if (expenseRatio < 1.0) {
-      rationale += ` Low expense ratio of ${expenseRatio.toFixed(2)}%.`;
+    
+    if (expenseRatio > 0 && expenseRatio < 1.0) {
+      rationalePoints.push(`low expense ratio of ${expenseRatio.toFixed(2)}%`);
     }
+    
+    // Build the rationale sentence
+    if (rationalePoints.length > 0) {
+      rationale = rationalePoints.join(', ') + '. ';
+    }
+    
+    // Always add category rank and recommendation summary
+    rationale += `${categoryRank} in ${category} category. `;
+    rationale += `Recommended for portfolio diversification and long-term growth.`;
+    
   } else if (recommendationType === 'SELL') {
-    if (sharpeRatio < 0.3) {
-      rationale = `Weak risk-adjusted returns with Sharpe ratio of ${sharpeRatio}. `;
+    const rationalePoints: string[] = [];
+    
+    if (sharpeRatio < 0.2) {
+      rationalePoints.push(`weak risk-adjusted returns (Sharpe: ${sharpeRatio})`);
     }
-    if (alpha < 0) {
-      rationale += `Underperforming benchmark by ${Math.abs(alpha).toFixed(1)}%. `;
+    if (alpha < -2) {
+      rationalePoints.push(`underperforming benchmark by ${Math.abs(alpha).toFixed(1)}%`);
+    } else if (alpha < 0) {
+      rationalePoints.push(`slight underperformance vs benchmark`);
     }
+    
+    if (rationalePoints.length > 0) {
+      rationale = `Performance concerns: ${rationalePoints.join(', ')}. `;
+    }
+    
     if (exitLoadData.exitLoadApplicable) {
       rationale += `Note: Exit load of ${exitLoadData.exitLoadPercent}% applicable within ${exitLoadData.exitLoadPeriodDays} days. `;
     }
+    
     rationale += `Consider reallocation to higher-performing alternatives.`;
+    
   } else if (recommendationType === 'SWITCH') {
     rationale = `Category overlap detected or better alternatives available. `;
     if (expenseRatio > 1.5) {
@@ -359,10 +392,23 @@ function generateAnalyticalRationale(product: any, productType: string, recommen
     if (alpha < 0) {
       rationale += `Current fund underperforming benchmark by ${Math.abs(alpha).toFixed(1)}%. `;
     }
-    rationale += `Switch to improve portfolio efficiency.`;
+    rationale += `Switch recommended to improve portfolio efficiency.`;
+    
   } else {
-    rationale = `Stable performer with balanced risk-return profile. Sharpe: ${sharpeRatio}, Alpha: ${alpha}%. `;
+    // HOLD
+    rationale = `Stable performer with balanced risk-return profile. `;
+    if (sharpeRatio > 0) {
+      rationale += `Sharpe ratio: ${sharpeRatio}. `;
+    }
+    if (alpha !== 0) {
+      rationale += `Alpha: ${alpha}%. `;
+    }
     rationale += `${categoryRank} in category. Continue holding.`;
+  }
+  
+  // Ensure rationale is never empty
+  if (!rationale.trim()) {
+    rationale = `${productName} selected based on portfolio optimization analysis. ${categoryRank} in ${category} category.`;
   }
   
   return {
