@@ -9,7 +9,9 @@ import {
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import multer from "multer";
-import * as pdfParse from "pdf-parse";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1516,8 +1518,7 @@ router.post("/api/agent/parse-holding-report", upload.single('file'), async (req
     }
 
     // Parse PDF
-    const pdfParseModule = (pdfParse as any).default || pdfParse;
-    const pdfData = await pdfParseModule(file.buffer);
+    const pdfData = await pdfParse(file.buffer);
     const text = pdfData.text;
     
     console.log("[PDF Parse] Extracted text length:", text.length);
