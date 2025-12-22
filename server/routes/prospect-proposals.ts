@@ -9,10 +9,7 @@ import {
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import multer from "multer";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const pdfParseLib = require("pdf-parse");
-const pdfParse = typeof pdfParseLib === 'function' ? pdfParseLib : (pdfParseLib.default || pdfParseLib);
+import { PDFParse } from "pdf-parse";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1518,9 +1515,11 @@ router.post("/api/agent/parse-holding-report", upload.single('file'), async (req
       return res.status(400).json({ error: "PDF file is required" });
     }
 
-    // Parse PDF using PDFParse function
-    const pdfData = await pdfParse(file.buffer);
+    // Parse PDF using PDFParse class (v2 API)
+    const parser = new PDFParse({ data: file.buffer });
+    const pdfData = await parser.getText();
     const text = pdfData.text;
+    await parser.destroy();
     
     console.log("[PDF Parse] Extracted text length:", text.length);
     
