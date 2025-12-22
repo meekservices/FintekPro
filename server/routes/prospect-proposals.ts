@@ -360,13 +360,18 @@ function deriveValuationMetrics(product: any, productType: string, returns1Y: nu
   // IRR for AIFs
   const irr = productType === 'aif' ? parseFloat(product.irr || String(returns3Y * 1.1)) : undefined;
   
+  // Guard against division by zero for debt/bond categories where benchmarks are 0
+  const peVsCat = benchmark.pe > 0 ? parseFloat(((pe / benchmark.pe - 1) * 100).toFixed(1)) : 0;
+  const pbVsCat = benchmark.pb > 0 ? parseFloat(((pbRatio / benchmark.pb - 1) * 100).toFixed(1)) : 0;
+  const roeVsCat = benchmark.roe > 0 ? parseFloat(((roe / benchmark.roe - 1) * 100).toFixed(1)) : 0;
+  
   return {
     pe: parseFloat(pe.toFixed(1)),
-    peVsCat: parseFloat(((pe / benchmark.pe - 1) * 100).toFixed(1)),
+    peVsCat,
     pbRatio: parseFloat(pbRatio.toFixed(2)),
-    pbVsCat: parseFloat(((pbRatio / benchmark.pb - 1) * 100).toFixed(1)),
+    pbVsCat,
     roe: parseFloat(roe.toFixed(1)),
-    roeVsCat: parseFloat(((roe / benchmark.roe - 1) * 100).toFixed(1)),
+    roeVsCat,
     dividendYield: parseFloat(dividendYield.toFixed(2)),
     epsGrowth3Y: parseFloat(epsGrowth3Y.toFixed(1)),
     aum,
