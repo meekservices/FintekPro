@@ -212,12 +212,6 @@ export function EnhancedNavigation() {
           ]
         }] : []),
         {
-          name: "Investment Cart",
-          href: "/unified-cart",
-          icon: ShoppingCart,
-          description: "Approved proposals for checkout"
-        },
-        {
           name: "Net Worth",
           href: "/net-worth",
           icon: Wallet,
@@ -535,7 +529,7 @@ export function EnhancedNavigation() {
           <div className="p-2 border-b border-border">
             <div className="space-y-1">
               {/* Cart Button */}
-              <Link href="/cart">
+              <Link href="/unified-cart">
                 <Button 
                   variant="outline" 
                   size="sm"
