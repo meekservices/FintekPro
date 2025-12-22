@@ -161,16 +161,20 @@ export default function AgentBondRecommendations() {
 
   const generateMutation = useMutation({
     mutationFn: async (requestParams: RecommendationParams) => {
-      const response = await apiRequest('POST', '/api/bond-recommendations/generate', requestParams);
-      return response.json();
+      return await apiRequest('/api/bond-recommendations/generate', {
+        method: 'POST',
+        body: JSON.stringify(requestParams)
+      });
     },
     onSuccess: (data) => {
-      setRecommendations(data.data);
-      setActiveTab("results");
-      toast({
-        title: "Recommendations Generated",
-        description: `Found ${data.data.recommendations.length} bond recommendations for your criteria`
-      });
+      if (data?.data) {
+        setRecommendations(data.data);
+        setActiveTab("results");
+        toast({
+          title: "Recommendations Generated",
+          description: `Found ${data.data.recommendations?.length || 0} bond recommendations for your criteria`
+        });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -183,17 +187,17 @@ export default function AgentBondRecommendations() {
 
   const quickPickMutation = useMutation({
     mutationFn: async (profile: string) => {
-      const response = await fetch(`/api/bond-recommendations/quick-picks?profile=${profile}`);
-      if (!response.ok) throw new Error('Failed to fetch quick picks');
-      return response.json();
+      return await apiRequest(`/api/bond-recommendations/quick-picks?profile=${profile}`);
     },
     onSuccess: (data) => {
-      setRecommendations(data.data);
-      setActiveTab("results");
-      toast({
-        title: "Quick Picks Generated",
-        description: `${data.profile} portfolio with ${data.data.recommendations.length} bonds`
-      });
+      if (data?.data) {
+        setRecommendations(data.data);
+        setActiveTab("results");
+        toast({
+          title: "Quick Picks Generated",
+          description: `${data.profile || 'Custom'} portfolio with ${data.data.recommendations?.length || 0} bonds`
+        });
+      }
     },
     onError: (error: any) => {
       toast({

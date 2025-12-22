@@ -16,7 +16,8 @@ import {
   UserPlus,
   Wallet,
   Target,
-  CheckSquare
+  CheckSquare,
+  Landmark
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,12 @@ const agentNavItems = [
     href: "/investment-advisory",
     icon: Brain,
     description: "AI-powered investment recommendations"
+  },
+  {
+    title: "Bond AI",
+    href: "/bond-recommendations",
+    icon: Landmark,
+    description: "AI-powered bond portfolio recommendations"
   },
   {
     title: "Proposals",
