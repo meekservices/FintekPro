@@ -53,8 +53,10 @@ import {
   FileUp,
   Info,
   TrendingDown,
-  Scale
+  Scale,
+  Briefcase
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 // Product types for portfolio entry
 const PRODUCT_TYPES = [
@@ -286,6 +288,9 @@ const RECOMMENDATION_CATEGORIES = [
   const [lumpsum, setLumpsum] = useState("");
   const [riskTolerance, setRiskTolerance] = useState("moderate");
   
+  // Include existing portfolio analysis toggle
+  const [includeExistingPortfolio, setIncludeExistingPortfolio] = useState(false);
+  
   // Generated proposal
   const [generatedProposal, setGeneratedProposal] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -418,6 +423,7 @@ const RECOMMENDATION_CATEGORIES = [
     setMonthlyInvestment("");
     setLumpsum("");
     setRiskTolerance("moderate");
+    setIncludeExistingPortfolio(false);
     setGeneratedProposal(null);
     setSelectedCategories(["mutual_fund", "bond", "pms", "aif", "etf"]);
   };
@@ -627,7 +633,14 @@ const RECOMMENDATION_CATEGORIES = [
   const handleGenerate = () => {
     setIsGenerating(true);
     
-    let data: any = { proposalType, clientType, selectedCategories };
+    let data: any = { 
+      proposalType, 
+      clientType, 
+      selectedCategories,
+      includeExistingPortfolio,
+      prospectPan: prospectPan || undefined,
+      prospectEmail: prospectEmail || undefined,
+    };
     
     if (proposalType === "sample_portfolio") {
       let holdings: any[] = [];
@@ -1600,6 +1613,40 @@ const RECOMMENDATION_CATEGORIES = [
               </TabsContent>
 
               <Separator />
+
+              {/* Include Existing Portfolio Analysis Toggle */}
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg">
+                      <Briefcase className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <label htmlFor="include-existing" className="font-medium text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
+                        Include Existing Portfolio Analysis
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Analyze client's current holdings with AI recommendations (BUY/HOLD/SELL/SWITCH)
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="include-existing"
+                    checked={includeExistingPortfolio}
+                    onCheckedChange={setIncludeExistingPortfolio}
+                    data-testid="switch-include-existing-portfolio"
+                  />
+                </div>
+                {includeExistingPortfolio && (
+                  <div className="mt-3 pl-12 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                    <AlertCircle className="w-3 h-3" />
+                    {prospectPan ? 
+                      `Will fetch existing holdings for PAN: ${prospectPan}` : 
+                      "Enter prospect PAN above to fetch existing holdings, or analysis will use sample portfolio data"
+                    }
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center justify-between">
                 <Button
