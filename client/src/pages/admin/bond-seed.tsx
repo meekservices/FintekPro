@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -567,44 +568,37 @@ export default function BondSeedAdmin() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {(bond.status === 'draft' || bond.status === 'unpublished') && (
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                setPublishDialog({ open: true, bonds: [bond] });
-                                fetchNetYieldsMutation.mutate({
-                                  bondIds: [bond.id],
-                                  investorSegment: selectedSegment
-                                });
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs ${bond.status === 'published' ? 'text-green-600 font-medium' : 'text-muted-foreground'}`}>
+                              {bond.status === 'published' ? 'Live' : 'Draft'}
+                            </span>
+                            <Switch
+                              checked={bond.status === 'published'}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setPublishDialog({ open: true, bonds: [bond] });
+                                  fetchNetYieldsMutation.mutate({
+                                    bondIds: [bond.id],
+                                    investorSegment: selectedSegment
+                                  });
+                                } else {
+                                  unpublishBondMutation.mutate(bond.id);
+                                }
                               }}
-                              data-testid={`button-publish-${bond.id}`}
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              {bond.status === 'unpublished' ? 'Republish' : 'Publish'}
-                            </Button>
-                          )}
+                              disabled={unpublishBondMutation.isPending}
+                              data-testid={`toggle-publish-${bond.id}`}
+                            />
+                          </div>
                           <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => setFeeOverrideDialog({ open: true, bond })}
-                              data-testid={`button-fee-override-${bond.id}`}
-                              title="Set custom fees"
-                            >
-                              <Percent className="h-3 w-3" />
-                            </Button>
-                          {bond.status === 'published' && (
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => unpublishBondMutation.mutate(bond.id)}
-                              data-testid={`button-unpublish-${bond.id}`}
-                            >
-                              <X className="h-3 w-3 mr-1" />
-                              Unpublish
-                            </Button>
-                          )}
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => setFeeOverrideDialog({ open: true, bond })}
+                            data-testid={`button-fee-override-${bond.id}`}
+                            title="Set custom fees"
+                          >
+                            <Percent className="h-3 w-3" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
