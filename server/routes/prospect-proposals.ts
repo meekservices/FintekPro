@@ -9,7 +9,8 @@ import {
   corporateBonds,
   aifMaster,
   pmsMaster,
-  mldMaster
+  mldMaster,
+  listedStocks
 } from "@shared/schema";
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
 
@@ -47,8 +48,6 @@ async function getStoreEligibleMutualFunds(options: {
       returns5y: mutualFunds.returns5y,
       riskLevel: mutualFunds.riskLevel,
       planType: mutualFunds.planType,
-      minInvestmentAmount: mutualFunds.minInvestmentAmount,
-      minSipAmount: mutualFunds.minSipAmount,
     })
     .from(mutualFunds)
     .where(and(...conditions))
@@ -58,26 +57,21 @@ async function getStoreEligibleMutualFunds(options: {
 async function getStoreEligibleBonds(options: { limit?: number; category?: string } = {}) {
   const { limit = 10, category } = options;
   
-  const conditions = [eq(corporateBonds.isPublished, true)];
-  
-  if (category) {
-    conditions.push(ilike(corporateBonds.issuerType, `%${category}%`));
-  }
-  
+  // Use raw SQL to handle is_published that may exist in DB but not in schema
   return db
     .select({
       id: corporateBonds.id,
-      issuerName: corporateBonds.issuerName,
+      bondName: corporateBonds.bondName,
       isin: corporateBonds.isin,
       couponRate: corporateBonds.couponRate,
       maturityDate: corporateBonds.maturityDate,
       faceValue: corporateBonds.faceValue,
       creditRating: corporateBonds.creditRating,
-      minInvestment: corporateBonds.minInvestment,
-      issuerType: corporateBonds.issuerType,
+      minimumInvestment: corporateBonds.minimumInvestment,
+      issuer: corporateBonds.issuer,
     })
     .from(corporateBonds)
-    .where(and(...conditions))
+    .where(eq(corporateBonds.tradingStatus, 'active'))
     .limit(limit);
 }
 
@@ -87,13 +81,13 @@ async function getStoreEligibleAIFs(options: { limit?: number } = {}) {
   return db
     .select({
       id: aifMaster.id,
-      fundName: aifMaster.fundName,
-      fundCode: aifMaster.fundCode,
-      fundManager: aifMaster.fundManager,
+      name: aifMaster.name,
+      registrationNo: aifMaster.registrationNo,
+      fundHouseName: aifMaster.fundHouseName,
       category: aifMaster.category,
       minInvestment: aifMaster.minInvestment,
-      targetReturn: aifMaster.targetReturn,
-      riskLevel: aifMaster.riskLevel,
+      return1Y: aifMaster.return1Y,
+      riskScore: aifMaster.riskScore,
     })
     .from(aifMaster)
     .where(eq(aifMaster.isPublished, true))
@@ -106,13 +100,13 @@ async function getStoreEligiblePMS(options: { limit?: number } = {}) {
   return db
     .select({
       id: pmsMaster.id,
-      schemeName: pmsMaster.schemeName,
-      schemeCode: pmsMaster.schemeCode,
-      portfolioManager: pmsMaster.portfolioManager,
-      investmentStrategy: pmsMaster.investmentStrategy,
+      name: pmsMaster.name,
+      registrationNo: pmsMaster.registrationNo,
+      fundHouseName: pmsMaster.fundHouseName,
+      strategy: pmsMaster.strategy,
       minInvestment: pmsMaster.minInvestment,
-      targetReturn: pmsMaster.targetReturn,
-      riskLevel: pmsMaster.riskLevel,
+      return1Y: pmsMaster.return1Y,
+      riskScore: pmsMaster.riskScore,
     })
     .from(pmsMaster)
     .where(eq(pmsMaster.isPublished, true))
@@ -125,16 +119,56 @@ async function getStoreEligibleMLDs(options: { limit?: number } = {}) {
   return db
     .select({
       id: mldMaster.id,
-      productName: mldMaster.productName,
-      productCode: mldMaster.productCode,
+      name: mldMaster.name,
+      isin: mldMaster.isin,
       issuer: mldMaster.issuer,
-      structureType: mldMaster.structureType,
+      payoffType: mldMaster.payoffType,
       minInvestment: mldMaster.minInvestment,
-      expectedReturn: mldMaster.expectedReturn,
-      riskLevel: mldMaster.riskLevel,
+      ytm: mldMaster.ytm,
+      riskScore: mldMaster.riskScore,
     })
     .from(mldMaster)
     .where(eq(mldMaster.isPublished, true))
+    .limit(limit);
+}
+
+async function getStoreEligibleStocks(options: { 
+  limit?: number; 
+  sector?: string;
+  marketCap?: string;
+} = {}) {
+  const { limit = 10, sector, marketCap } = options;
+  
+  const conditions = [eq(listedStocks.isPublished, true)];
+  
+  if (sector) {
+    conditions.push(ilike(listedStocks.sector, `%${sector}%`));
+  }
+  
+  if (marketCap) {
+    conditions.push(ilike(listedStocks.marketCap, `%${marketCap}%`));
+  }
+  
+  return db
+    .select({
+      id: listedStocks.id,
+      symbol: listedStocks.symbol,
+      companyName: listedStocks.companyName,
+      sector: listedStocks.sector,
+      marketCap: listedStocks.marketCap,
+      currentPrice: listedStocks.currentPrice,
+      returns1Y: listedStocks.returns1Y,
+      returns3Y: listedStocks.returns3Y,
+      returns5Y: listedStocks.returns5Y,
+      riskLevel: listedStocks.riskLevel,
+      analystRating: listedStocks.analystRating,
+      targetPrice: listedStocks.targetPrice,
+      peRatio: listedStocks.peRatio,
+      dividendYield: listedStocks.dividendYield,
+      selectionNotes: listedStocks.selectionNotes,
+    })
+    .from(listedStocks)
+    .where(and(...conditions))
     .limit(limit);
 }
 
@@ -146,19 +180,21 @@ async function buildDynamicRecommendations(options: {
   includeEquity?: boolean;
   includeDebt?: boolean;
   includePremium?: boolean;
-  allocations: Record<string, number>; // e.g., { 'Large Cap': 25, 'Mid Cap': 20, 'Debt': 25 }
+  includeStocks?: boolean;
+  allocations: Record<string, number>; // e.g., { 'Large Cap': 25, 'Mid Cap': 20, 'Debt': 25, 'Stocks': 15 }
 }): Promise<any[]> {
-  const { totalAmount, clientType, riskTolerance = 'moderate', includePremium = false, allocations } = options;
+  const { totalAmount, clientType, riskTolerance = 'moderate', includePremium = false, includeStocks = true, allocations } = options;
   const recommendations: any[] = [];
   
-  // Fetch actual store products
-  const [largeCaps, midCaps, flexiCaps, debtFunds, liquidFunds, bonds, aiFs, pmsProducts, mlds] = await Promise.all([
+  // Fetch actual store products including stocks
+  const [largeCaps, midCaps, flexiCaps, debtFunds, liquidFunds, bonds, stocks, aiFs, pmsProducts, mlds] = await Promise.all([
     getStoreEligibleMutualFunds({ category: 'Large Cap', limit: 5 }),
     getStoreEligibleMutualFunds({ category: 'Mid Cap', limit: 5 }),
     getStoreEligibleMutualFunds({ category: 'Flexi', limit: 5 }),
     getStoreEligibleMutualFunds({ category: 'Debt', limit: 5 }),
     getStoreEligibleMutualFunds({ category: 'Liquid', limit: 5 }),
     getStoreEligibleBonds({ limit: 5 }),
+    includeStocks ? getStoreEligibleStocks({ limit: 10, marketCap: 'Large' }) : Promise.resolve([]),
     includePremium ? getStoreEligibleAIFs({ limit: 3 }) : Promise.resolve([]),
     includePremium ? getStoreEligiblePMS({ limit: 3 }) : Promise.resolve([]),
     includePremium ? getStoreEligibleMLDs({ limit: 3 }) : Promise.resolve([])
@@ -283,10 +319,10 @@ async function buildDynamicRecommendations(options: {
     const bond = bonds[0];
     recommendations.push({
       productType: 'bond',
-      productName: `${bond.issuerName} - ${bond.couponRate}%`,
+      productName: `${bond.issuer} - ${bond.couponRate}%`,
       productCode: bond.isin,
-      amc: bond.issuerName,
-      category: bond.issuerType || 'Corporate NCD',
+      amc: bond.issuer,
+      category: 'Corporate NCD',
       recommendedAmount: Math.round(totalAmount * allocations['Bonds'] / 100),
       allocationPercentage: allocations['Bonds'],
       investmentType: 'lumpsum',
@@ -297,6 +333,35 @@ async function buildDynamicRecommendations(options: {
     usedAllocation += allocations['Bonds'];
   }
   
+  // Listed Stocks allocation
+  if (allocations['Stocks'] && stocks.length > 0) {
+    const stocksToInclude = stocks.slice(0, Math.min(3, stocks.length));
+    const perStockAllocation = allocations['Stocks'] / stocksToInclude.length;
+    
+    for (const stock of stocksToInclude) {
+      recommendations.push({
+        productType: 'stock',
+        productName: stock.companyName,
+        productCode: stock.symbol,
+        amc: stock.sector || 'Listed Equity',
+        category: `${stock.marketCap || 'Large Cap'} Stock`,
+        recommendedAmount: Math.round(totalAmount * perStockAllocation / 100),
+        allocationPercentage: Math.round(perStockAllocation * 10) / 10,
+        investmentType: 'lumpsum',
+        returns1Y: parseFloat(stock.returns1Y || '0'),
+        returns3Y: parseFloat(stock.returns3Y || '0'),
+        returns5Y: parseFloat(stock.returns5Y || '0'),
+        riskRating: stock.riskLevel || 'High',
+        targetPrice: stock.targetPrice,
+        analystRating: stock.analystRating,
+        peRatio: stock.peRatio,
+        dividendYield: stock.dividendYield,
+        selectionReason: stock.selectionNotes || `Quality ${stock.marketCap || 'large cap'} stock in ${stock.sector || 'diversified'} sector for long-term wealth creation.`
+      });
+    }
+    usedAllocation += allocations['Stocks'];
+  }
+  
   // Premium products for HNI/Ultra HNI
   if (includePremium) {
     // PMS allocation
@@ -304,16 +369,16 @@ async function buildDynamicRecommendations(options: {
       const pms = pmsProducts[0];
       recommendations.push({
         productType: 'pms',
-        productName: pms.schemeName,
-        productCode: pms.schemeCode,
-        amc: pms.portfolioManager,
-        category: pms.investmentStrategy || 'PMS',
+        productName: pms.name,
+        productCode: pms.registrationNo,
+        amc: pms.fundHouseName,
+        category: pms.strategy || 'PMS',
         recommendedAmount: Math.round(totalAmount * allocations['PMS'] / 100),
         allocationPercentage: allocations['PMS'],
         investmentType: 'lumpsum',
         minInvestment: parseFloat(pms.minInvestment || '5000000'),
-        returns1Y: parseFloat(pms.targetReturn || '0'),
-        riskRating: pms.riskLevel || 'Moderately High',
+        returns1Y: parseFloat(pms.return1Y || '0'),
+        riskRating: pms.riskScore ? `Risk Score: ${pms.riskScore}` : 'Moderately High',
         selectionReason: `Premium PMS for alpha generation with professional portfolio management.`
       });
       usedAllocation += allocations['PMS'];
@@ -324,16 +389,16 @@ async function buildDynamicRecommendations(options: {
       const aif = aiFs[0];
       recommendations.push({
         productType: 'aif',
-        productName: aif.fundName,
-        productCode: aif.fundCode,
-        amc: aif.fundManager,
+        productName: aif.name,
+        productCode: aif.registrationNo,
+        amc: aif.fundHouseName,
         category: aif.category || 'AIF',
         recommendedAmount: Math.round(totalAmount * allocations['AIF'] / 100),
         allocationPercentage: allocations['AIF'],
         investmentType: 'lumpsum',
         minInvestment: parseFloat(aif.minInvestment || '10000000'),
-        returns1Y: parseFloat(aif.targetReturn || '0'),
-        riskRating: aif.riskLevel || 'High',
+        returns1Y: parseFloat(aif.return1Y || '0'),
+        riskRating: aif.riskScore ? `Risk Score: ${aif.riskScore}` : 'High',
         selectionReason: `Alternative investment fund for concentrated high-conviction exposure.`
       });
       usedAllocation += allocations['AIF'];
@@ -344,16 +409,16 @@ async function buildDynamicRecommendations(options: {
       const mld = mlds[0];
       recommendations.push({
         productType: 'mld',
-        productName: mld.productName,
-        productCode: mld.productCode,
+        productName: mld.name,
+        productCode: mld.isin,
         amc: mld.issuer,
-        category: mld.structureType || 'Market Linked Debenture',
+        category: mld.payoffType || 'Market Linked Debenture',
         recommendedAmount: Math.round(totalAmount * allocations['Alternatives'] / 100),
         allocationPercentage: allocations['Alternatives'],
         investmentType: 'lumpsum',
         minInvestment: parseFloat(mld.minInvestment || '1000000'),
-        returns1Y: parseFloat(mld.expectedReturn || '0'),
-        riskRating: mld.riskLevel || 'Moderately High',
+        returns1Y: parseFloat(mld.ytm || '0'),
+        riskRating: mld.riskScore ? `Risk Score: ${mld.riskScore}` : 'Moderately High',
         selectionReason: `Market-linked structured product for tax-efficient equity-linked returns.`
       });
       usedAllocation += allocations['Alternatives'];
@@ -984,20 +1049,23 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
         projectedReturns = Math.round(12.5 * config.riskModifier * 10) / 10;
       } else {
         // Standard retail investor rebalancing - use actual store-eligible products (Regular plan only)
+        // Now includes listed stocks for diversified equity exposure
         targetAllocation = {
-          'Large Cap': 25,
-          'Mid Cap': 20,
-          'Flexi Cap': 15,
+          'Large Cap': 20,
+          'Mid Cap': 15,
+          'Flexi Cap': 10,
+          'Stocks': 15,  // Direct equity exposure via listed stocks
           'Debt': 25,
           'Bonds': 15
         };
 
-        // Fetch recommendations from store - Regular plan mutual funds only
+        // Fetch recommendations from store - Regular plan mutual funds + stocks
         recommendations = await buildDynamicRecommendations({
           totalAmount: totalValue,
           clientType,
           riskTolerance: 'moderate',
           includePremium: false,
+          includeStocks: true,
           allocations: targetAllocation
         });
         projectedReturns = Math.round(13.5 * config.riskModifier * 10) / 10;
@@ -1083,18 +1151,20 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
         projectedReturns = Math.round(12.5 * adjustedReturns * 10) / 10;
       } else {
         // Standard retail investor recommendations - use actual store products (Regular plan only)
+        // Now includes listed stocks for enhanced equity exposure
         targetAllocation = riskTolerance === 'aggressive' 
-          ? { 'Large Cap': 35, 'Mid Cap': 25, 'Flexi Cap': 20, 'Debt': 15, 'Bonds': 5 }
+          ? { 'Large Cap': 30, 'Mid Cap': 20, 'Flexi Cap': 15, 'Stocks': 20, 'Debt': 10, 'Bonds': 5 }
           : riskTolerance === 'conservative'
-            ? { 'Large Cap': 20, 'Debt': 40, 'Bonds': 30, 'Flexi Cap': 10 }
-            : { 'Large Cap': 30, 'Mid Cap': 20, 'Flexi Cap': 15, 'Debt': 25, 'Bonds': 10 };
+            ? { 'Large Cap': 15, 'Debt': 40, 'Bonds': 30, 'Flexi Cap': 10, 'Stocks': 5 }
+            : { 'Large Cap': 25, 'Mid Cap': 15, 'Flexi Cap': 10, 'Stocks': 15, 'Debt': 25, 'Bonds': 10 };
         
-        // Fetch recommendations from store - Regular plan mutual funds only
+        // Fetch recommendations from store - Regular plan mutual funds + listed stocks
         recommendations = await buildDynamicRecommendations({
           totalAmount,
           clientType,
           riskTolerance: riskTolerance || 'moderate',
           includePremium: false,
+          includeStocks: true,
           allocations: targetAllocation
         });
         projectedReturns = Math.round((riskTolerance === 'aggressive' ? 14 : riskTolerance === 'conservative' ? 9 : 11.5) * adjustedReturns * 10) / 10;
