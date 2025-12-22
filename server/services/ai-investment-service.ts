@@ -94,6 +94,29 @@ class AIInvestmentService {
   }
 
   /**
+   * Helper: Add default values for required StockAnalysis fields
+   * Used by non-stock product methods (mutual funds, AIF, PMS, MLD, bonds, NCDs, unlisted)
+   */
+  private addDefaultStockFields(base: Omit<StockAnalysis, 'stopLossPrice' | 'downsidePercent' | 'confidenceLevel' | 'signalStrength' | 'timeHorizonDays' | 'riskScore'>): StockAnalysis {
+    const stopLossPercent = base.riskLevel === 'low' ? 5 : base.riskLevel === 'moderate' ? 8 : base.riskLevel === 'high' ? 12 : 15;
+    const stopLossPrice = base.currentPrice * (1 - stopLossPercent / 100);
+    const confidenceLevel = base.profitScore >= 85 ? 'very_high' : base.profitScore >= 75 ? 'high' : base.profitScore >= 60 ? 'medium' : 'low';
+    const signalStrength = base.profitScore >= 85 ? 'strong' : base.profitScore >= 70 ? 'moderate' : 'weak';
+    const timeHorizonDays = base.timeHorizon === 'long' ? 365 : base.timeHorizon === 'medium' ? 180 : base.timeHorizon === 'short' ? 90 : 30;
+    const riskScore = base.riskLevel === 'low' ? 25 : base.riskLevel === 'moderate' ? 50 : base.riskLevel === 'high' ? 75 : 90;
+
+    return {
+      ...base,
+      stopLossPrice,
+      downsidePercent: stopLossPercent,
+      confidenceLevel: confidenceLevel as 'low' | 'medium' | 'high' | 'very_high',
+      signalStrength: signalStrength as 'weak' | 'moderate' | 'strong',
+      timeHorizonDays,
+      riskScore
+    };
+  }
+
+  /**
    * Get store-eligible mutual funds for AI recommendations
    * Only returns funds that are:
    * 1. Published in the store (is_published = true)
@@ -168,7 +191,7 @@ class AIInvestmentService {
         // Calculate profit score based on returns and risk
         const profitScore = Math.min(95, Math.max(50, 70 + (returns1y * 2)));
 
-        return {
+        return this.addDefaultStockFields({
           symbol: fund.schemeCode || fund.id,
           stockName: fund.schemeName || 'Unknown Fund',
           currentPrice: nav,
@@ -186,7 +209,7 @@ class AIInvestmentService {
             `1Y Returns: ${returns1y.toFixed(1)}%`
           ],
           riskFactors: this.getCategoryRiskFactors(fund.category || '')
-        };
+        });
       });
     } catch (error) {
       console.error('Error fetching store-eligible mutual funds:', error);
@@ -239,7 +262,7 @@ class AIInvestmentService {
         const minInvestment = parseFloat(aif.minInvestment || '10000000');
         const risk = (aif.riskScore || 5) > 7 ? 'very_high' : (aif.riskScore || 5) > 5 ? 'high' : 'moderate';
 
-        return {
+        return this.addDefaultStockFields({
           symbol: aif.registrationNo || aif.id,
           stockName: aif.name,
           currentPrice: nav,
@@ -257,7 +280,7 @@ class AIInvestmentService {
             `AUM: ₹${(parseFloat(aif.aum || '0') / 10000000).toFixed(0)}Cr`
           ],
           riskFactors: ['Illiquid investment', 'Long lock-in period', 'Higher minimum investment']
-        };
+        });
       });
     } catch (error) {
       console.error('Error fetching store-eligible AIFs:', error);
@@ -297,7 +320,7 @@ class AIInvestmentService {
         const minInvestment = parseFloat(pms.minInvestment || '5000000');
         const risk = (pms.riskScore || 5) > 7 ? 'high' : (pms.riskScore || 5) > 4 ? 'moderate' : 'low';
 
-        return {
+        return this.addDefaultStockFields({
           symbol: pms.registrationNo || pms.id,
           stockName: pms.name,
           currentPrice: nav,
@@ -315,7 +338,7 @@ class AIInvestmentService {
             `1Y Returns: ${returns1y.toFixed(1)}%`
           ],
           riskFactors: ['Market-linked returns', 'No guaranteed returns', 'Management fee applicable']
-        };
+        });
       });
     } catch (error) {
       console.error('Error fetching store-eligible PMS:', error);
@@ -354,7 +377,7 @@ class AIInvestmentService {
         const ytm = parseFloat(mld.ytm || '8');
         const risk = (mld.riskScore || 5) > 6 ? 'high' : (mld.riskScore || 5) > 3 ? 'moderate' : 'low';
 
-        return {
+        return this.addDefaultStockFields({
           symbol: mld.isin,
           stockName: mld.name,
           currentPrice: price,
@@ -372,7 +395,7 @@ class AIInvestmentService {
             `Rating: ${mld.rating || 'AA'}`
           ],
           riskFactors: ['Credit risk', 'Market-linked returns', 'Illiquid until maturity']
-        };
+        });
       });
     } catch (error) {
       console.error('Error fetching store-eligible MLDs:', error);
@@ -412,7 +435,7 @@ class AIInvestmentService {
         const sellPrice = parseFloat(company.publishedSellPrice || '0');
         const avgPrice = (buyPrice + sellPrice) / 2 || 1000;
 
-        return {
+        return this.addDefaultStockFields({
           symbol: company.cin || company.id,
           stockName: company.name,
           currentPrice: avgPrice,
@@ -430,7 +453,7 @@ class AIInvestmentService {
             `Listing Stage: ${company.listingStage || 'Unlisted'}`
           ],
           riskFactors: ['High illiquidity', 'No price discovery', 'Regulatory risk', 'Lock-in period']
-        };
+        });
       });
     } catch (error) {
       console.error('Error fetching store-eligible unlisted stocks:', error);
@@ -475,7 +498,7 @@ class AIInvestmentService {
         const ratingScore = bond.creditRating?.includes('AAA') ? 1 : bond.creditRating?.includes('AA') ? 2 : 3;
         const risk = ratingScore === 1 ? 'low' : ratingScore === 2 ? 'moderate' : 'high';
 
-        return {
+        return this.addDefaultStockFields({
           symbol: bond.isin,
           stockName: bond.bondName,
           currentPrice: price,
@@ -493,7 +516,7 @@ class AIInvestmentService {
             `YTM: ${ytm.toFixed(2)}%`
           ],
           riskFactors: bond.secured ? ['Interest rate risk'] : ['Credit risk', 'Interest rate risk']
-        };
+        });
       });
     } catch (error) {
       console.error('Error fetching store-eligible bonds:', error);
@@ -529,7 +552,7 @@ class AIInvestmentService {
         const ratingScore = ncd.creditRating?.includes('AAA') ? 1 : ncd.creditRating?.includes('AA') ? 2 : 3;
         const risk = ratingScore === 1 ? 'low' : ratingScore === 2 ? 'moderate' : 'high';
 
-        return {
+        return this.addDefaultStockFields({
           symbol: ncd.isin || ncd.issueId,
           stockName: ncd.issueName,
           currentPrice: faceValue,
@@ -547,7 +570,7 @@ class AIInvestmentService {
             `Tenor: ${ncd.tenorYears} years`
           ],
           riskFactors: ncd.secured ? ['Interest rate sensitivity'] : ['Credit risk', 'Interest rate sensitivity']
-        };
+        });
       });
     } catch (error) {
       console.error('Error fetching store-eligible NCDs:', error);
@@ -1722,6 +1745,252 @@ Provide a JSON response with:
     } catch {
       return [];
     }
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * UNIFIED PROFIT OPTIMIZATION SCORING ENGINE
+   * Combines 20+ criteria into a single profit optimization score (0-100)
+   * Categories: Fundamental (30%), Technical (25%), Momentum (20%), Risk (15%), Tax (10%)
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
+  calculateUnifiedProfitScore(stock: {
+    currentPrice: number;
+    avgPrice?: number;
+    targetPrice?: number;
+    returns1Y: number;
+    returns3Y?: number;
+    dayChangePercent: number;
+    peRatio?: number;
+    pbRatio?: number;
+    dividendYield?: number;
+    beta?: number;
+    high52Week?: number;
+    low52Week?: number;
+    volume?: number;
+    avgVolume?: number;
+    marketCap?: string;
+    sector?: string;
+    holdingPeriodDays?: number;
+  }): {
+    totalScore: number;
+    fundamentalScore: number;
+    technicalScore: number;
+    momentumScore: number;
+    riskScore: number;
+    taxEfficiencyScore: number;
+    recommendation: 'strong_buy' | 'buy' | 'hold' | 'sell' | 'strong_sell';
+    keyInsights: string[];
+    urgentActions: string[];
+  } {
+    const insights: string[] = [];
+    const urgentActions: string[] = [];
+
+    // ═══════════════════════════════════════════════════════════════
+    // 1. FUNDAMENTAL SCORE (30% weight) - Value & Quality
+    // ═══════════════════════════════════════════════════════════════
+    let fundamentalScore = 50;
+    
+    // P/E Valuation (max ±15 points)
+    if (stock.peRatio && stock.peRatio > 0) {
+      const sectorPE = this.getSectorAveragePE(stock.sector || 'Diversified');
+      const peDeviation = (stock.peRatio - sectorPE) / sectorPE;
+      if (peDeviation < -0.2) {
+        fundamentalScore += 15;
+        insights.push(`Undervalued: P/E ${stock.peRatio.toFixed(1)} vs sector avg ${sectorPE.toFixed(1)}`);
+      } else if (peDeviation > 0.5) {
+        fundamentalScore -= 15;
+        insights.push(`Overvalued: P/E ${stock.peRatio.toFixed(1)} is ${((peDeviation) * 100).toFixed(0)}% above sector`);
+      } else if (peDeviation < 0.2) {
+        fundamentalScore += 8;
+      }
+    }
+
+    // P/B Ratio (max ±10 points)
+    if (stock.pbRatio && stock.pbRatio > 0) {
+      if (stock.pbRatio < 1) {
+        fundamentalScore += 10;
+        insights.push(`Asset discount: Trading below book value (P/B: ${stock.pbRatio.toFixed(2)})`);
+      } else if (stock.pbRatio > 5) {
+        fundamentalScore -= 10;
+      }
+    }
+
+    // Dividend Yield Quality (max ±10 points)
+    if (stock.dividendYield && stock.dividendYield > 0) {
+      if (stock.dividendYield > 3 && stock.dividendYield < 8 && stock.returns1Y > -10) {
+        fundamentalScore += 10;
+        insights.push(`Healthy dividend yield: ${stock.dividendYield.toFixed(1)}%`);
+      } else if (stock.dividendYield > 8 && stock.returns1Y < -15) {
+        fundamentalScore -= 10;
+        urgentActions.push(`Dividend trap warning: ${stock.dividendYield.toFixed(1)}% yield with poor price action`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 2. TECHNICAL SCORE (25% weight) - Price Action & Levels
+    // ═══════════════════════════════════════════════════════════════
+    let technicalScore = 50;
+
+    // 52-Week Position (max ±15 points)
+    if (stock.high52Week && stock.low52Week && stock.currentPrice > 0) {
+      const range = stock.high52Week - stock.low52Week;
+      const position = (stock.currentPrice - stock.low52Week) / range;
+      
+      if (position > 0.95) {
+        technicalScore += 15;
+        insights.push(`Near 52-week high: Strong momentum`);
+      } else if (position < 0.1) {
+        technicalScore -= 10;
+        urgentActions.push(`Near 52-week low: Review fundamentals before averaging`);
+      } else if (position > 0.7) {
+        technicalScore += 8;
+      }
+    }
+
+    // Volume Analysis (max ±10 points)
+    if (stock.volume && stock.avgVolume && stock.avgVolume > 0) {
+      const volumeRatio = stock.volume / stock.avgVolume;
+      if (volumeRatio > 3 && stock.dayChangePercent < -2) {
+        technicalScore -= 10;
+        urgentActions.push(`Heavy selling: Volume ${volumeRatio.toFixed(1)}x normal with price decline`);
+      } else if (volumeRatio > 2 && stock.dayChangePercent > 2) {
+        technicalScore += 10;
+        insights.push(`Accumulation: High volume with price gain`);
+      }
+    }
+
+    // Daily Change Impact (max ±10 points)
+    if (stock.dayChangePercent <= -5) {
+      technicalScore -= 10;
+      urgentActions.push(`Sharp decline: ${Math.abs(stock.dayChangePercent).toFixed(1)}% drop today`);
+    } else if (stock.dayChangePercent >= 3) {
+      technicalScore += 5;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 3. MOMENTUM SCORE (20% weight) - Return Trends
+    // ═══════════════════════════════════════════════════════════════
+    let momentumScore = 50;
+
+    // 1Y Returns (max ±20 points)
+    if (stock.returns1Y > 30) {
+      momentumScore += 20;
+      insights.push(`Strong momentum: ${stock.returns1Y.toFixed(1)}% 1Y returns`);
+    } else if (stock.returns1Y > 15) {
+      momentumScore += 12;
+    } else if (stock.returns1Y > 0) {
+      momentumScore += 5;
+    } else if (stock.returns1Y < -20) {
+      momentumScore -= 15;
+    } else if (stock.returns1Y < -10) {
+      momentumScore -= 8;
+    }
+
+    // 3Y Returns trend (max ±10 points)
+    if (stock.returns3Y) {
+      const annualized3Y = stock.returns3Y / 3;
+      if (annualized3Y > 15) {
+        momentumScore += 10;
+      } else if (annualized3Y < 0) {
+        momentumScore -= 5;
+      }
+    }
+
+    // Holding Return Analysis (if applicable)
+    if (stock.avgPrice && stock.avgPrice > 0) {
+      const holdingReturn = ((stock.currentPrice - stock.avgPrice) / stock.avgPrice) * 100;
+      if (holdingReturn >= 25) {
+        urgentActions.push(`Target achieved: ${holdingReturn.toFixed(1)}% gain - consider partial profit booking`);
+      } else if (holdingReturn <= -15) {
+        urgentActions.push(`Stop loss zone: ${holdingReturn.toFixed(1)}% loss - review thesis`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 4. RISK SCORE (15% weight) - Volatility & Safety
+    // ═══════════════════════════════════════════════════════════════
+    let riskScore = 60;
+
+    // Beta Analysis (max ±15 points)
+    const beta = stock.beta || 1;
+    if (beta > 1.5) {
+      riskScore -= 15;
+      insights.push(`High volatility: Beta ${beta.toFixed(2)}`);
+    } else if (beta < 0.8) {
+      riskScore += 10;
+      insights.push(`Low volatility: Defensive stock (Beta ${beta.toFixed(2)})`);
+    }
+
+    // Market Cap Safety (max ±10 points)
+    if (stock.marketCap === 'Large Cap') {
+      riskScore += 10;
+    } else if (stock.marketCap === 'Small Cap') {
+      riskScore -= 10;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 5. TAX EFFICIENCY SCORE (10% weight) - LTCG/STCG Optimization
+    // ═══════════════════════════════════════════════════════════════
+    let taxEfficiencyScore = 50;
+    const currentMonth = new Date().getMonth() + 1;
+
+    if (stock.holdingPeriodDays) {
+      if (stock.holdingPeriodDays >= 365) {
+        taxEfficiencyScore += 25;
+        insights.push(`LTCG eligible: 10% tax on gains above ₹1L`);
+      } else if (stock.holdingPeriodDays >= 330 && stock.holdingPeriodDays < 365) {
+        taxEfficiencyScore += 15;
+        insights.push(`Near LTCG: ${365 - stock.holdingPeriodDays} days to qualify`);
+      }
+    }
+
+    // Tax-Loss Harvesting Window
+    if (currentMonth >= 1 && currentMonth <= 3 && stock.avgPrice && stock.currentPrice < stock.avgPrice) {
+      const loss = ((stock.avgPrice - stock.currentPrice) / stock.avgPrice) * 100;
+      if (loss > 5) {
+        taxEfficiencyScore += 20;
+        urgentActions.push(`Tax-loss harvest: Book ${loss.toFixed(1)}% loss before March 31`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CALCULATE WEIGHTED TOTAL SCORE
+    // ═══════════════════════════════════════════════════════════════
+    const weightedScore = 
+      fundamentalScore * 0.30 +
+      technicalScore * 0.25 +
+      momentumScore * 0.20 +
+      riskScore * 0.15 +
+      taxEfficiencyScore * 0.10;
+
+    const totalScore = Math.min(100, Math.max(0, Math.round(weightedScore)));
+
+    // Determine recommendation
+    let recommendation: 'strong_buy' | 'buy' | 'hold' | 'sell' | 'strong_sell';
+    if (totalScore >= 80) {
+      recommendation = 'strong_buy';
+    } else if (totalScore >= 65) {
+      recommendation = 'buy';
+    } else if (totalScore >= 45) {
+      recommendation = 'hold';
+    } else if (totalScore >= 30) {
+      recommendation = 'sell';
+    } else {
+      recommendation = 'strong_sell';
+    }
+
+    return {
+      totalScore,
+      fundamentalScore: Math.min(100, Math.max(0, fundamentalScore)),
+      technicalScore: Math.min(100, Math.max(0, technicalScore)),
+      momentumScore: Math.min(100, Math.max(0, momentumScore)),
+      riskScore: Math.min(100, Math.max(0, riskScore)),
+      taxEfficiencyScore: Math.min(100, Math.max(0, taxEfficiencyScore)),
+      recommendation,
+      keyInsights: insights.slice(0, 5),
+      urgentActions: urgentActions.slice(0, 3)
+    };
   }
 
   async generateTalkingPoints(clientId: string, analysisId?: string): Promise<AiTalkingPoint[]> {
