@@ -1211,6 +1211,10 @@ Provide a JSON response with:
       });
     }
 
+    // EXIT CALL MONITORING: Individual holding target achievement and market dynamics
+    const exitAlerts = await this.generateExitAlerts(clientId, holdings, portfolio.id);
+    alerts.push(...exitAlerts);
+
     const insertedAlerts: PortfolioAlert[] = [];
     for (const alert of alerts) {
       const [inserted] = await db.insert(portfolioAlerts).values(alert).returning();
@@ -1218,6 +1222,148 @@ Provide a JSON response with:
     }
 
     return insertedAlerts;
+  }
+
+  /**
+   * Generate EXIT CALL alerts for individual holdings
+   * Monitors: 1) Target price achievement 2) Market dynamics changes
+   */
+  private async generateExitAlerts(
+    clientId: string, 
+    holdings: PortfolioHolding[], 
+    portfolioId: string
+  ): Promise<InsertPortfolioAlert[]> {
+    const exitAlerts: InsertPortfolioAlert[] = [];
+
+    for (const holding of holdings) {
+      if (!holding.symbol || holding.assetType?.toLowerCase() === 'cash') continue;
+
+      try {
+        const avgPrice = parseFloat(holding.avgPrice || '0');
+        const quantity = parseFloat(holding.quantity || '0');
+        if (avgPrice <= 0 || quantity <= 0) continue;
+
+        // Fetch current market data for this holding
+        const [stockData] = await db
+          .select()
+          .from(listedStocks)
+          .where(eq(listedStocks.symbol, holding.symbol))
+          .limit(1);
+
+        if (!stockData) continue;
+
+        const currentPrice = parseFloat(stockData.currentPrice || '0');
+        const returns1Y = parseFloat(stockData.returns1Y || '0');
+        const returns3Y = parseFloat(stockData.returns3Y || '0');
+        const dayChange = parseFloat(stockData.dayChangePercent || '0');
+
+        // Calculate holding gain/loss
+        const holdingGainPercent = avgPrice > 0 ? ((currentPrice - avgPrice) / avgPrice) * 100 : 0;
+        const holdingValue = currentPrice * quantity;
+
+        // TARGET ACHIEVED EXIT ALERT (15%+ gain)
+        if (holdingGainPercent >= 15) {
+          const severity = holdingGainPercent >= 30 ? 'high' : 'medium';
+          exitAlerts.push({
+            clientId,
+            portfolioId,
+            alertType: 'target_achieved',
+            alertCategory: 'exit_call',
+            severity,
+            alertTitle: `🎯 Target Achieved: ${holding.symbol}`,
+            alertMessage: `${holding.symbol} has gained ${holdingGainPercent.toFixed(1)}% from your purchase price. Consider booking profits.`,
+            symbol: holding.symbol,
+            currentWeight: String(holdingValue),
+            triggerMetric: 'holding_return',
+            triggerValue: String(holdingGainPercent.toFixed(2)),
+            triggerThreshold: '15',
+            triggerDirection: 'above',
+            recommendedAction: 'sell',
+            actionDescription: holdingGainPercent >= 25 
+              ? `Strong gains of ${holdingGainPercent.toFixed(1)}%. Consider selling 50-75% to lock in profits.`
+              : `Target returns achieved. Consider selling 25-50% to book partial profits.`,
+            aiInsight: `Your ${holding.symbol} position has outperformed. At ${holdingGainPercent.toFixed(1)}% gains, it's prudent to consider profit booking. Current price: ₹${currentPrice.toFixed(2)}, Your cost: ₹${avgPrice.toFixed(2)}.`,
+            actionUrgency: holdingGainPercent >= 30 ? 'urgent' : 'recommended',
+            status: 'active'
+          });
+        }
+
+        // STOP LOSS ALERT (15%+ loss)
+        if (holdingGainPercent <= -15) {
+          const severity = holdingGainPercent <= -25 ? 'critical' : 'high';
+          exitAlerts.push({
+            clientId,
+            portfolioId,
+            alertType: 'stop_loss',
+            alertCategory: 'exit_call',
+            severity,
+            alertTitle: `⚠️ Stop Loss Alert: ${holding.symbol}`,
+            alertMessage: `${holding.symbol} is down ${Math.abs(holdingGainPercent).toFixed(1)}% from your purchase price.`,
+            symbol: holding.symbol,
+            triggerMetric: 'holding_return',
+            triggerValue: String(holdingGainPercent.toFixed(2)),
+            triggerThreshold: '-15',
+            triggerDirection: 'below',
+            recommendedAction: 'review',
+            actionDescription: `Review fundamentals. Consider exiting if thesis has changed or averaging down if fundamentals remain strong.`,
+            aiInsight: `Your ${holding.symbol} position is in significant loss. Evaluate if the original investment thesis still holds or if capital should be redeployed to better opportunities.`,
+            actionUrgency: 'urgent',
+            status: 'active'
+          });
+        }
+
+        // MOMENTUM REVERSAL ALERT (positive holding but negative recent momentum)
+        if (holdingGainPercent > 10 && returns1Y < -10) {
+          exitAlerts.push({
+            clientId,
+            portfolioId,
+            alertType: 'momentum_reversal',
+            alertCategory: 'exit_call',
+            severity: 'medium',
+            alertTitle: `📉 Momentum Shift: ${holding.symbol}`,
+            alertMessage: `${holding.symbol} shows weakening momentum despite your gains. 1Y return: ${returns1Y.toFixed(1)}%.`,
+            symbol: holding.symbol,
+            triggerMetric: 'momentum_1y',
+            triggerValue: String(returns1Y.toFixed(2)),
+            triggerThreshold: '-10',
+            triggerDirection: 'below',
+            recommendedAction: 'review',
+            actionDescription: `Stock momentum has reversed. Consider trimming position before gains erode.`,
+            aiInsight: `${holding.symbol} is showing negative 1-year returns (${returns1Y.toFixed(1)}%) indicating momentum shift. Your early entry has gains, but consider protecting profits before trend continues.`,
+            status: 'active'
+          });
+        }
+
+        // SECTOR DYNAMICS CHANGE (sharp single-day decline)
+        if (dayChange <= -5) {
+          exitAlerts.push({
+            clientId,
+            portfolioId,
+            alertType: 'market_dynamics',
+            alertCategory: 'exit_call',
+            severity: dayChange <= -10 ? 'critical' : 'high',
+            alertTitle: `🔴 Sharp Decline: ${holding.symbol}`,
+            alertMessage: `${holding.symbol} dropped ${Math.abs(dayChange).toFixed(1)}% today. Significant market movement detected.`,
+            symbol: holding.symbol,
+            triggerMetric: 'day_change',
+            triggerValue: String(dayChange.toFixed(2)),
+            triggerThreshold: '-5',
+            triggerDirection: 'below',
+            recommendedAction: 'review',
+            actionDescription: `Investigate cause of sharp decline. Check for news, earnings, or sector-wide selloff.`,
+            aiInsight: `${holding.symbol} experienced a significant single-day decline of ${Math.abs(dayChange).toFixed(1)}%. This could be due to company-specific news, sector rotation, or broader market correction. Review before taking action.`,
+            actionUrgency: 'urgent',
+            status: 'active'
+          });
+        }
+
+      } catch (error) {
+        console.error(`[AI Service] Error generating exit alert for ${holding.symbol}:`, error);
+      }
+    }
+
+    console.log(`[AI Service] Generated ${exitAlerts.length} exit alerts for ${holdings.length} holdings`);
+    return exitAlerts;
   }
 
   async generateTalkingPoints(clientId: string, analysisId?: string): Promise<AiTalkingPoint[]> {
