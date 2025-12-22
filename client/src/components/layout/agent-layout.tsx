@@ -15,7 +15,8 @@ import {
   Brain,
   UserPlus,
   Wallet,
-  Target
+  Target,
+  CheckSquare
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,12 @@ const agentNavItems = [
     href: "/leads",
     icon: Target,
     description: "Track and convert prospects"
+  },
+  {
+    title: "Tasks",
+    href: "/tasks",
+    icon: CheckSquare,
+    description: "Manage tasks and reminders"
   },
   {
     title: "Demo Proposals",
