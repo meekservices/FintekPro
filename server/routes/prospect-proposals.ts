@@ -942,323 +942,64 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
 
       // Generate client-type specific recommendations for sample portfolio
       if (config.premiumProducts && (clientType === 'hni' || clientType === 'ultra_hni' || clientType === 'trust' || clientType === 'institutional')) {
-        // Premium rebalancing for HNI/Ultra HNI/Trust/Institutional
+        // Premium rebalancing for HNI/Ultra HNI/Trust/Institutional - use actual store products
         targetAllocation = clientType === 'ultra_hni' 
-          ? { 'PMS': 35, 'AIF': 25, 'Mutual Funds': 20, 'Debt': 15, 'Alternatives': 5 }
-          : { 'PMS': 30, 'Mutual Funds': 30, 'AIF': 15, 'Debt': 20, 'Gold': 5 };
+          ? { 'PMS': 35, 'AIF': 25, 'Large Cap': 20, 'Debt': 15, 'Alternatives': 5 }
+          : { 'PMS': 30, 'Large Cap': 30, 'AIF': 15, 'Debt': 20, 'Bonds': 5 };
         
-        recommendations = [
-          {
-            productType: 'pms',
-            productName: 'Marcellus Consistent Compounders PMS',
-            productCode: 'PMS-MARC-CC',
-            amc: 'Marcellus Investment Managers',
-            category: 'PMS - Large Cap',
-            recommendedAmount: Math.round(totalValue * 0.35),
-            allocationPercentage: 35,
-            investmentType: 'lumpsum',
-            minInvestment: 5000000,
-            returns1Y: 18.5,
-            returns3Y: 16.2,
-            returns5Y: 19.8,
-            riskRating: 'Moderately High',
-            selectionReason: 'Reallocate to premium PMS for alpha generation with focus on high-quality compounders.'
-          },
-          {
-            productType: 'aif',
-            productName: 'Alchemy High Growth Select Stock Fund',
-            productCode: 'AIF-ALCH-HG',
-            amc: 'Alchemy Capital Management',
-            category: 'AIF Category III',
-            recommendedAmount: Math.round(totalValue * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            minInvestment: 10000000,
-            returns1Y: 28.5,
-            returns3Y: 22.8,
-            returns5Y: 25.2,
-            riskRating: 'High',
-            selectionReason: 'Category III AIF for concentrated high-conviction exposure not available in mutual funds.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'Axis Bluechip Fund - Direct Growth',
-            productCode: 'INF846K01EW2',
-            amc: 'Axis Mutual Fund',
-            category: 'Large Cap',
-            recommendedAmount: Math.round(totalValue * 0.20),
-            allocationPercentage: 20,
-            investmentType: 'lumpsum',
-            returns1Y: 15.2,
-            returns3Y: 12.8,
-            returns5Y: 14.5,
-            riskRating: 'Moderately High',
-            selectionReason: 'Retain liquid mutual fund allocation for flexibility and easy redemption.'
-          },
-          {
-            productType: 'bond',
-            productName: 'HDFC Limited NCD - 8.75% 2028',
-            productCode: 'INE001A08015',
-            amc: 'HDFC Limited',
-            category: 'Corporate NCD',
-            recommendedAmount: Math.round(totalValue * 0.15),
-            allocationPercentage: 15,
-            investmentType: 'lumpsum',
-            returns1Y: 8.75,
-            riskRating: 'Low',
-            selectionReason: 'AAA-rated bonds for stable income and capital preservation in rebalanced portfolio.'
-          },
-          {
-            productType: 'aif',
-            productName: 'Kotak Special Situations Fund',
-            productCode: 'AIF-KOT-SSF',
-            amc: 'Kotak Alternate Asset Managers',
-            category: 'AIF Category II',
-            recommendedAmount: Math.round(totalValue * 0.05),
-            allocationPercentage: 5,
-            investmentType: 'lumpsum',
-            minInvestment: 10000000,
-            returns1Y: 22.3,
-            returns3Y: 18.5,
-            riskRating: 'High',
-            selectionReason: 'Add alternative exposure through special situations strategy.'
-          }
-        ];
+        // Fetch recommendations from store with premium products
+        recommendations = await buildDynamicRecommendations({
+          totalAmount: totalValue,
+          clientType,
+          riskTolerance: 'aggressive',
+          includePremium: true,
+          allocations: targetAllocation
+        });
         projectedReturns = Math.round(16.5 * config.riskModifier * 10) / 10;
       } else if (clientType === 'corporate') {
-        // Conservative treasury rebalancing for corporate
-        targetAllocation = { 'Liquid Funds': 30, 'Ultra Short Duration': 25, 'Corporate Bonds': 25, 'Arbitrage': 15, 'Fixed Deposits': 5 };
+        // Conservative treasury rebalancing for corporate - use actual store products
+        targetAllocation = { 'Liquid': 30, 'Debt': 45, 'Bonds': 25 };
         
-        recommendations = [
-          {
-            productType: 'mutual_fund',
-            productName: 'HDFC Liquid Fund - Direct',
-            productCode: 'INF179K01LQ1',
-            amc: 'HDFC Mutual Fund',
-            category: 'Liquid Fund',
-            recommendedAmount: Math.round(totalValue * 0.30),
-            allocationPercentage: 30,
-            investmentType: 'lumpsum',
-            returns1Y: 7.2,
-            returns3Y: 6.5,
-            returns5Y: 6.8,
-            riskRating: 'Low',
-            selectionReason: 'Rebalance to liquid funds for instant liquidity and T+0 redemption facility.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'ICICI Prudential Ultra Short Term Fund - Direct',
-            productCode: 'INF109K01UST',
-            amc: 'ICICI Prudential',
-            category: 'Ultra Short Duration',
-            recommendedAmount: Math.round(totalValue * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 7.5,
-            returns3Y: 6.8,
-            returns5Y: 7.1,
-            riskRating: 'Low to Moderate',
-            selectionReason: 'Enhanced returns over liquid funds for 3-6 month treasury parking.'
-          },
-          {
-            productType: 'bond',
-            productName: 'REC Limited Tax-Free Bond - 7.12% 2033',
-            productCode: 'INE020B08090',
-            amc: 'REC Limited',
-            category: 'Tax-Free Bond',
-            recommendedAmount: Math.round(totalValue * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 7.12,
-            riskRating: 'Low',
-            selectionReason: 'Tax-efficient government-backed bonds for long-term surplus deployment.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'Kotak Equity Arbitrage Fund - Direct',
-            productCode: 'INF174K01ARB',
-            amc: 'Kotak Mahindra',
-            category: 'Arbitrage',
-            recommendedAmount: Math.round(totalValue * 0.15),
-            allocationPercentage: 15,
-            investmentType: 'lumpsum',
-            returns1Y: 7.8,
-            returns3Y: 6.5,
-            returns5Y: 6.2,
-            riskRating: 'Low',
-            selectionReason: 'Equity-taxed returns with minimal risk through market-neutral arbitrage.'
-          },
-          {
-            productType: 'fixed_deposit',
-            productName: 'SBI Corporate Fixed Deposit',
-            productCode: 'FD-SBI-CORP',
-            amc: 'State Bank of India',
-            category: 'Bank Fixed Deposit',
-            recommendedAmount: Math.round(totalValue * 0.05),
-            allocationPercentage: 5,
-            investmentType: 'lumpsum',
-            returns1Y: 7.0,
-            riskRating: 'Very Low',
-            selectionReason: 'Emergency reserve with guaranteed capital protection.'
-          }
-        ];
+        // Fetch recommendations from store - Regular plan with treasury focus
+        recommendations = await buildDynamicRecommendations({
+          totalAmount: totalValue,
+          clientType,
+          riskTolerance: 'conservative',
+          includePremium: false,
+          allocations: targetAllocation
+        });
         projectedReturns = Math.round(7.5 * config.riskModifier * 10) / 10;
       } else if (clientType === 'nri') {
-        // NRI-compliant rebalancing
-        targetAllocation = { 'NRE Mutual Funds': 40, 'NRO Debt': 25, 'Indian Equity': 25, 'Gold': 10 };
+        // NRI-compliant rebalancing - use actual store products
+        targetAllocation = { 'Flexi Cap': 40, 'Debt': 25, 'Large Cap': 25, 'Bonds': 10 };
         
-        recommendations = [
-          {
-            productType: 'mutual_fund',
-            productName: 'HDFC Flexicap Fund - Direct (NRE)',
-            productCode: 'INF179K01FLC',
-            amc: 'HDFC Mutual Fund',
-            category: 'Flexi Cap',
-            recommendedAmount: Math.round(totalValue * 0.40),
-            allocationPercentage: 40,
-            investmentType: 'lumpsum',
-            returns1Y: 18.5,
-            returns3Y: 14.2,
-            returns5Y: 15.8,
-            riskRating: 'Moderately High',
-            selectionReason: 'Rebalance to NRI-friendly fund with full repatriation facility under FEMA.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'ICICI Prudential Banking & PSU Debt Fund - Direct',
-            productCode: 'INF109K01BPD',
-            amc: 'ICICI Prudential',
-            category: 'Banking & PSU Debt',
-            recommendedAmount: Math.round(totalValue * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 7.8,
-            returns3Y: 7.2,
-            returns5Y: 7.5,
-            riskRating: 'Moderate',
-            selectionReason: 'Safe debt allocation suitable for NRO account with minimal credit risk.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'Nippon India Large Cap Fund - Direct',
-            productCode: 'INF204K01LC1',
-            amc: 'Nippon India',
-            category: 'Large Cap',
-            recommendedAmount: Math.round(totalValue * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 14.5,
-            returns3Y: 12.8,
-            returns5Y: 13.5,
-            riskRating: 'Moderately High',
-            selectionReason: 'Quality large-cap exposure for long-term India growth story.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'SBI Gold Fund - Direct',
-            productCode: 'INF200K01GF1',
-            amc: 'SBI Mutual Fund',
-            category: 'Gold',
-            recommendedAmount: Math.round(totalValue * 0.10),
-            allocationPercentage: 10,
-            investmentType: 'lumpsum',
-            returns1Y: 18.5,
-            returns3Y: 12.2,
-            returns5Y: 11.8,
-            riskRating: 'Moderate',
-            selectionReason: 'Rupee-denominated gold for currency hedging and portfolio diversification.'
-          }
-        ];
+        // Fetch recommendations from store - Regular plan NRI-eligible
+        recommendations = await buildDynamicRecommendations({
+          totalAmount: totalValue,
+          clientType,
+          riskTolerance: 'moderate',
+          includePremium: false,
+          allocations: targetAllocation
+        });
         projectedReturns = Math.round(12.5 * config.riskModifier * 10) / 10;
       } else {
-        // Standard retail investor rebalancing
+        // Standard retail investor rebalancing - use actual store-eligible products (Regular plan only)
         targetAllocation = {
           'Large Cap': 25,
           'Mid Cap': 20,
-          'Contra/Value': 15,
+          'Flexi Cap': 15,
           'Debt': 25,
-          'Flexi Cap': 15
+          'Bonds': 15
         };
 
-        recommendations = [
-          {
-            productType: 'mutual_fund',
-            productName: 'Axis Bluechip Fund - Direct Growth',
-            productCode: 'INF846K01EW2',
-            amc: 'Axis Mutual Fund',
-            category: 'Large Cap',
-            recommendedAmount: Math.round(totalValue * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 15.2,
-            returns3Y: 12.8,
-            returns5Y: 14.5,
-            riskRating: 'Moderately High',
-            selectionReason: 'Consistent performer with strong large-cap exposure and experienced fund management.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'HDFC Mid-Cap Opportunities Fund - Direct',
-            productCode: 'INF179K01CR7',
-            amc: 'HDFC Mutual Fund',
-            category: 'Mid Cap',
-            recommendedAmount: Math.round(totalValue * 0.20),
-            allocationPercentage: 20,
-            investmentType: 'sip',
-            sipAmount: Math.round(totalValue * 0.20 / 12),
-            returns1Y: 28.5,
-            returns3Y: 18.2,
-            returns5Y: 16.8,
-            riskRating: 'High',
-            selectionReason: 'Strong mid-cap fund with excellent track record for long-term wealth creation.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'SBI Contra Fund - Direct Growth',
-            productCode: 'INF200K01RD1',
-            amc: 'SBI Mutual Fund',
-            category: 'Contra',
-            recommendedAmount: Math.round(totalValue * 0.15),
-            allocationPercentage: 15,
-            investmentType: 'lumpsum',
-            returns1Y: 32.1,
-            returns3Y: 22.5,
-            returns5Y: 18.9,
-            riskRating: 'High',
-            selectionReason: 'Value-oriented approach provides excellent diversification from growth-heavy portfolios.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'ICICI Prudential Corporate Bond Fund - Direct',
-            productCode: 'INF109K01ZH7',
-            amc: 'ICICI Prudential',
-            category: 'Corporate Bond',
-            recommendedAmount: Math.round(totalValue * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 7.8,
-            returns3Y: 7.2,
-            returns5Y: 8.1,
-            riskRating: 'Moderate',
-            selectionReason: 'Quality debt allocation for portfolio stability and regular income generation.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'Parag Parikh Flexi Cap Fund - Direct',
-            productCode: 'INF879O01027',
-            amc: 'PPFAS Mutual Fund',
-            category: 'Flexi Cap',
-            recommendedAmount: Math.round(totalValue * 0.15),
-            allocationPercentage: 15,
-            investmentType: 'sip',
-            sipAmount: Math.round(totalValue * 0.15 / 12),
-            returns1Y: 22.3,
-            returns3Y: 16.9,
-            returns5Y: 18.2,
-            riskRating: 'Moderately High',
-            selectionReason: 'Unique global diversification with value investing philosophy for long-term growth.'
-          }
-        ];
+        // Fetch recommendations from store - Regular plan mutual funds only
+        recommendations = await buildDynamicRecommendations({
+          totalAmount: totalValue,
+          clientType,
+          riskTolerance: 'moderate',
+          includePremium: false,
+          allocations: targetAllocation
+        });
         projectedReturns = Math.round(13.5 * config.riskModifier * 10) / 10;
       }
       
@@ -1298,321 +1039,65 @@ router.post("/api/agent/prospect-proposals/generate", async (req: Request, res: 
         projectedReturns = Math.round(11.5 * adjustedReturns * 10) / 10;
       }
 
-      // Generate client-type specific recommendations
+      // Generate client-type specific recommendations - use actual store products
       if (config.premiumProducts && (clientType === 'hni' || clientType === 'ultra_hni' || clientType === 'trust' || clientType === 'institutional')) {
         // Premium products for HNI/Ultra HNI/Trust/Institutional clients
         targetAllocation = clientType === 'ultra_hni' 
-          ? { 'PMS': 35, 'AIF': 25, 'Mutual Funds': 20, 'Debt': 15, 'Alternatives': 5 }
-          : { 'PMS': 30, 'Mutual Funds': 30, 'AIF': 15, 'Debt': 20, 'Gold': 5 };
+          ? { 'PMS': 35, 'AIF': 25, 'Large Cap': 20, 'Debt': 15, 'Alternatives': 5 }
+          : { 'PMS': 30, 'Large Cap': 30, 'AIF': 15, 'Debt': 20, 'Bonds': 5 };
         
-        recommendations = [
-          {
-            productType: 'pms',
-            productName: 'Marcellus Consistent Compounders PMS',
-            productCode: 'PMS-MARC-CC',
-            amc: 'Marcellus Investment Managers',
-            category: 'PMS - Large Cap',
-            recommendedAmount: Math.round(totalAmount * 0.35),
-            allocationPercentage: 35,
-            investmentType: 'lumpsum',
-            minInvestment: 5000000,
-            returns1Y: 18.5,
-            returns3Y: 16.2,
-            returns5Y: 19.8,
-            riskRating: 'Moderately High',
-            selectionReason: 'Premium PMS focusing on high-quality businesses with sustainable competitive advantages. Ideal for HNI investors seeking alpha generation.'
-          },
-          {
-            productType: 'aif',
-            productName: 'Alchemy High Growth Select Stock Fund',
-            productCode: 'AIF-ALCH-HG',
-            amc: 'Alchemy Capital Management',
-            category: 'AIF Category III',
-            recommendedAmount: Math.round(totalAmount * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            minInvestment: 10000000,
-            returns1Y: 28.5,
-            returns3Y: 22.8,
-            returns5Y: 25.2,
-            riskRating: 'High',
-            selectionReason: 'Category III AIF with proven track record of outperformance through concentrated high-conviction portfolio.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'Axis Bluechip Fund - Direct Growth',
-            productCode: 'INF846K01EW2',
-            amc: 'Axis Mutual Fund',
-            category: 'Large Cap',
-            recommendedAmount: Math.round(totalAmount * 0.20),
-            allocationPercentage: 20,
-            investmentType: monthlyInvestment ? 'sip' : 'lumpsum',
-            sipAmount: monthlyInvestment ? Math.round(monthlyInvestment * 0.20) : undefined,
-            returns1Y: 15.2,
-            returns3Y: 12.8,
-            returns5Y: 14.5,
-            riskRating: 'Moderately High',
-            selectionReason: 'Liquid mutual fund component for flexibility and easy redemption when needed.'
-          },
-          {
-            productType: 'bond',
-            productName: 'HDFC Limited NCD - 8.75% 2028',
-            productCode: 'INE001A08015',
-            amc: 'HDFC Limited',
-            category: 'Corporate NCD',
-            recommendedAmount: Math.round(totalAmount * 0.15),
-            allocationPercentage: 15,
-            investmentType: 'lumpsum',
-            returns1Y: 8.75,
-            riskRating: 'Low',
-            selectionReason: 'AAA-rated corporate bond for stable income and capital preservation.'
-          },
-          {
-            productType: 'aif',
-            productName: 'Kotak Special Situations Fund',
-            productCode: 'AIF-KOT-SSF',
-            amc: 'Kotak Alternate Asset Managers',
-            category: 'AIF Category II',
-            recommendedAmount: Math.round(totalAmount * 0.05),
-            allocationPercentage: 5,
-            investmentType: 'lumpsum',
-            minInvestment: 10000000,
-            returns1Y: 22.3,
-            returns3Y: 18.5,
-            riskRating: 'High',
-            selectionReason: 'Special situations fund for accessing unique investment opportunities not available in public markets.'
-          }
-        ];
+        // Fetch recommendations from store with premium products
+        recommendations = await buildDynamicRecommendations({
+          totalAmount,
+          clientType,
+          riskTolerance: 'aggressive',
+          includePremium: true,
+          allocations: targetAllocation
+        });
         projectedReturns = Math.round(16.5 * adjustedReturns * 10) / 10;
       } else if (clientType === 'corporate') {
         // Conservative treasury-focused products for corporate clients
-        targetAllocation = { 'Liquid Funds': 30, 'Ultra Short Duration': 25, 'Corporate Bonds': 25, 'Arbitrage': 15, 'Fixed Deposits': 5 };
+        targetAllocation = { 'Liquid': 30, 'Debt': 45, 'Bonds': 25 };
         
-        recommendations = [
-          {
-            productType: 'mutual_fund',
-            productName: 'HDFC Liquid Fund - Direct',
-            productCode: 'INF179K01LQ1',
-            amc: 'HDFC Mutual Fund',
-            category: 'Liquid Fund',
-            recommendedAmount: Math.round(totalAmount * 0.30),
-            allocationPercentage: 30,
-            investmentType: 'lumpsum',
-            returns1Y: 7.2,
-            returns3Y: 6.5,
-            returns5Y: 6.8,
-            riskRating: 'Low',
-            selectionReason: 'Instant redemption facility up to ₹50L. Ideal for corporate cash management with T+0 liquidity.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'ICICI Prudential Ultra Short Term Fund - Direct',
-            productCode: 'INF109K01UST',
-            amc: 'ICICI Prudential',
-            category: 'Ultra Short Duration',
-            recommendedAmount: Math.round(totalAmount * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 7.5,
-            returns3Y: 6.8,
-            returns5Y: 7.1,
-            riskRating: 'Low to Moderate',
-            selectionReason: 'Better returns than liquid funds with marginal increase in duration. Suitable for 3-6 month parking.'
-          },
-          {
-            productType: 'bond',
-            productName: 'REC Limited Tax-Free Bond - 7.12% 2033',
-            productCode: 'INE020B08090',
-            amc: 'REC Limited',
-            category: 'Tax-Free Bond',
-            recommendedAmount: Math.round(totalAmount * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 7.12,
-            riskRating: 'Low',
-            selectionReason: 'Government-backed tax-free bonds for long-term corporate surplus deployment with tax efficiency.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'Kotak Equity Arbitrage Fund - Direct',
-            productCode: 'INF174K01ARB',
-            amc: 'Kotak Mahindra',
-            category: 'Arbitrage',
-            recommendedAmount: Math.round(totalAmount * 0.15),
-            allocationPercentage: 15,
-            investmentType: 'lumpsum',
-            returns1Y: 7.8,
-            returns3Y: 6.5,
-            returns5Y: 6.2,
-            riskRating: 'Low',
-            selectionReason: 'Tax-efficient returns (equity taxation) with low risk through arbitrage strategy.'
-          },
-          {
-            productType: 'fixed_deposit',
-            productName: 'SBI Corporate Fixed Deposit',
-            productCode: 'FD-SBI-CORP',
-            amc: 'State Bank of India',
-            category: 'Bank Fixed Deposit',
-            recommendedAmount: Math.round(totalAmount * 0.05),
-            allocationPercentage: 5,
-            investmentType: 'lumpsum',
-            returns1Y: 7.0,
-            riskRating: 'Very Low',
-            selectionReason: 'Capital protection with guaranteed returns for emergency reserve.'
-          }
-        ];
+        // Fetch recommendations from store - Regular plan treasury focus
+        recommendations = await buildDynamicRecommendations({
+          totalAmount,
+          clientType,
+          riskTolerance: 'conservative',
+          includePremium: false,
+          allocations: targetAllocation
+        });
         projectedReturns = Math.round(7.5 * adjustedReturns * 10) / 10;
       } else if (clientType === 'nri') {
         // NRI-compliant products
-        targetAllocation = { 'NRE Mutual Funds': 40, 'NRO Debt': 25, 'Indian Equity': 25, 'Gold': 10 };
+        targetAllocation = { 'Flexi Cap': 40, 'Debt': 25, 'Large Cap': 25, 'Bonds': 10 };
         
-        recommendations = [
-          {
-            productType: 'mutual_fund',
-            productName: 'HDFC Flexicap Fund - Direct (NRE)',
-            productCode: 'INF179K01FLC',
-            amc: 'HDFC Mutual Fund',
-            category: 'Flexi Cap',
-            recommendedAmount: Math.round(totalAmount * 0.40),
-            allocationPercentage: 40,
-            investmentType: monthlyInvestment ? 'sip' : 'lumpsum',
-            sipAmount: monthlyInvestment ? Math.round(monthlyInvestment * 0.40) : undefined,
-            returns1Y: 18.5,
-            returns3Y: 14.2,
-            returns5Y: 15.8,
-            riskRating: 'Moderately High',
-            selectionReason: 'NRI-friendly diversified equity fund with repatriation facility. Compliant with FEMA regulations.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'ICICI Prudential Banking & PSU Debt Fund - Direct',
-            productCode: 'INF109K01BPD',
-            amc: 'ICICI Prudential',
-            category: 'Banking & PSU Debt',
-            recommendedAmount: Math.round(totalAmount * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 7.8,
-            returns3Y: 7.2,
-            returns5Y: 7.5,
-            riskRating: 'Moderate',
-            selectionReason: 'Safe debt fund investing in banking and PSU bonds. NRO account compatible.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'Nippon India Large Cap Fund - Direct',
-            productCode: 'INF204K01LC1',
-            amc: 'Nippon India',
-            category: 'Large Cap',
-            recommendedAmount: Math.round(totalAmount * 0.25),
-            allocationPercentage: 25,
-            investmentType: monthlyInvestment ? 'sip' : 'lumpsum',
-            sipAmount: monthlyInvestment ? Math.round(monthlyInvestment * 0.25) : undefined,
-            returns1Y: 14.5,
-            returns3Y: 12.8,
-            returns5Y: 13.5,
-            riskRating: 'Moderately High',
-            selectionReason: 'Blue-chip Indian equity exposure suitable for NRI investors with long-term India view.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'SBI Gold Fund - Direct',
-            productCode: 'INF200K01GF1',
-            amc: 'SBI Mutual Fund',
-            category: 'Gold',
-            recommendedAmount: Math.round(totalAmount * 0.10),
-            allocationPercentage: 10,
-            investmentType: 'lumpsum',
-            returns1Y: 18.5,
-            returns3Y: 12.2,
-            returns5Y: 11.8,
-            riskRating: 'Moderate',
-            selectionReason: 'Rupee-denominated gold exposure for currency hedging and portfolio diversification.'
-          }
-        ];
+        // Fetch recommendations from store - Regular plan NRI-eligible
+        recommendations = await buildDynamicRecommendations({
+          totalAmount,
+          clientType,
+          riskTolerance: 'moderate',
+          includePremium: false,
+          allocations: targetAllocation
+        });
         projectedReturns = Math.round(12.5 * adjustedReturns * 10) / 10;
       } else {
-        // Standard retail investor recommendations
-        recommendations = [
-          {
-            productType: 'mutual_fund',
-            productName: 'Nifty 50 Index Fund - Direct',
-            productCode: 'INF204K01JL8',
-            amc: 'UTI Mutual Fund',
-            category: 'Index Fund',
-            recommendedAmount: Math.round(totalAmount * 0.30),
-            allocationPercentage: 30,
-            investmentType: monthlyInvestment ? 'sip' : 'lumpsum',
-            sipAmount: monthlyInvestment ? Math.round(monthlyInvestment * 0.30) : undefined,
-            returns1Y: 12.5,
-            returns3Y: 11.2,
-            returns5Y: 12.8,
-            riskRating: 'Moderately High',
-            selectionReason: 'Low-cost index fund tracking Nifty 50 for core equity exposure with minimal expense ratio.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'Mirae Asset Large Cap Fund - Direct',
-            productCode: 'INF769K01DN6',
-            amc: 'Mirae Asset',
-            category: 'Large Cap',
-            recommendedAmount: Math.round(totalAmount * 0.25),
-            allocationPercentage: 25,
-            investmentType: monthlyInvestment ? 'sip' : 'lumpsum',
-            sipAmount: monthlyInvestment ? Math.round(monthlyInvestment * 0.25) : undefined,
-            returns1Y: 16.8,
-            returns3Y: 13.5,
-            returns5Y: 15.2,
-            riskRating: 'Moderately High',
-            selectionReason: 'Top-rated large cap fund with consistent outperformance and experienced management.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'HDFC Short Term Debt Fund - Direct',
-            productCode: 'INF179K01EQ5',
-            amc: 'HDFC Mutual Fund',
-            category: 'Short Duration',
-            recommendedAmount: Math.round(totalAmount * 0.25),
-            allocationPercentage: 25,
-            investmentType: 'lumpsum',
-            returns1Y: 7.5,
-            returns3Y: 6.8,
-            returns5Y: 7.2,
-            riskRating: 'Moderate',
-            selectionReason: 'Quality short-term debt fund for stability and better-than-FD returns.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'SBI Small Cap Fund - Direct',
-            productCode: 'INF200K01ST5',
-            amc: 'SBI Mutual Fund',
-            category: 'Small Cap',
-            recommendedAmount: Math.round(totalAmount * 0.15),
-            allocationPercentage: 15,
-            investmentType: monthlyInvestment ? 'sip' : 'lumpsum',
-            sipAmount: monthlyInvestment ? Math.round(monthlyInvestment * 0.15) : undefined,
-            returns1Y: 35.2,
-            returns3Y: 25.8,
-            returns5Y: 22.5,
-            riskRating: 'Very High',
-            selectionReason: 'High-growth small cap exposure for enhanced portfolio returns over long term.'
-          },
-          {
-            productType: 'mutual_fund',
-            productName: 'SBI Gold Fund - Direct',
-            productCode: 'INF200K01GF1',
-            amc: 'SBI Mutual Fund',
-            category: 'Gold',
-            recommendedAmount: Math.round(totalAmount * 0.05),
-            allocationPercentage: 5,
-            investmentType: 'lumpsum',
-            returns1Y: 18.5,
-            returns3Y: 12.2,
-            returns5Y: 11.8,
-            riskRating: 'Moderate',
-            selectionReason: 'Gold allocation for portfolio hedging and inflation protection.'
-          }
-        ];
+        // Standard retail investor recommendations - use actual store products (Regular plan only)
+        targetAllocation = riskTolerance === 'aggressive' 
+          ? { 'Large Cap': 35, 'Mid Cap': 25, 'Flexi Cap': 20, 'Debt': 15, 'Bonds': 5 }
+          : riskTolerance === 'conservative'
+            ? { 'Large Cap': 20, 'Debt': 40, 'Bonds': 30, 'Flexi Cap': 10 }
+            : { 'Large Cap': 30, 'Mid Cap': 20, 'Flexi Cap': 15, 'Debt': 25, 'Bonds': 10 };
+        
+        // Fetch recommendations from store - Regular plan mutual funds only
+        recommendations = await buildDynamicRecommendations({
+          totalAmount,
+          clientType,
+          riskTolerance: riskTolerance || 'moderate',
+          includePremium: false,
+          allocations: targetAllocation
+        });
+        projectedReturns = Math.round((riskTolerance === 'aggressive' ? 14 : riskTolerance === 'conservative' ? 9 : 11.5) * adjustedReturns * 10) / 10;
       }
 
       const yearsMap: Record<string, number> = { short_term: 3, medium_term: 5, long_term: 10 };
