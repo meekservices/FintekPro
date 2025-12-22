@@ -1757,6 +1757,88 @@ const RECOMMENDATION_CATEGORIES = [
                         ))}
                       </div>
                     </div>
+
+                    {/* Existing Portfolio Analysis Section */}
+                    {generatedProposal.existingPortfolioAnalysis && (
+                      <div className="border-t pt-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Briefcase className="w-5 h-5 text-amber-600" />
+                          <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">
+                            Existing Portfolio Analysis
+                          </h4>
+                        </div>
+                        
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
+                          {generatedProposal.existingPortfolioAnalysis.analysisNote}
+                        </p>
+
+                        {/* Summary Stats */}
+                        <div className="grid grid-cols-5 gap-2 mb-3">
+                          <div className="bg-gray-50 dark:bg-gray-800 rounded p-2 text-center">
+                            <p className="text-xs text-gray-500">Total Value</p>
+                            <p className="font-bold text-sm">
+                              ₹{(generatedProposal.existingPortfolioAnalysis.summary?.totalValue || 0).toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                          <div className="bg-green-50 dark:bg-green-900/30 rounded p-2 text-center">
+                            <p className="text-xs text-green-600">BUY</p>
+                            <p className="font-bold text-sm text-green-700">{generatedProposal.existingPortfolioAnalysis.summary?.buyCount || 0}</p>
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/30 rounded p-2 text-center">
+                            <p className="text-xs text-blue-600">HOLD</p>
+                            <p className="font-bold text-sm text-blue-700">{generatedProposal.existingPortfolioAnalysis.summary?.holdCount || 0}</p>
+                          </div>
+                          <div className="bg-red-50 dark:bg-red-900/30 rounded p-2 text-center">
+                            <p className="text-xs text-red-600">SELL</p>
+                            <p className="font-bold text-sm text-red-700">{generatedProposal.existingPortfolioAnalysis.summary?.sellCount || 0}</p>
+                          </div>
+                          <div className="bg-amber-50 dark:bg-amber-900/30 rounded p-2 text-center">
+                            <p className="text-xs text-amber-600">SWITCH</p>
+                            <p className="font-bold text-sm text-amber-700">{generatedProposal.existingPortfolioAnalysis.summary?.switchCount || 0}</p>
+                          </div>
+                        </div>
+
+                        {/* Existing Holdings List */}
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {generatedProposal.existingPortfolioAnalysis.holdings?.map((holding: any, idx: number) => (
+                            <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-xs">{holding.name}</p>
+                                    <Badge 
+                                      className={`text-[10px] px-1.5 py-0 ${
+                                        holding.recommendationType === 'BUY' ? 'bg-green-100 text-green-700' :
+                                        holding.recommendationType === 'SELL' ? 'bg-red-100 text-red-700' :
+                                        holding.recommendationType === 'SWITCH' ? 'bg-amber-100 text-amber-700' :
+                                        'bg-blue-100 text-blue-700'
+                                      }`}
+                                    >
+                                      {holding.recommendationType === 'BUY' && <TrendingUp className="w-2.5 h-2.5 mr-0.5" />}
+                                      {holding.recommendationType === 'SELL' && <TrendingDown className="w-2.5 h-2.5 mr-0.5" />}
+                                      {holding.recommendationType === 'HOLD' && <Scale className="w-2.5 h-2.5 mr-0.5" />}
+                                      {holding.recommendationType}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-[10px] text-gray-500">{holding.category || holding.type}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-bold text-xs">₹{(holding.currentValue || 0).toLocaleString('en-IN')}</p>
+                                  <p className={`text-[10px] ${holding.gainLossPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {holding.gainLossPercent >= 0 ? '+' : ''}{holding.gainLossPercent?.toFixed(1)}%
+                                  </p>
+                                </div>
+                              </div>
+                              {holding.rationale && (
+                                <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1.5 bg-gray-50 dark:bg-gray-900 rounded p-1.5">
+                                  {holding.rationale}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

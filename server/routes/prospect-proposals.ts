@@ -1397,50 +1397,20 @@ async function generateExistingPortfolioAnalysis(
     let existingHoldings: any[] = [];
     let dataSource = 'none';
 
-    // Try to fetch from database using PAN first
-    if (prospectPan) {
-      // Look for client portfolio by PAN
-      const [clientUser] = await db.select()
-        .from(users)
-        .where(eq(users.pan, prospectPan))
-        .limit(1);
-
-      if (clientUser) {
-        // Fetch portfolio holdings from various sources
-        const [mfHoldings, stockHoldings, bondHoldings] = await Promise.all([
-          db.select().from(clientPortfolioHoldings).where(eq(clientPortfolioHoldings.userId, clientUser.id)),
-          db.select().from(stockHoldings).where(eq(stockHoldings.userId, clientUser.id)).catch(() => []),
-          db.select().from(bondHoldings).where(eq(bondHoldings.userId, clientUser.id)).catch(() => [])
-        ]);
-
-        existingHoldings = [
-          ...mfHoldings.map(h => ({
-            id: h.id,
-            name: h.schemeName || h.productName || 'Unknown Fund',
-            type: 'mutual_fund',
-            currentValue: parseFloat(String(h.currentValue || 0)),
-            investedAmount: parseFloat(String(h.investedAmount || 0)),
-            returns1Y: h.returns1Y || 0,
-            category: h.category,
-            holdingDays: h.holdingDays,
-          })),
-          // Add stocks and bonds if available
-        ];
-        dataSource = 'database';
-      }
-    }
-
-    // If no database records, try sample portfolio holdings
-    if (existingHoldings.length === 0 && samplePortfolio?.holdings?.length > 0) {
+    // Use sample portfolio holdings if provided
+    if (samplePortfolio?.holdings?.length > 0) {
       existingHoldings = samplePortfolio.holdings.map((h: any, idx: number) => ({
         id: `sample-${idx}`,
         name: h.name || `Holding ${idx + 1}`,
         type: h.type || 'mutual_fund',
         currentValue: h.currentValue || 0,
-        investedAmount: h.investedAmount || h.currentValue * 0.9, // Estimate if not provided
-        returns1Y: h.returns1Y || 10,
+        investedAmount: h.investedAmount || h.currentValue * 0.9,
+        returns1Y: h.returns1Y || h.returns1y || 10,
+        returns3Y: h.returns3Y || h.returns3y || 8,
         category: h.category,
         holdingDays: h.holdingDays || 365,
+        quantity: h.quantity,
+        currentPrice: h.currentPrice,
       }));
       dataSource = 'sample_portfolio';
     }
@@ -1465,8 +1435,8 @@ async function generateExistingPortfolioAnalysis(
         category: holding.category,
         returns1y: returns1Y,
         returns3y: returns3Y,
-        standardDeviation: 15, // Default
-        ter: 1.5, // Default expense ratio
+        standardDeviation: 15,
+        ter: 1.5,
         categoryRank: holding.categoryRank,
         exitLoad: holding.exitLoad,
       };
@@ -1497,11 +1467,7 @@ async function generateExistingPortfolioAnalysis(
       switchCount: analyzedHoldings.filter(h => h.recommendationType === 'SWITCH').length,
     };
 
-    const analysisNote = dataSource === 'database' 
-      ? `Analysis based on ${analyzedHoldings.length} holdings from client's actual portfolio (PAN: ${prospectPan?.slice(0, 5)}XXXXX).`
-      : dataSource === 'sample_portfolio'
-        ? `Analysis based on ${analyzedHoldings.length} holdings from the provided sample portfolio.`
-        : 'No existing holdings found for analysis.';
+    const analysisNote = `AI analysis of ${analyzedHoldings.length} existing holdings with BUY/HOLD/SELL/SWITCH recommendations.`;
 
     return {
       holdings: analyzedHoldings,
