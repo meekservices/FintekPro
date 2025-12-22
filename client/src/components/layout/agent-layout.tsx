@@ -78,9 +78,9 @@ const agentNavItems = [
   },
   {
     title: "Reports",
-    href: "/dashboard",
+    href: "/reports",
     icon: BarChart3,
-    description: "Performance analytics"
+    description: "Generate and share client reports"
   },
   {
     title: "Settings",

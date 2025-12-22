@@ -107,6 +107,7 @@ import AgentRevenueCockpit from "@/pages/agent-revenue-cockpit";
 import AgentLeadPipeline from "@/pages/agent-lead-pipeline";
 import AgentClientProfile from "@/pages/agent-client-profile";
 import AgentTasks from "@/pages/agent-tasks";
+import AgentReportsHub from "@/pages/agent-reports-hub";
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -920,6 +921,13 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentTasks />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/reports">
+        {() => (
+          <AgentLayout>
+            <AgentReportsHub />
           </AgentLayout>
         )}
       </Route>
