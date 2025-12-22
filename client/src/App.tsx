@@ -103,6 +103,8 @@ import AgentInvestmentAdvisory from "@/pages/agent-investment-advisory";
 import AgentProposalsPage from "@/pages/agent-proposals";
 import AgentTreasuryPage from "@/pages/agent-treasury";
 import AgentTaxCasesPage from "@/pages/agent-tax-cases";
+import AgentRevenueCockpit from "@/pages/agent-revenue-cockpit";
+import AgentLeadPipeline from "@/pages/agent-lead-pipeline";
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -888,6 +890,20 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentTaxCasesPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/revenue">
+        {() => (
+          <AgentLayout>
+            <AgentRevenueCockpit />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/leads">
+        {() => (
+          <AgentLayout>
+            <AgentLeadPipeline />
           </AgentLayout>
         )}
       </Route>

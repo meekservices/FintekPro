@@ -224,6 +224,10 @@ app.use((req, res, next) => {
   const agentRoutes = await import('./agent-routes');
   app.use(agentRoutes.default);
   
+  // Register Agent Revenue & Lead Pipeline routes
+  const agentRevenueRoutes = await import('./routes/agent-revenue-routes');
+  app.use(agentRevenueRoutes.default);
+  
   // Register KYC Vault routes (Production-grade KYC system)
   const { registerKYCVaultRoutes } = await import('./kyc-vault-routes');
   registerKYCVaultRoutes(app);

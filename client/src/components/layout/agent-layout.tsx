@@ -13,7 +13,9 @@ import {
   Settings,
   AlertCircle,
   Brain,
-  UserPlus
+  UserPlus,
+  Wallet,
+  Target
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -32,10 +34,22 @@ const agentNavItems = [
     description: "Overview and performance metrics"
   },
   {
+    title: "Revenue Cockpit",
+    href: "/revenue",
+    icon: Wallet,
+    description: "AUM, commissions, and business performance"
+  },
+  {
     title: "My Clients",
     href: "/clients",
     icon: Users,
     description: "Manage your client portfolio"
+  },
+  {
+    title: "Lead Pipeline",
+    href: "/leads",
+    icon: Target,
+    description: "Track and convert prospects"
   },
   {
     title: "Demo Proposals",
