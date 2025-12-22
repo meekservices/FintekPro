@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import type { LucideIcon } from "lucide-react";
 import {
   FileText,
   Download,
@@ -42,7 +43,7 @@ interface PlatformReport {
   name: string;
   description: string;
   category: 'business' | 'compliance' | 'revenue' | 'operations';
-  icon: React.ElementType;
+  icon: LucideIcon;
   lastGenerated: string;
   status: 'ready' | 'generating' | 'scheduled' | 'failed';
   size?: string;

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import type { LucideIcon } from "lucide-react";
 import {
   FileText,
   Download,
@@ -41,7 +42,7 @@ interface ReportTemplate {
   name: string;
   description: string;
   category: 'portfolio' | 'performance' | 'tax' | 'compliance' | 'summary';
-  icon: React.ElementType;
+  icon: LucideIcon;
   fields: string[];
 }
 

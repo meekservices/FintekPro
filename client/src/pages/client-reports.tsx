@@ -7,6 +7,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import type { LucideIcon } from "lucide-react";
 import {
   FileText,
   Download,
@@ -39,7 +40,7 @@ interface Report {
 interface ReportCategory {
   id: string;
   name: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
   reports: Report[];
 }
 
