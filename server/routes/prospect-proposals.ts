@@ -12,7 +12,7 @@ import multer from "multer";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const pdfParseModule = require("pdf-parse");
-const pdfParse = pdfParseModule.default || pdfParseModule;
+const pdfParse = pdfParseModule.PDFParse || pdfParseModule.default || pdfParseModule;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1518,7 +1518,7 @@ router.post("/api/agent/parse-holding-report", upload.single('file'), async (req
       return res.status(400).json({ error: "PDF file is required" });
     }
 
-    // Parse PDF
+    // Parse PDF using PDFParse function
     const pdfData = await pdfParse(file.buffer);
     const text = pdfData.text;
     
