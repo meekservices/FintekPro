@@ -281,6 +281,114 @@ class NSDLISINService {
       timestamp: new Date(this.cacheTimestamp),
     };
   }
+
+  async lookupByISIN(isin: string): Promise<{
+    isin: string;
+    issuerName: string;
+    securityDescription: string;
+    currency: string;
+    interestRate: string;
+    maturityDate: string;
+    fisn: string;
+    cfi: string;
+    securityType: 'equity' | 'debt' | 'preference' | 'warrant' | 'other';
+  } | null> {
+    const data = await this.ensureDataLoaded();
+    const normalizedISIN = isin.toUpperCase().trim();
+    
+    const record = data.find(r => r.isin.toUpperCase() === normalizedISIN);
+    
+    if (!record) {
+      return null;
+    }
+    
+    return {
+      ...record,
+      securityType: this.getSecurityType(record.securityDescription, record.cfi),
+    };
+  }
+
+  async searchByISIN(isinPrefix: string, limit: number = 20): Promise<{
+    isin: string;
+    issuerName: string;
+    securityDescription: string;
+    securityType: 'equity' | 'debt' | 'preference' | 'warrant' | 'other';
+    interestRate: string;
+    maturityDate: string;
+  }[]> {
+    const data = await this.ensureDataLoaded();
+    const normalizedPrefix = isinPrefix.toUpperCase().trim();
+    
+    const results = data
+      .filter(r => r.isin.toUpperCase().startsWith(normalizedPrefix))
+      .slice(0, limit)
+      .map(record => ({
+        isin: record.isin,
+        issuerName: record.issuerName,
+        securityDescription: record.securityDescription,
+        securityType: this.getSecurityType(record.securityDescription, record.cfi),
+        interestRate: record.interestRate,
+        maturityDate: record.maturityDate,
+      }));
+    
+    return results;
+  }
+
+  parseMaturityDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    
+    // Format: DD-Mon-YYYY (e.g., "15-Jan-2030")
+    const parts = dateStr.match(/(\d{1,2})-(\w{3})-(\d{4})/);
+    if (parts) {
+      const months: Record<string, number> = {
+        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      };
+      const day = parseInt(parts[1]);
+      const month = months[parts[2]];
+      const year = parseInt(parts[3]);
+      if (!isNaN(day) && month !== undefined && !isNaN(year)) {
+        return new Date(year, month, day);
+      }
+    }
+    
+    // Try standard ISO format
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  determineInstrumentType(securityDescription: string, issuerName: string): string {
+    const desc = securityDescription.toUpperCase();
+    const issuer = issuerName.toUpperCase();
+    
+    if (desc.includes('GOVT') || desc.includes('GOI') || issuer.includes('GOVERNMENT OF INDIA')) {
+      if (desc.includes('T-BILL') || desc.includes('TBILL') || desc.includes('TREASURY BILL')) {
+        return 'tbill';
+      }
+      if (desc.includes('SGB') || desc.includes('SOVEREIGN GOLD')) {
+        return 'sgb';
+      }
+      return 'gsec';
+    }
+    
+    if (issuer.includes('STATE') && (desc.includes('SDL') || desc.includes('STATE DEV'))) {
+      return 'sdl';
+    }
+    
+    if (desc.includes('NCD') || desc.includes('NON CONVERTIBLE') || desc.includes('DEBENTURE')) {
+      return 'ncd';
+    }
+    
+    if (desc.includes('INFRASTRUCTURE') || desc.includes('INFRA BOND')) {
+      return 'infrastructure_bond';
+    }
+    
+    if (desc.includes('TAX FREE') || desc.includes('TAX-FREE')) {
+      return 'tax_free_bond';
+    }
+    
+    return 'corporate_bond';
+  }
 }
 
 export const nsdlISINService = new NSDLISINService();

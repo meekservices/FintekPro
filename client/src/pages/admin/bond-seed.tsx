@@ -161,6 +161,41 @@ export default function BondSeedAdmin() {
     ratingAgency: '',
   });
 
+  // ISIN Seeding State
+  const [isinSeedDialog, setIsinSeedDialog] = useState(false);
+  const [isinInput, setIsinInput] = useState('');
+  const [isinLookupResult, setIsinLookupResult] = useState<{
+    found: boolean;
+    alreadyInCatalog: boolean;
+    existingEntry: BondCatalogItem | null;
+    bondData: {
+      isin: string;
+      issuerName: string;
+      securityDescription: string;
+      currency: string;
+      interestRate: string;
+      maturityDate: string | null;
+      securityType: string;
+      instrumentType: string;
+    };
+  } | null>(null);
+  const [isinOverrides, setIsinOverrides] = useState({
+    bondName: '',
+    issuerName: '',
+    instrumentType: '',
+    faceValue: '1000',
+    couponRate: '',
+    maturityDate: '',
+    yieldToMaturity: '',
+    minInvestment: '100000',
+    lotSize: 1,
+    creditRating: '',
+    ratingAgency: '',
+    kycTierRequired: 'enhanced',
+  });
+  const [bulkIsinInput, setBulkIsinInput] = useState('');
+  const [bulkIsinTab, setBulkIsinTab] = useState<'single' | 'bulk'>('single');
+
   const { data: catalogData, isLoading: isLoadingCatalog, refetch: refetchCatalog } = useQuery<{ bonds: BondCatalogItem[] }>({
     queryKey: ['/api/admin/bond-seed/catalog'],
   });
@@ -365,6 +400,125 @@ export default function BondSeedAdmin() {
       });
     },
   });
+
+  // ISIN Lookup and Seed Mutations
+  const isinLookupMutation = useMutation({
+    mutationFn: async (isin: string) => {
+      const response = await apiRequest(`/api/admin/bond-seed/isin-lookup/${isin}`);
+      return response as typeof isinLookupResult;
+    },
+    onSuccess: (data) => {
+      setIsinLookupResult(data);
+      if (data?.bondData) {
+        setIsinOverrides(prev => ({
+          ...prev,
+          bondName: data.bondData.securityDescription || '',
+          issuerName: data.bondData.issuerName || '',
+          instrumentType: data.bondData.instrumentType || 'corporate_bond',
+          maturityDate: data.bondData.maturityDate || '',
+          couponRate: data.bondData.interestRate?.match(/(\d+\.?\d*)/)?.[1] || '',
+        }));
+      }
+    },
+    onError: (error: any) => {
+      setIsinLookupResult(null);
+      toast({
+        title: "ISIN Lookup Failed",
+        description: error.message || "ISIN not found in NSDL database",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const seedFromIsinMutation = useMutation({
+    mutationFn: async ({ isin, overrides, publish }: { isin: string; overrides: any; publish: boolean }) => {
+      return await apiRequest('/api/admin/bond-seed/seed-from-isin', {
+        method: 'POST',
+        body: JSON.stringify({ isin, overrides, publish })
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/audit-logs'] });
+      setIsinSeedDialog(false);
+      setIsinInput('');
+      setIsinLookupResult(null);
+      setIsinOverrides({
+        bondName: '', issuerName: '', instrumentType: '', faceValue: '1000',
+        couponRate: '', maturityDate: '', yieldToMaturity: '', minInvestment: '100000',
+        lotSize: 1, creditRating: '', ratingAgency: '', kycTierRequired: 'enhanced',
+      });
+      toast({
+        title: "Bond Seeded Successfully",
+        description: data.message || `Bond added from ISIN`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Seed Failed",
+        description: error.message || "Failed to seed bond from ISIN",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkSeedFromIsinMutation = useMutation({
+    mutationFn: async ({ isins, publish }: { isins: string[]; publish: boolean }) => {
+      return await apiRequest('/api/admin/bond-seed/bulk-seed-from-isin', {
+        method: 'POST',
+        body: JSON.stringify({ isins, publish })
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bond-seed/audit-logs'] });
+      setBulkIsinInput('');
+      toast({
+        title: "Bulk Seed Complete",
+        description: `Succeeded: ${data.summary?.succeeded || 0}, Failed: ${data.summary?.failed || 0}, Skipped: ${data.summary?.skipped || 0}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Bulk Seed Failed",
+        description: error.message || "Failed to bulk seed bonds",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleIsinLookup = () => {
+    if (isinInput.length >= 12) {
+      isinLookupMutation.mutate(isinInput.toUpperCase());
+    }
+  };
+
+  const handleSeedFromIsin = (publish: boolean) => {
+    if (!isinLookupResult?.bondData) return;
+    seedFromIsinMutation.mutate({
+      isin: isinInput.toUpperCase(),
+      overrides: isinOverrides,
+      publish
+    });
+  };
+
+  const handleBulkSeed = (publish: boolean) => {
+    const isins = bulkIsinInput
+      .split(/[\n,]+/)
+      .map(s => s.trim().toUpperCase())
+      .filter(s => s.length >= 12);
+    
+    if (isins.length === 0) {
+      toast({
+        title: "No Valid ISINs",
+        description: "Please enter at least one valid ISIN (12 characters)",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    bulkSeedFromIsinMutation.mutate({ isins, publish });
+  };
 
   const handleSelectBond = (bondId: string, checked: boolean) => {
     const newSet = new Set(selectedBonds);
@@ -791,6 +945,14 @@ export default function BondSeedAdmin() {
             <FileText className="h-3 w-3" />
             {unlistedBonds.length} Unlisted
           </Badge>
+          <Button 
+            onClick={() => setIsinSeedDialog(true)}
+            className="ml-2"
+            data-testid="button-seed-from-isin"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Seed from ISIN
+          </Button>
         </div>
       </div>
 
@@ -1161,6 +1323,279 @@ export default function BondSeedAdmin() {
               Create Draft
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ISIN Seed Dialog */}
+      <Dialog open={isinSeedDialog} onOpenChange={(open) => {
+        setIsinSeedDialog(open);
+        if (!open) {
+          setIsinInput('');
+          setIsinLookupResult(null);
+          setBulkIsinInput('');
+          setBulkIsinTab('single');
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Seed Bonds from ISIN
+            </DialogTitle>
+            <DialogDescription>
+              Look up bond details from NSDL using ISIN and add to catalog automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs value={bulkIsinTab} onValueChange={(v) => setBulkIsinTab(v as 'single' | 'bulk')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="single" data-testid="tab-single-isin">Single ISIN</TabsTrigger>
+              <TabsTrigger value="bulk" data-testid="tab-bulk-isin">Bulk ISINs</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="single" className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter ISIN (e.g., INE001A08012)"
+                  value={isinInput}
+                  onChange={(e) => setIsinInput(e.target.value.toUpperCase())}
+                  className="flex-1"
+                  data-testid="input-isin-lookup"
+                />
+                <Button 
+                  onClick={handleIsinLookup}
+                  disabled={isinInput.length < 12 || isinLookupMutation.isPending}
+                  data-testid="button-lookup-isin"
+                >
+                  {isinLookupMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+
+              {isinLookupResult && (
+                <div className="space-y-4">
+                  {isinLookupResult.alreadyInCatalog ? (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        This ISIN already exists in the catalog as "{isinLookupResult.existingEntry?.bondName}"
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      <Card className="p-4 bg-muted/50">
+                        <h4 className="font-medium mb-2">Bond Details from NSDL</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">ISIN:</span>
+                            <span className="ml-2 font-mono">{isinLookupResult.bondData.isin}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Type:</span>
+                            <Badge variant="outline" className="ml-2">
+                              {isinLookupResult.bondData.instrumentType}
+                            </Badge>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">Issuer:</span>
+                            <span className="ml-2">{isinLookupResult.bondData.issuerName}</span>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">Description:</span>
+                            <span className="ml-2">{isinLookupResult.bondData.securityDescription}</span>
+                          </div>
+                          {isinLookupResult.bondData.interestRate && (
+                            <div>
+                              <span className="text-muted-foreground">Interest Rate:</span>
+                              <span className="ml-2">{isinLookupResult.bondData.interestRate}</span>
+                            </div>
+                          )}
+                          {isinLookupResult.bondData.maturityDate && (
+                            <div>
+                              <span className="text-muted-foreground">Maturity:</span>
+                              <span className="ml-2">{isinLookupResult.bondData.maturityDate}</span>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+
+                      <div className="space-y-3">
+                        <h4 className="font-medium">Override Details (Optional)</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Bond Name</Label>
+                            <Input
+                              value={isinOverrides.bondName}
+                              onChange={(e) => setIsinOverrides({ ...isinOverrides, bondName: e.target.value })}
+                              placeholder="Override bond name"
+                              data-testid="input-override-bond-name"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Instrument Type</Label>
+                            <Select 
+                              value={isinOverrides.instrumentType}
+                              onValueChange={(v) => setIsinOverrides({ ...isinOverrides, instrumentType: v })}
+                            >
+                              <SelectTrigger data-testid="select-override-instrument-type">
+                                <SelectValue placeholder="Auto-detected" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {INSTRUMENT_TYPES.map(t => (
+                                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">YTM (%)</Label>
+                            <Input
+                              value={isinOverrides.yieldToMaturity}
+                              onChange={(e) => setIsinOverrides({ ...isinOverrides, yieldToMaturity: e.target.value })}
+                              type="number"
+                              step="0.01"
+                              placeholder="Current yield"
+                              data-testid="input-override-ytm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Credit Rating</Label>
+                            <Select 
+                              value={isinOverrides.creditRating}
+                              onValueChange={(v) => setIsinOverrides({ ...isinOverrides, creditRating: v })}
+                            >
+                              <SelectTrigger data-testid="select-override-credit-rating">
+                                <SelectValue placeholder="Select rating" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {['Sovereign', 'AAA', 'AA+', 'AA', 'AA-', 'A+', 'A', 'A-', 'BBB+', 'BBB', 'BBB-'].map(r => (
+                                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Min Investment (₹)</Label>
+                            <Input
+                              value={isinOverrides.minInvestment}
+                              onChange={(e) => setIsinOverrides({ ...isinOverrides, minInvestment: e.target.value })}
+                              type="number"
+                              data-testid="input-override-min-investment"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">KYC Tier</Label>
+                            <Select 
+                              value={isinOverrides.kycTierRequired}
+                              onValueChange={(v) => setIsinOverrides({ ...isinOverrides, kycTierRequired: v })}
+                            >
+                              <SelectTrigger data-testid="select-override-kyc-tier">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="basic">Basic</SelectItem>
+                                <SelectItem value="enhanced">Enhanced</SelectItem>
+                                <SelectItem value="accredited">Accredited</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <DialogFooter className="flex gap-2">
+                        <Button variant="outline" onClick={() => setIsinSeedDialog(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleSeedFromIsin(false)}
+                          disabled={seedFromIsinMutation.isPending}
+                          data-testid="button-seed-draft"
+                        >
+                          {seedFromIsinMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4 mr-2" />
+                          )}
+                          Save as Draft
+                        </Button>
+                        <Button
+                          onClick={() => handleSeedFromIsin(true)}
+                          disabled={seedFromIsinMutation.isPending}
+                          data-testid="button-seed-publish"
+                        >
+                          {seedFromIsinMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4 mr-2" />
+                          )}
+                          Seed & Publish
+                        </Button>
+                      </DialogFooter>
+                    </>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="bulk" className="space-y-4">
+              <div className="space-y-2">
+                <Label>Enter ISINs (one per line or comma-separated)</Label>
+                <textarea
+                  className="w-full h-40 p-3 text-sm font-mono border rounded-md bg-background"
+                  placeholder="INE001A08012&#10;INE002A08020&#10;INE003A08030"
+                  value={bulkIsinInput}
+                  onChange={(e) => setBulkIsinInput(e.target.value.toUpperCase())}
+                  data-testid="textarea-bulk-isin"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {bulkIsinInput.split(/[\n,]+/).filter(s => s.trim().length >= 12).length} valid ISINs detected
+                </p>
+              </div>
+
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Bulk seeding will automatically detect bond type and apply default settings.
+                  Existing ISINs will be skipped.
+                </AlertDescription>
+              </Alert>
+
+              <DialogFooter className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsinSeedDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleBulkSeed(false)}
+                  disabled={bulkSeedFromIsinMutation.isPending}
+                  data-testid="button-bulk-seed-draft"
+                >
+                  {bulkSeedFromIsinMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-2" />
+                  )}
+                  Bulk Seed as Draft
+                </Button>
+                <Button
+                  onClick={() => handleBulkSeed(true)}
+                  disabled={bulkSeedFromIsinMutation.isPending}
+                  data-testid="button-bulk-seed-publish"
+                >
+                  {bulkSeedFromIsinMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  Bulk Seed & Publish
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

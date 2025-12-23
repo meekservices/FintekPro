@@ -1080,6 +1080,339 @@ router.get("/catalog/stats", async (req: Request, res: Response) => {
   }
 });
 
+// ============================================
+// ISIN LOOKUP AND SEED ROUTES
+// ============================================
+
+// Lookup bond details by ISIN from NSDL
+router.get("/isin-lookup/:isin", async (req: Request, res: Response) => {
+  try {
+    const { isin } = req.params;
+    
+    if (!isin || isin.length < 12) {
+      return res.status(400).json({ error: "Valid ISIN required (12 characters)" });
+    }
+    
+    const { nsdlISINService } = await import("../services/nsdl-isin-service");
+    const bondData = await nsdlISINService.lookupByISIN(isin);
+    
+    if (!bondData) {
+      return res.status(404).json({ error: "ISIN not found in NSDL database" });
+    }
+    
+    // Check if already exists in catalog
+    const existing = await db.select()
+      .from(bondCatalog)
+      .where(eq(bondCatalog.isin, bondData.isin.toUpperCase()))
+      .limit(1);
+    
+    const instrumentType = nsdlISINService.determineInstrumentType(
+      bondData.securityDescription, 
+      bondData.issuerName
+    );
+    
+    const maturityDate = nsdlISINService.parseMaturityDate(bondData.maturityDate);
+    
+    res.json({
+      found: true,
+      alreadyInCatalog: existing.length > 0,
+      existingEntry: existing[0] || null,
+      bondData: {
+        isin: bondData.isin,
+        issuerName: bondData.issuerName,
+        securityDescription: bondData.securityDescription,
+        currency: bondData.currency,
+        interestRate: bondData.interestRate,
+        maturityDate: maturityDate ? maturityDate.toISOString().split('T')[0] : null,
+        securityType: bondData.securityType,
+        instrumentType,
+      }
+    });
+  } catch (error: any) {
+    console.error("Error looking up ISIN:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Search ISINs by prefix
+router.get("/isin-search", async (req: Request, res: Response) => {
+  try {
+    const { prefix, limit } = req.query;
+    
+    if (!prefix || (prefix as string).length < 4) {
+      return res.status(400).json({ error: "ISIN prefix must be at least 4 characters" });
+    }
+    
+    const { nsdlISINService } = await import("../services/nsdl-isin-service");
+    const results = await nsdlISINService.searchByISIN(
+      prefix as string, 
+      parseInt(limit as string) || 20
+    );
+    
+    res.json({ results, count: results.length });
+  } catch (error: any) {
+    console.error("Error searching ISINs:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Seed bond from ISIN - auto-fetches details from NSDL
+router.post("/seed-from-isin", async (req: Request, res: Response) => {
+  try {
+    const { 
+      isin, 
+      overrides = {},
+      publish = false 
+    } = req.body;
+    
+    if (!isin || isin.length < 12) {
+      return res.status(400).json({ error: "Valid ISIN required (12 characters)" });
+    }
+    
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    
+    // Check if already exists
+    const existing = await db.select()
+      .from(bondCatalog)
+      .where(eq(bondCatalog.isin, isin.toUpperCase()))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      return res.status(409).json({ 
+        error: "Bond with this ISIN already exists in catalog",
+        existingEntry: existing[0]
+      });
+    }
+    
+    // Lookup from NSDL
+    const { nsdlISINService } = await import("../services/nsdl-isin-service");
+    const bondData = await nsdlISINService.lookupByISIN(isin);
+    
+    if (!bondData) {
+      return res.status(404).json({ error: "ISIN not found in NSDL database" });
+    }
+    
+    const instrumentType = overrides.instrumentType || 
+      nsdlISINService.determineInstrumentType(bondData.securityDescription, bondData.issuerName);
+    
+    const maturityDate = nsdlISINService.parseMaturityDate(bondData.maturityDate);
+    
+    // Parse coupon rate from interest rate string
+    let couponRate: string | null = null;
+    if (bondData.interestRate) {
+      const rateMatch = bondData.interestRate.match(/(\d+\.?\d*)/);
+      if (rateMatch) {
+        couponRate = rateMatch[1];
+      }
+    }
+    
+    // Determine if government or corporate
+    const isGovernment = ['gsec', 'tbill', 'sdl', 'sgb'].includes(instrumentType);
+    
+    // Create catalog entry
+    const [newEntry] = await db.insert(bondCatalog).values({
+      source: 'nsdl_isin',
+      sourceId: bondData.isin,
+      isin: bondData.isin.toUpperCase(),
+      bondName: overrides.bondName || bondData.securityDescription,
+      issuerName: overrides.issuerName || bondData.issuerName,
+      instrumentType: instrumentType as any,
+      isListed: overrides.isListed ?? true,
+      exchange: overrides.exchange || null,
+      faceValue: overrides.faceValue || '1000',
+      couponRate: overrides.couponRate || couponRate,
+      couponFrequency: overrides.couponFrequency || (isGovernment ? 'semi_annual' : 'annual'),
+      maturityDate: maturityDate ? maturityDate.toISOString().split('T')[0] : overrides.maturityDate,
+      cleanPrice: overrides.cleanPrice || null,
+      yieldToMaturity: overrides.yieldToMaturity || null,
+      creditRating: overrides.creditRating || (isGovernment ? 'Sovereign' : null),
+      ratingAgency: overrides.ratingAgency || (isGovernment ? 'Government' : null),
+      minInvestment: overrides.minInvestment || (isGovernment ? '10000' : '100000'),
+      lotSize: overrides.lotSize || 1,
+      taxCategory: isGovernment ? 'government' : 'corporate',
+      tdsApplicable: !isGovernment,
+      tdsRate: isGovernment ? null : '10',
+      status: publish ? 'published' : 'draft',
+      kycTierRequired: overrides.kycTierRequired || 'enhanced',
+      publishedAt: publish ? new Date() : null,
+    }).returning();
+    
+    // Audit log
+    await db.insert(bondMarketplaceAuditLogs).values({
+      userId,
+      userEmail,
+      userRole: 'admin',
+      action: 'seed_from_isin',
+      entityType: 'bond_catalog',
+      entityId: newEntry.id,
+      afterValue: { isin, instrumentType, bondName: newEntry.bondName },
+      changeDescription: `Seeded bond from ISIN: ${isin} - ${newEntry.bondName}`,
+      complianceRelated: true,
+      riskLevel: 'low',
+      ipAddress: req.ip,
+      retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000),
+    });
+    
+    res.json({ 
+      success: true, 
+      bond: newEntry,
+      message: `Bond seeded successfully from ISIN: ${isin}`
+    });
+  } catch (error: any) {
+    console.error("Error seeding bond from ISIN:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bulk seed bonds from multiple ISINs
+router.post("/bulk-seed-from-isin", async (req: Request, res: Response) => {
+  try {
+    const { isins, publish = false } = req.body;
+    
+    if (!Array.isArray(isins) || isins.length === 0) {
+      return res.status(400).json({ error: "Array of ISINs required" });
+    }
+    
+    if (isins.length > 50) {
+      return res.status(400).json({ error: "Maximum 50 ISINs per request" });
+    }
+    
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    const { nsdlISINService } = await import("../services/nsdl-isin-service");
+    
+    const results = {
+      success: [] as any[],
+      failed: [] as { isin: string; error: string }[],
+      skipped: [] as { isin: string; reason: string }[]
+    };
+    
+    for (const isin of isins) {
+      try {
+        // Check if already exists
+        const existing = await db.select()
+          .from(bondCatalog)
+          .where(eq(bondCatalog.isin, isin.toUpperCase()))
+          .limit(1);
+        
+        if (existing.length > 0) {
+          results.skipped.push({ isin, reason: 'Already exists in catalog' });
+          continue;
+        }
+        
+        // Lookup from NSDL
+        const bondData = await nsdlISINService.lookupByISIN(isin);
+        
+        if (!bondData) {
+          results.failed.push({ isin, error: 'Not found in NSDL database' });
+          continue;
+        }
+        
+        const instrumentType = nsdlISINService.determineInstrumentType(
+          bondData.securityDescription, 
+          bondData.issuerName
+        );
+        
+        const maturityDate = nsdlISINService.parseMaturityDate(bondData.maturityDate);
+        
+        let couponRate: string | null = null;
+        if (bondData.interestRate) {
+          const rateMatch = bondData.interestRate.match(/(\d+\.?\d*)/);
+          if (rateMatch) {
+            couponRate = rateMatch[1];
+          }
+        }
+        
+        const isGovernment = ['gsec', 'tbill', 'sdl', 'sgb'].includes(instrumentType);
+        
+        const [newEntry] = await db.insert(bondCatalog).values({
+          source: 'nsdl_isin',
+          sourceId: bondData.isin,
+          isin: bondData.isin.toUpperCase(),
+          bondName: bondData.securityDescription,
+          issuerName: bondData.issuerName,
+          instrumentType: instrumentType as any,
+          isListed: true,
+          faceValue: '1000',
+          couponRate,
+          couponFrequency: isGovernment ? 'semi_annual' : 'annual',
+          maturityDate: maturityDate ? maturityDate.toISOString().split('T')[0] : null,
+          creditRating: isGovernment ? 'Sovereign' : null,
+          ratingAgency: isGovernment ? 'Government' : null,
+          minInvestment: isGovernment ? '10000' : '100000',
+          lotSize: 1,
+          taxCategory: isGovernment ? 'government' : 'corporate',
+          tdsApplicable: !isGovernment,
+          tdsRate: isGovernment ? null : '10',
+          status: publish ? 'published' : 'draft',
+          kycTierRequired: 'enhanced',
+          publishedAt: publish ? new Date() : null,
+        }).returning();
+        
+        results.success.push(newEntry);
+        
+      } catch (err: any) {
+        results.failed.push({ isin, error: err.message });
+      }
+    }
+    
+    // Audit log for bulk operation
+    if (results.success.length > 0) {
+      await db.insert(bondMarketplaceAuditLogs).values({
+        userId,
+        userEmail,
+        userRole: 'admin',
+        action: 'bulk_seed_from_isin',
+        entityType: 'bond_catalog',
+        entityId: 'bulk',
+        afterValue: { 
+          totalRequested: isins.length,
+          succeeded: results.success.length,
+          failed: results.failed.length,
+          skipped: results.skipped.length
+        },
+        changeDescription: `Bulk seeded ${results.success.length} bonds from ISINs`,
+        complianceRelated: true,
+        riskLevel: 'medium',
+        ipAddress: req.ip,
+        retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000),
+      });
+    }
+    
+    res.json({
+      success: true,
+      summary: {
+        total: isins.length,
+        succeeded: results.success.length,
+        failed: results.failed.length,
+        skipped: results.skipped.length
+      },
+      results
+    });
+  } catch (error: any) {
+    console.error("Error bulk seeding bonds from ISINs:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh NSDL ISIN cache
+router.post("/refresh-isin-cache", async (req: Request, res: Response) => {
+  try {
+    const { nsdlISINService } = await import("../services/nsdl-isin-service");
+    const result = await nsdlISINService.refreshCache();
+    
+    res.json({
+      success: true,
+      recordCount: result.recordCount,
+      refreshedAt: result.timestamp
+    });
+  } catch (error: any) {
+    console.error("Error refreshing ISIN cache:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Helper functions
 function determineGSecType(gsec: any): InstrumentType {
   const secType = gsec.securityType?.toLowerCase() || '';
