@@ -444,6 +444,194 @@ router.get("/api/ai-mf/live-data/enhanced/:schemeCode", async (req, res) => {
   }
 });
 
+// NAV History Sync routes
+router.post("/api/ai-mf/nav-history/sync/:schemeCode", async (req, res) => {
+  try {
+    const { schemeCode } = req.params;
+    const { maxDays } = req.body;
+    const { mfDataSyncService } = await import('../services/mf-data-sync-service');
+    
+    const count = await mfDataSyncService.syncNavHistoryForScheme(schemeCode, maxDays || 1825);
+    
+    res.json({
+      success: true,
+      synced: count,
+      message: `Synced ${count} NAV records for scheme ${schemeCode}`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/api/ai-mf/nav-history/sync-all", async (req, res) => {
+  try {
+    const { limit } = req.body;
+    const { mfDataSyncService } = await import('../services/mf-data-sync-service');
+    
+    const result = await mfDataSyncService.syncNavHistoryForAllFunds(limit || 50);
+    
+    res.json({
+      success: true,
+      ...result,
+      message: `Synced NAV history for ${result.synced}/${result.total} funds`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/api/ai-mf/monthly-returns/:schemeCode", async (req, res) => {
+  try {
+    const { schemeCode } = req.params;
+    const { mfDataSyncService } = await import('../services/mf-data-sync-service');
+    
+    const count = await mfDataSyncService.calculateMonthlyReturnsForScheme(schemeCode);
+    
+    res.json({
+      success: true,
+      monthsCalculated: count,
+      message: `Calculated ${count} monthly returns for scheme ${schemeCode}`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/api/ai-mf/exit-signals/:schemeCode", async (req, res) => {
+  try {
+    const { schemeCode } = req.params;
+    const { mfDataSyncService } = await import('../services/mf-data-sync-service');
+    
+    const signals = await mfDataSyncService.getExitSignals(schemeCode);
+    
+    if (!signals) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Insufficient data for exit signal analysis' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      schemeCode,
+      ...signals
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Tax calculation routes
+router.post("/api/ai-mf/tax/calculate", async (req, res) => {
+  try {
+    const { gain, holdingDays, category, schemeName, slabRate } = req.body;
+    
+    if (gain === undefined || holdingDays === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'gain and holdingDays are required'
+      });
+    }
+    
+    const { mfTaxService } = await import('../services/mf-tax-service');
+    const tax = await mfTaxService.calculateTax(
+      gain, 
+      holdingDays, 
+      category || 'equity', 
+      schemeName || '',
+      slabRate || 30
+    );
+    
+    res.json({
+      success: true,
+      tax
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/api/ai-mf/tax/rules/:fundType", async (req, res) => {
+  try {
+    const { fundType } = req.params;
+    const { mfTaxService } = await import('../services/mf-tax-service');
+    
+    const summary = mfTaxService.getTaxSummary(fundType);
+    
+    res.json({
+      success: true,
+      fundType,
+      ...summary
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/api/ai-mf/exit-load/:schemeCode", async (req, res) => {
+  try {
+    const { schemeCode } = req.params;
+    const { holdingDays } = req.query;
+    const { mfTaxService } = await import('../services/mf-tax-service');
+    
+    const exitLoad = await mfTaxService.getExitLoadForScheme(
+      schemeCode, 
+      holdingDays ? parseInt(holdingDays as string) : 0
+    );
+    
+    const timeline = await mfTaxService.getExitLoadTimeline(schemeCode);
+    
+    res.json({
+      success: true,
+      schemeCode,
+      currentHoldingDays: holdingDays ? parseInt(holdingDays as string) : 0,
+      exitLoad,
+      timeline
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/api/ai-mf/withdrawal-summary", async (req, res) => {
+  try {
+    const { 
+      schemeCode, 
+      investmentAmount, 
+      currentValue, 
+      holdingDays, 
+      category, 
+      schemeName,
+      slabRate 
+    } = req.body;
+    
+    if (!schemeCode || !investmentAmount || !currentValue || holdingDays === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'schemeCode, investmentAmount, currentValue, and holdingDays are required'
+      });
+    }
+    
+    const { mfTaxService } = await import('../services/mf-tax-service');
+    const summary = await mfTaxService.calculateWithdrawalSummary(
+      schemeCode,
+      investmentAmount,
+      currentValue,
+      holdingDays,
+      category || 'equity',
+      schemeName || '',
+      slabRate || 30
+    );
+    
+    res.json({
+      success: true,
+      summary
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export function registerAIMFRecommendationRoutes(app: any) {
   app.use(router);
   console.log("✅ AI MF Recommendation routes registered (with live data support)");

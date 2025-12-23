@@ -147,6 +147,40 @@ export function initializeCronJobs(): void {
     }
   });
 
+  // MF NAV History Sync - Run daily at 11 PM IST (5:30 PM UTC) to store historical NAV data
+  cron.schedule('30 17 * * *', async () => {
+    console.log('[CRON] Starting MF NAV history sync...');
+    try {
+      const { mfDataSyncService } = await import('./services/mf-data-sync-service');
+      await mfDataSyncService.runDailySync();
+      console.log('[CRON] MF NAV history sync completed');
+    } catch (error: any) {
+      console.error('[CRON] MF NAV history sync failed:', error.message);
+    }
+  });
+
+  // Monthly Returns Calculation - Run on 1st of each month at 6 AM IST (12:30 AM UTC)
+  cron.schedule('30 0 1 * *', async () => {
+    console.log('[CRON] Starting monthly returns calculation...');
+    try {
+      const { mfDataSyncService } = await import('./services/mf-data-sync-service');
+      const { mutualFunds } = await import('@shared/schema');
+      const { db } = await import('./db');
+      
+      const funds = await db.select({ schemeCode: mutualFunds.schemeCode }).from(mutualFunds).limit(200);
+      let calculated = 0;
+      
+      for (const fund of funds) {
+        const count = await mfDataSyncService.calculateMonthlyReturnsForScheme(fund.schemeCode);
+        if (count > 0) calculated++;
+      }
+      
+      console.log(`[CRON] Monthly returns calculated for ${calculated} funds`);
+    } catch (error: any) {
+      console.error('[CRON] Monthly returns calculation failed:', error.message);
+    }
+  });
+
   stockSyncScheduler.initialize();
   console.log('✓ Cron jobs initialized successfully');
 }

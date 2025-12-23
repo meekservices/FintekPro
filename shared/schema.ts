@@ -3397,6 +3397,75 @@ export const mutualFunds = pgTable("mutual_funds", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+// NAV History table for storing daily NAV data from MFapi.in
+export const mfNavHistory = pgTable("mf_nav_history", {
+  id: serial("id").primaryKey(),
+  schemeCode: text("scheme_code").notNull(),
+  navDate: date("nav_date").notNull(),
+  nav: decimal("nav", { precision: 15, scale: 6 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  schemeCodeIdx: index("mf_nav_history_scheme_code_idx").on(table.schemeCode),
+  navDateIdx: index("mf_nav_history_nav_date_idx").on(table.navDate),
+  schemeCodeNavDateIdx: index("mf_nav_history_scheme_code_nav_date_idx").on(table.schemeCode, table.navDate),
+}));
+
+// Monthly Returns table for tracking month-wise performance
+export const mfMonthlyReturns = pgTable("mf_monthly_returns", {
+  id: serial("id").primaryKey(),
+  schemeCode: text("scheme_code").notNull(),
+  monthYear: varchar("month_year", { length: 7 }).notNull(), // Format: YYYY-MM
+  returnPercent: decimal("return_percent", { precision: 10, scale: 4 }),
+  navStart: decimal("nav_start", { precision: 15, scale: 6 }),
+  navEnd: decimal("nav_end", { precision: 15, scale: 6 }),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schemeCodeIdx: index("mf_monthly_returns_scheme_code_idx").on(table.schemeCode),
+  monthYearIdx: index("mf_monthly_returns_month_year_idx").on(table.monthYear),
+  schemeCodeMonthYearIdx: index("mf_monthly_returns_scheme_code_month_year_idx").on(table.schemeCode, table.monthYear),
+}));
+
+// Scheme Exit Loads table with tiered structure per scheme
+export const mfSchemeExitLoads = pgTable("mf_scheme_exit_loads", {
+  id: serial("id").primaryKey(),
+  schemeCode: text("scheme_code").notNull(),
+  isin: varchar("isin", { length: 20 }),
+  tier: integer("tier").notNull(), // 1, 2, 3... for multi-tier exit loads
+  minDays: integer("min_days").notNull().default(0), // Minimum holding days for this tier
+  maxDays: integer("max_days"), // Maximum holding days (NULL means no upper limit)
+  exitLoadPercent: decimal("exit_load_percent", { precision: 5, scale: 3 }).notNull(), // e.g., 1.000 for 1%
+  description: text("description"), // e.g., "1% if redeemed within 365 days"
+  sourceUrl: text("source_url"), // AMC fact sheet URL
+  lastVerified: timestamp("last_verified"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  schemeCodeIdx: index("mf_scheme_exit_loads_scheme_code_idx").on(table.schemeCode),
+  isinIdx: index("mf_scheme_exit_loads_isin_idx").on(table.isin),
+}));
+
+// MF Tax Rules table for current tax rates
+export const mfTaxRules = pgTable("mf_tax_rules", {
+  id: serial("id").primaryKey(),
+  fundType: varchar("fund_type", { length: 50 }).notNull(), // equity, debt, hybrid, elss, liquid
+  holdingPeriodType: varchar("holding_period_type", { length: 20 }).notNull(), // short_term, long_term
+  minHoldingDays: integer("min_holding_days").notNull(),
+  maxHoldingDays: integer("max_holding_days"), // NULL means no upper limit
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).notNull(), // Tax rate percentage
+  exemptionLimit: decimal("exemption_limit", { precision: 15, scale: 2 }), // e.g., 125000 for LTCG
+  surchargeApplicable: boolean("surcharge_applicable").default(false),
+  cessRate: decimal("cess_rate", { precision: 5, scale: 2 }).default("4"), // Health & Education cess
+  indexationBenefit: boolean("indexation_benefit").default(false),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"), // NULL means currently active
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Listed Stocks table for equity recommendations
 export const listedStocks = pgTable("listed_stocks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
