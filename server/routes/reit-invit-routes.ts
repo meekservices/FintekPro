@@ -3,6 +3,7 @@ import { db } from '../db';
 import { eq, and, sql, desc, ilike, or, gte, lte, asc } from 'drizzle-orm';
 import { reits, invits, reitInvitOrders, reitInvitHoldings, users } from '@shared/schema';
 import { z } from 'zod';
+import { aiReitInvitService, ReitInvitAsset } from '../services/ai-reit-invit-service';
 
 const router = Router();
 
@@ -486,44 +487,64 @@ router.get('/invits/:symbol', async (req: Request, res: Response) => {
 
 router.get('/ai-recommendations', async (req: Request, res: Response) => {
   try {
-    const { riskProfile, investmentHorizon, investmentGoal } = req.query;
+    const { riskProfile, investmentHorizon, investmentGoal, investmentAmount } = req.query;
     
-    const allAssets = [
-      ...SAMPLE_REITS.map(r => ({ ...r, type: 'reit' as const })),
-      ...SAMPLE_INVITS.map(i => ({ ...i, type: 'invit' as const })),
-    ];
-    
-    let recommendations = allAssets.filter(a => a.aiSignal === 'buy');
-    
-    if (riskProfile === 'conservative') {
-      recommendations = recommendations.filter(a => a.riskLevel === 'low');
-    } else if (riskProfile === 'moderate') {
-      recommendations = recommendations.filter(a => a.riskLevel !== 'high');
-    }
-    
-    recommendations.sort((a, b) => parseFloat(b.aiConfidence || '0') - parseFloat(a.aiConfidence || '0'));
-    
-    const topPicks = recommendations.slice(0, 5);
-    
-    res.json({
-      success: true,
-      recommendations: topPicks.map(r => ({
-        type: r.type,
+    const allAssets: ReitInvitAsset[] = [
+      ...SAMPLE_REITS.map(r => ({ 
+        type: 'reit' as const,
         symbol: r.symbol,
         name: r.name,
         sector: r.sector,
         currentPrice: r.currentPrice,
         distributionYield: r.distributionYield,
-        aiSignal: r.aiSignal,
-        aiConfidence: r.aiConfidence,
-        aiRationale: r.aiRationale,
-        aiTargetPrice: r.aiTargetPrice,
+        returns1Y: r.returns1Y,
         riskLevel: r.riskLevel,
+        creditRating: r.creditRating,
+        occupancyRate: r.occupancyRate,
+        premiumToNav: r.premiumToNav,
+        sponsor: r.sponsor,
       })),
+      ...SAMPLE_INVITS.map(i => ({ 
+        type: 'invit' as const,
+        symbol: i.symbol,
+        name: i.name,
+        sector: i.sector,
+        currentPrice: i.currentPrice,
+        distributionYield: i.distributionYield,
+        returns1Y: i.returns1Y,
+        riskLevel: i.riskLevel,
+        creditRating: i.creditRating,
+        concessionLife: i.concessionLife,
+        premiumToNav: i.premiumToNav,
+        sponsor: i.sponsor,
+      })),
+    ];
+    
+    const userProfile = {
+      riskProfile: (riskProfile as 'conservative' | 'moderate' | 'aggressive') || 'moderate',
+      investmentHorizon: investmentHorizon as 'short_term' | 'medium_term' | 'long_term' | undefined,
+      investmentGoal: investmentGoal as 'income' | 'growth' | 'balanced' | 'capital_preservation' | undefined,
+      investmentAmount: investmentAmount ? parseFloat(investmentAmount as string) : undefined,
+    };
+    
+    const recommendations = await aiReitInvitService.generatePersonalizedRecommendations(allAssets, userProfile);
+    
+    const avgYield = recommendations.length > 0 
+      ? (recommendations.reduce((sum, r) => sum + parseFloat(r.distributionYield), 0) / recommendations.length).toFixed(2)
+      : '0';
+    const avgConfidence = recommendations.length > 0
+      ? (recommendations.reduce((sum, r) => sum + parseFloat(r.aiConfidence), 0) / recommendations.length).toFixed(1)
+      : '0';
+    
+    res.json({
+      success: true,
+      recommendations,
       summary: {
-        totalRecommendations: topPicks.length,
-        avgYield: (topPicks.reduce((sum, r) => sum + parseFloat(r.distributionYield), 0) / topPicks.length).toFixed(2),
-        avgConfidence: (topPicks.reduce((sum, r) => sum + parseFloat(r.aiConfidence || '0'), 0) / topPicks.length).toFixed(1),
+        totalRecommendations: recommendations.length,
+        avgYield,
+        avgConfidence,
+        riskProfile: userProfile.riskProfile,
+        investmentGoal: userProfile.investmentGoal || 'balanced',
       },
     });
   } catch (error) {
