@@ -26,7 +26,7 @@ The Corporate Treasury Management module is SEBI-compliant, featuring a configur
 
 A PAN-driven intelligent onboarding system auto-detects entity types (Individual, Company, HUF, Firm/LLP, AOP, Trust, BOI, Government, Local Authority, Artificial Juridical Person) and routes users to appropriate entity-specific flows. It includes product eligibility matrices and requires admin approval for non-individual entities.
 
-The Unified Tax & Compliance Module is SEBI-compliant, offering PAN-driven ITR filing with a self-file wizard, CA-assisted filing, and a "Lock-Before-Pay" pattern to ensure complete returns before payment. Payment gating includes dynamic pricing and multiple methods. Verification methods include EVC via Aadhaar OTP, Bank EVC, Demat EVC, or DSC. It supports Form 15CA/15CB with a Rule 37BB determination engine and CA approval workflows for international remittances. Tax notices are managed with auto-classification and expert assignment. A Document Vault provides PAN-linked, year-wise storage for tax documents. A CA Desk facilitates expert services, and an Agent Tax Dashboard manages cases. RBAC is implemented for various TaxRole types, and extensive audit logging with immutability controls ensures compliance.
+The Unified Tax & Compliance Module is SEBI-compliant, offering PAN-driven ITR filing with a self-file wizard, CA-assisted filing, and a "Lock-Before-Pay" pattern to ensure complete returns before payment. Payment gating includes dynamic pricing and multiple methods. Verification methods include EVC via Aadhaar OTP, Bank EVC, Demat EVC, or DSC (both Hardware Token and Aadhaar eSign). AuthBridge Aadhaar eSign integration provides legally valid electronic signatures under IT Act 2000, with OTP-based authentication, certificate generation, and full audit trail for compliance. It supports Form 15CA/15CB with a Rule 37BB determination engine and CA approval workflows for international remittances. Tax notices are managed with auto-classification and expert assignment. A Document Vault provides PAN-linked, year-wise storage for tax documents. A CA Desk facilitates expert services, and an Agent Tax Dashboard manages cases. RBAC is implemented for various TaxRole types, and extensive audit logging with immutability controls ensures compliance.
 
 An External Financial Calendar integrates multi-source external data from RBI, SEBI, NSE, and BSE for bond-related events. It features automatic and manual sync, source filtering, calendar export (iCal, subscription URL, Google Calendar), and detailed event dialogs for various bond instruments.
 
@@ -48,6 +48,7 @@ The platform utilizes a subdomain-based portal architecture for Admin, Partner, 
 -   Cashfree Verification Suite API
 -   Sandbox.co.in API
 -   AuthBridge CKYC API
+-   AuthBridge Aadhaar eSign API
 -   Protean KRA API
 -   Cashfree (Payment Gateway)
 -   PhonePe (Payment Gateway)
