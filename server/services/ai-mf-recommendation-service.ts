@@ -5,6 +5,7 @@ import {
   recommendationPerformance
 } from "@shared/schema";
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or, not, isNotNull } from "drizzle-orm";
+import { liveMFDataService } from "./live-mf-data-service";
 
 interface MFRecommendation {
   schemeCode: string;
@@ -149,7 +150,10 @@ class AIMFRecommendationService {
         eligibleFunds = [...eligibleFunds, ...commodityFunds];
       }
 
-      const scoredFunds = eligibleFunds.map(fund => this.scoreFund(fund));
+      // Enhance funds with live data from AMFI
+      const enhancedFunds = await this.enhanceWithLiveData(eligibleFunds);
+
+      const scoredFunds = enhancedFunds.map(fund => this.scoreFund(fund));
       scoredFunds.sort((a, b) => b.totalScore - a.totalScore);
 
       const diversifiedFunds = this.applyAMCDiversification(scoredFunds, maxFundsPerAMC, minAMCs);
@@ -160,6 +164,43 @@ class AIMFRecommendationService {
     } catch (error) {
       console.error('Error generating MF recommendations:', error);
       return [];
+    }
+  }
+
+  // Fetch live NAV and returns data from AMFI API
+  private async enhanceWithLiveData(funds: any[]): Promise<any[]> {
+    try {
+      const schemeCodes = funds.map(f => f.schemeCode);
+      const liveNavData = await liveMFDataService.getLiveNavBatch(schemeCodes);
+      
+      console.log(`[AI-MF] Enhanced ${liveNavData.size}/${funds.length} funds with live data`);
+
+      return await Promise.all(funds.map(async (fund) => {
+        const liveData = liveNavData.get(fund.schemeCode);
+        
+        if (liveData) {
+          // Get calculated returns from live data
+          const returns = await liveMFDataService.calculateReturns(fund.schemeCode);
+          
+          return {
+            ...fund,
+            nav: liveData.nav.toString(),
+            navDate: liveData.date,
+            isLiveData: true,
+            // Only override returns if we have live calculations AND they're non-zero
+            ...(returns && (returns.returns1y !== 0 || returns.returns3y !== 0) && {
+              returns1y: returns.returns1y.toString(),
+              returns3y: returns.returns3y.toString(),
+              returns5y: returns.returns5y.toString()
+            })
+          };
+        }
+        
+        return { ...fund, isLiveData: false };
+      }));
+    } catch (error) {
+      console.error('[AI-MF] Error enhancing with live data, using database values:', error);
+      return funds.map(f => ({ ...f, isLiveData: false }));
     }
   }
 

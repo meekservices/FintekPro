@@ -112,6 +112,41 @@ export function initializeCronJobs(): void {
     }
   });
 
+  // Live MF NAV Refresh - Run every day at 10:30 PM IST (5:00 PM UTC) after market close
+  cron.schedule('0 17 * * *', async () => {
+    console.log('[CRON] Starting live MF NAV refresh...');
+    try {
+      const { liveMFDataService } = await import('./services/live-mf-data-service');
+      const success = await liveMFDataService.refreshCache();
+      
+      if (success) {
+        const stats = liveMFDataService.getCacheStats();
+        console.log(`[CRON] Live MF NAV refreshed: ${stats.size} funds loaded from AMFI`);
+        
+        // Optionally sync to database for top funds
+        const result = await liveMFDataService.updateDatabaseWithLiveData();
+        console.log(`[CRON] Database sync: ${result.updated} funds updated`);
+      } else {
+        console.warn('[CRON] Live MF NAV refresh failed');
+      }
+    } catch (error: any) {
+      console.error('[CRON] Live MF NAV refresh failed:', error.message);
+    }
+  });
+
+  // Morning MF NAV Pre-warm - Run at 9 AM IST (3:30 AM UTC)
+  cron.schedule('30 3 * * *', async () => {
+    console.log('[CRON] Pre-warming MF NAV cache...');
+    try {
+      const { liveMFDataService } = await import('./services/live-mf-data-service');
+      await liveMFDataService.refreshCache();
+      const stats = liveMFDataService.getCacheStats();
+      console.log(`[CRON] MF NAV cache pre-warmed: ${stats.size} funds`);
+    } catch (error: any) {
+      console.error('[CRON] MF NAV pre-warm failed:', error.message);
+    }
+  });
+
   stockSyncScheduler.initialize();
   console.log('✓ Cron jobs initialized successfully');
 }

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { aiMFRecommendationService } from "../services/ai-mf-recommendation-service";
+import { liveMFDataService } from "../services/live-mf-data-service";
 
 const router = Router();
 
@@ -335,9 +336,117 @@ router.post("/api/ai/unified-recommendations", async (req, res) => {
   }
 });
 
+// Live Data Service Routes
+router.get("/api/ai-mf/live-data/status", async (req, res) => {
+  try {
+    const stats = liveMFDataService.getCacheStats();
+    res.json({
+      success: true,
+      cache: {
+        fundsCount: stats.size,
+        ageSeconds: stats.age,
+        isValid: stats.isValid,
+        ttlSeconds: 3600
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/api/ai-mf/live-data/refresh", async (req, res) => {
+  try {
+    const success = await liveMFDataService.refreshCache();
+    const stats = liveMFDataService.getCacheStats();
+    
+    res.json({
+      success,
+      message: success ? 'Live NAV cache refreshed from AMFI' : 'Cache refresh failed',
+      cache: {
+        fundsCount: stats.size,
+        ageSeconds: stats.age
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/api/ai-mf/live-data/nav/:schemeCode", async (req, res) => {
+  try {
+    const { schemeCode } = req.params;
+    const navData = await liveMFDataService.getLiveNav(schemeCode);
+    
+    if (!navData) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Fund not found or NAV data unavailable' 
+      });
+    }
+
+    const returns = await liveMFDataService.calculateReturns(schemeCode);
+
+    res.json({
+      success: true,
+      data: {
+        ...navData,
+        returns,
+        isLive: true
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/api/ai-mf/live-data/sync-database", async (req, res) => {
+  try {
+    const { schemeCodes, limit } = req.body;
+    const codesToSync = schemeCodes || undefined;
+    
+    const result = await liveMFDataService.updateDatabaseWithLiveData(codesToSync);
+    
+    res.json({
+      success: true,
+      result,
+      message: `Updated ${result.updated} funds with live data`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/api/ai-mf/live-data/sync-new-funds", async (req, res) => {
+  try {
+    const added = await liveMFDataService.syncNewFundsFromAmfi();
+    
+    res.json({
+      success: true,
+      fundsAdded: added,
+      message: `Added ${added} new funds from AMFI`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/api/ai-mf/live-data/enhanced/:schemeCode", async (req, res) => {
+  try {
+    const { schemeCode } = req.params;
+    const data = await liveMFDataService.getEnhancedFundData(schemeCode);
+    
+    res.json({
+      success: true,
+      data
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export function registerAIMFRecommendationRoutes(app: any) {
   app.use(router);
-  console.log("✅ AI MF Recommendation routes registered");
+  console.log("✅ AI MF Recommendation routes registered (with live data support)");
 }
 
 export default router;
