@@ -22,6 +22,7 @@ import {
   type InsertUnifiedCartItem,
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { aiMFRecommendationService } from "./ai-mf-recommendation-service";
 // GoogleGenerativeAI imported from gemini service if needed
 
 const SEBI_DISCLAIMER = `This investment proposal is generated using an AI-assisted analytical system based on information provided by the client and available market data. The recommendations are not investment advice, do not assure returns, and are subject to market risks. Final investment decisions shall be taken by the client after independent evaluation.`;
@@ -1201,6 +1202,154 @@ export class AIProposalEngine {
   async getLatestDiagnostics(userId: string): Promise<PortfolioDiagnostics | null> {
     const [result] = await db.select().from(portfolioDiagnostics).where(eq(portfolioDiagnostics.userId, userId)).orderBy(desc(portfolioDiagnostics.analysisDate)).limit(1);
     return result || null;
+  }
+
+  /**
+   * Generate smart MF recommendations for proposals using AI MF service
+   * This leverages the profit-maximization algorithm for fund selection
+   */
+  async getSmartMFRecommendationsForProposal(
+    userId: string,
+    investmentAmount: number
+  ): Promise<RecommendationInput[]> {
+    const riskProfile = await this.getOrCreateRiskProfile(userId);
+    if (!riskProfile) return [];
+
+    const riskCategory = riskProfile.riskCategory as 'conservative' | 'moderate' | 'aggressive';
+
+    // Get AI-powered fund recommendations
+    const aiRecommendations = await aiMFRecommendationService.getProposalRecommendations({
+      riskCategory,
+      investmentAmount
+    });
+
+    const allocations = {
+      conservative: { equity: 0.20, debt: 0.60, hybrid: 0.15, commodity: 0.05 },
+      moderate: { equity: 0.50, debt: 0.30, hybrid: 0.15, commodity: 0.05 },
+      aggressive: { equity: 0.70, debt: 0.15, hybrid: 0.10, commodity: 0.05 }
+    };
+    const allocation = allocations[riskCategory];
+
+    const recommendations: RecommendationInput[] = [];
+
+    // Add equity fund recommendations
+    for (const fund of aiRecommendations.equityFunds.slice(0, 3)) {
+      const amount = Math.round(investmentAmount * allocation.equity / aiRecommendations.equityFunds.length);
+      recommendations.push({
+        type: "BUY",
+        assetClass: "mutual_fund",
+        productId: fund.schemeCode,
+        schemeName: fund.schemeName,
+        amcName: fund.fundHouse,
+        amount,
+        rationale: fund.rationale,
+        problemIdentified: `Equity allocation at ${(allocation.equity * 100).toFixed(0)}% to achieve ${riskCategory} risk profile.`,
+        riskInvolved: "Equity investments are subject to market volatility.",
+        portfolioImpactSummary: `FintekPro Rating: ${'★'.repeat(fund.metrics.fintekproRating || 3)}. ${fund.metrics.cagr1Y ? `1Y Return: ${fund.metrics.cagr1Y.toFixed(1)}%` : ''}`,
+        riskImpactPercent: `+${Math.round(fund.metrics.cagr1Y || 12)}%`,
+        priority: 1
+      });
+    }
+
+    // Add debt fund recommendations
+    for (const fund of aiRecommendations.debtFunds.slice(0, 2)) {
+      const amount = Math.round(investmentAmount * allocation.debt / aiRecommendations.debtFunds.length);
+      recommendations.push({
+        type: "BUY",
+        assetClass: "mutual_fund",
+        productId: fund.schemeCode,
+        schemeName: fund.schemeName,
+        amcName: fund.fundHouse,
+        amount,
+        rationale: fund.rationale,
+        problemIdentified: `Debt allocation for capital preservation and stability.`,
+        riskInvolved: "Debt funds carry interest rate and credit risk.",
+        portfolioImpactSummary: `Low risk debt fund for portfolio balance.`,
+        riskImpactPercent: `+${Math.round(fund.metrics.cagr1Y || 7)}%`,
+        priority: 2
+      });
+    }
+
+    // Add hybrid fund recommendations
+    if (aiRecommendations.hybridFunds.length > 0) {
+      const fund = aiRecommendations.hybridFunds[0];
+      const amount = Math.round(investmentAmount * allocation.hybrid);
+      recommendations.push({
+        type: "BUY",
+        assetClass: "mutual_fund",
+        productId: fund.schemeCode,
+        schemeName: fund.schemeName,
+        amcName: fund.fundHouse,
+        amount,
+        rationale: fund.rationale,
+        problemIdentified: `Hybrid allocation for balanced risk-return profile.`,
+        riskInvolved: "Moderate risk with equity-debt mix.",
+        portfolioImpactSummary: `Balanced fund for smoother returns.`,
+        riskImpactPercent: `+${Math.round(fund.metrics.cagr1Y || 10)}%`,
+        priority: 3
+      });
+    }
+
+    // Add commodity (gold) fund for downside protection
+    if (aiRecommendations.commodityFunds.length > 0) {
+      const fund = aiRecommendations.commodityFunds[0];
+      const amount = Math.round(investmentAmount * allocation.commodity);
+      recommendations.push({
+        type: "BUY",
+        assetClass: "mutual_fund",
+        productId: fund.schemeCode,
+        schemeName: fund.schemeName,
+        amcName: fund.fundHouse,
+        amount,
+        rationale: fund.rationale + " Provides downside protection during market volatility.",
+        problemIdentified: `Gold/commodity allocation for portfolio protection.`,
+        riskInvolved: "Commodity prices can be volatile.",
+        portfolioImpactSummary: `5-10% allocation recommended for diversification.`,
+        riskImpactPercent: `+${Math.round(fund.metrics.cagr1Y || 8)}%`,
+        priority: 4
+      });
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * Analyze user's MF portfolio using AI service
+   */
+  async analyzeUserMFPortfolio(userId: string) {
+    // Get user's MF holdings
+    const userHoldings = await db
+      .select()
+      .from(mfHoldings)
+      .where(eq(mfHoldings.userId, userId));
+
+    if (userHoldings.length === 0) {
+      return {
+        success: true,
+        hasHoldings: false,
+        message: "No mutual fund holdings found for analysis.",
+        recommendations: await aiMFRecommendationService.getSmartRecommendations({})
+      };
+    }
+
+    // Transform holdings for analysis
+    const holdingsData = userHoldings.map(h => ({
+      schemeCode: h.schemeCode || undefined,
+      schemeName: h.schemeName || 'Unknown Fund',
+      currentValue: parseFloat(h.currentValue?.toString() || '0'),
+      units: parseFloat(h.units?.toString() || '0'),
+      category: undefined,
+      fundHouse: undefined
+    }));
+
+    // Run AI analysis
+    const analysis = await aiMFRecommendationService.analyzePortfolioHoldings(holdingsData);
+
+    return {
+      success: true,
+      hasHoldings: true,
+      ...analysis
+    };
   }
 }
 

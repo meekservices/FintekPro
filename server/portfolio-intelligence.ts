@@ -1,6 +1,7 @@
 import { analyzePortfolio, generateInvestmentStory, generateMarketInsight } from "./gemini";
 import { whatsappService } from "./whatsapp";
 import { storage } from "./storage";
+import { aiMFRecommendationService } from "./services/ai-mf-recommendation-service";
 
 export class PortfolioIntelligenceService {
   // AI-powered portfolio optimization
@@ -250,6 +251,87 @@ ${optimization.optimizationSuggestions.map(s => `• ${s}`).join('\n')}
         { symbol: "TCS", change: 2.8 }
       ]
     };
+  }
+
+  /**
+   * AI-powered mutual fund analysis for existing holdings
+   * Uses the FintekPro AI MF Recommendation Service for deep analysis
+   */
+  async getAIMFAnalysis(userId: string): Promise<{
+    holdingsAnalysis: any[];
+    exitCandidates: any[];
+    improvementSuggestions: any[];
+    commodityAllocation: any[];
+    portfolioHealthScore: number;
+    aiSummary: string;
+  }> {
+    try {
+      const portfolios = await storage.getPortfoliosByUserId(userId);
+      if (!portfolios.length) {
+        return {
+          holdingsAnalysis: [],
+          exitCandidates: [],
+          improvementSuggestions: await aiMFRecommendationService.getSmartRecommendations({}),
+          commodityAllocation: await aiMFRecommendationService.getCommodityFOFRecommendations(),
+          portfolioHealthScore: 50,
+          aiSummary: "No portfolio found. Here are top-rated mutual funds to get started."
+        };
+      }
+
+      const holdings = await storage.getPortfolioHoldings(portfolios[0].id);
+      
+      // Transform to the format expected by AI MF service
+      const holdingsData = holdings.map(h => ({
+        schemeCode: undefined,
+        schemeName: h.symbol || 'Unknown',
+        currentValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
+        units: parseFloat(h.quantity),
+        category: undefined,
+        fundHouse: undefined
+      }));
+
+      // Use AI MF service for analysis
+      const analysis = await aiMFRecommendationService.analyzePortfolioHoldings(holdingsData);
+      
+      return analysis;
+    } catch (error) {
+      console.error("AI MF Analysis error:", error);
+      return {
+        holdingsAnalysis: [],
+        exitCandidates: [],
+        improvementSuggestions: [],
+        commodityAllocation: [],
+        portfolioHealthScore: 50,
+        aiSummary: "Unable to analyze portfolio at this time."
+      };
+    }
+  }
+
+  /**
+   * Get smart fund recommendations for new investments
+   */
+  async getSmartFundRecommendations(params: {
+    riskCategory?: 'conservative' | 'moderate' | 'aggressive';
+    category?: string;
+    investmentAmount?: number;
+  }): Promise<any> {
+    try {
+      const { riskCategory = 'moderate', category, investmentAmount = 100000 } = params;
+      
+      if (category) {
+        // Get recommendations for specific category
+        return aiMFRecommendationService.getSmartRecommendations({ category });
+      }
+      
+      // Get full proposal recommendations
+      return aiMFRecommendationService.getProposalRecommendations({
+        riskCategory,
+        investmentAmount
+      });
+    } catch (error) {
+      console.error("Smart fund recommendations error:", error);
+      return { equityFunds: [], debtFunds: [], hybridFunds: [], commodityFunds: [] };
+    }
   }
 }
 

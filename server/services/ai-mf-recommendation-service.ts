@@ -539,6 +539,340 @@ class AIMFRecommendationService {
     
     return updatedRecommendations;
   }
+
+  /**
+   * Analyze user's existing portfolio holdings and provide AI-powered recommendations
+   * This is the core method for portfolio analysis across FintekPro
+   */
+  async analyzePortfolioHoldings(holdings: {
+    schemeCode?: string;
+    schemeName: string;
+    currentValue: number;
+    units?: number;
+    category?: string;
+    fundHouse?: string;
+  }[]): Promise<{
+    holdingsAnalysis: Array<{
+      schemeName: string;
+      schemeCode?: string;
+      currentValue: number;
+      signal: 'buy_more' | 'hold' | 'exit' | 'switch';
+      confidence: number;
+      rationale: string;
+      betterAlternative?: MFRecommendation;
+      metrics: {
+        fintekproRating?: number;
+        cagr1Y?: number;
+        categoryPercentile?: number;
+        expenseRatio?: number;
+      };
+    }>;
+    exitCandidates: MFRecommendation[];
+    improvementSuggestions: MFRecommendation[];
+    commodityAllocation: MFRecommendation[];
+    portfolioHealthScore: number;
+    aiSummary: string;
+  }> {
+    try {
+      const holdingsAnalysis: Array<{
+        schemeName: string;
+        schemeCode?: string;
+        currentValue: number;
+        signal: 'buy_more' | 'hold' | 'exit' | 'switch';
+        confidence: number;
+        rationale: string;
+        betterAlternative?: MFRecommendation;
+        metrics: {
+          fintekproRating?: number;
+          cagr1Y?: number;
+          categoryPercentile?: number;
+          expenseRatio?: number;
+        };
+      }> = [];
+
+      let totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+      let exitCount = 0;
+      let strongHoldCount = 0;
+
+      for (const holding of holdings) {
+        let fundData = null;
+        
+        // Try to match by scheme code first, then by name
+        if (holding.schemeCode) {
+          const [fund] = await db
+            .select()
+            .from(mutualFunds)
+            .where(eq(mutualFunds.schemeCode, holding.schemeCode))
+            .limit(1);
+          fundData = fund;
+        }
+        
+        if (!fundData && holding.schemeName) {
+          const [fund] = await db
+            .select()
+            .from(mutualFunds)
+            .where(ilike(mutualFunds.schemeName, `%${holding.schemeName.substring(0, 30)}%`))
+            .limit(1);
+          fundData = fund;
+        }
+
+        if (fundData) {
+          const scored = this.scoreFund(fundData);
+          const signal = this.determineSignalFromScore(scored.totalScore, scored.cagr1Y, scored.categoryRank);
+          
+          let betterAlternative: MFRecommendation | undefined;
+          if (signal === 'exit' || signal === 'switch') {
+            // Find a better alternative in the same category
+            const alternatives = await this.getSmartRecommendations({ 
+              category: fundData.category || undefined,
+              maxFundsPerAMC: 1,
+              minAMCs: 2
+            });
+            if (alternatives.length > 0 && alternatives[0].schemeCode !== fundData.schemeCode) {
+              betterAlternative = alternatives[0];
+            }
+          }
+
+          holdingsAnalysis.push({
+            schemeName: holding.schemeName,
+            schemeCode: holding.schemeCode,
+            currentValue: holding.currentValue,
+            signal: signal as any,
+            confidence: Math.min(95, Math.max(40, 50 + scored.totalScore * 5)),
+            rationale: this.generateHoldingRationale(scored, fundData, signal),
+            betterAlternative,
+            metrics: {
+              fintekproRating: scored.fintekproRating,
+              cagr1Y: scored.cagr1Y,
+              categoryPercentile: scored.categoryPercentile,
+              expenseRatio: scored.expenseRatio
+            }
+          });
+
+          if (signal === 'exit') exitCount++;
+          if (signal === 'hold' || signal === 'buy_more') strongHoldCount++;
+        } else {
+          // Fund not found in database - mark as needs review
+          holdingsAnalysis.push({
+            schemeName: holding.schemeName,
+            schemeCode: holding.schemeCode,
+            currentValue: holding.currentValue,
+            signal: 'hold',
+            confidence: 30,
+            rationale: 'Fund data not available in our database. Manual review recommended.',
+            metrics: {}
+          });
+        }
+      }
+
+      // Get exit recommendations for portfolio
+      const exitCandidates = await this.getExitRecommendations(
+        holdings.map(h => h.schemeCode).filter(Boolean) as string[]
+      );
+
+      // Get improvement suggestions based on portfolio gaps
+      const categories = [...new Set(holdings.map(h => h.category).filter(Boolean))];
+      const improvementSuggestions: MFRecommendation[] = [];
+      
+      for (const category of categories.slice(0, 3)) {
+        const suggestions = await this.getSmartRecommendations({ 
+          category: category || undefined,
+          maxFundsPerAMC: 1,
+          minAMCs: 2
+        });
+        improvementSuggestions.push(...suggestions.slice(0, 2));
+      }
+
+      // Get commodity allocation for diversification
+      const commodityAllocation = await this.getCommodityFOFRecommendations();
+
+      // Calculate portfolio health score
+      const portfolioHealthScore = this.calculatePortfolioHealthScore(
+        holdingsAnalysis,
+        exitCount,
+        strongHoldCount,
+        holdings.length
+      );
+
+      // Generate AI summary
+      const aiSummary = this.generatePortfolioSummary(
+        holdingsAnalysis,
+        portfolioHealthScore,
+        exitCount,
+        commodityAllocation.length > 0
+      );
+
+      return {
+        holdingsAnalysis,
+        exitCandidates,
+        improvementSuggestions: improvementSuggestions.slice(0, 5),
+        commodityAllocation: commodityAllocation.slice(0, 3),
+        portfolioHealthScore,
+        aiSummary
+      };
+    } catch (error) {
+      console.error('Error analyzing portfolio holdings:', error);
+      return {
+        holdingsAnalysis: [],
+        exitCandidates: [],
+        improvementSuggestions: [],
+        commodityAllocation: [],
+        portfolioHealthScore: 50,
+        aiSummary: 'Unable to analyze portfolio at this time. Please try again later.'
+      };
+    }
+  }
+
+  private determineSignalFromScore(totalScore: number, cagr1Y: number, categoryRank: number): string {
+    if (totalScore >= 7 && cagr1Y > 0) return 'buy_more';
+    if (totalScore >= 5 && cagr1Y >= 0) return 'hold';
+    if (totalScore < 3 || cagr1Y < -5) return 'exit';
+    if (totalScore < 5 && categoryRank > 70) return 'switch';
+    return 'hold';
+  }
+
+  private generateHoldingRationale(scored: any, fundData: any, signal: string): string {
+    const parts: string[] = [];
+    
+    const stars = '★'.repeat(scored.fintekproRating || 3) + '☆'.repeat(5 - (scored.fintekproRating || 3));
+    parts.push(`FintekPro Rating: ${stars}.`);
+
+    if (scored.cagr1Y !== undefined) {
+      if (scored.cagr1Y > 15) {
+        parts.push(`Strong 1Y returns of ${scored.cagr1Y.toFixed(1)}%.`);
+      } else if (scored.cagr1Y > 0) {
+        parts.push(`Positive 1Y returns of ${scored.cagr1Y.toFixed(1)}%.`);
+      } else {
+        parts.push(`Negative 1Y returns of ${scored.cagr1Y.toFixed(1)}% - review needed.`);
+      }
+    }
+
+    if (scored.categoryPercentile > 75) {
+      parts.push(`Top quartile performer in category.`);
+    } else if (scored.categoryPercentile < 25) {
+      parts.push(`Below average category performance.`);
+    }
+
+    if (signal === 'exit') {
+      parts.push(`Consider switching to a better-performing alternative.`);
+    } else if (signal === 'buy_more') {
+      parts.push(`Strong candidate for additional investment.`);
+    }
+
+    return parts.join(' ');
+  }
+
+  private calculatePortfolioHealthScore(
+    holdings: any[],
+    exitCount: number,
+    strongHoldCount: number,
+    totalCount: number
+  ): number {
+    if (totalCount === 0) return 50;
+    
+    let score = 70; // Base score
+    
+    // Penalty for exit candidates
+    score -= exitCount * 10;
+    
+    // Bonus for strong holds
+    score += strongHoldCount * 5;
+    
+    // Penalty for too many holdings (over-diversification)
+    if (totalCount > 10) score -= (totalCount - 10) * 2;
+    
+    // Bonus for moderate diversification
+    if (totalCount >= 4 && totalCount <= 8) score += 5;
+    
+    return Math.min(100, Math.max(0, score));
+  }
+
+  private generatePortfolioSummary(
+    holdings: any[],
+    healthScore: number,
+    exitCount: number,
+    hasCommodity: boolean
+  ): string {
+    const parts: string[] = [];
+    
+    if (healthScore >= 80) {
+      parts.push('Your mutual fund portfolio is well-positioned.');
+    } else if (healthScore >= 60) {
+      parts.push('Your portfolio has some areas for improvement.');
+    } else {
+      parts.push('Your portfolio requires attention.');
+    }
+
+    if (exitCount > 0) {
+      parts.push(`${exitCount} fund${exitCount > 1 ? 's' : ''} should be reviewed for potential switching.`);
+    }
+
+    const strongHoldings = holdings.filter(h => h.signal === 'buy_more' || h.signal === 'hold').length;
+    if (strongHoldings > 0) {
+      parts.push(`${strongHoldings} holding${strongHoldings > 1 ? 's are' : ' is'} performing well.`);
+    }
+
+    if (!hasCommodity) {
+      parts.push('Consider adding 5-10% allocation to Gold/Silver FOF for downside protection.');
+    }
+
+    return parts.join(' ');
+  }
+
+  /**
+   * Get smart fund recommendations for proposal generation
+   * Used by ProposalOrchestrator and AIProposalEngine
+   */
+  async getProposalRecommendations(params: {
+    riskCategory: 'conservative' | 'moderate' | 'aggressive';
+    investmentAmount: number;
+    existingCategories?: string[];
+    excludeISINs?: string[];
+  }): Promise<{
+    equityFunds: MFRecommendation[];
+    debtFunds: MFRecommendation[];
+    hybridFunds: MFRecommendation[];
+    commodityFunds: MFRecommendation[];
+  }> {
+    const { riskCategory, investmentAmount, existingCategories = [], excludeISINs = [] } = params;
+    
+    // Determine allocation based on risk
+    const allocations = {
+      conservative: { equity: 20, debt: 60, hybrid: 15, commodity: 5 },
+      moderate: { equity: 50, debt: 30, hybrid: 15, commodity: 5 },
+      aggressive: { equity: 70, debt: 15, hybrid: 10, commodity: 5 }
+    };
+    
+    const allocation = allocations[riskCategory];
+
+    // Get recommendations for each category
+    const [equityFunds, debtFunds, hybridFunds, commodityFunds] = await Promise.all([
+      this.getSmartRecommendations({ 
+        category: 'Equity',
+        riskLevel: riskCategory === 'conservative' ? 'low' : riskCategory === 'aggressive' ? 'high' : undefined,
+        maxFundsPerAMC: 2,
+        minAMCs: 3
+      }),
+      this.getSmartRecommendations({ 
+        category: 'Debt',
+        maxFundsPerAMC: 2,
+        minAMCs: 2
+      }),
+      this.getSmartRecommendations({ 
+        category: 'Hybrid',
+        maxFundsPerAMC: 2,
+        minAMCs: 2
+      }),
+      this.getCommodityFOFRecommendations()
+    ]);
+
+    return {
+      equityFunds: equityFunds.slice(0, 4),
+      debtFunds: debtFunds.slice(0, 3),
+      hybridFunds: hybridFunds.slice(0, 2),
+      commodityFunds: commodityFunds.slice(0, 2)
+    };
+  }
 }
 
 export const aiMFRecommendationService = new AIMFRecommendationService();

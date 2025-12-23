@@ -148,6 +148,80 @@ router.get("/api/ai-mf/nav/:schemeCode", async (req, res) => {
   }
 });
 
+router.post("/api/ai-mf/analyze-portfolio", async (req, res) => {
+  try {
+    const { holdings } = req.body;
+
+    if (!holdings || !Array.isArray(holdings)) {
+      return res.status(400).json({
+        success: false,
+        error: "Holdings array is required"
+      });
+    }
+
+    const analysis = await aiMFRecommendationService.analyzePortfolioHoldings(holdings);
+
+    res.json({
+      success: true,
+      ...analysis,
+      metadata: {
+        analyzedAt: new Date().toISOString(),
+        holdingsCount: holdings.length
+      }
+    });
+  } catch (error: any) {
+    console.error("Error analyzing portfolio:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || "Failed to analyze portfolio" 
+    });
+  }
+});
+
+router.get("/api/ai-mf/proposal-recommendations", async (req, res) => {
+  try {
+    const { riskCategory, investmentAmount } = req.query;
+
+    if (!riskCategory || !investmentAmount) {
+      return res.status(400).json({
+        success: false,
+        error: "riskCategory and investmentAmount are required"
+      });
+    }
+
+    const validRiskCategories = ['conservative', 'moderate', 'aggressive'];
+    if (!validRiskCategories.includes(riskCategory as string)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid riskCategory. Must be: conservative, moderate, or aggressive"
+      });
+    }
+
+    const recommendations = await aiMFRecommendationService.getProposalRecommendations({
+      riskCategory: riskCategory as 'conservative' | 'moderate' | 'aggressive',
+      investmentAmount: parseFloat(investmentAmount as string)
+    });
+
+    res.json({
+      success: true,
+      recommendations,
+      metadata: {
+        riskCategory,
+        investmentAmount: parseFloat(investmentAmount as string),
+        totalFunds: recommendations.equityFunds.length + recommendations.debtFunds.length + 
+                    recommendations.hybridFunds.length + recommendations.commodityFunds.length,
+        generatedAt: new Date().toISOString()
+      }
+    });
+  } catch (error: any) {
+    console.error("Error getting proposal recommendations:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || "Failed to generate proposal recommendations" 
+    });
+  }
+});
+
 export function registerAIMFRecommendationRoutes(app: any) {
   app.use(router);
   console.log("✅ AI MF Recommendation routes registered");
