@@ -312,6 +312,11 @@ app.use((req, res, next) => {
   app.use('/api/ca', caRoutes.default);
   console.log('✅ CA registration and assignment routes registered');
   
+  // Register REIT/InvIT routes
+  const reitInvitRoutes = await import('./routes/reit-invit-routes');
+  app.use('/api/reit-invit', reitInvitRoutes.default);
+  console.log('✅ REIT/InvIT investment routes registered');
+  
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');
