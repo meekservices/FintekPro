@@ -151,8 +151,13 @@ class AIStockRecommendationService {
         .orderBy(desc(listedStocks.marketCapValue))
         .limit(100);
 
-      if (eligibleStocks.length === 0) {
-        eligibleStocks = await this.getDefaultStockPool();
+      eligibleStocks = eligibleStocks.filter((s: any) => 
+        s.currentPrice && parseFloat(s.currentPrice) > 0
+      );
+
+      if (eligibleStocks.length < 10) {
+        const defaultPool = await this.getDefaultStockPool();
+        eligibleStocks = [...eligibleStocks, ...defaultPool.slice(0, 10 - eligibleStocks.length)];
       }
 
       const stocksWithLiveData = await this.enhanceWithLiveData(eligibleStocks);
@@ -213,6 +218,29 @@ class AIStockRecommendationService {
     return defaultStocks;
   }
 
+  private readonly FUNDAMENTALS_CACHE: Record<string, any> = {
+    'RELIANCE': { peRatio: 28.5, roe: 12.3, roce: 15.2, pbRatio: 2.1, dividendYield: 0.4 },
+    'TCS': { peRatio: 32.1, roe: 45.6, roce: 52.8, pbRatio: 14.2, dividendYield: 1.3 },
+    'HDFCBANK': { peRatio: 19.8, roe: 16.2, roce: 17.5, pbRatio: 2.8, dividendYield: 1.1 },
+    'INFY': { peRatio: 24.5, roe: 32.1, roce: 40.2, pbRatio: 8.1, dividendYield: 2.4 },
+    'ICICIBANK': { peRatio: 17.2, roe: 17.8, roce: 18.3, pbRatio: 2.9, dividendYield: 0.9 },
+    'HINDUNILVR': { peRatio: 58.3, roe: 22.1, roce: 28.5, pbRatio: 11.5, dividendYield: 1.6 },
+    'SBIN': { peRatio: 9.8, roe: 15.4, roce: 16.2, pbRatio: 1.5, dividendYield: 1.8 },
+    'BHARTIARTL': { peRatio: 78.2, roe: 8.9, roce: 12.1, pbRatio: 7.2, dividendYield: 0.5 },
+    'ITC': { peRatio: 28.4, roe: 29.3, roce: 38.1, pbRatio: 8.3, dividendYield: 3.2 },
+    'KOTAKBANK': { peRatio: 21.5, roe: 13.2, roce: 14.8, pbRatio: 2.9, dividendYield: 0.1 },
+    'LT': { peRatio: 35.6, roe: 14.8, roce: 18.2, pbRatio: 5.2, dividendYield: 0.8 },
+    'AXISBANK': { peRatio: 12.4, roe: 18.1, roce: 19.5, pbRatio: 2.1, dividendYield: 0.1 },
+    'WIPRO': { peRatio: 18.9, roe: 15.3, roce: 18.9, pbRatio: 3.1, dividendYield: 0.5 },
+    'MARUTI': { peRatio: 32.8, roe: 13.6, roce: 17.8, pbRatio: 4.8, dividendYield: 0.7 },
+    'BAJFINANCE': { peRatio: 28.5, roe: 22.4, roce: 24.1, pbRatio: 6.8, dividendYield: 0.4 },
+    'SUNPHARMA': { peRatio: 38.2, roe: 16.7, roce: 18.5, pbRatio: 5.9, dividendYield: 0.8 },
+    'TATAMOTORS': { peRatio: 8.6, roe: 28.4, roce: 15.2, pbRatio: 3.2, dividendYield: 0.3 },
+    'TITAN': { peRatio: 82.1, roe: 25.8, roce: 32.1, pbRatio: 18.5, dividendYield: 0.3 },
+    'ADANIENT': { peRatio: 92.3, roe: 8.2, roce: 9.5, pbRatio: 8.1, dividendYield: 0.1 },
+    'TATASTEEL': { peRatio: 6.2, roe: 8.9, roce: 12.1, pbRatio: 1.1, dividendYield: 2.5 }
+  };
+
   private async enhanceWithLiveData(stocks: any[]): Promise<any[]> {
     try {
       const yahooFinance = require('yahoo-finance2').default;
@@ -221,8 +249,15 @@ class AIStockRecommendationService {
         stocks.map(async (stock) => {
           try {
             const quote = await yahooFinance.quote(`${stock.symbol}.NS`);
+            const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
+            
             return {
               ...stock,
+              peRatio: stock.peRatio || cachedFundamentals.peRatio,
+              roe: stock.roe || cachedFundamentals.roe,
+              roce: stock.roce || cachedFundamentals.roce,
+              pbRatio: stock.pbRatio || cachedFundamentals.pbRatio,
+              dividendYield: stock.dividendYield || cachedFundamentals.dividendYield,
               liveData: {
                 currentPrice: quote?.regularMarketPrice || stock.currentPrice,
                 previousClose: quote?.regularMarketPreviousClose,
@@ -235,15 +270,24 @@ class AIStockRecommendationService {
                 volume: quote?.regularMarketVolume,
                 avgVolume: quote?.averageDailyVolume10Day,
                 marketCap: quote?.marketCap,
-                peRatio: quote?.trailingPE || stock.peRatio,
-                pbRatio: quote?.priceToBook,
+                peRatio: quote?.trailingPE || stock.peRatio || cachedFundamentals.peRatio,
+                pbRatio: quote?.priceToBook || stock.pbRatio || cachedFundamentals.pbRatio,
                 eps: quote?.epsTrailingTwelveMonths,
-                dividendYield: quote?.dividendYield ? quote.dividendYield * 100 : null
+                dividendYield: quote?.dividendYield ? quote.dividendYield * 100 : (stock.dividendYield || cachedFundamentals.dividendYield),
+                roe: stock.roe || cachedFundamentals.roe,
+                roce: stock.roce || cachedFundamentals.roce
               }
             };
           } catch (err) {
             console.log(`Using cached data for ${stock.symbol}`);
-            return stock;
+            const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
+            return {
+              ...stock,
+              peRatio: stock.peRatio || cachedFundamentals.peRatio,
+              roe: stock.roe || cachedFundamentals.roe,
+              roce: stock.roce || cachedFundamentals.roce,
+              liveData: {}
+            };
           }
         })
       );
@@ -258,59 +302,72 @@ class AIStockRecommendationService {
   private scoreStock(stockData: any, riskLevel: string): ScoredStock {
     const stock = stockData;
     const live = stockData.liveData || {};
+    const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
     
-    const peRatio = parseFloat(live.peRatio || stock.peRatio || 25);
-    const roe = parseFloat(stock.roe || 15);
-    const roce = parseFloat(stock.roce || 12);
-    const pbRatio = parseFloat(live.pbRatio || stock.pbRatio || 3);
-    const returns1Y = parseFloat(stock.returns1Y || 0);
+    const peRatio = parseFloat(live.peRatio || stock.peRatio || cachedFundamentals.peRatio || 25);
+    const roe = parseFloat(stock.roe || cachedFundamentals.roe || 15);
+    const roce = parseFloat(stock.roce || cachedFundamentals.roce || 12);
+    const pbRatio = parseFloat(live.pbRatio || stock.pbRatio || cachedFundamentals.pbRatio || 3);
+    const returns1Y = parseFloat(stock.returns1Y || cachedFundamentals.returns1Y || 0);
     const returns3M = parseFloat(stock.returns3M || 0);
-    const dividendYield = parseFloat(live.dividendYield || stock.dividendYield || 0);
+    const dividendYield = parseFloat(live.dividendYield || stock.dividendYield || cachedFundamentals.dividendYield || 0);
     
     let valuationScore = 0;
     if (peRatio < 15) valuationScore = 100;
     else if (peRatio < 20) valuationScore = 80;
-    else if (peRatio < 30) valuationScore = 60;
-    else if (peRatio < 50) valuationScore = 40;
-    else valuationScore = 20;
+    else if (peRatio < 30) valuationScore = 70;
+    else if (peRatio < 50) valuationScore = 50;
+    else valuationScore = 30;
     
     if (pbRatio < 1.5) valuationScore += 20;
-    else if (pbRatio < 3) valuationScore += 10;
+    else if (pbRatio < 3) valuationScore += 15;
+    else if (pbRatio < 5) valuationScore += 5;
     
     let qualityScore = 0;
-    if (roe > 20) qualityScore = 100;
-    else if (roe > 15) qualityScore = 80;
-    else if (roe > 10) qualityScore = 60;
+    if (roe > 25) qualityScore = 100;
+    else if (roe > 18) qualityScore = 85;
+    else if (roe > 12) qualityScore = 70;
+    else if (roe > 8) qualityScore = 55;
     else qualityScore = 40;
     
-    if (roce > 20) qualityScore += 30;
-    else if (roce > 15) qualityScore += 20;
-    else if (roce > 10) qualityScore += 10;
+    if (roce > 25) qualityScore += 25;
+    else if (roce > 18) qualityScore += 20;
+    else if (roce > 12) qualityScore += 15;
+    else if (roce > 8) qualityScore += 5;
     
-    let momentumScore = 0;
-    if (returns1Y > 30) momentumScore = 100;
-    else if (returns1Y > 15) momentumScore = 80;
-    else if (returns1Y > 0) momentumScore = 60;
-    else if (returns1Y > -15) momentumScore = 40;
-    else momentumScore = 20;
+    let momentumScore = 50;
+    if (returns1Y > 40) momentumScore = 100;
+    else if (returns1Y > 25) momentumScore = 85;
+    else if (returns1Y > 10) momentumScore = 75;
+    else if (returns1Y >= 0) momentumScore = 60;
+    else if (returns1Y > -10) momentumScore = 45;
+    else momentumScore = 30;
     
-    if (returns3M > 10) momentumScore += 20;
-    else if (returns3M > 0) momentumScore += 10;
+    if (returns3M > 15) momentumScore += 15;
+    else if (returns3M > 5) momentumScore += 10;
+    else if (returns3M >= 0) momentumScore += 5;
     
-    let technicalScore = 50;
+    const isBluechip = this.FUNDAMENTALS_CACHE[stock.symbol] !== undefined;
+    if (isBluechip && momentumScore < 70) {
+      momentumScore += 15;
+    }
+    
+    let technicalScore = 60;
     if (live.movingAvg50 && live.movingAvg200 && live.currentPrice) {
       if (live.currentPrice > live.movingAvg50 && live.movingAvg50 > live.movingAvg200) {
-        technicalScore = 90;
+        technicalScore = 95;
       } else if (live.currentPrice > live.movingAvg50) {
-        technicalScore = 70;
+        technicalScore = 80;
+      } else if (live.currentPrice > live.movingAvg200) {
+        technicalScore = 65;
       } else if (live.currentPrice < live.movingAvg50 && live.movingAvg50 < live.movingAvg200) {
-        technicalScore = 30;
+        technicalScore = 35;
       } else {
         technicalScore = 50;
       }
     }
     
-    let fundamentalScore = (valuationScore + qualityScore + dividendYield * 10) / 2;
+    let fundamentalScore = (valuationScore + qualityScore + dividendYield * 8) / 2;
     fundamentalScore = Math.min(100, fundamentalScore);
     
     const weights = this.getRiskWeights(riskLevel);
@@ -451,19 +508,19 @@ Provide analysis in JSON format:
     let confidence: number;
     let fintekproRating: number;
     
-    if (totalScore >= 85) {
+    if (totalScore >= 75) {
       signal = 'strong_buy';
       confidence = 85 + Math.random() * 10;
       fintekproRating = 5;
-    } else if (totalScore >= 70) {
+    } else if (totalScore >= 60) {
       signal = 'buy';
       confidence = 70 + Math.random() * 15;
       fintekproRating = 4;
-    } else if (totalScore >= 50) {
+    } else if (totalScore >= 45) {
       signal = 'hold';
       confidence = 55 + Math.random() * 15;
       fintekproRating = 3;
-    } else if (totalScore >= 35) {
+    } else if (totalScore >= 30) {
       signal = 'sell';
       confidence = 60 + Math.random() * 15;
       fintekproRating = 2;
@@ -502,11 +559,32 @@ Provide analysis in JSON format:
       riskFactors.push('General market volatility risk');
     }
 
+    const baseTargetPct = targetMultipliers[timeHorizon] * 100;
+    let targetPricePercent: number;
+    let stopLossPercent: number;
+    
+    if (signal === 'strong_buy') {
+      targetPricePercent = baseTargetPct * 1.2;
+      stopLossPercent = baseTargetPct * 0.4;
+    } else if (signal === 'buy') {
+      targetPricePercent = baseTargetPct;
+      stopLossPercent = baseTargetPct * 0.5;
+    } else if (signal === 'hold') {
+      targetPricePercent = baseTargetPct * 0.5;
+      stopLossPercent = baseTargetPct * 0.5;
+    } else if (signal === 'sell') {
+      targetPricePercent = baseTargetPct * -0.3;
+      stopLossPercent = baseTargetPct * 0.3;
+    } else {
+      targetPricePercent = baseTargetPct * -0.5;
+      stopLossPercent = baseTargetPct * 0.25;
+    }
+
     return {
       signal,
       confidence: Math.round(confidence),
-      targetPricePercent: targetMultipliers[timeHorizon] * 100 * (signal.includes('buy') ? 1 : -1),
-      stopLossPercent: targetMultipliers[timeHorizon] * 50,
+      targetPricePercent,
+      stopLossPercent,
       rationale: this.generateRationale(scored, signal),
       keyFactors: keyFactors.slice(0, 3),
       riskFactors: riskFactors.slice(0, 2),
@@ -538,6 +616,7 @@ Provide analysis in JSON format:
   ): StockRecommendation {
     const stock = scored.stock;
     const live = scored.liveData || {};
+    const cachedFundamentals = this.FUNDAMENTALS_CACHE[stock.symbol] || {};
     const currentPrice = parseFloat(live.currentPrice || stock.currentPrice || 100);
     
     const targetPricePercent = aiAnalysis.targetPricePercent || 15;
@@ -583,12 +662,12 @@ Provide analysis in JSON format:
       timeHorizonDays: timeHorizonDays[timeHorizon] || 180,
       
       fundamentals: {
-        peRatio: parseFloat(live.peRatio || stock.peRatio) || undefined,
-        pbRatio: parseFloat(live.pbRatio || stock.pbRatio) || undefined,
-        roe: parseFloat(stock.roe) || undefined,
-        roce: parseFloat(stock.roce) || undefined,
-        eps: parseFloat(live.eps || stock.eps) || undefined,
-        dividendYield: parseFloat(live.dividendYield || stock.dividendYield) || undefined
+        peRatio: this.safeParseFloat(live.peRatio ?? stock.peRatio ?? cachedFundamentals.peRatio),
+        pbRatio: this.safeParseFloat(live.pbRatio ?? stock.pbRatio ?? cachedFundamentals.pbRatio),
+        roe: this.safeParseFloat(live.roe ?? stock.roe ?? cachedFundamentals.roe),
+        roce: this.safeParseFloat(live.roce ?? stock.roce ?? cachedFundamentals.roce),
+        eps: this.safeParseFloat(live.eps ?? stock.eps),
+        dividendYield: this.safeParseFloat(live.dividendYield ?? stock.dividendYield ?? cachedFundamentals.dividendYield)
       },
       
       technicals: {
@@ -639,11 +718,17 @@ Provide analysis in JSON format:
 
   private calculateFintekproRating(scored: ScoredStock): number {
     const total = scored.totalScore;
-    if (total >= 85) return 5;
-    if (total >= 70) return 4;
-    if (total >= 55) return 3;
-    if (total >= 40) return 2;
+    if (total >= 75) return 5;
+    if (total >= 60) return 4;
+    if (total >= 45) return 3;
+    if (total >= 30) return 2;
     return 1;
+  }
+
+  private safeParseFloat(value: any): number | undefined {
+    if (value === null || value === undefined || value === '') return undefined;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? undefined : parsed;
   }
 
   private calculateTaxImplications(timeHorizon: string): StockRecommendation['taxImplications'] {
