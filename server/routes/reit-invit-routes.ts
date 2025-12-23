@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { eq, and, sql, desc, ilike, or, gte, lte, asc } from 'drizzle-orm';
-import { reits, invits, reitInvitOrders, reitInvitHoldings, users } from '@shared/schema';
+import { reits, invits, reitInvitOrders, reitInvitHoldings, users, userProfiles } from '@shared/schema';
 import { z } from 'zod';
 import { aiReitInvitService, ReitInvitAsset } from '../services/ai-reit-invit-service';
 
@@ -620,6 +620,305 @@ router.get('/compare', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error comparing assets:', error);
     res.status(500).json({ success: false, error: 'Failed to compare assets' });
+  }
+});
+
+const KYC_TIER_REQUIREMENTS: Record<string, { minTier: string; description: string }> = {
+  reit: { minTier: 'tier_2', description: 'Standard KYC (Tier 2) required for REIT investments' },
+  invit: { minTier: 'tier_2', description: 'Standard KYC (Tier 2) required for InvIT investments' },
+};
+
+const KYC_TIER_LEVELS: Record<string, number> = {
+  'basic': 1,
+  'tier_1': 1,
+  'tier_2': 2,
+  'standard': 2,
+  'tier_3': 3,
+  'enhanced': 3,
+  'accredited_investor': 4,
+};
+
+function isKycSufficient(userTier: string, requiredTier: string): boolean {
+  const userLevel = KYC_TIER_LEVELS[userTier?.toLowerCase()] || 0;
+  const requiredLevel = KYC_TIER_LEVELS[requiredTier?.toLowerCase()] || 2;
+  return userLevel >= requiredLevel;
+}
+
+router.get('/eligibility/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { assetType } = req.query;
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    const profile = await db.query.userProfiles.findFirst({
+      where: eq(userProfiles.userId, userId),
+    });
+
+    const userKycTier = profile?.kycTier || user.kycTier || 'basic';
+    const requirement = KYC_TIER_REQUIREMENTS[assetType as string] || KYC_TIER_REQUIREMENTS.reit;
+    const eligible = isKycSufficient(userKycTier, requirement.minTier);
+
+    const stepsRequired = [];
+    if (!eligible) {
+      if (KYC_TIER_LEVELS[userKycTier] < 2) {
+        stepsRequired.push('Complete PAN verification');
+        stepsRequired.push('Complete address verification');
+        stepsRequired.push('Complete bank account verification');
+      }
+    }
+
+    res.json({
+      success: true,
+      eligible,
+      currentTier: userKycTier,
+      requiredTier: requirement.minTier,
+      description: requirement.description,
+      stepsRequired,
+      restrictions: eligible ? [] : ['Cannot place orders until KYC requirements are met'],
+    });
+  } catch (error) {
+    console.error('Error checking eligibility:', error);
+    res.status(500).json({ success: false, error: 'Failed to check eligibility' });
+  }
+});
+
+const orderSchema = z.object({
+  userId: z.string(),
+  assetType: z.enum(['reit', 'invit']),
+  symbol: z.string(),
+  quantity: z.number().positive(),
+  orderType: z.enum(['market', 'limit']).default('market'),
+  limitPrice: z.number().positive().optional(),
+  notes: z.string().optional(),
+}).refine(
+  (data) => data.orderType !== 'limit' || (data.limitPrice !== undefined && data.limitPrice > 0),
+  { message: 'Limit price is required for limit orders', path: ['limitPrice'] }
+);
+
+router.post('/orders', async (req: Request, res: Response) => {
+  try {
+    const validation = orderSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid order data',
+        details: validation.error.format(),
+      });
+    }
+
+    const { userId, assetType, symbol, quantity, orderType, limitPrice, notes } = validation.data;
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const profile = await db.query.userProfiles.findFirst({
+      where: eq(userProfiles.userId, userId),
+    });
+
+    const userKycTier = profile?.kycTier || user.kycTier || 'basic';
+    const requirement = KYC_TIER_REQUIREMENTS[assetType];
+    
+    if (!isKycSufficient(userKycTier, requirement.minTier)) {
+      return res.status(403).json({
+        success: false,
+        error: 'KYC requirements not met',
+        currentTier: userKycTier,
+        requiredTier: requirement.minTier,
+        message: requirement.description,
+      });
+    }
+
+    let asset;
+    if (assetType === 'reit') {
+      asset = SAMPLE_REITS.find(r => r.symbol.toLowerCase() === symbol.toLowerCase());
+    } else {
+      asset = SAMPLE_INVITS.find(i => i.symbol.toLowerCase() === symbol.toLowerCase());
+    }
+
+    if (!asset) {
+      return res.status(404).json({ success: false, error: `${assetType.toUpperCase()} not found` });
+    }
+
+    const price = orderType === 'limit' && limitPrice ? limitPrice : parseFloat(asset.currentPrice);
+    const totalValue = price * quantity;
+
+    const order = {
+      id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      userId,
+      assetType,
+      symbol: asset.symbol,
+      name: asset.name,
+      quantity,
+      orderType,
+      price,
+      totalValue,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      notes,
+    };
+
+    setTimeout(() => {
+      order.status = 'executed';
+      console.log(`Order ${order.id} executed successfully`);
+    }, 2000);
+
+    res.json({
+      success: true,
+      order,
+      message: 'Order placed successfully. It will be processed shortly.',
+    });
+  } catch (error) {
+    console.error('Error placing order:', error);
+    res.status(500).json({ success: false, error: 'Failed to place order' });
+  }
+});
+
+router.get('/orders/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { status, assetType } = req.query;
+
+    const sampleOrders = [
+      {
+        id: 'ORD-SAMPLE-001',
+        userId,
+        assetType: 'reit',
+        symbol: 'EMBASSY',
+        name: 'Embassy Office Parks REIT',
+        quantity: 10,
+        orderType: 'market',
+        price: 362.45,
+        totalValue: 3624.50,
+        status: 'executed',
+        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+        executedAt: new Date(Date.now() - 86400000 * 5 + 60000).toISOString(),
+      },
+      {
+        id: 'ORD-SAMPLE-002',
+        userId,
+        assetType: 'invit',
+        symbol: 'POWERGRID',
+        name: 'PowerGrid Infrastructure Investment Trust',
+        quantity: 25,
+        orderType: 'market',
+        price: 118.50,
+        totalValue: 2962.50,
+        status: 'executed',
+        createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+        executedAt: new Date(Date.now() - 86400000 * 3 + 60000).toISOString(),
+      },
+    ];
+
+    let filteredOrders = sampleOrders.filter(o => o.userId === userId);
+    
+    if (status && status !== 'all') {
+      filteredOrders = filteredOrders.filter(o => o.status === status);
+    }
+    if (assetType && assetType !== 'all') {
+      filteredOrders = filteredOrders.filter(o => o.assetType === assetType);
+    }
+
+    res.json({
+      success: true,
+      orders: filteredOrders,
+      total: filteredOrders.length,
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch orders' });
+  }
+});
+
+router.get('/holdings/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const sampleHoldings = [
+      {
+        id: 'HOLD-001',
+        userId,
+        assetType: 'reit',
+        symbol: 'EMBASSY',
+        name: 'Embassy Office Parks REIT',
+        quantity: 10,
+        avgBuyPrice: 362.45,
+        currentPrice: 362.45,
+        currentValue: 3624.50,
+        unrealizedGain: 0,
+        unrealizedGainPct: 0,
+        distributionYield: '6.85',
+        sector: 'office',
+      },
+      {
+        id: 'HOLD-002',
+        userId,
+        assetType: 'invit',
+        symbol: 'POWERGRID',
+        name: 'PowerGrid Infrastructure Investment Trust',
+        quantity: 25,
+        avgBuyPrice: 118.50,
+        currentPrice: 118.50,
+        currentValue: 2962.50,
+        unrealizedGain: 0,
+        unrealizedGainPct: 0,
+        distributionYield: '11.25',
+        sector: 'power',
+      },
+    ];
+
+    const totalValue = sampleHoldings.reduce((sum, h) => sum + h.currentValue, 0);
+    const totalGain = sampleHoldings.reduce((sum, h) => sum + h.unrealizedGain, 0);
+    const avgYield = sampleHoldings.length > 0
+      ? (sampleHoldings.reduce((sum, h) => sum + parseFloat(h.distributionYield), 0) / sampleHoldings.length).toFixed(2)
+      : '0';
+
+    res.json({
+      success: true,
+      holdings: sampleHoldings,
+      summary: {
+        totalHoldings: sampleHoldings.length,
+        totalValue,
+        totalGain,
+        totalGainPct: totalValue > 0 ? ((totalGain / (totalValue - totalGain)) * 100).toFixed(2) : '0',
+        avgYield,
+        reitCount: sampleHoldings.filter(h => h.assetType === 'reit').length,
+        invitCount: sampleHoldings.filter(h => h.assetType === 'invit').length,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching holdings:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch holdings' });
+  }
+});
+
+router.delete('/orders/:orderId', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { userId } = req.body;
+
+    res.json({
+      success: true,
+      message: `Order ${orderId} cancelled successfully`,
+      cancelledAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    res.status(500).json({ success: false, error: 'Failed to cancel order' });
   }
 });
 
