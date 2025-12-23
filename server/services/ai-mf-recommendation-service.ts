@@ -177,32 +177,42 @@ class AIMFRecommendationService {
     const exitLoad = this.parseExitLoad(extendedData.exitLoad);
     const purchaseAllowed = extendedData.purchaseAllowed !== false;
     const sipAllowed = extendedData.sipAllowed !== false;
+    
+    // Enhanced category detection - combine category and scheme name
+    const detectedCategory = this.detectFundCategoryEnhanced(fund);
+    const category = detectedCategory;
 
-    const returnsScore = (returns1y * 0.4 + returns3y * 0.35 + returns5y * 0.25);
-    
-    const sharpeEstimate = returnsScore > 0 ? (returnsScore - this.riskFreeRate) / Math.max(5, 15 - crisilPercentile / 10) : 0;
-    
-    const consistencyScore = returns3y > 0 && returns5y > 0 ? 
-      Math.min(100, (returns3y / returns5y) * 50 + 50) : 50;
-    
-    const expenseScore = Math.max(0, 100 - (expenseRatio * 30));
-    
-    const aumScore = aum > 10000 ? 100 : aum > 5000 ? 80 : aum > 1000 ? 60 : 40;
-    
-    const ratingScore = (6 - crisilRating) * 20;
-    
+    // Enhanced multi-factor scoring
+    const returnsScore = this.calculateReturnsScore(returns1y, returns3y, returns5y, category);
+    const sharpeEstimate = this.calculateSharpeEstimate(returns1y, returns3y, crisilPercentile, category);
+    const consistencyScore = this.calculateConsistencyScore(returns1y, returns3y, returns5y);
+    const expenseScore = this.calculateExpenseScore(expenseRatio, category);
+    const aumScore = this.calculateAUMScore(aum);
     const exitLoadScore = exitLoad.percent === 0 ? 100 : exitLoad.percent < 1 ? 80 : 60;
 
-    const totalScore = (
-      returnsScore * 0.30 +
-      sharpeEstimate * 5 +
-      consistencyScore * 0.15 +
-      expenseScore * 0.10 +
+    // FintekPro proprietary rating (1-5 stars)
+    const fintekproRating = this.calculateFintekProRating({
+      returns1y, returns3y, returns5y,
+      expenseRatio, crisilRating, crisilPercentile,
+      consistencyScore, sharpeEstimate, aum, category
+    });
+
+    // Weighted scoring with category-aware adjustments
+    const baseScore = (
+      returnsScore * 0.25 +
+      sharpeEstimate * 8 +
+      consistencyScore * 0.20 +
+      expenseScore * 0.15 +
       aumScore * 0.05 +
-      ratingScore * 0.25 +
+      fintekproRating * 10 +
       exitLoadScore * 0.05 +
-      (purchaseAllowed ? 10 : 0)
+      (purchaseAllowed ? 10 : 0) +
+      (sipAllowed ? 5 : 0)
     );
+
+    // Category-based bonus for well-performing funds
+    const categoryBonus = this.getCategoryBonus(category, returns1y, returns3y);
+    const totalScore = Math.min(100, baseScore + categoryBonus);
 
     return {
       ...fund,
@@ -220,9 +230,228 @@ class AIMFRecommendationService {
         exitLoadPercent: exitLoad.percent,
         exitLoadDays: exitLoad.days,
         purchaseAllowed,
-        sipAllowed
+        sipAllowed,
+        fintekproRating,
+        category
       }
     };
+  }
+
+  // Enhanced returns scoring with category benchmarks
+  private calculateReturnsScore(r1y: number, r3y: number, r5y: number, category: string): number {
+    const benchmarks = this.getCategoryBenchmarks(category);
+    const r1yScore = r1y >= benchmarks.expected1Y ? Math.min(30, 20 + (r1y - benchmarks.expected1Y)) : Math.max(0, 20 - (benchmarks.expected1Y - r1y) * 2);
+    const r3yScore = r3y >= benchmarks.expected3Y ? Math.min(25, 15 + (r3y - benchmarks.expected3Y)) : Math.max(0, 15 - (benchmarks.expected3Y - r3y) * 2);
+    const r5yScore = r5y >= benchmarks.expected5Y ? Math.min(20, 10 + (r5y - benchmarks.expected5Y)) : Math.max(0, 10 - (benchmarks.expected5Y - r5y) * 2);
+    return r1yScore + r3yScore + r5yScore;
+  }
+
+  // Category-specific benchmarks for returns - expanded to handle FOF and scheme name patterns
+  private getCategoryBenchmarks(categoryOrName: string): { expected1Y: number; expected3Y: number; expected5Y: number; volatility: number } {
+    const cat = categoryOrName.toLowerCase();
+    
+    // Gold, Silver, Commodity - check category AND common scheme name patterns
+    if (cat.includes('gold') || cat.includes('silver') || cat.includes('commodity') || 
+        cat.includes('precious') || cat.includes('fof') && (cat.includes('gold') || cat.includes('silver'))) {
+      return { expected1Y: 8, expected3Y: 8, expected5Y: 9, volatility: 15 };
+    }
+    
+    // Fund of Funds - lower expectations than direct equity
+    if (cat.includes('fund of fund') || cat.includes('fof')) {
+      return { expected1Y: 10, expected3Y: 10, expected5Y: 11, volatility: 12 };
+    }
+    
+    // Debt, Liquid, Money Market
+    if (cat.includes('debt') || cat.includes('liquid') || cat.includes('money market') || 
+        cat.includes('overnight') || cat.includes('ultra short') || cat.includes('floating rate')) {
+      return { expected1Y: 6, expected3Y: 7, expected5Y: 7.5, volatility: 2 };
+    }
+    
+    // Hybrid, Balanced, Multi-asset
+    if (cat.includes('hybrid') || cat.includes('balanced') || cat.includes('multi asset') || 
+        cat.includes('dynamic') || cat.includes('equity savings')) {
+      return { expected1Y: 10, expected3Y: 10, expected5Y: 11, volatility: 10 };
+    }
+    
+    // Small/Mid Cap - higher expectations and volatility
+    if (cat.includes('small') || cat.includes('mid')) {
+      return { expected1Y: 15, expected3Y: 15, expected5Y: 16, volatility: 20 };
+    }
+    
+    // Index funds and ETFs - track benchmark closely
+    if (cat.includes('index') || cat.includes('etf') || cat.includes('passive')) {
+      return { expected1Y: 11, expected3Y: 11, expected5Y: 12, volatility: 14 };
+    }
+    
+    // International/Global funds
+    if (cat.includes('international') || cat.includes('global') || cat.includes('overseas')) {
+      return { expected1Y: 10, expected3Y: 10, expected5Y: 11, volatility: 18 };
+    }
+    
+    // Large cap / equity default
+    return { expected1Y: 12, expected3Y: 12, expected5Y: 13, volatility: 15 };
+  }
+
+  // Enhanced category detection that checks both category and scheme name
+  private detectFundCategoryEnhanced(fund: any): string {
+    const category = (fund.category || '').toLowerCase();
+    const schemeName = (fund.schemeName || '').toLowerCase();
+    const combined = `${category} ${schemeName}`;
+    
+    // Priority 1: Gold/Silver/Commodity - check scheme name first (most reliable)
+    if (schemeName.includes('gold') || schemeName.includes('silver') || 
+        schemeName.includes('commodity') || schemeName.includes('precious')) {
+      return 'gold commodity';
+    }
+    
+    // Priority 2: ETF detection
+    if (schemeName.includes('etf') || category.includes('etf')) {
+      if (combined.includes('gold') || combined.includes('silver')) {
+        return 'gold commodity etf';
+      }
+      return 'etf index';
+    }
+    
+    // Priority 3: Fund of Funds
+    if (category.includes('fund of fund') || schemeName.includes('fof') || 
+        category.includes('fof')) {
+      if (combined.includes('gold') || combined.includes('silver')) {
+        return 'gold commodity fof';
+      }
+      return 'fund of funds';
+    }
+    
+    // Priority 4: Debt/Liquid
+    if (category.includes('debt') || category.includes('liquid') || 
+        category.includes('money market') || category.includes('overnight')) {
+      return 'debt liquid';
+    }
+    
+    // Priority 5: Hybrid/Balanced
+    if (category.includes('hybrid') || category.includes('balanced') || 
+        category.includes('multi asset')) {
+      return 'hybrid balanced';
+    }
+    
+    // Priority 6: Small/Mid Cap
+    if (category.includes('small') || category.includes('mid')) {
+      return 'small mid cap';
+    }
+    
+    // Default: treat as large cap equity
+    return category || 'equity large cap';
+  }
+
+  // Improved Sharpe ratio estimation
+  private calculateSharpeEstimate(r1y: number, r3y: number, percentile: number, category: string): number {
+    const benchmarks = this.getCategoryBenchmarks(category);
+    const avgReturn = (r1y + r3y) / 2;
+    const estimatedVolatility = benchmarks.volatility * (1 + (100 - percentile) / 100);
+    const excessReturn = avgReturn - this.riskFreeRate;
+    return estimatedVolatility > 0 ? excessReturn / estimatedVolatility : 0;
+  }
+
+  // Consistency score based on returns trajectory
+  private calculateConsistencyScore(r1y: number, r3y: number, r5y: number): number {
+    if (r5y <= 0) return 30; // Insufficient data
+    
+    const trajectory = r1y >= r3y && r3y >= r5y ? 20 : 0; // Improving trend
+    const stability = Math.abs(r1y - r3y) < 5 && Math.abs(r3y - r5y) < 5 ? 30 : 
+                     Math.abs(r1y - r3y) < 10 ? 20 : 10;
+    const positivity = (r1y > 0 ? 15 : 0) + (r3y > 0 ? 15 : 0) + (r5y > 0 ? 10 : 0);
+    
+    return Math.min(100, trajectory + stability + positivity);
+  }
+
+  // Expense ratio scoring with category awareness
+  private calculateExpenseScore(expenseRatio: number, category: string): number {
+    const categoryAvgExpense = category.includes('debt') || category.includes('liquid') ? 0.5 :
+                               category.includes('index') || category.includes('etf') ? 0.3 :
+                               category.includes('small') || category.includes('mid') ? 2.0 : 1.5;
+    
+    if (expenseRatio <= categoryAvgExpense * 0.5) return 100;
+    if (expenseRatio <= categoryAvgExpense * 0.75) return 85;
+    if (expenseRatio <= categoryAvgExpense) return 70;
+    if (expenseRatio <= categoryAvgExpense * 1.25) return 55;
+    return 40;
+  }
+
+  // AUM scoring for fund stability
+  private calculateAUMScore(aum: number): number {
+    if (aum > 20000) return 100; // >20000 Cr - Very Large
+    if (aum > 10000) return 90;  // >10000 Cr - Large
+    if (aum > 5000) return 80;   // >5000 Cr - Medium-Large
+    if (aum > 2000) return 70;   // >2000 Cr - Medium
+    if (aum > 500) return 60;    // >500 Cr - Small
+    return 50;                   // <500 Cr - Very Small
+  }
+
+  // FintekPro proprietary rating (1-5 stars)
+  private calculateFintekProRating(params: {
+    returns1y: number; returns3y: number; returns5y: number;
+    expenseRatio: number; crisilRating: number; crisilPercentile: number;
+    consistencyScore: number; sharpeEstimate: number; aum: number; category: string;
+  }): number {
+    const { returns1y, returns3y, returns5y, expenseRatio, crisilRating, crisilPercentile,
+            consistencyScore, sharpeEstimate, aum, category } = params;
+    
+    let score = 0;
+    const benchmarks = this.getCategoryBenchmarks(category);
+    
+    // Performance component (max 30 points)
+    if (returns1y >= benchmarks.expected1Y * 1.5) score += 15;
+    else if (returns1y >= benchmarks.expected1Y) score += 10;
+    else if (returns1y >= benchmarks.expected1Y * 0.7) score += 5;
+    
+    if (returns3y >= benchmarks.expected3Y * 1.3) score += 15;
+    else if (returns3y >= benchmarks.expected3Y) score += 10;
+    else if (returns3y >= benchmarks.expected3Y * 0.7) score += 5;
+    
+    // Risk-adjusted returns (max 20 points)
+    if (sharpeEstimate > 1.5) score += 20;
+    else if (sharpeEstimate > 1) score += 15;
+    else if (sharpeEstimate > 0.5) score += 10;
+    else if (sharpeEstimate > 0) score += 5;
+    
+    // Consistency (max 15 points)
+    score += Math.min(15, consistencyScore * 0.15);
+    
+    // Cost efficiency (max 15 points)
+    if (expenseRatio < 0.5) score += 15;
+    else if (expenseRatio < 1) score += 12;
+    else if (expenseRatio < 1.5) score += 8;
+    else if (expenseRatio < 2) score += 5;
+    
+    // External validation (max 10 points)
+    if (crisilRating <= 1) score += 10;
+    else if (crisilRating <= 2) score += 8;
+    else if (crisilRating <= 3) score += 5;
+    
+    // Category percentile (max 10 points)
+    score += Math.min(10, crisilPercentile / 10);
+    
+    // Convert to 1-5 star rating
+    if (score >= 80) return 5;
+    if (score >= 65) return 4;
+    if (score >= 50) return 3;
+    if (score >= 35) return 2;
+    return 1;
+  }
+
+  // Category-specific bonus for outperformers
+  private getCategoryBonus(category: string, r1y: number, r3y: number): number {
+    const benchmarks = this.getCategoryBenchmarks(category);
+    let bonus = 0;
+    
+    if (r1y > benchmarks.expected1Y * 1.5) bonus += 5;
+    if (r3y > benchmarks.expected3Y * 1.3) bonus += 5;
+    
+    // Gold/Commodity funds get extra weight during uncertain times
+    if (category.includes('gold') || category.includes('commodity')) {
+      if (r1y > 10) bonus += 3;
+    }
+    
+    return bonus;
   }
 
   private parseExitLoad(exitLoadStr: string | undefined): { percent: number; days: number } {
@@ -298,7 +527,7 @@ class AIMFRecommendationService {
     const nav = parseFloat(fund.nav || '0');
     
     const signal = this.determineSignal(metrics);
-    const confidence = Math.min(95, Math.max(50, fund.totalScore));
+    const confidence = this.calculateCalibratedConfidence(fund.totalScore, metrics, signal);
     const rationale = this.generateRichRationale(fund, metrics, signal);
 
     return {
@@ -323,26 +552,69 @@ class AIMFRecommendationService {
         expenseRatio: metrics.expenseRatio,
         exitLoadPercent: metrics.exitLoadPercent,
         exitLoadDays: metrics.exitLoadDays,
-        fintekproRating: metrics.crisilRating,
+        fintekproRating: metrics.fintekproRating,
         categoryPercentile: metrics.crisilPercentile
       }
     };
   }
 
+  // Category-aware signal determination with missing data handling
   private determineSignal(metrics: any): 'buy' | 'hold' | 'exit' {
-    const { returns1y, returns3y, crisilRating, crisilPercentile, purchaseAllowed } = metrics;
+    const { returns1y, returns3y, returns5y, crisilRating, crisilPercentile, 
+            purchaseAllowed, fintekproRating, consistencyScore, category } = metrics;
     
     if (!purchaseAllowed) return 'hold';
     
-    if (returns1y < 0 && returns3y < 5) return 'exit';
+    const benchmarks = this.getCategoryBenchmarks(category || '');
     
-    if (crisilRating <= 2 && crisilPercentile >= 70 && returns1y > 10) return 'buy';
+    // CRITICAL: Missing or zero returns data = hold with low confidence, NOT exit
+    // This prevents flagging new or data-poor funds as exits incorrectly
+    const hasReturnsData = returns1y !== 0 || returns3y !== 0 || returns5y !== 0;
+    if (!hasReturnsData) {
+      return 'hold'; // Insufficient data - recommend hold pending more info
+    }
     
-    if (crisilRating <= 3 && returns1y > 5 && returns3y > 8) return 'buy';
+    // Strong exit signals - require CONFIRMED underperformance (not just missing data)
+    // Both 1Y AND 3Y must be negative/poor relative to benchmarks
+    if (returns1y < 0 && returns3y < 0) return 'exit';
+    if (returns1y < benchmarks.expected1Y * -0.5 && returns3y < benchmarks.expected3Y * 0.3) return 'exit';
+    if (crisilRating >= 5 && crisilPercentile < 15 && returns1y < 0) return 'exit';
     
-    if (returns1y < 5 || (crisilRating >= 4 && crisilPercentile < 40)) return 'exit';
+    // Strong buy signals - outperformance with quality
+    if (fintekproRating >= 4 && returns1y >= benchmarks.expected1Y && purchaseAllowed) return 'buy';
+    if (fintekproRating >= 3 && returns3y >= benchmarks.expected3Y * 1.2 && consistencyScore >= 60) return 'buy';
+    if (crisilRating <= 2 && crisilPercentile >= 75 && returns1y >= benchmarks.expected1Y * 0.8) return 'buy';
     
+    // Additional buy signal for gold/commodity during positive trends
+    if (category.includes('gold') || category.includes('commodity')) {
+      if (returns1y > 5 && fintekproRating >= 3) return 'buy';
+    }
+    
+    // Moderate exit signals - only for confirmed poor performers
+    if (returns1y < 0 && returns3y < benchmarks.expected3Y * 0.3 && fintekproRating <= 2) return 'exit';
+    
+    // Default to hold for moderate performers and uncertain data
     return 'hold';
+  }
+
+  // Calibrated confidence based on data quality and consistency
+  private calculateCalibratedConfidence(totalScore: number, metrics: any, signal: string): number {
+    let baseConfidence = Math.min(90, Math.max(40, totalScore));
+    
+    // Boost confidence for consistent performers
+    if (metrics.consistencyScore >= 70) baseConfidence += 5;
+    if (metrics.returns3y > 0 && metrics.returns5y > 0) baseConfidence += 3;
+    
+    // Reduce confidence for missing data
+    if (!metrics.returns5y || metrics.returns5y === 0) baseConfidence -= 10;
+    if (!metrics.crisilPercentile || metrics.crisilPercentile === 0) baseConfidence -= 5;
+    
+    // Adjust based on signal strength
+    if (signal === 'buy' && metrics.fintekproRating >= 4) baseConfidence += 5;
+    if (signal === 'exit' && metrics.fintekproRating <= 2) baseConfidence += 5;
+    
+    // Clamp to reasonable range
+    return Math.min(95, Math.max(35, baseConfidence));
   }
 
   private generateRichRationale(fund: any, metrics: any, signal: 'buy' | 'hold' | 'exit'): string {
@@ -356,10 +628,10 @@ class AIMFRecommendationService {
       parts.push(`Bottom ${Math.round(metrics.crisilPercentile)}% in ${fund.category || 'category'}`);
     }
     
-    if (metrics.crisilRating) {
-      const ratingStars = '★'.repeat(6 - metrics.crisilRating) + '☆'.repeat(metrics.crisilRating - 1);
-      parts.push(`FintekPro Rating: ${ratingStars}`);
-    }
+    // Use FintekPro proprietary rating (1-5 stars)
+    const fintekRating = metrics.fintekproRating || 3;
+    const ratingStars = '★'.repeat(fintekRating) + '☆'.repeat(5 - fintekRating);
+    parts.push(`FintekPro Rating: ${ratingStars}`);
     
     if (metrics.returns1y > 15) {
       parts.push(`Strong 1Y CAGR of ${metrics.returns1y.toFixed(1)}%`);
