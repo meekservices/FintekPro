@@ -214,6 +214,7 @@ import AdminAIInsights from "@/pages/admin/ai-insights";
 import ClientTasks from "@/pages/client-tasks";
 import ClientAIRecommendations from "@/pages/client-ai-recommendations";
 import ClientReports from "@/pages/client-reports";
+import ReitInvitPage from "@/pages/reit-invit";
 
 function UserProtectedRoutes() {
   return (
@@ -333,6 +334,7 @@ function UserProtectedRoutes() {
         <Route path="/pms" component={PMS} />
         <Route path="/pms/:id" component={PMSDetail} />
         <Route path="/alternative-investments" component={AlternativeInvestments} />
+        <Route path="/reit-invit" component={ReitInvitPage} />
         <Route path="/mld" component={MldStore} />
         <Route path="/mld/:id" component={MldDetail} />
         <Route path="/bajaj-finance" component={BajajFinance} />
