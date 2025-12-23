@@ -380,10 +380,10 @@ export function registerMarketingRoutes(app: any) {
             targetUsers = await db.select().from(users);
             break;
           case 'kyc_pending':
-            targetUsers = await db.select().from(users).where(eq(users.kycVerified, false));
+            targetUsers = await db.select().from(users).where(eq(users.kycStatus, 'pending'));
             break;
           case 'kyc_verified':
-            targetUsers = await db.select().from(users).where(eq(users.kycVerified, true));
+            targetUsers = await db.select().from(users).where(eq(users.kycStatus, 'verified'));
             break;
           // Add more segments as needed
         }

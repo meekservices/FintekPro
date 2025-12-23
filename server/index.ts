@@ -236,6 +236,11 @@ app.use((req, res, next) => {
   const { registerMarketingRoutes } = await import('./marketing-routes');
   registerMarketingRoutes(app);
   
+  // Register Probe42 Advanced Analytics routes (Lead Scoring, Surplus Detection, Director Networks)
+  const probe42AnalyticsRoutes = await import('./routes/probe42-analytics-routes');
+  app.use('/api/admin/analytics', probe42AnalyticsRoutes.default);
+  console.log('✅ Probe42 Analytics routes registered');
+  
   // Register User Management routes (Admin user CRUD operations)
   const { registerUserManagementRoutes } = await import('./user-management-routes');
   registerUserManagementRoutes(app);

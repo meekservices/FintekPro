@@ -3,6 +3,7 @@ import { storage } from './storage';
 import { DealMatcherService } from './services/deal-matcher';
 import { probe42Service } from './services/probe42-service';
 import { stockSyncScheduler } from './services/stock-sync-scheduler';
+import { getProbe42AnalyticsService } from './services/probe42-analytics-service';
 
 /**
  * Initialize scheduled cron jobs
@@ -178,6 +179,73 @@ export function initializeCronJobs(): void {
       console.log(`[CRON] Monthly returns calculated for ${calculated} funds`);
     } catch (error: any) {
       console.error('[CRON] Monthly returns calculation failed:', error.message);
+    }
+  });
+
+  // Probe42 Prospecting Alerts - Run daily at 8 AM IST (2:30 AM UTC)
+  cron.schedule('30 2 * * *', async () => {
+    console.log('[CRON] Starting Probe42 prospecting alerts check...');
+    try {
+      const analyticsService = getProbe42AnalyticsService();
+      
+      // Check for high-value prospects
+      const alerts = await analyticsService.checkProspectingThresholds({
+        minRevenue: 100000000, // 10 Cr+
+        minProfit: 10000000,   // 1 Cr+
+        minLeadScore: 70,
+      });
+      
+      console.log(`[CRON] Prospecting alerts: ${alerts.length} new high-value prospects identified`);
+      
+      // Log summary for monitoring
+      const hotAlerts = alerts.filter(a => a.priority === 'high').length;
+      if (hotAlerts > 0) {
+        console.log(`[CRON] 🔥 ${hotAlerts} HOT leads require immediate attention`);
+      }
+    } catch (error: any) {
+      console.error('[CRON] Prospecting alerts check failed:', error.message);
+    }
+  });
+
+  // Lead Scoring Refresh - Run weekly on Sunday at 6 AM IST (12:30 AM UTC)
+  cron.schedule('30 0 * * 0', async () => {
+    console.log('[CRON] Starting weekly lead scoring refresh...');
+    try {
+      const { db } = await import('./db');
+      const { prospectLeads } = await import('@shared/schema');
+      const { isNotNull } = await import('drizzle-orm');
+      
+      const analyticsService = getProbe42AnalyticsService();
+      
+      // Get all leads with CINs
+      const leads = await db
+        .select({ id: prospectLeads.id, cin: prospectLeads.cin })
+        .from(prospectLeads)
+        .where(isNotNull(prospectLeads.cin))
+        .limit(100);
+      
+      let scored = 0;
+      for (const lead of leads) {
+        if (lead.cin) {
+          const score = await analyticsService.calculateSmartLeadScore(lead.cin);
+          if (score) {
+            // Update lead score in database
+            await db
+              .update(prospectLeads)
+              .set({ 
+                leadScore: score.totalScore,
+                leadQuality: score.leadGrade,
+                updatedAt: new Date()
+              })
+              .where(require('drizzle-orm').eq(prospectLeads.id, lead.id));
+            scored++;
+          }
+        }
+      }
+      
+      console.log(`[CRON] Lead scoring completed: ${scored} leads updated`);
+    } catch (error: any) {
+      console.error('[CRON] Lead scoring refresh failed:', error.message);
     }
   });
 

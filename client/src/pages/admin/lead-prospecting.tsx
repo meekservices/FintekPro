@@ -49,7 +49,10 @@ export default function LeadProspecting() {
 
   const searchCompaniesMutation = useMutation({
     mutationFn: async (filters: any) => {
-      return apiRequest('/api/admin/marketing/leads/search', 'POST', filters);
+      return apiRequest('/api/admin/marketing/leads/search', {
+        method: 'POST',
+        body: JSON.stringify(filters)
+      });
     },
     onSuccess: (data: any) => {
       setSearchResults(data.companies || []);
@@ -65,7 +68,10 @@ export default function LeadProspecting() {
 
   const importLeadMutation = useMutation({
     mutationFn: async (cin: string) => {
-      return apiRequest('/api/admin/marketing/leads/import', 'POST', { cin });
+      return apiRequest('/api/admin/marketing/leads/import', {
+        method: 'POST',
+        body: JSON.stringify({ cin })
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/leads'] });

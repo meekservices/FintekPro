@@ -237,6 +237,12 @@ const adminNavItems = [
     description: "Probe42 B2B company search"
   },
   {
+    title: "Prospect Analytics",
+    href: "/admin/prospect-analytics",
+    icon: TrendingUp,
+    description: "Advanced lead scoring & surplus detection"
+  },
+  {
     title: "Client Intelligence",
     href: "/admin/client-intelligence",
     icon: Target,
