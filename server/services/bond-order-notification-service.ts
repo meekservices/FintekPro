@@ -27,25 +27,25 @@ class BondOrderNotificationService {
   }
 
   private initializeEmailService() {
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
+    const emailHost = process.env.EMAIL_HOST;
+    const emailPort = process.env.EMAIL_PORT || '587';
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS;
 
-    if (smtpHost && smtpPort && smtpUser && smtpPass) {
+    if (emailHost && emailUser && emailPass) {
       this.emailTransporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort),
-        secure: parseInt(smtpPort) === 465,
+        host: emailHost,
+        port: parseInt(emailPort),
+        secure: parseInt(emailPort) === 465,
         auth: {
-          user: smtpUser,
-          pass: smtpPass,
+          user: emailUser,
+          pass: emailPass,
         },
       });
       this.isEmailConfigured = true;
       console.log('✅ Bond Order Notification email service configured');
     } else {
-      console.log('⚠️ Bond Order Notification email not configured - missing SMTP credentials');
+      console.log('⚠️ Bond Order Notification email not configured - missing EMAIL_HOST, EMAIL_USER, or EMAIL_PASS');
     }
   }
 
