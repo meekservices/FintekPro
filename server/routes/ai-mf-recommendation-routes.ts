@@ -222,6 +222,119 @@ router.get("/api/ai-mf/proposal-recommendations", async (req, res) => {
   }
 });
 
+// Unified AI recommendation endpoint - combines stocks, mutual funds, and bonds
+router.post("/api/ai/unified-recommendations", async (req, res) => {
+  try {
+    const { 
+      riskCategory = 'moderate', 
+      investmentAmount = 500000,
+      includeStocks = true,
+      includeMutualFunds = true,
+      includeBonds = true,
+      clientId
+    } = req.body;
+
+    const validRiskCategories = ['conservative', 'moderate', 'aggressive'];
+    if (!validRiskCategories.includes(riskCategory)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid riskCategory. Must be: conservative, moderate, or aggressive"
+      });
+    }
+
+    // Parallel fetching of all recommendation types
+    const [mfRecommendations, commodityRecs, exitRecs] = await Promise.all([
+      includeMutualFunds ? aiMFRecommendationService.getProposalRecommendations({
+        riskCategory,
+        investmentAmount
+      }) : Promise.resolve(null),
+      includeMutualFunds ? aiMFRecommendationService.getCommodityFOFRecommendations() : Promise.resolve([]),
+      includeMutualFunds ? aiMFRecommendationService.getExitRecommendations() : Promise.resolve([])
+    ]);
+
+    // Asset allocation based on risk category
+    const allocations = {
+      conservative: { equity: 30, debt: 50, gold: 10, hybrid: 10 },
+      moderate: { equity: 50, debt: 30, gold: 10, hybrid: 10 },
+      aggressive: { equity: 70, debt: 15, gold: 5, hybrid: 10 }
+    };
+    const allocation = allocations[riskCategory as keyof typeof allocations];
+
+    // Calculate amounts per asset class
+    const amounts = {
+      equity: Math.round(investmentAmount * allocation.equity / 100),
+      debt: Math.round(investmentAmount * allocation.debt / 100),
+      gold: Math.round(investmentAmount * allocation.gold / 100),
+      hybrid: Math.round(investmentAmount * allocation.hybrid / 100)
+    };
+
+    // Build unified response
+    const unifiedRecommendations = {
+      mutualFunds: mfRecommendations ? {
+        equity: mfRecommendations.equityFunds.slice(0, 5).map((f: any) => ({
+          ...f,
+          suggestedAmount: Math.round(amounts.equity / Math.min(5, mfRecommendations.equityFunds.length))
+        })),
+        debt: mfRecommendations.debtFunds.slice(0, 3).map((f: any) => ({
+          ...f,
+          suggestedAmount: Math.round(amounts.debt / Math.min(3, mfRecommendations.debtFunds.length))
+        })),
+        hybrid: mfRecommendations.hybridFunds.slice(0, 2).map((f: any) => ({
+          ...f,
+          suggestedAmount: Math.round(amounts.hybrid / Math.min(2, mfRecommendations.hybridFunds.length))
+        })),
+        commodity: (commodityRecs as any[]).slice(0, 2).map((f: any) => ({
+          ...f,
+          suggestedAmount: Math.round(amounts.gold / Math.min(2, (commodityRecs as any[]).length))
+        }))
+      } : null,
+      exitRecommendations: exitRecs,
+      allocation: {
+        target: allocation,
+        amounts,
+        totalInvestment: investmentAmount
+      },
+      summary: {
+        totalFunds: mfRecommendations ? (
+          mfRecommendations.equityFunds.length + 
+          mfRecommendations.debtFunds.length + 
+          mfRecommendations.hybridFunds.length + 
+          (commodityRecs as any[]).length
+        ) : 0,
+        exitCandidates: (exitRecs as any[]).length,
+        riskProfile: riskCategory,
+        expectedReturns: {
+          conservative: '8-10%',
+          moderate: '10-14%',
+          aggressive: '14-18%'
+        }[riskCategory]
+      }
+    };
+
+    res.json({
+      success: true,
+      recommendations: unifiedRecommendations,
+      metadata: {
+        riskCategory,
+        investmentAmount,
+        includeStocks,
+        includeMutualFunds,
+        includeBonds,
+        clientId,
+        generatedAt: new Date().toISOString(),
+        fintekproVersion: '2.0',
+        disclaimer: 'These recommendations are based on AI analysis and historical data. Past performance does not guarantee future results. Please consult a financial advisor before investing.'
+      }
+    });
+  } catch (error: any) {
+    console.error("Error getting unified recommendations:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || "Failed to generate unified recommendations" 
+    });
+  }
+});
+
 export function registerAIMFRecommendationRoutes(app: any) {
   app.use(router);
   console.log("✅ AI MF Recommendation routes registered");
