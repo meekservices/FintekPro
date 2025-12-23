@@ -6854,4 +6854,97 @@ router.get('/admin/regulatory/events', requireAuth, requireAdmin, async (req: Re
   }
 });
 
+// ===================================================================
+// AI RECOMMENDATION ROUTES
+// ===================================================================
+
+import { aiUnlistedRecommendationService, type UnlistedStockAsset } from '../services/ai-unlisted-recommendation-service';
+
+/**
+ * GET /api/unlisted/ai-recommendations
+ * Get AI-powered personalized recommendations for unlisted/pre-IPO stocks
+ */
+router.get('/ai-recommendations', async (req: Request, res: Response) => {
+  try {
+    const { riskProfile, investmentHorizon, investmentGoal, investmentAmount } = req.query;
+    
+    const companies = await storage.getAllUnlistedCompanies({ 
+      status: 'active',
+      storePublishedOnly: true 
+    });
+    
+    if (!companies || companies.length === 0) {
+      return apiResponse.success(res, {
+        recommendations: [],
+        summary: {
+          totalRecommendations: 0,
+          message: 'No unlisted companies available for recommendations',
+        },
+      });
+    }
+    
+    const assets: UnlistedStockAsset[] = companies.map((company: any) => ({
+      id: company.id,
+      name: company.name,
+      cin: company.cin,
+      sector: company.sector,
+      industry: company.industry,
+      listingStage: company.listingStage,
+      publishedBuyPrice: company.publishedBuyPrice?.toString(),
+      publishedSellPrice: company.publishedSellPrice?.toString(),
+      paidUpCapital: company.paidUpCapital?.toString(),
+      revenue: company.latestFinancials?.revenue?.toString(),
+      pat: company.latestFinancials?.pat?.toString(),
+      networth: company.latestFinancials?.networth?.toString(),
+      peRatio: company.latestRatios?.peRatio?.toString(),
+      pbRatio: company.latestRatios?.pbRatio?.toString(),
+      roe: company.latestRatios?.roe?.toString(),
+      debtToEquity: company.latestRatios?.debtToEquity?.toString(),
+      revenueGrowth: company.latestRatios?.revenueGrowth?.toString(),
+      profitGrowth: company.latestRatios?.profitGrowth?.toString(),
+      complianceStatus: company.complianceStatus,
+      complianceRiskScore: company.complianceRiskScore,
+    }));
+    
+    const userProfile = {
+      riskProfile: (riskProfile as 'conservative' | 'moderate' | 'aggressive') || 'moderate',
+      investmentHorizon: investmentHorizon as 'short_term' | 'medium_term' | 'long_term' | undefined,
+      investmentGoal: investmentGoal as 'income' | 'growth' | 'balanced' | 'capital_preservation' | undefined,
+      investmentAmount: investmentAmount ? parseFloat(investmentAmount as string) : undefined,
+    };
+    
+    const recommendations = await aiUnlistedRecommendationService.generatePersonalizedRecommendations(assets, userProfile);
+    
+    const buySignals = recommendations.filter(r => r.aiSignal === 'buy').length;
+    const safeParseFloat = (val: string | undefined): number => {
+      const num = parseFloat(val || '0');
+      return Number.isFinite(num) ? num : 0;
+    };
+    const avgConfidence = recommendations.length > 0
+      ? (recommendations.reduce((sum, r) => sum + safeParseFloat(r.aiConfidence), 0) / recommendations.length).toFixed(1)
+      : '0';
+    const avgSuitability = recommendations.length > 0
+      ? (recommendations.reduce((sum, r) => sum + (r.suitabilityScore || 0), 0) / recommendations.length).toFixed(0)
+      : '0';
+    
+    return apiResponse.success(res, {
+      recommendations,
+      summary: {
+        totalRecommendations: recommendations.length,
+        buySignals,
+        holdSignals: recommendations.filter(r => r.aiSignal === 'hold').length,
+        avoidSignals: recommendations.filter(r => r.aiSignal === 'avoid').length,
+        avgConfidence,
+        avgSuitability,
+        riskProfile: userProfile.riskProfile,
+        investmentGoal: userProfile.investmentGoal || 'growth',
+        disclaimer: 'Unlisted/pre-IPO investments carry high risk including illiquidity and potential total loss. These recommendations are AI-generated and should not be considered as investment advice. Consult a SEBI-registered advisor.',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching AI recommendations:', error);
+    return apiResponse.serverError(res, 'Failed to fetch AI recommendations');
+  }
+});
+
 export default router;

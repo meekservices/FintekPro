@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock, Store, ShoppingCart, Search } from "lucide-react";
+import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock, Store, ShoppingCart, Search, Sparkles, AlertTriangle, CheckCircle, Target, ArrowUpRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
@@ -240,6 +240,247 @@ function MarketplaceSection() {
   );
 }
 
+// AI Picks Section - AI-powered recommendations for unlisted stocks
+function AIPicksSection() {
+  const [, setLocation] = useLocation();
+  const [riskProfile, setRiskProfile] = useState<string>("moderate");
+  const [investmentGoal, setInvestmentGoal] = useState<string>("growth");
+
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    if (riskProfile) params.append('riskProfile', riskProfile);
+    if (investmentGoal) params.append('investmentGoal', investmentGoal);
+    return params.toString();
+  };
+
+  const { data, isLoading, refetch } = useQuery<any>({
+    queryKey: ['/api/unlisted/ai-recommendations', riskProfile, investmentGoal],
+    queryFn: async () => {
+      const queryString = buildQueryString();
+      const response = await fetch(`/api/unlisted/ai-recommendations?${queryString}`);
+      if (!response.ok) throw new Error('Failed to fetch recommendations');
+      const result = await response.json();
+      return result.data || result;
+    },
+  });
+
+  const getSignalColor = (signal: string) => {
+    switch (signal) {
+      case 'buy': return 'bg-green-100 text-green-800';
+      case 'hold': return 'bg-yellow-100 text-yellow-800';
+      case 'avoid': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getRiskColor = (risk: string) => {
+    switch (risk) {
+      case 'low': return 'text-green-600';
+      case 'moderate': return 'text-yellow-600';
+      case 'high': return 'text-orange-600';
+      case 'very_high': return 'text-red-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card data-testid="card-ai-unlisted-filters">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-purple-500" />
+            AI-Powered Recommendations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Get personalized pre-IPO and unlisted stock recommendations based on your investment profile.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Risk Profile</label>
+              <Select value={riskProfile} onValueChange={setRiskProfile}>
+                <SelectTrigger data-testid="select-unlisted-risk-profile">
+                  <SelectValue placeholder="Select risk profile" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="conservative">Conservative</SelectItem>
+                  <SelectItem value="moderate">Moderate</SelectItem>
+                  <SelectItem value="aggressive">Aggressive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Investment Goal</label>
+              <Select value={investmentGoal} onValueChange={setInvestmentGoal}>
+                <SelectTrigger data-testid="select-unlisted-investment-goal">
+                  <SelectValue placeholder="Select goal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="growth">Growth</SelectItem>
+                  <SelectItem value="income">Income</SelectItem>
+                  <SelectItem value="balanced">Balanced</SelectItem>
+                  <SelectItem value="capital_preservation">Capital Preservation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={() => refetch()} className="w-full" data-testid="button-get-unlisted-recommendations">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Get Recommendations
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {data?.summary && (
+        <Card className="bg-gradient-to-r from-purple-50 to-blue-50" data-testid="card-ai-unlisted-summary">
+          <CardContent className="py-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-purple-600">{data.summary.totalRecommendations}</div>
+                <div className="text-xs text-muted-foreground">Recommendations</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">{data.summary.buySignals}</div>
+                <div className="text-xs text-muted-foreground">Buy Signals</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-yellow-600">{data.summary.holdSignals}</div>
+                <div className="text-xs text-muted-foreground">Hold</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-600">{data.summary.avoidSignals}</div>
+                <div className="text-xs text-muted-foreground">Avoid</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600">{data.summary.avgConfidence}%</div>
+                <div className="text-xs text-muted-foreground">Avg Confidence</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading ? (
+        <LoadingState />
+      ) : !data?.recommendations || data.recommendations.length === 0 ? (
+        <EmptyState
+          icon={Sparkles}
+          title="No Recommendations Available"
+          description="There are currently no unlisted companies available for AI recommendations. Check back later."
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {data.recommendations.map((rec: any, index: number) => (
+            <Card key={rec.companyId || index} className="hover:shadow-md transition-shadow" data-testid={`ai-unlisted-rec-${index}`}>
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-semibold text-lg">{rec.name}</h4>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{rec.sector || 'Technology'}</span>
+                      <span>•</span>
+                      <span className="capitalize">{rec.listingStage?.replace('_', ' ') || 'Unlisted'}</span>
+                    </div>
+                  </div>
+                  <Badge className={getSignalColor(rec.aiSignal)}>
+                    {rec.aiSignal === 'buy' && <CheckCircle className="w-3 h-3 mr-1" />}
+                    {rec.aiSignal === 'avoid' && <AlertTriangle className="w-3 h-3 mr-1" />}
+                    {rec.aiSignal?.toUpperCase()}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Price:</span>
+                    <span className="font-medium">₹{parseFloat(rec.currentPrice || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Target:</span>
+                    <span className="font-medium text-green-600">₹{parseFloat(rec.aiTargetPrice || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Upside:</span>
+                    <span className="font-medium text-green-600">{rec.potentialUpside}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Confidence:</span>
+                    <span className="font-medium">{rec.aiConfidence}%</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm">Suitability: {rec.suitabilityScore}/100</span>
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-500 h-2 rounded-full"
+                      style={{ width: `${rec.suitabilityScore}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <p className="text-sm text-muted-foreground italic">{rec.aiRationale}</p>
+                </div>
+
+                {rec.keyStrengths && rec.keyStrengths.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-xs font-medium text-green-700 mb-1">Strengths:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {rec.keyStrengths.slice(0, 2).map((s: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs bg-green-50">{s}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {rec.keyRisks && rec.keyRisks.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs font-medium text-orange-700 mb-1">Risks:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {rec.keyRisks.slice(0, 2).map((r: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-xs bg-orange-50">{r}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className={`text-xs font-medium ${getRiskColor(rec.riskLevel)}`}>
+                    {rec.riskLevel?.replace('_', ' ').toUpperCase()} RISK
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setLocation(`/unlisted/company/${rec.companyId}`)}
+                    data-testid={`button-view-unlisted-${rec.companyId}`}
+                  >
+                    View Details
+                    <ArrowUpRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {data?.summary?.disclaimer && (
+        <Card className="bg-amber-50 border-amber-200">
+          <CardContent className="py-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-800">{data.summary.disclaimer}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // Main Unlisted Securities Page
 export default function Unlisted() {
   const [, setLocation] = useLocation();
@@ -279,11 +520,15 @@ export default function Unlisted() {
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <ScrollableTabsList className="grid w-full grid-cols-5">
+          <ScrollableTabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="explore" data-testid="tab-explore">Explore</TabsTrigger>
             <TabsTrigger value="marketplace" data-testid="tab-marketplace">
               <Store className="w-4 h-4 mr-1" />
               Marketplace
+            </TabsTrigger>
+            <TabsTrigger value="ai-picks" data-testid="tab-ai-picks">
+              <Sparkles className="w-4 h-4 mr-1" />
+              AI Picks
             </TabsTrigger>
             <TabsTrigger value="portfolio" data-testid="tab-portfolio">My Investments</TabsTrigger>
             <TabsTrigger value="watchlist" data-testid="tab-watchlist">Watchlist</TabsTrigger>
@@ -292,6 +537,10 @@ export default function Unlisted() {
 
           <TabsContent value="marketplace" className="space-y-6" data-testid="marketplace-unlisted">
             <MarketplaceSection />
+          </TabsContent>
+
+          <TabsContent value="ai-picks" className="space-y-6" data-testid="ai-picks-unlisted">
+            <AIPicksSection />
           </TabsContent>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-unlisted">
