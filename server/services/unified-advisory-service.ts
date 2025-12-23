@@ -41,13 +41,7 @@ import {
   determineClientCategory,
   getRiskScoreForCategory
 } from '@shared/unified-advisory-types';
-
-let GoogleGenerativeAI: any;
-try {
-  GoogleGenerativeAI = require("@google/generative-ai").GoogleGenerativeAI;
-} catch {
-  GoogleGenerativeAI = null;
-}
+import { GoogleGenAI } from "@google/genai";
 
 interface ClientProfile {
   userId: string;
@@ -82,13 +76,13 @@ interface PortfolioSummary {
 }
 
 class UnifiedAdvisoryService {
-  private genAI: any = null;
+  private genAI: GoogleGenAI | null = null;
   private auditLogs: Map<string, AdvisoryAuditLog> = new Map();
 
   constructor() {
-    const apiKey = process.env.AI_INTEGRATIONS_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
-    if (apiKey && GoogleGenerativeAI) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
+    const apiKey = process.env.AI_INTEGRATIONS_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (apiKey) {
+      this.genAI = new GoogleGenAI({ apiKey });
       console.log("✅ Unified Advisory Engine initialized with Gemini AI");
     } else {
       console.log("⚠️ Unified Advisory Engine running in rule-based mode");
@@ -440,7 +434,7 @@ class UnifiedAdvisoryService {
     portfolio: PortfolioSummary | null,
     count: number
   ): Promise<UnifiedAdvisoryDecision[]> {
-    const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    if (!this.genAI) return [];
     
     const prompt = `You are a SEBI-compliant investment advisor. Generate ${count} ${productType} recommendations.
 
@@ -484,8 +478,11 @@ Rules:
 - Include clear risk warnings
 - Never guarantee returns`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const result = await this.genAI.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: prompt
+    });
+    const text = result.text || '';
     
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return [];
