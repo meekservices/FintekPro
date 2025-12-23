@@ -2,6 +2,7 @@ import axios from 'axios';
 import { db } from '../db';
 import { mutualFunds } from '@shared/schema';
 import { eq, sql, desc } from 'drizzle-orm';
+import { mfApiHistoricalService } from './mfapi-historical-service';
 
 interface LiveNavData {
   schemeCode: string;
@@ -43,46 +44,39 @@ class LiveMFDataService {
     return result;
   }
 
+  /**
+   * Calculate accurate point-to-point returns using MFapi.in historical NAV data.
+   * This fetches actual NAV values from 1Y/3Y/5Y ago and calculates true CAGR.
+   */
   async calculateReturns(schemeCode: string): Promise<{ returns1y: number; returns3y: number; returns5y: number } | null> {
     try {
-      const liveNav = await this.getLiveNav(schemeCode);
-      if (!liveNav) return null;
-
-      const currentNav = liveNav.nav;
-      const now = new Date();
+      // Use MFapi.in for accurate historical returns calculation
+      const historicalReturns = await mfApiHistoricalService.calculateReturns(schemeCode);
       
-      const date1yAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-      const date3yAgo = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate());
-      const date5yAgo = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+      if (historicalReturns) {
+        return {
+          returns1y: historicalReturns.returns1y,
+          returns3y: historicalReturns.returns3y,
+          returns5y: historicalReturns.returns5y
+        };
+      }
 
-      const [nav1y, nav3y, nav5y] = await Promise.all([
-        this.getHistoricalNav(schemeCode, date1yAgo),
-        this.getHistoricalNav(schemeCode, date3yAgo),
-        this.getHistoricalNav(schemeCode, date5yAgo)
-      ]);
-
-      const returns1y = nav1y ? ((currentNav - nav1y) / nav1y) * 100 : 0;
-      const returns3y = nav3y ? (Math.pow(currentNav / nav3y, 1/3) - 1) * 100 : 0;
-      const returns5y = nav5y ? (Math.pow(currentNav / nav5y, 1/5) - 1) * 100 : 0;
-
-      return {
-        returns1y: Math.round(returns1y * 100) / 100,
-        returns3y: Math.round(returns3y * 100) / 100,
-        returns5y: Math.round(returns5y * 100) / 100
-      };
+      // Fallback to database values if MFapi.in fails
+      console.warn(`[LiveMFData] MFapi.in failed for ${schemeCode}, falling back to database`);
+      return this.getDatabaseReturns(schemeCode);
     } catch (error) {
       console.error(`Error calculating returns for ${schemeCode}:`, error);
-      return null;
+      return this.getDatabaseReturns(schemeCode);
     }
   }
 
-  private async getHistoricalNav(schemeCode: string, targetDate: Date): Promise<number | null> {
+  /**
+   * Get returns from database as fallback when MFapi.in is unavailable
+   */
+  private async getDatabaseReturns(schemeCode: string): Promise<{ returns1y: number; returns3y: number; returns5y: number } | null> {
     try {
-      // Without a navHistory table, we use database values as fallback
-      // This will be enhanced when historical NAV data is available
       const fund = await db
         .select({ 
-          nav: mutualFunds.nav,
           returns1y: mutualFunds.returns1y,
           returns3y: mutualFunds.returns3y,
           returns5y: mutualFunds.returns5y
@@ -91,28 +85,17 @@ class LiveMFDataService {
         .where(eq(mutualFunds.schemeCode, schemeCode))
         .limit(1);
 
-      if (fund.length > 0 && fund[0].nav) {
-        const currentNav = parseFloat(fund[0].nav);
-        const yearsAgo = (Date.now() - targetDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-        
-        // Estimate historical NAV using returns data
-        if (yearsAgo <= 1 && fund[0].returns1y) {
-          const r = parseFloat(fund[0].returns1y) / 100;
-          return currentNav / (1 + r);
-        } else if (yearsAgo <= 3 && fund[0].returns3y) {
-          const r = parseFloat(fund[0].returns3y) / 100;
-          return currentNav / Math.pow(1 + r, yearsAgo);
-        } else if (yearsAgo <= 5 && fund[0].returns5y) {
-          const r = parseFloat(fund[0].returns5y) / 100;
-          return currentNav / Math.pow(1 + r, yearsAgo);
-        }
-        
-        return currentNav; // Fallback to current NAV
+      if (fund.length > 0) {
+        return {
+          returns1y: parseFloat(fund[0].returns1y || '0'),
+          returns3y: parseFloat(fund[0].returns3y || '0'),
+          returns5y: parseFloat(fund[0].returns5y || '0')
+        };
       }
       
       return null;
     } catch (error) {
-      console.error(`Error fetching historical NAV for ${schemeCode}:`, error);
+      console.error(`Error fetching database returns for ${schemeCode}:`, error);
       return null;
     }
   }
