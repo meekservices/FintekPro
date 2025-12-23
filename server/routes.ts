@@ -109,6 +109,7 @@ import treasuryRoutes from "./routes/treasury-routes";
 import proposalExecutionRoutes from "./routes/proposal-execution-routes";
 import explainabilityRoutes from "./routes/explainability-routes";
 import investmentAdvisoryComplianceRoutes from "./routes/investment-advisory-compliance-routes";
+import { registerAIStockRecommendationRoutes } from './routes/ai-stock-recommendation-routes';
 import { registerAgentAdvisoryRoutes } from "./routes/agent-advisory";
 import onboardingInvitationsRoutes from "./routes/onboarding-invitations";
 import prospectProposalsRoutes from "./routes/prospect-proposals";
@@ -352,6 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/explainability", explainabilityRoutes);
   app.use("/api/advisory-compliance", investmentAdvisoryComplianceRoutes);
   registerAgentAdvisoryRoutes(app);
+  registerAIStockRecommendationRoutes(app);
   app.use(onboardingInvitationsRoutes);
   app.use(prospectProposalsRoutes);
   app.use(instrumentsRoutes);

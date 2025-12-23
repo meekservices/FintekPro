@@ -198,6 +198,7 @@ import CASupportDetail from "@/pages/ca-support-detail";
 import TDSCompliance from "@/pages/tds-compliance";
 import AIProposalsPage from "@/pages/ai-proposals";
 import AIProposalReviewPage from "@/pages/ai-proposal-review";
+import AIStockPicks from '@/pages/ai-stock-picks';
 import GoalsPage from "@/pages/goals";
 import InvestableSurplusPage from "@/pages/investable-surplus";
 import TaxComplianceForm15Page from "@/pages/tax-compliance-form15";
@@ -354,6 +355,7 @@ function UserProtectedRoutes() {
         <Route path="/government-schemes" component={GovernmentSchemes} />
         <Route path="/ai-proposals" component={AIProposalsPage} />
         <Route path="/ai-proposal-review" component={AIProposalReviewPage} />
+        <Route path="/ai-stock-picks" component={AIStockPicks} />
         <Route path="/goals" component={GoalsPage} />
         <Route path="/investable-surplus" component={InvestableSurplusPage} />
         <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
