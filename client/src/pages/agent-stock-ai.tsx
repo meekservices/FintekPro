@@ -364,15 +364,19 @@ export default function AgentStockAI() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="very_conservative">Very Conservative (Minimal Risk)</SelectItem>
                       <SelectItem value="conservative">Conservative (Low Risk)</SelectItem>
                       <SelectItem value="moderate">Moderate (Balanced)</SelectItem>
                       <SelectItem value="aggressive">Aggressive (High Risk)</SelectItem>
+                      <SelectItem value="very_aggressive">Very Aggressive (Maximum Risk)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-slate-400 mt-2">
+                    {params.riskTolerance === 'very_conservative' && 'Capital preservation priority with minimal return expectations'}
                     {params.riskTolerance === 'conservative' && 'Focus on stable, blue-chip stocks with lower volatility'}
                     {params.riskTolerance === 'moderate' && 'Balanced mix of growth and value stocks'}
                     {params.riskTolerance === 'aggressive' && 'Higher-beta stocks with greater return potential'}
+                    {params.riskTolerance === 'very_aggressive' && 'Maximum returns focus with high volatility stocks'}
                   </p>
                 </CardContent>
               </Card>
@@ -699,8 +703,11 @@ export default function AgentStockAI() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="very_conservative">Very Conservative - Capital Protection</SelectItem>
+                      <SelectItem value="conservative">Conservative - Low Exposure</SelectItem>
                       <SelectItem value="moderate">Moderate - Hedged Positions</SelectItem>
                       <SelectItem value="aggressive">Aggressive - Directional Trades</SelectItem>
+                      <SelectItem value="very_aggressive">Very Aggressive - High Leverage</SelectItem>
                     </SelectContent>
                   </Select>
                 </CardContent>

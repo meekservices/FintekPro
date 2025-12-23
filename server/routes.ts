@@ -2632,12 +2632,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // MSEI API integration (Metropolitan Stock Exchange)
   const MSEI_EQUITIES = [
-    { symbol: 'MSEI_TECH', name: 'MSEI Tech Solutions', segment: 'Equity', price: 450.25, sector: 'Technology' },
-    { symbol: 'MSEI_PHARMA', name: 'MSEI Pharmaceuticals', segment: 'Equity', price: 1250.80, sector: 'Healthcare' },
-    { symbol: 'MSEI_AUTO', name: 'MSEI Automotive', segment: 'Equity', price: 675.40, sector: 'Automotive' },
-    { symbol: 'MSEI_FINANCE', name: 'MSEI Financial Services', segment: 'Equity', price: 890.15, sector: 'Financial Services' },
-    { symbol: 'MSEI_ENERGY', name: 'MSEI Energy Corp', segment: 'Equity', price: 320.60, sector: 'Energy' },
-    { symbol: 'MSEI_INFRA', name: 'MSEI Infrastructure', segment: 'Equity', price: 185.90, sector: 'Infrastructure' }
+    { symbol: 'MSEI_TECH', name: 'MSEI Tech Solutions', segment: 'Equity', fallbackPrice: 450.25, sector: 'Technology' },
+    { symbol: 'MSEI_PHARMA', name: 'MSEI Pharmaceuticals', segment: 'Equity', fallbackPrice: 1250.80, sector: 'Healthcare' },
+    { symbol: 'MSEI_AUTO', name: 'MSEI Automotive', segment: 'Equity', fallbackPrice: 675.40, sector: 'Automotive' },
+    { symbol: 'MSEI_FINANCE', name: 'MSEI Financial Services', segment: 'Equity', fallbackPrice: 890.15, sector: 'Financial Services' },
+    { symbol: 'MSEI_ENERGY', name: 'MSEI Energy Corp', segment: 'Equity', fallbackPrice: 320.60, sector: 'Energy' },
+    { symbol: 'MSEI_INFRA', name: 'MSEI Infrastructure', segment: 'Equity', fallbackPrice: 185.90, sector: 'Infrastructure' }
   ];
 
   const MSEI_CURRENCIES = [
@@ -4477,11 +4477,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const turnovers = {
         status: "success",
         data: [
-          { symbol: "RELIANCE", turnover: 2500000000, price: 2450.75, change: 1.2 },
-          { symbol: "TCS", turnover: 1800000000, price: 3850.50, change: 0.8 },
-          { symbol: "HDFCBANK", turnover: 1600000000, price: 1650.25, change: -0.5 },
-          { symbol: "INFY", turnover: 1400000000, price: 1750.75, change: 2.1 },
-          { symbol: "BHARTIARTL", turnover: 1200000000, price: 1050.30, change: 1.5 }
+          { symbol: "RELIANCE", turnover: 2500000000, fallbackPrice: 2450.75, change: 1.2 },
+          { symbol: "TCS", turnover: 1800000000, fallbackPrice: 3850.50, change: 0.8 },
+          { symbol: "HDFCBANK", turnover: 1600000000, fallbackPrice: 1650.25, change: -0.5 },
+          { symbol: "INFY", turnover: 1400000000, fallbackPrice: 1750.75, change: 2.1 },
+          { symbol: "BHARTIARTL", turnover: 1200000000, fallbackPrice: 1050.30, change: 1.5 }
         ]
       };
       res.json({
@@ -4504,11 +4504,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const gainers = {
         status: "success",
         data: [
-          { symbol: "ADANIPOWER", price: 450.75, change: 8.5, percentChange: 1.92 },
-          { symbol: "TATAPOWER", price: 380.30, change: 15.25, percentChange: 4.18 },
-          { symbol: "NTPC", price: 285.60, change: 12.40, percentChange: 4.54 },
-          { symbol: "POWERGRID", price: 245.90, change: 8.80, percentChange: 3.72 },
-          { symbol: "COALINDIA", price: 385.45, change: 13.15, percentChange: 3.53 }
+          { symbol: "ADANIPOWER", fallbackPrice: 450.75, change: 8.5, percentChange: 1.92 },
+          { symbol: "TATAPOWER", fallbackPrice: 380.30, change: 15.25, percentChange: 4.18 },
+          { symbol: "NTPC", fallbackPrice: 285.60, change: 12.40, percentChange: 4.54 },
+          { symbol: "POWERGRID", fallbackPrice: 245.90, change: 8.80, percentChange: 3.72 },
+          { symbol: "COALINDIA", fallbackPrice: 385.45, change: 13.15, percentChange: 3.53 }
         ]
       };
       res.json({
@@ -4531,11 +4531,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const losers = {
         status: "success",
         data: [
-          { symbol: "ZOMATO", price: 180.25, change: -12.75, percentChange: -6.61 },
-          { symbol: "PAYTM", price: 425.50, change: -28.50, percentChange: -6.28 },
-          { symbol: "NYKAA", price: 145.80, change: -9.20, percentChange: -5.94 },
-          { symbol: "POLICYBZR", price: 890.40, change: -52.60, percentChange: -5.58 },
-          { symbol: "DELHIVERY", price: 320.15, change: -17.85, percentChange: -5.28 }
+          { symbol: "ZOMATO", fallbackPrice: 180.25, change: -12.75, percentChange: -6.61 },
+          { symbol: "PAYTM", fallbackPrice: 425.50, change: -28.50, percentChange: -6.28 },
+          { symbol: "NYKAA", fallbackPrice: 145.80, change: -9.20, percentChange: -5.94 },
+          { symbol: "POLICYBZR", fallbackPrice: 890.40, change: -52.60, percentChange: -5.58 },
+          { symbol: "DELHIVERY", fallbackPrice: 320.15, change: -17.85, percentChange: -5.28 }
         ]
       };
       res.json({
@@ -16769,11 +16769,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (marketData.length === 0) {
         // Create mock data if no real data available
         marketData = [
-          { symbol: '^GSPC', price: 5620.45, change: 15.23, changePercent: 0.27 },
-          { symbol: '^DJI', price: 44156.73, change: -89.12, changePercent: -0.20 },
-          { symbol: '^IXIC', price: 17765.66, change: 45.67, changePercent: 0.26 },
-          { symbol: '^NSEI', price: 23145.60, change: 78.45, changePercent: 0.34 },
-          { symbol: '^BSESN', price: 76543.21, change: -23.45, changePercent: -0.03 }
+          { symbol: '^GSPC', fallbackPrice: 5620.45, change: 15.23, changePercent: 0.27 },
+          { symbol: '^DJI', fallbackPrice: 44156.73, change: -89.12, changePercent: -0.20 },
+          { symbol: '^IXIC', fallbackPrice: 17765.66, change: 45.67, changePercent: 0.26 },
+          { symbol: '^NSEI', fallbackPrice: 23145.60, change: 78.45, changePercent: 0.34 },
+          { symbol: '^BSESN', fallbackPrice: 76543.21, change: -23.45, changePercent: -0.03 }
         ];
       }
       
@@ -33938,30 +33938,31 @@ System Security Data:`;
   app.post("/api/stock-ai/generate", async (req, res) => {
     try {
       const { category, timeHorizon, investmentAmount, riskTolerance, sectors, marketCap, tradingStyle, derivativeType } = req.body;
+      const yahooFinance = require('yahoo-finance2').default;
 
-      // Generate AI-powered stock recommendations based on parameters
-      const generateStockRecommendations = () => {
+      // Generate AI-powered stock recommendations based on parameters with real-time prices
+      const generateStockRecommendations = async () => {
         const stockPool = [
-          { symbol: 'RELIANCE', name: 'Reliance Industries Ltd', sector: 'Energy', price: 2890.50 },
-          { symbol: 'TCS', name: 'Tata Consultancy Services', sector: 'IT', price: 3324.90 },
-          { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', sector: 'Banking', price: 1654.25 },
-          { symbol: 'INFY', name: 'Infosys Limited', sector: 'IT', price: 1689.60 },
-          { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd', sector: 'Banking', price: 1056.40 },
-          { symbol: 'HINDUNILVR', name: 'Hindustan Unilever', sector: 'FMCG', price: 2456.80 },
-          { symbol: 'SBIN', name: 'State Bank of India', sector: 'Banking', price: 628.35 },
-          { symbol: 'BHARTIARTL', name: 'Bharti Airtel', sector: 'Telecom', price: 2147.60 },
-          { symbol: 'ITC', name: 'ITC Limited', sector: 'FMCG', price: 456.70 },
-          { symbol: 'KOTAKBANK', name: 'Kotak Mahindra Bank', sector: 'Banking', price: 2149.70 },
-          { symbol: 'LT', name: 'Larsen & Toubro', sector: 'Infra', price: 4072.40 },
-          { symbol: 'AXISBANK', name: 'Axis Bank Ltd', sector: 'Banking', price: 1089.25 },
-          { symbol: 'WIPRO', name: 'Wipro Limited', sector: 'IT', price: 272.67 },
-          { symbol: 'MARUTI', name: 'Maruti Suzuki India', sector: 'Auto', price: 16649.00 },
-          { symbol: 'BAJFINANCE', name: 'Bajaj Finance Ltd', sector: 'Banking', price: 1007.80 },
-          { symbol: 'SUNPHARMA', name: 'Sun Pharma Industries', sector: 'Pharma', price: 1823.45 },
-          { symbol: 'TATAMOTORS', name: 'Tata Motors Ltd', sector: 'Auto', price: 789.30 },
-          { symbol: 'ONGC', name: 'Oil & Natural Gas Corp', sector: 'Energy', price: 267.85 },
-          { symbol: 'TITAN', name: 'Titan Company Ltd', sector: 'Consumer', price: 3456.90 },
-          { symbol: 'ADANIENT', name: 'Adani Enterprises', sector: 'Infra', price: 2987.60 }
+          { symbol: 'RELIANCE', name: 'Reliance Industries Ltd', sector: 'Energy', fallbackPrice: 2890.50 },
+          { symbol: 'TCS', name: 'Tata Consultancy Services', sector: 'IT', fallbackPrice: 3324.90 },
+          { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', sector: 'Banking', fallbackPrice: 1654.25 },
+          { symbol: 'INFY', name: 'Infosys Limited', sector: 'IT', fallbackPrice: 1689.60 },
+          { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd', sector: 'Banking', fallbackPrice: 1056.40 },
+          { symbol: 'HINDUNILVR', name: 'Hindustan Unilever', sector: 'FMCG', fallbackPrice: 2456.80 },
+          { symbol: 'SBIN', name: 'State Bank of India', sector: 'Banking', fallbackPrice: 628.35 },
+          { symbol: 'BHARTIARTL', name: 'Bharti Airtel', sector: 'Telecom', fallbackPrice: 2147.60 },
+          { symbol: 'ITC', name: 'ITC Limited', sector: 'FMCG', fallbackPrice: 456.70 },
+          { symbol: 'KOTAKBANK', name: 'Kotak Mahindra Bank', sector: 'Banking', fallbackPrice: 2149.70 },
+          { symbol: 'LT', name: 'Larsen & Toubro', sector: 'Infra', fallbackPrice: 4072.40 },
+          { symbol: 'AXISBANK', name: 'Axis Bank Ltd', sector: 'Banking', fallbackPrice: 1089.25 },
+          { symbol: 'WIPRO', name: 'Wipro Limited', sector: 'IT', fallbackPrice: 272.67 },
+          { symbol: 'MARUTI', name: 'Maruti Suzuki India', sector: 'Auto', fallbackPrice: 16649.00 },
+          { symbol: 'BAJFINANCE', name: 'Bajaj Finance Ltd', sector: 'Banking', fallbackPrice: 1007.80 },
+          { symbol: 'SUNPHARMA', name: 'Sun Pharma Industries', sector: 'Pharma', fallbackPrice: 1823.45 },
+          { symbol: 'TATAMOTORS', name: 'Tata Motors Ltd', sector: 'Auto', fallbackPrice: 789.30 },
+          { symbol: 'ONGC', name: 'Oil & Natural Gas Corp', sector: 'Energy', fallbackPrice: 267.85 },
+          { symbol: 'TITAN', name: 'Titan Company Ltd', sector: 'Consumer', fallbackPrice: 3456.90 },
+          { symbol: 'ADANIENT', name: 'Adani Enterprises', sector: 'Infra', fallbackPrice: 2987.60 }
         ];
 
         let filteredStocks = sectors && sectors.length > 0
@@ -33972,6 +33973,19 @@ System Security Data:`;
         const shuffled = filteredStocks.sort(() => 0.5 - Math.random());
         const selectedStocks = shuffled.slice(0, numRecommendations);
 
+        // Fetch real-time prices from Yahoo Finance for Indian stocks
+        const stocksWithPrices = await Promise.all(
+          selectedStocks.map(async (stock) => {
+            try {
+              const quote = await yahooFinance.quote(`${stock.symbol}.NS`);
+              return { ...stock, price: quote?.regularMarketPrice || stock.fallbackPrice };
+            } catch (err) {
+              console.log(`Failed to fetch price for ${stock.symbol}, using fallback`);
+              return { ...stock, price: stock.fallbackPrice };
+            }
+          })
+        );
+
         const timeHorizonMultipliers: Record<string, { targetPct: number; slPct: number; returnPct: number }> = {
           'intraday': { targetPct: 0.02, slPct: 0.01, returnPct: 2 },
           'ultra_short': { targetPct: 0.04, slPct: 0.02, returnPct: 4 },
@@ -33981,15 +33995,17 @@ System Security Data:`;
         };
 
         const riskMultipliers: Record<string, number> = {
+          'very_conservative': 0.5,
           'conservative': 0.7,
           'moderate': 1.0,
-          'aggressive': 1.4
+          'aggressive': 1.4,
+          'very_aggressive': 1.8
         };
 
         const multiplier = timeHorizonMultipliers[timeHorizon] || timeHorizonMultipliers['short_term'];
         const riskMult = riskMultipliers[riskTolerance] || 1.0;
 
-        return selectedStocks.map((stock: any, idx: number) => {
+        return stocksWithPrices.map((stock: any, idx: number) => {
           const isUptrend = Math.random() > 0.3;
           const action = isUptrend ? 'BUY' : (Math.random() > 0.5 ? 'SELL' : 'HOLD');
           const targetPrice = isUptrend 
@@ -34003,7 +34019,7 @@ System Security Data:`;
           const macd = isUptrend ? 'Bullish' : 'Bearish';
 
           return {
-            id: `STOCK-\${Date.now()}-\${idx}`,
+            id: `STOCK-${Date.now()}-${idx}`,
             symbol: stock.symbol,
             name: stock.name,
             exchange: 'NSE',
@@ -34026,7 +34042,7 @@ System Security Data:`;
               supportLevel: Math.round(stock.price * 0.92 * 100) / 100,
               resistanceLevel: Math.round(stock.price * 1.08 * 100) / 100
             },
-            aiRationale: `Based on \${timeHorizon.replace('_', ' ')} analysis, \${stock.symbol} shows \${isUptrend ? 'bullish momentum' : 'consolidation pattern'} with RSI at \${rsi}. \${macd} MACD crossover indicates \${action.toLowerCase()} opportunity.`,
+            aiRationale: `Based on ${timeHorizon.replace('_', ' ')} analysis, ${stock.symbol} shows ${isUptrend ? 'bullish momentum' : 'consolidation pattern'} with RSI at ${rsi}. ${macd} MACD crossover indicates ${action.toLowerCase()} opportunity.`,
             keyDrivers: [
               isUptrend ? 'Positive momentum' : 'Mean reversion',
               'Strong fundamentals',
@@ -34043,12 +34059,12 @@ System Security Data:`;
 
       const generateDerivativeRecommendations = () => {
         const underlyings = [
-          { symbol: 'NIFTY', name: 'Nifty 50 Index', price: 24850, lotSize: 25 },
-          { symbol: 'BANKNIFTY', name: 'Bank Nifty Index', price: 53200, lotSize: 15 },
-          { symbol: 'FINNIFTY', name: 'Fin Nifty Index', price: 23450, lotSize: 25 },
-          { symbol: 'RELIANCE', name: 'Reliance Industries', price: 2890, lotSize: 250 },
-          { symbol: 'TCS', name: 'TCS Limited', price: 3325, lotSize: 150 },
-          { symbol: 'HDFCBANK', name: 'HDFC Bank', price: 1654, lotSize: 550 }
+          { symbol: 'NIFTY', name: 'Nifty 50 Index', fallbackPrice: 24850, lotSize: 25 },
+          { symbol: 'BANKNIFTY', name: 'Bank Nifty Index', fallbackPrice: 53200, lotSize: 15 },
+          { symbol: 'FINNIFTY', name: 'Fin Nifty Index', fallbackPrice: 23450, lotSize: 25 },
+          { symbol: 'RELIANCE', name: 'Reliance Industries', fallbackPrice: 2890, lotSize: 250 },
+          { symbol: 'TCS', name: 'TCS Limited', fallbackPrice: 3325, lotSize: 150 },
+          { symbol: 'HDFCBANK', name: 'HDFC Bank', fallbackPrice: 1654, lotSize: 550 }
         ];
 
         const expiry = new Date();
@@ -34090,8 +34106,8 @@ System Security Data:`;
           const delta = isCall ? (0.4 + Math.random() * 0.3) : -(0.4 + Math.random() * 0.3);
 
           return {
-            id: `DERIV-\${Date.now()}-\${idx}`,
-            symbol: `\${underlying.symbol}\${expiryStr.replace(/-/g, '').slice(4)}\${strikePrice ? strikePrice : 'FUT'}\${instrumentType === 'CALL_OPTION' ? 'CE' : instrumentType === 'PUT_OPTION' ? 'PE' : ''}`,
+            id: `DERIV-${Date.now()}-${idx}`,
+            symbol: `${underlying.symbol}${expiryStr.replace(/-/g, '').slice(4)}${strikePrice ? strikePrice : 'FUT'}${instrumentType === 'CALL_OPTION' ? 'CE' : instrumentType === 'PUT_OPTION' ? 'PE' : ''}`,
             underlying: underlying.name,
             instrumentType,
             strikePrice,
@@ -34115,7 +34131,7 @@ System Security Data:`;
               vega: Math.round((premium * 0.1 + Math.random() * premium * 0.05) * 100) / 100,
               iv: Math.round((15 + Math.random() * 15) * 10) / 10
             } : undefined,
-            aiRationale: `\${underlying.name} showing \${isBullish ? 'bullish' : 'bearish'} signals. \${strategy} recommended with \${riskTolerance} risk profile.`,
+            aiRationale: `${underlying.name} showing ${isBullish ? 'bullish' : 'bearish'} signals. ${strategy} recommended with ${riskTolerance} risk profile.`,
             strategy,
             risks: ['Time decay (Theta)', 'Volatility changes', 'Directional risk', 'Liquidity risk']
           };
@@ -34124,7 +34140,7 @@ System Security Data:`;
 
       const response: any = {};
       if (category === 'stocks') {
-        response.stocks = generateStockRecommendations();
+        response.stocks = await generateStockRecommendations();
       } else if (category === 'derivatives') {
         response.derivatives = generateDerivativeRecommendations();
       } else {
