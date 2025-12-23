@@ -1,0 +1,689 @@
+import { useState } from 'react';
+import { useLocation } from 'wouter';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient as qc } from '@/lib/queryClient';
+import {
+  BarChart3,
+  Briefcase,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  FileText,
+  IndianRupee,
+  Star,
+  TrendingUp,
+  User,
+  Users,
+  AlertCircle,
+  Play,
+  Eye,
+  MessageSquare,
+  Upload,
+  RefreshCw,
+  Settings,
+  Award,
+  Target,
+  Shield
+} from 'lucide-react';
+
+interface DashboardStats {
+  activeCases: number;
+  completedCases: number;
+  pendingCases: number;
+  avgRating: number;
+  totalEarnings: number;
+  thisMonthEarnings: number;
+  casesByType: Record<string, number>;
+}
+
+interface CAProfile {
+  id: string;
+  name: string;
+  email: string;
+  icaiNumber: string;
+  membershipType: string;
+  specializations: string[];
+  city: string;
+  state: string;
+  availability: string;
+  maxCases: number;
+  verificationStatus: string;
+}
+
+interface Case {
+  id: string;
+  caseNumber: string;
+  clientName: string;
+  clientEmail: string;
+  caseType: string;
+  itrFormType?: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+  dueDate?: string;
+  fee: number;
+  progress: number;
+}
+
+const AVAILABILITY_OPTIONS = [
+  { value: 'available', label: 'Available', color: 'bg-green-100 text-green-700' },
+  { value: 'busy', label: 'Busy', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'on_leave', label: 'On Leave', color: 'bg-orange-100 text-orange-700' },
+  { value: 'unavailable', label: 'Unavailable', color: 'bg-red-100 text-red-700' },
+];
+
+const STATUS_COLORS: Record<string, string> = {
+  initiated: 'bg-gray-100 text-gray-700',
+  documents_pending: 'bg-yellow-100 text-yellow-700',
+  documents_received: 'bg-blue-100 text-blue-700',
+  under_review: 'bg-indigo-100 text-indigo-700',
+  ca_assigned: 'bg-purple-100 text-purple-700',
+  processing: 'bg-cyan-100 text-cyan-700',
+  filed: 'bg-emerald-100 text-emerald-700',
+  acknowledged: 'bg-teal-100 text-teal-700',
+  completed: 'bg-green-100 text-green-700',
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  low: 'bg-gray-100 text-gray-700',
+  normal: 'bg-blue-100 text-blue-700',
+  high: 'bg-orange-100 text-orange-700',
+  urgent: 'bg-red-100 text-red-700',
+};
+
+export default function CADashboard() {
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const { user, isLoading: authLoading } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [statusFilter, setStatusFilter] = useState('all');
+  
+  const { data: caPartnerData } = useQuery<{ success: boolean; partnerId: string }>({
+    queryKey: ['/api/ca/my-profile'],
+    enabled: !!user,
+  });
+  
+  const partnerId = caPartnerData?.partnerId || '';
+  
+  const { data: dashboardData, isLoading } = useQuery<{ 
+    success: boolean; 
+    profile: CAProfile; 
+    stats: DashboardStats 
+  }>({
+    queryKey: [`/api/ca/dashboard/${partnerId}`],
+    enabled: !!partnerId,
+  });
+  
+  const { data: casesData, isLoading: casesLoading } = useQuery<{
+    success: boolean;
+    cases: Case[];
+  }>({
+    queryKey: [`/api/ca/cases/${partnerId}`, statusFilter],
+    enabled: !!partnerId,
+  });
+  
+  const updateAvailabilityMutation = useMutation({
+    mutationFn: async (availability: string) => {
+      return await apiRequest(`/api/ca/availability/${partnerId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ availability }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/ca/dashboard/${partnerId}`] });
+      toast({
+        title: 'Availability Updated',
+        description: 'Your availability status has been updated.',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Update Failed',
+        description: 'Failed to update availability. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+  
+  const profile = dashboardData?.profile;
+  const stats = dashboardData?.stats || {
+    activeCases: 0,
+    completedCases: 0,
+    pendingCases: 0,
+    avgRating: 5.0,
+    totalEarnings: 0,
+    thisMonthEarnings: 0,
+    casesByType: {},
+  };
+  const cases = casesData?.cases || [];
+  
+  const utilizationRate = profile 
+    ? Math.round((stats.activeCases / (profile.maxCases || 50)) * 100)
+    : 0;
+  
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Shield className="h-16 w-16 text-gray-400" />
+        <h2 className="text-xl font-semibold text-gray-700">Authentication Required</h2>
+        <p className="text-gray-500">Please log in to access your CA Dashboard</p>
+        <Button onClick={() => setLocation('/login')}>Go to Login</Button>
+      </div>
+    );
+  }
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="border-b bg-white dark:bg-gray-800">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-12 w-12">
+                <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">
+                  {profile?.name?.split(' ').map(n => n[0]).join('') || 'CA'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  {profile?.name || 'CA Dashboard'}
+                </h1>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <span>{profile?.icaiNumber}</span>
+                  <span>•</span>
+                  <Badge variant="outline">{profile?.membershipType}</Badge>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Select
+                value={profile?.availability || 'available'}
+                onValueChange={(value) => updateAvailabilityMutation.mutate(value)}
+              >
+                <SelectTrigger className="w-[150px]" data-testid="select-availability">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABILITY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${option.color.split(' ')[0]}`} />
+                        {option.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Button variant="outline" size="icon" data-testid="button-settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <ScrollableTabsList>
+            <TabsTrigger value="overview" data-testid="tab-overview">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="cases" data-testid="tab-cases">
+              <Briefcase className="h-4 w-4 mr-2" />
+              My Cases
+            </TabsTrigger>
+            <TabsTrigger value="earnings" data-testid="tab-earnings">
+              <IndianRupee className="h-4 w-4 mr-2" />
+              Earnings
+            </TabsTrigger>
+            <TabsTrigger value="performance" data-testid="tab-performance">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Performance
+            </TabsTrigger>
+          </ScrollableTabsList>
+          
+          <TabsContent value="overview" className="mt-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Cases</CardTitle>
+                  <Briefcase className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.activeCases}</div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Progress value={utilizationRate} className="h-2 flex-1" />
+                    <span className="text-xs text-gray-500">{utilizationRate}% capacity</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Completed This Month</CardTitle>
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.completedCases}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total: {stats.completedCases} cases
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">This Month Earnings</CardTitle>
+                  <IndianRupee className="h-4 w-4 text-emerald-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">₹{stats.thisMonthEarnings.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total: ₹{stats.totalEarnings.toLocaleString()}
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
+                  <Star className="h-4 w-4 text-yellow-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold flex items-center gap-1">
+                    {stats.avgRating.toFixed(1)}
+                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Based on client reviews
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Cases</CardTitle>
+                  <CardDescription>Your most recent assigned cases</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {cases.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No cases assigned yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {cases.slice(0, 5).map((caseItem) => (
+                        <div key={caseItem.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium">{caseItem.clientName}</p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <span>{caseItem.caseType}</span>
+                              {caseItem.itrFormType && (
+                                <>
+                                  <span>•</span>
+                                  <span>{caseItem.itrFormType}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={STATUS_COLORS[caseItem.status] || 'bg-gray-100'}>
+                              {caseItem.status.replace(/_/g, ' ')}
+                            </Badge>
+                            <Button variant="ghost" size="sm" data-testid={`button-view-case-${caseItem.id}`}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Your Specializations</CardTitle>
+                  <CardDescription>Areas where you provide services</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {profile?.specializations?.map((spec) => (
+                      <Badge key={spec} variant="secondary" className="capitalize">
+                        {spec.replace(/_/g, ' ')}
+                      </Badge>
+                    )) || (
+                      <p className="text-gray-500">No specializations set</p>
+                    )}
+                  </div>
+                  
+                  <Separator className="my-4" />
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Location</span>
+                      <span>{profile?.city}, {profile?.state}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Max Cases/Month</span>
+                      <span>{profile?.maxCases || 50}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Verification Status</span>
+                      <Badge variant={profile?.verificationStatus === 'verified' ? 'default' : 'secondary'}>
+                        {profile?.verificationStatus || 'pending'}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="cases" className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>My Cases</CardTitle>
+                    <CardDescription>All your assigned tax cases</CardDescription>
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-case-filter">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Cases</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="pending">Pending Review</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {casesLoading ? (
+                  <div className="flex justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : cases.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Briefcase className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-medium mb-1">No cases found</h3>
+                    <p>Cases will appear here once assigned to you</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Case Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Priority</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Fee</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cases.map((caseItem) => (
+                        <TableRow key={caseItem.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{caseItem.clientName}</p>
+                              <p className="text-sm text-gray-500">{caseItem.clientEmail}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p>{caseItem.caseType}</p>
+                              {caseItem.itrFormType && (
+                                <p className="text-sm text-gray-500">{caseItem.itrFormType}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={STATUS_COLORS[caseItem.status] || 'bg-gray-100'}>
+                              {caseItem.status.replace(/_/g, ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={PRIORITY_COLORS[caseItem.priority] || 'bg-gray-100'}>
+                              {caseItem.priority}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {caseItem.dueDate 
+                              ? new Date(caseItem.dueDate).toLocaleDateString()
+                              : '-'
+                            }
+                          </TableCell>
+                          <TableCell>₹{caseItem.fee?.toLocaleString() || 0}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" title="View Details" data-testid={`button-view-${caseItem.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="Messages" data-testid={`button-message-${caseItem.id}`}>
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="Upload Document" data-testid={`button-upload-${caseItem.id}`}>
+                                <Upload className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="earnings" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Earnings Summary</CardTitle>
+                  <CardDescription>Your commission earnings from completed cases</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">This Month</p>
+                      <p className="text-2xl font-bold text-green-600">₹{stats.thisMonthEarnings.toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Total Earnings</p>
+                      <p className="text-2xl font-bold text-blue-600">₹{stats.totalEarnings.toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
+                      <p className="text-2xl font-bold text-yellow-600">₹0</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Avg per Case</p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        ₹{stats.completedCases > 0 
+                          ? Math.round(stats.totalEarnings / stats.completedCases).toLocaleString()
+                          : 0
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center py-8 text-gray-500 border rounded-lg">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Earnings chart will be displayed here</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Fee Structure</CardTitle>
+                  <CardDescription>Your base fees by service type</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span>ITR-1</span>
+                    <span className="font-semibold">₹500</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span>ITR-2</span>
+                    <span className="font-semibold">₹1,500</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span>ITR-3</span>
+                    <span className="font-semibold">₹3,000</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span>ITR-4</span>
+                    <span className="font-semibold">₹2,000</span>
+                  </div>
+                  <Separator />
+                  <Button variant="outline" className="w-full" data-testid="button-update-fees">
+                    Update Fee Structure
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="performance" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance Metrics</CardTitle>
+                  <CardDescription>Your key performance indicators</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Case Completion Rate</span>
+                      <span className="font-medium">
+                        {stats.activeCases + stats.completedCases > 0
+                          ? Math.round((stats.completedCases / (stats.activeCases + stats.completedCases)) * 100)
+                          : 100
+                        }%
+                      </span>
+                    </div>
+                    <Progress 
+                      value={stats.activeCases + stats.completedCases > 0
+                        ? (stats.completedCases / (stats.activeCases + stats.completedCases)) * 100
+                        : 100
+                      } 
+                      className="h-2" 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Capacity Utilization</span>
+                      <span className="font-medium">{utilizationRate}%</span>
+                    </div>
+                    <Progress value={utilizationRate} className="h-2" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Client Satisfaction</span>
+                      <span className="font-medium">{(stats.avgRating / 5 * 100).toFixed(0)}%</span>
+                    </div>
+                    <Progress value={stats.avgRating / 5 * 100} className="h-2" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Achievements</CardTitle>
+                  <CardDescription>Your milestones and badges</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="p-2 bg-yellow-100 rounded-full">
+                        <Star className="h-5 w-5 text-yellow-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Top Rated</p>
+                        <p className="text-xs text-gray-500">5.0 Rating</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Verified</p>
+                        <p className="text-xs text-gray-500">ICAI Verified</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="p-2 bg-blue-100 rounded-full">
+                        <Target className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Goal Setter</p>
+                        <p className="text-xs text-gray-500">{stats.completedCases}+ Cases</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="p-2 bg-purple-100 rounded-full">
+                        <Award className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Expert</p>
+                        <p className="text-xs text-gray-500">{profile?.membershipType || 'ACA'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}

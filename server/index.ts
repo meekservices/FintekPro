@@ -307,6 +307,11 @@ app.use((req, res, next) => {
   app.use(esignRoutes.default);
   console.log('✅ AuthBridge eSign routes registered');
   
+  // Register CA (Chartered Accountant) routes
+  const caRoutes = await import('./routes/ca-routes');
+  app.use('/api/ca', caRoutes.default);
+  console.log('✅ CA registration and assignment routes registered');
+  
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');

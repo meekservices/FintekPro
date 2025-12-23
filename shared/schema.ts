@@ -1901,6 +1901,29 @@ export const partners = pgTable("partners", {
   pendingCommissions: decimal("pending_commissions", { precision: 15, scale: 2 }).default("0.00"),
   lastSettlementDate: timestamp("last_settlement_date"),
   
+  // CA (Chartered Accountant) Specific Fields
+  icaiMembershipNumber: varchar("icai_membership_number"), // ICAI membership number (e.g., "123456")
+  icaiMembershipType: varchar("icai_membership_type"), // ACA (Associate), FCA (Fellow)
+  caFirmName: varchar("ca_firm_name"), // Name of CA firm if applicable
+  caFirmRegistrationNumber: varchar("ca_firm_registration_number"), // FRN number
+  caSpecializations: text("ca_specializations").array().default(sql`ARRAY[]::text[]`), // ITR, GST, Audit, Form15, TaxNotices, CompanyLaw
+  caExperienceYears: integer("ca_experience_years"), // Years of experience
+  caQualificationYear: integer("ca_qualification_year"), // Year of CA qualification
+  caCity: varchar("ca_city"), // Primary service city
+  caState: varchar("ca_state"), // Primary service state
+  caAvailability: varchar("ca_availability").default("available"), // available, busy, on_leave, unavailable
+  caMaxCasesPerMonth: integer("ca_max_cases_per_month").default(50), // Maximum cases CA can handle per month
+  caCurrentActiveCases: integer("ca_current_active_cases").default(0), // Current active cases count
+  caCompletedCases: integer("ca_completed_cases").default(0), // Total completed cases
+  caAverageRating: decimal("ca_average_rating", { precision: 3, scale: 2 }), // Average rating (0-5)
+  caTotalRatings: integer("ca_total_ratings").default(0), // Total number of ratings received
+  caResponseTime: varchar("ca_response_time").default("24h"), // Typical response time: 4h, 12h, 24h, 48h
+  caVerificationStatus: varchar("ca_verification_status").default("pending"), // pending, verified, rejected
+  caVerifiedAt: timestamp("ca_verified_at"),
+  caVerifiedBy: varchar("ca_verified_by"), // Admin who verified
+  caProfilePhoto: varchar("ca_profile_photo"), // Profile photo URL
+  caBio: text("ca_bio"), // Short bio/about
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

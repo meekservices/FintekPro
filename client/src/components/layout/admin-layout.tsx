@@ -34,7 +34,8 @@ import {
   ChevronRight,
   Landmark,
   ShoppingCart,
-  Lightbulb
+  Lightbulb,
+  Award
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -111,6 +112,12 @@ const adminNavItems = [
     href: "/admin/users",
     icon: Users,
     description: "User management"
+  },
+  {
+    title: "CA Partners",
+    href: "/admin/ca-management",
+    icon: Award,
+    description: "Chartered Accountant partner management"
   },
   {
     title: "API Configuration",

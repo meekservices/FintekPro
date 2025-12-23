@@ -175,6 +175,7 @@ import AgentPerformanceDashboard from "@/pages/admin/agent-performance";
 import DemoProposalsTracking from "@/pages/admin/demo-proposals";
 import AdminTaskOversight from "@/pages/admin/task-oversight";
 import UserManagement from "@/pages/admin/user-management";
+import CAManagement from "@/pages/admin/ca-management";
 import PredictiveAnalytics from "@/pages/PredictiveAnalytics";
 import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
 import UnlistedNegotiations from "@/pages/admin/UnlistedNegotiations";
@@ -196,6 +197,8 @@ import MyOrders from "@/pages/unlisted/MyOrders";
 import UnlistedCartPage from "@/pages/unlisted/Cart";
 import CASupportDashboard from "@/pages/ca-support-dashboard";
 import CASupportDetail from "@/pages/ca-support-detail";
+import CARegistration from "@/pages/ca-registration";
+import CADashboard from "@/pages/ca-dashboard";
 import TDSCompliance from "@/pages/tds-compliance";
 import AIProposalsPage from "@/pages/ai-proposals";
 import AIProposalReviewPage from "@/pages/ai-proposal-review";
@@ -254,6 +257,7 @@ function UserProtectedRoutes() {
         <Route path="/agricultural-insights" component={AgriculturalInsights} />
         <Route path="/calculators" component={FinancialCalculators} />
         <Route path="/partner" component={PartnerPortal} />
+        <Route path="/partner/ca-dashboard" component={CADashboard} />
         <Route path="/partner/ca-support" component={CASupportDashboard} />
         <Route path="/partner/ca-support/:id" component={CASupportDetail} />
         <Route path="/support" component={Support} />
@@ -587,6 +591,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <UserManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/ca-management">
+        {() => (
+          <AdminLayout>
+            <CAManagement />
           </AdminLayout>
         )}
       </Route>
@@ -1039,6 +1050,7 @@ function Router() {
         <Route path="/profile" component={Profile} />
         <Route path="/proposal/:shareToken" component={PublicProposalPage} />
         <Route path="/onboarding" component={OnboardingPage} />
+        <Route path="/ca-registration" component={CARegistration} />
         <Route path="/manual-kyc" component={ManualKYCPage} />
         <Route path="/kyc-dashboard">
           <Redirect to="/profile?tab=kyc-dashboard" />
