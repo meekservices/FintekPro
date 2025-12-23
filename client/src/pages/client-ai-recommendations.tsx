@@ -199,43 +199,53 @@ const PRIORITY_CONFIG = {
 
 // Transform AI MF recommendations to display format
 function transformMFRecommendation(mfRec: any, index: number): AIRecommendation {
+  if (!mfRec) return null as any;
+  
   const signal = mfRec.signal?.toLowerCase() || 'hold';
   let type: AIRecommendation['type'] = 'hold';
   let priority: AIRecommendation['priority'] = 'medium';
   
   if (signal === 'buy' || signal === 'buy_more') {
     type = 'buy';
-    priority = mfRec.metrics?.fintekproRating >= 4 ? 'high' : 'medium';
+    priority = (mfRec.metrics?.fintekproRating && Number(mfRec.metrics.fintekproRating) >= 4) ? 'high' : 'medium';
   } else if (signal === 'exit' || signal === 'switch') {
     type = 'sell';
     priority = 'high';
   }
   
+  const expenseRatio = mfRec.metrics?.expenseRatio ? parseFloat(String(mfRec.metrics.expenseRatio)) : 1;
   const riskLevel: AIRecommendation['riskLevel'] = 
-    mfRec.metrics?.expenseRatio > 2 ? 'high' : 
-    mfRec.metrics?.expenseRatio > 1 ? 'medium' : 'low';
+    expenseRatio > 2 ? 'high' : 
+    expenseRatio > 1 ? 'medium' : 'low';
 
-  const rating = mfRec.metrics?.fintekproRating || 3;
+  const rating = Math.min(5, Math.max(1, Number(mfRec.metrics?.fintekproRating) || 3));
   const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+
+  // Safely parse CAGR as number
+  const cagr1Y = mfRec.metrics?.cagr1Y != null ? parseFloat(String(mfRec.metrics.cagr1Y)) : null;
+  const expectedBenefit = cagr1Y != null && !isNaN(cagr1Y)
+    ? `${cagr1Y > 0 ? '+' : ''}${cagr1Y.toFixed(1)}% 1Y returns` 
+    : 'Diversification benefit';
+
+  const schemeName = mfRec.schemeName || 'Mutual Fund';
+  const shortName = schemeName.split(' ').slice(0, 4).join(' ');
 
   return {
     id: `mf-${index}-${mfRec.schemeCode || Date.now()}`,
     type,
     title: type === 'buy' 
-      ? `Consider Adding ${mfRec.schemeName?.split(' ').slice(0, 4).join(' ')}`
+      ? `Consider Adding ${shortName}`
       : type === 'sell' 
-      ? `Review ${mfRec.schemeName?.split(' ').slice(0, 4).join(' ')}`
-      : `Hold ${mfRec.schemeName?.split(' ').slice(0, 4).join(' ')}`,
+      ? `Review ${shortName}`
+      : `Hold ${shortName}`,
     description: mfRec.rationale || 'AI-powered mutual fund recommendation based on FintekPro analysis.',
-    expectedBenefit: mfRec.metrics?.cagr1Y 
-      ? `${mfRec.metrics.cagr1Y > 0 ? '+' : ''}${mfRec.metrics.cagr1Y.toFixed(1)}% 1Y returns` 
-      : 'Diversification benefit',
+    expectedBenefit,
     riskLevel,
-    confidenceScore: mfRec.confidence || 75,
+    confidenceScore: Number(mfRec.confidence) || 75,
     priority,
     symbol: mfRec.schemeCode,
     sector: mfRec.category || 'Mutual Fund',
-    reasoning: `FintekPro Rating: ${stars}. ${mfRec.fundHouse || 'Top AMC'}. Category: ${mfRec.category || 'Diversified'}. ${mfRec.metrics?.expenseRatio ? `Expense Ratio: ${mfRec.metrics.expenseRatio}%` : ''}`
+    reasoning: `FintekPro Rating: ${stars}. ${mfRec.fundHouse || 'Top AMC'}. Category: ${mfRec.category || 'Diversified'}. ${expenseRatio ? `Expense Ratio: ${expenseRatio.toFixed(2)}%` : ''}`
   };
 }
 
@@ -255,9 +265,9 @@ export default function ClientAIRecommendations() {
   });
 
   // Transform MF recommendations to display format
-  const aiMFRecs: AIRecommendation[] = (mfRecommendations as any)?.recommendations?.map(
+  const aiMFRecs: AIRecommendation[] = ((mfRecommendations as any)?.recommendations?.map(
     (rec: any, i: number) => transformMFRecommendation(rec, i)
-  ) || [];
+  ) || []).filter((rec: any) => rec !== null);
 
   // Add commodity recommendations as rebalance suggestions
   const commodityRebalanceRecs: AIRecommendation[] = (commodityRecs as any)?.recommendations?.slice(0, 2).map(
