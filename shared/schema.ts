@@ -18297,6 +18297,224 @@ export const insertSebiGoalRiskProfileSchema = createInsertSchema(sebiGoalRiskPr
 export type SebiGoalRiskProfile = typeof sebiGoalRiskProfiles.$inferSelect;
 export type InsertSebiGoalRiskProfile = z.infer<typeof insertSebiGoalRiskProfileSchema>;
 
+// ============================================================
+// FintekPro AI Financial Ratios Tables
+// Real-time financial metrics for AI-powered recommendations
+// ============================================================
+
+// Fund Financial Ratios - Real-time metrics for mutual funds
+export const fundFinancialRatios = pgTable("fund_financial_ratios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schemeCode: varchar("scheme_code").notNull().unique(),
+  schemeName: text("scheme_name"),
+  fundHouse: varchar("fund_house"),
+  category: varchar("category"),
+  
+  // Portfolio Valuation Metrics
+  portfolioPE: decimal("portfolio_pe", { precision: 10, scale: 2 }),
+  portfolioPB: decimal("portfolio_pb", { precision: 10, scale: 2 }),
+  categoryAvgPE: decimal("category_avg_pe", { precision: 10, scale: 2 }),
+  categoryAvgPB: decimal("category_avg_pb", { precision: 10, scale: 2 }),
+  peVsCategory: decimal("pe_vs_category", { precision: 8, scale: 2 }), // % difference
+  
+  // Profitability Metrics
+  avgROE: decimal("avg_roe", { precision: 8, scale: 2 }),
+  avgROCE: decimal("avg_roce", { precision: 8, scale: 2 }),
+  
+  // Risk-Adjusted Performance
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  sortinoRatio: decimal("sortino_ratio", { precision: 8, scale: 4 }),
+  alpha: decimal("alpha", { precision: 8, scale: 4 }),
+  beta: decimal("beta", { precision: 8, scale: 4 }),
+  standardDeviation: decimal("standard_deviation", { precision: 8, scale: 4 }),
+  
+  // Capture Ratios (downside protection)
+  upsideCaptureRatio: decimal("upside_capture_ratio", { precision: 8, scale: 2 }),
+  downsideCaptureRatio: decimal("downside_capture_ratio", { precision: 8, scale: 2 }),
+  
+  // Returns (CAGR)
+  cagr1Y: decimal("cagr_1y", { precision: 8, scale: 4 }),
+  cagr3Y: decimal("cagr_3y", { precision: 8, scale: 4 }),
+  cagr5Y: decimal("cagr_5y", { precision: 8, scale: 4 }),
+  categoryCagr1Y: decimal("category_cagr_1y", { precision: 8, scale: 4 }),
+  categoryCagr3Y: decimal("category_cagr_3y", { precision: 8, scale: 4 }),
+  cagrVsCategory: decimal("cagr_vs_category", { precision: 8, scale: 2 }), // % outperformance
+  
+  // AUM Metrics
+  currentAum: decimal("current_aum", { precision: 18, scale: 2 }),
+  aum6MonthsAgo: decimal("aum_6_months_ago", { precision: 18, scale: 2 }),
+  aum1YearAgo: decimal("aum_1_year_ago", { precision: 18, scale: 2 }),
+  aumGrowthYoY: decimal("aum_growth_yoy", { precision: 8, scale: 2 }),
+  
+  // Expense & Exit Load
+  expenseRatio: decimal("expense_ratio", { precision: 5, scale: 2 }),
+  exitLoadPercent: decimal("exit_load_percent", { precision: 5, scale: 2 }),
+  exitLoadDays: integer("exit_load_days"),
+  exitLoadDescription: text("exit_load_description"),
+  
+  // Tradability Status
+  purchaseAllowed: boolean("purchase_allowed").default(true),
+  sipAllowed: boolean("sip_allowed").default(true),
+  redemptionAllowed: boolean("redemption_allowed").default(true),
+  schemeStatus: varchar("scheme_status").default("active"), // active, suspended, liquidating, merged
+  
+  // FintekPro Rating Integration
+  fintekproRating: integer("fintekpro_rating"), // 1-5 scale
+  categoryPercentile: decimal("category_percentile", { precision: 5, scale: 2 }),
+  
+  // AI Recommendation Signal
+  aiSignal: varchar("ai_signal").default("hold"), // buy, hold, exit
+  aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }), // 0-100
+  aiRationale: text("ai_rationale"),
+  
+  // Current NAV
+  currentNav: decimal("current_nav", { precision: 12, scale: 4 }),
+  navDate: date("nav_date"),
+  
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_fund_ratios_scheme_code").on(table.schemeCode),
+  index("idx_fund_ratios_category").on(table.category),
+  index("idx_fund_ratios_fund_house").on(table.fundHouse),
+  index("idx_fund_ratios_ai_signal").on(table.aiSignal),
+]);
+
+// Stock Financial Ratios - Real-time metrics for stocks
+export const stockFinancialRatios = pgTable("stock_financial_ratios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol").notNull().unique(),
+  companyName: text("company_name"),
+  sector: varchar("sector"),
+  industry: varchar("industry"),
+  marketCap: varchar("market_cap_category"), // Large Cap, Mid Cap, Small Cap
+  
+  // Valuation Metrics
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
+  evToEbitda: decimal("ev_to_ebitda", { precision: 10, scale: 2 }),
+  priceToSales: decimal("price_to_sales", { precision: 10, scale: 2 }),
+  sectorAvgPE: decimal("sector_avg_pe", { precision: 10, scale: 2 }),
+  peVsSector: decimal("pe_vs_sector", { precision: 8, scale: 2 }), // % difference
+  
+  // Profitability Metrics
+  roe: decimal("roe", { precision: 8, scale: 2 }),
+  roce: decimal("roce", { precision: 8, scale: 2 }),
+  netProfitMargin: decimal("net_profit_margin", { precision: 8, scale: 2 }),
+  operatingMargin: decimal("operating_margin", { precision: 8, scale: 2 }),
+  
+  // Leverage & Liquidity
+  debtToEquity: decimal("debt_to_equity", { precision: 10, scale: 2 }),
+  currentRatio: decimal("current_ratio", { precision: 8, scale: 2 }),
+  quickRatio: decimal("quick_ratio", { precision: 8, scale: 2 }),
+  interestCoverage: decimal("interest_coverage", { precision: 10, scale: 2 }),
+  
+  // Per Share Data
+  eps: decimal("eps", { precision: 15, scale: 2 }),
+  bookValue: decimal("book_value", { precision: 15, scale: 2 }),
+  dividendYield: decimal("dividend_yield", { precision: 8, scale: 4 }),
+  
+  // Price Data
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }),
+  weekHigh52: decimal("week_high_52", { precision: 15, scale: 2 }),
+  weekLow52: decimal("week_low_52", { precision: 15, scale: 2 }),
+  
+  // Returns
+  returns1M: decimal("returns_1m", { precision: 8, scale: 4 }),
+  returns3M: decimal("returns_3m", { precision: 8, scale: 4 }),
+  returns1Y: decimal("returns_1y", { precision: 8, scale: 4 }),
+  returns3Y: decimal("returns_3y", { precision: 8, scale: 4 }),
+  
+  // Risk Metrics
+  beta: decimal("beta", { precision: 6, scale: 4 }),
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  
+  // AI Recommendation
+  aiSignal: varchar("ai_signal").default("hold"), // buy, hold, exit
+  aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }),
+  aiRationale: text("ai_rationale"),
+  targetPrice: decimal("target_price", { precision: 15, scale: 2 }),
+  
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_stock_ratios_symbol").on(table.symbol),
+  index("idx_stock_ratios_sector").on(table.sector),
+  index("idx_stock_ratios_ai_signal").on(table.aiSignal),
+]);
+
+// Recommendation Performance Tracking - Track how well our recommendations perform
+export const recommendationPerformance = pgTable("recommendation_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Recommendation Details
+  assetType: varchar("asset_type").notNull(), // mutual_fund, stock
+  assetCode: varchar("asset_code").notNull(), // schemeCode or symbol
+  assetName: text("asset_name"),
+  
+  // Recommendation
+  recommendationType: varchar("recommendation_type").notNull(), // buy, exit, switch
+  recommendationDate: timestamp("recommendation_date").notNull(),
+  recommendedPrice: decimal("recommended_price", { precision: 15, scale: 4 }),
+  targetPrice: decimal("target_price", { precision: 15, scale: 4 }),
+  aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }),
+  aiRationale: text("ai_rationale"),
+  
+  // Performance Tracking
+  priceAfter1Week: decimal("price_after_1_week", { precision: 15, scale: 4 }),
+  priceAfter1Month: decimal("price_after_1_month", { precision: 15, scale: 4 }),
+  priceAfter3Months: decimal("price_after_3_months", { precision: 15, scale: 4 }),
+  priceAfter6Months: decimal("price_after_6_months", { precision: 15, scale: 4 }),
+  priceAfter1Year: decimal("price_after_1_year", { precision: 15, scale: 4 }),
+  
+  // Return Calculations
+  return1Week: decimal("return_1_week", { precision: 8, scale: 4 }),
+  return1Month: decimal("return_1_month", { precision: 8, scale: 4 }),
+  return3Months: decimal("return_3_months", { precision: 8, scale: 4 }),
+  return6Months: decimal("return_6_months", { precision: 8, scale: 4 }),
+  return1Year: decimal("return_1_year", { precision: 8, scale: 4 }),
+  
+  // Benchmark Comparison
+  benchmarkReturn1Month: decimal("benchmark_return_1_month", { precision: 8, scale: 4 }),
+  benchmarkReturn3Months: decimal("benchmark_return_3_months", { precision: 8, scale: 4 }),
+  alphaGenerated: decimal("alpha_generated", { precision: 8, scale: 4 }),
+  
+  // Success Metrics
+  hitTarget: boolean("hit_target"), // Did it reach target price?
+  isSuccess: boolean("is_success"), // Overall success based on criteria
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_rec_perf_asset_type").on(table.assetType),
+  index("idx_rec_perf_date").on(table.recommendationDate),
+]);
+
+// Insert Schemas and Types for Financial Ratios
+export const insertFundFinancialRatiosSchema = createInsertSchema(fundFinancialRatios).omit({
+  id: true,
+  createdAt: true,
+  lastUpdated: true,
+});
+export type FundFinancialRatios = typeof fundFinancialRatios.$inferSelect;
+export type InsertFundFinancialRatios = z.infer<typeof insertFundFinancialRatiosSchema>;
+
+export const insertStockFinancialRatiosSchema = createInsertSchema(stockFinancialRatios).omit({
+  id: true,
+  createdAt: true,
+  lastUpdated: true,
+});
+export type StockFinancialRatios = typeof stockFinancialRatios.$inferSelect;
+export type InsertStockFinancialRatios = z.infer<typeof insertStockFinancialRatiosSchema>;
+
+export const insertRecommendationPerformanceSchema = createInsertSchema(recommendationPerformance).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type RecommendationPerformance = typeof recommendationPerformance.$inferSelect;
+export type InsertRecommendationPerformance = z.infer<typeof insertRecommendationPerformanceSchema>;
+
 // SEBI Risk Profile Enums for type safety
 export const SebiRiskProfileCodeEnum = z.enum(['RP1', 'RP2', 'RP3', 'RP4', 'RP5']);
 export const SebiRiskBandEnum = z.enum(['very_low', 'low_moderate', 'moderate', 'moderate_high', 'high']);

@@ -292,6 +292,11 @@ app.use((req, res, next) => {
   const mfOrdersRoutes = await import('./routes/mf-orders');
   app.use(mfOrdersRoutes.default);
   
+  // Register AI MF Recommendation routes (Smart fund recommendations with rich rationale)
+  const aiMFRecommendationRoutes = await import('./routes/ai-mf-recommendation-routes');
+  app.use(aiMFRecommendationRoutes.default);
+  console.log('✅ AI MF Recommendation routes registered');
+  
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');

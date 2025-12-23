@@ -651,7 +651,7 @@ class AIInvestmentService {
         const dayChangePercent = parseFloat(stock.dayChangePercent || '0');
         const returns1Y = parseFloat(stock.returns1Y || '0');
         const beta = parseFloat(stock.beta || '1');
-        const low52Week = parseFloat(stock.low52Week || '0');
+        const low52Week = parseFloat(stock.weekLow52 || '0');
         
         // Calculate upside based on returns momentum and market cap
         const estimatedUpside = Math.max(5, Math.min(30, 10 + returns1Y * 0.3 + (stock.marketCap === 'Large Cap' ? 2 : 5)));
@@ -1327,13 +1327,13 @@ Provide a JSON response with:
         const returns1Y = parseFloat(stockData.returns1Y || '0');
         const returns3Y = parseFloat(stockData.returns3Y || '0');
         const dayChange = parseFloat(stockData.dayChangePercent || '0');
-        const high52Week = parseFloat(stockData.high52Week || '0');
-        const low52Week = parseFloat(stockData.low52Week || '0');
+        const high52Week = parseFloat(stockData.weekHigh52 || '0');
+        const low52Week = parseFloat(stockData.weekLow52 || '0');
         const peRatio = parseFloat(stockData.peRatio || '0');
         const pbRatio = parseFloat(stockData.pbRatio || '0');
         const dividendYield = parseFloat(stockData.dividendYield || '0');
-        const volume = parseFloat(stockData.volume || '0');
-        const avgVolume = parseFloat(stockData.avgVolume || stockData.volume || '1');
+        const volume = parseFloat(stockData.averageVolume || '0');
+        const avgVolume = parseFloat(stockData.averageVolume || '1');
         const beta = parseFloat(stockData.beta || '1');
         const marketCap = stockData.marketCap || 'Mid Cap';
         const sector = stockData.sector || 'Diversified';
