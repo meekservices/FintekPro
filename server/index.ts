@@ -297,6 +297,11 @@ app.use((req, res, next) => {
   app.use(aiMFRecommendationRoutes.default);
   console.log('✅ AI MF Recommendation routes registered');
   
+  // Register AuthBridge Aadhaar eSign (DSC) routes
+  const esignRoutes = await import('./routes/esign-routes');
+  app.use(esignRoutes.default);
+  console.log('✅ AuthBridge eSign routes registered');
+  
   // Register error testing routes (development only)
   if (process.env.NODE_ENV === 'development') {
     const testErrorRoutes = await import('./test-error-handling');

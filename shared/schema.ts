@@ -18591,3 +18591,127 @@ export const SebiAssessmentTypeEnum = z.enum(['initial', 'periodic', 'event_trig
 export const SebiOverrideTypeEnum = z.enum(['age_horizon', 'no_emergency_fund', 'high_liabilities', 'manual_downgrade']);
 export const SebiAiTriggerTypeEnum = z.enum(['large_inflow', 'large_outflow', 'liability_added', 'income_change', 'age_band_crossing', 'panic_selling', 'over_trading']);
 
+
+
+// ========================================
+// AuthBridge Aadhaar eSign (DSC) Tables
+// ========================================
+
+// eSign Requests - Track all eSign initiation requests
+export const esignRequests = pgTable("esign_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  transactionId: varchar("transaction_id").notNull().unique(),
+  
+  // Document Details
+  documentType: varchar("document_type").notNull(), // itr_verification, form_15ca, form_15cb, investment_agreement, kyc_consent, mandate, other
+  documentName: text("document_name").notNull(),
+  documentHash: varchar("document_hash").notNull(),
+  documentUrl: text("document_url"),
+  
+  // Signer Details
+  signerName: text("signer_name").notNull(),
+  aadhaarMasked: varchar("aadhaar_masked").notNull(), // XXXX-XXXX-1234
+  
+  // Status Tracking
+  status: varchar("status").notNull().default("initiated"), // initiated, otp_sent, otp_failed, completed, failed, expired
+  errorMessage: text("error_message"),
+  
+  // Timestamps
+  otpSentAt: timestamp("otp_sent_at"),
+  expiresAt: timestamp("expires_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Certificate Reference
+  certificateId: varchar("certificate_id"),
+  
+  // API Response Storage
+  apiResponse: jsonb("api_response"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_esign_requests_user").on(table.userId),
+  index("idx_esign_requests_transaction").on(table.transactionId),
+  index("idx_esign_requests_status").on(table.status),
+]);
+
+// eSign Certificates - Store signed document certificates
+export const esignCertificates = pgTable("esign_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  transactionId: varchar("transaction_id").notNull(),
+  
+  // Document Details
+  documentType: varchar("document_type").notNull(),
+  documentName: text("document_name").notNull(),
+  documentHash: varchar("document_hash").notNull(),
+  signedDocumentUrl: text("signed_document_url"),
+  
+  // Certificate Details
+  certificateSerial: varchar("certificate_serial").notNull().unique(),
+  signerName: text("signer_name").notNull(),
+  signerAadhaarMasked: varchar("signer_aadhaar_masked").notNull(),
+  
+  // Validity
+  signedAt: timestamp("signed_at").notNull(),
+  validFrom: timestamp("valid_from").notNull(),
+  validTo: timestamp("valid_to").notNull(),
+  signatureAlgorithm: varchar("signature_algorithm").default("SHA256withRSA"),
+  
+  // Status
+  status: varchar("status").notNull().default("valid"), // valid, expired, revoked
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_esign_certificates_user").on(table.userId),
+  index("idx_esign_certificates_transaction").on(table.transactionId),
+  index("idx_esign_certificates_serial").on(table.certificateSerial),
+  index("idx_esign_certificates_status").on(table.status),
+]);
+
+// eSign Audit Log - Compliance audit trail
+export const esignAuditLog = pgTable("esign_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionId: varchar("transaction_id").notNull(),
+  userId: varchar("user_id"),
+  
+  action: varchar("action").notNull(), // initiate, otp_sent, otp_resend, otp_verify, sign_complete, download, verify_cert
+  status: varchar("status").notNull(), // success, failed
+  details: jsonb("details"),
+  
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_esign_audit_transaction").on(table.transactionId),
+  index("idx_esign_audit_user").on(table.userId),
+  index("idx_esign_audit_action").on(table.action),
+]);
+
+// Insert Schemas and Types for eSign
+export const insertEsignRequestSchema = createInsertSchema(esignRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type EsignRequest = typeof esignRequests.$inferSelect;
+export type InsertEsignRequest = z.infer<typeof insertEsignRequestSchema>;
+
+export const insertEsignCertificateSchema = createInsertSchema(esignCertificates).omit({
+  id: true,
+  createdAt: true,
+});
+export type EsignCertificate = typeof esignCertificates.$inferSelect;
+export type InsertEsignCertificate = z.infer<typeof insertEsignCertificateSchema>;
+
+export const insertEsignAuditLogSchema = createInsertSchema(esignAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type EsignAuditLog = typeof esignAuditLog.$inferSelect;
+export type InsertEsignAuditLog = z.infer<typeof insertEsignAuditLogSchema>;
+

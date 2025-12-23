@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ESignModal } from "@/components/esign/ESignModal";
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -24,7 +25,8 @@ import {
   AlertCircle,
   Download,
   Clock,
-  Fingerprint
+  Fingerprint,
+  PenTool
 } from "lucide-react";
 
 type VerificationMethod = "evc-aadhaar" | "evc-bank" | "evc-demat" | "dsc";
@@ -49,6 +51,7 @@ export default function TaxITRVerifyPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationComplete, setVerificationComplete] = useState(false);
   const [acknowledgementNumber, setAcknowledgementNumber] = useState("");
+  const [showESignModal, setShowESignModal] = useState(false);
 
   const { data: draftData, isLoading: isDraftLoading } = useQuery({
     queryKey: ["/api/tax/itr/draft", draftId],
@@ -169,6 +172,29 @@ export default function TaxITRVerifyPage() {
     setTimeout(() => {
       dscMutation.mutate();
     }, 2000);
+  };
+
+  const handleAadhaarESign = () => {
+    setShowESignModal(true);
+  };
+
+  const handleESignSuccess = (certificateId: string, signedDocumentUrl: string) => {
+    setVerificationComplete(true);
+    setAcknowledgementNumber(`ACK${Date.now()}`);
+    setShowESignModal(false);
+    toast({
+      title: "ITR Filed Successfully",
+      description: `Verified with Aadhaar eSign. Certificate: ${certificateId.slice(0, 12)}...`
+    });
+    queryClient.invalidateQueries({ queryKey: ["/api/tax/itr/draft", draftId] });
+  };
+
+  const handleESignError = (error: string) => {
+    toast({
+      title: "eSign Failed",
+      description: error || "Unable to complete Aadhaar eSign. Please try again.",
+      variant: "destructive"
+    });
   };
 
   const verificationMethods = [
@@ -464,40 +490,77 @@ export default function TaxITRVerifyPage() {
                   Digital Signature Certificate (DSC)
                 </CardTitle>
                 <CardDescription>
-                  Verify using your registered DSC token
+                  Choose your preferred signing method
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>DSC Requirements</AlertTitle>
-                  <AlertDescription>
-                    <ul className="list-disc list-inside mt-2 space-y-1">
-                      <li>Ensure your DSC token is connected to your computer</li>
-                      <li>DSC must be registered with the Income Tax Department</li>
-                      <li>Class 2 or Class 3 DSC is required for ITR filing</li>
-                    </ul>
-                  </AlertDescription>
-                </Alert>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4">
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Fingerprint className="w-5 h-5 text-primary" />
+                      <h4 className="font-semibold">Aadhaar eSign (Recommended)</h4>
+                      <Badge className="bg-green-500 text-xs">Easy</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Sign using Aadhaar OTP - no hardware token required. 
+                      Legally valid under IT Act 2000.
+                    </p>
+                    <Button
+                      className="w-full"
+                      onClick={handleAadhaarESign}
+                      data-testid="button-verify-aadhaar-esign"
+                    >
+                      <PenTool className="w-4 h-4 mr-2" />
+                      Sign with Aadhaar eSign
+                    </Button>
+                  </div>
 
-                <Button
-                  className="w-full"
-                  onClick={handleDSCVerify}
-                  disabled={isVerifying}
-                  data-testid="button-verify-dsc"
-                >
-                  {isVerifying ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Verifying DSC...
-                    </>
-                  ) : (
-                    <>
-                      <Key className="w-4 h-4 mr-2" />
-                      Sign with DSC
-                    </>
-                  )}
-                </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Key className="w-5 h-5 text-orange-500" />
+                      <h4 className="font-semibold">Hardware DSC Token</h4>
+                    </div>
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>DSC Requirements</AlertTitle>
+                      <AlertDescription>
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                          <li>Ensure your DSC token is connected to your computer</li>
+                          <li>DSC must be registered with the Income Tax Department</li>
+                          <li>Class 2 or Class 3 DSC is required for ITR filing</li>
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleDSCVerify}
+                      disabled={isVerifying}
+                      data-testid="button-verify-dsc"
+                    >
+                      {isVerifying ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Verifying DSC...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="w-4 h-4 mr-2" />
+                          Sign with Hardware Token
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -567,6 +630,18 @@ export default function TaxITRVerifyPage() {
           </Card>
         </div>
       </div>
+
+      <ESignModal
+        open={showESignModal}
+        onOpenChange={setShowESignModal}
+        documentType="itr_verification"
+        documentName={`ITR-${draftData?.itrForm || '1'} for AY 2024-25`}
+        documentHash={`ITR-${draftId}-${Date.now()}`}
+        aadhaarNumber={draftData?.aadhaarNumber || "123456789012"}
+        fullName={draftData?.fullName || "User"}
+        onSuccess={handleESignSuccess}
+        onError={handleESignError}
+      />
     </div>
   );
 }
