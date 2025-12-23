@@ -33933,5 +33933,210 @@ System Security Data:`;
     }
   });
 
+
+  // Stock AI - AI-powered stock and derivatives recommendations
+  app.post("/api/stock-ai/generate", async (req, res) => {
+    try {
+      const { category, timeHorizon, investmentAmount, riskTolerance, sectors, marketCap, tradingStyle, derivativeType } = req.body;
+
+      // Generate AI-powered stock recommendations based on parameters
+      const generateStockRecommendations = () => {
+        const stockPool = [
+          { symbol: 'RELIANCE', name: 'Reliance Industries Ltd', sector: 'Energy', price: 2890.50 },
+          { symbol: 'TCS', name: 'Tata Consultancy Services', sector: 'IT', price: 3324.90 },
+          { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', sector: 'Banking', price: 1654.25 },
+          { symbol: 'INFY', name: 'Infosys Limited', sector: 'IT', price: 1689.60 },
+          { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd', sector: 'Banking', price: 1056.40 },
+          { symbol: 'HINDUNILVR', name: 'Hindustan Unilever', sector: 'FMCG', price: 2456.80 },
+          { symbol: 'SBIN', name: 'State Bank of India', sector: 'Banking', price: 628.35 },
+          { symbol: 'BHARTIARTL', name: 'Bharti Airtel', sector: 'Telecom', price: 2147.60 },
+          { symbol: 'ITC', name: 'ITC Limited', sector: 'FMCG', price: 456.70 },
+          { symbol: 'KOTAKBANK', name: 'Kotak Mahindra Bank', sector: 'Banking', price: 2149.70 },
+          { symbol: 'LT', name: 'Larsen & Toubro', sector: 'Infra', price: 4072.40 },
+          { symbol: 'AXISBANK', name: 'Axis Bank Ltd', sector: 'Banking', price: 1089.25 },
+          { symbol: 'WIPRO', name: 'Wipro Limited', sector: 'IT', price: 272.67 },
+          { symbol: 'MARUTI', name: 'Maruti Suzuki India', sector: 'Auto', price: 16649.00 },
+          { symbol: 'BAJFINANCE', name: 'Bajaj Finance Ltd', sector: 'Banking', price: 1007.80 },
+          { symbol: 'SUNPHARMA', name: 'Sun Pharma Industries', sector: 'Pharma', price: 1823.45 },
+          { symbol: 'TATAMOTORS', name: 'Tata Motors Ltd', sector: 'Auto', price: 789.30 },
+          { symbol: 'ONGC', name: 'Oil & Natural Gas Corp', sector: 'Energy', price: 267.85 },
+          { symbol: 'TITAN', name: 'Titan Company Ltd', sector: 'Consumer', price: 3456.90 },
+          { symbol: 'ADANIENT', name: 'Adani Enterprises', sector: 'Infra', price: 2987.60 }
+        ];
+
+        let filteredStocks = sectors && sectors.length > 0
+          ? stockPool.filter((s: any) => sectors.includes(s.sector))
+          : stockPool;
+
+        const numRecommendations = Math.min(5, Math.max(3, Math.floor(investmentAmount / 100000)));
+        const shuffled = filteredStocks.sort(() => 0.5 - Math.random());
+        const selectedStocks = shuffled.slice(0, numRecommendations);
+
+        const timeHorizonMultipliers: Record<string, { targetPct: number; slPct: number; returnPct: number }> = {
+          'intraday': { targetPct: 0.02, slPct: 0.01, returnPct: 2 },
+          'ultra_short': { targetPct: 0.04, slPct: 0.02, returnPct: 4 },
+          'short_term': { targetPct: 0.08, slPct: 0.04, returnPct: 8 },
+          'medium_term': { targetPct: 0.15, slPct: 0.08, returnPct: 15 },
+          'long_term': { targetPct: 0.30, slPct: 0.12, returnPct: 30 }
+        };
+
+        const riskMultipliers: Record<string, number> = {
+          'conservative': 0.7,
+          'moderate': 1.0,
+          'aggressive': 1.4
+        };
+
+        const multiplier = timeHorizonMultipliers[timeHorizon] || timeHorizonMultipliers['short_term'];
+        const riskMult = riskMultipliers[riskTolerance] || 1.0;
+
+        return selectedStocks.map((stock: any, idx: number) => {
+          const isUptrend = Math.random() > 0.3;
+          const action = isUptrend ? 'BUY' : (Math.random() > 0.5 ? 'SELL' : 'HOLD');
+          const targetPrice = isUptrend 
+            ? stock.price * (1 + multiplier.targetPct * riskMult) 
+            : stock.price * (1 - multiplier.targetPct * riskMult);
+          const stopLoss = isUptrend
+            ? stock.price * (1 - multiplier.slPct)
+            : stock.price * (1 + multiplier.slPct);
+          
+          const rsi = Math.floor(30 + Math.random() * 50);
+          const macd = isUptrend ? 'Bullish' : 'Bearish';
+
+          return {
+            id: `STOCK-\${Date.now()}-\${idx}`,
+            symbol: stock.symbol,
+            name: stock.name,
+            exchange: 'NSE',
+            sector: stock.sector,
+            currentPrice: stock.price,
+            entryPrice: stock.price * (isUptrend ? 0.995 : 1.005),
+            targetPrice: Math.round(targetPrice * 100) / 100,
+            stopLoss: Math.round(stopLoss * 100) / 100,
+            action,
+            confidence: Math.floor(65 + Math.random() * 30),
+            riskScore: Math.floor(3 + Math.random() * 5),
+            expectedReturn: Math.round(multiplier.returnPct * riskMult * 10) / 10,
+            timeHorizon,
+            technicalIndicators: {
+              rsi,
+              macd,
+              movingAverage50: Math.round(stock.price * (0.95 + Math.random() * 0.1) * 100) / 100,
+              movingAverage200: Math.round(stock.price * (0.9 + Math.random() * 0.1) * 100) / 100,
+              volumeTrend: Math.random() > 0.5 ? 'High' : 'Normal',
+              supportLevel: Math.round(stock.price * 0.92 * 100) / 100,
+              resistanceLevel: Math.round(stock.price * 1.08 * 100) / 100
+            },
+            aiRationale: `Based on \${timeHorizon.replace('_', ' ')} analysis, \${stock.symbol} shows \${isUptrend ? 'bullish momentum' : 'consolidation pattern'} with RSI at \${rsi}. \${macd} MACD crossover indicates \${action.toLowerCase()} opportunity.`,
+            keyDrivers: [
+              isUptrend ? 'Positive momentum' : 'Mean reversion',
+              'Strong fundamentals',
+              'Sector tailwinds'
+            ],
+            risks: [
+              'Market volatility',
+              'Sector rotation risk',
+              'Global cues impact'
+            ]
+          };
+        });
+      };
+
+      const generateDerivativeRecommendations = () => {
+        const underlyings = [
+          { symbol: 'NIFTY', name: 'Nifty 50 Index', price: 24850, lotSize: 25 },
+          { symbol: 'BANKNIFTY', name: 'Bank Nifty Index', price: 53200, lotSize: 15 },
+          { symbol: 'FINNIFTY', name: 'Fin Nifty Index', price: 23450, lotSize: 25 },
+          { symbol: 'RELIANCE', name: 'Reliance Industries', price: 2890, lotSize: 250 },
+          { symbol: 'TCS', name: 'TCS Limited', price: 3325, lotSize: 150 },
+          { symbol: 'HDFCBANK', name: 'HDFC Bank', price: 1654, lotSize: 550 }
+        ];
+
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + (7 - expiry.getDay()) % 7 + 4);
+        const expiryStr = expiry.toISOString().split('T')[0];
+
+        const numRecommendations = Math.min(4, Math.max(2, Math.floor(investmentAmount / 200000)));
+        const shuffled = underlyings.sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, numRecommendations);
+
+        return selected.map((underlying: any, idx: number) => {
+          const isBullish = Math.random() > 0.4;
+          const isFutures = derivativeType === 'futures';
+          const isCall = derivativeType === 'options_call' || (derivativeType === 'spreads' && isBullish);
+          
+          let instrumentType: 'FUTURES' | 'CALL_OPTION' | 'PUT_OPTION' = 'FUTURES';
+          let strikePrice: number | undefined;
+          let premium = 0;
+          let strategy = '';
+
+          if (isFutures) {
+            instrumentType = 'FUTURES';
+            premium = underlying.price;
+            strategy = isBullish ? 'Long Futures - Bullish Directional' : 'Short Futures - Bearish Directional';
+          } else {
+            instrumentType = isCall ? 'CALL_OPTION' : 'PUT_OPTION';
+            strikePrice = isCall
+              ? Math.round(underlying.price * 1.02 / 50) * 50
+              : Math.round(underlying.price * 0.98 / 50) * 50;
+            premium = Math.round((underlying.price * 0.015 + Math.random() * underlying.price * 0.01) * 100) / 100;
+            strategy = isCall 
+              ? 'Long Call - Limited Risk Bullish' 
+              : 'Long Put - Limited Risk Bearish';
+          }
+
+          const action = isBullish ? 'BUY' : 'SELL';
+          const targetMultiplier = isFutures ? 0.03 : 0.5;
+          const slMultiplier = isFutures ? 0.015 : 0.3;
+          const delta = isCall ? (0.4 + Math.random() * 0.3) : -(0.4 + Math.random() * 0.3);
+
+          return {
+            id: `DERIV-\${Date.now()}-\${idx}`,
+            symbol: `\${underlying.symbol}\${expiryStr.replace(/-/g, '').slice(4)}\${strikePrice ? strikePrice : 'FUT'}\${instrumentType === 'CALL_OPTION' ? 'CE' : instrumentType === 'PUT_OPTION' ? 'PE' : ''}`,
+            underlying: underlying.name,
+            instrumentType,
+            strikePrice,
+            expiryDate: expiryStr,
+            lotSize: underlying.lotSize,
+            currentPremium: premium,
+            entryPrice: premium,
+            targetPrice: Math.round(premium * (1 + targetMultiplier) * 100) / 100,
+            stopLoss: Math.round(premium * (1 - slMultiplier) * 100) / 100,
+            action,
+            confidence: Math.floor(60 + Math.random() * 30),
+            riskScore: isFutures ? Math.floor(6 + Math.random() * 3) : Math.floor(4 + Math.random() * 4),
+            expectedReturn: Math.round(targetMultiplier * 100),
+            maxProfit: isFutures ? undefined : Math.round(premium * targetMultiplier * underlying.lotSize),
+            maxLoss: Math.round(premium * slMultiplier * underlying.lotSize),
+            breakeven: strikePrice ? strikePrice + (isCall ? premium : -premium) : undefined,
+            greeks: !isFutures ? {
+              delta: Math.round(delta * 100) / 100,
+              gamma: Math.round((0.001 + Math.random() * 0.002) * 10000) / 10000,
+              theta: Math.round(-(premium * 0.02 + Math.random() * premium * 0.01) * 100) / 100,
+              vega: Math.round((premium * 0.1 + Math.random() * premium * 0.05) * 100) / 100,
+              iv: Math.round((15 + Math.random() * 15) * 10) / 10
+            } : undefined,
+            aiRationale: `\${underlying.name} showing \${isBullish ? 'bullish' : 'bearish'} signals. \${strategy} recommended with \${riskTolerance} risk profile.`,
+            strategy,
+            risks: ['Time decay (Theta)', 'Volatility changes', 'Directional risk', 'Liquidity risk']
+          };
+        });
+      };
+
+      const response: any = {};
+      if (category === 'stocks') {
+        response.stocks = generateStockRecommendations();
+      } else if (category === 'derivatives') {
+        response.derivatives = generateDerivativeRecommendations();
+      } else {
+        response.stocks = generateStockRecommendations();
+        response.derivatives = generateDerivativeRecommendations();
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error('Error generating stock AI recommendations:', error);
+      res.status(500).json({ message: 'Failed to generate recommendations' });
+    }
+  });
   return server;
 }

@@ -79,6 +79,12 @@ const agentNavItems = [
     description: "AI-powered bond portfolio recommendations"
   },
   {
+    title: "Stock AI",
+    href: "/stock-ai",
+    icon: TrendingUp,
+    description: "AI-powered stock & derivatives recommendations"
+  },
+  {
     title: "Demo Progress",
     href: "/demo-progress",
     icon: TrendingUp,
