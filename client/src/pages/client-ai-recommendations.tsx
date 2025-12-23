@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Brain,
   TrendingUp,
@@ -23,7 +25,8 @@ import {
   ArrowDownRight,
   ChevronDown,
   Filter,
-  Zap
+  Zap,
+  Star
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -31,6 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { queryClient } from "@/lib/queryClient";
 
 interface AIRecommendation {
   id: string;
@@ -193,12 +197,90 @@ const PRIORITY_CONFIG = {
   low: { label: 'Low', color: 'bg-gray-100 text-gray-700 border-gray-200' }
 };
 
+// Transform AI MF recommendations to display format
+function transformMFRecommendation(mfRec: any, index: number): AIRecommendation {
+  const signal = mfRec.signal?.toLowerCase() || 'hold';
+  let type: AIRecommendation['type'] = 'hold';
+  let priority: AIRecommendation['priority'] = 'medium';
+  
+  if (signal === 'buy' || signal === 'buy_more') {
+    type = 'buy';
+    priority = mfRec.metrics?.fintekproRating >= 4 ? 'high' : 'medium';
+  } else if (signal === 'exit' || signal === 'switch') {
+    type = 'sell';
+    priority = 'high';
+  }
+  
+  const riskLevel: AIRecommendation['riskLevel'] = 
+    mfRec.metrics?.expenseRatio > 2 ? 'high' : 
+    mfRec.metrics?.expenseRatio > 1 ? 'medium' : 'low';
+
+  const rating = mfRec.metrics?.fintekproRating || 3;
+  const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+
+  return {
+    id: `mf-${index}-${mfRec.schemeCode || Date.now()}`,
+    type,
+    title: type === 'buy' 
+      ? `Consider Adding ${mfRec.schemeName?.split(' ').slice(0, 4).join(' ')}`
+      : type === 'sell' 
+      ? `Review ${mfRec.schemeName?.split(' ').slice(0, 4).join(' ')}`
+      : `Hold ${mfRec.schemeName?.split(' ').slice(0, 4).join(' ')}`,
+    description: mfRec.rationale || 'AI-powered mutual fund recommendation based on FintekPro analysis.',
+    expectedBenefit: mfRec.metrics?.cagr1Y 
+      ? `${mfRec.metrics.cagr1Y > 0 ? '+' : ''}${mfRec.metrics.cagr1Y.toFixed(1)}% 1Y returns` 
+      : 'Diversification benefit',
+    riskLevel,
+    confidenceScore: mfRec.confidence || 75,
+    priority,
+    symbol: mfRec.schemeCode,
+    sector: mfRec.category || 'Mutual Fund',
+    reasoning: `FintekPro Rating: ${stars}. ${mfRec.fundHouse || 'Top AMC'}. Category: ${mfRec.category || 'Diversified'}. ${mfRec.metrics?.expenseRatio ? `Expense Ratio: ${mfRec.metrics.expenseRatio}%` : ''}`
+  };
+}
+
 export default function ClientAIRecommendations() {
   const [activeTab, setActiveTab] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
 
-  const activeRecommendations = SAMPLE_RECOMMENDATIONS.filter(
+  // Fetch AI MF recommendations
+  const { data: mfRecommendations, isLoading: isMFLoading, refetch: refetchMF } = useQuery({
+    queryKey: ['/api/ai-mf/recommendations'],
+  });
+
+  // Fetch commodity recommendations for diversification
+  const { data: commodityRecs, isLoading: isCommodityLoading } = useQuery({
+    queryKey: ['/api/ai-mf/commodity-fof'],
+  });
+
+  // Transform MF recommendations to display format
+  const aiMFRecs: AIRecommendation[] = (mfRecommendations as any)?.recommendations?.map(
+    (rec: any, i: number) => transformMFRecommendation(rec, i)
+  ) || [];
+
+  // Add commodity recommendations as rebalance suggestions
+  const commodityRebalanceRecs: AIRecommendation[] = (commodityRecs as any)?.recommendations?.slice(0, 2).map(
+    (rec: any, i: number) => ({
+      ...transformMFRecommendation(rec, i + 100),
+      type: 'rebalance' as const,
+      title: `Add Gold/Commodity Exposure`,
+      description: `Consider ${rec.schemeName} for 5-10% portfolio allocation to protect against market volatility.`,
+      expectedBenefit: 'Downside protection',
+      reasoning: `Gold/Commodity funds provide portfolio diversification and hedge against inflation. FintekPro recommends 5-10% allocation.`
+    })
+  ) || [];
+
+  // Combine AI recommendations with sample recommendations for tax optimization
+  const allRecommendations = [
+    ...aiMFRecs,
+    ...commodityRebalanceRecs,
+    ...SAMPLE_RECOMMENDATIONS.filter(r => r.type === 'tax_optimization')
+  ];
+
+  const isLoading = isMFLoading || isCommodityLoading;
+
+  const activeRecommendations = allRecommendations.filter(
     rec => !dismissedIds.includes(rec.id)
   );
 
@@ -220,11 +302,16 @@ export default function ClientAIRecommendations() {
     potentialGains: activeRecommendations
       .filter(r => r.type === 'buy' || r.type === 'tax_optimization')
       .length,
-    lastUpdated: 'Today, 2:30 PM'
+    lastUpdated: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
   };
 
   const handleDismiss = (id: string) => {
     setDismissedIds([...dismissedIds, id]);
+  };
+
+  const handleRefresh = () => {
+    refetchMF();
+    queryClient.invalidateQueries({ queryKey: ['/api/ai-mf/commodity-fof'] });
   };
 
   const getConfidenceColor = (score: number) => {
