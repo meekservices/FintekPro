@@ -32,7 +32,8 @@ import {
   Calendar,
   FileSignature,
   DollarSign,
-  Clock
+  Clock,
+  Trophy
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,7 @@ const agentNavCategories: NavCategory[] = [
     items: [
       { title: "Dashboard", href: "/", icon: Home, description: "Overview and metrics" },
       { title: "Revenue Cockpit", href: "/revenue", icon: Wallet, description: "AUM and commissions" },
+      { title: "Leaderboard", href: "/leaderboard", icon: Trophy, description: "Agent rankings" },
       { title: "Commission Calculator", href: "/commission-calculator", icon: Calculator, description: "Calculate earnings" },
       { title: "My Clients", href: "/clients", icon: Users, description: "Client portfolio" },
       { title: "Onboard Client", href: "/onboard-client", icon: UserPlus, description: "New client KYC" },
