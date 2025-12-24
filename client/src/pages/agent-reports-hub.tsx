@@ -226,7 +226,7 @@ export default function AgentReportsHub() {
             <Link href="/report-builder">
               <Button className="bg-emerald-600 hover:bg-emerald-700" data-testid="button-report-builder">
                 <Plus className="h-4 w-4 mr-2" />
-                Advanced Builder
+                Report Builder
               </Button>
             </Link>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />

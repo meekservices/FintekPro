@@ -61,10 +61,10 @@ const agentNavItems = [
     description: "Manage tasks and reminders"
   },
   {
-    title: "Demo Proposals",
-    href: "/prospect-proposals",
+    title: "Proposal Builder",
+    href: "/proposal-builder",
     icon: UserPlus,
-    description: "Create proposals to acquire new clients"
+    description: "Create investment proposals for prospects and clients"
   },
   {
     title: "AI Advisory",

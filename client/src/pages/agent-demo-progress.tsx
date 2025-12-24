@@ -191,7 +191,7 @@ export default function AgentDemoProgress() {
           <p className="text-gray-400 mt-1">Track your demo proposals and conversion performance</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/demo-proposal-builder">
+          <Link href="/proposal-builder">
             <Button className="bg-purple-600 hover:bg-purple-700" data-testid="button-create-proposal">
               <Plus className="h-4 w-4 mr-2" />
               Create Proposal

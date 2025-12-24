@@ -14,6 +14,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -45,7 +48,15 @@ import {
   User,
   Mail,
   Phone,
-  Sparkles
+  Sparkles,
+  Plus,
+  Send,
+  Copy,
+  ExternalLink,
+  Trash2,
+  Clock,
+  MessageSquare,
+  CheckCircle2
 } from "lucide-react";
 
 interface Client {
@@ -98,6 +109,51 @@ interface ProposalConfig {
     includeSEBIDisclosure: boolean;
   };
 }
+
+interface ProspectProposal {
+  id: string;
+  shareToken: string;
+  prospectName: string;
+  prospectEmail?: string;
+  prospectMobile?: string;
+  proposalType: string;
+  proposalTitle: string;
+  executiveSummary?: string;
+  currentAnalysis?: string;
+  recommendations?: any[];
+  totalInvestmentAmount?: string;
+  projectedReturns?: string;
+  projectedValue?: string;
+  targetAllocation?: Record<string, number>;
+  samplePortfolio?: any;
+  investmentGoals?: any;
+  referralCode?: string;
+  viewCount: number;
+  status: string;
+  createdAt: string;
+  validUntil?: string;
+  sharedViaEmail?: boolean;
+  sharedViaWhatsApp?: boolean;
+  firstViewedAt?: string;
+  lastViewedAt?: string;
+}
+
+interface ProposalStats {
+  total: number;
+  draft: number;
+  shared: number;
+  viewed: number;
+  converted: number;
+  totalViews: number;
+}
+
+const PROPOSAL_STATUS_COLORS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  shared: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  viewed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  converted: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+  expired: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+};
 
 const WIZARD_STEPS = [
   { id: 1, title: 'Select Client', icon: Users, description: 'Choose prospect or client' },
@@ -216,15 +272,48 @@ const defaultConfig: ProposalConfig = {
 export default function AgentDemoProposalBuilder() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState("create");
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [config, setConfig] = useState<ProposalConfig>(defaultConfig);
   const [proposalName, setProposalName] = useState('');
   const [generatedProposalUrl, setGeneratedProposalUrl] = useState<string | null>(null);
+  const [generatedProposalData, setGeneratedProposalData] = useState<any>(null);
+  
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<ProspectProposal | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
   const { data: clientsData, isLoading: clientsLoading } = useQuery({
     queryKey: ['/api/users'],
   });
+
+  const { data: proposalsData, isLoading: proposalsLoading } = useQuery<{ proposals: ProspectProposal[]; stats: ProposalStats }>({
+    queryKey: ["/api/agent/prospect-proposals", filterStatus],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterStatus && filterStatus !== "all") {
+        params.append("status", filterStatus);
+      }
+      const url = `/api/agent/prospect-proposals${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch proposals");
+      return res.json();
+    },
+  });
+
+  const proposals = proposalsData?.proposals || [];
+  const stats = proposalsData?.stats || { total: 0, draft: 0, shared: 0, viewed: 0, converted: 0, totalViews: 0 };
+
+  const filteredProposals = proposals.filter(p =>
+    p.prospectName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.proposalTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.prospectEmail?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const validateBeforeGenerate = (): boolean => {
     const allocationTotal = Object.values(config.assetAllocation).reduce((a, b) => a + b, 0);
@@ -272,11 +361,13 @@ export default function AgentDemoProposalBuilder() {
     onSuccess: (data: any) => {
       if (data.pdfUrl) {
         setGeneratedProposalUrl(data.pdfUrl);
+        setGeneratedProposalData(data);
         toast({
           title: "Proposal Generated",
           description: "Your investment proposal PDF is ready for download",
         });
         queryClient.invalidateQueries({ queryKey: ['/api/agent/demo-proposals'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/agent/prospect-proposals'] });
       }
     },
     onError: (error: any) => {
@@ -288,6 +379,41 @@ export default function AgentDemoProposalBuilder() {
         });
       }
     },
+  });
+
+  const shareProposalMutation = useMutation({
+    mutationFn: async ({ id, shareVia }: { id: string; shareVia: string }) => {
+      return await apiRequest(`/api/agent/prospect-proposals/${id}/share`, {
+        method: "POST",
+        body: JSON.stringify({ shareVia }),
+        headers: { "Content-Type": "application/json" }
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: "Proposal Shared", description: "The prospect can now view the proposal" });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent/prospect-proposals"] });
+        setShowShareDialog(false);
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Share Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const deleteProposalMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/agent/prospect-proposals/${id}`, {
+        method: "DELETE"
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Proposal Deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/prospect-proposals"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+    }
   });
 
   useEffect(() => {
@@ -393,7 +519,6 @@ export default function AgentDemoProposalBuilder() {
       newAllocation[key as keyof typeof newAllocation] = Math.round(newAllocation[key as keyof typeof newAllocation] * scale);
     });
     
-    // Adjust rounding errors
     const newTotal = Object.values(newAllocation).reduce((a, b) => a + b, 0);
     if (newTotal !== 100) {
       const diff = 100 - newTotal;
@@ -444,6 +569,11 @@ export default function AgentDemoProposalBuilder() {
     }
   };
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: `${label} copied to clipboard` });
+  };
+
   const canProceed = () => {
     switch (currentStep) {
       case 1:
@@ -475,653 +605,1173 @@ export default function AgentDemoProposalBuilder() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900" data-testid="demo-proposal-builder">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900" data-testid="proposal-builder">
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
               <Sparkles className="h-8 w-8 text-purple-600" />
-              Demo Proposal Builder
+              Proposal Builder
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
-              Create professional investment proposals for prospects
+              Create professional investment proposals for prospects and clients
             </p>
           </div>
-          <Button variant="outline" onClick={() => navigate('/agent/demo-proposals')}>
-            <History className="h-4 w-4 mr-2" />
-            View History
-          </Button>
         </div>
 
-        <div className="flex gap-8 mb-8 overflow-x-auto pb-2">
-          {WIZARD_STEPS.map((step, index) => {
-            const StepIcon = step.icon;
-            const isActive = currentStep === step.id;
-            const isCompleted = currentStep > step.id;
-            return (
-              <div 
-                key={step.id} 
-                className={`flex items-center gap-3 flex-shrink-0 ${isActive ? 'opacity-100' : 'opacity-60'}`}
-                data-testid={`wizard-step-${step.id}`}
-              >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  isCompleted ? 'bg-green-500 text-white' :
-                  isActive ? 'bg-purple-600 text-white' :
-                  'bg-gray-200 dark:bg-gray-700 text-gray-500'
-                }`}>
-                  {isCompleted ? <Check className="h-5 w-5" /> : <StepIcon className="h-5 w-5" />}
-                </div>
-                <div className="hidden lg:block">
-                  <p className={`text-sm font-medium ${isActive ? 'text-purple-600' : 'text-gray-600 dark:text-gray-400'}`}>
-                    {step.title}
-                  </p>
-                  <p className="text-xs text-gray-400">{step.description}</p>
-                </div>
-                {index < WIZARD_STEPS.length - 1 && (
-                  <div className={`w-8 h-0.5 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="create" className="flex items-center gap-2" data-testid="tab-create">
+              <Plus className="w-4 h-4" />
+              Create Proposal
+            </TabsTrigger>
+            <TabsTrigger value="proposals" className="flex items-center gap-2" data-testid="tab-proposals">
+              <FileText className="w-4 h-4" />
+              My Proposals
+            </TabsTrigger>
+          </TabsList>
 
-        <Progress value={(currentStep / 6) * 100} className="mb-8" />
-
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-semibold mb-4">Select Prospect or Client</h2>
-                  {clientsLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+          <TabsContent value="create">
+            <div className="flex gap-8 mb-8 overflow-x-auto pb-2">
+              {WIZARD_STEPS.map((step, index) => {
+                const StepIcon = step.icon;
+                const isActive = currentStep === step.id;
+                const isCompleted = currentStep > step.id;
+                return (
+                  <div 
+                    key={step.id} 
+                    className={`flex items-center gap-3 flex-shrink-0 ${isActive ? 'opacity-100' : 'opacity-60'}`}
+                    data-testid={`wizard-step-${step.id}`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      isCompleted ? 'bg-green-500 text-white' :
+                      isActive ? 'bg-purple-600 text-white' :
+                      'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                    }`}>
+                      {isCompleted ? <Check className="h-5 w-5" /> : <StepIcon className="h-5 w-5" />}
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="mb-2 block">Client</Label>
-                        <Select 
-                          value={selectedClient?.id?.toString() || ''} 
-                          onValueChange={(val) => {
-                            const client = clients.find((c: Client) => c.id.toString() === val);
-                            setSelectedClient(client || null);
-                          }}
-                        >
-                          <SelectTrigger data-testid="select-client">
-                            <SelectValue placeholder="Select a client or prospect" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.isArray(clients) && clients.map((client: Client) => (
-                              <SelectItem key={client.id} value={client.id.toString()}>
-                                <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4" />
-                                  <span>{client.fullName}</span>
-                                  {client.email && <span className="text-gray-400 text-sm">({client.email})</span>}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="hidden lg:block">
+                      <p className={`text-sm font-medium ${isActive ? 'text-purple-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                        {step.title}
+                      </p>
+                      <p className="text-xs text-gray-400">{step.description}</p>
+                    </div>
+                    {index < WIZARD_STEPS.length - 1 && (
+                      <div className={`w-8 h-0.5 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
-                      {selectedClient && (
-                        <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200">
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-4">
-                              <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-xl font-bold">
-                                {selectedClient.fullName.charAt(0)}
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-lg">{selectedClient.fullName}</h4>
-                                <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                  {selectedClient.email && (
-                                    <span className="flex items-center gap-1">
-                                      <Mail className="h-4 w-4" />
-                                      {selectedClient.email}
-                                    </span>
-                                  )}
-                                  {selectedClient.phone && (
-                                    <span className="flex items-center gap-1">
-                                      <Phone className="h-4 w-4" />
-                                      {selectedClient.phone}
-                                    </span>
-                                  )}
+            <Progress value={(currentStep / 6) * 100} className="mb-8" />
+
+            <Card className="mb-6">
+              <CardContent className="p-6">
+                {currentStep === 1 && (
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="text-xl font-semibold mb-4">Select Prospect or Client</h2>
+                      {clientsLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div>
+                            <Label className="mb-2 block">Client</Label>
+                            <Select 
+                              value={selectedClient?.id?.toString() || ''} 
+                              onValueChange={(val) => {
+                                const client = clients.find((c: Client) => c.id.toString() === val);
+                                setSelectedClient(client || null);
+                              }}
+                            >
+                              <SelectTrigger data-testid="select-client">
+                                <SelectValue placeholder="Select a client or prospect" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.isArray(clients) && clients.map((client: Client) => (
+                                  <SelectItem key={client.id} value={client.id.toString()}>
+                                    <div className="flex items-center gap-2">
+                                      <User className="h-4 w-4" />
+                                      <span>{client.fullName}</span>
+                                      {client.email && <span className="text-gray-400 text-sm">({client.email})</span>}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {selectedClient && (
+                            <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200">
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-4">
+                                  <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-xl font-bold">
+                                    {selectedClient.fullName.charAt(0)}
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-lg">{selectedClient.fullName}</h4>
+                                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                      {selectedClient.email && (
+                                        <span className="flex items-center gap-1">
+                                          <Mail className="h-4 w-4" />
+                                          {selectedClient.email}
+                                        </span>
+                                      )}
+                                      {selectedClient.phone && (
+                                        <span className="flex items-center gap-1">
+                                          <Phone className="h-4 w-4" />
+                                          {selectedClient.phone}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {selectedClient.riskProfile && (
+                                      <Badge variant="outline" className="mt-2">
+                                        Risk Profile: {selectedClient.riskProfile}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
-                                {selectedClient.riskProfile && (
-                                  <Badge variant="outline" className="mt-2">
-                                    Risk Profile: {selectedClient.riskProfile}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {currentStep === 2 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">Investment Goals</h2>
-                  <Select
-                    value=""
-                    onValueChange={(templateId) => {
-                      const template = TEMPLATE_PRESETS.find(t => t.id === templateId);
-                      if (template) {
-                        setConfig(prev => ({
-                          ...prev,
-                          investmentGoals: { ...prev.investmentGoals, ...template.config.investmentGoals },
-                          assetAllocation: template.config.assetAllocation,
-                          riskProfile: template.config.riskProfile,
-                        }));
-                        toast({
-                          title: "Template Applied",
-                          description: `${template.name} template has been applied`,
-                        });
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-[200px]" data-testid="select-template">
-                      <SelectValue placeholder="Load Template..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TEMPLATE_PRESETS.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          <div>
-                            <div className="font-medium">{template.name}</div>
-                            <div className="text-xs text-gray-500">{template.description}</div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label className="mb-3 block">Primary Investment Goal</Label>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    {INVESTMENT_GOALS.map((goal) => (
-                      <Card 
-                        key={goal.id}
-                        className={`cursor-pointer transition-all ${
-                          config.investmentGoals.primaryGoal === goal.id 
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' 
-                            : 'hover:border-gray-400'
-                        }`}
-                        onClick={() => setConfig(prev => ({
-                          ...prev,
-                          investmentGoals: { ...prev.investmentGoals, primaryGoal: goal.id }
-                        }))}
-                        data-testid={`goal-${goal.id}`}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Target className={`h-5 w-5 ${
-                              config.investmentGoals.primaryGoal === goal.id ? 'text-purple-600' : 'text-gray-400'
-                            }`} />
-                            <h4 className="font-medium">{goal.name}</h4>
-                          </div>
-                          <p className="text-sm text-gray-500">{goal.description}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
                   </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <Label className="mb-2 block">Investment Horizon</Label>
-                    <Select 
-                      value={config.investmentGoals.investmentHorizon}
-                      onValueChange={(val) => setConfig(prev => ({
-                        ...prev,
-                        investmentGoals: { ...prev.investmentGoals, investmentHorizon: val }
-                      }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1-3 years">1-3 Years (Short Term)</SelectItem>
-                        <SelectItem value="3-5 years">3-5 Years (Medium Term)</SelectItem>
-                        <SelectItem value="5-10 years">5-10 Years (Long Term)</SelectItem>
-                        <SelectItem value="10+ years">10+ Years (Very Long Term)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label className="mb-2 block">Target Corpus</Label>
-                    <div className="relative">
-                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        type="number"
-                        value={config.investmentGoals.targetAmount}
-                        onChange={(e) => setConfig(prev => ({
-                          ...prev,
-                          investmentGoals: { ...prev.investmentGoals, targetAmount: Number(e.target.value) }
-                        }))}
-                        className="pl-10"
-                        data-testid="input-target-amount"
-                      />
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">{formatCurrency(config.investmentGoals.targetAmount)}</p>
-                  </div>
-
-                  <div>
-                    <Label className="mb-2 block">Monthly Contribution</Label>
-                    <div className="relative">
-                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        type="number"
-                        value={config.investmentGoals.monthlyContribution}
-                        onChange={(e) => setConfig(prev => ({
-                          ...prev,
-                          investmentGoals: { ...prev.investmentGoals, monthlyContribution: Number(e.target.value) }
-                        }))}
-                        className="pl-10"
-                        data-testid="input-monthly-contribution"
-                      />
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">{formatCurrency(config.investmentGoals.monthlyContribution)}/month</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">Asset Allocation</h2>
-                  <Badge variant={allocationTotal === 100 ? 'default' : 'destructive'}>
-                    Total: {allocationTotal}%
-                  </Badge>
-                </div>
-
-                {allocationTotal !== 100 && (
-                  <Alert className="border-yellow-500">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      Allocation must total 100%. Currently at {allocationTotal}%.
-                    </AlertDescription>
-                  </Alert>
                 )}
 
-                <div className="space-y-6">
-                  {[
-                    { key: 'equity', label: 'Equity', color: 'bg-blue-500', description: 'Stocks and equity mutual funds' },
-                    { key: 'debt', label: 'Debt', color: 'bg-green-500', description: 'Bonds, FDs, debt mutual funds' },
-                    { key: 'gold', label: 'Gold', color: 'bg-yellow-500', description: 'Gold ETFs, Sovereign Gold Bonds' },
-                    { key: 'realestate', label: 'Real Estate', color: 'bg-purple-500', description: 'REITs, property investments' },
-                    { key: 'cash', label: 'Cash & Equivalents', color: 'bg-gray-500', description: 'Liquid funds, savings' },
-                  ].map(({ key, label, color, description }) => (
-                    <div key={key} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${color}`} />
-                          <Label>{label}</Label>
-                          <span className="text-sm text-gray-500">({description})</span>
-                        </div>
-                        <span className="font-medium">{config.assetAllocation[key as keyof typeof config.assetAllocation]}%</span>
-                      </div>
-                      <Slider
-                        value={[config.assetAllocation[key as keyof typeof config.assetAllocation]]}
-                        onValueChange={(val) => handleAllocationChange(key as keyof typeof config.assetAllocation, val[0])}
-                        max={100}
-                        step={5}
-                        className="w-full"
-                      />
+                {currentStep === 2 && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-semibold">Investment Goals</h2>
+                      <Select
+                        onValueChange={(val) => {
+                          const preset = TEMPLATE_PRESETS.find(p => p.id === val);
+                          if (preset) {
+                            setConfig(prev => ({
+                              ...prev,
+                              investmentGoals: preset.config.investmentGoals,
+                              assetAllocation: preset.config.assetAllocation,
+                              riskProfile: preset.config.riskProfile,
+                            }));
+                            toast({
+                              title: "Template Applied",
+                              description: `${preset.name} template has been applied`,
+                            });
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-48" data-testid="select-template">
+                          <SelectValue placeholder="Apply Template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEMPLATE_PRESETS.map(preset => (
+                            <SelectItem key={preset.id} value={preset.id}>
+                              {preset.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                </div>
 
-                <Card className="bg-gray-50 dark:bg-gray-800">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="font-medium">Allocation Preview</h4>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${getAllocationTotal() === 100 ? 'text-green-600' : 'text-red-600'}`}>
-                          Total: {getAllocationTotal()}%
-                        </span>
-                        {getAllocationTotal() !== 100 && (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={normalizeAllocation}
-                            data-testid="button-normalize-allocation"
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="mb-2 block">Primary Investment Goal</Label>
+                          <RadioGroup
+                            value={config.investmentGoals.primaryGoal}
+                            onValueChange={(val) => setConfig(prev => ({
+                              ...prev,
+                              investmentGoals: { ...prev.investmentGoals, primaryGoal: val }
+                            }))}
+                            className="space-y-3"
                           >
+                            {INVESTMENT_GOALS.map(goal => (
+                              <div key={goal.id} className="flex items-center space-x-2">
+                                <RadioGroupItem value={goal.id} id={goal.id} />
+                                <Label htmlFor={goal.id} className="cursor-pointer">
+                                  <span className="font-medium">{goal.name}</span>
+                                  <span className="text-gray-500 text-sm ml-2">- {goal.description}</span>
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="mb-2 block">Investment Horizon</Label>
+                          <Select
+                            value={config.investmentGoals.investmentHorizon}
+                            onValueChange={(val) => setConfig(prev => ({
+                              ...prev,
+                              investmentGoals: { ...prev.investmentGoals, investmentHorizon: val }
+                            }))}
+                          >
+                            <SelectTrigger data-testid="select-horizon">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1-3 years">Short Term (1-3 years)</SelectItem>
+                              <SelectItem value="3-5 years">Medium Term (3-5 years)</SelectItem>
+                              <SelectItem value="5-10 years">Long Term (5-10 years)</SelectItem>
+                              <SelectItem value="10+ years">Very Long Term (10+ years)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="mb-2 block">Target Corpus (₹)</Label>
+                          <Input
+                            type="number"
+                            value={config.investmentGoals.targetAmount}
+                            onChange={(e) => setConfig(prev => ({
+                              ...prev,
+                              investmentGoals: { ...prev.investmentGoals, targetAmount: parseInt(e.target.value) || 0 }
+                            }))}
+                            data-testid="input-target-amount"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">{formatCurrency(config.investmentGoals.targetAmount)}</p>
+                        </div>
+
+                        <div>
+                          <Label className="mb-2 block">Monthly Contribution (₹)</Label>
+                          <Input
+                            type="number"
+                            value={config.investmentGoals.monthlyContribution}
+                            onChange={(e) => setConfig(prev => ({
+                              ...prev,
+                              investmentGoals: { ...prev.investmentGoals, monthlyContribution: parseInt(e.target.value) || 0 }
+                            }))}
+                            data-testid="input-monthly-contribution"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">{formatCurrency(config.investmentGoals.monthlyContribution)}/month</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 3 && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-semibold">Asset Allocation</h2>
+                      <div className="flex items-center gap-4">
+                        <Badge variant={allocationTotal === 100 ? "default" : "destructive"}>
+                          Total: {allocationTotal}%
+                        </Badge>
+                        {allocationTotal !== 100 && (
+                          <Button size="sm" variant="outline" onClick={normalizeAllocation}>
+                            <RefreshCw className="h-4 w-4 mr-2" />
                             Normalize to 100%
                           </Button>
                         )}
                       </div>
                     </div>
-                    <div className="flex h-8 rounded-lg overflow-hidden">
-                      {config.assetAllocation.equity > 0 && (
-                        <div className="bg-blue-500" style={{ width: `${config.assetAllocation.equity}%` }} title={`Equity: ${config.assetAllocation.equity}%`} />
-                      )}
-                      {config.assetAllocation.debt > 0 && (
-                        <div className="bg-green-500" style={{ width: `${config.assetAllocation.debt}%` }} title={`Debt: ${config.assetAllocation.debt}%`} />
-                      )}
-                      {config.assetAllocation.gold > 0 && (
-                        <div className="bg-yellow-500" style={{ width: `${config.assetAllocation.gold}%` }} title={`Gold: ${config.assetAllocation.gold}%`} />
-                      )}
-                      {config.assetAllocation.realestate > 0 && (
-                        <div className="bg-purple-500" style={{ width: `${config.assetAllocation.realestate}%` }} title={`Real Estate: ${config.assetAllocation.realestate}%`} />
-                      )}
-                      {config.assetAllocation.cash > 0 && (
-                        <div className="bg-gray-500" style={{ width: `${config.assetAllocation.cash}%` }} title={`Cash: ${config.assetAllocation.cash}%`} />
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
 
-            {currentStep === 4 && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold">Risk Profile Assessment</h2>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label>Risk Tolerance Score</Label>
-                    <Badge variant={
-                      config.riskProfile.category === 'conservative' ? 'secondary' :
-                      config.riskProfile.category === 'moderate' ? 'default' :
-                      config.riskProfile.category === 'aggressive' ? 'outline' :
-                      'destructive'
-                    }>
-                      {config.riskProfile.category.charAt(0).toUpperCase() + config.riskProfile.category.slice(1).replace('_', ' ')}
-                    </Badge>
-                  </div>
-                  
-                  <Slider
-                    value={[config.riskProfile.score]}
-                    onValueChange={handleRiskScoreChange}
-                    max={100}
-                    step={5}
-                    className="w-full"
-                  />
-                  
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <span>Conservative</span>
-                    <span>Moderate</span>
-                    <span>Aggressive</span>
-                    <span>Very Aggressive</span>
-                  </div>
-                </div>
-
-                <Card className="bg-gray-50 dark:bg-gray-800">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <Scale className="h-5 w-5 text-purple-600" />
-                      <h4 className="font-medium">Risk Assessment Summary</h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300">{config.riskProfile.tolerance}</p>
-                    <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Recommended Equity:</span>
-                        <span className="ml-2 font-medium">
-                          {config.riskProfile.category === 'conservative' ? '20-40%' :
-                           config.riskProfile.category === 'moderate' ? '40-60%' :
-                           config.riskProfile.category === 'aggressive' ? '60-80%' : '80-100%'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Score:</span>
-                        <span className="ml-2 font-medium">{config.riskProfile.score}/100</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {currentStep === 5 && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold">Select Proposal Sections</h2>
-                <p className="text-gray-500">Choose which content modules to include in the proposal</p>
-                
-                <div className="grid md:grid-cols-2 gap-4">
-                  {PROPOSAL_SECTIONS.map((section) => {
-                    const SectionIcon = section.icon;
-                    const isEnabled = config.sections[section.id as keyof typeof config.sections];
-
-                    return (
-                      <Card 
-                        key={section.id}
-                        className={`cursor-pointer transition-all ${
-                          isEnabled ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : ''
-                        }`}
-                        onClick={() => setConfig(prev => ({
-                          ...prev,
-                          sections: {
-                            ...prev.sections,
-                            [section.id]: !isEnabled,
-                          }
-                        }))}
-                        data-testid={`section-${section.id}`}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3">
-                              <div className={`p-2 rounded-lg ${
-                                isEnabled ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-800'
-                              }`}>
-                                <SectionIcon className="h-5 w-5" />
+                    <div className="grid md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        {Object.entries(config.assetAllocation).map(([key, value]) => {
+                          const labels: Record<string, { name: string; color: string }> = {
+                            equity: { name: 'Equity', color: 'bg-blue-500' },
+                            debt: { name: 'Debt/Fixed Income', color: 'bg-green-500' },
+                            gold: { name: 'Gold', color: 'bg-yellow-500' },
+                            realestate: { name: 'Real Estate/REITs', color: 'bg-purple-500' },
+                            cash: { name: 'Cash/Liquid', color: 'bg-gray-500' },
+                          };
+                          const label = labels[key];
+                          return (
+                            <div key={key} className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-3 h-3 rounded-full ${label.color}`} />
+                                  <Label>{label.name}</Label>
+                                </div>
+                                <span className="font-semibold">{value}%</span>
                               </div>
-                              <div>
-                                <h4 className="font-medium">{section.name}</h4>
-                                <p className="text-sm text-gray-500">{section.description}</p>
-                              </div>
+                              <Slider
+                                value={[value]}
+                                onValueChange={(val) => handleAllocationChange(key as keyof typeof config.assetAllocation, val[0])}
+                                max={100}
+                                step={1}
+                                className="w-full"
+                              />
                             </div>
-                            <Switch checked={isEnabled} />
+                          );
+                        })}
+                      </div>
+
+                      <div>
+                        <Card className="p-4">
+                          <h3 className="font-semibold mb-4 text-center">Allocation Preview</h3>
+                          <div className="aspect-square max-w-[200px] mx-auto relative">
+                            <svg viewBox="0 0 100 100" className="transform -rotate-90">
+                              {(() => {
+                                let currentAngle = 0;
+                                const colors = ['#3B82F6', '#22C55E', '#EAB308', '#A855F7', '#6B7280'];
+                                return Object.values(config.assetAllocation).map((value, index) => {
+                                  const percentage = value / 100;
+                                  const angle = percentage * 360;
+                                  const startAngle = currentAngle;
+                                  currentAngle += angle;
+                                  
+                                  if (value === 0) return null;
+                                  
+                                  const x1 = 50 + 40 * Math.cos((startAngle * Math.PI) / 180);
+                                  const y1 = 50 + 40 * Math.sin((startAngle * Math.PI) / 180);
+                                  const x2 = 50 + 40 * Math.cos(((startAngle + angle) * Math.PI) / 180);
+                                  const y2 = 50 + 40 * Math.sin(((startAngle + angle) * Math.PI) / 180);
+                                  const largeArcFlag = angle > 180 ? 1 : 0;
+                                  
+                                  return (
+                                    <path
+                                      key={index}
+                                      d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
+                                      fill={colors[index]}
+                                      opacity={0.8}
+                                    />
+                                  );
+                                });
+                              })()}
+                            </svg>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 mt-4 text-sm">
+                            {Object.entries(config.assetAllocation).map(([key, value]) => {
+                              if (value === 0) return null;
+                              const labels: Record<string, string> = {
+                                equity: 'Equity',
+                                debt: 'Debt',
+                                gold: 'Gold',
+                                realestate: 'Real Estate',
+                                cash: 'Cash',
+                              };
+                              const colors: Record<string, string> = {
+                                equity: 'bg-blue-500',
+                                debt: 'bg-green-500',
+                                gold: 'bg-yellow-500',
+                                realestate: 'bg-purple-500',
+                                cash: 'bg-gray-500',
+                              };
+                              return (
+                                <div key={key} className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${colors[key]}`} />
+                                  <span>{labels[key]}: {value}%</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </Card>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 4 && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-semibold">Risk Profile Assessment</h2>
+                    
+                    <div className="grid md:grid-cols-2 gap-8">
+                      <div className="space-y-6">
+                        <div>
+                          <Label className="mb-4 block">Risk Tolerance Score</Label>
+                          <Slider
+                            value={[config.riskProfile.score]}
+                            onValueChange={handleRiskScoreChange}
+                            max={100}
+                            step={5}
+                            className="w-full"
+                          />
+                          <div className="flex justify-between text-sm text-gray-500 mt-2">
+                            <span>Conservative</span>
+                            <span>Moderate</span>
+                            <span>Aggressive</span>
+                          </div>
+                        </div>
+
+                        <Card className={`p-4 ${
+                          config.riskProfile.category === 'conservative' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' :
+                          config.riskProfile.category === 'moderate' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' :
+                          config.riskProfile.category === 'aggressive' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' :
+                          'border-red-500 bg-red-50 dark:bg-red-900/20'
+                        }`}>
+                          <div className="flex items-center gap-3 mb-2">
+                            <Scale className="h-6 w-6" />
+                            <h3 className="font-semibold text-lg capitalize">{config.riskProfile.category.replace('_', ' ')} Investor</h3>
+                          </div>
+                          <p className="text-gray-600 dark:text-gray-400">{config.riskProfile.tolerance}</p>
+                          <Badge className="mt-2">Score: {config.riskProfile.score}/100</Badge>
+                        </Card>
+                      </div>
+
+                      <div>
+                        <h3 className="font-semibold mb-4">Recommended Portfolio Mix</h3>
+                        <div className="space-y-3">
+                          {config.riskProfile.category === 'conservative' && (
+                            <>
+                              <div className="flex justify-between"><span>Equity</span><span>20-30%</span></div>
+                              <div className="flex justify-between"><span>Debt</span><span>50-60%</span></div>
+                              <div className="flex justify-between"><span>Gold</span><span>10-15%</span></div>
+                              <div className="flex justify-between"><span>Cash</span><span>5-10%</span></div>
+                            </>
+                          )}
+                          {config.riskProfile.category === 'moderate' && (
+                            <>
+                              <div className="flex justify-between"><span>Equity</span><span>40-50%</span></div>
+                              <div className="flex justify-between"><span>Debt</span><span>30-40%</span></div>
+                              <div className="flex justify-between"><span>Gold</span><span>10-15%</span></div>
+                              <div className="flex justify-between"><span>Cash</span><span>5%</span></div>
+                            </>
+                          )}
+                          {config.riskProfile.category === 'aggressive' && (
+                            <>
+                              <div className="flex justify-between"><span>Equity</span><span>60-70%</span></div>
+                              <div className="flex justify-between"><span>Debt</span><span>15-25%</span></div>
+                              <div className="flex justify-between"><span>Gold</span><span>5-10%</span></div>
+                              <div className="flex justify-between"><span>Cash</span><span>5%</span></div>
+                            </>
+                          )}
+                          {config.riskProfile.category === 'very_aggressive' && (
+                            <>
+                              <div className="flex justify-between"><span>Equity</span><span>75-85%</span></div>
+                              <div className="flex justify-between"><span>Debt</span><span>5-15%</span></div>
+                              <div className="flex justify-between"><span>Gold/Alternatives</span><span>5-10%</span></div>
+                              <div className="flex justify-between"><span>Cash</span><span>0-5%</span></div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 5 && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-semibold">Select Proposal Sections</h2>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {PROPOSAL_SECTIONS.map(section => {
+                        const SectionIcon = section.icon;
+                        const isSelected = config.sections[section.id as keyof typeof config.sections];
+                        return (
+                          <Card 
+                            key={section.id}
+                            className={`cursor-pointer transition-all ${
+                              isSelected ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'hover:border-gray-300'
+                            }`}
+                            onClick={() => setConfig(prev => ({
+                              ...prev,
+                              sections: { ...prev.sections, [section.id]: !isSelected }
+                            }))}
+                          >
+                            <CardContent className="p-4 flex items-start gap-3">
+                              <Checkbox 
+                                checked={isSelected}
+                                className="mt-1"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <SectionIcon className="h-4 w-4" />
+                                  <span className="font-medium">{section.name}</span>
+                                </div>
+                                <p className="text-sm text-gray-500 mt-1">{section.description}</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Cover Page Settings</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Include Cover Page</Label>
+                          <p className="text-sm text-gray-500">Professional cover with client name and date</p>
+                        </div>
+                        <Switch
+                          checked={config.coverPage.enabled}
+                          onCheckedChange={(checked) => setConfig(prev => ({
+                            ...prev,
+                            coverPage: { ...prev.coverPage, enabled: checked }
+                          }))}
+                        />
+                      </div>
+
+                      {config.coverPage.enabled && (
+                        <div className="grid md:grid-cols-2 gap-4 pl-4 border-l-2 border-purple-200">
+                          <div>
+                            <Label className="mb-2 block">Proposal Title</Label>
+                            <Input
+                              value={config.coverPage.title}
+                              onChange={(e) => setConfig(prev => ({
+                                ...prev,
+                                coverPage: { ...prev.coverPage, title: e.target.value }
+                              }))}
+                              data-testid="input-cover-title"
+                            />
+                          </div>
+                          <div>
+                            <Label className="mb-2 block">Prepared By</Label>
+                            <Input
+                              value={config.coverPage.preparedBy}
+                              onChange={(e) => setConfig(prev => ({
+                                ...prev,
+                                coverPage: { ...prev.coverPage, preparedBy: e.target.value }
+                              }))}
+                              data-testid="input-prepared-by"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Compliance Settings</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Include Disclaimer</Label>
+                          <p className="text-sm text-gray-500">Standard investment disclaimer</p>
+                        </div>
+                        <Switch
+                          checked={config.settings.includeDisclaimer}
+                          onCheckedChange={(checked) => setConfig(prev => ({
+                            ...prev,
+                            settings: { ...prev.settings, includeDisclaimer: checked }
+                          }))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Include SEBI Disclosures</Label>
+                          <p className="text-sm text-gray-500">Regulatory compliance statements</p>
+                        </div>
+                        <Switch
+                          checked={config.settings.includeSEBIDisclosure}
+                          onCheckedChange={(checked) => setConfig(prev => ({
+                            ...prev,
+                            settings: { ...prev.settings, includeSEBIDisclosure: checked }
+                          }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 6 && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-semibold">Generate Proposal</h2>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="mb-2 block">Proposal Name</Label>
+                        <Input
+                          value={proposalName}
+                          onChange={(e) => setProposalName(e.target.value)}
+                          placeholder={`Investment Proposal - ${selectedClient?.fullName} - ${new Date().toLocaleDateString('en-IN')}`}
+                          data-testid="input-final-proposal-name"
+                        />
+                      </div>
+
+                      <Card className="bg-gray-50 dark:bg-gray-800">
+                        <CardHeader>
+                          <CardTitle className="text-sm">Proposal Summary</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Client:</span>
+                            <span className="font-medium">{selectedClient?.fullName}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Investment Goal:</span>
+                            <span className="font-medium capitalize">{config.investmentGoals.primaryGoal.replace('_', ' ')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Target Corpus:</span>
+                            <span className="font-medium">{formatCurrency(config.investmentGoals.targetAmount)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Monthly Contribution:</span>
+                            <span className="font-medium">{formatCurrency(config.investmentGoals.monthlyContribution)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Risk Profile:</span>
+                            <span className="font-medium capitalize">{config.riskProfile.category.replace('_', ' ')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Sections:</span>
+                            <span className="font-medium">
+                              {Object.values(config.sections).filter(Boolean).length} selected
+                            </span>
                           </div>
                         </CardContent>
                       </Card>
-                    );
-                  })}
-                </div>
 
-                <Separator />
+                      {generateMutation.isPending ? (
+                        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                          <Loader2 className="h-12 w-12 animate-spin text-purple-600" />
+                          <p className="text-lg">Generating your proposal...</p>
+                          <p className="text-sm text-gray-500">This may take a moment</p>
+                        </div>
+                      ) : generatedProposalUrl ? (
+                        <Card className="border-green-500 bg-green-50 dark:bg-green-900/10">
+                          <CardContent className="py-8 text-center">
+                            <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-2">
+                              Proposal Generated Successfully!
+                            </h3>
+                            <p className="text-green-600 dark:text-green-300 mb-6">
+                              Your investment proposal is ready for download and sharing
+                            </p>
 
-                <div className="space-y-4">
-                  <h3 className="font-medium">Cover Page Settings</h3>
-                  <div className="flex items-center justify-between">
-                    <Label>Include Cover Page</Label>
-                    <Switch
-                      checked={config.coverPage.enabled}
-                      onCheckedChange={(checked) => setConfig(prev => ({
-                        ...prev,
-                        coverPage: { ...prev.coverPage, enabled: checked }
-                      }))}
-                    />
-                  </div>
-                  
-                  {config.coverPage.enabled && (
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label className="mb-2 block">Proposal Title</Label>
-                        <Input
-                          value={config.coverPage.title}
-                          onChange={(e) => setConfig(prev => ({
-                            ...prev,
-                            coverPage: { ...prev.coverPage, title: e.target.value }
-                          }))}
-                          data-testid="input-proposal-title"
-                        />
-                      </div>
-                      <div>
-                        <Label className="mb-2 block">Prepared By</Label>
-                        <Input
-                          value={config.coverPage.preparedBy}
-                          onChange={(e) => setConfig(prev => ({
-                            ...prev,
-                            coverPage: { ...prev.coverPage, preparedBy: e.target.value }
-                          }))}
-                          data-testid="input-prepared-by"
-                        />
-                      </div>
+                            {generatedProposalData?.shareToken && (
+                              <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border">
+                                <Label className="text-sm text-gray-600 dark:text-gray-400 block mb-2">Shareable Link</Label>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={`${baseUrl}/proposal/${generatedProposalData.shareToken}`}
+                                    readOnly
+                                    className="font-mono text-sm"
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => copyToClipboard(`${baseUrl}/proposal/${generatedProposalData.shareToken}`, "Proposal link")}
+                                    data-testid="button-copy-link"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex justify-center gap-4 flex-wrap">
+                              <Button onClick={handleDownload} data-testid="button-download-proposal">
+                                <Download className="h-4 w-4 mr-2" />
+                                Download PDF
+                              </Button>
+                              <Button 
+                                variant="outline"
+                                onClick={() => {
+                                  if (generatedProposalData) {
+                                    setSelectedProposal(generatedProposalData);
+                                    setShowShareDialog(true);
+                                  }
+                                }}
+                                className="border-green-500 text-green-700 hover:bg-green-50"
+                                data-testid="button-share-proposal"
+                              >
+                                <Send className="h-4 w-4 mr-2" />
+                                Share Proposal
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                onClick={() => setActiveTab("proposals")}
+                                data-testid="button-view-proposals"
+                              >
+                                <FileText className="h-4 w-4 mr-2" />
+                                View Proposals
+                              </Button>
+                              <Button variant="outline" onClick={() => {
+                                setGeneratedProposalUrl(null);
+                                setGeneratedProposalData(null);
+                                setCurrentStep(1);
+                                setConfig(defaultConfig);
+                                setSelectedClient(null);
+                              }}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Create Another
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <Card>
+                          <CardContent className="py-8 text-center">
+                            <Sparkles className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
+                            <p className="text-gray-500 mb-6">
+                              Click the button below to create your proposal PDF
+                            </p>
+                            <Button 
+                              size="lg"
+                              onClick={() => generateMutation.mutate()}
+                              disabled={!canProceed()}
+                              className="bg-purple-600 hover:bg-purple-700"
+                              data-testid="button-generate-proposal"
+                            >
+                              <Sparkles className="h-5 w-5 mr-2" />
+                              Generate Proposal
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </CardContent>
 
-                <div className="space-y-4">
-                  <h3 className="font-medium">Compliance Settings</h3>
+              <CardFooter className="flex justify-between border-t pt-6">
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={currentStep === 1}
+                  data-testid="button-previous"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Previous
+                </Button>
+                
+                {currentStep < 6 && (
+                  <Button
+                    onClick={handleNext}
+                    disabled={!canProceed()}
+                    className="bg-purple-600 hover:bg-purple-700"
+                    data-testid="button-next"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
+                )}
+              </CardFooter>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="proposals">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+              <Card>
+                <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Include SEBI Disclosures</Label>
-                      <p className="text-sm text-gray-500">Regulatory compliance statements</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
+                      <p className="text-2xl font-bold">{stats.total}</p>
                     </div>
-                    <Switch
-                      checked={config.settings.includeSEBIDisclosure}
-                      onCheckedChange={(checked) => setConfig(prev => ({
-                        ...prev,
-                        settings: { ...prev.settings, includeSEBIDisclosure: checked }
-                      }))}
-                    />
+                    <FileText className="w-8 h-8 text-gray-400" />
                   </div>
-                </div>
-              </div>
-            )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Draft</p>
+                      <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
+                    </div>
+                    <Clock className="w-8 h-8 text-gray-400" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Shared</p>
+                      <p className="text-2xl font-bold text-blue-600">{stats.shared}</p>
+                    </div>
+                    <Send className="w-8 h-8 text-blue-400" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Viewed</p>
+                      <p className="text-2xl font-bold text-green-600">{stats.viewed}</p>
+                    </div>
+                    <Eye className="w-8 h-8 text-green-400" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Converted</p>
+                      <p className="text-2xl font-bold text-purple-600">{stats.converted}</p>
+                    </div>
+                    <CheckCircle2 className="w-8 h-8 text-purple-400" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Total Views</p>
+                      <p className="text-2xl font-bold text-indigo-600">{stats.totalViews}</p>
+                    </div>
+                    <BarChart3 className="w-8 h-8 text-indigo-400" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-            {currentStep === 6 && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold">Generate Proposal</h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Label className="mb-2 block">Proposal Name</Label>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Your Proposals</CardTitle>
+                  <div className="flex items-center gap-2">
                     <Input
-                      value={proposalName}
-                      onChange={(e) => setProposalName(e.target.value)}
-                      placeholder={`Investment Proposal - ${selectedClient?.fullName} - ${new Date().toLocaleDateString('en-IN')}`}
-                      data-testid="input-final-proposal-name"
+                      placeholder="Search proposals..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-64"
+                      data-testid="input-search-proposals"
                     />
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="w-32" data-testid="select-filter-status">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="shared">Shared</SelectItem>
+                        <SelectItem value="viewed">Viewed</SelectItem>
+                        <SelectItem value="converted">Converted</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {proposalsLoading ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                    <p className="mt-2 text-gray-500">Loading proposals...</p>
+                  </div>
+                ) : filteredProposals.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No proposals yet</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">Create your first proposal to start acquiring new clients</p>
+                    <Button 
+                      onClick={() => setActiveTab("create")} 
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create First Proposal
+                    </Button>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Prospect Name</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Views</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredProposals.map((proposal) => (
+                        <TableRow key={proposal.id} data-testid={`row-proposal-${proposal.id}`}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{proposal.prospectName}</p>
+                              <p className="text-xs text-gray-500">{proposal.prospectEmail || proposal.prospectMobile || '-'}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-48 truncate" title={proposal.proposalTitle}>
+                            {proposal.proposalTitle}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {proposal.proposalType === 'sample_portfolio' ? 'Portfolio Analysis' : 'Fresh Investment'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={PROPOSAL_STATUS_COLORS[proposal.status]}>
+                              {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Eye className="w-3 h-3 text-gray-400" />
+                              <span>{proposal.viewCount || 0}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-500">
+                            {new Date(proposal.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                                onClick={() => {
+                                  setSelectedProposal(proposal);
+                                  setShowPreviewDialog(true);
+                                }}
+                                data-testid={`btn-preview-${proposal.id}`}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950"
+                                onClick={() => {
+                                  setSelectedProposal(proposal);
+                                  setShowShareDialog(true);
+                                }}
+                                data-testid={`btn-share-${proposal.id}`}
+                              >
+                                <Send className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+                                onClick={() => copyToClipboard(`${baseUrl}/proposal/${proposal.shareToken}`, "Proposal link")}
+                                data-testid={`btn-copy-${proposal.id}`}
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                                onClick={() => deleteProposalMutation.mutate(proposal.id)}
+                                data-testid={`btn-delete-${proposal.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
 
-                  <Card className="bg-gray-50 dark:bg-gray-800">
-                    <CardHeader>
-                      <CardTitle className="text-sm">Proposal Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Client:</span>
-                        <span className="font-medium">{selectedClient?.fullName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Investment Goal:</span>
-                        <span className="font-medium capitalize">{config.investmentGoals.primaryGoal.replace('_', ' ')}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Target Corpus:</span>
-                        <span className="font-medium">{formatCurrency(config.investmentGoals.targetAmount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Monthly Contribution:</span>
-                        <span className="font-medium">{formatCurrency(config.investmentGoals.monthlyContribution)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Risk Profile:</span>
-                        <span className="font-medium capitalize">{config.riskProfile.category.replace('_', ' ')}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Sections:</span>
-                        <span className="font-medium">
-                          {Object.values(config.sections).filter(Boolean).length} selected
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Share Proposal</DialogTitle>
+            <DialogDescription>
+              Share this proposal with {selectedProposal?.prospectName || selectedClient?.fullName}
+            </DialogDescription>
+          </DialogHeader>
 
-                  {generateMutation.isPending ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                      <Loader2 className="h-12 w-12 animate-spin text-purple-600" />
-                      <p className="text-lg">Generating your proposal...</p>
-                      <p className="text-sm text-gray-500">This may take a moment</p>
-                    </div>
-                  ) : generatedProposalUrl ? (
-                    <Card className="border-green-500 bg-green-50 dark:bg-green-900/10">
-                      <CardContent className="py-8 text-center">
-                        <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-green-800 dark:text-green-200 mb-2">
-                          Proposal Generated Successfully!
-                        </h3>
-                        <p className="text-green-600 dark:text-green-300 mb-6">
-                          Your investment proposal is ready for download and sharing
-                        </p>
-                        <div className="flex justify-center gap-4">
-                          <Button onClick={handleDownload} data-testid="button-download-proposal">
-                            <Download className="h-4 w-4 mr-2" />
-                            Download PDF
-                          </Button>
-                          <Button variant="outline" onClick={() => {
-                            setGeneratedProposalUrl(null);
-                            setCurrentStep(1);
-                            setConfig(defaultConfig);
-                            setSelectedClient(null);
-                          }}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Create Another
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card>
-                      <CardContent className="py-8 text-center">
-                        <Sparkles className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
-                        <p className="text-gray-500 mb-6">
-                          Click the button below to create your proposal PDF
-                        </p>
-                        <Button 
-                          size="lg"
-                          onClick={() => generateMutation.mutate()}
-                          disabled={!canProceed()}
-                          className="bg-purple-600 hover:bg-purple-700"
-                          data-testid="button-generate-proposal"
-                        >
-                          <Sparkles className="h-5 w-5 mr-2" />
-                          Generate Proposal
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
+          {(selectedProposal || generatedProposalData) && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Proposal Link</Label>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    value={`${baseUrl}/proposal/${selectedProposal?.shareToken || generatedProposalData?.shareToken}`}
+                    readOnly
+                    className="font-mono text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(`${baseUrl}/proposal/${selectedProposal?.shareToken || generatedProposalData?.shareToken}`, "Proposal link")}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-            )}
-          </CardContent>
 
-          <CardFooter className="flex justify-between border-t pt-6">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 1}
-              data-testid="button-previous"
+              {selectedProposal?.referralCode && (
+                <div className="space-y-2">
+                  <Label>Onboarding Link (for signup)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      value={`${baseUrl}/onboarding?ref=${selectedProposal.referralCode}`}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => copyToClipboard(`${baseUrl}/onboarding?ref=${selectedProposal.referralCode}`, "Onboarding link")}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"
+                  onClick={() => {
+                    if (selectedProposal?.id) {
+                      shareProposalMutation.mutate({ id: selectedProposal.id, shareVia: 'email' });
+                    }
+                  }}
+                  disabled={shareProposalMutation.isPending || !selectedProposal?.id}
+                  data-testid="btn-share-email"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send via Email
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-950"
+                  onClick={() => {
+                    const proposal = selectedProposal || generatedProposalData;
+                    const prospectName = proposal?.prospectName || selectedClient?.fullName || 'there';
+                    const shareToken = proposal?.shareToken;
+                    const phone = proposal?.prospectMobile?.replace(/[^0-9]/g, '') || selectedClient?.phone?.replace(/[^0-9]/g, '') || '';
+                    const message = encodeURIComponent(`Hi ${prospectName}, I've prepared a personalized investment proposal for you. View it here: ${baseUrl}/proposal/${shareToken}`);
+                    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                    if (selectedProposal?.id) {
+                      shareProposalMutation.mutate({ id: selectedProposal.id, shareVia: 'whatsapp' });
+                    }
+                  }}
+                  data-testid="btn-share-whatsapp"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Send via WhatsApp
+                </Button>
+              </div>
+
+              <div className="bg-indigo-50 dark:bg-indigo-950 rounded-lg p-4">
+                <h4 className="font-medium text-sm text-indigo-800 dark:text-indigo-200 mb-2">How it works</h4>
+                <ol className="text-sm text-indigo-700 dark:text-indigo-300 space-y-1 list-decimal list-inside">
+                  <li>Share the proposal link with your prospect</li>
+                  <li>They view the personalized investment plan</li>
+                  <li>They click "Get Started" to begin onboarding</li>
+                  <li>You get notified when they sign up</li>
+                </ol>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowShareDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedProposal?.proposalTitle}</DialogTitle>
+            <DialogDescription>
+              Proposal for {selectedProposal?.prospectName}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedProposal && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Eye className="w-4 h-4" /> {selectedProposal.viewCount} views
+                </span>
+                <Badge className={PROPOSAL_STATUS_COLORS[selectedProposal.status]}>
+                  {selectedProposal.status}
+                </Badge>
+                {selectedProposal.sharedViaEmail && <Badge variant="outline"><Mail className="w-3 h-3 mr-1" />Email</Badge>}
+                {selectedProposal.sharedViaWhatsApp && <Badge variant="outline"><MessageSquare className="w-3 h-3 mr-1" />WhatsApp</Badge>}
+              </div>
+
+              {selectedProposal.executiveSummary && (
+                <div>
+                  <h4 className="font-medium mb-1">Executive Summary</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{selectedProposal.executiveSummary}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-gray-500">Total Investment</p>
+                    <p className="text-lg font-bold">₹{parseFloat(selectedProposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-gray-500">Expected Returns</p>
+                    <p className="text-lg font-bold text-green-600">{selectedProposal.projectedReturns}% p.a.</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-gray-500">Projected Value</p>
+                    <p className="text-lg font-bold text-purple-600">₹{parseFloat(selectedProposal.projectedValue || '0').toLocaleString('en-IN')}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {selectedProposal.recommendations && selectedProposal.recommendations.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2">Recommendations</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Allocation</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedProposal.recommendations.map((rec: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <Badge 
+                              className={`text-xs ${
+                                rec.recommendationType === 'BUY' ? 'bg-green-100 text-green-700' :
+                                rec.recommendationType === 'SELL' ? 'bg-red-100 text-red-700' :
+                                rec.recommendationType === 'SWITCH' ? 'bg-amber-100 text-amber-700' :
+                                'bg-blue-100 text-blue-700'
+                              }`}
+                            >
+                              {rec.recommendationType || 'BUY'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">{rec.productName}</TableCell>
+                          <TableCell>{rec.category}</TableCell>
+                          <TableCell>₹{rec.recommendedAmount?.toLocaleString('en-IN')}</TableCell>
+                          <TableCell>{rec.allocationPercentage}%</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>Close</Button>
+            <Button 
+              onClick={() => {
+                setShowPreviewDialog(false);
+                setShowShareDialog(true);
+              }}
+              className="bg-purple-600 hover:bg-purple-700"
             >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Previous
+              <Send className="w-4 h-4 mr-2" />
+              Share Proposal
             </Button>
-            
-            {currentStep < 6 && (
-              <Button
-                onClick={handleNext}
-                disabled={!canProceed()}
-                className="bg-purple-600 hover:bg-purple-700"
-                data-testid="button-next"
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -911,10 +911,17 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/proposal-builder">
+        {() => (
+          <AgentLayout>
+            <AgentDemoProposalBuilder />
+          </AgentLayout>
+        )}
+      </Route>
       <Route path="/prospect-proposals">
         {() => (
           <AgentLayout>
-            <AgentProspectProposalsPage />
+            <AgentDemoProposalBuilder />
           </AgentLayout>
         )}
       </Route>
@@ -1020,13 +1027,6 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentPortfolioReportBuilder />
-          </AgentLayout>
-        )}
-      </Route>
-      <Route path="/demo-proposal-builder">
-        {() => (
-          <AgentLayout>
-            <AgentDemoProposalBuilder />
           </AgentLayout>
         )}
       </Route>
