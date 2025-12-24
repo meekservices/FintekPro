@@ -1241,6 +1241,218 @@ function calculateEndTime(startTime: string, durationMinutes: number): string {
   return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
 }
 
+// ============================================
+// Client Onboarding Endpoints
+// ============================================
+
+// In-memory draft storage (in production, use database)
+const onboardingDraftsStore: Map<string, any> = new Map();
+
+// Client onboarding validation schema
+const clientOnboardingSchema = z.object({
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  mobile: z.string().min(10, "Mobile must be at least 10 digits"),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  gender: z.enum(["M", "F", "O"]),
+  panNumber: z.string().length(10, "PAN must be 10 characters"),
+  panVerified: z.boolean().optional(),
+  panHolderName: z.string().optional(),
+  aadhaarNumber: z.string().length(12, "Aadhaar must be 12 digits").optional(),
+  addressLine1: z.string().min(5, "Address is required"),
+  addressLine2: z.string().optional(),
+  city: z.string().min(2, "City is required"),
+  state: z.string().min(2, "State is required"),
+  pincode: z.string().length(6, "Pincode must be 6 digits"),
+  addressProofType: z.string().min(1, "Please select address proof type"),
+  addressProofUrl: z.string().optional(),
+  accountNumber: z.string().min(9, "Account number must be at least 9 digits"),
+  confirmAccountNumber: z.string().min(9, "Please confirm account number"),
+  ifscCode: z.string().length(11, "IFSC must be 11 characters"),
+  bankName: z.string().min(2, "Bank name is required"),
+  branchName: z.string().optional(),
+  accountType: z.enum(["savings", "current"]),
+  investmentGoal: z.enum(["wealth_creation", "retirement", "tax_saving", "child_education", "emergency_fund", "regular_income"]),
+  riskTolerance: z.enum(["conservative", "moderate", "aggressive"]),
+  investmentHorizon: z.enum(["short", "medium", "long"]),
+  annualIncome: z.enum(["below_5l", "5l_10l", "10l_25l", "25l_50l", "above_50l"]),
+  investmentExperience: z.enum(["beginner", "intermediate", "experienced"]),
+});
+
+// Submit new client onboarding
+router.post("/api/agent/clients/onboard", requireAuth, async (req, res) => {
+  try {
+    const validationResult = clientOnboardingSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation failed",
+        details: validationResult.error.issues,
+      });
+    }
+
+    const data = validationResult.data;
+    const agentId = req.user?.id;
+    
+    // Generate client ID
+    const clientId = `CLT-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    
+    // In production, save to database
+    const newClient = {
+      id: clientId,
+      ...data,
+      agentId,
+      status: "kyc_pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    console.log("New client onboarded:", newClient);
+    
+    res.json({
+      success: true,
+      clientId,
+      message: "Client onboarded successfully",
+    });
+  } catch (error) {
+    console.error("Client onboarding error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to onboard client",
+    });
+  }
+});
+
+// Save draft
+router.post("/api/agent/clients/onboard/draft", requireAuth, async (req, res) => {
+  try {
+    const agentId = req.user?.id;
+    const draftData = req.body;
+    
+    // Generate or use existing draft ID
+    const draftId = draftData.draftId || `DRAFT-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    
+    const draft = {
+      id: draftId,
+      agentId,
+      data: draftData,
+      updatedAt: new Date().toISOString(),
+      createdAt: onboardingDraftsStore.get(draftId)?.createdAt || new Date().toISOString(),
+    };
+    
+    onboardingDraftsStore.set(draftId, draft);
+    
+    res.json({
+      success: true,
+      draftId,
+      message: "Draft saved successfully",
+    });
+  } catch (error) {
+    console.error("Save draft error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to save draft",
+    });
+  }
+});
+
+// Resume draft
+router.get("/api/agent/clients/onboard/draft/:id", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const agentId = req.user?.id;
+    
+    const draft = onboardingDraftsStore.get(id);
+    
+    if (!draft) {
+      return res.status(404).json({
+        success: false,
+        error: "Draft not found",
+      });
+    }
+    
+    // Verify ownership
+    if (draft.agentId !== agentId) {
+      return res.status(403).json({
+        success: false,
+        error: "You don't have access to this draft",
+      });
+    }
+    
+    res.json({
+      success: true,
+      draft,
+    });
+  } catch (error) {
+    console.error("Get draft error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to retrieve draft",
+    });
+  }
+});
+
+// List all drafts for agent
+router.get("/api/agent/clients/onboard/drafts", requireAuth, async (req, res) => {
+  try {
+    const agentId = req.user?.id;
+    
+    const drafts = Array.from(onboardingDraftsStore.values())
+      .filter(draft => draft.agentId === agentId)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    
+    res.json({
+      success: true,
+      drafts,
+    });
+  } catch (error) {
+    console.error("List drafts error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to list drafts",
+    });
+  }
+});
+
+// Delete draft
+router.delete("/api/agent/clients/onboard/draft/:id", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const agentId = req.user?.id;
+    
+    const draft = onboardingDraftsStore.get(id);
+    
+    if (!draft) {
+      return res.status(404).json({
+        success: false,
+        error: "Draft not found",
+      });
+    }
+    
+    if (draft.agentId !== agentId) {
+      return res.status(403).json({
+        success: false,
+        error: "You don't have access to this draft",
+      });
+    }
+    
+    onboardingDraftsStore.delete(id);
+    
+    res.json({
+      success: true,
+      message: "Draft deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete draft error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to delete draft",
+    });
+  }
+});
+
 // Export product eligibility utilities for use in other modules
 export { isSecuritiesAgent, isLoanAgent, isInsuranceAgent, canDistributeProduct, getRequiredCredentials };
 

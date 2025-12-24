@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameDay, isSameMonth, isToday, parseISO, addHours, isBefore, isAfter } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameDay, isSameMonth, isToday, parseISO, addMinutes, isBefore, isAfter } from "date-fns";
 import { Link } from "wouter";
 import {
   Plus,
@@ -33,45 +33,50 @@ import {
   ListTodo,
   Trash2,
   Edit,
-  X
+  X,
+  Download,
+  Mail,
+  MessageSquare,
+  Building
 } from "lucide-react";
 
 interface Appointment {
   id: string;
   title: string;
   description?: string;
-  type: 'meeting' | 'call' | 'review' | 'demo';
+  meetingType: 'call' | 'video_call' | 'in_person' | 'office_visit';
   clientId?: string;
   clientName?: string;
-  location: 'virtual' | 'office' | 'client_site';
+  clientEmail?: string;
+  clientPhone?: string;
+  location?: string;
   locationDetails?: string;
   date: string;
   startTime: string;
   endTime: string;
   duration: number;
-  reminder: '15min' | '30min' | '1hr' | '1day' | 'none';
+  reminder: 'none' | '15min' | '30min' | '1hr';
+  reminderSent?: boolean;
   status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
   notes?: string;
+  agenda?: string;
   createdAt: string;
+  completedAt?: string;
 }
 
 interface Client {
   id: string;
-  name: string;
-  email?: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  mobile?: string;
 }
 
-const APPOINTMENT_TYPE_CONFIG = {
-  meeting: { label: 'Meeting', icon: User, color: 'bg-emerald-500', textColor: 'text-emerald-400', bgLight: 'bg-emerald-500/20' },
+const MEETING_TYPE_CONFIG = {
   call: { label: 'Call', icon: Phone, color: 'bg-blue-500', textColor: 'text-blue-400', bgLight: 'bg-blue-500/20' },
-  review: { label: 'Review', icon: FileText, color: 'bg-purple-500', textColor: 'text-purple-400', bgLight: 'bg-purple-500/20' },
-  demo: { label: 'Demo', icon: Video, color: 'bg-amber-500', textColor: 'text-amber-400', bgLight: 'bg-amber-500/20' },
-};
-
-const LOCATION_CONFIG = {
-  virtual: { label: 'Virtual', icon: Video },
-  office: { label: 'Office', icon: MapPin },
-  client_site: { label: 'Client Site', icon: MapPin },
+  video_call: { label: 'Video Call', icon: Video, color: 'bg-purple-500', textColor: 'text-purple-400', bgLight: 'bg-purple-500/20' },
+  in_person: { label: 'In-Person', icon: User, color: 'bg-emerald-500', textColor: 'text-emerald-400', bgLight: 'bg-emerald-500/20' },
+  office_visit: { label: 'Office Visit', icon: Building, color: 'bg-amber-500', textColor: 'text-amber-400', bgLight: 'bg-amber-500/20' },
 };
 
 const REMINDER_OPTIONS = [
@@ -79,7 +84,6 @@ const REMINDER_OPTIONS = [
   { value: '15min', label: '15 minutes before' },
   { value: '30min', label: '30 minutes before' },
   { value: '1hr', label: '1 hour before' },
-  { value: '1day', label: '1 day before' },
 ];
 
 const DURATION_OPTIONS = [
@@ -87,51 +91,77 @@ const DURATION_OPTIONS = [
   { value: 30, label: '30 minutes' },
   { value: 45, label: '45 minutes' },
   { value: 60, label: '1 hour' },
-  { value: 90, label: '1.5 hours' },
-  { value: 120, label: '2 hours' },
 ];
 
-const defaultAppointments: Appointment[] = [
-  { id: '1', title: 'Portfolio Review', description: 'Q4 portfolio review and rebalancing discussion', type: 'review', clientId: '1', clientName: 'Rajesh Sharma', location: 'virtual', locationDetails: 'Google Meet', date: format(new Date(), 'yyyy-MM-dd'), startTime: '10:00', endTime: '11:00', duration: 60, reminder: '30min', status: 'scheduled', createdAt: '2024-12-01' },
-  { id: '2', title: 'SIP Discussion', description: 'New SIP recommendations', type: 'call', clientId: '2', clientName: 'Priya Patel', location: 'virtual', date: format(new Date(), 'yyyy-MM-dd'), startTime: '14:00', endTime: '14:30', duration: 30, reminder: '15min', status: 'scheduled', createdAt: '2024-12-10' },
-  { id: '3', title: 'Product Demo', description: 'Demonstrate new investment platform features', type: 'demo', clientId: '3', clientName: 'Amit Kumar', location: 'office', date: format(addDays(new Date(), 1), 'yyyy-MM-dd'), startTime: '11:00', endTime: '12:00', duration: 60, reminder: '1hr', status: 'scheduled', createdAt: '2024-12-12' },
-  { id: '4', title: 'Tax Planning Meeting', description: 'Year-end tax planning strategies', type: 'meeting', clientId: '1', clientName: 'Rajesh Sharma', location: 'client_site', locationDetails: 'Client office - Bandra', date: format(addDays(new Date(), 2), 'yyyy-MM-dd'), startTime: '15:00', endTime: '16:30', duration: 90, reminder: '1day', status: 'scheduled', createdAt: '2024-12-15' },
-  { id: '5', title: 'Initial Consultation', description: 'First meeting with new prospect', type: 'meeting', clientId: '5', clientName: 'Vikram Singh', location: 'office', date: format(addDays(new Date(), 3), 'yyyy-MM-dd'), startTime: '09:30', endTime: '10:30', duration: 60, reminder: '30min', status: 'scheduled', createdAt: '2024-12-18' },
-  { id: '6', title: 'Follow-up Call', description: 'Follow up on proposal sent last week', type: 'call', clientId: '4', clientName: 'Sunita Reddy', location: 'virtual', date: format(subMonths(new Date(), 0), 'yyyy-MM-dd').slice(0, 8) + '15', startTime: '16:00', endTime: '16:30', duration: 30, reminder: '15min', status: 'completed', createdAt: '2024-12-10' },
-];
+const TIME_SLOTS = Array.from({ length: 10 }, (_, i) => {
+  const hour = i + 9;
+  return { hour, label: format(new Date().setHours(hour, 0), 'h:mm a') };
+});
 
-const defaultClients: Client[] = [
-  { id: '1', name: 'Rajesh Sharma', email: 'rajesh@email.com' },
-  { id: '2', name: 'Priya Patel', email: 'priya@email.com' },
-  { id: '3', name: 'Amit Kumar', email: 'amit@email.com' },
-  { id: '4', name: 'Sunita Reddy', email: 'sunita@email.com' },
-  { id: '5', name: 'Vikram Singh', email: 'vikram@email.com' },
-  { id: '6', name: 'Meera Gupta', email: 'meera@email.com' },
-];
+function generateICSFile(appointment: Appointment): string {
+  const startDate = parseISO(`${appointment.date}T${appointment.startTime}:00`);
+  const endDate = parseISO(`${appointment.date}T${appointment.endTime}:00`);
+  
+  const formatICSDate = (date: Date) => {
+    return format(date, "yyyyMMdd'T'HHmmss");
+  };
+
+  const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//FintekPro//Agent Calendar//EN
+BEGIN:VEVENT
+UID:${appointment.id}@fintekpro.com
+DTSTAMP:${formatICSDate(new Date())}
+DTSTART:${formatICSDate(startDate)}
+DTEND:${formatICSDate(endDate)}
+SUMMARY:${appointment.title}
+DESCRIPTION:${appointment.description || ''}${appointment.agenda ? '\\nAgenda: ' + appointment.agenda : ''}
+LOCATION:${appointment.locationDetails || MEETING_TYPE_CONFIG[appointment.meetingType].label}
+END:VEVENT
+END:VCALENDAR`;
+
+  return icsContent;
+}
+
+function downloadICS(appointment: Appointment) {
+  const icsContent = generateICSFile(appointment);
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${appointment.title.replace(/\s+/g, '_')}.ics`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 export default function AgentCalendar() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [editMode, setEditMode] = useState(false);
 
   const [newAppointment, setNewAppointment] = useState({
     title: '',
     description: '',
-    type: 'meeting' as Appointment['type'],
+    meetingType: 'video_call' as Appointment['meetingType'],
     clientId: '',
-    location: 'virtual' as Appointment['location'],
+    location: '',
     locationDetails: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '10:00',
-    duration: 60,
+    duration: 30,
     reminder: '30min' as Appointment['reminder'],
+    agenda: '',
+    notes: '',
   });
 
-  const { data: appointmentsData } = useQuery<{ appointments: Appointment[] }>({
+  const { data: appointmentsData, isLoading: appointmentsLoading } = useQuery<{ appointments: Appointment[] }>({
     queryKey: ['/api/agent/appointments'],
   });
 
@@ -139,28 +169,87 @@ export default function AgentCalendar() {
     queryKey: ['/api/agent/clients'],
   });
 
-  const appointments = appointmentsData?.appointments || defaultAppointments;
-  const clients = clientsData?.clients || defaultClients;
+  const appointments = appointmentsData?.appointments || [];
+  const clients = clientsData?.clients || [];
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/agent/appointments', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/appointments'] });
+      setShowAddDialog(false);
+      resetForm();
+      toast({ title: "Appointment scheduled", description: "The appointment has been created successfully." });
+    },
+    onError: () => {
+      toast({ title: "Failed to create appointment", variant: "destructive" });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest(`/api/agent/appointments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/appointments'] });
+      setShowDetailDialog(false);
+      setEditMode(false);
+      toast({ title: "Appointment updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update appointment", variant: "destructive" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/agent/appointments/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/appointments'] });
+      setShowDetailDialog(false);
+      toast({ title: "Appointment cancelled" });
+    },
+    onError: () => {
+      toast({ title: "Failed to cancel appointment", variant: "destructive" });
+    }
+  });
+
+  const sendReminderMutation = useMutation({
+    mutationFn: ({ id, method }: { id: string; method: string }) => apiRequest(`/api/agent/appointments/${id}/send-reminder`, { method: 'POST', body: JSON.stringify({ method }) }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/appointments'] });
+      toast({ title: `Reminder sent via ${variables.method}` });
+    },
+    onError: () => {
+      toast({ title: "Failed to send reminder", variant: "destructive" });
+    }
+  });
+
+  const resetForm = () => {
+    setNewAppointment({
+      title: '',
+      description: '',
+      meetingType: 'video_call',
+      clientId: '',
+      location: '',
+      locationDetails: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      startTime: '10:00',
+      duration: 30,
+      reminder: '30min',
+      agenda: '',
+      notes: '',
+    });
+  };
 
   const todayAppointments = useMemo(() => {
     return appointments.filter(apt => isSameDay(parseISO(apt.date), new Date()) && apt.status === 'scheduled');
   }, [appointments]);
 
-  const weekAppointments = useMemo(() => {
+  const upcomingAppointments = useMemo(() => {
     const today = new Date();
-    const weekEnd = addDays(today, 7);
-    return appointments.filter(apt => {
-      const aptDate = parseISO(apt.date);
-      return isAfter(aptDate, today) && isBefore(aptDate, weekEnd) && apt.status === 'scheduled';
-    });
-  }, [appointments]);
-
-  const overdueFollowups = useMemo(() => {
-    const today = new Date();
-    return appointments.filter(apt => {
-      const aptDate = parseISO(apt.date);
-      return isBefore(aptDate, today) && apt.status === 'scheduled';
-    });
+    return appointments
+      .filter(apt => {
+        const aptDate = parseISO(apt.date);
+        return isAfter(aptDate, today) && apt.status === 'scheduled';
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [appointments]);
 
   const getDaysInMonth = () => {
@@ -185,23 +274,20 @@ export default function AgentCalendar() {
   };
 
   const getAppointmentsForDate = (date: Date) => {
-    return appointments.filter(apt => isSameDay(parseISO(apt.date), date));
+    return appointments.filter(apt => isSameDay(parseISO(apt.date), date) && apt.status !== 'cancelled');
   };
 
   const navigatePrev = () => {
     if (viewMode === 'month') setCurrentDate(subMonths(currentDate, 1));
-    else if (viewMode === 'week') setCurrentDate(addDays(currentDate, -7));
-    else setCurrentDate(addDays(currentDate, -1));
+    else setCurrentDate(addDays(currentDate, -7));
   };
 
   const navigateNext = () => {
     if (viewMode === 'month') setCurrentDate(addMonths(currentDate, 1));
-    else if (viewMode === 'week') setCurrentDate(addDays(currentDate, 7));
-    else setCurrentDate(addDays(currentDate, 1));
+    else setCurrentDate(addDays(currentDate, 7));
   };
 
   const handleDateClick = (date: Date) => {
-    setSelectedDate(date);
     setNewAppointment(prev => ({ ...prev, date: format(date, 'yyyy-MM-dd') }));
     setShowAddDialog(true);
   };
@@ -212,37 +298,57 @@ export default function AgentCalendar() {
     setShowDetailDialog(true);
   };
 
+  const calculateEndTime = (startTime: string, duration: number) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(hours, minutes, 0, 0);
+    const endDate = addMinutes(startDate, duration);
+    return format(endDate, 'HH:mm');
+  };
+
   const handleCreateAppointment = () => {
     const client = clients.find(c => c.id === newAppointment.clientId);
-    const endTime = format(addHours(parseISO(`2024-01-01T${newAppointment.startTime}`), newAppointment.duration / 60), 'HH:mm');
+    const endTime = calculateEndTime(newAppointment.startTime, newAppointment.duration);
     
-    toast({
-      title: "Appointment Created",
-      description: `${newAppointment.title} scheduled for ${format(parseISO(newAppointment.date), 'MMM d, yyyy')}`,
-    });
-    
-    setShowAddDialog(false);
-    setNewAppointment({
-      title: '',
-      description: '',
-      type: 'meeting',
-      clientId: '',
-      location: 'virtual',
-      locationDetails: '',
-      date: format(new Date(), 'yyyy-MM-dd'),
-      startTime: '10:00',
-      duration: 60,
-      reminder: '30min',
+    createMutation.mutate({
+      title: newAppointment.title,
+      description: newAppointment.description,
+      meetingType: newAppointment.meetingType,
+      date: newAppointment.date,
+      startTime: newAppointment.startTime,
+      endTime,
+      duration: newAppointment.duration,
+      location: newAppointment.location,
+      locationDetails: newAppointment.locationDetails,
+      reminder: newAppointment.reminder,
+      agenda: newAppointment.agenda,
+      notes: newAppointment.notes,
+      clientId: newAppointment.clientId || null,
+      clientName: client ? `${client.firstName || ''} ${client.lastName || ''}`.trim() || client.email : null,
+      clientEmail: client?.email || null,
+      clientPhone: client?.mobile || null,
     });
   };
 
-  const handleCreateFollowUpTask = () => {
+  const handleMarkComplete = () => {
     if (!selectedAppointment) return;
-    toast({
-      title: "Follow-up Task Created",
-      description: `Task created for ${selectedAppointment.clientName || 'client'}`,
-    });
-    setShowDetailDialog(false);
+    updateMutation.mutate({ id: selectedAppointment.id, data: { status: 'completed' } });
+  };
+
+  const handleCancelAppointment = () => {
+    if (!selectedAppointment) return;
+    deleteMutation.mutate(selectedAppointment.id);
+  };
+
+  const handleDownloadICS = () => {
+    if (!selectedAppointment) return;
+    downloadICS(selectedAppointment);
+    toast({ title: "Calendar file downloaded", description: "Open the .ics file to add to your calendar" });
+  };
+
+  const handleSendReminder = (method: 'email' | 'sms') => {
+    if (!selectedAppointment) return;
+    sendReminderMutation.mutate({ id: selectedAppointment.id, method });
   };
 
   const renderMonthView = () => {
@@ -280,7 +386,7 @@ export default function AgentCalendar() {
                 </div>
                 <div className="space-y-1">
                   {dayAppointments.slice(0, 3).map(apt => {
-                    const config = APPOINTMENT_TYPE_CONFIG[apt.type];
+                    const config = MEETING_TYPE_CONFIG[apt.meetingType];
                     return (
                       <div
                         key={apt.id}
@@ -306,7 +412,6 @@ export default function AgentCalendar() {
 
   const renderWeekView = () => {
     const days = getDaysInWeek();
-    const hours = Array.from({ length: 12 }, (_, i) => i + 8);
 
     return (
       <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden">
@@ -322,10 +427,10 @@ export default function AgentCalendar() {
           ))}
         </div>
         <div className="max-h-[500px] overflow-y-auto">
-          {hours.map(hour => (
+          {TIME_SLOTS.map(({ hour, label }) => (
             <div key={hour} className="grid grid-cols-8 border-b border-slate-700">
               <div className="p-2 text-xs text-slate-500 bg-slate-800/30">
-                {format(new Date().setHours(hour, 0), 'h:mm a')}
+                {label}
               </div>
               {days.map(day => {
                 const dayAppointments = getAppointmentsForDate(day).filter(
@@ -338,7 +443,7 @@ export default function AgentCalendar() {
                     className="p-1 border-l border-slate-700 min-h-[50px] hover:bg-slate-800/30 cursor-pointer"
                   >
                     {dayAppointments.map(apt => {
-                      const config = APPOINTMENT_TYPE_CONFIG[apt.type];
+                      const config = MEETING_TYPE_CONFIG[apt.meetingType];
                       return (
                         <div
                           key={apt.id}
@@ -359,66 +464,6 @@ export default function AgentCalendar() {
     );
   };
 
-  const renderDayView = () => {
-    const hours = Array.from({ length: 14 }, (_, i) => i + 7);
-    const dayAppointments = getAppointmentsForDate(currentDate);
-
-    return (
-      <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden">
-        <div className="p-4 border-b border-slate-700 bg-slate-800/50">
-          <h3 className={`text-lg font-semibold ${isToday(currentDate) ? 'text-emerald-400' : 'text-white'}`}>
-            {format(currentDate, 'EEEE, MMMM d, yyyy')}
-          </h3>
-          <p className="text-sm text-slate-400">{dayAppointments.length} appointments</p>
-        </div>
-        <div className="max-h-[500px] overflow-y-auto">
-          {hours.map(hour => {
-            const hourAppointments = dayAppointments.filter(
-              apt => parseInt(apt.startTime.split(':')[0]) === hour
-            );
-            return (
-              <div key={hour} className="flex border-b border-slate-700">
-                <div className="w-20 p-3 text-sm text-slate-500 bg-slate-800/30 flex-shrink-0">
-                  {format(new Date().setHours(hour, 0), 'h:mm a')}
-                </div>
-                <div
-                  onClick={() => handleDateClick(currentDate)}
-                  className="flex-1 p-2 hover:bg-slate-800/30 cursor-pointer min-h-[60px]"
-                >
-                  {hourAppointments.map(apt => {
-                    const config = APPOINTMENT_TYPE_CONFIG[apt.type];
-                    const Icon = config.icon;
-                    return (
-                      <div
-                        key={apt.id}
-                        onClick={(e) => handleAppointmentClick(apt, e)}
-                        className={`p-3 rounded-lg mb-2 ${config.bgLight} border-l-4 ${config.color.replace('bg-', 'border-')} cursor-pointer`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon className={`h-4 w-4 ${config.textColor}`} />
-                          <span className={`font-medium ${config.textColor}`}>{apt.title}</span>
-                          <Badge variant="outline" className="ml-auto text-xs">
-                            {apt.startTime} - {apt.endTime}
-                          </Badge>
-                        </div>
-                        {apt.clientName && (
-                          <div className="flex items-center gap-2 mt-1 text-sm text-slate-400">
-                            <User className="h-3 w-3" />
-                            {apt.clientName}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 p-6">
       <div className="max-w-7xl mx-auto">
@@ -428,16 +473,15 @@ export default function AgentCalendar() {
               <div>
                 <h1 className="text-2xl font-bold text-white flex items-center gap-2">
                   <CalendarIcon className="h-7 w-7 text-emerald-500" />
-                  Calendar
+                  Calendar & Appointments
                 </h1>
-                <p className="text-slate-400 mt-1">Manage appointments and schedule client meetings</p>
+                <p className="text-slate-400 mt-1">Schedule and manage client meetings</p>
               </div>
               <div className="flex items-center gap-3">
                 <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)}>
                   <TabsList className="bg-slate-800 border-slate-700">
                     <TabsTrigger value="month" className="data-[state=active]:bg-emerald-600" data-testid="button-view-month">Month</TabsTrigger>
                     <TabsTrigger value="week" className="data-[state=active]:bg-emerald-600" data-testid="button-view-week">Week</TabsTrigger>
-                    <TabsTrigger value="day" className="data-[state=active]:bg-emerald-600" data-testid="button-view-day">Day</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowAddDialog(true)} data-testid="button-add-appointment">
@@ -454,19 +498,25 @@ export default function AgentCalendar() {
               <h2 className="text-xl font-semibold text-white">
                 {viewMode === 'month' && format(currentDate, 'MMMM yyyy')}
                 {viewMode === 'week' && `Week of ${format(startOfWeek(currentDate), 'MMM d, yyyy')}`}
-                {viewMode === 'day' && format(currentDate, 'MMMM d, yyyy')}
               </h2>
               <Button variant="outline" size="icon" onClick={navigateNext} className="border-slate-700" data-testid="button-nav-next">
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
 
-            {viewMode === 'month' && renderMonthView()}
-            {viewMode === 'week' && renderWeekView()}
-            {viewMode === 'day' && renderDayView()}
+            {appointmentsLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+              </div>
+            ) : (
+              <>
+                {viewMode === 'month' && renderMonthView()}
+                {viewMode === 'week' && renderWeekView()}
+              </>
+            )}
 
             <div className="flex gap-4 flex-wrap">
-              {Object.entries(APPOINTMENT_TYPE_CONFIG).map(([key, config]) => (
+              {Object.entries(MEETING_TYPE_CONFIG).map(([key, config]) => (
                 <div key={key} className="flex items-center gap-2">
                   <div className={`w-3 h-3 rounded ${config.color}`} />
                   <span className="text-sm text-slate-400">{config.label}</span>
@@ -493,14 +543,14 @@ export default function AgentCalendar() {
                   ) : (
                     <div className="space-y-3">
                       {todayAppointments.map(apt => {
-                        const config = APPOINTMENT_TYPE_CONFIG[apt.type];
+                        const config = MEETING_TYPE_CONFIG[apt.meetingType];
                         const Icon = config.icon;
                         return (
                           <div
                             key={apt.id}
                             onClick={(e) => handleAppointmentClick(apt, e)}
                             className="p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors"
-                            data-testid={`sidebar-appointment-${apt.id}`}
+                            data-testid={`sidebar-today-${apt.id}`}
                           >
                             <div className="flex items-center gap-2 mb-1">
                               <Icon className={`h-4 w-4 ${config.textColor}`} />
@@ -526,25 +576,26 @@ export default function AgentCalendar() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-white flex items-center gap-2">
                   <CalendarIcon className="h-5 w-5 text-blue-500" />
-                  Upcoming This Week
+                  Upcoming Appointments
                 </CardTitle>
                 <CardDescription className="text-slate-400">
-                  {weekAppointments.length} upcoming
+                  {upcomingAppointments.length} upcoming
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-48">
-                  {weekAppointments.length === 0 ? (
+                <ScrollArea className="h-64">
+                  {upcomingAppointments.length === 0 ? (
                     <p className="text-slate-500 text-sm text-center py-4">No upcoming appointments</p>
                   ) : (
                     <div className="space-y-3">
-                      {weekAppointments.slice(0, 5).map(apt => {
-                        const config = APPOINTMENT_TYPE_CONFIG[apt.type];
+                      {upcomingAppointments.slice(0, 8).map(apt => {
+                        const config = MEETING_TYPE_CONFIG[apt.meetingType];
                         return (
                           <div
                             key={apt.id}
                             onClick={(e) => handleAppointmentClick(apt, e)}
                             className="p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors"
+                            data-testid={`sidebar-upcoming-${apt.id}`}
                           >
                             <div className="flex items-center justify-between mb-1">
                               <span className="font-medium text-white text-sm">{apt.title}</span>
@@ -555,6 +606,9 @@ export default function AgentCalendar() {
                             <div className="text-xs text-slate-400">
                               {format(parseISO(apt.date), 'EEE, MMM d')} at {apt.startTime}
                             </div>
+                            {apt.clientName && (
+                              <div className="text-xs text-slate-500 mt-1">{apt.clientName}</div>
+                            )}
                           </div>
                         );
                       })}
@@ -563,47 +617,12 @@ export default function AgentCalendar() {
                 </ScrollArea>
               </CardContent>
             </Card>
-
-            {overdueFollowups.length > 0 && (
-              <Card className="bg-slate-900 border-red-500/30">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-red-500" />
-                    Overdue Follow-ups
-                  </CardTitle>
-                  <CardDescription className="text-red-400">
-                    {overdueFollowups.length} need attention
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-32">
-                    <div className="space-y-3">
-                      {overdueFollowups.map(apt => (
-                        <div
-                          key={apt.id}
-                          onClick={(e) => handleAppointmentClick(apt, e)}
-                          className="p-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 cursor-pointer transition-colors"
-                        >
-                          <div className="font-medium text-white text-sm">{apt.title}</div>
-                          <div className="text-xs text-red-400">
-                            Was scheduled for {format(parseISO(apt.date), 'MMM d')}
-                          </div>
-                          {apt.clientName && (
-                            <div className="text-xs text-slate-500 mt-1">{apt.clientName}</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg">
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Schedule Appointment</DialogTitle>
             <DialogDescription className="text-slate-400">
@@ -612,13 +631,13 @@ export default function AgentCalendar() {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div>
-              <Label htmlFor="apt-title" className="text-slate-300">Title *</Label>
+              <Label htmlFor="apt-title" className="text-slate-300">Subject/Title *</Label>
               <Input
                 id="apt-title"
                 value={newAppointment.title}
                 onChange={(e) => setNewAppointment({ ...newAppointment, title: e.target.value })}
                 className="mt-1 bg-slate-800 border-slate-700"
-                placeholder="Appointment title"
+                placeholder="e.g., Portfolio Review, Tax Planning"
                 data-testid="input-appointment-title"
               />
             </div>
@@ -632,50 +651,26 @@ export default function AgentCalendar() {
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-700">
                     {clients.map(client => (
-                      <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : client.email}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-slate-300">Type *</Label>
-                <Select value={newAppointment.type} onValueChange={(value) => setNewAppointment({ ...newAppointment, type: value as Appointment['type'] })}>
-                  <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-type">
+                <Label className="text-slate-300">Meeting Type *</Label>
+                <Select value={newAppointment.meetingType} onValueChange={(value) => setNewAppointment({ ...newAppointment, meetingType: value as Appointment['meetingType'] })}>
+                  <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-meeting-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-700">
-                    <SelectItem value="meeting">Meeting</SelectItem>
                     <SelectItem value="call">Call</SelectItem>
-                    <SelectItem value="review">Review</SelectItem>
-                    <SelectItem value="demo">Demo</SelectItem>
+                    <SelectItem value="video_call">Video Call</SelectItem>
+                    <SelectItem value="in_person">In-Person</SelectItem>
+                    <SelectItem value="office_visit">Office Visit</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-slate-300">Location</Label>
-                <Select value={newAppointment.location} onValueChange={(value) => setNewAppointment({ ...newAppointment, location: value as Appointment['location'] })}>
-                  <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-location">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
-                    <SelectItem value="virtual">Virtual</SelectItem>
-                    <SelectItem value="office">Office</SelectItem>
-                    <SelectItem value="client_site">Client Site</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="apt-location-details" className="text-slate-300">Location Details</Label>
-                <Input
-                  id="apt-location-details"
-                  value={newAppointment.locationDetails}
-                  onChange={(e) => setNewAppointment({ ...newAppointment, locationDetails: e.target.value })}
-                  className="mt-1 bg-slate-800 border-slate-700"
-                  placeholder="e.g., Google Meet link"
-                />
               </div>
             </div>
 
@@ -693,17 +688,26 @@ export default function AgentCalendar() {
               </div>
               <div>
                 <Label htmlFor="apt-time" className="text-slate-300">Time *</Label>
-                <Input
-                  id="apt-time"
-                  type="time"
-                  value={newAppointment.startTime}
-                  onChange={(e) => setNewAppointment({ ...newAppointment, startTime: e.target.value })}
-                  className="mt-1 bg-slate-800 border-slate-700"
-                  data-testid="input-time"
-                />
+                <Select value={newAppointment.startTime} onValueChange={(value) => setNewAppointment({ ...newAppointment, startTime: value })}>
+                  <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-time">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700">
+                    {TIME_SLOTS.map(({ hour }) => (
+                      <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
+                        {format(new Date().setHours(hour, 0), 'h:mm a')}
+                      </SelectItem>
+                    ))}
+                    {TIME_SLOTS.map(({ hour }) => (
+                      <SelectItem key={`${hour}-30`} value={`${hour.toString().padStart(2, '0')}:30`}>
+                        {format(new Date().setHours(hour, 30), 'h:mm a')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
-                <Label className="text-slate-300">Duration</Label>
+                <Label className="text-slate-300">Duration *</Label>
                 <Select value={newAppointment.duration.toString()} onValueChange={(value) => setNewAppointment({ ...newAppointment, duration: parseInt(value) })}>
                   <SelectTrigger className="mt-1 bg-slate-800 border-slate-700" data-testid="select-duration">
                     <SelectValue />
@@ -715,6 +719,17 @@ export default function AgentCalendar() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="apt-location" className="text-slate-300">Location Details</Label>
+              <Input
+                id="apt-location"
+                value={newAppointment.locationDetails}
+                onChange={(e) => setNewAppointment({ ...newAppointment, locationDetails: e.target.value })}
+                className="mt-1 bg-slate-800 border-slate-700"
+                placeholder="e.g., Google Meet link, Office address"
+              />
             </div>
 
             <div>
@@ -732,14 +747,26 @@ export default function AgentCalendar() {
             </div>
 
             <div>
-              <Label htmlFor="apt-description" className="text-slate-300">Description</Label>
+              <Label htmlFor="apt-agenda" className="text-slate-300">Agenda</Label>
               <Textarea
-                id="apt-description"
-                value={newAppointment.description}
-                onChange={(e) => setNewAppointment({ ...newAppointment, description: e.target.value })}
+                id="apt-agenda"
+                value={newAppointment.agenda}
+                onChange={(e) => setNewAppointment({ ...newAppointment, agenda: e.target.value })}
                 className="mt-1 bg-slate-800 border-slate-700"
-                placeholder="Appointment details..."
-                rows={3}
+                placeholder="Meeting agenda points..."
+                rows={2}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="apt-notes" className="text-slate-300">Notes</Label>
+              <Textarea
+                id="apt-notes"
+                value={newAppointment.notes}
+                onChange={(e) => setNewAppointment({ ...newAppointment, notes: e.target.value })}
+                className="mt-1 bg-slate-800 border-slate-700"
+                placeholder="Additional notes..."
+                rows={2}
               />
             </div>
 
@@ -750,9 +777,10 @@ export default function AgentCalendar() {
               <Button 
                 className="bg-emerald-600 hover:bg-emerald-700" 
                 onClick={handleCreateAppointment}
-                disabled={!newAppointment.title || !newAppointment.date || !newAppointment.startTime}
+                disabled={!newAppointment.title || !newAppointment.date || !newAppointment.startTime || createMutation.isPending}
                 data-testid="button-create-appointment"
               >
+                {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Schedule Appointment
               </Button>
             </div>
@@ -768,7 +796,7 @@ export default function AgentCalendar() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {(() => {
-                      const config = APPOINTMENT_TYPE_CONFIG[selectedAppointment.type];
+                      const config = MEETING_TYPE_CONFIG[selectedAppointment.meetingType];
                       const Icon = config.icon;
                       return (
                         <div className={`p-2 rounded-lg ${config.bgLight}`}>
@@ -778,9 +806,17 @@ export default function AgentCalendar() {
                     })()}
                     <div>
                       <DialogTitle>{selectedAppointment.title}</DialogTitle>
-                      <Badge className={`mt-1 ${APPOINTMENT_TYPE_CONFIG[selectedAppointment.type].bgLight} ${APPOINTMENT_TYPE_CONFIG[selectedAppointment.type].textColor} border-0`}>
-                        {APPOINTMENT_TYPE_CONFIG[selectedAppointment.type].label}
-                      </Badge>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className={`${MEETING_TYPE_CONFIG[selectedAppointment.meetingType].bgLight} ${MEETING_TYPE_CONFIG[selectedAppointment.meetingType].textColor} border-0`}>
+                          {MEETING_TYPE_CONFIG[selectedAppointment.meetingType].label}
+                        </Badge>
+                        {selectedAppointment.status === 'completed' && (
+                          <Badge className="bg-green-500/20 text-green-400 border-0">Completed</Badge>
+                        )}
+                        {selectedAppointment.status === 'cancelled' && (
+                          <Badge className="bg-red-500/20 text-red-400 border-0">Cancelled</Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -802,7 +838,12 @@ export default function AgentCalendar() {
                   <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-slate-500" />
-                      <span className="text-white">{selectedAppointment.clientName}</span>
+                      <div>
+                        <span className="text-white">{selectedAppointment.clientName}</span>
+                        {selectedAppointment.clientEmail && (
+                          <p className="text-xs text-slate-400">{selectedAppointment.clientEmail}</p>
+                        )}
+                      </div>
                     </div>
                     {selectedAppointment.clientId && (
                       <Link href={`/crm/clients/${selectedAppointment.clientId}`}>
@@ -815,21 +856,24 @@ export default function AgentCalendar() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 text-slate-300">
-                  {LOCATION_CONFIG[selectedAppointment.location].icon === Video ? (
-                    <Video className="h-4 w-4 text-slate-500" />
-                  ) : (
+                {selectedAppointment.locationDetails && (
+                  <div className="flex items-center gap-2 text-slate-300">
                     <MapPin className="h-4 w-4 text-slate-500" />
-                  )}
-                  <span>{LOCATION_CONFIG[selectedAppointment.location].label}</span>
-                  {selectedAppointment.locationDetails && (
-                    <span className="text-slate-500">• {selectedAppointment.locationDetails}</span>
-                  )}
-                </div>
+                    <span>{selectedAppointment.locationDetails}</span>
+                  </div>
+                )}
 
-                {selectedAppointment.description && (
+                {selectedAppointment.agenda && (
                   <div className="p-3 rounded-lg bg-slate-800/50">
-                    <p className="text-sm text-slate-300">{selectedAppointment.description}</p>
+                    <p className="text-xs text-slate-400 mb-1">Agenda</p>
+                    <p className="text-sm text-slate-300">{selectedAppointment.agenda}</p>
+                  </div>
+                )}
+
+                {selectedAppointment.notes && (
+                  <div className="p-3 rounded-lg bg-slate-800/50">
+                    <p className="text-xs text-slate-400 mb-1">Notes</p>
+                    <p className="text-sm text-slate-300">{selectedAppointment.notes}</p>
                   </div>
                 )}
 
@@ -837,30 +881,74 @@ export default function AgentCalendar() {
                   <div className="flex items-center gap-2 text-slate-400 text-sm">
                     <Bell className="h-4 w-4" />
                     <span>Reminder: {REMINDER_OPTIONS.find(r => r.value === selectedAppointment.reminder)?.label}</span>
+                    {selectedAppointment.reminderSent && (
+                      <Badge variant="outline" className="text-xs border-green-500/30 text-green-400">Sent</Badge>
+                    )}
                   </div>
                 )}
 
-                <div className="flex justify-between gap-3 pt-4 border-t border-slate-700">
-                  <Button
-                    variant="outline"
-                    className="border-slate-600 text-slate-300"
-                    onClick={handleCreateFollowUpTask}
-                    data-testid="button-create-followup-task"
-                  >
-                    <ListTodo className="h-4 w-4 mr-2" />
-                    Create Follow-up Task
-                  </Button>
-                  <div className="flex gap-2">
-                    <Button variant="outline" className="border-slate-600" data-testid="button-edit-appointment">
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit
-                    </Button>
-                    <Button variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10" data-testid="button-cancel-appointment">
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+                {selectedAppointment.status === 'scheduled' && (
+                  <>
+                    <div className="flex gap-2 pt-2 border-t border-slate-700">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-slate-600"
+                        onClick={handleDownloadICS}
+                        data-testid="button-download-ics"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Add to Calendar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-slate-600"
+                        onClick={() => handleSendReminder('email')}
+                        disabled={sendReminderMutation.isPending}
+                        data-testid="button-send-email-reminder"
+                      >
+                        <Mail className="h-4 w-4 mr-1" />
+                        Email
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-slate-600"
+                        onClick={() => handleSendReminder('sms')}
+                        disabled={sendReminderMutation.isPending}
+                        data-testid="button-send-sms-reminder"
+                      >
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        SMS
+                      </Button>
+                    </div>
+
+                    <div className="flex justify-between gap-3 pt-2 border-t border-slate-700">
+                      <Button
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                        onClick={handleMarkComplete}
+                        disabled={updateMutation.isPending}
+                        data-testid="button-mark-complete"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Mark Complete
+                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                          onClick={handleCancelAppointment}
+                          disabled={deleteMutation.isPending}
+                          data-testid="button-cancel-appointment"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}

@@ -122,6 +122,7 @@ import AgentCommissionCalculator from "@/pages/agent-commission-calculator";
 import AgentBulkCommunication from "@/pages/agent-bulk-communication";
 import AgentCalendar from "@/pages/agent-calendar";
 import AgentESign from "@/pages/agent-esign";
+import AgentClientOnboarding from "@/pages/agent-client-onboarding";
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -1106,6 +1107,13 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentESign />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/onboard-client">
+        {() => (
+          <AgentLayout>
+            <AgentClientOnboarding />
           </AgentLayout>
         )}
       </Route>

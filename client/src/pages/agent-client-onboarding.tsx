@@ -60,6 +60,7 @@ const panVerificationSchema = z.object({
 });
 
 const addressSchema = z.object({
+  aadhaarNumber: z.string().length(12, "Aadhaar must be 12 digits").optional(),
   addressLine1: z.string().min(5, "Address is required"),
   addressLine2: z.string().optional(),
   city: z.string().min(2, "City is required"),
@@ -108,7 +109,7 @@ type FormData = z.infer<typeof fullFormSchema>;
 const STEPS = [
   { id: 1, name: "Basic Info", icon: User, description: "Personal details" },
   { id: 2, name: "PAN Verification", icon: CreditCard, description: "Identity verification" },
-  { id: 3, name: "Address", icon: MapPin, description: "Residential address" },
+  { id: 3, name: "Address & KYC", icon: MapPin, description: "Address & Aadhaar" },
   { id: 4, name: "Bank Details", icon: Building2, description: "Account information" },
   { id: 5, name: "Risk Profile", icon: Target, description: "Investment preferences" },
   { id: 6, name: "Review", icon: CheckCircle2, description: "Final confirmation" },
@@ -138,6 +139,7 @@ export default function AgentClientOnboarding() {
       panNumber: "",
       panVerified: false,
       panHolderName: "",
+      aadhaarNumber: "",
       addressLine1: "",
       addressLine2: "",
       city: "",
@@ -773,8 +775,31 @@ export default function AgentClientOnboarding() {
                 <div className="space-y-6 animate-in fade-in-50 duration-300">
                   <div className="flex items-center gap-2 mb-4">
                     <MapPin className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-lg font-medium text-white">Address Details</h3>
+                    <h3 className="text-lg font-medium text-white">Address & KYC Details</h3>
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="aadhaarNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-300">Aadhaar Number (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Enter 12-digit Aadhaar number"
+                            maxLength={12}
+                            className="bg-slate-800 border-slate-700 text-white"
+                            data-testid="input-aadhaar"
+                          />
+                        </FormControl>
+                        <FormDescription className="text-slate-500">
+                          Aadhaar is optional but helps in faster KYC verification
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}
@@ -1311,10 +1336,13 @@ export default function AgentClientOnboarding() {
                     <Card className="bg-slate-800/50 border-slate-700">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm text-slate-400 flex items-center gap-2">
-                          <MapPin className="w-4 h-4" /> Address
+                          <MapPin className="w-4 h-4" /> Address & KYC
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
+                        {form.getValues("aadhaarNumber") && (
+                          <p className="text-white">Aadhaar: ****{form.getValues("aadhaarNumber").slice(-4)}</p>
+                        )}
                         <p className="text-white">{form.getValues("addressLine1")}</p>
                         {form.getValues("addressLine2") && <p className="text-slate-400">{form.getValues("addressLine2")}</p>}
                         <p className="text-slate-400">{form.getValues("city")}, {form.getValues("state")} - {form.getValues("pincode")}</p>

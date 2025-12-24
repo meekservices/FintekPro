@@ -19403,3 +19403,60 @@ export const CrmOpportunityStageEnum = z.enum(['lead', 'qualified', 'proposal', 
 export const CrmTaskStatusEnum = z.enum(['pending', 'in_progress', 'completed', 'cancelled']);
 export const CrmPriorityEnum = z.enum(['low', 'medium', 'high', 'urgent']);
 
+// ============================================
+// Agent Appointments - Client Meeting Scheduling
+// ============================================
+
+export const agentAppointments = pgTable("agent_appointments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id),
+  
+  title: varchar("title").notNull(),
+  description: text("description"),
+  
+  meetingType: varchar("meeting_type").notNull(), // call, video_call, in_person, office_visit
+  
+  date: date("date").notNull(),
+  startTime: varchar("start_time").notNull(), // HH:MM format
+  endTime: varchar("end_time").notNull(), // HH:MM format
+  duration: integer("duration").notNull(), // in minutes: 15, 30, 45, 60
+  
+  location: varchar("location"), // virtual, office, client_site
+  locationDetails: text("location_details"), // meeting link or address
+  
+  reminder: varchar("reminder").default("30min"), // none, 15min, 30min, 1hr
+  reminderSent: boolean("reminder_sent").default(false),
+  
+  status: varchar("status").default("scheduled"), // scheduled, completed, cancelled, no_show
+  
+  notes: text("notes"),
+  agenda: text("agenda"),
+  
+  clientName: varchar("client_name"),
+  clientEmail: varchar("client_email"),
+  clientPhone: varchar("client_phone"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_agent_appointments_agent").on(table.agentId),
+  index("idx_agent_appointments_client").on(table.clientId),
+  index("idx_agent_appointments_date").on(table.date),
+  index("idx_agent_appointments_status").on(table.status),
+]);
+
+export const insertAgentAppointmentSchema = createInsertSchema(agentAppointments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+});
+export type AgentAppointment = typeof agentAppointments.$inferSelect;
+export type InsertAgentAppointment = z.infer<typeof insertAgentAppointmentSchema>;
+
+export const AgentAppointmentMeetingTypeEnum = z.enum(['call', 'video_call', 'in_person', 'office_visit']);
+export const AgentAppointmentStatusEnum = z.enum(['scheduled', 'completed', 'cancelled', 'no_show']);
+export const AgentAppointmentReminderEnum = z.enum(['none', '15min', '30min', '1hr']);
+

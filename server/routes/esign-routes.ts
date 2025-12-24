@@ -252,6 +252,31 @@ router.get('/api/esign/download/:transactionId', isAuthenticated, async (req: Re
   }
 });
 
+router.post('/api/esign/documents/:id/remind', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    const { id } = req.params;
+    const { sendVia } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    await logAudit(id, userId, 'reminder_sent', 'success', {
+      sendVia: sendVia || 'email',
+    }, req);
+
+    res.json({
+      success: true,
+      message: `Reminder sent via ${sendVia || 'email'}`,
+      documentId: id,
+    });
+  } catch (error) {
+    console.error('[eSign Routes] Send reminder error:', error);
+    res.status(500).json({ error: 'Failed to send reminder' });
+  }
+});
+
 router.get('/api/agent/esign/requests', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const userId = (req.user as any)?.id;

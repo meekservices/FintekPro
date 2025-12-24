@@ -1,7 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -27,18 +26,20 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  Clock,
   UserCheck,
-  Briefcase,
   Plus,
   Calculator,
   Calendar,
-  FileSignature
+  FileSignature,
+  DollarSign,
+  Clock
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { usePushNotifications, type AgentNotification } from "@/hooks/usePushNotifications";
+import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
 import type { LucideIcon } from "lucide-react";
 
 interface AgentLayoutProps {
@@ -58,16 +59,6 @@ interface NavCategory {
   items: NavItem[];
 }
 
-interface Notification {
-  id: string;
-  type: 'task' | 'client' | 'proposal' | 'lead';
-  title: string;
-  message: string;
-  timestamp: Date;
-  read: boolean;
-  link: string;
-}
-
 const agentNavCategories: NavCategory[] = [
   {
     title: "Core Operations",
@@ -77,6 +68,7 @@ const agentNavCategories: NavCategory[] = [
       { title: "Revenue Cockpit", href: "/revenue", icon: Wallet, description: "AUM and commissions" },
       { title: "Commission Calculator", href: "/commission-calculator", icon: Calculator, description: "Calculate earnings" },
       { title: "My Clients", href: "/clients", icon: Users, description: "Client portfolio" },
+      { title: "Onboard Client", href: "/onboard-client", icon: UserPlus, description: "New client KYC" },
       { title: "Lead Pipeline", href: "/leads", icon: Target, description: "Track prospects" },
       { title: "Sales Pipeline", href: "/crm/pipeline", icon: TrendingUp, description: "Deal stages" },
       { title: "CRM Analytics", href: "/crm/analytics", icon: BarChart3, description: "CRM insights" },
@@ -124,76 +116,17 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  const { data: tasksData } = useQuery<{ pendingTasks: number; overdueCount: number }>({
-    queryKey: ["/api/agent/tasks/stats"],
-    refetchInterval: 60000,
-  });
-
-  const { data: leadsData } = useQuery<{ newLeadsCount: number }>({
-    queryKey: ["/api/agent/leads/stats"],
-    refetchInterval: 60000,
-  });
-
-  const { data: proposalsData } = useQuery<{ pendingResponses: number }>({
-    queryKey: ["/api/agent/proposals/stats"],
-    refetchInterval: 60000,
-  });
-
-  const notifications: Notification[] = useMemo(() => {
-    const items: Notification[] = [];
-    const pendingTasks = tasksData?.pendingTasks || 0;
-    const overdueCount = tasksData?.overdueCount || 0;
-    const newLeads = leadsData?.newLeadsCount || 0;
-    const pendingProposals = proposalsData?.pendingResponses || 0;
-
-    if (overdueCount > 0) {
-      items.push({
-        id: 'overdue-tasks',
-        type: 'task',
-        title: 'Overdue Tasks',
-        message: `${overdueCount} task${overdueCount > 1 ? 's' : ''} overdue`,
-        timestamp: new Date(),
-        read: false,
-        link: '/tasks'
-      });
-    }
-    if (pendingTasks > 0) {
-      items.push({
-        id: 'pending-tasks',
-        type: 'task',
-        title: 'Pending Tasks',
-        message: `${pendingTasks} task${pendingTasks > 1 ? 's' : ''} pending`,
-        timestamp: new Date(),
-        read: false,
-        link: '/tasks'
-      });
-    }
-    if (newLeads > 0) {
-      items.push({
-        id: 'new-leads',
-        type: 'lead',
-        title: 'New Leads',
-        message: `${newLeads} new lead${newLeads > 1 ? 's' : ''} to follow up`,
-        timestamp: new Date(),
-        read: false,
-        link: '/leads'
-      });
-    }
-    if (pendingProposals > 0) {
-      items.push({
-        id: 'pending-proposals',
-        type: 'proposal',
-        title: 'Pending Proposals',
-        message: `${pendingProposals} proposal${pendingProposals > 1 ? 's' : ''} awaiting response`,
-        timestamp: new Date(),
-        read: false,
-        link: '/proposals'
-      });
-    }
-    return items;
-  }, [tasksData, leadsData, proposalsData]);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const {
+    isSupported,
+    permission,
+    isSubscribed,
+    isLoading: pushLoading,
+    notifications,
+    unreadCount,
+    enableNotifications,
+    markAsRead,
+    markAllAsRead
+  } = usePushNotifications();
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -234,14 +167,40 @@ export function AgentLayout({ children }: AgentLayoutProps) {
     });
   };
 
-  const getNotificationIcon = (type: Notification['type']) => {
+  const getNotificationIcon = (type: AgentNotification['type']) => {
     switch (type) {
-      case 'task': return CheckSquare;
-      case 'client': return UserCheck;
-      case 'proposal': return FileText;
-      case 'lead': return Target;
+      case 'lead_assigned': return Target;
+      case 'task_due': return CheckSquare;
+      case 'meeting_reminder': return Clock;
+      case 'proposal_response': return FileText;
+      case 'commission_credited': return DollarSign;
       default: return Bell;
     }
+  };
+
+  const getNotificationColor = (type: AgentNotification['type']) => {
+    switch (type) {
+      case 'lead_assigned': return "bg-blue-500/20 text-blue-400";
+      case 'task_due': return "bg-amber-500/20 text-amber-400";
+      case 'meeting_reminder': return "bg-purple-500/20 text-purple-400";
+      case 'proposal_response': return "bg-emerald-500/20 text-emerald-400";
+      case 'commission_credited': return "bg-green-500/20 text-green-400";
+      default: return "bg-slate-500/20 text-slate-400";
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
   };
 
   if (isLoading) {
@@ -280,6 +239,14 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 
   return (
     <div className="min-h-screen bg-slate-950 text-gray-100">
+      <NotificationPermissionBanner
+        isSupported={isSupported}
+        permission={permission}
+        isSubscribed={isSubscribed}
+        onEnableNotifications={enableNotifications}
+        isLoading={pushLoading}
+      />
+
       <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
@@ -323,20 +290,34 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                   <Bell className="h-5 w-5" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-emerald-500 border-0">
-                      {unreadCount}
+                      {unreadCount > 9 ? '9+' : unreadCount}
                     </Badge>
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 p-0 bg-slate-900 border-slate-700" align="end">
-                <div className="p-3 border-b border-slate-700">
-                  <h3 className="font-semibold text-white">Notifications</h3>
-                  <p className="text-xs text-slate-400">{unreadCount} unread</p>
+              <PopoverContent className="w-96 p-0 bg-slate-900 border-slate-700" align="end">
+                <div className="p-3 border-b border-slate-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-white">Notifications</h3>
+                    <p className="text-xs text-slate-400">{unreadCount} unread</p>
+                  </div>
+                  {unreadCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => markAllAsRead()}
+                      className="text-xs text-slate-400 hover:text-white"
+                      data-testid="button-mark-all-read"
+                    >
+                      Mark all read
+                    </Button>
+                  )}
                 </div>
-                <ScrollArea className="max-h-80">
+                <ScrollArea className="max-h-96">
                   {notifications.length === 0 ? (
-                    <div className="p-4 text-center text-slate-500 text-sm">
-                      No notifications
+                    <div className="p-6 text-center">
+                      <Bell className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm">No notifications yet</p>
                     </div>
                   ) : (
                     <div className="p-2 space-y-1">
@@ -345,25 +326,40 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                         return (
                           <Link
                             key={notification.id}
-                            href={notification.link}
-                            onClick={() => setNotificationsOpen(false)}
-                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                            href={notification.link || '/'}
+                            onClick={() => {
+                              if (!notification.read) {
+                                markAsRead(notification.id);
+                              }
+                              setNotificationsOpen(false);
+                            }}
+                            className={cn(
+                              "flex items-start gap-3 p-3 rounded-lg transition-colors",
+                              notification.read 
+                                ? "hover:bg-slate-800/50" 
+                                : "bg-slate-800/50 hover:bg-slate-800"
+                            )}
+                            data-testid={`notification-${notification.id}`}
                           >
-                            <div className={cn(
-                              "p-2 rounded-full",
-                              notification.type === 'task' && "bg-amber-500/20 text-amber-400",
-                              notification.type === 'lead' && "bg-blue-500/20 text-blue-400",
-                              notification.type === 'proposal' && "bg-emerald-500/20 text-emerald-400",
-                              notification.type === 'client' && "bg-purple-500/20 text-purple-400"
-                            )}>
+                            <div className={cn("p-2 rounded-full", getNotificationColor(notification.type))}>
                               <Icon className="h-4 w-4" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-white">{notification.title}</p>
-                              <p className="text-xs text-slate-400">{notification.message}</p>
+                              <p className={cn(
+                                "text-sm",
+                                notification.read ? "text-slate-300" : "text-white font-medium"
+                              )}>
+                                {notification.title}
+                              </p>
+                              <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {formatTimeAgo(notification.createdAt)}
+                              </p>
                             </div>
                             {!notification.read && (
-                              <span className="w-2 h-2 bg-emerald-500 rounded-full mt-2" />
+                              <span className="w-2 h-2 bg-emerald-500 rounded-full mt-2 flex-shrink-0" />
                             )}
                           </Link>
                         );

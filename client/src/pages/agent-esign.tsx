@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useDropzone } from "react-dropzone";
@@ -42,7 +44,10 @@ import {
   LayoutTemplate,
   History,
   ArrowUpDown,
-  ChevronRight
+  ChevronRight,
+  MessageSquare,
+  MousePointer2,
+  CalendarDays
 } from "lucide-react";
 
 interface Client {
@@ -61,6 +66,21 @@ interface Signer {
   email: string;
   mobile: string;
   order: number;
+}
+
+interface SignatureField {
+  id: string;
+  type: 'signature' | 'date' | 'initial';
+  signerId: string;
+  x: number;
+  y: number;
+  page: number;
+}
+
+interface SendOptions {
+  email: boolean;
+  whatsapp: boolean;
+  autoFillDate: boolean;
 }
 
 interface ESignRequest {
@@ -135,6 +155,12 @@ export default function AgentESignPage() {
   const [deadline, setDeadline] = useState<Date | undefined>(addDays(new Date(), 7));
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [documentSource, setDocumentSource] = useState<'upload' | 'template' | 'recent'>('upload');
+  const [signatureFields, setSignatureFields] = useState<SignatureField[]>([]);
+  const [sendOptions, setSendOptions] = useState<SendOptions>({
+    email: true,
+    whatsapp: false,
+    autoFillDate: true,
+  });
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['/api/agent/clients'],
@@ -172,6 +198,49 @@ export default function AgentESignPage() {
       toast({ 
         title: "Error", 
         description: error.message || "Failed to send e-sign request", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const sendReminder = useMutation({
+    mutationFn: async (requestId: string) => {
+      return apiRequest(`/api/esign/documents/${requestId}/remind`, {
+        method: 'POST',
+        body: JSON.stringify({
+          sendVia: sendOptions.whatsapp ? 'whatsapp' : 'email',
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Reminder Sent", description: "Reminder has been sent to the signers" });
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/esign/requests'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to send reminder", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const downloadDocument = useMutation({
+    mutationFn: async (transactionId: string) => {
+      return apiRequest(`/api/esign/download/${transactionId}`, {
+        method: 'GET',
+      });
+    },
+    onSuccess: (data: any) => {
+      if (data.downloadUrl) {
+        window.open(data.downloadUrl, '_blank');
+      }
+      toast({ title: "Download Started", description: "Your signed document is being downloaded" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to download document", 
         variant: "destructive" 
       });
     }
@@ -232,6 +301,26 @@ export default function AgentESignPage() {
     }
   };
 
+  const handleAddSignatureField = (signerId: string, type: 'signature' | 'date' | 'initial' = 'signature') => {
+    const newField: SignatureField = {
+      id: `field-${Date.now()}`,
+      type,
+      signerId,
+      x: 50,
+      y: 80,
+      page: 1,
+    };
+    setSignatureFields([...signatureFields, newField]);
+  };
+
+  const handleUpdateSignatureField = (id: string, field: Partial<SignatureField>) => {
+    setSignatureFields(signatureFields.map(f => f.id === id ? { ...f, ...field } : f));
+  };
+
+  const handleRemoveSignatureField = (id: string) => {
+    setSignatureFields(signatureFields.filter(f => f.id !== id));
+  };
+
   const handleCloseDialog = () => {
     setShowNewRequestDialog(false);
     setUploadedFile(null);
@@ -241,6 +330,8 @@ export default function AgentESignPage() {
     setDeadline(addDays(new Date(), 7));
     setSelectedTemplate("");
     setDocumentSource('upload');
+    setSignatureFields([]);
+    setSendOptions({ email: true, whatsapp: false, autoFillDate: true });
   };
 
   const handleSendRequest = () => {
@@ -253,11 +344,22 @@ export default function AgentESignPage() {
       return;
     }
 
+    if (!sendOptions.email && !sendOptions.whatsapp) {
+      toast({ 
+        title: "Select Delivery Method", 
+        description: "Please select at least one delivery method (Email or WhatsApp)", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     initiateESign.mutate({
       documentName,
       documentType,
       signers,
       deadline: deadline?.toISOString(),
+      signatureFields,
+      sendOptions,
     });
   };
 
@@ -835,8 +937,163 @@ export default function AgentESignPage() {
                 )}
               </div>
 
+              {signers.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <MousePointer2 className="h-4 w-4" />
+                      Signature Field Placement
+                    </Label>
+                  </div>
+                  <Alert className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                    <MousePointer2 className="h-4 w-4 text-emerald-600" />
+                    <AlertDescription className="text-emerald-700 dark:text-emerald-400">
+                      Add signature and date fields for each signer. Set X/Y position (percentage from left/top).
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="space-y-3">
+                    {signers.map((signer, signerIdx) => {
+                      const signerFields = signatureFields.filter(f => f.signerId === signer.id);
+                      return (
+                        <Card key={signer.id} className="bg-muted/30" data-testid={`card-signer-fields-${signerIdx}`}>
+                          <CardHeader className="py-3">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-sm font-medium">{signer.name || `Signer ${signerIdx + 1}`}</CardTitle>
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleAddSignatureField(signer.id, 'signature')}
+                                  data-testid={`button-add-signature-${signerIdx}`}
+                                >
+                                  <FileSignature className="h-3 w-3 mr-1" />
+                                  Signature
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleAddSignatureField(signer.id, 'date')}
+                                  data-testid={`button-add-date-${signerIdx}`}
+                                >
+                                  <CalendarDays className="h-3 w-3 mr-1" />
+                                  Date
+                                </Button>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          {signerFields.length > 0 && (
+                            <CardContent className="pt-0">
+                              <div className="space-y-2">
+                                {signerFields.map((field, fieldIdx) => (
+                                  <div key={field.id} className="flex items-center gap-3 p-2 bg-white dark:bg-slate-900 rounded border">
+                                    <Badge variant="outline" className="text-xs capitalize">
+                                      {field.type}
+                                    </Badge>
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <Label className="text-xs">X:</Label>
+                                      <Slider
+                                        value={[field.x]}
+                                        onValueChange={([v]) => handleUpdateSignatureField(field.id, { x: v })}
+                                        max={100}
+                                        step={1}
+                                        className="w-20"
+                                      />
+                                      <span className="text-xs w-8">{field.x}%</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <Label className="text-xs">Y:</Label>
+                                      <Slider
+                                        value={[field.y]}
+                                        onValueChange={([v]) => handleUpdateSignatureField(field.id, { y: v })}
+                                        max={100}
+                                        step={1}
+                                        className="w-20"
+                                      />
+                                      <span className="text-xs w-8">{field.y}%</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Label className="text-xs">Page:</Label>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        value={field.page}
+                                        onChange={(e) => handleUpdateSignatureField(field.id, { page: parseInt(e.target.value) || 1 })}
+                                        className="w-14 h-7 text-xs"
+                                      />
+                                    </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-7 w-7 text-red-500"
+                                      onClick={() => handleRemoveSignatureField(field.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          )}
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">Send Options</Label>
+                <Card className="bg-muted/30">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Mail className="h-4 w-4 text-emerald-600" />
+                        <div>
+                          <Label className="font-medium">Send via Email</Label>
+                          <p className="text-xs text-muted-foreground">Send signing link to signer's email</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={sendOptions.email}
+                        onCheckedChange={(checked) => setSendOptions(prev => ({ ...prev, email: checked }))}
+                        data-testid="switch-send-email"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <MessageSquare className="h-4 w-4 text-green-600" />
+                        <div>
+                          <Label className="font-medium">Send via WhatsApp</Label>
+                          <p className="text-xs text-muted-foreground">Send signing link to signer's mobile</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={sendOptions.whatsapp}
+                        onCheckedChange={(checked) => setSendOptions(prev => ({ ...prev, whatsapp: checked }))}
+                        data-testid="switch-send-whatsapp"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <CalendarDays className="h-4 w-4 text-blue-600" />
+                        <div>
+                          <Label className="font-medium">Auto-fill Date Fields</Label>
+                          <p className="text-xs text-muted-foreground">Automatically fill date with signing date</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={sendOptions.autoFillDate}
+                        onCheckedChange={(checked) => setSendOptions(prev => ({ ...prev, autoFillDate: checked }))}
+                        data-testid="switch-autofill-date"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               <div className="space-y-2">
-                <Label>Signing Deadline</Label>
+                <Label>Signing Deadline (Expiry Date)</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button 
@@ -858,6 +1115,7 @@ export default function AgentESignPage() {
                     />
                   </PopoverContent>
                 </Popover>
+                <p className="text-xs text-muted-foreground">Document will expire after this date if not signed</p>
               </div>
             </div>
 
@@ -954,22 +1212,73 @@ export default function AgentESignPage() {
                 </div>
 
                 {selectedRequest.status === 'signed' && (
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700" data-testid="button-download-signed">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Signed Document
+                  <Button 
+                    className="w-full bg-emerald-600 hover:bg-emerald-700" 
+                    onClick={() => downloadDocument.mutate(selectedRequest.id)}
+                    disabled={downloadDocument.isPending}
+                    data-testid="button-download-signed"
+                  >
+                    {downloadDocument.isPending ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Signed Document
+                      </>
+                    )}
                   </Button>
                 )}
 
                 {selectedRequest.status === 'pending' && (
-                  <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1" data-testid="button-resend-reminder">
-                      <Mail className="h-4 w-4 mr-2" />
-                      Send Reminder
-                    </Button>
-                    <Button variant="destructive" className="flex-1" data-testid="button-cancel-request">
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Cancel Request
-                    </Button>
+                  <div className="space-y-3">
+                    <div className="flex gap-2 p-3 bg-muted/30 rounded-lg">
+                      <div className="flex items-center gap-2 flex-1">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Email</span>
+                        <Switch 
+                          checked={sendOptions.email}
+                          onCheckedChange={(checked) => setSendOptions(prev => ({ ...prev, email: checked }))}
+                          data-testid="switch-reminder-email"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 flex-1">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">WhatsApp</span>
+                        <Switch 
+                          checked={sendOptions.whatsapp}
+                          onCheckedChange={(checked) => setSendOptions(prev => ({ ...prev, whatsapp: checked }))}
+                          data-testid="switch-reminder-whatsapp"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1" 
+                        onClick={() => sendReminder.mutate(selectedRequest.id)}
+                        disabled={sendReminder.isPending || (!sendOptions.email && !sendOptions.whatsapp)}
+                        data-testid="button-resend-reminder"
+                      >
+                        {sendReminder.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Send Reminder
+                          </>
+                        )}
+                      </Button>
+                      <Button variant="destructive" className="flex-1" data-testid="button-cancel-request">
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Cancel Request
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
