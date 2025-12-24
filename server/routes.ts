@@ -97,6 +97,7 @@ import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import * as schema from "@shared/schema";
 import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
+import adminAadhaarRoutes from "./routes/admin-aadhaar-routes";
 import listedStocksAdminRoutes from "./routes/listed-stocks-admin";
 import demoProposalsRoutes, { agentDemoRouter } from "./routes/demo-proposals";
 import exchangeStockSyncRoutes from './routes/exchange-stock-sync';
@@ -339,6 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed products endpoint
   // Admin Mutual Funds Management Routes
   app.use("/api/admin", requireAdmin, adminMutualFundsRoutes);
+  app.use(adminAadhaarRoutes);
   app.use("/api/unified-cart", unifiedCartRoutes);
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
   app.use("/api/admin/demo-proposals", requireAdmin, demoProposalsRoutes);

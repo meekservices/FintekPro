@@ -221,6 +221,7 @@ import TaxComplianceForm15Page from "@/pages/tax-compliance-form15";
 import RiskProfilingPage from "@/pages/risk-profiling";
 import RiskQuestionnaireBuilder from "@/pages/admin/risk-questionnaire-builder";
 import RiskComplianceExport from "@/pages/admin/risk-compliance-export";
+import AdminAadhaarConfig from "@/pages/admin-aadhaar-config";
 import AdminReportsHub from "@/pages/admin/reports-hub";
 import AdminAIInsights from "@/pages/admin/ai-insights";
 import ClientTasks from "@/pages/client-tasks";
@@ -821,6 +822,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <RiskComplianceExport />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/aadhaar-config">
+        {() => (
+          <AdminLayout>
+            <AdminAadhaarConfig />
           </AdminLayout>
         )}
       </Route>
