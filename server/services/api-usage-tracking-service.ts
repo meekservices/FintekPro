@@ -1,0 +1,334 @@
+import { db } from '../db';
+import * as schema from '@shared/schema';
+import { eq, sql, and, gte, lte, desc, count, sum } from 'drizzle-orm';
+
+interface ApiCallLogParams {
+  provider: string;
+  endpoint: string;
+  method?: string;
+  userId?: string;
+  feature?: string;
+  statusCode?: number;
+  success?: boolean;
+  errorMessage?: string;
+  responseTimeMs?: number;
+  requestPayload?: any;
+  responsePayload?: any;
+}
+
+interface ProviderPricing {
+  providerName: string;
+  displayName: string;
+  description?: string;
+  costPerCall: number;
+  currency?: string;
+}
+
+interface UsageStats {
+  provider: string;
+  displayName: string;
+  totalCalls: number;
+  successfulCalls: number;
+  failedCalls: number;
+  costPerCall: number;
+  totalCost: number;
+  currency: string;
+}
+
+interface MonthlyEstimate {
+  month: string;
+  totalCalls: number;
+  totalCost: number;
+  byProvider: UsageStats[];
+  projectedMonthEnd: number;
+}
+
+const DEFAULT_PROVIDERS: ProviderPricing[] = [
+  { providerName: 'sandbox', displayName: 'Sandbox.co.in', description: 'PAN verification, MCA data, GSTIN', costPerCall: 2 },
+  { providerName: 'truthscreen', displayName: 'Truthscreen/AuthBridge', description: 'Aadhaar verification, CKYC, eSign', costPerCall: 3 },
+  { providerName: 'cashfree', displayName: 'Cashfree', description: 'Payments, Payouts, Verification', costPerCall: 2 },
+  { providerName: 'phonepe', displayName: 'PhonePe', description: 'Payment gateway', costPerCall: 0 },
+  { providerName: 'twilio', displayName: 'Twilio', description: 'SMS OTP', costPerCall: 0.5 },
+  { providerName: 'probe42', displayName: 'Probe42', description: 'Company analytics', costPerCall: 5 },
+  { providerName: 'gemini', displayName: 'Google Gemini', description: 'AI features', costPerCall: 0.01 },
+  { providerName: 'zoho', displayName: 'Zoho', description: 'Email campaigns, Books', costPerCall: 0 },
+  { providerName: 'aisensy', displayName: 'AiSensy', description: 'WhatsApp messaging', costPerCall: 0.5 },
+];
+
+class ApiUsageTrackingService {
+  private providerPricing: Map<string, ProviderPricing> = new Map();
+  private initialized = false;
+
+  constructor() {
+    this.initializeDefaultPricing();
+  }
+
+  private initializeDefaultPricing() {
+    DEFAULT_PROVIDERS.forEach(provider => {
+      this.providerPricing.set(provider.providerName.toLowerCase(), provider);
+    });
+  }
+
+  async initialize() {
+    if (this.initialized) return;
+
+    try {
+      const existingPricing = await db.select().from(schema.apiProviderPricing);
+      
+      if (existingPricing.length === 0) {
+        for (const provider of DEFAULT_PROVIDERS) {
+          await db.insert(schema.apiProviderPricing).values({
+            providerName: provider.providerName,
+            displayName: provider.displayName,
+            description: provider.description,
+            costPerCall: String(provider.costPerCall),
+            currency: 'INR',
+            isActive: true,
+          }).onConflictDoNothing();
+        }
+        console.log('✅ API provider pricing initialized with defaults');
+      } else {
+        existingPricing.forEach(p => {
+          this.providerPricing.set(p.providerName.toLowerCase(), {
+            providerName: p.providerName,
+            displayName: p.displayName,
+            description: p.description || undefined,
+            costPerCall: parseFloat(p.costPerCall || '0'),
+            currency: p.currency || 'INR',
+          });
+        });
+        console.log(`✅ API provider pricing loaded (${existingPricing.length} providers)`);
+      }
+      
+      this.initialized = true;
+    } catch (error) {
+      console.warn('⚠️ Could not load API provider pricing from database, using defaults');
+      this.initialized = true;
+    }
+  }
+
+  async logApiCall(params: ApiCallLogParams): Promise<void> {
+    try {
+      const pricing = this.providerPricing.get(params.provider.toLowerCase());
+      const cost = pricing?.costPerCall || 0;
+
+      await db.insert(schema.apiUsageLogs).values({
+        provider: params.provider.toLowerCase(),
+        apiEndpoint: params.endpoint,
+        apiMethod: params.method || 'POST',
+        userId: params.userId,
+        feature: params.feature,
+        statusCode: params.statusCode,
+        status: params.success === false ? 'error' : 'success',
+        errorMessage: params.errorMessage,
+        responseTime: params.responseTimeMs,
+        requestBody: params.requestPayload,
+        responseBody: params.responsePayload,
+        estimatedCost: String(cost),
+        currency: pricing?.currency || 'INR',
+      });
+    } catch (error) {
+      console.error('[API Usage Tracking] Failed to log API call:', error);
+    }
+  }
+
+  async getProviderPricing(): Promise<ProviderPricing[]> {
+    try {
+      const pricing = await db.select().from(schema.apiProviderPricing);
+      return pricing.map(p => ({
+        providerName: p.providerName,
+        displayName: p.displayName,
+        description: p.description || undefined,
+        costPerCall: parseFloat(p.costPerCall || '0'),
+        currency: p.currency || 'INR',
+      }));
+    } catch (error) {
+      return Array.from(this.providerPricing.values());
+    }
+  }
+
+  async updateProviderPricing(providerName: string, costPerCall: number, adminId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const existing = await db.select()
+        .from(schema.apiProviderPricing)
+        .where(eq(schema.apiProviderPricing.providerName, providerName.toLowerCase()))
+        .limit(1);
+
+      if (existing.length === 0) {
+        return { success: false, message: `Provider ${providerName} not found` };
+      }
+
+      await db.update(schema.apiProviderPricing)
+        .set({ 
+          costPerCall: String(costPerCall),
+          updatedAt: new Date()
+        })
+        .where(eq(schema.apiProviderPricing.providerName, providerName.toLowerCase()));
+
+      this.providerPricing.set(providerName.toLowerCase(), {
+        ...existing[0],
+        providerName: existing[0].providerName,
+        displayName: existing[0].displayName,
+        costPerCall: costPerCall,
+      });
+
+      console.log(`[API Usage] Admin ${adminId} updated ${providerName} pricing to ₹${costPerCall}/call`);
+      
+      return { success: true, message: `Updated ${providerName} cost to ₹${costPerCall} per call` };
+    } catch (error) {
+      console.error('[API Usage Tracking] Failed to update pricing:', error);
+      return { success: false, message: 'Failed to update pricing' };
+    }
+  }
+
+  async addProvider(provider: ProviderPricing, adminId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      await db.insert(schema.apiProviderPricing).values({
+        providerName: provider.providerName.toLowerCase(),
+        displayName: provider.displayName,
+        description: provider.description,
+        costPerCall: String(provider.costPerCall),
+        currency: provider.currency || 'INR',
+        isActive: true,
+      });
+
+      this.providerPricing.set(provider.providerName.toLowerCase(), provider);
+      
+      console.log(`[API Usage] Admin ${adminId} added provider ${provider.providerName}`);
+      return { success: true, message: `Added provider ${provider.displayName}` };
+    } catch (error: any) {
+      if (error.message?.includes('unique')) {
+        return { success: false, message: 'Provider already exists' };
+      }
+      return { success: false, message: 'Failed to add provider' };
+    }
+  }
+
+  async getUsageStats(startDate?: Date, endDate?: Date): Promise<UsageStats[]> {
+    try {
+      const now = new Date();
+      const start = startDate || new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = endDate || now;
+
+      const usageLogs = await db.select({
+        provider: schema.apiUsageLogs.provider,
+        status: schema.apiUsageLogs.status,
+        estimatedCost: schema.apiUsageLogs.estimatedCost,
+        currency: schema.apiUsageLogs.currency,
+      })
+      .from(schema.apiUsageLogs)
+      .where(and(
+        gte(schema.apiUsageLogs.createdAt, start),
+        lte(schema.apiUsageLogs.createdAt, end)
+      ));
+
+      const statsByProvider: Map<string, UsageStats> = new Map();
+
+      usageLogs.forEach(log => {
+        const providerLower = log.provider.toLowerCase();
+        const pricing = this.providerPricing.get(providerLower);
+        
+        if (!statsByProvider.has(providerLower)) {
+          statsByProvider.set(providerLower, {
+            provider: providerLower,
+            displayName: pricing?.displayName || log.provider,
+            totalCalls: 0,
+            successfulCalls: 0,
+            failedCalls: 0,
+            costPerCall: pricing?.costPerCall || parseFloat(log.estimatedCost || '0'),
+            totalCost: 0,
+            currency: log.currency || 'INR',
+          });
+        }
+
+        const stats = statsByProvider.get(providerLower)!;
+        stats.totalCalls++;
+        
+        if (log.status === 'success') {
+          stats.successfulCalls++;
+        } else {
+          stats.failedCalls++;
+        }
+        
+        stats.totalCost += parseFloat(log.estimatedCost || '0');
+      });
+
+      return Array.from(statsByProvider.values()).sort((a, b) => b.totalCost - a.totalCost);
+    } catch (error) {
+      console.error('[API Usage Tracking] Failed to get usage stats:', error);
+      return [];
+    }
+  }
+
+  async getMonthlyEstimate(): Promise<MonthlyEstimate> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const daysInMonth = endOfMonth.getDate();
+    const dayOfMonth = now.getDate();
+
+    const stats = await this.getUsageStats(startOfMonth, now);
+    
+    const totalCalls = stats.reduce((sum, s) => sum + s.totalCalls, 0);
+    const totalCost = stats.reduce((sum, s) => sum + s.totalCost, 0);
+    
+    const dailyAvgCost = totalCost / dayOfMonth;
+    const projectedMonthEnd = dailyAvgCost * daysInMonth;
+
+    return {
+      month: now.toLocaleString('default', { month: 'long', year: 'numeric' }),
+      totalCalls,
+      totalCost: Math.round(totalCost * 100) / 100,
+      byProvider: stats,
+      projectedMonthEnd: Math.round(projectedMonthEnd * 100) / 100,
+    };
+  }
+
+  async getDailyUsage(days: number = 30): Promise<{ date: string; calls: number; cost: number }[]> {
+    try {
+      const now = new Date();
+      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+      const logs = await db.select({
+        createdAt: schema.apiUsageLogs.createdAt,
+        estimatedCost: schema.apiUsageLogs.estimatedCost,
+      })
+      .from(schema.apiUsageLogs)
+      .where(gte(schema.apiUsageLogs.createdAt, startDate))
+      .orderBy(schema.apiUsageLogs.createdAt);
+
+      const dailyStats: Map<string, { calls: number; cost: number }> = new Map();
+
+      logs.forEach(log => {
+        if (!log.createdAt) return;
+        const dateKey = log.createdAt.toISOString().split('T')[0];
+        
+        if (!dailyStats.has(dateKey)) {
+          dailyStats.set(dateKey, { calls: 0, cost: 0 });
+        }
+        
+        const stats = dailyStats.get(dateKey)!;
+        stats.calls++;
+        stats.cost += parseFloat(log.estimatedCost || '0');
+      });
+
+      return Array.from(dailyStats.entries())
+        .map(([date, stats]) => ({
+          date,
+          calls: stats.calls,
+          cost: Math.round(stats.cost * 100) / 100,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    } catch (error) {
+      console.error('[API Usage Tracking] Failed to get daily usage:', error);
+      return [];
+    }
+  }
+
+  getCostPerCall(provider: string): number {
+    const pricing = this.providerPricing.get(provider.toLowerCase());
+    return pricing?.costPerCall || 0;
+  }
+}
+
+export const apiUsageTrackingService = new ApiUsageTrackingService();

@@ -19460,3 +19460,31 @@ export const AgentAppointmentMeetingTypeEnum = z.enum(['call', 'video_call', 'in
 export const AgentAppointmentStatusEnum = z.enum(['scheduled', 'completed', 'cancelled', 'no_show']);
 export const AgentAppointmentReminderEnum = z.enum(['none', '15min', '30min', '1hr']);
 
+
+
+
+// ============================================
+// API Provider Pricing - Admin-configurable cost per API call
+// ============================================
+
+export const apiProviderPricing = pgTable("api_provider_pricing", {
+  id: serial("id").primaryKey(),
+  providerName: varchar("provider_name", { length: 100 }).notNull().unique(),
+  displayName: varchar("display_name", { length: 255 }).notNull(),
+  description: text("description"),
+  costPerCall: numeric("cost_per_call", { precision: 10, scale: 4 }).notNull().default("0"),
+  currency: varchar("currency", { length: 10 }).default("INR"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_api_provider_pricing_name").on(table.providerName),
+]);
+
+export const insertApiProviderPricingSchema = createInsertSchema(apiProviderPricing).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ApiProviderPricing = typeof apiProviderPricing.$inferSelect;
+export type InsertApiProviderPricing = z.infer<typeof insertApiProviderPricingSchema>;

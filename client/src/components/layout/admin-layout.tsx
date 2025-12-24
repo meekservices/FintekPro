@@ -177,6 +177,7 @@ const navCategories: NavCategory[] = [
       { title: "Zoho Books", href: "/admin/zoho-books", icon: BookOpen, description: "Accounting & Finance" },
       { title: "API Configuration", href: "/admin/api-config", icon: Key, description: "API keys & services" },
       { title: "Aadhaar Providers", href: "/admin/aadhaar-config", icon: Shield, description: "Aadhaar verification config" },
+      { title: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API usage and cost tracking" },
     ]
   },
   {

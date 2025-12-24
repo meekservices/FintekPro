@@ -67,6 +67,7 @@ import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
+import { apiUsageTrackingService } from "./services/api-usage-tracking-service";
 import { sandboxITRService } from './sandbox-itr-service';
 import { sandboxTDSService } from './sandbox-tds-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
@@ -99,6 +100,7 @@ import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import * as schema from "@shared/schema";
 import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import adminAadhaarRoutes from "./routes/admin-aadhaar-routes";
+import adminApiUsageRoutes from "./routes/admin-api-usage-routes";
 import listedStocksAdminRoutes from "./routes/listed-stocks-admin";
 import demoProposalsRoutes, { agentDemoRouter } from "./routes/demo-proposals";
 import exchangeStockSyncRoutes from './routes/exchange-stock-sync';
@@ -157,6 +159,8 @@ const taxReminderSubscriptionSchema = z.object({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const server = createServer(app);
+  // Initialize API usage tracking service
+  await apiUsageTrackingService.initialize();
   
   // Auth middleware - setup both Replit Auth and local email/password auth
   setupReplitAuth(app);
@@ -342,6 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin Mutual Funds Management Routes
   app.use("/api/admin", requireAdmin, adminMutualFundsRoutes);
   app.use(adminAadhaarRoutes);
+  app.use(adminApiUsageRoutes);
   app.use("/api/unified-cart", unifiedCartRoutes);
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
   app.use("/api/admin/demo-proposals", requireAdmin, demoProposalsRoutes);
