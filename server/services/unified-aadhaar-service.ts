@@ -85,7 +85,7 @@ interface ProviderSwitchLog {
 }
 
 class UnifiedAadhaarService {
-  private activeProvider: AadhaarProvider = 'cashfree';
+  private activeProvider: AadhaarProvider = 'truthscreen';
   private providerSwitchLogs: ProviderSwitchLog[] = [];
 
   private providerConfigs: Map<AadhaarProvider, AadhaarProviderConfig> = new Map([
@@ -122,14 +122,15 @@ class UnifiedAadhaarService {
     const truthscreenConfig = this.providerConfigs.get('truthscreen')!;
     truthscreenConfig.isConfigured = TruthscreenAadhaarService.credentialsConfigured();
 
-    if (cashfreeConfig.isConfigured) {
-      this.activeProvider = 'cashfree';
-      cashfreeConfig.isActive = true;
-      truthscreenConfig.isActive = false;
-    } else if (truthscreenConfig.isConfigured) {
+    // Prefer Truthscreen as primary provider (lower cost: ₹3 vs ₹4)
+    if (truthscreenConfig.isConfigured) {
       this.activeProvider = 'truthscreen';
       truthscreenConfig.isActive = true;
       cashfreeConfig.isActive = false;
+    } else if (cashfreeConfig.isConfigured) {
+      this.activeProvider = 'cashfree';
+      cashfreeConfig.isActive = true;
+      truthscreenConfig.isActive = false;
     }
 
     console.log('✅ Unified Aadhaar Verification Service initialized');
