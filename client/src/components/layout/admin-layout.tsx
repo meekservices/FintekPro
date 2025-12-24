@@ -31,6 +31,7 @@ import {
   Users,
   BarChart3,
   ShieldCheck,
+  Shield,
   Database,
   Activity,
   Key,
@@ -184,7 +185,8 @@ const navCategories: NavCategory[] = [
     icon: Cog,
     items: [
       { title: "AI Insights", href: "/admin/ai-insights", icon: Lightbulb, description: "AI-powered trends" },
-      { title: "Production Readiness", href: "/admin/production-readiness", icon: ShieldCheck, description: "Service status" },
+      { title: "Production Readiness", href: "/admin/production-readiness", icon: ShieldCheck,
+  Shield, description: "Service status" },
       { title: "System Health", href: "/admin/system-health", icon: Activity, description: "Performance monitoring" },
       { title: "Reports & Analytics", href: "/admin/reports", icon: BarChart3, description: "Platform analytics" },
       { title: "Compliance", href: "/admin/compliance", icon: FileCheck, description: "Regulatory compliance" },

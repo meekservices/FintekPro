@@ -148,6 +148,13 @@ class UnifiedAadhaarService {
       return { success: false, message: `Unknown provider: ${provider}` };
     }
 
+    if (!config.isConfigured) {
+      return { 
+        success: false, 
+        message: `Cannot activate ${config.name}: Provider is not configured. Please add the required API credentials first.` 
+      };
+    }
+
     const previousProvider = this.activeProvider;
 
     this.providerConfigs.forEach((cfg, key) => {

@@ -71,6 +71,7 @@ import { sandboxITRService } from './sandbox-itr-service';
 import { sandboxTDSService } from './sandbox-tds-service';
 import { AadhaarMockService } from './services/aadhaar-mock-service';
 import { CashfreeAadhaarService } from './services/cashfree-aadhaar-service';
+import { unifiedAadhaarService } from './services/unified-aadhaar-service';
 import { DemographicProtectionService } from './services/demographic-protection-service';
 import { sandboxPANService } from './sandbox-pan-api';
 import { authBridgeCKYCService } from './authbridge-ckyc-api';
@@ -2000,7 +2001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Send OTP using Cashfree API
-      const otpResponse = await CashfreeAadhaarService.generateOTP(aadhaarNumber);
+      const otpResponse = await unifiedAadhaarService.generateOTP(aadhaarNumber);
       
       if (!otpResponse.success) {
         return res.json(otpResponse);
@@ -2063,7 +2064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify OTP using Cashfree API
-      const verification = await CashfreeAadhaarService.verifyOTP(otp, transactionId);
+      const verification = await unifiedAadhaarService.verifyOTP(transactionId, otp);
       
       if (!verification.success || !verification.verified) {
         return res.json(verification);
