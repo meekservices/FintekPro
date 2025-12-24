@@ -98,6 +98,10 @@ import AgentPortal from "@/pages/agent-portal";
 import DistributionPartnerPortal from "@/pages/distribution-partner-portal";
 import FieldAgentPortal from "@/pages/field-agent-portal";
 import AgentClientsPage from "@/pages/agent-clients";
+import AgentCrmClient360 from "@/pages/agent-crm-client-360";
+import AgentCrmPipeline from "@/pages/agent-crm-pipeline";
+import AgentCrmTasks from "@/pages/agent-crm-tasks";
+import AgentCrmAnalytics from "@/pages/agent-crm-analytics";
 import AgentInvestmentAdvisory from "@/pages/agent-investment-advisory";
 import AgentProposalsPage from "@/pages/agent-proposals";
 import AgentBondRecommendations from "@/pages/agent-bond-recommendations";
@@ -928,6 +932,34 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentClientsPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/crm/clients/:clientId">
+        {() => (
+          <AgentLayout>
+            <AgentCrmClient360 />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/crm/pipeline">
+        {() => (
+          <AgentLayout>
+            <AgentCrmPipeline />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/crm/tasks">
+        {() => (
+          <AgentLayout>
+            <AgentCrmTasks />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/crm/analytics">
+        {() => (
+          <AgentLayout>
+            <AgentCrmAnalytics />
           </AgentLayout>
         )}
       </Route>

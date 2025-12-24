@@ -19181,3 +19181,225 @@ export const ReportStatusEnum = z.enum(['pending', 'generating', 'generated', 'f
 export const ReportFileTypeEnum = z.enum(['pdf', 'xlsx']);
 export const ReportAuditActionEnum = z.enum(['created', 'generated', 'downloaded', 'attached', 'shared', 'deleted']);
 
+// ============================================
+// CRM Module - Client Relationship Management
+// ============================================
+
+// CRM Interactions - Track all client touchpoints (calls, emails, meetings, notes)
+export const crmInteractions = pgTable("crm_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  type: varchar("type").notNull(), // call, email, meeting, note, whatsapp, sms
+  direction: varchar("direction"), // inbound, outbound (for calls/emails)
+  subject: varchar("subject"),
+  description: text("description"),
+  
+  // Interaction details
+  duration: integer("duration"), // duration in minutes (for calls/meetings)
+  outcome: varchar("outcome"), // successful, no_answer, voicemail, follow_up_needed, completed
+  sentiment: varchar("sentiment"), // positive, neutral, negative
+  
+  // Scheduling
+  scheduledAt: timestamp("scheduled_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Linking to other entities
+  opportunityId: varchar("opportunity_id"),
+  proposalId: varchar("proposal_id"),
+  taskId: varchar("task_id"),
+  
+  // Metadata
+  attachments: jsonb("attachments"), // file URLs, documents
+  metadata: jsonb("metadata"), // additional data like call recording URL, email thread ID
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_interactions_agent").on(table.agentId),
+  index("idx_crm_interactions_client").on(table.clientId),
+  index("idx_crm_interactions_type").on(table.type),
+  index("idx_crm_interactions_created").on(table.createdAt),
+]);
+
+// CRM Opportunities - Sales pipeline/deal management
+export const crmOpportunities = pgTable("crm_opportunities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  name: varchar("name").notNull(),
+  description: text("description"),
+  
+  // Pipeline stage
+  stage: varchar("stage").notNull().default("lead"), // lead, qualified, proposal, negotiation, won, lost
+  probability: integer("probability").default(0), // 0-100%
+  
+  // Financial
+  expectedAmount: decimal("expected_amount", { precision: 15, scale: 2 }),
+  actualAmount: decimal("actual_amount", { precision: 15, scale: 2 }),
+  currency: varchar("currency").default("INR"),
+  
+  // Product/Service
+  productType: varchar("product_type"), // mutual_fund, stocks, bonds, insurance, etc.
+  products: jsonb("products"), // array of product details
+  
+  // Timeline
+  expectedCloseDate: timestamp("expected_close_date"),
+  actualCloseDate: timestamp("actual_close_date"),
+  
+  // Source tracking
+  source: varchar("source"), // referral, website, cold_call, marketing, etc.
+  campaign: varchar("campaign"),
+  
+  // Status and reason
+  status: varchar("status").default("open"), // open, won, lost, on_hold
+  lostReason: varchar("lost_reason"),
+  
+  // Linked entities
+  proposalId: varchar("proposal_id"),
+  
+  // Priority and scoring
+  priority: varchar("priority").default("medium"), // low, medium, high, urgent
+  score: integer("score"), // lead score 0-100
+  
+  notes: text("notes"),
+  tags: text("tags").array(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_opportunities_agent").on(table.agentId),
+  index("idx_crm_opportunities_client").on(table.clientId),
+  index("idx_crm_opportunities_stage").on(table.stage),
+  index("idx_crm_opportunities_status").on(table.status),
+]);
+
+// CRM Tasks - Reminders, to-dos, follow-ups
+export const crmTasks = pgTable("crm_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id),
+  
+  title: varchar("title").notNull(),
+  description: text("description"),
+  
+  type: varchar("type").notNull().default("task"), // task, follow_up, call, meeting, reminder
+  priority: varchar("priority").default("medium"), // low, medium, high, urgent
+  status: varchar("status").default("pending"), // pending, in_progress, completed, cancelled
+  
+  // Scheduling
+  dueDate: timestamp("due_date"),
+  dueTime: varchar("due_time"), // HH:MM format
+  reminderAt: timestamp("reminder_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Recurrence
+  isRecurring: boolean("is_recurring").default(false),
+  recurrencePattern: varchar("recurrence_pattern"), // daily, weekly, monthly, yearly
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  
+  // Linking
+  opportunityId: varchar("opportunity_id"),
+  interactionId: varchar("interaction_id"),
+  
+  // Notification
+  notificationSent: boolean("notification_sent").default(false),
+  
+  tags: text("tags").array(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_tasks_agent").on(table.agentId),
+  index("idx_crm_tasks_client").on(table.clientId),
+  index("idx_crm_tasks_status").on(table.status),
+  index("idx_crm_tasks_due_date").on(table.dueDate),
+]);
+
+// CRM Client Tags - For categorizing clients
+export const crmClientTags = pgTable("crm_client_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  tag: varchar("tag").notNull(), // vip, high_value, new_client, dormant, etc.
+  color: varchar("color"), // hex color for UI
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_client_tags_agent").on(table.agentId),
+  index("idx_crm_client_tags_client").on(table.clientId),
+]);
+
+// CRM Activity Log - Unified activity stream
+export const crmActivityLog = pgTable("crm_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  clientId: varchar("client_id").references(() => users.id),
+  
+  activityType: varchar("activity_type").notNull(), // interaction, task, opportunity, proposal, note
+  action: varchar("action").notNull(), // created, updated, completed, stage_changed, etc.
+  entityId: varchar("entity_id"),
+  entityType: varchar("entity_type"),
+  
+  summary: text("summary"),
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_crm_activity_agent").on(table.agentId),
+  index("idx_crm_activity_client").on(table.clientId),
+  index("idx_crm_activity_created").on(table.createdAt),
+]);
+
+// Insert Schemas and Types for CRM Interactions
+export const insertCrmInteractionSchema = createInsertSchema(crmInteractions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrmInteraction = typeof crmInteractions.$inferSelect;
+export type InsertCrmInteraction = z.infer<typeof insertCrmInteractionSchema>;
+
+// Insert Schemas and Types for CRM Opportunities
+export const insertCrmOpportunitySchema = createInsertSchema(crmOpportunities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrmOpportunity = typeof crmOpportunities.$inferSelect;
+export type InsertCrmOpportunity = z.infer<typeof insertCrmOpportunitySchema>;
+
+// Insert Schemas and Types for CRM Tasks
+export const insertCrmTaskSchema = createInsertSchema(crmTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrmTask = typeof crmTasks.$inferSelect;
+export type InsertCrmTask = z.infer<typeof insertCrmTaskSchema>;
+
+// Insert Schemas and Types for CRM Client Tags
+export const insertCrmClientTagSchema = createInsertSchema(crmClientTags).omit({
+  id: true,
+  createdAt: true,
+});
+export type CrmClientTag = typeof crmClientTags.$inferSelect;
+export type InsertCrmClientTag = z.infer<typeof insertCrmClientTagSchema>;
+
+// Insert Schemas and Types for CRM Activity Log
+export const insertCrmActivityLogSchema = createInsertSchema(crmActivityLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type CrmActivityLog = typeof crmActivityLog.$inferSelect;
+export type InsertCrmActivityLog = z.infer<typeof insertCrmActivityLogSchema>;
+
+// CRM Enums for validation
+export const CrmInteractionTypeEnum = z.enum(['call', 'email', 'meeting', 'note', 'whatsapp', 'sms']);
+export const CrmOpportunityStageEnum = z.enum(['lead', 'qualified', 'proposal', 'negotiation', 'won', 'lost']);
+export const CrmTaskStatusEnum = z.enum(['pending', 'in_progress', 'completed', 'cancelled']);
+export const CrmPriorityEnum = z.enum(['low', 'medium', 'high', 'urgent']);
+

@@ -1,4 +1,5 @@
 import type { Express, Request } from "express";
+import { registerCrmRoutes } from './routes/crm';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 
@@ -34228,5 +34229,7 @@ System Security Data:`;
       res.status(500).json({ message: 'Failed to generate recommendations' });
     }
   });
+  // Register CRM routes
+  registerCrmRoutes(app);
   return server;
 }
