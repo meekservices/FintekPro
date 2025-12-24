@@ -549,14 +549,14 @@ class AuthBridgeESignService {
       documentType: cert.documentType,
       documentName: cert.documentName,
       documentHash: cert.documentHash,
-      signedDocumentUrl: cert.signedDocumentUrl,
+      signedDocumentUrl: cert.signedDocumentUrl || '',
       certificateSerial: cert.certificateSerial,
       signerName: cert.signerName,
       signerAadhaarMasked: cert.signerAadhaarMasked,
       signedAt: cert.signedAt,
       validFrom: cert.validFrom,
       validTo: cert.validTo,
-      signatureAlgorithm: cert.signatureAlgorithm,
+      signatureAlgorithm: cert.signatureAlgorithm || 'SHA256withRSA',
       status: cert.status as 'valid' | 'expired' | 'revoked',
     }));
   }

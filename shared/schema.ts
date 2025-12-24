@@ -18651,12 +18651,16 @@ export const esignRequests = pgTable("esign_requests", {
   // API Response Storage
   apiResponse: jsonb("api_response"),
   
+  // Provider tracking for multi-provider support
+  provider: varchar("provider").default("authbridge"), // authbridge, protean, emudhra, cvl
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_esign_requests_user").on(table.userId),
   index("idx_esign_requests_transaction").on(table.transactionId),
   index("idx_esign_requests_status").on(table.status),
+  index("idx_esign_requests_provider").on(table.provider),
 ]);
 
 // eSign Certificates - Store signed document certificates
@@ -18687,12 +18691,16 @@ export const esignCertificates = pgTable("esign_certificates", {
   revokedAt: timestamp("revoked_at"),
   revokedReason: text("revoked_reason"),
   
+  // Provider tracking for multi-provider support
+  provider: varchar("provider").default("authbridge"), // authbridge, protean, emudhra, cvl
+  
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_esign_certificates_user").on(table.userId),
   index("idx_esign_certificates_transaction").on(table.transactionId),
   index("idx_esign_certificates_serial").on(table.certificateSerial),
   index("idx_esign_certificates_status").on(table.status),
+  index("idx_esign_certificates_provider").on(table.provider),
 ]);
 
 // eSign Audit Log - Compliance audit trail
@@ -18737,6 +18745,31 @@ export const insertEsignAuditLogSchema = createInsertSchema(esignAuditLog).omit(
 });
 export type EsignAuditLog = typeof esignAuditLog.$inferSelect;
 export type InsertEsignAuditLog = z.infer<typeof insertEsignAuditLogSchema>;
+
+// ========================================
+// System Configuration Table
+// ========================================
+export const systemConfigs = pgTable("system_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key").notNull().unique(),
+  value: text("value").notNull(),
+  category: varchar("category").notNull(), // esign, payment, kyc, notification, etc.
+  description: text("description"),
+  isEncrypted: boolean("is_encrypted").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_system_configs_key").on(table.key),
+  index("idx_system_configs_category").on(table.category),
+]);
+
+export const insertSystemConfigSchema = createInsertSchema(systemConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SystemConfig = typeof systemConfigs.$inferSelect;
+export type InsertSystemConfig = z.infer<typeof insertSystemConfigSchema>;
 
 // ========================================
 // REIT (Real Estate Investment Trust) Tables

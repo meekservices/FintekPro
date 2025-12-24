@@ -307,6 +307,11 @@ app.use((req, res, next) => {
   app.use(esignRoutes.default);
   console.log('✅ AuthBridge eSign routes registered');
   
+  // Register Admin eSign Provider Configuration routes
+  const adminEsignRoutes = await import('./routes/admin-esign-routes');
+  app.use(adminEsignRoutes.default);
+  console.log('✅ Admin eSign provider configuration routes registered');
+  
   // Register CA (Chartered Accountant) routes
   const caRoutes = await import('./routes/ca-routes');
   app.use('/api/ca', caRoutes.default);

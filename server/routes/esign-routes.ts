@@ -1,11 +1,13 @@
 /**
- * AuthBridge Aadhaar eSign API Routes
+ * Unified eSign API Routes
  * 
  * Endpoints for Aadhaar-based Digital Signature Certificate (DSC) operations
+ * Uses unified service that routes to active provider (AuthBridge, Protean, etc.)
  */
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { unifiedESignService } from '../services/unified-esign-service';
 import { authBridgeESignService } from '../authbridge-esign-service';
 import { requireAuth } from '../middleware/roleMiddleware';
 import { db } from '../db';
@@ -47,11 +49,16 @@ function logAudit(
   });
 }
 
-router.get('/api/esign/status', (req: Request, res: Response) => {
+router.get('/api/esign/status', async (req: Request, res: Response) => {
+  const activeProvider = await unifiedESignService.getActiveProvider();
+  const providerConfig = unifiedESignService.getProviderConfig(activeProvider);
+  
   res.json({
-    service: 'AuthBridge Aadhaar eSign',
-    environment: authBridgeESignService.getEnvironment(),
-    mockMode: authBridgeESignService.isInMockMode(),
+    service: 'Unified eSign Service',
+    activeProvider,
+    providerName: providerConfig?.displayName || 'Unknown',
+    environment: providerConfig?.environment || 'sandbox',
+    mockMode: !providerConfig?.isConfigured,
     supportedDocuments: [
       'itr_verification',
       'form_15ca',
@@ -65,6 +72,7 @@ router.get('/api/esign/status', (req: Request, res: Response) => {
       aadhaarOTP: true,
       certificateGeneration: true,
       auditTrail: true,
+      multiProvider: true,
     }
   });
 });
@@ -78,7 +86,7 @@ router.post('/api/esign/initiate', isAuthenticated, async (req: Request, res: Re
 
     const validated = initiateESignSchema.parse(req.body);
 
-    const result = await authBridgeESignService.initiateESign({
+    const result = await unifiedESignService.initiateESign({
       userId,
       documentType: validated.documentType,
       documentName: validated.documentName,
@@ -91,6 +99,7 @@ router.post('/api/esign/initiate', isAuthenticated, async (req: Request, res: Re
     await logAudit(result.transactionId, userId, 'initiate', result.success ? 'success' : 'failed', {
       documentType: validated.documentType,
       documentName: validated.documentName,
+      provider: result.provider,
     }, req);
 
     res.json(result);
@@ -112,19 +121,21 @@ router.post('/api/esign/verify', isAuthenticated, async (req: Request, res: Resp
 
     const validated = verifyOTPSchema.parse(req.body);
 
-    const result = await authBridgeESignService.verifyESign({
+    const result = await unifiedESignService.verifyESign({
       transactionId: validated.transactionId,
       otp: validated.otp,
     });
 
     await logAudit(validated.transactionId, userId, 'otp_verify', result.success ? 'success' : 'failed', {
       certificateId: result.certificateId,
+      provider: result.provider,
     }, req);
 
     if (result.success) {
       await logAudit(validated.transactionId, userId, 'sign_complete', 'success', {
         certificateId: result.certificateId,
         signedAt: result.signatureData?.signedAt,
+        provider: result.provider,
       }, req);
     }
 
@@ -150,9 +161,11 @@ router.post('/api/esign/resend-otp', isAuthenticated, async (req: Request, res: 
       return res.status(400).json({ error: 'Transaction ID is required' });
     }
 
-    const result = await authBridgeESignService.resendOTP(transactionId);
+    const result = await unifiedESignService.resendOTP(transactionId);
 
-    await logAudit(transactionId, userId, 'otp_resend', result.success ? 'success' : 'failed', {}, req);
+    await logAudit(transactionId, userId, 'otp_resend', result.success ? 'success' : 'failed', {
+      provider: result.provider,
+    }, req);
 
     res.json(result);
   } catch (error) {
@@ -165,7 +178,7 @@ router.get('/api/esign/request/:transactionId', isAuthenticated, async (req: Req
   try {
     const { transactionId } = req.params;
 
-    const status = await authBridgeESignService.getStatus(transactionId);
+    const status = await unifiedESignService.getStatus(transactionId);
 
     res.json(status);
   } catch (error) {
