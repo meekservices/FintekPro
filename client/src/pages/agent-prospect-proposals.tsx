@@ -57,6 +57,7 @@ import {
   Briefcase
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Link } from "wouter";
 
 // Product types for portfolio entry
 const PRODUCT_TYPES = [
@@ -776,14 +777,22 @@ const RECOMMENDATION_CATEGORIES = [
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Portfolio Demo Proposals</h1>
           <p className="text-gray-500 dark:text-gray-400">Create and share investment proposals to acquire new clients</p>
         </div>
-        <Button 
-          className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md"
-          onClick={() => setShowCreateDialog(true)}
-          data-testid="btn-create-proposal"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Proposal
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/demo-proposal-builder">
+            <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50" data-testid="btn-advanced-builder">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Advanced Builder
+            </Button>
+          </Link>
+          <Button 
+            className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md"
+            onClick={() => setShowCreateDialog(true)}
+            data-testid="btn-create-proposal"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Proposal
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">

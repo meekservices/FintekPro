@@ -2,6 +2,60 @@ import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { investmentProposals, users } from "@shared/schema";
 import { eq, and, desc, sql, count, sum, isNotNull } from "drizzle-orm";
+import { generateProposalPDF } from "../services/reports/proposal-pdf-renderer";
+import { z } from "zod";
+
+const proposalConfigSchema = z.object({
+  clientId: z.string().optional(),
+  investmentGoals: z.object({
+    primaryGoal: z.string(),
+    investmentHorizon: z.string(),
+    targetAmount: z.coerce.number().min(0),
+    monthlyContribution: z.coerce.number().min(0),
+  }),
+  assetAllocation: z.object({
+    equity: z.coerce.number().min(0).max(100),
+    debt: z.coerce.number().min(0).max(100),
+    gold: z.coerce.number().min(0).max(100),
+    realestate: z.coerce.number().min(0).max(100),
+    cash: z.coerce.number().min(0).max(100),
+  }).refine(data => {
+    const total = data.equity + data.debt + data.gold + data.realestate + data.cash;
+    return total === 100;
+  }, { message: "Asset allocation must total 100%" }),
+  riskProfile: z.object({
+    score: z.coerce.number().min(0).max(100),
+    category: z.enum(['conservative', 'moderate', 'aggressive', 'very_aggressive']),
+    tolerance: z.string(),
+  }),
+  sections: z.object({
+    executiveSummary: z.boolean(),
+    investmentRecommendations: z.boolean(),
+    assetAllocationChart: z.boolean(),
+    riskAssessment: z.boolean(),
+    projectedReturns: z.boolean(),
+    feeDisclosure: z.boolean(),
+    termsConditions: z.boolean(),
+  }),
+  coverPage: z.object({
+    enabled: z.boolean(),
+    title: z.string(),
+    clientName: z.string(),
+    preparedBy: z.string(),
+    date: z.string(),
+  }),
+  settings: z.object({
+    orientation: z.enum(['portrait', 'landscape']),
+    includeDisclaimer: z.boolean(),
+    includeSEBIDisclosure: z.boolean(),
+  }),
+});
+
+const generatePdfRequestSchema = z.object({
+  config: proposalConfigSchema,
+  clientId: z.union([z.number(), z.string()]).optional(),
+  proposalName: z.string().optional(),
+});
 
 const router = Router();
 
@@ -373,6 +427,77 @@ agentDemoRouter.get("/stats", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Error fetching agent demo stats:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Generate proposal PDF
+agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+
+    // Validate request body
+    const validationResult = generatePdfRequestSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({ 
+        error: "Invalid request data", 
+        details: validationResult.error.errors 
+      });
+    }
+
+    const { config, clientId, proposalName } = validationResult.data;
+
+    // Get client data
+    let clientData = { fullName: 'Valued Client', email: '' };
+    if (clientId) {
+      const client = await db
+        .select({ fullName: users.name, email: users.email, phone: users.phone })
+        .from(users)
+        .where(eq(users.id, Number(clientId)))
+        .limit(1);
+      if (client.length > 0) {
+        clientData = {
+          fullName: client[0].fullName || 'Valued Client',
+          email: client[0].email || '',
+        };
+      }
+    }
+
+    // Generate PDF
+    const pdfBuffer = await generateProposalPDF(config, clientData);
+    
+    // Convert to base64 data URL
+    const base64 = pdfBuffer.toString('base64');
+    const pdfUrl = `data:application/pdf;base64,${base64}`;
+
+    // Create proposal record in database
+    const id = `PROP-${Date.now()}`;
+    const targetAmount = Number(config.investmentGoals.targetAmount) || 0;
+    const formattedAmount = targetAmount.toFixed(2);
+    await db.insert(investmentProposals).values({
+      id,
+      clientId: clientId ? Number(clientId) : null,
+      agentId: agentId || null,
+      title: proposalName || 'Investment Proposal',
+      description: `${config.investmentGoals.primaryGoal} proposal`,
+      proposalSource: 'proposal_builder',
+      totalInvestmentAmount: formattedAmount,
+      recommendations: [],
+      status: 'pending',
+      isDemo: true,
+      demoViewCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    res.json({ 
+      success: true, 
+      pdfUrl,
+      proposalId: id,
+      message: 'Proposal PDF generated successfully'
+    });
+  } catch (error: any) {
+    console.error("Error generating proposal PDF:", error);
+    res.status(500).json({ error: error.message || 'Failed to generate proposal' });
   }
 });
 

@@ -31,8 +31,10 @@ import {
   ArrowUpRight,
   Loader2,
   Sparkles,
-  Users
+  Users,
+  Plus
 } from "lucide-react";
+import { Link } from "wouter";
 import {
   BarChart,
   Bar,
@@ -188,10 +190,18 @@ export default function AgentDemoProgress() {
           <h1 className="text-2xl font-bold text-white" data-testid="heading-demo-progress">My Demo Progress</h1>
           <p className="text-gray-400 mt-1">Track your demo proposals and conversion performance</p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/demo-proposal-builder">
+            <Button className="bg-purple-600 hover:bg-purple-700" data-testid="button-create-proposal">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Proposal
+            </Button>
+          </Link>
+          <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

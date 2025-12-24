@@ -112,6 +112,7 @@ import AgentTasks from "@/pages/agent-tasks";
 import AgentReportsHub from "@/pages/agent-reports-hub";
 import AgentDemoProgress from "@/pages/agent-demo-progress";
 import AgentPortfolioReportBuilder from "@/pages/agent-portfolio-report-builder";
+import AgentDemoProposalBuilder from "@/pages/agent-demo-proposal-builder";
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -1019,6 +1020,13 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentPortfolioReportBuilder />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/demo-proposal-builder">
+        {() => (
+          <AgentLayout>
+            <AgentDemoProposalBuilder />
           </AgentLayout>
         )}
       </Route>
