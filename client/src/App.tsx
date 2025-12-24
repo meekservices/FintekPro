@@ -77,6 +77,7 @@ import ReplitSuggestions from "@/pages/admin/replit-suggestions";
 import ZohoDashboardPage from "@/pages/admin/zoho-dashboard";
 import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
 import ZohoLogsPage from "@/pages/admin/zoho-logs";
+import ZohoBooksPage from "@/pages/admin/zoho-books";
 import StoreManagement from "@/pages/admin/store-management";
 import BondSeedAdmin from "@/pages/admin/bond-seed";
 import MldSeedAdmin from "@/pages/admin/mld-seed";
@@ -490,6 +491,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <ZohoLogsPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/zoho-books">
+        {() => (
+          <AdminLayout>
+            <ZohoBooksPage />
           </AdminLayout>
         )}
       </Route>

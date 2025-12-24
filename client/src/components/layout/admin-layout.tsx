@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/command";
 import {
   Settings,
+  BookOpen,
   Users,
   BarChart3,
   ShieldCheck,
@@ -171,7 +172,8 @@ const navCategories: NavCategory[] = [
     title: "Integrations",
     icon: Workflow,
     items: [
-      { title: "Zoho Integration", href: "/admin/zoho-dashboard", icon: Workflow, description: "CRM, Books & WorkDrive" },
+      { title: "Zoho Integration", href: "/admin/zoho-dashboard", icon: Workflow, description: "CRM & WorkDrive" },
+      { title: "Zoho Books", href: "/admin/zoho-books", icon: BookOpen, description: "Accounting & Finance" },
       { title: "API Configuration", href: "/admin/api-config", icon: Key, description: "API keys & services" },
     ]
   },

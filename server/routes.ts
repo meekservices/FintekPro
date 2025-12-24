@@ -1,5 +1,6 @@
 import type { Express, Request } from "express";
 import { registerCrmRoutes } from './routes/crm';
+import { registerZohoBooksRoutes } from './routes/zoho-books';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 
@@ -34231,5 +34232,6 @@ System Security Data:`;
   });
   // Register CRM routes
   registerCrmRoutes(app);
+  registerZohoBooksRoutes(app);
   return server;
 }
