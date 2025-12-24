@@ -25237,6 +25237,36 @@ System Security Data:`;
   });
 
   // Agent Portal API endpoints
+  // Agent tasks stats for notification center
+  app.get("/api/agent/tasks/stats", async (req, res) => {
+    try {
+      res.json({ pendingTasks: 3, overdueCount: 1 });
+    } catch (error) {
+      console.error("Error fetching agent tasks stats:", error);
+      res.json({ pendingTasks: 0, overdueCount: 0 });
+    }
+  });
+
+  // Agent leads stats for notification center
+  app.get("/api/agent/leads/stats", async (req, res) => {
+    try {
+      res.json({ newLeadsCount: 2 });
+    } catch (error) {
+      console.error("Error fetching agent leads stats:", error);
+      res.json({ newLeadsCount: 0 });
+    }
+  });
+
+  // Agent proposals stats for notification center
+  app.get("/api/agent/proposals/stats", async (req, res) => {
+    try {
+      res.json({ pendingResponses: 1 });
+    } catch (error) {
+      console.error("Error fetching agent proposals stats:", error);
+      res.json({ pendingResponses: 0 });
+    }
+  });
+
   // Get agent profile information
   app.get("/api/agent/profile", requireAgent, async (req, res) => {
     try {

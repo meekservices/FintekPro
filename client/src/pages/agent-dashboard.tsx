@@ -530,7 +530,7 @@ export default function AgentDashboard() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Shield className="w-8 h-8 text-blue-600" />
@@ -538,10 +538,24 @@ export default function AgentDashboard() {
           </h1>
           <p className="text-gray-600">Manage CKYC client communications and support</p>
         </div>
-        <Badge variant="secondary" className="flex items-center gap-2">
-          <User size={16} />
-          Partner Portal
-        </Badge>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/proposal-builder'} data-testid="button-quick-proposal">
+            <Plus size={16} className="mr-1" />
+            New Proposal
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => window.location.href = '/clients'} data-testid="button-quick-clients">
+            <Users size={16} className="mr-1" />
+            View Clients
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => window.location.href = '/tasks'} data-testid="button-quick-tasks">
+            <Target size={16} className="mr-1" />
+            Tasks
+          </Button>
+          <Badge variant="secondary" className="flex items-center gap-2 ml-2">
+            <User size={16} />
+            Agent Portal
+          </Badge>
+        </div>
       </div>
 
       {/* Quick Stats */}
