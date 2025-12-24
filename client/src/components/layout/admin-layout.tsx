@@ -1,6 +1,30 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Settings,
   Users,
@@ -35,291 +59,245 @@ import {
   Landmark,
   ShoppingCart,
   Lightbulb,
-  Award
+  Award,
+  Search,
+  Megaphone,
+  LayoutDashboard,
+  Cog,
+  Package,
+  CheckCircle
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-const adminNavItems = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: any;
+  description: string;
+  children?: NavItem[];
+}
+
+interface NavCategory {
+  id: string;
+  title: string;
+  icon: any;
+  items: NavItem[];
+}
+
+const navCategories: NavCategory[] = [
   {
-    title: "Dashboard",
-    href: "/admin/dashboard",
-    icon: Home,
-    description: "Overview and metrics"
+    id: "core",
+    title: "Core Operations",
+    icon: LayoutDashboard,
+    items: [
+      { title: "Dashboard", href: "/admin/dashboard", icon: Home, description: "Overview and metrics" },
+      { title: "Stakeholders", href: "/admin/stakeholders", icon: Users, description: "Clients, partners, agents & suppliers" },
+      { title: "KYC & Compliance", href: "/admin/kyc-compliance", icon: FileCheck, description: "Review KYC submissions" },
+      { title: "Financial Operations", href: "/admin/financial-operations", icon: DollarSign, description: "Orders, payments & refunds" },
+      { title: "Duplicate Accounts", href: "/admin/duplicates", icon: AlertCircle, description: "Detect & resolve duplicates" },
+      { title: "Users & Access", href: "/admin/users", icon: Users, description: "User management" },
+    ]
   },
   {
-    title: "Stakeholders",
-    href: "/admin/stakeholders",
+    id: "agents",
+    title: "Agent Management",
     icon: Users,
-    description: "Manage clients, partners, agents & suppliers"
+    items: [
+      { title: "Agent Performance", href: "/admin/agent-performance", icon: BarChart3, description: "Performance metrics" },
+      { title: "Demo Proposals", href: "/admin/demo-proposals", icon: Target, description: "Track proposals & conversions" },
+      { title: "Task Oversight", href: "/admin/task-oversight", icon: ClipboardList, description: "Monitor agents' tasks" },
+      { title: "CA Partners", href: "/admin/ca-management", icon: Award, description: "CA partner management" },
+      { title: "Commission Master", href: "/admin/commission-master", icon: TrendingUp, description: "Commission configuration" },
+    ]
   },
   {
-    title: "Duplicate Accounts",
-    href: "/admin/duplicates",
-    icon: AlertCircle,
-    description: "Detect & resolve duplicate registrations"
-  },
-  {
-    title: "KYC & Compliance",
-    href: "/admin/kyc-compliance",
-    icon: FileCheck,
-    description: "Review KYC submissions & compliance"
-  },
-  {
-    title: "Financial Operations",
-    href: "/admin/financial-operations",
-    icon: DollarSign,
-    description: "Orders, payments, revenue & refunds"
-  },
-  {
-    title: "Commission Master",
-    href: "/admin/commission-master",
-    icon: TrendingUp,
-    description: "Role-based commission configuration"
-  },
-  {
-    title: "Agent Performance",
-    href: "/admin/agent-performance",
-    icon: BarChart3,
-    description: "Monitor all agents' performance metrics"
-  },
-  {
-    title: "Demo Proposals",
-    href: "/admin/demo-proposals",
-    icon: Target,
-    description: "Track demo proposals & conversions"
-  },
-  {
-    title: "AI Insights",
-    href: "/admin/ai-insights",
-    icon: Lightbulb,
-    description: "AI-powered platform trends & risk alerts"
-  },
-  {
-    title: "Task Oversight",
-    href: "/admin/task-oversight",
-    icon: ClipboardList,
-    description: "Monitor all agents' tasks & compliance"
-  },
-  {
-    title: "Users & Access",
-    href: "/admin/users",
-    icon: Users,
-    description: "User management"
-  },
-  {
-    title: "CA Partners",
-    href: "/admin/ca-management",
-    icon: Award,
-    description: "Chartered Accountant partner management"
-  },
-  {
-    title: "API Configuration",
-    href: "/admin/api-config",
-    icon: Key,
-    description: "Manage API keys & services"
-  },
-  {
-    title: "Store Management",
-    href: "/admin/store-management",
+    id: "marketplaces",
+    title: "Marketplaces",
     icon: Store,
-    description: "Control categories, products & visibility"
-  },
-  {
-    title: "Unlisted Marketplace",
-    href: "/admin/unlisted/dashboard",
-    icon: Briefcase,
-    description: "Pre-IPO & unlisted shares management",
-    children: [
+    items: [
+      { title: "Store Management", href: "/admin/store-management", icon: Store, description: "Categories & products" },
       {
-        title: "Dashboard",
+        title: "Unlisted Marketplace",
         href: "/admin/unlisted/dashboard",
-        icon: Home,
-        description: "Overview & metrics"
+        icon: Briefcase,
+        description: "Pre-IPO & unlisted shares",
+        children: [
+          { title: "Dashboard", href: "/admin/unlisted/dashboard", icon: Home, description: "Overview & metrics" },
+          { title: "Companies", href: "/admin/unlisted/companies", icon: Building2, description: "Manage listings" },
+          { title: "Orders", href: "/admin/unlisted/orders", icon: ClipboardList, description: "Buy/Sell orders" },
+          { title: "Negotiations", href: "/admin/unlisted/negotiations", icon: Handshake, description: "Price negotiations" },
+          { title: "Compliance Alerts", href: "/admin/unlisted/compliance-alerts", icon: AlertTriangle, description: "Blocked trades" },
+          { title: "Audit Log", href: "/admin/unlisted/audit-log", icon: History, description: "Event history" }
+        ]
       },
       {
-        title: "Companies",
-        href: "/admin/unlisted/companies",
-        icon: Building2,
-        description: "Manage listings & pricing"
-      },
-      {
-        title: "Orders",
-        href: "/admin/unlisted/orders",
-        icon: ClipboardList,
-        description: "Sell listings & buy requests"
-      },
-      {
-        title: "Negotiations",
-        href: "/admin/unlisted/negotiations",
-        icon: Handshake,
-        description: "Price negotiations"
-      },
-      {
-        title: "Compliance Alerts",
-        href: "/admin/unlisted/compliance-alerts",
-        icon: AlertTriangle,
-        description: "Blocked trades & KYC failures"
-      },
-      {
-        title: "Audit Log",
-        href: "/admin/unlisted/audit-log",
-        icon: History,
-        description: "Compliance event history"
-      }
-    ]
-  },
-  {
-    title: "Bond Marketplace",
-    href: "/admin/bonds/dashboard",
-    icon: Landmark,
-    description: "Corporate bonds, NCDs & G-Secs management",
-    children: [
-      {
-        title: "Dashboard",
+        title: "Bond Marketplace",
         href: "/admin/bonds/dashboard",
-        icon: Home,
-        description: "Overview & metrics"
+        icon: Landmark,
+        description: "Bonds, NCDs & G-Secs",
+        children: [
+          { title: "Dashboard", href: "/admin/bonds/dashboard", icon: Home, description: "Overview & metrics" },
+          { title: "Sell Listings", href: "/admin/bonds/sell-listings", icon: Store, description: "Bond sell listings" },
+          { title: "Buy Requests", href: "/admin/bonds/buy-requests", icon: ShoppingCart, description: "Bond buy requests" },
+          { title: "Deals", href: "/admin/bonds/deals", icon: Handshake, description: "Matched deals" },
+          { title: "Audit Log", href: "/admin/bonds/audit-log", icon: History, description: "Audit trail" }
+        ]
       },
-      {
-        title: "Sell Listings",
-        href: "/admin/bonds/sell-listings",
-        icon: Store,
-        description: "Manage bond sell listings"
-      },
-      {
-        title: "Buy Requests",
-        href: "/admin/bonds/buy-requests",
-        icon: ShoppingCart,
-        description: "Manage bond buy requests"
-      },
-      {
-        title: "Deals",
-        href: "/admin/bonds/deals",
-        icon: Handshake,
-        description: "Matched deals & settlements"
-      },
-      {
-        title: "Audit Log",
-        href: "/admin/bonds/audit-log",
-        icon: History,
-        description: "Bond marketplace audit trail"
-      }
     ]
   },
   {
-    title: "Zoho Integration",
-    href: "/admin/zoho-dashboard",
+    id: "marketing",
+    title: "Marketing & Leads",
+    icon: Megaphone,
+    items: [
+      { title: "Marketing Dashboard", href: "/admin/marketing-dashboard", icon: TrendingUp, description: "Campaign overview" },
+      { title: "Email Campaigns", href: "/admin/email-campaigns", icon: Mail, description: "Zoho Campaigns" },
+      { title: "WhatsApp Campaigns", href: "/admin/whatsapp-campaigns", icon: MessageSquare, description: "AiSensy broadcasts" },
+      { title: "Lead Prospecting", href: "/admin/lead-prospecting", icon: Building2, description: "B2B company search" },
+      { title: "Prospect Analytics", href: "/admin/prospect-analytics", icon: TrendingUp, description: "Lead scoring" },
+      { title: "Client Intelligence", href: "/admin/client-intelligence", icon: Target, description: "Client analysis" },
+      { title: "Marketing Analytics", href: "/admin/marketing-analytics", icon: PieChart, description: "Performance tracking" },
+    ]
+  },
+  {
+    id: "integrations",
+    title: "Integrations",
     icon: Workflow,
-    description: "CRM, Books, Desk & WorkDrive"
+    items: [
+      { title: "Zoho Integration", href: "/admin/zoho-dashboard", icon: Workflow, description: "CRM, Books & WorkDrive" },
+      { title: "API Configuration", href: "/admin/api-config", icon: Key, description: "API keys & services" },
+    ]
   },
   {
-    title: "Marketing Dashboard",
-    href: "/admin/marketing-dashboard",
-    icon: TrendingUp,
-    description: "Campaign overview & performance"
-  },
-  {
-    title: "Email Campaigns",
-    href: "/admin/email-campaigns",
-    icon: Mail,
-    description: "Zoho Campaigns integration"
-  },
-  {
-    title: "WhatsApp Campaigns",
-    href: "/admin/whatsapp-campaigns",
-    icon: MessageSquare,
-    description: "AiSensy Business API broadcasts"
-  },
-  {
-    title: "Lead Prospecting",
-    href: "/admin/lead-prospecting",
-    icon: Building2,
-    description: "Probe42 B2B company search"
-  },
-  {
-    title: "Prospect Analytics",
-    href: "/admin/prospect-analytics",
-    icon: TrendingUp,
-    description: "Advanced lead scoring & surplus detection"
-  },
-  {
-    title: "Client Intelligence",
-    href: "/admin/client-intelligence",
-    icon: Target,
-    description: "Client financial health analysis"
-  },
-  {
-    title: "Marketing Analytics",
-    href: "/admin/marketing-analytics",
-    icon: PieChart,
-    description: "Cross-channel performance tracking"
-  },
-  {
-    title: "Replit Suggestions",
-    href: "/admin/replit-suggestions",
-    icon: Lightbulb,
-    description: "Improvement initiatives & error analysis"
-  },
-  {
-    title: "Production Readiness",
-    href: "/admin/production-readiness",
-    icon: ShieldCheck,
-    description: "Service status & deployment"
-  },
-  {
-    title: "System Health",
-    href: "/admin/system-health",
-    icon: Activity,
-    description: "Performance & monitoring"
-  },
-  {
-    title: "Reports & Analytics",
-    href: "/admin/reports",
-    icon: BarChart3,
-    description: "Platform analytics"
-  },
-  {
-    title: "Compliance",
-    href: "/admin/compliance",
-    icon: FileCheck,
-    description: "Regulatory compliance"
-  },
-  {
-    title: "Database",
-    href: "/admin/database",
-    icon: Database,
-    description: "Database management"
+    id: "system",
+    title: "System & Settings",
+    icon: Cog,
+    items: [
+      { title: "AI Insights", href: "/admin/ai-insights", icon: Lightbulb, description: "AI-powered trends" },
+      { title: "Production Readiness", href: "/admin/production-readiness", icon: ShieldCheck, description: "Service status" },
+      { title: "System Health", href: "/admin/system-health", icon: Activity, description: "Performance monitoring" },
+      { title: "Reports & Analytics", href: "/admin/reports", icon: BarChart3, description: "Platform analytics" },
+      { title: "Compliance", href: "/admin/compliance", icon: FileCheck, description: "Regulatory compliance" },
+      { title: "Database", href: "/admin/database", icon: Database, description: "Database management" },
+      { title: "Replit Suggestions", href: "/admin/replit-suggestions", icon: Lightbulb, description: "Improvement initiatives" },
+    ]
   },
 ];
+
+const allNavItems = navCategories.flatMap(cat => 
+  cat.items.flatMap(item => item.children ? [item, ...item.children] : [item])
+);
+
+interface Notification {
+  id: string;
+  type: 'kyc' | 'compliance' | 'order' | 'system';
+  title: string;
+  message: string;
+  timestamp: Date;
+  read: boolean;
+  link?: string;
+}
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['core']));
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Auto-expand menu if current location matches a child
+  const { data: kycResponse } = useQuery<{ success: boolean; data: { pendingKyc: number; activeAlerts: number } }>({
+    queryKey: ["/api/admin/kyc/dashboard"],
+    refetchInterval: 60000,
+  });
+
+  const { data: pendingOrdersResponse } = useQuery<{ total: number; unlistedPending: number; bondPending: number }>({
+    queryKey: ["/api/admin/pending-orders/count"],
+    refetchInterval: 60000,
+  });
+
+  const notifications: Notification[] = useMemo(() => {
+    const items: Notification[] = [];
+    const pendingKyc = kycResponse?.data?.pendingKyc || 0;
+    const activeAlerts = kycResponse?.data?.activeAlerts || 0;
+    const pendingOrders = pendingOrdersResponse?.total || 0;
+    
+    if (pendingKyc > 0) {
+      items.push({
+        id: 'kyc-pending',
+        type: 'kyc',
+        title: 'Pending KYC Reviews',
+        message: `${pendingKyc} KYC submission${pendingKyc > 1 ? 's' : ''} awaiting review`,
+        timestamp: new Date(),
+        read: false,
+        link: '/admin/kyc-compliance'
+      });
+    }
+    if (activeAlerts > 0) {
+      items.push({
+        id: 'compliance-alerts',
+        type: 'compliance',
+        title: 'Compliance Alerts',
+        message: `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} require attention`,
+        timestamp: new Date(),
+        read: false,
+        link: '/admin/duplicates'
+      });
+    }
+    if (pendingOrders > 0) {
+      items.push({
+        id: 'pending-orders',
+        type: 'order',
+        title: 'Pending Orders',
+        message: `${pendingOrders} order${pendingOrders > 1 ? 's' : ''} awaiting action`,
+        timestamp: new Date(),
+        read: false,
+        link: '/admin/unlisted/orders'
+      });
+    }
+    return items;
+  }, [kycResponse, pendingOrdersResponse]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   useEffect(() => {
-    adminNavItems.forEach(item => {
-      if (item.children) {
-        const isChildActive = item.children.some(child => location === child.href || location.startsWith(child.href + '/'));
-        if (isChildActive) {
-          setExpandedMenus(prev => {
-            const next = new Set(Array.from(prev));
-            next.add(item.title);
-            return next;
-          });
+    navCategories.forEach(category => {
+      category.items.forEach(item => {
+        if (item.children) {
+          const isChildActive = item.children.some(child => 
+            location === child.href || location.startsWith(child.href + '/')
+          );
+          if (isChildActive) {
+            setExpandedCategories(prev => new Set([...prev, category.id]));
+            setExpandedMenus(prev => new Set([...prev, item.title]));
+          }
         }
-      }
+        if (location === item.href) {
+          setExpandedCategories(prev => new Set([...prev, category.id]));
+        }
+      });
     });
   }, [location]);
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
+  };
 
   const toggleMenu = (title: string) => {
     setExpandedMenus(prev => {
@@ -340,7 +318,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     },
   });
 
-  // Wait for auth to load
+  const handleSearchSelect = (href: string) => {
+    setSearchOpen(false);
+    navigate(href);
+  };
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen(open => !open);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -349,13 +342,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  // First check: Must be logged in
   if (!user) {
     window.location.href = '/auth';
     return null;
   }
 
-  // Second check: Must have admin role
   const isAdmin = user.roles?.includes('admin') || user.roles?.includes('superadmin');
   
   if (!isAdmin) {
@@ -379,7 +370,33 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* Admin Header */}
+      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <DialogContent className="bg-gray-900 border-gray-700 p-0 max-w-lg">
+          <Command className="bg-transparent">
+            <CommandInput placeholder="Search admin features..." className="border-0" />
+            <CommandList>
+              <CommandEmpty>No results found.</CommandEmpty>
+              {navCategories.map(category => (
+                <CommandGroup key={category.id} heading={category.title}>
+                  {category.items.map(item => (
+                    <CommandItem 
+                      key={item.href}
+                      value={`${item.title} ${item.description}`}
+                      onSelect={() => handleSearchSelect(item.href)}
+                      className="cursor-pointer"
+                    >
+                      <item.icon className="mr-2 h-4 w-4" />
+                      <span>{item.title}</span>
+                      <span className="ml-2 text-xs text-gray-500">{item.description}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
+
       <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
@@ -388,6 +405,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-gray-400 hover:text-white"
+              data-testid="btn-toggle-sidebar"
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -396,12 +414,65 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <p className="text-xs text-gray-400">System Administration Portal</p>
             </div>
           </div>
+
+          <div className="flex-1 max-w-md mx-8">
+            <Button
+              variant="outline"
+              className="w-full justify-start text-gray-400 border-gray-700 hover:bg-gray-800"
+              onClick={() => setSearchOpen(true)}
+              data-testid="btn-global-search"
+            >
+              <Search className="h-4 w-4 mr-2" />
+              <span>Search features...</span>
+              <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-gray-600 bg-gray-800 px-1.5 font-mono text-[10px] font-medium text-gray-400">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </Button>
+          </div>
           
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-            </Button>
+            <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white relative" data-testid="btn-notifications">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs">
+                      {unreadCount}
+                    </Badge>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 bg-gray-900 border-gray-700">
+                <DropdownMenuLabel className="text-gray-300">Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-gray-700" />
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                    <p className="text-sm">All caught up!</p>
+                  </div>
+                ) : (
+                  notifications.map(notification => (
+                    <DropdownMenuItem 
+                      key={notification.id}
+                      className="flex items-start gap-3 p-3 cursor-pointer hover:bg-gray-800"
+                      onClick={() => notification.link && navigate(notification.link)}
+                    >
+                      <div className={cn(
+                        "w-2 h-2 rounded-full mt-2 flex-shrink-0",
+                        notification.type === 'kyc' && "bg-orange-400",
+                        notification.type === 'compliance' && "bg-red-400",
+                        notification.type === 'order' && "bg-blue-400",
+                        notification.type === 'system' && "bg-gray-400"
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-200">{notification.title}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{notification.message}</p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             <div className="flex items-center gap-3 border-l border-gray-800 pl-4">
               <div className="text-right">
@@ -425,7 +496,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </header>
 
       <div className="flex">
-        {/* Admin Sidebar */}
         <aside
           className={cn(
             "bg-gray-900 border-r border-gray-800 transition-all duration-300 overflow-y-auto sticky top-[73px] h-[calc(100vh-73px)]",
@@ -433,119 +503,124 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           )}
         >
           {sidebarOpen && (
-            <nav className="p-4 space-y-1">
-              {adminNavItems.map((item) => {
-                const Icon = item.icon;
-                const hasChildren = item.children && item.children.length > 0;
-                const isExpanded = expandedMenus.has(item.title);
-                const isActive = location === item.href;
-                const isChildActive = hasChildren && item.children?.some(
-                  child => location === child.href || location.startsWith(child.href + '/')
+            <nav className="p-3 space-y-2">
+              {navCategories.map(category => {
+                const CategoryIcon = category.icon;
+                const isCategoryExpanded = expandedCategories.has(category.id);
+                const hasActiveItem = category.items.some(item => 
+                  location === item.href || 
+                  item.children?.some(child => location === child.href || location.startsWith(child.href + '/'))
                 );
                 
-                if (hasChildren) {
-                  return (
-                    <div key={item.title}>
-                      <button
-                        onClick={() => toggleMenu(item.title)}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group",
-                          isChildActive
-                            ? "bg-blue-600/20 text-blue-400"
-                            : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                        )}
-                        data-testid={`button-menu-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        <Icon className="h-5 w-5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0 text-left">
-                          <p className={cn(
-                            "text-sm font-medium",
-                            isChildActive ? "text-blue-400" : "text-gray-300 group-hover:text-white"
-                          )}>
-                            {item.title}
-                          </p>
-                          <p className="text-xs mt-0.5 text-gray-500">
-                            {item.description}
-                          </p>
-                        </div>
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 text-gray-500" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-gray-500" />
-                        )}
-                      </button>
-                      
-                      {isExpanded && (
-                        <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-4">
-                          {item.children?.map((child) => {
-                            const ChildIcon = child.icon;
-                            const isChildItemActive = location === child.href;
-                            
-                            return (
-                              <Link
-                                key={child.href}
-                                href={child.href}
-                                className={cn(
-                                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                                  isChildItemActive
-                                    ? "bg-blue-600 text-white"
-                                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                                )}
-                                data-testid={`link-admin-${child.href.split('/').pop()}`}
-                              >
-                                <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className={cn(
-                                    "text-sm",
-                                    isChildItemActive ? "text-white font-medium" : "text-gray-300 group-hover:text-white"
-                                  )}>
-                                    {child.title}
-                                  </p>
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-                
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-start gap-3 px-4 py-3 rounded-lg transition-colors group",
-                      isActive
-                        ? "bg-blue-600 text-white"
-                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  <div key={category.id} className="space-y-1">
+                    <button
+                      onClick={() => toggleCategory(category.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left",
+                        hasActiveItem 
+                          ? "bg-blue-600/10 text-blue-400" 
+                          : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                      )}
+                      data-testid={`btn-category-${category.id}`}
+                    >
+                      <CategoryIcon className="h-4 w-4" />
+                      <span className="text-sm font-semibold flex-1">{category.title}</span>
+                      {isCategoryExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
+                    
+                    {isCategoryExpanded && (
+                      <div className="ml-2 space-y-0.5">
+                        {category.items.map(item => {
+                          const Icon = item.icon;
+                          const hasChildren = item.children && item.children.length > 0;
+                          const isExpanded = expandedMenus.has(item.title);
+                          const isActive = location === item.href;
+                          const isChildActive = hasChildren && item.children?.some(
+                            child => location === child.href || location.startsWith(child.href + '/')
+                          );
+                          
+                          if (hasChildren) {
+                            return (
+                              <div key={item.title}>
+                                <button
+                                  onClick={() => toggleMenu(item.title)}
+                                  className={cn(
+                                    "w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-left",
+                                    isChildActive
+                                      ? "bg-blue-600/20 text-blue-400"
+                                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                  )}
+                                  data-testid={`btn-menu-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                                >
+                                  <Icon className="h-4 w-4 flex-shrink-0" />
+                                  <span className="text-sm flex-1">{item.title}</span>
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-3 w-3 text-gray-500" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 text-gray-500" />
+                                  )}
+                                </button>
+                                
+                                {isExpanded && (
+                                  <div className="ml-4 mt-1 space-y-0.5 border-l border-gray-700 pl-3">
+                                    {item.children?.map(child => {
+                                      const ChildIcon = child.icon;
+                                      const isChildItemActive = location === child.href;
+                                      
+                                      return (
+                                        <Link
+                                          key={child.href}
+                                          href={child.href}
+                                          className={cn(
+                                            "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-sm",
+                                            isChildItemActive
+                                              ? "bg-blue-600 text-white"
+                                              : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                          )}
+                                          data-testid={`link-admin-${child.href.split('/').pop()}`}
+                                        >
+                                          <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                                          <span>{child.title}</span>
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors",
+                                isActive
+                                  ? "bg-blue-600 text-white"
+                                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                              )}
+                              data-testid={`link-admin-${item.href.split('/').pop()}`}
+                            >
+                              <Icon className="h-4 w-4 flex-shrink-0" />
+                              <span className="text-sm">{item.title}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     )}
-                    data-testid={`link-admin-${item.href.split('/').pop()}`}
-                  >
-                    <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "text-sm font-medium",
-                        isActive ? "text-white" : "text-gray-300 group-hover:text-white"
-                      )}>
-                        {item.title}
-                      </p>
-                      <p className={cn(
-                        "text-xs mt-0.5",
-                        isActive ? "text-blue-100" : "text-gray-500 group-hover:text-gray-400"
-                      )}>
-                        {item.description}
-                      </p>
-                    </div>
-                  </Link>
+                  </div>
                 );
               })}
             </nav>
           )}
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 p-6">
           <div className="max-w-7xl mx-auto">
             {children}

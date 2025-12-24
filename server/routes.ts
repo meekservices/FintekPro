@@ -19720,6 +19720,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Stakeholder Stats - Aggregate counts for dashboard
+  app.get("/api/admin/stakeholders/stats", requireAdmin, async (req, res) => {
+    try {
+      const partnersResult = await db.execute(sql`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_active = true)::int AS active FROM partners`);
+      const agentsResult = await db.execute(sql`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_active = true)::int AS active FROM agents`);
+      const suppliersResult = await db.execute(sql`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_active = true)::int AS active FROM suppliers`);
+
+      res.json({
+        stats: {
+          totalPartners: Number(partnersResult.rows[0]?.total || 0),
+          activePartners: Number(partnersResult.rows[0]?.active || 0),
+          totalAgents: Number(agentsResult.rows[0]?.total || 0),
+          activeAgents: Number(agentsResult.rows[0]?.active || 0),
+          totalSuppliers: Number(suppliersResult.rows[0]?.total || 0),
+          activeSuppliers: Number(suppliersResult.rows[0]?.active || 0),
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching stakeholder stats:", error);
+      res.status(500).json({ error: "Failed to fetch stakeholder stats" });
+    }
+  });
+
+
+  // Admin Pending Orders Count - For dashboard quick actions
+  app.get("/api/admin/pending-orders/count", requireAdmin, async (req, res) => {
+    try {
+      const unlistedOrdersResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM unlisted_orders WHERE status = 'pending' OR status = 'pending_verification'`);
+      const bondOrdersResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM bond_orders WHERE status = 'pending' OR status = 'submitted'`);
+
+      res.json({
+        unlistedPending: Number(unlistedOrdersResult.rows[0]?.count || 0),
+        bondPending: Number(bondOrdersResult.rows[0]?.count || 0),
+        total: Number(unlistedOrdersResult.rows[0]?.count || 0) + Number(bondOrdersResult.rows[0]?.count || 0)
+      });
+    } catch (error) {
+      console.error("Error fetching pending orders count:", error);
+      res.json({ unlistedPending: 0, bondPending: 0, total: 0 });
+    }
+  });
   // Admin Users Management - List users with filtering
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
     try {
