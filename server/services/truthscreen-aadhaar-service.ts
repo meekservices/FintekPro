@@ -62,10 +62,42 @@ interface TruthscreenPanAadhaarResponse {
   linkDate?: string;
 }
 
+interface KRARecord {
+  kra: string;
+  dateOfUpload: string;
+  status: string;
+  statusDescription: string;
+  statusDate: string;
+  dateOfModification: string;
+  modifyStatus: string;
+  modifyHoldReasons: string;
+}
+
+interface TruthscreenCKYCStatusResponse {
+  success: boolean;
+  message: string;
+  pan: string;
+  ckycApplicationDate?: string;
+  ckycApplicationStatus?: string;
+  ckycNumber?: string;
+  kraStatus: {
+    statusDate?: string;
+    kycFlag: string;
+    digilockerKyc: boolean;
+    eSignFlag: string;
+    ipvFlag: string;
+    ipvStatus: string;
+  };
+  kraRecords: KRARecord[];
+  isKycValidated: boolean;
+  validatedKra?: string;
+}
+
 export class TruthscreenAadhaarService {
   private static readonly BASE_URL = 'https://www.truthscreen.com';
   private static readonly PAN_AADHAAR_ENDPOINT = '/v1/apicall/employment/pan_aadhaar_linking';
   private static readonly NID_ENDPOINT = '/v1/apicall/nid/idsearch';
+  private static readonly CKYC_ENDPOINT = '/Ckyc/api/ckyc-status';
   
   private static getCredentials() {
     return {
@@ -568,6 +600,181 @@ export class TruthscreenAadhaarService {
   }
   
   /**
+   * Check CKYC/KRA Status for a PAN
+   * Returns KYC validation status from all KRAs (CVL, NDML, Karvy, etc.)
+   */
+  static async checkCKYCStatus(pan: string): Promise<TruthscreenCKYCStatusResponse> {
+    try {
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan.toUpperCase())) {
+        return {
+          success: false,
+          message: 'Invalid PAN format',
+          pan: pan.toUpperCase(),
+          kraStatus: {
+            kycFlag: '',
+            digilockerKyc: false,
+            eSignFlag: '',
+            ipvFlag: '',
+            ipvStatus: ''
+          },
+          kraRecords: [],
+          isKycValidated: false
+        };
+      }
+      
+      if (!this.isConfigured()) {
+        console.log('[Truthscreen] Mock mode: checkCKYCStatus');
+        return this.mockCheckCKYCStatus(pan);
+      }
+      
+      const payload = {
+        docType: 'CKYC_STATUS',
+        panNumber: pan.toUpperCase()
+      };
+      
+      const encryptedPayload = this.encrypt(payload);
+      
+      const response = await axios.post(
+        `${this.BASE_URL}${this.CKYC_ENDPOINT}`,
+        { requestData: encryptedPayload },
+        { headers: this.getHeaders(), timeout: 30000 }
+      );
+      
+      const decryptedResponse = this.decrypt(response.data.responseData);
+      
+      const kraRecords: KRARecord[] = (decryptedResponse.kraRecords || []).map((record: any) => ({
+        kra: record.kra || record.kraName || '',
+        dateOfUpload: record.dateOfUpload || record.uploadDate || '',
+        status: record.status || '',
+        statusDescription: record.statusDescription || record.statusDesc || '',
+        statusDate: record.statusDate || '',
+        dateOfModification: record.dateOfModification || record.modificationDate || '',
+        modifyStatus: record.modifyStatus || '',
+        modifyHoldReasons: record.modifyHoldReasons || record.holdReasons || ''
+      }));
+      
+      const validatedRecord = kraRecords.find(r => 
+        r.statusDescription?.toUpperCase().includes('VALIDATED') ||
+        r.modifyStatus?.toUpperCase().includes('VALIDATED')
+      );
+      
+      const isKycValidated = !!validatedRecord || 
+        decryptedResponse.kycFlag === 'VALIDATED' ||
+        decryptedResponse.status === 'KYC_VALIDATED';
+      
+      return {
+        success: true,
+        message: isKycValidated ? 'KYC is validated' : 'KYC status retrieved',
+        pan: pan.toUpperCase(),
+        ckycApplicationDate: decryptedResponse.ckycApplicationDate || decryptedResponse.applicationDate,
+        ckycApplicationStatus: decryptedResponse.ckycApplicationStatus || decryptedResponse.applicationStatus,
+        ckycNumber: decryptedResponse.ckycNumber || decryptedResponse.cKYCId,
+        kraStatus: {
+          statusDate: decryptedResponse.statusDate || decryptedResponse.kraStatusDate,
+          kycFlag: decryptedResponse.kycFlag || '',
+          digilockerKyc: decryptedResponse.digilockerKyc === true || decryptedResponse.digilockerKyc === 'Y',
+          eSignFlag: decryptedResponse.eSignFlag || '',
+          ipvFlag: decryptedResponse.ipvFlag || '',
+          ipvStatus: decryptedResponse.ipvStatus || ''
+        },
+        kraRecords,
+        isKycValidated,
+        validatedKra: validatedRecord?.kra
+      };
+      
+    } catch (error: any) {
+      console.error('[Truthscreen] CKYC status check error:', error.message);
+      
+      if (error.response?.data) {
+        try {
+          const decryptedError = this.decrypt(error.response.data.responseData);
+          return {
+            success: false,
+            message: decryptedError.message || 'Failed to check CKYC status',
+            pan: pan.toUpperCase(),
+            kraStatus: {
+              kycFlag: '',
+              digilockerKyc: false,
+              eSignFlag: '',
+              ipvFlag: '',
+              ipvStatus: ''
+            },
+            kraRecords: [],
+            isKycValidated: false
+          };
+        } catch {
+          // Decryption failed
+        }
+      }
+      
+      return {
+        success: false,
+        message: 'Failed to check CKYC status. Please try again.',
+        pan: pan.toUpperCase(),
+        kraStatus: {
+          kycFlag: '',
+          digilockerKyc: false,
+          eSignFlag: '',
+          ipvFlag: '',
+          ipvStatus: ''
+        },
+        kraRecords: [],
+        isKycValidated: false
+      };
+    }
+  }
+  
+  private static mockCheckCKYCStatus(pan: string): TruthscreenCKYCStatusResponse {
+    if (pan.toUpperCase().startsWith('ZZZZZ')) {
+      return {
+        success: true,
+        message: 'No KYC records found (mock)',
+        pan: pan.toUpperCase(),
+        kraStatus: {
+          kycFlag: 'NOT_FOUND',
+          digilockerKyc: false,
+          eSignFlag: '',
+          ipvFlag: '',
+          ipvStatus: ''
+        },
+        kraRecords: [],
+        isKycValidated: false
+      };
+    }
+    
+    return {
+      success: true,
+      message: 'KYC is validated (mock)',
+      pan: pan.toUpperCase(),
+      ckycApplicationDate: '08-10-2012',
+      ckycApplicationStatus: 'SUBMITTED',
+      ckycNumber: 'CKYC123456789012',
+      kraStatus: {
+        statusDate: new Date().toISOString().split('T')[0],
+        kycFlag: 'DIGILOCKER KYC',
+        digilockerKyc: true,
+        eSignFlag: 'COMPLETED',
+        ipvFlag: 'IPV DONE',
+        ipvStatus: 'IPV DONE'
+      },
+      kraRecords: [
+        {
+          kra: 'CVL KRA',
+          dateOfUpload: '08-10-2012 09:55:34',
+          status: 'VALIDATED',
+          statusDescription: 'KYC VALIDATED WITH CVL KRA',
+          statusDate: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          dateOfModification: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          modifyStatus: 'KYC VALIDATED WITH CVL KRA',
+          modifyHoldReasons: ''
+        }
+      ],
+      isKycValidated: true,
+      validatedKra: 'CVL KRA'
+    };
+  }
+  
+  /**
    * Check if Truthscreen credentials are configured
    */
   static credentialsConfigured(): boolean {
@@ -579,5 +786,7 @@ export type {
   TruthscreenOTPResponse,
   TruthscreenVerificationResponse,
   TruthscreenValidationResponse,
-  TruthscreenPanAadhaarResponse
+  TruthscreenPanAadhaarResponse,
+  TruthscreenCKYCStatusResponse,
+  KRARecord
 };

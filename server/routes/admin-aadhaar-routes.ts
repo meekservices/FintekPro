@@ -11,6 +11,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { unifiedAadhaarService, AadhaarProvider } from '../services/unified-aadhaar-service';
+import { TruthscreenAadhaarService } from '../services/truthscreen-aadhaar-service';
 import { requireAuth, requireRole } from '../middleware/roleMiddleware';
 
 const router = Router();
@@ -179,6 +180,89 @@ router.get('/api/admin/aadhaar/provider/:provider', requireAuth, requireRole('ad
   } catch (error) {
     console.error('[Admin Aadhaar] Error fetching provider config:', error);
     res.status(500).json({ error: 'Failed to fetch provider configuration' });
+  }
+});
+
+/**
+ * Check CKYC/KRA Status via Truthscreen
+ * Returns KYC validation status from all KRAs (CVL, NDML, Karvy, etc.)
+ */
+router.post('/api/ckyc/status', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { pan } = req.body;
+    
+    if (!pan) {
+      return res.status(400).json({
+        success: false,
+        message: 'PAN number is required'
+      });
+    }
+
+    const ckycStatus = await TruthscreenAadhaarService.checkCKYCStatus(pan);
+    
+    res.json(ckycStatus);
+  } catch (error) {
+    console.error('[CKYC Status] Error checking CKYC status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check CKYC status'
+    });
+  }
+});
+
+/**
+ * Admin route to check CKYC status for any PAN
+ */
+router.post('/api/admin/ckyc/status', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { pan } = req.body;
+    
+    if (!pan) {
+      return res.status(400).json({
+        success: false,
+        message: 'PAN number is required'
+      });
+    }
+
+    const ckycStatus = await TruthscreenAadhaarService.checkCKYCStatus(pan);
+    
+    res.json({
+      ...ckycStatus,
+      provider: 'truthscreen',
+      checkedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Admin CKYC] Error checking CKYC status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check CKYC status'
+    });
+  }
+});
+
+/**
+ * Check PAN-Aadhaar linkage via Truthscreen
+ */
+router.post('/api/verification/pan-aadhaar-linkage', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { pan, aadhaar } = req.body;
+    
+    if (!pan || !aadhaar) {
+      return res.status(400).json({
+        success: false,
+        message: 'PAN and Aadhaar numbers are required'
+      });
+    }
+
+    const linkageStatus = await TruthscreenAadhaarService.checkPanAadhaarLinkage(pan, aadhaar);
+    
+    res.json(linkageStatus);
+  } catch (error) {
+    console.error('[PAN-Aadhaar Linkage] Error checking linkage:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check PAN-Aadhaar linkage'
+    });
   }
 });
 
