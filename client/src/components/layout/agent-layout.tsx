@@ -30,7 +30,10 @@ import {
   Clock,
   UserCheck,
   Briefcase,
-  Plus
+  Plus,
+  Calculator,
+  Calendar,
+  FileSignature
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -72,11 +75,14 @@ const agentNavCategories: NavCategory[] = [
     items: [
       { title: "Dashboard", href: "/", icon: Home, description: "Overview and metrics" },
       { title: "Revenue Cockpit", href: "/revenue", icon: Wallet, description: "AUM and commissions" },
+      { title: "Commission Calculator", href: "/commission-calculator", icon: Calculator, description: "Calculate earnings" },
       { title: "My Clients", href: "/clients", icon: Users, description: "Client portfolio" },
       { title: "Lead Pipeline", href: "/leads", icon: Target, description: "Track prospects" },
       { title: "Sales Pipeline", href: "/crm/pipeline", icon: TrendingUp, description: "Deal stages" },
       { title: "CRM Analytics", href: "/crm/analytics", icon: BarChart3, description: "CRM insights" },
       { title: "Tasks", href: "/tasks", icon: CheckSquare, description: "Tasks and reminders" },
+      { title: "Calendar", href: "/calendar", icon: Calendar, description: "Appointments & scheduling" },
+      { title: "Bulk Communication", href: "/bulk-communication", icon: Bell, description: "SMS, Email, WhatsApp" },
     ]
   },
   {
@@ -94,6 +100,7 @@ const agentNavCategories: NavCategory[] = [
     items: [
       { title: "Proposal Builder", href: "/proposal-builder", icon: UserPlus, description: "Create proposals" },
       { title: "Proposals", href: "/proposals", icon: FileText, description: "View proposals" },
+      { title: "E-Sign", href: "/esign", icon: FileSignature, description: "Electronic signatures" },
       { title: "Reports", href: "/reports", icon: BarChart3, description: "Client reports" },
       { title: "Demo Progress", href: "/demo-progress", icon: TrendingUp, description: "Track demos" },
     ]

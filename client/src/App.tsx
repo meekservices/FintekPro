@@ -117,6 +117,11 @@ import AgentReportsHub from "@/pages/agent-reports-hub";
 import AgentDemoProgress from "@/pages/agent-demo-progress";
 import AgentPortfolioReportBuilder from "@/pages/agent-portfolio-report-builder";
 import AgentDemoProposalBuilder from "@/pages/agent-demo-proposal-builder";
+import AgentLeaderboard from "@/pages/agent-leaderboard";
+import AgentCommissionCalculator from "@/pages/agent-commission-calculator";
+import AgentBulkCommunication from "@/pages/agent-bulk-communication";
+import AgentCalendar from "@/pages/agent-calendar";
+import AgentESign from "@/pages/agent-esign";
 import OnboardingPage from "@/pages/onboarding";
 import PublicProposalPage from "@/pages/public-proposal";
 import ManualKYCPage from "@/pages/manual-kyc";
@@ -1066,6 +1071,41 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentPortfolioReportBuilder />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/leaderboard">
+        {() => (
+          <AgentLayout>
+            <AgentLeaderboard />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/commission-calculator">
+        {() => (
+          <AgentLayout>
+            <AgentCommissionCalculator />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/bulk-communication">
+        {() => (
+          <AgentLayout>
+            <AgentBulkCommunication />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/calendar">
+        {() => (
+          <AgentLayout>
+            <AgentCalendar />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/esign">
+        {() => (
+          <AgentLayout>
+            <AgentESign />
           </AgentLayout>
         )}
       </Route>

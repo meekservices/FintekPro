@@ -1,0 +1,616 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  Trophy,
+  Medal,
+  Crown,
+  TrendingUp,
+  Users,
+  IndianRupee,
+  Target,
+  Flame,
+  Star,
+  Zap,
+  Award,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  Sparkles,
+  BadgeCheck,
+  Briefcase
+} from "lucide-react";
+
+interface AgentLeaderboardEntry {
+  id: string;
+  name: string;
+  avatar?: string;
+  rank: number;
+  previousRank: number;
+  totalAUM: number;
+  commissionMTD: number;
+  commissionYTD: number;
+  activeClients: number;
+  dealsClosedThisMonth: number;
+  leadConversionRate: number;
+  streak: number;
+  achievements: string[];
+}
+
+interface LeaderboardData {
+  agents: AgentLeaderboardEntry[];
+  currentUserRank?: AgentLeaderboardEntry;
+  totalAgents: number;
+}
+
+const achievementIcons: Record<string, { icon: typeof Trophy; color: string; label: string }> = {
+  top_closer: { icon: Target, color: "text-red-400", label: "Top Closer" },
+  client_magnet: { icon: Users, color: "text-blue-400", label: "Client Magnet" },
+  revenue_king: { icon: Crown, color: "text-yellow-400", label: "Revenue King" },
+  rising_star: { icon: Star, color: "text-purple-400", label: "Rising Star" },
+  deal_machine: { icon: Zap, color: "text-orange-400", label: "Deal Machine" },
+  consistent_performer: { icon: BadgeCheck, color: "text-emerald-400", label: "Consistent Performer" },
+};
+
+const mockLeaderboardData: AgentLeaderboardEntry[] = [
+  {
+    id: "1",
+    name: "Rajesh Kumar",
+    rank: 1,
+    previousRank: 1,
+    totalAUM: 125000000,
+    commissionMTD: 485000,
+    commissionYTD: 4850000,
+    activeClients: 156,
+    dealsClosedThisMonth: 24,
+    leadConversionRate: 68.5,
+    streak: 12,
+    achievements: ["revenue_king", "top_closer", "consistent_performer"],
+  },
+  {
+    id: "2",
+    name: "Priya Sharma",
+    rank: 2,
+    previousRank: 4,
+    totalAUM: 98500000,
+    commissionMTD: 392000,
+    commissionYTD: 3920000,
+    activeClients: 142,
+    dealsClosedThisMonth: 21,
+    leadConversionRate: 72.3,
+    streak: 8,
+    achievements: ["client_magnet", "rising_star"],
+  },
+  {
+    id: "3",
+    name: "Amit Patel",
+    rank: 3,
+    previousRank: 2,
+    totalAUM: 87200000,
+    commissionMTD: 348000,
+    commissionYTD: 3480000,
+    activeClients: 128,
+    dealsClosedThisMonth: 18,
+    leadConversionRate: 65.8,
+    streak: 5,
+    achievements: ["deal_machine"],
+  },
+  {
+    id: "4",
+    name: "Sneha Reddy",
+    rank: 4,
+    previousRank: 5,
+    totalAUM: 76800000,
+    commissionMTD: 307000,
+    commissionYTD: 3070000,
+    activeClients: 115,
+    dealsClosedThisMonth: 16,
+    leadConversionRate: 61.2,
+    streak: 3,
+    achievements: ["rising_star"],
+  },
+  {
+    id: "5",
+    name: "Vikram Singh",
+    rank: 5,
+    previousRank: 3,
+    totalAUM: 72500000,
+    commissionMTD: 290000,
+    commissionYTD: 2900000,
+    activeClients: 108,
+    dealsClosedThisMonth: 14,
+    leadConversionRate: 58.9,
+    streak: 0,
+    achievements: [],
+  },
+  {
+    id: "6",
+    name: "Ananya Gupta",
+    rank: 6,
+    previousRank: 7,
+    totalAUM: 65300000,
+    commissionMTD: 261000,
+    commissionYTD: 2610000,
+    activeClients: 96,
+    dealsClosedThisMonth: 12,
+    leadConversionRate: 55.4,
+    streak: 2,
+    achievements: [],
+  },
+  {
+    id: "7",
+    name: "Karan Mehta",
+    rank: 7,
+    previousRank: 6,
+    totalAUM: 58900000,
+    commissionMTD: 235000,
+    commissionYTD: 2350000,
+    activeClients: 89,
+    dealsClosedThisMonth: 11,
+    leadConversionRate: 52.1,
+    streak: 0,
+    achievements: [],
+  },
+  {
+    id: "8",
+    name: "Divya Nair",
+    rank: 8,
+    previousRank: 9,
+    totalAUM: 52100000,
+    commissionMTD: 208000,
+    commissionYTD: 2080000,
+    activeClients: 82,
+    dealsClosedThisMonth: 10,
+    leadConversionRate: 49.8,
+    streak: 4,
+    achievements: ["consistent_performer"],
+  },
+  {
+    id: "9",
+    name: "Rahul Joshi",
+    rank: 9,
+    previousRank: 8,
+    totalAUM: 48700000,
+    commissionMTD: 195000,
+    commissionYTD: 1950000,
+    activeClients: 76,
+    dealsClosedThisMonth: 9,
+    leadConversionRate: 47.2,
+    streak: 0,
+    achievements: [],
+  },
+  {
+    id: "10",
+    name: "Neha Verma",
+    rank: 10,
+    previousRank: 12,
+    totalAUM: 45200000,
+    commissionMTD: 181000,
+    commissionYTD: 1810000,
+    activeClients: 71,
+    dealsClosedThisMonth: 8,
+    leadConversionRate: 45.6,
+    streak: 6,
+    achievements: ["rising_star"],
+  },
+];
+
+export default function AgentLeaderboard() {
+  const { user } = useAuth();
+  const [period, setPeriod] = useState("month");
+
+  const { data: leaderboardData, isLoading } = useQuery<LeaderboardData>({
+    queryKey: ["/api/agent/leaderboard", period],
+  });
+
+  const agents = leaderboardData?.agents?.length ? leaderboardData.agents : mockLeaderboardData;
+  const totalAgents = leaderboardData?.totalAgents || mockLeaderboardData.length;
+  
+  const currentUserRank = leaderboardData?.currentUserRank || {
+    id: user?.id || "current",
+    name: user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : "You",
+    rank: 15,
+    previousRank: 18,
+    totalAUM: 32500000,
+    commissionMTD: 130000,
+    commissionYTD: 1300000,
+    activeClients: 48,
+    dealsClosedThisMonth: 6,
+    leadConversionRate: 42.5,
+    streak: 2,
+    achievements: ["rising_star"],
+  };
+
+  const formatCurrency = (value: number) => {
+    if (value >= 10000000) {
+      return `₹${(value / 10000000).toFixed(2)} Cr`;
+    } else if (value >= 100000) {
+      return `₹${(value / 100000).toFixed(2)} L`;
+    } else if (value >= 1000) {
+      return `₹${(value / 1000).toFixed(1)} K`;
+    }
+    return `₹${value.toFixed(0)}`;
+  };
+
+  const getRankBadge = (rank: number) => {
+    if (rank === 1) {
+      return (
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-lg shadow-yellow-500/30">
+          <Crown className="h-5 w-5 text-white" />
+        </div>
+      );
+    }
+    if (rank === 2) {
+      return (
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-slate-300 to-slate-500 shadow-lg shadow-slate-400/30">
+          <Medal className="h-5 w-5 text-white" />
+        </div>
+      );
+    }
+    if (rank === 3) {
+      return (
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-amber-600 to-orange-800 shadow-lg shadow-orange-500/30">
+          <Award className="h-5 w-5 text-white" />
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-700 text-slate-300 font-bold text-lg">
+        {rank}
+      </div>
+    );
+  };
+
+  const getRankChange = (current: number, previous: number) => {
+    const diff = previous - current;
+    if (diff > 0) {
+      return (
+        <div className="flex items-center text-emerald-400 text-xs">
+          <ArrowUp className="h-3 w-3" />
+          <span>{diff}</span>
+        </div>
+      );
+    }
+    if (diff < 0) {
+      return (
+        <div className="flex items-center text-red-400 text-xs">
+          <ArrowDown className="h-3 w-3" />
+          <span>{Math.abs(diff)}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center text-slate-500 text-xs">
+        <Minus className="h-3 w-3" />
+      </div>
+    );
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2" data-testid="text-leaderboard-title">
+              <Trophy className="h-7 w-7 text-yellow-500" />
+              Agent Leaderboard
+            </h1>
+            <p className="text-slate-400 mt-1">Compete, achieve, and climb the ranks</p>
+          </div>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-40 bg-slate-800 border-slate-700 text-white" data-testid="select-period">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-800 border-slate-700">
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="quarter">This Quarter</SelectItem>
+              <SelectItem value="year">This Year</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Card className="bg-gradient-to-r from-emerald-900/50 via-emerald-800/30 to-teal-900/50 border-emerald-700/50" data-testid="card-my-rank">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg text-emerald-300 flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              My Rank
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-600 text-white text-2xl font-bold">
+                    #{currentUserRank.rank}
+                  </div>
+                  {getRankChange(currentUserRank.rank, currentUserRank.previousRank)}
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-white" data-testid="text-my-name">{currentUserRank.name}</p>
+                  <p className="text-slate-400 text-sm">Rank {currentUserRank.rank} of {totalAgents} agents</p>
+                </div>
+              </div>
+
+              <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="text-center">
+                  <p className="text-slate-400 text-xs">AUM</p>
+                  <p className="text-white font-semibold" data-testid="text-my-aum">{formatCurrency(currentUserRank.totalAUM)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-400 text-xs">Commission MTD</p>
+                  <p className="text-white font-semibold" data-testid="text-my-commission-mtd">{formatCurrency(currentUserRank.commissionMTD)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-400 text-xs">Active Clients</p>
+                  <p className="text-white font-semibold" data-testid="text-my-clients">{currentUserRank.activeClients}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-400 text-xs">Deals This Month</p>
+                  <p className="text-white font-semibold" data-testid="text-my-deals">{currentUserRank.dealsClosedThisMonth}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-400 text-xs">Conversion Rate</p>
+                  <p className="text-white font-semibold" data-testid="text-my-conversion">{currentUserRank.leadConversionRate}%</p>
+                </div>
+              </div>
+
+              {currentUserRank.streak > 0 && (
+                <div className="flex items-center gap-2 bg-orange-500/20 px-3 py-2 rounded-lg">
+                  <Flame className="h-5 w-5 text-orange-400" />
+                  <span className="text-orange-300 font-semibold">{currentUserRank.streak} week streak</span>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                {currentUserRank.achievements.map((achievement) => {
+                  const config = achievementIcons[achievement];
+                  if (!config) return null;
+                  const Icon = config.icon;
+                  return (
+                    <div
+                      key={achievement}
+                      className="p-2 bg-slate-800 rounded-lg"
+                      title={config.label}
+                    >
+                      <Icon className={`h-5 w-5 ${config.color}`} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {agents.slice(0, 3).map((agent, index) => (
+            <Card
+              key={agent.id}
+              className={`relative overflow-hidden ${
+                index === 0
+                  ? "bg-gradient-to-br from-yellow-900/30 to-amber-800/20 border-yellow-700/50"
+                  : index === 1
+                  ? "bg-gradient-to-br from-slate-700/30 to-slate-600/20 border-slate-500/50"
+                  : "bg-gradient-to-br from-orange-900/30 to-amber-900/20 border-orange-700/50"
+              }`}
+              data-testid={`card-top-agent-${index + 1}`}
+            >
+              <div className="absolute top-3 right-3">
+                {getRankBadge(agent.rank)}
+              </div>
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center text-center">
+                  <Avatar className="h-20 w-20 border-4 border-slate-700 mb-3">
+                    <AvatarImage src={agent.avatar} />
+                    <AvatarFallback className="bg-slate-700 text-white text-xl">
+                      {getInitials(agent.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <h3 className="text-lg font-bold text-white" data-testid={`text-agent-name-${agent.rank}`}>{agent.name}</h3>
+                  <div className="flex items-center gap-1 mt-1">
+                    {getRankChange(agent.rank, agent.previousRank)}
+                  </div>
+                  
+                  <div className="w-full mt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">AUM</span>
+                      <span className="text-white font-medium">{formatCurrency(agent.totalAUM)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Commission YTD</span>
+                      <span className="text-emerald-400 font-medium">{formatCurrency(agent.commissionYTD)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Conversion</span>
+                      <span className="text-white font-medium">{agent.leadConversionRate}%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-4">
+                    {agent.streak > 0 && (
+                      <Badge className="bg-orange-500/20 text-orange-300 hover:bg-orange-500/30">
+                        <Flame className="h-3 w-3 mr-1" />
+                        {agent.streak}w
+                      </Badge>
+                    )}
+                    {agent.achievements.slice(0, 2).map((achievement) => {
+                      const config = achievementIcons[achievement];
+                      if (!config) return null;
+                      const Icon = config.icon;
+                      return (
+                        <Badge
+                          key={achievement}
+                          className="bg-slate-700 hover:bg-slate-600"
+                          title={config.label}
+                        >
+                          <Icon className={`h-3 w-3 ${config.color}`} />
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader>
+            <CardTitle className="text-lg text-white flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-emerald-500" />
+              Full Rankings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-700">
+                    <th className="text-left py-3 px-4 text-slate-400 text-sm font-medium">Rank</th>
+                    <th className="text-left py-3 px-4 text-slate-400 text-sm font-medium">Agent</th>
+                    <th className="text-right py-3 px-4 text-slate-400 text-sm font-medium">AUM</th>
+                    <th className="text-right py-3 px-4 text-slate-400 text-sm font-medium">Commission MTD</th>
+                    <th className="text-right py-3 px-4 text-slate-400 text-sm font-medium">Commission YTD</th>
+                    <th className="text-right py-3 px-4 text-slate-400 text-sm font-medium">Clients</th>
+                    <th className="text-right py-3 px-4 text-slate-400 text-sm font-medium">Deals</th>
+                    <th className="text-right py-3 px-4 text-slate-400 text-sm font-medium">Conversion</th>
+                    <th className="text-center py-3 px-4 text-slate-400 text-sm font-medium">Streak</th>
+                    <th className="text-center py-3 px-4 text-slate-400 text-sm font-medium">Achievements</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agents.map((agent) => (
+                    <tr
+                      key={agent.id}
+                      className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
+                      data-testid={`row-agent-${agent.id}`}
+                    >
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          {getRankBadge(agent.rank)}
+                          {getRankChange(agent.rank, agent.previousRank)}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={agent.avatar} />
+                            <AvatarFallback className="bg-slate-700 text-white text-xs">
+                              {getInitials(agent.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-white font-medium">{agent.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className="text-white">{formatCurrency(agent.totalAUM)}</span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className="text-emerald-400">{formatCurrency(agent.commissionMTD)}</span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className="text-emerald-400">{formatCurrency(agent.commissionYTD)}</span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Users className="h-4 w-4 text-slate-500" />
+                          <span className="text-white">{agent.activeClients}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Briefcase className="h-4 w-4 text-slate-500" />
+                          <span className="text-white">{agent.dealsClosedThisMonth}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Progress
+                            value={agent.leadConversionRate}
+                            className="w-16 h-2"
+                          />
+                          <span className="text-white text-sm">{agent.leadConversionRate}%</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        {agent.streak > 0 ? (
+                          <Badge className="bg-orange-500/20 text-orange-300">
+                            <Flame className="h-3 w-3 mr-1" />
+                            {agent.streak}w
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center justify-center gap-1">
+                          {agent.achievements.length > 0 ? (
+                            agent.achievements.slice(0, 3).map((achievement) => {
+                              const config = achievementIcons[achievement];
+                              if (!config) return null;
+                              const Icon = config.icon;
+                              return (
+                                <div
+                                  key={achievement}
+                                  className="p-1.5 bg-slate-800 rounded"
+                                  title={config.label}
+                                >
+                                  <Icon className={`h-4 w-4 ${config.color}`} />
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <span className="text-slate-500">-</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          {Object.entries(achievementIcons).map(([key, config]) => {
+            const Icon = config.icon;
+            return (
+              <Card key={key} className="bg-slate-900/50 border-slate-800">
+                <CardContent className="pt-4 text-center">
+                  <div className={`inline-flex p-3 rounded-lg bg-slate-800 mb-2`}>
+                    <Icon className={`h-6 w-6 ${config.color}`} />
+                  </div>
+                  <p className="text-sm text-white font-medium">{config.label}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}

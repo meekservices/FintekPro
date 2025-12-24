@@ -1073,6 +1073,174 @@ router.post("/api/agents/:agentId/refer-client", requireAuth, async (req, res) =
   }
 });
 
+// ==================== APPOINTMENT/CALENDAR ENDPOINTS ====================
+
+const appointmentSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  type: z.enum(["meeting", "call", "review", "demo"]),
+  clientId: z.string().optional(),
+  clientName: z.string().optional(),
+  location: z.enum(["virtual", "office", "client_site"]),
+  locationDetails: z.string().optional(),
+  date: z.string().min(1, "Date is required"),
+  startTime: z.string().min(1, "Start time is required"),
+  endTime: z.string().optional(),
+  duration: z.number().min(15).max(480),
+  reminder: z.enum(["15min", "30min", "1hr", "1day", "none"]),
+  notes: z.string().optional(),
+});
+
+// In-memory appointments storage (replace with database in production)
+let appointmentsStore: any[] = [
+  { id: '1', title: 'Portfolio Review', description: 'Q4 portfolio review', type: 'review', clientId: '1', clientName: 'Rajesh Sharma', location: 'virtual', date: new Date().toISOString().split('T')[0], startTime: '10:00', endTime: '11:00', duration: 60, reminder: '30min', status: 'scheduled', createdAt: new Date().toISOString() },
+  { id: '2', title: 'SIP Discussion', description: 'New SIP recommendations', type: 'call', clientId: '2', clientName: 'Priya Patel', location: 'virtual', date: new Date().toISOString().split('T')[0], startTime: '14:00', endTime: '14:30', duration: 30, reminder: '15min', status: 'scheduled', createdAt: new Date().toISOString() },
+];
+
+// Get all appointments
+router.get("/api/agent/appointments", requireAuth, async (req, res) => {
+  try {
+    const { startDate, endDate, clientId, type, status } = req.query;
+    
+    let filtered = [...appointmentsStore];
+    
+    if (startDate) {
+      filtered = filtered.filter(apt => apt.date >= startDate);
+    }
+    if (endDate) {
+      filtered = filtered.filter(apt => apt.date <= endDate);
+    }
+    if (clientId) {
+      filtered = filtered.filter(apt => apt.clientId === clientId);
+    }
+    if (type) {
+      filtered = filtered.filter(apt => apt.type === type);
+    }
+    if (status) {
+      filtered = filtered.filter(apt => apt.status === status);
+    }
+    
+    res.json({ appointments: filtered });
+  } catch (error) {
+    console.error("Get appointments error:", error);
+    res.status(500).json({ error: "Failed to fetch appointments" });
+  }
+});
+
+// Create appointment
+router.post("/api/agent/appointments", requireAuth, async (req, res) => {
+  try {
+    const validation = appointmentSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: "Validation failed", 
+        details: validation.error.errors 
+      });
+    }
+    
+    const { title, description, type, clientId, clientName, location, locationDetails, date, startTime, endTime, duration, reminder, notes } = validation.data;
+    
+    const appointment = {
+      id: randomUUID(),
+      title,
+      description,
+      type,
+      clientId,
+      clientName,
+      location,
+      locationDetails,
+      date,
+      startTime,
+      endTime: endTime || calculateEndTime(startTime, duration),
+      duration,
+      reminder,
+      notes,
+      status: "scheduled",
+      createdAt: new Date().toISOString(),
+      agentId: req.user?.id,
+    };
+    
+    appointmentsStore.push(appointment);
+    
+    res.json({ success: true, appointment });
+  } catch (error) {
+    console.error("Create appointment error:", error);
+    res.status(500).json({ error: "Failed to create appointment" });
+  }
+});
+
+// Update appointment
+router.patch("/api/agent/appointments/:id", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointmentIndex = appointmentsStore.findIndex(apt => apt.id === id);
+    
+    if (appointmentIndex === -1) {
+      return res.status(404).json({ error: "Appointment not found" });
+    }
+    
+    const updates = req.body;
+    appointmentsStore[appointmentIndex] = {
+      ...appointmentsStore[appointmentIndex],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    res.json({ success: true, appointment: appointmentsStore[appointmentIndex] });
+  } catch (error) {
+    console.error("Update appointment error:", error);
+    res.status(500).json({ error: "Failed to update appointment" });
+  }
+});
+
+// Delete appointment
+router.delete("/api/agent/appointments/:id", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointmentIndex = appointmentsStore.findIndex(apt => apt.id === id);
+    
+    if (appointmentIndex === -1) {
+      return res.status(404).json({ error: "Appointment not found" });
+    }
+    
+    appointmentsStore.splice(appointmentIndex, 1);
+    
+    res.json({ success: true, message: "Appointment deleted" });
+  } catch (error) {
+    console.error("Delete appointment error:", error);
+    res.status(500).json({ error: "Failed to delete appointment" });
+  }
+});
+
+// Get clients for appointment selector
+router.get("/api/agent/clients", requireAuth, async (req, res) => {
+  try {
+    // Return mock clients for now - in production, fetch from database
+    const clients = [
+      { id: '1', name: 'Rajesh Sharma', email: 'rajesh@email.com' },
+      { id: '2', name: 'Priya Patel', email: 'priya@email.com' },
+      { id: '3', name: 'Amit Kumar', email: 'amit@email.com' },
+      { id: '4', name: 'Sunita Reddy', email: 'sunita@email.com' },
+      { id: '5', name: 'Vikram Singh', email: 'vikram@email.com' },
+      { id: '6', name: 'Meera Gupta', email: 'meera@email.com' },
+    ];
+    
+    res.json({ clients });
+  } catch (error) {
+    console.error("Get clients error:", error);
+    res.status(500).json({ error: "Failed to fetch clients" });
+  }
+});
+
+// Helper function to calculate end time
+function calculateEndTime(startTime: string, durationMinutes: number): string {
+  const [hours, minutes] = startTime.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes + durationMinutes;
+  const endHours = Math.floor(totalMinutes / 60) % 24;
+  const endMinutes = totalMinutes % 60;
+  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+}
+
 // Export product eligibility utilities for use in other modules
 export { isSecuritiesAgent, isLoanAgent, isInsuranceAgent, canDistributeProduct, getRequiredCredentials };
 

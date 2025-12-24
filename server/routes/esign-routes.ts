@@ -7,6 +7,7 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { eq, desc } from 'drizzle-orm';
 import { unifiedESignService } from '../services/unified-esign-service';
 import { authBridgeESignService } from '../authbridge-esign-service';
 import { requireAuth } from '../middleware/roleMiddleware';
@@ -248,6 +249,57 @@ router.get('/api/esign/download/:transactionId', isAuthenticated, async (req: Re
   } catch (error) {
     console.error('[eSign Routes] Download error:', error);
     res.status(500).json({ error: 'Failed to generate download link' });
+  }
+});
+
+router.get('/api/agent/esign/requests', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const auditLogs = await db.select().from(esignAuditLog)
+      .where(eq(esignAuditLog.userId, userId))
+      .orderBy(desc(esignAuditLog.createdAt))
+      .limit(50);
+
+    const requestsMap = new Map<string, any>();
+
+    for (const log of auditLogs) {
+      if (!requestsMap.has(log.transactionId)) {
+        const details = log.details as any || {};
+        requestsMap.set(log.transactionId, {
+          id: log.transactionId,
+          documentName: details.documentName || 'Document',
+          documentType: details.documentType || 'other',
+          status: log.action === 'sign_complete' ? 'signed' : 
+                  log.status === 'failed' ? 'declined' : 'pending',
+          createdAt: log.createdAt?.toISOString(),
+          deadline: details.deadline,
+          signers: [{
+            name: details.fullName || 'Client',
+            email: details.email || '',
+            status: log.action === 'sign_complete' ? 'signed' : 'pending',
+            signedAt: log.action === 'sign_complete' ? log.createdAt?.toISOString() : undefined
+          }],
+          documentUrl: details.documentUrl,
+          signedDocumentUrl: details.signedDocumentUrl
+        });
+      } else {
+        const existing = requestsMap.get(log.transactionId);
+        if (log.action === 'sign_complete') {
+          existing.status = 'signed';
+          existing.signers[0].status = 'signed';
+          existing.signers[0].signedAt = log.createdAt?.toISOString();
+        }
+      }
+    }
+
+    res.json(Array.from(requestsMap.values()));
+  } catch (error) {
+    console.error('[eSign Routes] Get agent requests error:', error);
+    res.status(500).json({ error: 'Failed to fetch eSign requests' });
   }
 });
 
