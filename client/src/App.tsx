@@ -98,7 +98,6 @@ import AgentPortal from "@/pages/agent-portal";
 import DistributionPartnerPortal from "@/pages/distribution-partner-portal";
 import FieldAgentPortal from "@/pages/field-agent-portal";
 import AgentClientsPage from "@/pages/agent-clients";
-import AgentProspectProposalsPage from "@/pages/agent-prospect-proposals";
 import AgentInvestmentAdvisory from "@/pages/agent-investment-advisory";
 import AgentProposalsPage from "@/pages/agent-proposals";
 import AgentBondRecommendations from "@/pages/agent-bond-recommendations";
