@@ -122,6 +122,7 @@ import bondRecommendationsRoutes from "./routes/bond-recommendations";
 import { taxRoutes } from "./tax-routes";
 import meetingBookingsRoutes from "./routes/meeting-bookings";
 import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
+import portfolioReportsRoutes from "./routes/portfolio-reports";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -365,6 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/tax", taxRoutes);
   app.use("/api/meetings", meetingBookingsRoutes);
   app.use("/api/sebi-risk-profiling", sebiRiskProfilingRoutes);
+  app.use(portfolioReportsRoutes);
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {

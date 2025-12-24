@@ -19036,3 +19036,148 @@ export const InvitSectorEnum = z.enum(['power', 'roads', 'telecom', 'gas_pipelin
 export const ReitInvitOrderTypeEnum = z.enum(['buy', 'sell']);
 export const ReitInvitOrderStatusEnum = z.enum(['pending', 'confirmed', 'executed', 'cancelled', 'failed']);
 
+// ===== PORTFOLIO REPORT BUILDER TABLES =====
+
+// Portfolio Report Templates - Saved configurations for reuse
+export const portfolioReportTemplates = pgTable("portfolio_report_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdByUserId: varchar("created_by_user_id").references(() => users.id).notNull(),
+  configJson: jsonb("config_json").notNull(),
+  isDefault: boolean("is_default").default(false),
+  isPublic: boolean("is_public").default(false),
+  category: varchar("category").default("general"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_portfolio_report_templates_user").on(table.createdByUserId),
+  index("idx_portfolio_report_templates_default").on(table.isDefault),
+]);
+
+// Portfolio Generated Reports - Actual reports produced
+export const portfolioGeneratedReports = pgTable("portfolio_generated_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  templateId: varchar("template_id").references(() => portfolioReportTemplates.id),
+  reportName: text("report_name").notNull(),
+  configSnapshot: jsonb("config_snapshot").notNull(),
+  validationResults: jsonb("validation_results"),
+  fileUrl: text("file_url"),
+  fileType: varchar("file_type").default("pdf"),
+  fileSize: integer("file_size"),
+  status: varchar("status").default("pending"),
+  hashChecksum: varchar("hash_checksum"),
+  errorMessage: text("error_message"),
+  generatedByUserId: varchar("generated_by_user_id").references(() => users.id).notNull(),
+  proposalId: varchar("proposal_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_portfolio_gen_reports_client").on(table.clientId),
+  index("idx_portfolio_gen_reports_portfolio").on(table.portfolioId),
+  index("idx_portfolio_gen_reports_user").on(table.generatedByUserId),
+  index("idx_portfolio_gen_reports_status").on(table.status),
+]);
+
+// Portfolio Report Audit Logs - Compliance tracking
+export const portfolioReportAuditLogs = pgTable("portfolio_report_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId: varchar("report_id").references(() => portfolioGeneratedReports.id).notNull(),
+  action: varchar("action").notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata"),
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("idx_portfolio_report_audit_report").on(table.reportId),
+  index("idx_portfolio_report_audit_user").on(table.userId),
+  index("idx_portfolio_report_audit_action").on(table.action),
+]);
+
+// Insert Schemas and Types for Portfolio Report Templates
+export const insertPortfolioReportTemplateSchema = createInsertSchema(portfolioReportTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PortfolioReportTemplate = typeof portfolioReportTemplates.$inferSelect;
+export type InsertPortfolioReportTemplate = z.infer<typeof insertPortfolioReportTemplateSchema>;
+
+// Insert Schemas and Types for Portfolio Generated Reports
+export const insertPortfolioGeneratedReportSchema = createInsertSchema(portfolioGeneratedReports).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+export type PortfolioGeneratedReport = typeof portfolioGeneratedReports.$inferSelect;
+export type InsertPortfolioGeneratedReport = z.infer<typeof insertPortfolioGeneratedReportSchema>;
+
+// Insert Schemas and Types for Portfolio Report Audit Logs
+export const insertPortfolioReportAuditLogSchema = createInsertSchema(portfolioReportAuditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+export type PortfolioReportAuditLog = typeof portfolioReportAuditLogs.$inferSelect;
+export type InsertPortfolioReportAuditLog = z.infer<typeof insertPortfolioReportAuditLogSchema>;
+
+// Report Configuration JSON Schema (for validation)
+export const reportConfigSchema = z.object({
+  portfolioId: z.string(),
+  benchmark: z.object({
+    type: z.enum(['index', 'custom', 'none']),
+    name: z.string().optional(),
+    currency: z.string().default('INR'),
+  }).optional(),
+  allocationModel: z.object({
+    enabled: z.boolean(),
+    modelId: z.string().optional(),
+    name: z.string().optional(),
+  }).optional(),
+  coverPage: z.object({
+    enabled: z.boolean(),
+    title: z.string().optional(),
+    clientName: z.string().optional(),
+    preparedBy: z.string().optional(),
+    date: z.string().optional(),
+    logo: z.boolean().optional(),
+  }).optional(),
+  sections: z.object({
+    portfolioXray: z.boolean().optional(),
+    portfolioSnapshot: z.boolean().optional(),
+    riskReward: z.object({ enabled: z.boolean(), years: z.number() }).optional(),
+    stockIntersection: z.boolean().optional(),
+    scatterPlot: z.object({ enabled: z.boolean(), years: z.number() }).optional(),
+    correlationMatrix: z.boolean().optional(),
+    rollingReturns: z.object({ enabled: z.boolean(), months: z.number() }).optional(),
+    totalAnnualReturn: z.boolean().optional(),
+    investmentGrowth: z.boolean().optional(),
+    investmentDetails: z.boolean().optional(),
+    underlyingHoldings: z.boolean().optional(),
+    targetAssetAllocation: z.boolean().optional(),
+    historicalAssetAllocation: z.boolean().optional(),
+    portfolioRollingReturns: z.object({ enabled: z.boolean(), months: z.number() }).optional(),
+    priceDistribution: z.boolean().optional(),
+    disclosureMaterials: z.boolean().optional(),
+  }),
+  settings: z.object({
+    includeAdvisorDefined: z.boolean().optional(),
+    includeNotes: z.boolean().optional(),
+    language: z.string().default('en-IN'),
+    releaseDate: z.enum(['month_end', 'quarter_end', 'custom']).optional(),
+    customDate: z.string().optional(),
+    dateFormat: z.string().default('dd/mm/yyyy'),
+    fontSize: z.enum(['standard', 'large']).default('standard'),
+    orientation: z.enum(['portrait', 'landscape']).default('portrait'),
+  }).optional(),
+});
+
+export type ReportConfig = z.infer<typeof reportConfigSchema>;
+
+// Report Status Enum
+export const ReportStatusEnum = z.enum(['pending', 'generating', 'generated', 'failed']);
+export const ReportFileTypeEnum = z.enum(['pdf', 'xlsx']);
+export const ReportAuditActionEnum = z.enum(['created', 'generated', 'downloaded', 'attached', 'shared', 'deleted']);
+

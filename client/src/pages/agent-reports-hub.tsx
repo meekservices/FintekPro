@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -222,6 +223,12 @@ export default function AgentReportsHub() {
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
+            <Link href="/report-builder">
+              <Button className="bg-emerald-600 hover:bg-emerald-700" data-testid="button-report-builder">
+                <Plus className="h-4 w-4 mr-2" />
+                Advanced Builder
+              </Button>
+            </Link>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search reports..."
