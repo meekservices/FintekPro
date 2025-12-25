@@ -23,6 +23,7 @@ import {
   CheckSquare,
   Landmark,
   TrendingUp,
+  Activity,
   ChevronDown,
   ChevronRight,
   Search,
@@ -86,6 +87,7 @@ const agentNavCategories: NavCategory[] = [
       { title: "AI Advisory", href: "/investment-advisory", icon: Brain, description: "AI recommendations" },
       { title: "Bond AI", href: "/bond-recommendations", icon: Landmark, description: "Bond portfolio" },
       { title: "Stock AI", href: "/stock-ai", icon: TrendingUp, description: "Stock recommendations" },
+      { title: "F&O Analytics", href: "/derivatives", icon: Activity, description: "Futures & Options" },
     ]
   },
   {
@@ -145,7 +147,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
     agentNavCategories.forEach(category => {
       const isActive = category.items.some(item => location === item.href);
       if (isActive) {
-        setExpandedCategories(prev => new Set([...prev, category.title]));
+        setExpandedCategories(prev => new Set(Array.from(prev).concat(category.title)));
       }
     });
   }, [location]);
