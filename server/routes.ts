@@ -1769,7 +1769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Determine current step smartly based on existing data
       let currentStep = "pan_verification";
       if (hasPanVerified && hasCkycData) {
-        currentStep = "completion";
+        currentStep = "completed";
       } else if (hasPanVerified) {
         currentStep = "data_collection";
       }
