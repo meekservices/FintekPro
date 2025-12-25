@@ -224,6 +224,7 @@ import RiskQuestionnaireBuilder from "@/pages/admin/risk-questionnaire-builder";
 import RiskComplianceExport from "@/pages/admin/risk-compliance-export";
 import AdminAadhaarConfig from "@/pages/admin-aadhaar-config";
 import AdminApiUsage from "@/pages/admin-api-usage";
+import AdminAiRecommendationTracking from "@/pages/admin-ai-recommendation-tracking";
 import AdminReportsHub from "@/pages/admin/reports-hub";
 import AdminAIInsights from "@/pages/admin/ai-insights";
 import ClientTasks from "@/pages/client-tasks";
@@ -838,6 +839,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AdminApiUsage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/ai-recommendation-tracking">
+        {() => (
+          <AdminLayout>
+            <AdminAiRecommendationTracking />
           </AdminLayout>
         )}
       </Route>

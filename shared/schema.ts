@@ -19488,3 +19488,75 @@ export const insertApiProviderPricingSchema = createInsertSchema(apiProviderPric
 });
 export type ApiProviderPricing = typeof apiProviderPricing.$inferSelect;
 export type InsertApiProviderPricing = z.infer<typeof insertApiProviderPricingSchema>;
+
+// ============================================
+// AI Recommendation Tracking - Success Rate Analytics
+// ============================================
+
+export const aiRecommendationStatusValues = ['pending', 'hit_target', 'missed_target', 'stopped_out', 'expired'] as const;
+export const aiRecommendationTypeValues2 = ['buy', 'sell', 'hold', 'strong_buy', 'strong_sell'] as const;
+export const aiRecommendationAssetTypeValues = ['stock', 'mutual_fund', 'bond', 'unlisted', 'reit', 'invit', 'derivative'] as const;
+
+export const aiRecommendationTracking = pgTable("ai_recommendation_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Asset Information
+  symbol: varchar("symbol", { length: 50 }).notNull(),
+  assetName: varchar("asset_name", { length: 255 }).notNull(),
+  assetType: varchar("asset_type", { length: 50 }).notNull(), // stock, mutual_fund, bond, unlisted, reit, invit, derivative
+  sector: varchar("sector", { length: 100 }),
+  
+  // Recommendation Details
+  recommendationType: varchar("recommendation_type", { length: 20 }).notNull(), // buy, sell, hold, strong_buy, strong_sell
+  entryPrice: numeric("entry_price", { precision: 12, scale: 2 }).notNull(),
+  targetPrice: numeric("target_price", { precision: 12, scale: 2 }).notNull(),
+  stopLoss: numeric("stop_loss", { precision: 12, scale: 2 }),
+  confidenceScore: numeric("confidence_score", { precision: 5, scale: 2 }).notNull(), // 0-100%
+  
+  // Timeframe
+  timeframeInDays: integer("timeframe_in_days").notNull(), // 7, 30, 90, 180, 365
+  expiryDate: timestamp("expiry_date").notNull(),
+  
+  // AI Model Info
+  aiModel: varchar("ai_model", { length: 100 }).default("gemini-1.5-flash"),
+  reasoning: text("reasoning"), // AI's justification for the recommendation
+  
+  // Outcome Tracking
+  status: varchar("status", { length: 20 }).default("pending"), // pending, hit_target, missed_target, stopped_out, expired
+  currentPrice: numeric("current_price", { precision: 12, scale: 2 }),
+  highestPrice: numeric("highest_price", { precision: 12, scale: 2 }),
+  lowestPrice: numeric("lowest_price", { precision: 12, scale: 2 }),
+  actualReturn: numeric("actual_return", { precision: 8, scale: 2 }), // % return achieved
+  
+  // Resolution
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNote: text("resolution_note"),
+  
+  // Context
+  userId: varchar("user_id").references(() => users.id),
+  agentId: varchar("agent_id"),
+  source: varchar("source", { length: 50 }).default("stock_ai"), // stock_ai, bond_ai, mf_ai, unlisted_ai
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ai_rec_tracking_symbol").on(table.symbol),
+  index("idx_ai_rec_tracking_status").on(table.status),
+  index("idx_ai_rec_tracking_type").on(table.recommendationType),
+  index("idx_ai_rec_tracking_asset").on(table.assetType),
+  index("idx_ai_rec_tracking_created").on(table.createdAt),
+  index("idx_ai_rec_tracking_expiry").on(table.expiryDate),
+]);
+
+export const insertAiRecommendationTrackingSchema = createInsertSchema(aiRecommendationTracking).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+  currentPrice: true,
+  highestPrice: true,
+  lowestPrice: true,
+  actualReturn: true,
+});
+export type AiRecommendationTracking = typeof aiRecommendationTracking.$inferSelect;
+export type InsertAiRecommendationTracking = z.infer<typeof insertAiRecommendationTrackingSchema>;
