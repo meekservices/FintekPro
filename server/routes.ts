@@ -1770,8 +1770,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let currentStep = "pan_verification";
       if (hasPanVerified && hasCkycData) {
         currentStep = "completed";
-      } else if (hasPanVerified) {
+      } else if (hasPanVerified && hasAadhaarVerified) {
         currentStep = "data_collection";
+      } else if (hasPanVerified) {
+        currentStep = "aadhaar_otp";
       }
       
       // Build session data object with required fields

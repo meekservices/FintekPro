@@ -1688,6 +1688,37 @@ export default function SmartKYCOnboarding() {
             </Button>
           </div>
         )}
+        {!aadhaarData && (
+          <div className="space-y-4">
+            <Alert className="bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                <strong>Aadhaar verification required</strong><br />
+                Please complete Aadhaar OTP verification to proceed with your KYC.
+              </AlertDescription>
+            </Alert>
+            
+            {panData && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-medium text-green-800">PAN Verified</span>
+                </div>
+                <p className="text-sm text-green-700">{panData?.name || panFullName}</p>
+                <p className="text-xs text-muted-foreground mt-1">PAN: {maskPanNumber(panNumber || panData?.pan_number || '')}</p>
+              </div>
+            )}
+            
+            <Button
+              data-testid="button-goto-aadhaar"
+              onClick={() => setCurrentStep('aadhaar_otp')}
+              className="w-full"
+            >
+              Continue with Aadhaar Verification
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
