@@ -112,6 +112,13 @@ export default function AdminAiRecommendationTracking() {
         description: `Updated ${data.expiredCount} expired recommendations`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/ai-recommendations-tracking"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-recommendations-tracking/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-recommendations-tracking/metrics/sector"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-recommendations-tracking/metrics/timeframe"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-recommendations-tracking/metrics/asset-type"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-recommendations-tracking/trends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-recommendations-tracking/top-performing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-recommendations-tracking/worst-performing"] });
     },
   });
 
