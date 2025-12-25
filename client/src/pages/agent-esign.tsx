@@ -178,6 +178,8 @@ export default function AgentESignPage() {
       signers: Signer[];
       deadline?: string;
       documentHash?: string;
+      signatureFields?: SignatureField[];
+      sendOptions?: SendOptions;
     }) => {
       return apiRequest('/api/esign/initiate', {
         method: 'POST',
