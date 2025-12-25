@@ -1217,15 +1217,15 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
   try {
     // Return mock clients for now - in production, fetch from database
     const clients = [
-      { id: '1', name: 'Rajesh Sharma', email: 'rajesh@email.com' },
-      { id: '2', name: 'Priya Patel', email: 'priya@email.com' },
-      { id: '3', name: 'Amit Kumar', email: 'amit@email.com' },
-      { id: '4', name: 'Sunita Reddy', email: 'sunita@email.com' },
-      { id: '5', name: 'Vikram Singh', email: 'vikram@email.com' },
-      { id: '6', name: 'Meera Gupta', email: 'meera@email.com' },
+      { id: '1', firstName: 'Rajesh', lastName: 'Sharma', email: 'rajesh@email.com', mobile: '9876543210', panNumber: 'ABCDE1234F', kycStatus: 'enhanced', isActive: true, clientCategory: 'hni' },
+      { id: '2', firstName: 'Priya', lastName: 'Patel', email: 'priya@email.com', mobile: '9876543211', panNumber: 'FGHIJ5678K', kycStatus: 'basic', isActive: true, clientCategory: 'retail' },
+      { id: '3', firstName: 'Amit', lastName: 'Kumar', email: 'amit@email.com', mobile: '9876543212', panNumber: 'KLMNO9012P', kycStatus: 'pending', isActive: false, clientCategory: 'retail' },
+      { id: '4', firstName: 'Sunita', lastName: 'Reddy', email: 'sunita@email.com', mobile: '9876543213', panNumber: 'PQRST3456Q', kycStatus: 'enhanced', isActive: true, clientCategory: 'shni' },
+      { id: '5', firstName: 'Vikram', lastName: 'Singh', email: 'vikram@email.com', mobile: '9876543214', panNumber: 'UVWXY7890R', kycStatus: 'accredited', isActive: true, clientCategory: 'bhni' },
+      { id: '6', firstName: 'Meera', lastName: 'Gupta', email: 'meera@email.com', mobile: '9876543215', panNumber: 'ZABCD1234S', kycStatus: 'basic', isActive: true, clientCategory: 'corporate' },
     ];
     
-    res.json({ clients });
+    res.json(clients);
   } catch (error) {
     console.error("Get clients error:", error);
     res.status(500).json({ error: "Failed to fetch clients" });
