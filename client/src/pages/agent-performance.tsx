@@ -94,9 +94,9 @@ export default function AgentPerformance() {
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case 'up': return <ArrowUp className="h-4 w-4 text-green-600" />;
-      case 'down': return <ArrowDown className="h-4 w-4 text-red-600" />;
-      default: return <Minus className="h-4 w-4 text-gray-600" />;
+      case 'up': return <ArrowUp className="h-4 w-4 text-green-600 dark:text-green-400" />;
+      case 'down': return <ArrowDown className="h-4 w-4 text-red-600 dark:text-red-400" />;
+      default: return <Minus className="h-4 w-4 text-gray-600 dark:text-gray-400" />;
     }
   };
 
@@ -268,16 +268,16 @@ export default function AgentPerformance() {
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                        entry.rank === 1 ? 'bg-yellow-100 text-yellow-800' :
-                        entry.rank === 2 ? 'bg-gray-100 text-gray-800' :
-                        entry.rank === 3 ? 'bg-orange-100 text-orange-800' :
-                        'bg-gray-50 text-gray-600'
+                        entry.rank === 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                        entry.rank === 2 ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' :
+                        entry.rank === 3 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                        'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                       }`}>
                         {entry.rank <= 3 ? (
                           <Trophy className={`h-5 w-5 ${
-                            entry.rank === 1 ? 'text-yellow-600' :
-                            entry.rank === 2 ? 'text-gray-500' :
-                            'text-orange-600'
+                            entry.rank === 1 ? 'text-yellow-600 dark:text-yellow-400' :
+                            entry.rank === 2 ? 'text-gray-500 dark:text-gray-300' :
+                            'text-orange-600 dark:text-orange-400'
                           }`} />
                         ) : (
                           `#${entry.rank}`

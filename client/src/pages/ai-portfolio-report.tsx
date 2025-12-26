@@ -241,9 +241,9 @@ export default function AIPortfolioReport() {
                           <div className="flex items-center justify-between mb-1">
                             <p className="font-semibold">{insight.title}</p>
                             <Badge variant="outline" className={
-                              insight.impact === 'high' ? 'bg-red-50 text-red-700' :
-                              insight.impact === 'medium' ? 'bg-yellow-50 text-yellow-700' :
-                              'bg-gray-50 text-gray-700'
+                              insight.impact === 'high' ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' :
+                              insight.impact === 'medium' ? 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300' :
+                              'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                             }>
                               {insight.impact.toUpperCase()}
                             </Badge>

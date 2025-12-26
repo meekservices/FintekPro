@@ -62,24 +62,24 @@ export default function AgentFieldView() {
       case 'review': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'onboarding': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'follow_up': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'text-red-600';
-      case 'medium': return 'text-yellow-600';
-      default: return 'text-gray-600';
+      case 'high': return 'text-red-600 dark:text-red-400';
+      case 'medium': return 'text-yellow-600 dark:text-yellow-400';
+      default: return 'text-gray-600 dark:text-gray-400';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-      case 'in_progress': return <Clock className="h-5 w-5 text-blue-600 animate-pulse" />;
-      case 'cancelled': return <AlertCircle className="h-5 w-5 text-red-600" />;
-      default: return <Calendar className="h-5 w-5 text-gray-600" />;
+      case 'completed': return <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />;
+      case 'in_progress': return <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-pulse" />;
+      case 'cancelled': return <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />;
+      default: return <Calendar className="h-5 w-5 text-gray-600 dark:text-gray-400" />;
     }
   };
 
