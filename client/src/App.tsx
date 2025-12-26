@@ -231,6 +231,7 @@ import ClientTasks from "@/pages/client-tasks";
 import ClientAIRecommendations from "@/pages/client-ai-recommendations";
 import ClientReports from "@/pages/client-reports";
 import ReitInvitPage from "@/pages/reit-invit";
+import VideoKYC from "@/pages/video-kyc";
 
 function UserProtectedRoutes() {
   return (
@@ -1185,6 +1186,7 @@ function Router() {
         <Route path="/kyc-dashboard">
           <Redirect to="/profile?tab=kyc-dashboard" />
         </Route>
+        <Route path="/video-kyc" component={VideoKYC} />
         <Route path="/net-worth" component={NetWorthPage} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />

@@ -149,12 +149,21 @@ export function KYCProgressWidget() {
         )}
 
         {progress === 100 && kycLevel !== 'accredited' && (
-          <Link href="/kyc-dashboard">
-            <Button variant="outline" className="w-full" data-testid="kyc-upgrade-btn">
-              Upgrade to {kycLevel === 'basic' ? 'Enhanced' : 'Accredited'} KYC
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </Link>
+          <div className="space-y-2">
+            <Link href="/video-kyc">
+              <Button className="w-full bg-purple-600 hover:bg-purple-700" data-testid="kyc-video-btn">
+                <Camera className="h-4 w-4 mr-2" />
+                Complete Video KYC
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
+            <Link href="/kyc-dashboard">
+              <Button variant="outline" className="w-full" data-testid="kyc-upgrade-btn">
+                Upgrade to {kycLevel === 'basic' ? 'Enhanced' : 'Accredited'} KYC
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
         )}
       </CardContent>
     </Card>
