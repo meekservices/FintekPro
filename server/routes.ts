@@ -8576,6 +8576,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Twilio WhatsApp test endpoint
+  app.post("/api/test/twilio-whatsapp", async (req, res) => {
+    try {
+      const { mobile, message, alertType, details } = req.body;
+      
+      if (!mobile) {
+        return res.status(400).json({ success: false, error: "Mobile number is required" });
+      }
+
+      const { twilioWhatsAppService } = await import("./services/twilio-whatsapp-service");
+      
+      if (!twilioWhatsAppService.isAvailable()) {
+        return res.status(503).json({
+          success: false,
+          error: "WhatsApp service not configured",
+          message: "Missing TWILIO_WHATSAPP_NUMBER or TWILIO_PHONE_NUMBER"
+        });
+      }
+
+      let result;
+      if (alertType && details) {
+        result = await twilioWhatsAppService.sendPortfolioAlert(mobile, alertType, details);
+      } else {
+        result = await twilioWhatsAppService.sendMessage(mobile, message || "Test message from FintekPro");
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("❌ WhatsApp test failed:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Twilio Verify test endpoint
+  app.post("/api/test/twilio-verify", async (req, res) => {
+    try {
+      const { mobile, email, channel, code, action } = req.body;
+      
+      const { twilioVerifyService } = await import("./services/twilio-verify-service");
+      
+      if (!twilioVerifyService.isAvailable()) {
+        return res.status(503).json({
+          success: false,
+          error: "Verify service not configured",
+          message: "Missing TWILIO_VERIFY_SERVICE_SID - Create a Verify Service in Twilio Console"
+        });
+      }
+
+      if (action === "check" && code) {
+        const to = email || mobile;
+        if (!to) {
+          return res.status(400).json({ success: false, error: "Mobile or email required" });
+        }
+        const result = await twilioVerifyService.checkVerification(to, code);
+        return res.json(result);
+      }
+
+      const to = channel === "email" ? email : mobile;
+      if (!to) {
+        return res.status(400).json({ success: false, error: "Mobile or email required based on channel" });
+      }
+
+      const result = await twilioVerifyService.sendVerification(to, channel || "sms");
+      res.json(result);
+    } catch (error: any) {
+      console.error("❌ Verify test failed:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Twilio Voice OTP test endpoint
+  app.post("/api/test/twilio-voice", async (req, res) => {
+    try {
+      const { mobile, otp } = req.body;
+      
+      if (!mobile) {
+        return res.status(400).json({ success: false, error: "Mobile number is required" });
+      }
+
+      const { twilioVoiceService } = await import("./services/twilio-voice-service");
+      
+      if (!twilioVoiceService.isAvailable()) {
+        return res.status(503).json({
+          success: false,
+          error: "Voice service not configured",
+          message: "Missing Twilio credentials"
+        });
+      }
+
+      const testOTP = otp || Math.floor(100000 + Math.random() * 900000).toString();
+      console.log("🧪 Testing Twilio Voice OTP to " + mobile.substring(0, 4) + "****");
+      
+      const result = await twilioVoiceService.sendOTPCall(mobile, testOTP);
+      
+      res.json({
+        ...result,
+        testOTP: process.env.NODE_ENV === "development" ? testOTP : undefined
+      });
+    } catch (error: any) {
+      console.error("❌ Voice test failed:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // AMFI API endpoints for mutual fund data
   app.get("/api/amfi/mutual-funds", async (req, res) => {
     try {
