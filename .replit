@@ -45,6 +45,7 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
+TWILIO_WHATSAPP_NUMBER = "+14155238886"
 
 [userenv.production]
 CASHFREE_ENVIRONMENT = "PRODUCTION"
