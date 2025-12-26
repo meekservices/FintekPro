@@ -15,20 +15,31 @@ interface WhatsAppTemplateMessage {
 class TwilioWhatsAppService {
   private client: any;
   private fromNumber: string = '';
+  private messagingServiceSid: string = '';
   private isConfigured: boolean;
 
   constructor() {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || process.env.TWILIO_PHONE_NUMBER;
+    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
-    if (accountSid && authToken && whatsappNumber) {
+    if (accountSid && authToken && (whatsappNumber || messagingServiceSid)) {
       this.client = twilio(accountSid, authToken);
-      this.fromNumber = whatsappNumber.startsWith('whatsapp:') 
-        ? whatsappNumber 
-        : `whatsapp:${whatsappNumber}`;
+      this.messagingServiceSid = messagingServiceSid || '';
+      if (whatsappNumber) {
+        this.fromNumber = whatsappNumber.startsWith('whatsapp:') 
+          ? whatsappNumber 
+          : `whatsapp:${whatsappNumber}`;
+      }
       this.isConfigured = true;
       console.log('✅ Twilio WhatsApp service initialized');
+      if (this.messagingServiceSid) {
+        console.log(`   Using Messaging Service: ${this.messagingServiceSid.substring(0, 10)}...`);
+      }
+      if (this.fromNumber) {
+        console.log(`   From number: ${this.fromNumber}`);
+      }
     } else {
       this.isConfigured = false;
       console.log('⚠️ Twilio WhatsApp service not configured - missing credentials');
@@ -61,13 +72,20 @@ class TwilioWhatsAppService {
       
       const messageOptions: any = {
         body,
-        from: this.fromNumber,
         to: toNumber,
       };
+
+      // For WhatsApp, use the from number directly (Messaging Service SID doesn't work well with WhatsApp)
+      if (this.fromNumber) {
+        messageOptions.from = this.fromNumber;
+      }
 
       if (mediaUrl) {
         messageOptions.mediaUrl = [mediaUrl];
       }
+
+      console.log(`📱 Sending WhatsApp message to ${toNumber.substring(0, 15)}***`);
+      console.log(`   Options: ${JSON.stringify({ ...messageOptions, body: body.substring(0, 30) + '...' })}`);
 
       const message = await this.client.messages.create(messageOptions);
       console.log(`✅ WhatsApp message sent to ${toNumber.substring(0, 15)}*** - SID: ${message.sid}`);
