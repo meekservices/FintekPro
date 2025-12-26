@@ -3,6 +3,8 @@ import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { MarketMovers } from "@/components/dashboard/market-movers";
 import { MarketNews } from "@/components/dashboard/market-news";
 import { YieldCurveChart } from "@/components/dashboard/yield-curve-chart";
+import { QuickActionsWidget } from "@/components/dashboard/quick-actions-widget";
+import { KYCProgressWidget } from "@/components/dashboard/kyc-progress-widget";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -252,6 +254,16 @@ export default function Home() {
     <div className="space-y-8" data-testid="home-page">
         {/* KYC Status Banner - Only for authenticated users */}
         {isAuthenticated && <KYCStatusBanner />}
+        
+        {/* Quick Actions & KYC Progress Widgets */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <QuickActionsWidget />
+          </div>
+          <div className="lg:col-span-1">
+            <KYCProgressWidget />
+          </div>
+        </div>
         
         {/* Hero Section with Enhanced Design */}
         <section className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-purple-900 text-white py-20 overflow-hidden">

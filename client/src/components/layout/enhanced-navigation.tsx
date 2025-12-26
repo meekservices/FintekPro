@@ -55,9 +55,12 @@ import {
   BadgePercent,
   Scale,
   Folder,
-  LayoutDashboard
+  LayoutDashboard,
+  Sun,
+  Moon
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/contexts/theme-context";
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -103,6 +106,7 @@ export function EnhancedNavigation() {
   const [openSubItems, setOpenSubItems] = useState<string[]>([]);
   const { user, isAuthenticated, isLoading } = useAuth();
   const { cart } = useCart();
+  const { theme, setTheme, resolvedTheme } = useTheme();
 
   useEffect(() => {
     try {
@@ -675,7 +679,26 @@ export function EnhancedNavigation() {
           </div>
 
           {/* Bottom Actions */}
-          <div className="p-2 border-t border-gray-200">
+          <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+            {/* Theme Toggle */}
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'} mb-1`}
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              data-testid="sidebar-theme-toggle"
+              title={isCollapsed ? (resolvedTheme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode") : undefined}
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun className="h-4 w-4 text-yellow-500" />
+              ) : (
+                <Moon className="h-4 w-4 text-slate-600" />
+              )}
+              {!isCollapsed && (
+                <span className="ml-3">{resolvedTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+              )}
+            </Button>
+            
             {isAuthenticated ? (
               <div className="space-y-1">
                 <Button 
