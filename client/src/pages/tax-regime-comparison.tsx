@@ -361,11 +361,11 @@ export default function TaxRegimeComparison() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               {recommendation === 'old' ? (
-                <TrendingDown className="h-10 w-10 text-green-600" />
+                <TrendingDown className="h-10 w-10 text-green-600 dark:text-green-400" />
               ) : recommendation === 'new' ? (
-                <TrendingUp className="h-10 w-10 text-blue-600" />
+                <TrendingUp className="h-10 w-10 text-blue-600 dark:text-blue-400" />
               ) : (
-                <Scale className="h-10 w-10 text-gray-600" />
+                <Scale className="h-10 w-10 text-gray-600 dark:text-gray-400" />
               )}
               <div>
                 <h3 className="text-xl font-bold">
