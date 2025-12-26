@@ -16,7 +16,7 @@ Do not make changes to the file `Y`.
 The frontend uses React 18 with TypeScript, shadcn/ui components (built on Radix UI), Tailwind CSS for styling, and Recharts for data visualization, all with a mobile-first approach. It features a custom `ScrollableTabsList` for responsive navigation and a consistent three-part layout (Left Sidebar Navigation, Main Content Area, Footer) with a collapsible, state-persisted sidebar. Reusable UI components like `LoadingState` and `EmptyState` are standardized.
 
 #### Technical Implementations
-The frontend uses Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for form handling, built with Vite. The backend uses Express.js with TypeScript, PostgreSQL via Drizzle ORM, and a RESTful API with production-grade error handling (AppError taxonomy, retry utility, circuit breaker, resilient client wrappers). Authentication includes mandatory two-factor OTP (email/SMS) and unified login using Passport.js. PAN verification utilizes Cashfree Verification Suite API. KYC features include verified profile display, real-time product eligibility based on tiered KYC, and duplicate detection (Levenshtein fuzzy name matching, risk scoring, PAN/email/mobile detection). The Admin portal includes comprehensive user management. A marketing automation platform integrates B2B lead prospecting, email campaigns (Zoho Campaigns), and WhatsApp broadcasts (AiSensy). A Stakeholders Management System provides CRUD operations and APIs for partners, agents, and suppliers with shared Zod schema validation.
+The frontend uses Wouter for routing, TanStack Query for state management, and React Hook Form with Zod for form handling, built with Vite. The backend uses Express.js with TypeScript, PostgreSQL via Drizzle ORM, and a RESTful API with production-grade error handling (AppError taxonomy, retry utility, circuit breaker, resilient client wrappers). Authentication includes mandatory two-factor OTP (email/SMS) and unified login using Passport.js. PAN verification utilizes Cashfree Verification Suite API. KYC features include verified profile display, real-time product eligibility based on tiered KYC, and duplicate detection (Levenshtein fuzzy name matching, risk scoring, PAN/email/mobile detection). The Admin portal includes comprehensive user management. A marketing automation platform integrates B2B lead prospecting, email campaigns (Zoho Campaigns), and WhatsApp broadcasts (Twilio WhatsApp). A Stakeholders Management System provides CRUD operations and APIs for partners, agents, and suppliers with shared Zod schema validation.
 
 The platform uses environment-based auto-detection for API endpoints (Development/Production) with graceful degradation for missing credentials.
 
@@ -61,7 +61,7 @@ The platform utilizes a subdomain-based portal architecture for Admin, Partner, 
 -   CIBIL
 -   Probe42 Service
 -   Zoho Campaigns Service
--   AiSensy Service
+-   Twilio WhatsApp Service
 
 #### Database Services
 -   Neon Database (PostgreSQL)

@@ -3,7 +3,7 @@
  * 
  * Endpoints for:
  * - Email campaigns (Zoho Campaigns)
- * - WhatsApp broadcasts (AiSensy)
+ * - WhatsApp broadcasts (Twilio)
  * - Lead prospecting (Probe42)
  * - Client intelligence
  * - Campaign analytics
@@ -21,7 +21,7 @@ import {
 } from '../shared/schema';
 import { eq, and, desc, sql, ilike, gte, lte } from 'drizzle-orm';
 import { getZohoCampaignsService } from './zoho-campaigns-service';
-import { getAiSensyService } from './aisensy-service';
+import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
 import { getProbe42Service } from './probe42-service';
 import { apiResponse } from './utils/responses';
 
@@ -209,7 +209,7 @@ export function registerMarketingRoutes(app: any) {
   });
 
   /**
-   * Send WhatsApp broadcast via AiSensy
+   * Send WhatsApp broadcast via Twilio
    */
   app.post('/api/admin/marketing/campaigns/:id/send-whatsapp', requireAdmin, async (req: any, res: Response) => {
     try {
@@ -226,7 +226,9 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.badRequest(res, 'Campaign is not a WhatsApp campaign');
       }
 
-      const aisensy = getAiSensyService();
+      if (!twilioWhatsAppService.isAvailable()) {
+        return apiResponse.serverError(res, 'WhatsApp service not configured');
+      }
       
       // Get recipients
       const recipients = await db
@@ -238,40 +240,37 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.badRequest(res, 'No recipients found for campaign');
       }
 
-      // Send broadcast
-      const broadcast = await aisensy.sendBroadcast({
-        campaignName: campaign.name,
-        template: {
-          templateName: campaign.whatsappTemplateName!,
-          bodyParams: req.body.bodyParams || [],
-          mediaUrl: campaign.whatsappMediaUrl || undefined
-        },
-        recipients: recipients.map(r => ({
-          phone: aisensy.formatPhoneNumber(r.mobile!),
-          customParams: []
-        })),
-        scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt) : undefined
-      });
+      // Send messages to each recipient via Twilio
+      let successCount = 0;
+      let failCount = 0;
+      const messageBody = campaign.whatsappMessage || campaign.name;
 
-      if (!broadcast) {
-        return apiResponse.serverError(res, 'Failed to send WhatsApp broadcast');
+      for (const recipient of recipients) {
+        if (recipient.mobile) {
+          const result = await twilioWhatsAppService.sendMessage(recipient.mobile, messageBody);
+          if (result.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        }
       }
 
       // Update campaign
       await db
         .update(marketingCampaigns)
         .set({
-          aisensyBroadcastId: broadcast.broadcastId,
-          status: broadcast.status === 'scheduled' ? 'scheduled' : 'sending',
-          sentCount: broadcast.totalRecipients,
+          status: 'sent',
+          sentCount: successCount,
           updatedAt: new Date()
         })
         .where(eq(marketingCampaigns.id, req.params.id));
 
       res.json({
-        message: 'WhatsApp broadcast initiated',
-        broadcastId: broadcast.broadcastId,
-        totalRecipients: broadcast.totalRecipients
+        message: 'WhatsApp broadcast completed',
+        successCount,
+        failCount,
+        totalRecipients: recipients.length
       });
     } catch (error) {
       console.error('Error sending WhatsApp broadcast:', error);
@@ -280,7 +279,7 @@ export function registerMarketingRoutes(app: any) {
   });
 
   /**
-   * Sync campaign analytics from Zoho/AiSensy
+   * Sync campaign analytics from Zoho
    */
   app.post('/api/admin/marketing/campaigns/:id/sync-analytics', requireAdmin, async (req: any, res: Response) => {
     try {
@@ -313,21 +312,13 @@ export function registerMarketingRoutes(app: any) {
             })
             .where(eq(marketingCampaigns.id, req.params.id));
         }
-      } else if (campaign.campaignType === 'whatsapp' && campaign.aisensyBroadcastId) {
-        const aisensy = getAiSensyService();
-        stats = await aisensy.getBroadcastAnalytics(campaign.aisensyBroadcastId);
-        
-        if (stats) {
-          await db
-            .update(marketingCampaigns)
-            .set({
-              sentCount: stats.sentCount,
-              deliveredCount: stats.deliveredCount,
-              openedCount: stats.readCount, // Read = Opened for WhatsApp
-              updatedAt: new Date()
-            })
-            .where(eq(marketingCampaigns.id, req.params.id));
-        }
+      } else if (campaign.campaignType === 'whatsapp') {
+        // WhatsApp analytics tracked locally via Twilio webhooks
+        stats = {
+          sentCount: campaign.sentCount || 0,
+          deliveredCount: campaign.deliveredCount || 0,
+          message: 'WhatsApp analytics from local tracking'
+        };
       }
 
       res.json({ message: 'Analytics synced successfully', stats });

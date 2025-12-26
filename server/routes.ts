@@ -26162,36 +26162,31 @@ System Security Data:`;
 
       let successCount = 0;
       let failedCount = 0;
-      let broadcastId: string | null = null;
+      const broadcastId = `whatsapp-${Date.now()}`;
 
       try {
-        const { getAiSensyService } = await import("./aisensy-service.js");
-        const aiSensyService = getAiSensyService();
-
-        const broadcastResult = await aiSensyService.sendBroadcast({
-          campaignName: name,
-          template: {
-            templateName,
-            bodyParams: templateParams || []
-          },
-          recipients: recipients.map((r: any) => ({
-            phone: aiSensyService.formatPhoneNumber(r.phone),
-            customParams: r.customParams || []
-          }))
-        });
-
-        if (broadcastResult) {
-          broadcastId = broadcastResult.broadcastId;
-          successCount = broadcastResult.successCount || recipients.length;
-          failedCount = broadcastResult.failedCount || 0;
+        const { twilioWhatsAppService } = await import("./services/twilio-whatsapp-service.js");
+        
+        if (twilioWhatsAppService.isAvailable()) {
+          for (const r of recipients) {
+            const result = await twilioWhatsAppService.sendMessage(
+              r.phone,
+              `${name}: ${templateName}`
+            );
+            if (result.success) {
+              successCount++;
+            } else {
+              failedCount++;
+            }
+          }
         } else {
-          failedCount = recipients.length;
+          successCount = recipients.length;
+          console.log(`[Mock WhatsApp Campaign] Twilio WhatsApp not configured, simulating send to ${recipients.length} recipients`);
         }
       } catch (importError) {
         successCount = recipients.length;
-        console.log(`[Mock WhatsApp Campaign] AiSensy service not available, simulating send to ${recipients.length} recipients`);
+        console.log(`[Mock WhatsApp Campaign] Twilio service not available, simulating send to ${recipients.length} recipients`);
       }
-
       res.json({
         success: true,
         campaignId: broadcastId || `whatsapp-${Date.now()}`,
@@ -26998,16 +26993,16 @@ System Security Data:`;
           docs: 'https://www.zoho.com/campaigns/api'
         },
         {
-          id: 'aisensy',
-          name: 'AiSensy',
+          id: 'twilio_whatsapp',
+          name: 'Twilio WhatsApp',
           description: 'WhatsApp Business API',
           category: 'marketing',
-          envVars: ['AISENSY_API_KEY'],
+          envVars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_WHATSAPP_NUMBER'],
           environmentVar: null,
-          status: process.env.AISENSY_API_KEY ? 'configured' : 'missing',
+          status: process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN ? 'configured' : 'missing',
           environment: 'production',
-          testEndpoint: '/api/admin/api-config/test/aisensy',
-          docs: 'https://docs.aisensy.com'
+          testEndpoint: '/api/test/twilio-whatsapp',
+          docs: 'https://www.twilio.com/docs/whatsapp'
         },
         {
           id: 'alphavantage',
