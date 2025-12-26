@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AgentProfile, AgentStats, AgentPartner } from "@shared/schema";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
@@ -381,6 +382,7 @@ function ClientProfileCompletion() {
 }
 
 export default function AgentPortal() {
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   
   // All hooks must be called before any conditional returns (React Rules of Hooks)
@@ -794,10 +796,10 @@ export default function AgentPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-1">
-                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950">
+                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950" onClick={() => { setSelectedPartner(partner); navigate("/profile"); }} data-testid={`button-view-partner-${partner.id}`}>
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950">
+                            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950" onClick={() => { setSelectedPartner(partner); setShowAddPartnerDialog(true); }} data-testid={`button-edit-partner-${partner.id}`}>
                               <Edit3 className="w-4 h-4" />
                             </Button>
                           </div>
@@ -893,10 +895,10 @@ export default function AgentPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-1">
-                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950">
+                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950" onClick={() => { setSelectedClient(client); navigate("/agent-client-onboarding"); }} data-testid={`button-view-client-${client.id}`}>
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950">
+                            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950" onClick={() => { setSelectedClient(client); setShowAddClientDialog(true); }} data-testid={`button-edit-client-${client.id}`}>
                               <Edit3 className="w-4 h-4" />
                             </Button>
                           </div>
@@ -918,19 +920,19 @@ export default function AgentPortal() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Button variant="outline" className="h-20 flex-col border-blue-200 hover:bg-blue-50 hover:border-blue-300 dark:border-blue-800 dark:hover:bg-blue-950">
+                  <Button variant="outline" className="h-20 flex-col border-blue-200 hover:bg-blue-50 hover:border-blue-300 dark:border-blue-800 dark:hover:bg-blue-950" onClick={() => { toast({ title: "Generating Report", description: "Preparing Partner Report..." }); navigate("/reports"); }} data-testid="button-partner-report">
                     <Download className="w-6 h-6 mb-2 text-blue-600" />
                     <span className="text-blue-700 dark:text-blue-300">Partner Report</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col border-green-200 hover:bg-green-50 hover:border-green-300 dark:border-green-800 dark:hover:bg-green-950">
+                  <Button variant="outline" className="h-20 flex-col border-green-200 hover:bg-green-50 hover:border-green-300 dark:border-green-800 dark:hover:bg-green-950" onClick={() => { toast({ title: "Generating Report", description: "Preparing Client Report..." }); navigate("/reports"); }} data-testid="button-client-report">
                     <Download className="w-6 h-6 mb-2 text-green-600" />
                     <span className="text-green-700 dark:text-green-300">Client Report</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col border-purple-200 hover:bg-purple-50 hover:border-purple-300 dark:border-purple-800 dark:hover:bg-purple-950">
+                  <Button variant="outline" className="h-20 flex-col border-purple-200 hover:bg-purple-50 hover:border-purple-300 dark:border-purple-800 dark:hover:bg-purple-950" onClick={() => { toast({ title: "Generating Report", description: "Preparing Commission Report..." }); navigate("/reports"); }} data-testid="button-commission-report">
                     <Download className="w-6 h-6 mb-2 text-purple-600" />
                     <span className="text-purple-700 dark:text-purple-300">Commission Report</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col border-amber-200 hover:bg-amber-50 hover:border-amber-300 dark:border-amber-800 dark:hover:bg-amber-950">
+                  <Button variant="outline" className="h-20 flex-col border-amber-200 hover:bg-amber-50 hover:border-amber-300 dark:border-amber-800 dark:hover:bg-amber-950" onClick={() => { toast({ title: "Generating Report", description: "Preparing Activity Report..." }); navigate("/reports"); }} data-testid="button-activity-report">
                     <Download className="w-6 h-6 mb-2 text-amber-600" />
                     <span className="text-amber-700 dark:text-amber-300">Activity Report</span>
                   </Button>

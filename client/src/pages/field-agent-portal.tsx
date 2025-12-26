@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
@@ -36,6 +38,8 @@ import {
 } from "lucide-react";
 
 export default function FieldAgentPortal() {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -355,19 +359,19 @@ export default function FieldAgentPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Button variant="outline" className="h-24 flex flex-col gap-2 border-blue-200 hover:bg-blue-50 hover:border-blue-300 dark:border-blue-800 dark:hover:bg-blue-950" data-testid="button-add-lead">
+                    <Button variant="outline" className="h-24 flex flex-col gap-2 border-blue-200 hover:bg-blue-50 hover:border-blue-300 dark:border-blue-800 dark:hover:bg-blue-950" data-testid="button-add-lead" onClick={() => navigate("/agent-lead-pipeline")}>
                       <UserPlus className="h-6 w-6 text-blue-600" />
                       <span className="text-sm text-blue-700 dark:text-blue-300">Add Lead</span>
                     </Button>
-                    <Button variant="outline" className="h-24 flex flex-col gap-2 border-green-200 hover:bg-green-50 hover:border-green-300 dark:border-green-800 dark:hover:bg-green-950" data-testid="button-new-client">
+                    <Button variant="outline" className="h-24 flex flex-col gap-2 border-green-200 hover:bg-green-50 hover:border-green-300 dark:border-green-800 dark:hover:bg-green-950" data-testid="button-new-client" onClick={() => navigate("/agent-client-onboarding")}>
                       <Users className="h-6 w-6 text-green-600" />
                       <span className="text-sm text-green-700 dark:text-green-300">New Client</span>
                     </Button>
-                    <Button variant="outline" className="h-24 flex flex-col gap-2 border-purple-200 hover:bg-purple-50 hover:border-purple-300 dark:border-purple-800 dark:hover:bg-purple-950" data-testid="button-start-kyc">
+                    <Button variant="outline" className="h-24 flex flex-col gap-2 border-purple-200 hover:bg-purple-50 hover:border-purple-300 dark:border-purple-800 dark:hover:bg-purple-950" data-testid="button-start-kyc" onClick={() => navigate("/onboarding")}>
                       <FileText className="h-6 w-6 text-purple-600" />
                       <span className="text-sm text-purple-700 dark:text-purple-300">Start KYC</span>
                     </Button>
-                    <Button variant="outline" className="h-24 flex flex-col gap-2 border-amber-200 hover:bg-amber-50 hover:border-amber-300 dark:border-amber-800 dark:hover:bg-amber-950" data-testid="button-place-order">
+                    <Button variant="outline" className="h-24 flex flex-col gap-2 border-amber-200 hover:bg-amber-50 hover:border-amber-300 dark:border-amber-800 dark:hover:bg-amber-950" data-testid="button-place-order" onClick={() => navigate("/mutual-funds")}>
                       <Zap className="h-6 w-6 text-amber-600" />
                       <span className="text-sm text-amber-700 dark:text-amber-300">Place Order</span>
                     </Button>
@@ -396,7 +400,7 @@ export default function FieldAgentPortal() {
                         data-testid="input-search-clients"
                       />
                     </div>
-                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-client">
+                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-client" onClick={() => navigate("/agent-client-onboarding")}>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Client
                     </Button>
@@ -446,10 +450,10 @@ export default function FieldAgentPortal() {
                           <TableCell className="text-sm text-muted-foreground">{client.lastActivity || '-'}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950" data-testid={`button-call-client-${index}`}>
+                              <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950" data-testid={`button-call-client-${index}`} onClick={() => { if (client.mobile) window.open(`tel:${client.mobile}`); else toast({ title: "No phone number", description: "This client has no phone number on file." }); }}>
                                 <Phone className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950" data-testid={`button-view-client-${index}`}>
+                              <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950" data-testid={`button-view-client-${index}`} onClick={() => navigate(`/agent-client-profile/${client.id || index}`)}>
                                 View
                               </Button>
                             </div>
@@ -462,7 +466,7 @@ export default function FieldAgentPortal() {
                           <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                           <p className="text-lg font-medium mb-1">No clients yet</p>
                           <p className="text-muted-foreground mb-4">Start by adding your first client</p>
-                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-add-first-client">
+                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-add-first-client" onClick={() => navigate("/agent-client-onboarding")}>
                             <UserPlus className="h-4 w-4 mr-2" />
                             Add Client
                           </Button>
@@ -492,7 +496,7 @@ export default function FieldAgentPortal() {
                         data-testid="input-search-leads"
                       />
                     </div>
-                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-lead">
+                    <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-lead" onClick={() => navigate("/agent-lead-pipeline")}>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Lead
                     </Button>
@@ -535,10 +539,10 @@ export default function FieldAgentPortal() {
                           <TableCell className="text-sm text-muted-foreground">{lead.lastContact || '-'}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950" data-testid={`button-call-lead-${index}`}>
+                              <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950" data-testid={`button-call-lead-${index}`} onClick={() => { if (lead.mobile) window.open(`tel:${lead.mobile}`); else toast({ title: "No phone number", description: "This lead has no phone number on file." }); }}>
                                 <Phone className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950" data-testid={`button-convert-lead-${index}`}>
+                              <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950" data-testid={`button-convert-lead-${index}`} onClick={() => { toast({ title: "Converting Lead", description: `Starting client onboarding for ${lead.name}` }); navigate("/agent-client-onboarding"); }}>
                                 Convert
                               </Button>
                             </div>
@@ -551,7 +555,7 @@ export default function FieldAgentPortal() {
                           <Target className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                           <p className="text-lg font-medium mb-1">No leads yet</p>
                           <p className="text-muted-foreground mb-4">Start prospecting to add leads</p>
-                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-add-first-lead">
+                          <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-add-first-lead" onClick={() => navigate("/agent-lead-pipeline")}>
                             <UserPlus className="h-4 w-4 mr-2" />
                             Add Lead
                           </Button>
@@ -572,7 +576,7 @@ export default function FieldAgentPortal() {
                     <CardTitle>My Tasks</CardTitle>
                     <CardDescription>Manage your daily activities</CardDescription>
                   </div>
-                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-task">
+                  <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" data-testid="button-add-task" onClick={() => navigate("/agent-tasks")}>
                     <ClipboardList className="h-4 w-4 mr-2" />
                     Add Task
                   </Button>
@@ -601,7 +605,7 @@ export default function FieldAgentPortal() {
                       <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                       <p className="text-lg font-medium mb-1">No tasks scheduled</p>
                       <p className="text-muted-foreground mb-4">Create tasks to stay organized</p>
-                      <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-create-first-task">
+                      <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" data-testid="button-create-first-task" onClick={() => navigate("/agent-tasks")}>
                         <ClipboardList className="h-4 w-4 mr-2" />
                         Create Task
                       </Button>
@@ -697,7 +701,7 @@ export default function FieldAgentPortal() {
                       <p className="font-medium">{(agentProfile as any)?.arnCode || '-'}</p>
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950" data-testid="button-edit-profile">
+                  <Button variant="outline" className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950" data-testid="button-edit-profile" onClick={() => navigate("/profile")}>
                     Edit Profile
                   </Button>
                 </CardContent>
