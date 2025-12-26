@@ -236,6 +236,10 @@ import PortfolioStressTest from "@/pages/portfolio-stress-test";
 import DividendCalendar from "@/pages/dividend-calendar";
 import TaxLossHarvesting from "@/pages/tax-loss-harvesting";
 import TaxRegimeComparison from "@/pages/tax-regime-comparison";
+import AgentFieldView from "@/pages/agent-field-view";
+import AgentPerformance from "@/pages/agent-performance";
+import NotificationPreferences from "@/pages/notification-preferences";
+import AIPortfolioReport from "@/pages/ai-portfolio-report";
 
 function UserProtectedRoutes() {
   return (
@@ -248,6 +252,10 @@ function UserProtectedRoutes() {
         <Route path="/dividend-calendar" component={DividendCalendar} />
         <Route path="/tax-loss-harvesting" component={TaxLossHarvesting} />
         <Route path="/tax-regime-comparison" component={TaxRegimeComparison} />
+        <Route path="/agent-field-view" component={AgentFieldView} />
+        <Route path="/agent-performance" component={AgentPerformance} />
+        <Route path="/notification-preferences" component={NotificationPreferences} />
+        <Route path="/ai-portfolio-report" component={AIPortfolioReport} />
         <Route path="/risk-profiling" component={RiskProfilingPage} />
         <Route path="/analytics" component={PredictiveAnalytics} />
         <Route path="/comprehensive-portfolio">{() => {
