@@ -1,6 +1,7 @@
 import { EnhancedNavigation } from "./enhanced-navigation";
 import { Footer } from "./footer";
 import { FloatingChatWidget } from "@/components/FloatingChatWidget";
+import { GuidedTour } from "@/components/onboarding/guided-tour";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -22,6 +23,9 @@ export function AppLayout({ children }: AppLayoutProps) {
       
       {/* Floating AI Chat Widget */}
       <FloatingChatWidget />
+      
+      {/* Guided Tour for New Users */}
+      <GuidedTour />
     </div>
   );
 }

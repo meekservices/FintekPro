@@ -147,8 +147,8 @@ export function EnhancedNavigation() {
   // Role checks
   const isAdmin = user?.roles?.includes('admin') || user?.roles?.includes('super_admin');
   const isAgent = user?.roles?.includes('agent') || user?.roles?.includes('partner');
-  const isPremium = user?.kycLevel === 'enhanced' || user?.kycLevel === 'accredited';
-  const isKycComplete = user?.kycStatus === 'verified' || user?.kycStatus === 'approved';
+  const isPremium = (user as any)?.kycLevel === 'enhanced' || (user as any)?.kycLevel === 'accredited';
+  const isKycComplete = (user as any)?.kycStatus === 'verified' || (user as any)?.kycStatus === 'approved';
 
   // Store sub-items with visibility rules for premium products
   const storeSubItems: NavigationSubItem[] = [
