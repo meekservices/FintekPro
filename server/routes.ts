@@ -8534,6 +8534,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Twilio SMS test endpoint
+  app.post("/api/test/twilio-sms", async (req, res) => {
+    try {
+      const { mobile } = req.body;
+      
+      if (!mobile) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Mobile number is required" 
+        });
+      }
+
+      const { smsService } = await import("./services/sms-service");
+      
+      if (!smsService.isAvailable()) {
+        return res.status(503).json({
+          success: false,
+          error: "Twilio SMS service not configured",
+          message: "Missing TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, or TWILIO_PHONE_NUMBER"
+        });
+      }
+
+      const testOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log(`🧪 Testing Twilio SMS to ${mobile.substring(0, 4)}****`);
+      
+      const result = await smsService.sendOTP(mobile, testOTP);
+      
+      res.json({
+        success: result,
+        message: result ? "Test SMS sent successfully" : "Failed to send SMS",
+        mobile: `${mobile.substring(0, 4)}****${mobile.slice(-2)}`,
+        testOTP: process.env.NODE_ENV === "development" ? testOTP : undefined
+      });
+    } catch (error: any) {
+      console.error("❌ Twilio SMS test failed:", error);
+      res.status(500).json({ 
+        success: false,
+        error: error.message || String(error)
+      });
+    }
+  });
+
   // AMFI API endpoints for mutual fund data
   app.get("/api/amfi/mutual-funds", async (req, res) => {
     try {
