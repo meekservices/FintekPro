@@ -614,7 +614,7 @@ export function EnhancedNavigation() {
                                       <Button
                                         variant={isItemActive(subItem.href) ? "default" : "ghost"}
                                         size="sm"
-                                        className="w-full justify-start text-xs"
+                                        className="w-full justify-start text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                                         data-testid={`sidebar-nav-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
                                       >
                                         {subItem.name}
@@ -634,7 +634,7 @@ export function EnhancedNavigation() {
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className="w-full justify-between text-xs"
+                                          className="w-full justify-between text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                                           data-testid={`sidebar-nav-subgroup-${subItem.name.toLowerCase().replace(/\s+/g, '-')}`}
                                         >
                                           <span>{subItem.name}</span>
@@ -650,7 +650,7 @@ export function EnhancedNavigation() {
                                             <Button
                                               variant={isItemActive(nestedItem.href) ? "default" : "ghost"}
                                               size="sm"
-                                              className="w-full justify-start text-xs"
+                                              className="w-full justify-start text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                                               data-testid={`sidebar-nav-${nestedItem.name.toLowerCase().replace(/\s+/g, '-')}`}
                                             >
                                               {nestedItem.name}
