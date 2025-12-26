@@ -232,6 +232,7 @@ import ClientAIRecommendations from "@/pages/client-ai-recommendations";
 import ClientReports from "@/pages/client-reports";
 import ReitInvitPage from "@/pages/reit-invit";
 import VideoKYC from "@/pages/video-kyc";
+import PortfolioStressTest from "@/pages/portfolio-stress-test";
 
 function UserProtectedRoutes() {
   return (
@@ -240,6 +241,7 @@ function UserProtectedRoutes() {
         <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
         <Route path="/portfolio" component={Portfolio} />
+        <Route path="/portfolio-stress-test" component={PortfolioStressTest} />
         <Route path="/risk-profiling" component={RiskProfilingPage} />
         <Route path="/analytics" component={PredictiveAnalytics} />
         <Route path="/comprehensive-portfolio">{() => {
