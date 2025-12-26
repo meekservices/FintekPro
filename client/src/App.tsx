@@ -234,6 +234,8 @@ import ReitInvitPage from "@/pages/reit-invit";
 import VideoKYC from "@/pages/video-kyc";
 import PortfolioStressTest from "@/pages/portfolio-stress-test";
 import DividendCalendar from "@/pages/dividend-calendar";
+import TaxLossHarvesting from "@/pages/tax-loss-harvesting";
+import TaxRegimeComparison from "@/pages/tax-regime-comparison";
 
 function UserProtectedRoutes() {
   return (
@@ -244,6 +246,8 @@ function UserProtectedRoutes() {
         <Route path="/portfolio" component={Portfolio} />
         <Route path="/portfolio-stress-test" component={PortfolioStressTest} />
         <Route path="/dividend-calendar" component={DividendCalendar} />
+        <Route path="/tax-loss-harvesting" component={TaxLossHarvesting} />
+        <Route path="/tax-regime-comparison" component={TaxRegimeComparison} />
         <Route path="/risk-profiling" component={RiskProfilingPage} />
         <Route path="/analytics" component={PredictiveAnalytics} />
         <Route path="/comprehensive-portfolio">{() => {
