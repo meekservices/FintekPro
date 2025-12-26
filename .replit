@@ -45,7 +45,7 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
-TWILIO_WHATSAPP_NUMBER = "+17623851291"
+TWILIO_WHATSAPP_NUMBER = "+14155238886"
 TWILIO_MESSAGING_SERVICE_SID = "MG7f7a2e73d3e8a41ebe3b5793d82470cc"
 
 [userenv.production]
