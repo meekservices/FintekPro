@@ -233,6 +233,7 @@ import ClientReports from "@/pages/client-reports";
 import ReitInvitPage from "@/pages/reit-invit";
 import VideoKYC from "@/pages/video-kyc";
 import PortfolioStressTest from "@/pages/portfolio-stress-test";
+import DividendCalendar from "@/pages/dividend-calendar";
 
 function UserProtectedRoutes() {
   return (
@@ -242,6 +243,7 @@ function UserProtectedRoutes() {
         <Route path="/dashboard" component={Home} />
         <Route path="/portfolio" component={Portfolio} />
         <Route path="/portfolio-stress-test" component={PortfolioStressTest} />
+        <Route path="/dividend-calendar" component={DividendCalendar} />
         <Route path="/risk-profiling" component={RiskProfilingPage} />
         <Route path="/analytics" component={PredictiveAnalytics} />
         <Route path="/comprehensive-portfolio">{() => {
