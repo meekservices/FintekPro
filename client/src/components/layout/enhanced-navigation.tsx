@@ -558,7 +558,7 @@ export function EnhancedNavigation() {
               {navigationGroups.map((group) => (
                 <div key={group.title} className="space-y-2">
                   {!isCollapsed && (
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
+                    <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2 py-1 bg-muted/40 dark:bg-gray-800/50 rounded">
                       {group.title}
                     </h3>
                   )}
@@ -606,7 +606,7 @@ export function EnhancedNavigation() {
                             </Button>
                           </CollapsibleTrigger>
                           {!isCollapsed && (
-                            <CollapsibleContent className="space-y-1 ml-4">
+                            <CollapsibleContent className="space-y-1 ml-2 pl-2 border-l-2 border-muted dark:border-gray-700 bg-muted/20 dark:bg-gray-800/40 rounded-r-md py-1">
                               {item.subItems?.map((subItem) => (
                                 <div key={subItem.name}>
                                   {subItem.href ? (
@@ -644,7 +644,7 @@ export function EnhancedNavigation() {
                                           }
                                         </Button>
                                       </CollapsibleTrigger>
-                                      <CollapsibleContent className="space-y-1 ml-4">
+                                      <CollapsibleContent className="space-y-1 ml-2 pl-2 border-l-2 border-muted dark:border-gray-600 bg-muted/30 dark:bg-gray-800/60 rounded-r-md py-1">
                                         {subItem.subItems?.map((nestedItem) => (
                                           <Link key={nestedItem.name} href={nestedItem.href}>
                                             <Button
