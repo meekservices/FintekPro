@@ -67,7 +67,8 @@ import {
   LayoutDashboard,
   Cog,
   Package,
-  CheckCircle
+  CheckCircle,
+  UserCheck
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";

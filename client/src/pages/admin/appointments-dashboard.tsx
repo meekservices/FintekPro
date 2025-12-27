@@ -183,7 +183,13 @@ export default function AdminAppointmentsDashboard() {
               Review and approve role appointments across the platform
             </p>
           </div>
-          <Button variant="outline">
+          <Button
+            variant="outline"
+            data-testid="button-export-audit-trail"
+            onClick={() => {
+              window.open('/api/admin/appointments/audit-trail?format=csv', '_blank');
+            }}
+          >
             <Download className="h-4 w-4 mr-2" />
             Export Audit Trail
           </Button>
@@ -191,10 +197,10 @@ export default function AdminAppointmentsDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card>
+          <Card data-testid="card-stats-pending">
             <CardHeader className="pb-2">
               <CardDescription>Pending Approval</CardDescription>
-              <CardTitle className="text-3xl text-yellow-600">{stats?.pending || 0}</CardTitle>
+              <CardTitle className="text-3xl text-yellow-600" data-testid="text-pending-count">{stats?.pending || 0}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -204,10 +210,10 @@ export default function AdminAppointmentsDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-testid="card-stats-active">
             <CardHeader className="pb-2">
               <CardDescription>Active Users</CardDescription>
-              <CardTitle className="text-3xl text-green-600">{stats?.active || 0}</CardTitle>
+              <CardTitle className="text-3xl text-green-600" data-testid="text-active-count">{stats?.active || 0}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -217,10 +223,10 @@ export default function AdminAppointmentsDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-testid="card-stats-rejected">
             <CardHeader className="pb-2">
               <CardDescription>Rejected</CardDescription>
-              <CardTitle className="text-3xl text-red-600">{stats?.rejected || 0}</CardTitle>
+              <CardTitle className="text-3xl text-red-600" data-testid="text-rejected-count">{stats?.rejected || 0}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -230,10 +236,10 @@ export default function AdminAppointmentsDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-testid="card-stats-suspended">
             <CardHeader className="pb-2">
               <CardDescription>Suspended</CardDescription>
-              <CardTitle className="text-3xl text-orange-600">{stats?.suspended || 0}</CardTitle>
+              <CardTitle className="text-3xl text-orange-600" data-testid="text-suspended-count">{stats?.suspended || 0}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -243,10 +249,10 @@ export default function AdminAppointmentsDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-testid="card-stats-total">
             <CardHeader className="pb-2">
               <CardDescription>Total Users</CardDescription>
-              <CardTitle className="text-3xl">{stats?.total || 0}</CardTitle>
+              <CardTitle className="text-3xl" data-testid="text-total-count">{stats?.total || 0}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -270,7 +276,7 @@ export default function AdminAppointmentsDashboard() {
             />
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48" data-testid="select-role-filter">
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
@@ -288,10 +294,10 @@ export default function AdminAppointmentsDashboard() {
         {/* Pending Appointments Table */}
         <Tabs defaultValue="pending">
           <TabsList>
-            <TabsTrigger value="pending">
+            <TabsTrigger value="pending" data-testid="tab-pending-approvals">
               Pending Approval ({stats?.pending || 0})
             </TabsTrigger>
-            <TabsTrigger value="audit">Audit Trail</TabsTrigger>
+            <TabsTrigger value="audit" data-testid="tab-audit-trail">Audit Trail</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending" className="mt-6">
