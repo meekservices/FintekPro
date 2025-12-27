@@ -97,6 +97,7 @@ import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isName
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
+import { marketMoversCache } from './services/market-movers-cache';
 import * as schema from "@shared/schema";
 import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import adminAadhaarRoutes from "./routes/admin-aadhaar-routes";
@@ -162,6 +163,9 @@ const taxReminderSubscriptionSchema = z.object({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const server = createServer(app);
+  
+  // Initialize market movers cache at startup (non-blocking)
+  marketMoversCache.initialize().catch(err => console.error("Failed to initialize market movers cache:", err));
   // Initialize API usage tracking service
   await apiUsageTrackingService.initialize();
   
@@ -9799,61 +9803,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Market data endpoints
 
-  // Market movers - real-time gainers and losers
+  // Market movers - real-time gainers and losers (CACHED)
   app.get("/api/market/movers", async (req, res) => {
+    const startTime = Date.now();
     try {
-      // Indian stock symbols to track for market movers
-      const indianStocks = [
-        { symbol: "RELIANCE.NS", name: "Reliance Industries" },
-        { symbol: "TCS.NS", name: "Tata Consultancy Services" },
-        { symbol: "HDFCBANK.NS", name: "HDFC Bank Limited" },
-        { symbol: "INFY.NS", name: "Infosys Limited" },
-        { symbol: "ICICIBANK.NS", name: "ICICI Bank Limited" },
-        { symbol: "BAJFINANCE.NS", name: "Bajaj Finance Limited" },
-        { symbol: "MARUTI.NS", name: "Maruti Suzuki India" },
-        { symbol: "ASIANPAINT.NS", name: "Asian Paints Limited" },
-        { symbol: "NESTLEIND.NS", name: "Nestle India Limited" },
-        { symbol: "ULTRACEMCO.NS", name: "UltraTech Cement" },
-        { symbol: "HINDUNILVR.NS", name: "Hindustan Unilever" },
-        { symbol: "LT.NS", name: "Larsen & Toubro" },
-        { symbol: "WIPRO.NS", name: "Wipro Limited" },
-        { symbol: "BHARTIARTL.NS", name: "Bharti Airtel" },
-        { symbol: "KOTAKBANK.NS", name: "Kotak Mahindra Bank" },
-      ];
-
-      // Fetch quotes for all stocks using multi-source approach
-      const stockPromises = indianStocks.map(async (stock) => {
-        try {
-          const data = await fetchMarketData(stock.symbol);
-          
-          return {
-            symbol: stock.symbol.replace('.NS', ''),
-            name: stock.name,
-            price: data.price || 0,
-            change: data.change || 0,
-            changePercent: data.changePercent || 0,
-            previousClose: data.previousClose || 0,
-          };
-        } catch (error) {
-          console.error(`Error fetching ${stock.symbol}:`, error);
-          return null;
-        }
-      });
-
-      const stockQuotes = (await Promise.all(stockPromises)).filter(Boolean);
-
-      // Sort stocks by performance
-      const gainers = stockQuotes
-        .filter(stock => stock && stock.changePercent > 0)
-        .sort((a, b) => (b?.changePercent || 0) - (a?.changePercent || 0))
-        .slice(0, 5);
-
-      const losers = stockQuotes
-        .filter(stock => stock && stock.changePercent < 0)
-        .sort((a, b) => (a?.changePercent || 0) - (b?.changePercent || 0))
-        .slice(0, 5);
-
-      res.json({ gainers, losers });
+      const { data, cached, cacheAge } = await marketMoversCache.getMarketMovers();
+      const duration = Date.now() - startTime;
+      
+      res.setHeader('X-Cache', cached ? 'HIT' : 'MISS');
+      res.setHeader('X-Cache-Age', Math.round((cacheAge || 0) / 1000).toString());
+      res.setHeader('X-Response-Time', `${duration}ms`);
+      
+      console.log(`📊 [MarketMovers] Response in ${duration}ms (cache: ${cached ? 'HIT' : 'MISS'})`);
+      res.json(data);
     } catch (error) {
       console.error("Error fetching market movers:", error);
       res.status(500).json({ error: "Failed to fetch market movers" });
