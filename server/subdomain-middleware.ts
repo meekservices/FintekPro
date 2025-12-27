@@ -70,9 +70,10 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   req.isPartnerPortal = subdomain === 'partner';
   req.isAgentPortal = subdomain === 'agent';
   
-  // Log for debugging
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`🌐 Subdomain: ${subdomain || '(none)'} | Admin Portal: ${req.isAdminPortal || false} | Partner Portal: ${req.isPartnerPortal || false} | Agent Portal: ${req.isAgentPortal || false} | Hostname: ${hostname}`);
+  // Log only for portal requests to reduce noise (disabled by default)
+  // Enable with DEBUG_SUBDOMAIN=true for troubleshooting
+  if (process.env.DEBUG_SUBDOMAIN === 'true' && (req.isAdminPortal || req.isPartnerPortal || req.isAgentPortal)) {
+    console.log(`🌐 Portal: ${subdomain} | Host: ${hostname}`);
   }
   
   next();

@@ -9821,6 +9821,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch market movers" });
     }
   });
+
+  // Market movers cache metrics endpoint
+  app.get("/api/admin/cache/market-movers/metrics", requireAdmin, async (req, res) => {
+    try {
+      const metrics = marketMoversCache.getMetrics();
+      res.json({
+        cache: 'market-movers',
+        ...metrics,
+        cacheAgeSeconds: metrics.cacheAge ? Math.round(metrics.cacheAge / 1000) : null,
+        lastRefreshTimeSeconds: metrics.lastRefreshDuration ? Math.round(metrics.lastRefreshDuration) : null,
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get cache metrics' });
+    }
+  });
   app.get("/api/market/quote/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
