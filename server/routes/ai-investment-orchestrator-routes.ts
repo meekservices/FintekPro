@@ -1,5 +1,6 @@
 import { Express, Request, Response } from "express";
 import { aiInvestmentOrchestrator } from "../services/ai-investment-orchestrator-service";
+import { investmentDataCache } from "../services/investment-data-cache";
 import { 
   ClientProfile, 
   UnifiedProductType, 
@@ -84,10 +85,12 @@ export function registerAIInvestmentOrchestratorRoutes(app: Express) {
 
   app.get("/api/ai-recommendations/cache/metrics", async (req: Request, res: Response) => {
     try {
-      const metrics = aiInvestmentOrchestrator.getCacheMetrics();
+      const orchestratorMetrics = aiInvestmentOrchestrator.getCacheMetrics();
+      const dataCacheMetrics = investmentDataCache.getMetrics();
       res.json({
         success: true,
-        metrics
+        orchestrator: orchestratorMetrics,
+        dataCache: dataCacheMetrics
       });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to get cache metrics" });
@@ -97,13 +100,18 @@ export function registerAIInvestmentOrchestratorRoutes(app: Express) {
   app.post("/api/ai-recommendations/cache/clear", async (req: Request, res: Response) => {
     try {
       aiInvestmentOrchestrator.clearCache();
+      investmentDataCache.invalidate();
       res.json({
         success: true,
-        message: "Cache cleared successfully"
+        message: "All caches cleared successfully"
       });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to clear cache" });
     }
+  });
+
+  investmentDataCache.initialize().catch(err => {
+    console.error('❌ Failed to initialize investment data cache:', err);
   });
 
   console.log("✅ AI Investment Orchestrator routes registered");
