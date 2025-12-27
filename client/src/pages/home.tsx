@@ -187,7 +187,7 @@ export default function Home() {
       description: "Fixed income investment platform",
       icon: Receipt,
       color: "yellow",
-      route: "/unlisted",
+      route: "/bonds",
       features: ["Government Bonds", "Corporate NCDs", "Tax-free Bonds"],
       volume: "₹85.4K Cr Issuances"
     },
@@ -215,10 +215,10 @@ export default function Home() {
     {
       category: "Loans & Credit",
       services: [
-        { name: "Personal Loan", desc: "Quick personal loans up to ₹40L", icon: CreditCard, route: "/loans/personal" },
-        { name: "Home Loan", desc: "Competitive home loan rates", icon: Building2, route: "/loans/home" },
-        { name: "Business Loan", desc: "SME & corporate financing", icon: Briefcase, route: "/loans/business" },
-        { name: "Loan Against Securities", desc: "LAS facility up to 80% value", icon: Receipt, route: "/loans/las" }
+        { name: "Personal Loan", desc: "Quick personal loans up to ₹40L", icon: CreditCard, route: "/loans?type=personal" },
+        { name: "Home Loan", desc: "Competitive home loan rates", icon: Building2, route: "/loans?type=home" },
+        { name: "Business Loan", desc: "SME & corporate financing", icon: Briefcase, route: "/loans?type=business" },
+        { name: "Loan Against Securities", desc: "LAS facility up to 80% value", icon: Receipt, route: "/loans?type=las" }
       ]
     },
     {
@@ -227,7 +227,7 @@ export default function Home() {
         { name: "Calculators", desc: "25+ financial tools", icon: Calculator, route: "/calculators" },
         { name: "CIBIL Services", desc: "Credit score check", icon: Activity, route: "/cibil" },
         { name: "Capital Gains", desc: "Tax reports", icon: Receipt, route: "/capital-gains" },
-        { name: "CKYC Verification", desc: "KYC compliance", icon: CheckCircle, route: "/ckyc" }
+        { name: "KYC Verification", desc: "KYC compliance", icon: CheckCircle, route: "/onboarding" }
       ]
     }
   ];
