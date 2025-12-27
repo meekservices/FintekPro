@@ -44,6 +44,134 @@ interface UnifiedOrder {
   completedAt?: string;
 }
 
+// Portfolio source types for SEBI compliance
+type PortfolioSource = 'FINTEKPRO' | 'EXTERNAL';
+type PortfolioView = 'FINTEKPRO' | 'TRACKER' | 'EXTERNAL';
+
+interface EnhancedHoldingWithSource {
+  id: string;
+  symbol: string;
+  assetType?: string;
+  quantity: number;
+  avgPrice: string;
+  currentValue: string;
+  investedValue: string;
+  gainLoss: string;
+  gainLossPercent: string;
+  exchange?: string;
+  isin?: string;
+  folioNumber?: string;
+  dematId?: string;
+  source: PortfolioSource;
+  portfolioView: PortfolioView;
+  [key: string]: any;
+}
+
+// Compute FintekPro holdings from completed orders with multiple matching keys
+function computeFintekProHoldings(orders: UnifiedOrder[] | undefined): Map<string, { quantity: number; investedValue: number; productName: string; productType: string; normalizedKeys: string[] }> {
+  const holdingsMap = new Map();
+  if (!orders) return holdingsMap;
+  
+  orders
+    .filter(o => o.status === 'completed')
+    .forEach(order => {
+      // Create multiple normalized keys for matching
+      const productName = order.productName || '';
+      const primaryKey = productName.toUpperCase().replace(/\s+/g, '_');
+      
+      // Generate normalized matching keys
+      const normalizedKeys: string[] = [
+        primaryKey,
+        productName.toUpperCase().replace(/[^A-Z0-9]/g, ''), // Alphanumeric only
+        productName.split(/[-\s]+/)[0]?.toUpperCase() || '', // First word (often ticker)
+      ].filter(Boolean);
+      
+      const existing = holdingsMap.get(primaryKey) || { 
+        quantity: 0, 
+        investedValue: 0, 
+        productName: order.productName, 
+        productType: order.productType,
+        normalizedKeys 
+      };
+      existing.quantity += parseFloat(order.quantity || '1');
+      existing.investedValue += parseFloat(order.amount || '0');
+      holdingsMap.set(primaryKey, existing);
+    });
+  
+  return holdingsMap;
+}
+
+// Match holdings using symbol, ISIN, name, or fuzzy matching
+function matchHolding(holding: any, fintekproHoldings: Map<string, any>): boolean {
+  // Check if holding already has source metadata from backend
+  if (holding.source === 'FINTEKPRO' || holding.transactionSource === 'fintekpro' || holding.platform === 'fintekpro') {
+    return true;
+  }
+  
+  // If no FintekPro orders exist, cannot match
+  if (fintekproHoldings.size === 0) return false;
+  
+  const holdingSymbol = (holding.symbol || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const holdingName = (holding.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  
+  // Check all FintekPro holdings for matches
+  const fpHoldingsArray = Array.from(fintekproHoldings.values());
+  for (let i = 0; i < fpHoldingsArray.length; i++) {
+    const fpHolding = fpHoldingsArray[i];
+    const fpName = (fpHolding.productName || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    
+    // Exact ISIN match (highest priority)
+    if (holding.isin && fpHolding.isin && holding.isin === fpHolding.isin) return true;
+    
+    // Symbol contained in FintekPro product name or vice versa
+    if (holdingSymbol && fpName.includes(holdingSymbol)) return true;
+    if (holdingSymbol && holdingSymbol.includes(fpName.split(/[^A-Z0-9]/)[0])) return true;
+    
+    // Name similarity check
+    if (holdingName && fpName && (holdingName.includes(fpName) || fpName.includes(holdingName))) return true;
+    
+    // Check normalized keys
+    if (fpHolding.normalizedKeys) {
+      for (let j = 0; j < fpHolding.normalizedKeys.length; j++) {
+        const key = fpHolding.normalizedKeys[j];
+        if (holdingSymbol === key || holdingName.includes(key) || key.includes(holdingSymbol)) return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+// Compute External Portfolio = Tracker - FintekPro (DERIVED, NEVER STORED)
+function computeExternalPortfolio(
+  trackerHoldings: any[] | undefined, 
+  fintekproHoldings: Map<string, any>
+): EnhancedHoldingWithSource[] {
+  if (!trackerHoldings) return [];
+  
+  return trackerHoldings
+    .filter(holding => !matchHolding(holding, fintekproHoldings))
+    .map(holding => ({
+      ...holding,
+      source: 'EXTERNAL' as PortfolioSource,
+      portfolioView: 'EXTERNAL' as PortfolioView
+    }));
+}
+
+// Tag all Tracker holdings with their source
+function tagTrackerHoldings(
+  trackerHoldings: any[] | undefined, 
+  fintekproHoldings: Map<string, any>
+): EnhancedHoldingWithSource[] {
+  if (!trackerHoldings) return [];
+  
+  return trackerHoldings.map(holding => ({
+    ...holding,
+    source: matchHolding(holding, fintekproHoldings) ? 'FINTEKPRO' as PortfolioSource : 'EXTERNAL' as PortfolioSource,
+    portfolioView: 'TRACKER' as PortfolioView
+  }));
+}
+
 export default function Portfolio() {
 
   // Get portfolios linked to user's PAN card for enhanced security
@@ -91,6 +219,17 @@ export default function Portfolio() {
     queryKey: ["/api/unified-orders"],
     enabled: isAuthenticated,
   });
+  
+  // PORTFOLIO SEGREGATION (SEBI Compliance)
+  // 1. FintekPro Portfolio: Investments executed through FintekPro (from orders)
+  // 2. Tracker Portfolio: PAN-level consolidated holdings (all holdings with source tags)
+  // 3. External Portfolio: DERIVED as (Tracker - FintekPro), NEVER STORED
+  const fintekproHoldingsMap = computeFintekProHoldings(fintekproOrders);
+  const taggedTrackerHoldings = tagTrackerHoldings(enhancedHoldings, fintekproHoldingsMap);
+  const externalHoldings = computeExternalPortfolio(enhancedHoldings, fintekproHoldingsMap);
+  
+  // Separate FintekPro holdings from Tracker for display
+  const fintekproHoldingsFromTracker = taggedTrackerHoldings.filter(h => h.source === 'FINTEKPRO');
   
   const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
   const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
@@ -193,17 +332,17 @@ export default function Portfolio() {
               <TrendingUp className="h-4 w-4" />
               <span>Portfolio Overview</span>
             </TabsTrigger>
-            <TabsTrigger value="fintekpro" className="flex items-center space-x-1">
+            <TabsTrigger value="fintekpro" className="flex items-center space-x-1" data-testid="tab-fintekpro-portfolio">
               <Building2 className="h-4 w-4" />
               <span>FintekPro Portfolio</span>
             </TabsTrigger>
-            <TabsTrigger value="tracker" className="flex items-center space-x-1">
+            <TabsTrigger value="tracker" className="flex items-center space-x-1" data-testid="tab-tracker-portfolio">
               <FileText className="h-4 w-4" />
               <span>Tracker Portfolio</span>
             </TabsTrigger>
-            <TabsTrigger value="external" className="flex items-center space-x-1">
+            <TabsTrigger value="external" className="flex items-center space-x-1" data-testid="tab-external-portfolio">
               <ExternalLink className="h-4 w-4" />
-              <span>Extra Portfolio</span>
+              <span>External Portfolio</span>
             </TabsTrigger>
             <TabsTrigger value="insurance" className="flex items-center space-x-1">
               <Shield className="h-4 w-4" />
@@ -742,12 +881,29 @@ export default function Portfolio() {
                       </div>
                     </div>
 
-                    {/* Holdings Table */}
+                    {/* Holdings by Source */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="p-4 bg-blue-50 rounded-lg text-center">
+                        <p className="text-sm font-medium text-blue-600">FintekPro Holdings</p>
+                        <p className="text-2xl font-bold text-blue-800">
+                          {taggedTrackerHoldings.filter(h => h.source === 'FINTEKPRO').length}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-orange-50 rounded-lg text-center">
+                        <p className="text-sm font-medium text-orange-600">External Holdings</p>
+                        <p className="text-2xl font-bold text-orange-800">
+                          {taggedTrackerHoldings.filter(h => h.source === 'EXTERNAL').length}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Holdings Table with Source Badges */}
                     <div className="border rounded-lg overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead>Symbol</TableHead>
+                            <TableHead>Source</TableHead>
                             <TableHead>Asset Type</TableHead>
                             <TableHead className="text-right">Quantity</TableHead>
                             <TableHead className="text-right">Avg Price</TableHead>
@@ -757,9 +913,24 @@ export default function Portfolio() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {enhancedHoldings.map((holding) => (
+                          {taggedTrackerHoldings.map((holding) => (
                             <TableRow key={holding.id} data-testid={`row-tracker-${holding.id}`}>
                               <TableCell className="font-medium">{holding.symbol}</TableCell>
+                              <TableCell>
+                                <Badge 
+                                  className={holding.source === 'FINTEKPRO' 
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200' 
+                                    : 'bg-orange-100 text-orange-800 border-orange-200'
+                                  }
+                                  data-testid={`source-badge-${holding.source.toLowerCase()}`}
+                                >
+                                  {holding.source === 'FINTEKPRO' ? (
+                                    <><Building2 className="h-3 w-3 mr-1" /> FintekPro</>
+                                  ) : (
+                                    <><ExternalLink className="h-3 w-3 mr-1" /> External</>
+                                  )}
+                                </Badge>
+                              </TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="capitalize">
                                   {holding.assetType?.replace('_', ' ') || 'Equity'}
@@ -807,25 +978,158 @@ export default function Portfolio() {
             </Card>
           </TabsContent>
 
-          {/* Extra Portfolio Tab - Transactions done outside FintekPro */}
+          {/* External Portfolio Tab - DERIVED as (Tracker - FintekPro) */}
           <TabsContent value="external" className="space-y-8">
+            {/* SEBI Compliance Disclosure Banner */}
+            <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg" data-testid="external-portfolio-disclosure">
+              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">Advisory Only - No Transaction Capability</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  External holdings are shown for information and analysis purposes only. These holdings cannot be transacted through FintekPro unless migrated to the platform.
+                </p>
+              </div>
+            </div>
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center space-x-2">
-                      <ExternalLink className="h-5 w-5 text-purple-600" />
-                      <span>Extra Portfolio</span>
+                      <ExternalLink className="h-5 w-5 text-orange-600" />
+                      <span>External Portfolio</span>
                     </CardTitle>
                     <CardDescription>
-                      Investments made outside FintekPro - track your external broker holdings here
+                      Holdings from external brokers (Derived: Tracker Portfolio − FintekPro Portfolio)
                     </CardDescription>
                   </div>
-                  <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                    <Shield className="h-3 w-3 mr-1" />
-                    Manual Entry
+                  <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Derived View
                   </Badge>
                 </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <LoadingState variant="table" count={5} />
+                ) : externalHoldings && externalHoldings.length > 0 ? (
+                  <div className="space-y-6">
+                    {/* External Portfolio Summary Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="p-4 bg-orange-50 rounded-lg" data-testid="stat-external-holdings">
+                        <div className="text-sm text-muted-foreground">External Holdings</div>
+                        <div className="text-2xl font-bold text-orange-600">{externalHoldings.length}</div>
+                      </div>
+                      <div className="p-4 bg-green-50 rounded-lg" data-testid="stat-external-value">
+                        <div className="text-sm text-muted-foreground">Total Value</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          ₹{externalHoldings.reduce((sum, h) => sum + parseFloat(h.currentValue || '0'), 0).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-blue-50 rounded-lg" data-testid="stat-external-invested">
+                        <div className="text-sm text-muted-foreground">Total Invested</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          ₹{externalHoldings.reduce((sum, h) => sum + parseFloat(h.investedValue || '0'), 0).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-purple-50 rounded-lg" data-testid="stat-external-gain">
+                        <div className="text-sm text-muted-foreground">Total Gain/Loss</div>
+                        <div className={`text-2xl font-bold ${
+                          externalHoldings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0) >= 0 
+                            ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {externalHoldings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0) >= 0 ? '+' : ''}
+                          ₹{Math.abs(externalHoldings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0)).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* External Holdings Table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Symbol</TableHead>
+                            <TableHead>Asset Type</TableHead>
+                            <TableHead className="text-right">Quantity</TableHead>
+                            <TableHead className="text-right">Avg Price</TableHead>
+                            <TableHead className="text-right">Current Value</TableHead>
+                            <TableHead className="text-right">Gain/Loss</TableHead>
+                            <TableHead>Exchange</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {externalHoldings.map((holding) => (
+                            <TableRow key={holding.id} data-testid={`row-external-${holding.id}`}>
+                              <TableCell className="font-medium">{holding.symbol}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize">
+                                  {holding.assetType?.replace('_', ' ') || 'Equity'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">{holding.quantity}</TableCell>
+                              <TableCell className="text-right">₹{parseFloat(holding.avgPrice || '0').toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-medium">
+                                ₹{parseFloat(holding.currentValue || '0').toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className={parseFloat(holding.gainLoss || '0') >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  {parseFloat(holding.gainLoss || '0') >= 0 ? '+' : ''}
+                                  {parseFloat(holding.gainLossPercent || '0').toFixed(2)}%
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={holding.exchange === 'NSE' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}>
+                                  {holding.exchange || 'NSE'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className="bg-gray-100 text-gray-600 border-gray-200">
+                                  View Only
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Migration CTA */}
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-blue-800">Migrate to FintekPro</p>
+                          <p className="text-sm text-blue-600">Transfer external holdings to FintekPro for full transaction capability and AI recommendations</p>
+                        </div>
+                        <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-migrate-holdings">
+                          Learn More
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12" data-testid="empty-external">
+                    <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">All Holdings on FintekPro</h3>
+                    <p className="text-gray-600 mb-4">
+                      Great news! All your demat holdings are managed through FintekPro
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Account Aggregator Sync Option */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <RefreshCw className="h-5 w-5 text-teal-600" />
+                  <span>Sync External Holdings</span>
+                </CardTitle>
+                <CardDescription>
+                  Connect via Account Aggregator to automatically fetch holdings from other brokers
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ExternalPortfolioSync />
