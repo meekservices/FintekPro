@@ -600,6 +600,16 @@ export const users = pgTable("users", {
   // See shared/roles.ts for complete hierarchy: superadmin > master_agent > admin > partner > agent > sub_agent > associate > client
   roles: varchar("roles").array().default(sql`ARRAY['user']`),
   isActive: boolean("is_active").default(true),
+  
+  // Appointment Status for Admin-Final Approval Model
+  // All role appointments require Admin approval before activation
+  appointmentStatus: varchar("appointment_status").default("active"), // draft, pending_admin_approval, active, rejected, suspended
+  appointmentInitiatedBy: varchar("appointment_initiated_by"), // User ID who created/assigned the role
+  appointmentInitiatorRole: varchar("appointment_initiator_role"), // Role of the initiator
+  appointmentApprovedBy: varchar("appointment_approved_by"), // Admin who approved
+  appointmentApprovedAt: timestamp("appointment_approved_at"),
+  appointmentRejectionReason: text("appointment_rejection_reason"),
+  appointmentCostCentreId: varchar("appointment_cost_centre_id"),
   lastLoginAt: timestamp("last_login_at"),
   previousLoginAt: timestamp("previous_login_at"),
   loginCount: integer("login_count").default(0),
@@ -20348,3 +20358,103 @@ export const insertErrorUserFeedbackSchema = createInsertSchema(errorUserFeedbac
 });
 export type ErrorUserFeedback = typeof errorUserFeedback.$inferSelect;
 export type InsertErrorUserFeedback = z.infer<typeof insertErrorUserFeedbackSchema>;
+
+// ============= ADMIN-FINAL APPROVAL MODEL FOR APPOINTMENTS =============
+
+// User Appointment Status Enum
+export const UserAppointmentStatus = {
+  DRAFT: 'draft',
+  PENDING_ADMIN_APPROVAL: 'pending_admin_approval',
+  ACTIVE: 'active',
+  REJECTED: 'rejected',
+  SUSPENDED: 'suspended'
+} as const;
+
+// Appointment Audit Logs - Immutable logs for SEBI compliance
+export const appointmentAuditLogs = pgTable("appointment_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Appointment Details
+  role: varchar("role").notNull(), // partner, master_agent, agent, sub_agent, support_staff, ca
+  previousStatus: varchar("previous_status"),
+  newStatus: varchar("new_status").notNull(),
+  
+  // Creator Information
+  createdByUserId: varchar("created_by_user_id"),
+  createdByRole: varchar("created_by_role"),
+  createdByName: varchar("created_by_name"),
+  
+  // Admin Action (if applicable)
+  adminUserId: varchar("admin_user_id"),
+  adminName: varchar("admin_name"),
+  adminAction: varchar("admin_action"), // approved, rejected, suspended
+  adminReason: text("admin_reason"), // Mandatory for rejection
+  
+  // Cost Centre Tracking
+  costCentreId: varchar("cost_centre_id"),
+  costCentreName: varchar("cost_centre_name"),
+  
+  // Metadata
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  
+  // Additional context
+  metadata: jsonb("metadata").default({}),
+}, (table) => [
+  index("idx_appointment_audit_user_id").on(table.userId),
+  index("idx_appointment_audit_timestamp").on(table.timestamp),
+  index("idx_appointment_audit_status").on(table.newStatus),
+  index("idx_appointment_audit_admin").on(table.adminUserId),
+]);
+
+// Pending Appointments Queue - For Admin Dashboard
+export const pendingAppointments = pgTable("pending_appointments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Appointment Details
+  requestedRole: varchar("requested_role").notNull(),
+  currentRoles: varchar("current_roles").array().default(sql`ARRAY[]::varchar[]`),
+  
+  // Initiator Information
+  initiatedByUserId: varchar("initiated_by_user_id").notNull(),
+  initiatedByRole: varchar("initiated_by_role").notNull(),
+  initiatedByName: varchar("initiated_by_name"),
+  
+  // Cost Centre Assignment
+  costCentreId: varchar("cost_centre_id"),
+  costCentreName: varchar("cost_centre_name"),
+  
+  // Status
+  status: varchar("status").default("pending").notNull(), // pending, approved, rejected
+  
+  // Admin Processing
+  processedByAdminId: varchar("processed_by_admin_id"),
+  processedByAdminName: varchar("processed_by_admin_name"),
+  processedAt: timestamp("processed_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Profile Snapshot (for review)
+  userProfile: jsonb("user_profile").default({}),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Optional expiry for stale requests
+}, (table) => [
+  index("idx_pending_appointments_status").on(table.status),
+  index("idx_pending_appointments_role").on(table.requestedRole),
+  index("idx_pending_appointments_initiator").on(table.initiatedByUserId),
+  index("idx_pending_appointments_created").on(table.createdAt),
+]);
+
+// Insert schemas for appointment tables
+export const insertAppointmentAuditLogSchema = createInsertSchema(appointmentAuditLogs).omit({ id: true, timestamp: true });
+export type AppointmentAuditLog = typeof appointmentAuditLogs.$inferSelect;
+export type InsertAppointmentAuditLog = z.infer<typeof insertAppointmentAuditLogSchema>;
+
+export const insertPendingAppointmentSchema = createInsertSchema(pendingAppointments).omit({ id: true, createdAt: true, updatedAt: true });
+export type PendingAppointment = typeof pendingAppointments.$inferSelect;
+export type InsertPendingAppointment = z.infer<typeof insertPendingAppointmentSchema>;

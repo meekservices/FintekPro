@@ -232,6 +232,7 @@ import AdminAiRecommendationTracking from "@/pages/admin-ai-recommendation-track
 import AdminReportsHub from "@/pages/admin/reports-hub";
 import AdminAIInsights from "@/pages/admin/ai-insights";
 import AdminAgentOversightPage from "@/pages/admin/agent-oversight";
+import AdminAppointmentsDashboard from "@/pages/admin/appointments-dashboard";
 import ClientTasks from "@/pages/client-tasks";
 import ClientAIRecommendations from "@/pages/client-ai-recommendations";
 import ClientReports from "@/pages/client-reports";
@@ -593,6 +594,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <DemoProposalsTracking />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/appointments">
+        {() => (
+          <AdminLayout>
+            <AdminAppointmentsDashboard />
           </AdminLayout>
         )}
       </Route>

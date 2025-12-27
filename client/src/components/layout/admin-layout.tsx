@@ -105,6 +105,7 @@ const navCategories: NavCategory[] = [
       { title: "Financial Operations", href: "/admin/financial-operations", icon: DollarSign, description: "Orders, payments & refunds" },
       { title: "Duplicate Accounts", href: "/admin/duplicates", icon: AlertCircle, description: "Detect & resolve duplicates" },
       { title: "Users & Access", href: "/admin/users", icon: Users, description: "User management" },
+      { title: "Appointments Queue", href: "/admin/appointments", icon: UserCheck, description: "Role approvals" },
     ]
   },
   {

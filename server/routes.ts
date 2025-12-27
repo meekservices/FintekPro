@@ -136,6 +136,7 @@ import errorTrackingRoutes from "./routes/error-tracking-routes";
 import { registerAIInvestmentOrchestratorRoutes } from "./routes/ai-investment-orchestrator-routes";
 import { registerProfitOptimizedRoutes } from "./routes/profit-optimized-routes";
 import { registerAgentGovernanceRoutes } from "./routes/agent-governance-routes";
+import { registerAppointmentManagementRoutes } from "./routes/appointment-management-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -379,6 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerAIInvestmentOrchestratorRoutes(app);
   registerProfitOptimizedRoutes(app);
   registerAgentGovernanceRoutes(app);
+  registerAppointmentManagementRoutes(app);
   app.use(onboardingInvitationsRoutes);
   app.use(prospectProposalsRoutes);
   app.use(instrumentsRoutes);
