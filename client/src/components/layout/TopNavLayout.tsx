@@ -127,7 +127,7 @@ export function TopNavLayout({ children }: TopNavLayoutProps) {
                   </Button>
                 </Link>
 
-                <Link href="/notifications">
+                <Link href="/notification-preferences">
                   <Button variant="ghost" size="icon" data-testid="button-notifications">
                     <Bell className="h-5 w-5" />
                   </Button>

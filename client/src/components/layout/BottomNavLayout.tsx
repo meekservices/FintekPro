@@ -40,7 +40,7 @@ const bottomNavItems = [
 const moreMenuItems = [
   { name: "Profile", href: "/profile", icon: UserIcon },
   { name: "Settings", href: "/settings", icon: Settings },
-  { name: "Notifications", href: "/notifications", icon: Bell },
+  { name: "Notifications", href: "/notification-preferences", icon: Bell },
   { name: "Cart", href: "/cart", icon: ShoppingCart },
   { name: "Tax Hub", href: "/intelligent-tax-hub", icon: Calculator },
   { name: "Support", href: "/support", icon: HelpCircle },
