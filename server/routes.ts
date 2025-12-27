@@ -131,6 +131,7 @@ import meetingBookingsRoutes from "./routes/meeting-bookings";
 import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
 import portfolioReportsRoutes from "./routes/portfolio-reports";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
+import errorTrackingRoutes from "./routes/error-tracking-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -381,6 +382,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/sebi-risk-profiling", sebiRiskProfilingRoutes);
   app.use(portfolioReportsRoutes);
   app.use("/api/ai-recommendations-tracking", aiRecommendationTrackingRoutes);
+  app.use("/api/errors", errorTrackingRoutes);
+  console.log("✅ Error Tracking routes registered");
   console.log("✅ AI Recommendation Tracking routes registered");
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
