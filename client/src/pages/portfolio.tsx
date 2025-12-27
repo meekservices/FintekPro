@@ -197,9 +197,13 @@ export default function Portfolio() {
               <Building2 className="h-4 w-4" />
               <span>FintekPro Portfolio</span>
             </TabsTrigger>
+            <TabsTrigger value="tracker" className="flex items-center space-x-1">
+              <FileText className="h-4 w-4" />
+              <span>Tracker Portfolio</span>
+            </TabsTrigger>
             <TabsTrigger value="external" className="flex items-center space-x-1">
               <ExternalLink className="h-4 w-4" />
-              <span>External Portfolio</span>
+              <span>Extra Portfolio</span>
             </TabsTrigger>
             <TabsTrigger value="insurance" className="flex items-center space-x-1">
               <Shield className="h-4 w-4" />
@@ -667,7 +671,143 @@ export default function Portfolio() {
             )}
           </TabsContent>
 
-          {/* External Portfolio Tab - Synced from external brokers */}
+          {/* Tracker Portfolio Tab - PAN-level consolidated holdings from NSDL/CDSL */}
+          <TabsContent value="tracker" className="space-y-8">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center space-x-2">
+                      <FileText className="h-5 w-5 text-teal-600" />
+                      <span>Tracker Portfolio</span>
+                    </CardTitle>
+                    <CardDescription>
+                      PAN-level consolidated holdings from all your demat accounts (NSDL/CDSL)
+                    </CardDescription>
+                  </div>
+                  <Badge className="bg-teal-100 text-teal-800 border-teal-200">
+                    <Shield className="h-3 w-3 mr-1" />
+                    PAN Verified
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <LoadingState variant="table" count={5} />
+                ) : enhancedHoldings && enhancedHoldings.length > 0 ? (
+                  <div className="space-y-6">
+                    {/* Tracker Summary Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="p-4 bg-teal-50 rounded-lg" data-testid="stat-total-holdings">
+                        <div className="text-sm text-muted-foreground">Total Holdings</div>
+                        <div className="text-2xl font-bold text-teal-600">{enhancedHoldings.length}</div>
+                      </div>
+                      <div className="p-4 bg-green-50 rounded-lg" data-testid="stat-total-value">
+                        <div className="text-sm text-muted-foreground">Total Value</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          ₹{enhancedHoldings.reduce((sum, h) => sum + parseFloat(h.currentValue || '0'), 0).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-blue-50 rounded-lg" data-testid="stat-total-invested">
+                        <div className="text-sm text-muted-foreground">Total Invested</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          ₹{enhancedHoldings.reduce((sum, h) => sum + parseFloat(h.investedValue || '0'), 0).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-purple-50 rounded-lg" data-testid="stat-total-gain">
+                        <div className="text-sm text-muted-foreground">Total Gain/Loss</div>
+                        <div className={`text-2xl font-bold ${
+                          enhancedHoldings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0) >= 0 
+                            ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {enhancedHoldings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0) >= 0 ? '+' : ''}
+                          ₹{Math.abs(enhancedHoldings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0)).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Holdings by Depository */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="p-4 bg-purple-50 rounded-lg text-center">
+                        <p className="text-sm font-medium text-purple-600">NSDL Holdings</p>
+                        <p className="text-2xl font-bold text-purple-800">
+                          {enhancedHoldings.filter(h => h.exchange === 'NSE' || (h as any).depository === 'NSDL').length}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-indigo-50 rounded-lg text-center">
+                        <p className="text-sm font-medium text-indigo-600">CDSL Holdings</p>
+                        <p className="text-2xl font-bold text-indigo-800">
+                          {enhancedHoldings.filter(h => h.exchange === 'BSE' || (h as any).depository === 'CDSL').length}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Holdings Table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Symbol</TableHead>
+                            <TableHead>Asset Type</TableHead>
+                            <TableHead className="text-right">Quantity</TableHead>
+                            <TableHead className="text-right">Avg Price</TableHead>
+                            <TableHead className="text-right">Current Value</TableHead>
+                            <TableHead className="text-right">Gain/Loss</TableHead>
+                            <TableHead>Exchange</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {enhancedHoldings.map((holding) => (
+                            <TableRow key={holding.id} data-testid={`row-tracker-${holding.id}`}>
+                              <TableCell className="font-medium">{holding.symbol}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize">
+                                  {holding.assetType?.replace('_', ' ') || 'Equity'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">{holding.quantity}</TableCell>
+                              <TableCell className="text-right">₹{parseFloat(holding.avgPrice || '0').toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-medium">
+                                ₹{parseFloat(holding.currentValue || '0').toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className={parseFloat(holding.gainLoss || '0') >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  {parseFloat(holding.gainLoss || '0') >= 0 ? '+' : ''}
+                                  {parseFloat(holding.gainLossPercent || '0').toFixed(2)}%
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={holding.exchange === 'NSE' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}>
+                                  {holding.exchange || 'NSE'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12" data-testid="empty-tracker">
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Holdings Found</h3>
+                    <p className="text-gray-600 mb-4">
+                      Your PAN-linked demat holdings will appear here once connected
+                    </p>
+                    <Button 
+                      variant="outline"
+                      onClick={() => window.location.href = '/settings/demat'}
+                      data-testid="button-connect-demat"
+                    >
+                      Connect Demat Account
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Extra Portfolio Tab - Transactions done outside FintekPro */}
           <TabsContent value="external" className="space-y-8">
             <Card>
               <CardHeader>
@@ -675,15 +815,15 @@ export default function Portfolio() {
                   <div>
                     <CardTitle className="flex items-center space-x-2">
                       <ExternalLink className="h-5 w-5 text-purple-600" />
-                      <span>External Portfolio</span>
+                      <span>Extra Portfolio</span>
                     </CardTitle>
                     <CardDescription>
-                      Holdings synced from external brokers like Zerodha, Groww, and other platforms via Account Aggregator
+                      Investments made outside FintekPro - track your external broker holdings here
                     </CardDescription>
                   </div>
                   <Badge className="bg-purple-100 text-purple-800 border-purple-200">
                     <Shield className="h-3 w-3 mr-1" />
-                    AA Consent Protected
+                    Manual Entry
                   </Badge>
                 </div>
               </CardHeader>
