@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -233,6 +234,18 @@ export function AIRecommendations({
     meta: { risk_level: string; count: number };
   }>({
     queryKey: ["/api/ai-recommendations/quick", riskLevel, productTypes, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        riskLevel,
+        limit: limit.toString(),
+      });
+      if (productTypes && productTypes.length > 0) {
+        params.set("productTypes", productTypes.join(","));
+      }
+      const response = await fetch(`/api/ai-recommendations/quick?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch recommendations");
+      return response.json();
+    },
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
   });

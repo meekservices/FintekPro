@@ -1,6 +1,7 @@
 import { Express, Request, Response } from "express";
 import { aiInvestmentOrchestrator } from "../services/ai-investment-orchestrator-service";
 import { investmentDataCache } from "../services/investment-data-cache";
+import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 import { 
   ClientProfile, 
   UnifiedProductType, 
@@ -110,7 +111,7 @@ export function registerAIInvestmentOrchestratorRoutes(app: Express) {
     }
   });
 
-  app.get("/api/admin/ai-recommendations/dashboard", async (req: Request, res: Response) => {
+  app.get("/api/admin/ai-recommendations/dashboard", requireAuth, requireRole(['admin']), async (req: Request, res: Response) => {
     try {
       const orchestratorMetrics = aiInvestmentOrchestrator.getCacheMetrics();
       const dataCacheMetrics = investmentDataCache.getMetrics();
