@@ -25,6 +25,7 @@ import {
   MessageSquare, CheckCircle, XCircle, Info
 } from "lucide-react";
 import { ProductInquiryForm } from "@/components/store/ProductInquiryForm";
+import { AIRecommendations } from "@/components/store/AIRecommendations";
 
 interface Product {
   id: string;
@@ -868,6 +869,30 @@ export default function StorePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI-Powered Recommendations Section */}
+        {isAuthenticated && (
+          <>
+            <AIRecommendations
+              riskLevel={selectedRisk === "Low" ? "conservative" : selectedRisk === "High" ? "aggressive" : "moderate"}
+              limit={6}
+              onAddToCart={(product) => {
+                toast({
+                  title: "Added to cart",
+                  description: `${product.name} has been added to your cart.`,
+                });
+              }}
+              onViewDetails={(product) => {
+                toast({
+                  title: product.name,
+                  description: `${product.product_type} - Suitability Score: ${product.suitability_score}`,
+                });
+              }}
+              className="mb-8"
+            />
+            <Separator className="my-8" />
+          </>
+        )}
 
         {/* Featured Products Section */}
         <div className="space-y-6">

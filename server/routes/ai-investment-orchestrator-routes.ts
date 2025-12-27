@@ -110,6 +110,40 @@ export function registerAIInvestmentOrchestratorRoutes(app: Express) {
     }
   });
 
+  app.get("/api/admin/ai-recommendations/dashboard", async (req: Request, res: Response) => {
+    try {
+      const orchestratorMetrics = aiInvestmentOrchestrator.getCacheMetrics();
+      const dataCacheMetrics = investmentDataCache.getMetrics();
+      
+      const dashboard = {
+        status: "operational",
+        timestamp: new Date().toISOString(),
+        cache: {
+          orchestrator: orchestratorMetrics,
+          dataCache: dataCacheMetrics
+        },
+        health: {
+          cacheHitRate: dataCacheMetrics.hitRate,
+          totalProducts: dataCacheMetrics.totalProducts,
+          errorCount: dataCacheMetrics.errors,
+          lastRefreshTimes: dataCacheMetrics.lastRefreshTime
+        },
+        features: {
+          aiRationaleEnabled: true,
+          cachingEnabled: true,
+          backgroundRefreshEnabled: true
+        }
+      };
+
+      res.json({
+        success: true,
+        dashboard
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to get dashboard metrics" });
+    }
+  });
+
   investmentDataCache.initialize().catch(err => {
     console.error('❌ Failed to initialize investment data cache:', err);
   });
