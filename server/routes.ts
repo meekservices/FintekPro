@@ -133,6 +133,7 @@ import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
 import portfolioReportsRoutes from "./routes/portfolio-reports";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
+import { registerAIInvestmentOrchestratorRoutes } from "./routes/ai-investment-orchestrator-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -373,6 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/advisory-compliance", investmentAdvisoryComplianceRoutes);
   registerAgentAdvisoryRoutes(app);
   registerAIStockRecommendationRoutes(app);
+  registerAIInvestmentOrchestratorRoutes(app);
   app.use(onboardingInvitationsRoutes);
   app.use(prospectProposalsRoutes);
   app.use(instrumentsRoutes);
