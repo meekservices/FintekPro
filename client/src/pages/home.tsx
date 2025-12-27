@@ -114,6 +114,19 @@ export default function Home() {
     return sum + (holding.currentValue || 0);
   }, 0) : 2850000; // Updated realistic fallback
 
+  // Fetch real platform statistics (moved before platformFeatures for proper hook ordering)
+  const { data: platformStatsData, isLoading: statsLoading } = useQuery<{
+    activeUsers: string;
+    portfolioValue: string;
+    avgPortfolioValue: string;
+    dailyTrades: string;
+    monthlyTrades: string;
+    investmentOptions: string;
+  }>({
+    queryKey: ["/api/platform/stats"],
+    refetchInterval: 60000, // Refresh every minute
+  });
+
   const platformFeatures = [
     {
       title: "AI-Powered Portfolio Management",
@@ -231,19 +244,6 @@ export default function Home() {
       ]
     }
   ];
-
-  // Fetch real platform statistics
-  const { data: platformStatsData, isLoading: statsLoading } = useQuery<{
-    activeUsers: string;
-    portfolioValue: string;
-    avgPortfolioValue: string;
-    dailyTrades: string;
-    monthlyTrades: string;
-    investmentOptions: string;
-  }>({
-    queryKey: ["/api/platform/stats"],
-    refetchInterval: 60000, // Refresh every minute
-  });
 
   const platformStats = [
     { label: "Active Users", value: statsLoading ? "..." : (platformStatsData?.activeUsers || "0"), icon: Users, color: "blue" },
