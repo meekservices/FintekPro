@@ -66,12 +66,13 @@ class ErrorTrackingService {
     const panMasked = maskPan(payload.context.pan);
     
     if (stackHash) {
-      const existingError = await db.query.errorLedger.findFirst({
-        where: and(
+      const [existingError] = await db.select()
+        .from(errorLedger)
+        .where(and(
           eq(errorLedger.stackHash, stackHash),
           eq(errorLedger.status, 'open')
-        )
-      });
+        ))
+        .limit(1);
       
       if (existingError) {
         const [updated] = await db.update(errorLedger)
@@ -171,9 +172,10 @@ class ErrorTrackingService {
   }
 
   async getErrorById(id: string): Promise<ErrorLedgerEntry | null> {
-    const error = await db.query.errorLedger.findFirst({
-      where: eq(errorLedger.id, id)
-    });
+    const [error] = await db.select()
+      .from(errorLedger)
+      .where(eq(errorLedger.id, id))
+      .limit(1);
     return error || null;
   }
 

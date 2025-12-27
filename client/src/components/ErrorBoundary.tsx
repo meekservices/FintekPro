@@ -2,27 +2,31 @@ import { Component, ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, RefreshCw, Home } from 'lucide-react';
+import { AlertCircle, RefreshCw, Home, Copy, Check } from 'lucide-react';
 import { ApiError } from '@/lib/queryClient';
+import { trackException } from '@/lib/error-tracking';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  module?: string;
 }
 
 interface State {
   hasError: boolean;
   error?: Error;
   errorInfo?: React.ErrorInfo;
+  errorId?: string | null;
+  copied: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, copied: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
@@ -33,15 +37,14 @@ export class ErrorBoundary extends Component<Props, State> {
     
     this.setState({ error, errorInfo });
     
-    // In production, send to error tracking service
-    if (!import.meta.env.DEV) {
-      // Example: analytics.trackError(error, { componentStack: errorInfo.componentStack });
-      console.error('Production Error:', {
-        message: error.message,
-        stack: error.stack,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    trackException(error, {
+      module: this.props.module || 'system',
+      metadata: {
+        componentStack: errorInfo.componentStack
+      }
+    }).then(errorId => {
+      this.setState({ errorId });
+    });
   }
 
   handleReload = () => {
@@ -92,10 +95,28 @@ export class ErrorBoundary extends Component<Props, State> {
                 </AlertDescription>
               </Alert>
 
-              {this.state.error instanceof ApiError && this.state.error.traceId && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Error ID: {this.state.error.traceId}
-                </p>
+              {(this.state.errorId || (this.state.error instanceof ApiError && this.state.error.traceId)) && (
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Error ID: {this.state.errorId || (this.state.error instanceof ApiError && this.state.error.traceId)}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => {
+                      const id = this.state.errorId || (this.state.error instanceof ApiError && this.state.error.traceId);
+                      if (id) {
+                        navigator.clipboard.writeText(id);
+                        this.setState({ copied: true });
+                        setTimeout(() => this.setState({ copied: false }), 2000);
+                      }
+                    }}
+                    data-testid="button-copy-error-id"
+                  >
+                    {this.state.copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </Button>
+                </div>
               )}
 
               {import.meta.env.DEV && this.state.error && (

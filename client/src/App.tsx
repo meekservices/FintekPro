@@ -75,6 +75,7 @@ import FinancialOperationsPage from "@/pages/admin/financial-operations";
 import APIConfiguration from "@/pages/admin/api-configuration";
 import ProductionReadiness from "@/pages/admin/production-readiness";
 import ReplitSuggestions from "@/pages/admin/replit-suggestions";
+import ErrorCommandCenter from "@/pages/admin/error-command-center";
 import ZohoDashboardPage from "@/pages/admin/zoho-dashboard";
 import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
 import ZohoLogsPage from "@/pages/admin/zoho-logs";
@@ -884,6 +885,7 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      <Route path="/admin/error-command-center" component={ErrorCommandCenter} />
       <Route component={NotFound} />
     </Switch>
   );
