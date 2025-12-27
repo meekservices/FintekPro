@@ -232,11 +232,22 @@ export default function Home() {
     }
   ];
 
+  // Fetch real platform statistics
+  const { data: platformStatsData, isLoading: statsLoading } = useQuery<{
+    activeUsers: string;
+    portfolioValue: string;
+    dailyTrades: string;
+    monthlyTrades: string;
+  }>({
+    queryKey: ["/api/platform/stats"],
+    refetchInterval: 60000, // Refresh every minute
+  });
+
   const platformStats = [
-    { label: "Active Users", value: "2.5M+", icon: Users, color: "blue" },
-    { label: "Portfolio Value", value: "₹18,500 Cr", icon: PieChart, color: "green" },
-    { label: "Daily Trades", value: "45,000+", icon: TrendingUp, color: "purple" },
-    { label: "API Calls/Day", value: "2.5M", icon: Zap, color: "orange" }
+    { label: "Active Users", value: statsLoading ? "..." : (platformStatsData?.activeUsers || "0"), icon: Users, color: "blue" },
+    { label: "Portfolio Value", value: statsLoading ? "..." : (platformStatsData?.portfolioValue || "₹0"), icon: PieChart, color: "green" },
+    { label: "Daily Trades", value: statsLoading ? "..." : (platformStatsData?.dailyTrades || "0"), icon: TrendingUp, color: "purple" },
+    { label: "Monthly Trades", value: statsLoading ? "..." : (platformStatsData?.monthlyTrades || "0"), icon: Zap, color: "orange" }
   ];
 
   const colorClasses = {

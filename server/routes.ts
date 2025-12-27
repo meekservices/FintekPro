@@ -323,6 +323,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+
+  // Platform Statistics endpoint - Real data for homepage
+  app.get("/api/platform/stats", async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT 
+          (SELECT COUNT(*) FROM users WHERE is_active = true) as active_users,
+          (SELECT COALESCE(SUM(CAST(total_value AS numeric)), 0) FROM portfolios) as total_portfolio_value,
+          (SELECT COUNT(*) FROM unified_orders WHERE created_at >= CURRENT_DATE) as daily_orders,
+          (SELECT COUNT(*) FROM unified_orders WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as monthly_orders
+      `);
+      
+      const stats = result.rows[0] as any;
+      
+      const formatNumber = (num: number): string => {
+        if (num >= 10000000) return `${(num / 10000000).toFixed(1)}Cr`;
+        if (num >= 100000) return `${(num / 100000).toFixed(1)}L`;
+        if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+        return num.toString();
+      };
+      
+      const formatCurrency = (num: number): string => {
+        if (num >= 10000000) return `₹${(num / 10000000).toFixed(0)} Cr`;
+        if (num >= 100000) return `₹${(num / 100000).toFixed(1)} L`;
+        return `₹${formatNumber(num)}`;
+      };
+
+      res.json({
+        activeUsers: formatNumber(Number(stats.active_users) || 0),
+        activeUsersRaw: Number(stats.active_users) || 0,
+        portfolioValue: formatCurrency(Number(stats.total_portfolio_value) || 0),
+        portfolioValueRaw: Number(stats.total_portfolio_value) || 0,
+        dailyTrades: formatNumber(Number(stats.daily_orders) || 0),
+        dailyTradesRaw: Number(stats.daily_orders) || 0,
+        monthlyTrades: formatNumber(Number(stats.monthly_orders) || 0),
+        monthlyTradesRaw: Number(stats.monthly_orders) || 0,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching platform stats:", error);
+      res.json({
+        activeUsers: "0",
+        activeUsersRaw: 0,
+        portfolioValue: "₹0",
+        portfolioValueRaw: 0,
+        dailyTrades: "0",
+        dailyTradesRaw: 0,
+        monthlyTrades: "0",
+        monthlyTradesRaw: 0,
+        lastUpdated: new Date().toISOString()
+      });
+    }
+  });
+
   // GDPR Consent endpoint
   app.post("/api/consent", async (req, res) => {
     try {
