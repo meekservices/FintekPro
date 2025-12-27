@@ -19564,3 +19564,237 @@ export const insertAiRecommendationTrackingSchema = createInsertSchema(aiRecomme
 });
 export type AiRecommendationTracking = typeof aiRecommendationTracking.$inferSelect;
 export type InsertAiRecommendationTracking = z.infer<typeof insertAiRecommendationTrackingSchema>;
+
+// ============================================
+// Error Ledger - Production Error Tracking System
+// ============================================
+
+// Standardized Error Code Taxonomy
+export const ErrorCodeEnum = z.enum([
+  // KYC Errors
+  'KYC_PAN_VERIFY_FAILED',
+  'KYC_AADHAAR_VERIFY_FAILED',
+  'KYC_CKYC_LOOKUP_FAILED',
+  'KYC_DOCUMENT_UPLOAD_FAILED',
+  'KYC_VIDEO_VERIFICATION_FAILED',
+  'KYC_ESIGN_FAILED',
+  'KYC_BANK_VERIFY_FAILED',
+  
+  // Mutual Fund Errors
+  'MF_ORDER_PLACEMENT_FAILED',
+  'MF_SIP_REGISTRATION_FAILED',
+  'MF_REDEMPTION_FAILED',
+  'MF_SWITCH_FAILED',
+  'MF_NAV_FETCH_FAILED',
+  'MF_FOLIO_CREATION_FAILED',
+  
+  // Payment Errors
+  'PAYMENT_GATEWAY_TIMEOUT',
+  'PAYMENT_GATEWAY_FAILURE',
+  'PAYMENT_VERIFICATION_FAILED',
+  'PAYMENT_REFUND_FAILED',
+  'PAYMENT_UPI_TIMEOUT',
+  'PAYMENT_NETBANKING_FAILED',
+  
+  // AIF/PMS Errors
+  'AIF_SUBSCRIPTION_BLOCKED',
+  'AIF_COMMITMENT_FAILED',
+  'PMS_ONBOARDING_FAILED',
+  'PMS_AGREEMENT_FAILED',
+  
+  // Bond/NCD Errors
+  'BOND_ORDER_FAILED',
+  'BOND_ALLOCATION_FAILED',
+  'NCD_APPLICATION_FAILED',
+  'BOND_SETTLEMENT_FAILED',
+  
+  // IPO Errors
+  'IPO_APPLICATION_FAILED',
+  'IPO_UPI_MANDATE_FAILED',
+  'IPO_ALLOTMENT_CHECK_FAILED',
+  
+  // Stock/Trading Errors
+  'STOCK_ORDER_FAILED',
+  'STOCK_PRICE_FETCH_FAILED',
+  'STOCK_MARKET_DATA_UNAVAILABLE',
+  
+  // Unlisted Marketplace Errors
+  'UNLISTED_DEAL_FAILED',
+  'UNLISTED_PRICE_SUGGESTION_FAILED',
+  'UNLISTED_COMPLIANCE_BLOCKED',
+  'UNLISTED_MCA_FETCH_FAILED',
+  
+  // Tax/ITR Errors
+  'TAX_ITR_FILING_FAILED',
+  'TAX_COMPUTATION_FAILED',
+  'TAX_PAYMENT_FAILED',
+  'TAX_VERIFICATION_FAILED',
+  
+  // Authentication Errors
+  'AUTH_SESSION_EXPIRED',
+  'AUTH_OTP_EXPIRED',
+  'AUTH_OTP_INVALID',
+  'AUTH_2FA_FAILED',
+  'AUTH_LOGIN_FAILED',
+  'AUTH_UNAUTHORIZED',
+  
+  // Network/System Errors
+  'NETWORK_DISCONNECTED',
+  'NETWORK_TIMEOUT',
+  'NETWORK_DNS_FAILED',
+  'SERVER_INTERNAL_ERROR',
+  'SERVER_OVERLOADED',
+  'SERVER_MAINTENANCE',
+  
+  // Database Errors
+  'DATABASE_CONNECTION_FAILED',
+  'DATABASE_QUERY_FAILED',
+  'DATABASE_TIMEOUT',
+  'DATABASE_CONSTRAINT_VIOLATION',
+  
+  // API Integration Errors
+  'API_RATE_LIMIT_EXCEEDED',
+  'API_CREDENTIALS_INVALID',
+  'API_SERVICE_UNAVAILABLE',
+  'API_RESPONSE_INVALID',
+  
+  // Document/File Errors
+  'DOCUMENT_UPLOAD_FAILED',
+  'DOCUMENT_PARSE_FAILED',
+  'DOCUMENT_VALIDATION_FAILED',
+  'DOCUMENT_SIZE_EXCEEDED',
+  
+  // Notification Errors
+  'NOTIFICATION_EMAIL_FAILED',
+  'NOTIFICATION_SMS_FAILED',
+  'NOTIFICATION_WHATSAPP_FAILED',
+  'NOTIFICATION_PUSH_FAILED',
+  
+  // Generic/Unknown
+  'UNKNOWN_ERROR',
+  'VALIDATION_ERROR',
+  'PERMISSION_DENIED',
+]);
+
+export type ErrorCode = z.infer<typeof ErrorCodeEnum>;
+
+// Error Severity Levels
+export const ErrorSeverityEnum = z.enum(['info', 'warning', 'error', 'critical']);
+export type ErrorSeverity = z.infer<typeof ErrorSeverityEnum>;
+
+// Error Source
+export const ErrorSourceEnum = z.enum(['frontend', 'backend', 'webhook', 'cron', 'integration']);
+export type ErrorSource = z.infer<typeof ErrorSourceEnum>;
+
+// Error Status
+export const ErrorStatusEnum = z.enum(['open', 'acknowledged', 'in_progress', 'resolved', 'ignored']);
+export type ErrorStatus = z.infer<typeof ErrorStatusEnum>;
+
+// Module Categories
+export const ErrorModuleEnum = z.enum([
+  'kyc', 'mutual_fund', 'aif', 'pms', 'bond', 'ncd', 'ipo', 'stock', 
+  'unlisted', 'tax', 'itr', 'payment', 'auth', 'portfolio', 'store',
+  'admin', 'agent', 'partner', 'notification', 'document', 'api', 'system'
+]);
+export type ErrorModule = z.infer<typeof ErrorModuleEnum>;
+
+// Error Ledger Table
+export const errorLedger = pgTable("error_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Error Classification
+  errorCode: varchar("error_code", { length: 100 }).notNull(),
+  severity: varchar("severity", { length: 20 }).notNull().default("error"),
+  source: varchar("source", { length: 20 }).notNull(),
+  module: varchar("module", { length: 50 }).notNull(),
+  
+  // Error Details
+  message: text("message").notNull(),
+  stackHash: varchar("stack_hash", { length: 64 }),
+  stackTrace: text("stack_trace"),
+  
+  // Context (business-aware)
+  clientId: varchar("client_id").references(() => users.id),
+  agentId: varchar("agent_id").references(() => users.id),
+  panMasked: varchar("pan_masked", { length: 20 }),
+  transactionId: varchar("transaction_id", { length: 100 }),
+  requestId: varchar("request_id", { length: 100 }),
+  
+  // User Agent & Environment
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  url: text("url"),
+  httpMethod: varchar("http_method", { length: 10 }),
+  httpStatus: integer("http_status"),
+  
+  // External Tracking
+  sentryEventId: varchar("sentry_event_id", { length: 100 }),
+  
+  // Status & Resolution
+  status: varchar("status", { length: 20 }).default("open"),
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNote: text("resolution_note"),
+  
+  // Occurrence Tracking
+  occurrenceCount: integer("occurrence_count").default(1),
+  firstOccurrence: timestamp("first_occurrence").defaultNow(),
+  lastOccurrence: timestamp("last_occurrence").defaultNow(),
+  
+  // Environment
+  environment: varchar("environment", { length: 20 }).default("production"),
+  buildVersion: varchar("build_version", { length: 50 }),
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_error_ledger_severity").on(table.severity),
+  index("idx_error_ledger_status").on(table.status),
+  index("idx_error_ledger_module").on(table.module),
+  index("idx_error_ledger_error_code").on(table.errorCode),
+  index("idx_error_ledger_client").on(table.clientId),
+  index("idx_error_ledger_agent").on(table.agentId),
+  index("idx_error_ledger_created").on(table.createdAt),
+  index("idx_error_ledger_sentry").on(table.sentryEventId),
+  index("idx_error_ledger_stack_hash").on(table.stackHash),
+]);
+
+export const insertErrorLedgerSchema = createInsertSchema(errorLedger).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  acknowledgedAt: true,
+  resolvedAt: true,
+  firstOccurrence: true,
+  lastOccurrence: true,
+});
+export type ErrorLedgerEntry = typeof errorLedger.$inferSelect;
+export type InsertErrorLedger = z.infer<typeof insertErrorLedgerSchema>;
+
+// Error Ingestion Request Schema (for API validation)
+export const errorIngestionSchema = z.object({
+  source: ErrorSourceEnum,
+  severity: ErrorSeverityEnum,
+  errorCode: ErrorCodeEnum.or(z.string()),
+  message: z.string().min(1).max(2000),
+  stack: z.string().max(10000).optional(),
+  context: z.object({
+    module: ErrorModuleEnum.or(z.string()),
+    clientId: z.string().uuid().optional(),
+    agentId: z.string().uuid().optional(),
+    transactionId: z.string().optional(),
+    pan: z.string().optional(),
+    requestId: z.string().optional(),
+    url: z.string().optional(),
+    userAgent: z.string().optional(),
+    metadata: z.record(z.any()).optional(),
+  }),
+  sentryEventId: z.string().optional(),
+  buildVersion: z.string().optional(),
+});
+export type ErrorIngestionRequest = z.infer<typeof errorIngestionSchema>;
