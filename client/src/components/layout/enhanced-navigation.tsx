@@ -210,9 +210,9 @@ export function EnhancedNavigation() {
           icon: ClipboardCheck,
           description: "Investment recommendations",
           subItems: [
-            { name: "AI Proposals", href: "/client-proposals?type=ai", description: "AI-generated recommendations", badge: "AI" },
-            { name: "Agent Proposals", href: "/client-proposals?type=agent", description: "Agent-created proposals" },
-            { name: "Proposal History", href: "/client-proposals?tab=history", description: "Accepted & rejected proposals" }
+            { name: "AI Proposals", href: "/my-proposals?type=ai", description: "AI-generated recommendations", badge: "AI" },
+            { name: "Agent Proposals", href: "/my-proposals?type=agent", description: "Agent-created proposals" },
+            { name: "Proposal History", href: "/my-proposals?tab=history", description: "Accepted & rejected proposals" }
           ]
         }] : []),
         {
@@ -395,33 +395,33 @@ export function EnhancedNavigation() {
       items: [
         {
           name: "Agent Dashboard",
-          href: "/agent-dashboard",
+          href: "/agent",
           icon: LayoutDashboard,
           description: "Agent overview"
         },
         {
           name: "Client Proposals",
-          href: "/agent-proposals",
+          href: "/admin-proposals",
           icon: ClipboardCheck,
           description: "Create & manage proposals"
         },
         {
-          name: "Revenue & Commissions",
-          href: "/agent-revenue-cockpit",
+          name: "Agent Performance",
+          href: "/agent-performance",
           icon: BadgePercent,
-          description: "Earnings & payouts"
+          description: "Performance metrics"
         },
         {
-          name: "Tax Cases",
-          href: "/agent-tax-cases",
+          name: "Field View",
+          href: "/agent-field-view",
           icon: FileText,
-          description: "Tax filing cases"
+          description: "Field activities"
         },
         {
-          name: "Portfolio Reports",
-          href: "/agent-portfolio-report-builder",
+          name: "AI Recommendations",
+          href: "/ai-recommendations",
           icon: PieChart,
-          description: "Client portfolio analysis"
+          description: "AI-powered insights"
         }
       ]
     });
