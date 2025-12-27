@@ -9830,7 +9830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cache: 'market-movers',
         ...metrics,
         cacheAgeSeconds: metrics.cacheAge ? Math.round(metrics.cacheAge / 1000) : null,
-        lastRefreshTimeSeconds: metrics.lastRefreshDuration ? Math.round(metrics.lastRefreshDuration) : null,
+        lastRefreshDurationMs: metrics.lastRefreshDuration || null,
       });
     } catch (error) {
       res.status(500).json({ error: 'Failed to get cache metrics' });
