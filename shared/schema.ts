@@ -17524,6 +17524,212 @@ export const ProspectProposalTypeEnum = z.enum(['sample_portfolio', 'fresh_inves
 // Proposal status enum
 export const ProspectProposalStatusEnum = z.enum(['draft', 'shared', 'viewed', 'converted', 'expired']);
 
+// ============ PROSPECT CLIENT LIFECYCLE ============
+// Tracks prospect through PROSPECT → ONBOARDED → ACTIVE_CLIENT
+
+export const ProspectStateEnum = z.enum(['prospect', 'onboarded', 'active_client']);
+export type ProspectState = z.infer<typeof ProspectStateEnum>;
+
+export const prospectClients = pgTable("prospect_clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent relationship
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Basic prospect info
+  name: varchar("name").notNull(),
+  email: varchar("email"),
+  mobile: varchar("mobile"),
+  pan: varchar("pan"),
+  
+  // Client type and risk profile
+  clientType: varchar("client_type").default("individual"),
+  indicativeRiskProfile: varchar("indicative_risk_profile"),
+  
+  // Lifecycle state machine
+  state: varchar("state").notNull().default("prospect"), // prospect, onboarded, active_client
+  
+  // Consent tracking
+  portfolioFetchConsent: boolean("portfolio_fetch_consent").default(false),
+  portfolioFetchConsentAt: timestamp("portfolio_fetch_consent_at"),
+  advisoryConsent: boolean("advisory_consent").default(false),
+  advisoryConsentAt: timestamp("advisory_consent_at"),
+  
+  // Fetched portfolio (from NSDL/CDSL via PAN)
+  fetchedPortfolio: jsonb("fetched_portfolio").$type<{
+    fetchedAt: string;
+    source: string; // 'nsdl' | 'cdsl' | 'manual_upload' | 'pan_fetch'
+    holdings: Array<{
+      isin?: string;
+      symbol?: string;
+      name: string;
+      productType: string;
+      quantity: number;
+      currentValue: number;
+      purchaseValue?: number;
+      purchaseDate?: string;
+    }>;
+    totalValue: number;
+    assetAllocation: Record<string, number>;
+  }>(),
+  
+  // Uploaded portfolio (PDF/Excel)
+  uploadedPortfolio: jsonb("uploaded_portfolio").$type<{
+    uploadedAt: string;
+    fileName: string;
+    fileType: string;
+    parsedHoldings: Array<{
+      name: string;
+      productType: string;
+      quantity: number;
+      currentValue: number;
+    }>;
+    totalValue: number;
+  }>(),
+  
+  // AI Portfolio Analysis
+  portfolioAnalysis: jsonb("portfolio_analysis").$type<{
+    analyzedAt: string;
+    assetAllocationBreakdown: Record<string, { value: number; percentage: number }>;
+    concentrationRisk: {
+      topHoldingConcentration: number;
+      sectorConcentration: Record<string, number>;
+      alerts: string[];
+    };
+    performanceVsBenchmark: {
+      portfolioReturn: number;
+      benchmarkReturn: number;
+      alpha: number;
+      period: string;
+    };
+    missingAssetClasses: string[];
+    externalVsFintekpro: {
+      externalPercentage: number;
+      fintekproPercentage: number;
+    };
+    gapAnalysis: Array<{
+      gap: string;
+      severity: 'low' | 'medium' | 'high';
+      recommendation: string;
+    }>;
+    overallScore: number;
+    riskScore: number;
+  }>(),
+  
+  // Conversion tracking
+  convertedUserId: varchar("converted_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_prospect_clients_agent").on(table.agentId),
+  index("idx_prospect_clients_state").on(table.state),
+  index("idx_prospect_clients_pan").on(table.pan),
+]);
+
+export const insertProspectClientSchema = createInsertSchema(prospectClients).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ProspectClient = typeof prospectClients.$inferSelect;
+export type InsertProspectClient = z.infer<typeof insertProspectClientSchema>;
+
+// ============ PROPOSAL INTERACTIONS ============
+// Client questions, agent responses, and revision tracking
+
+export const proposalInteractions = pgTable("proposal_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
+  
+  // Interaction type
+  type: varchar("type").notNull(), // question, answer, revision_request, revision_completed, approval, rejection
+  
+  // Content
+  senderType: varchar("sender_type").notNull(), // client, agent
+  content: text("content").notNull(),
+  
+  // For revisions
+  revisionDetails: jsonb("revision_details").$type<{
+    originalValue?: any;
+    newValue?: any;
+    field?: string;
+    reason?: string;
+  }>(),
+  
+  // Read status
+  isRead: boolean("is_read").default(false),
+  readAt: timestamp("read_at"),
+  
+  // Timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_interactions_proposal").on(table.proposalId),
+  index("idx_proposal_interactions_type").on(table.type),
+]);
+
+export const insertProposalInteractionSchema = createInsertSchema(proposalInteractions).omit({
+  id: true,
+  createdAt: true,
+});
+export type ProposalInteraction = typeof proposalInteractions.$inferSelect;
+export type InsertProposalInteraction = z.infer<typeof insertProposalInteractionSchema>;
+
+// ============ CLIENT APPROVAL WORKFLOW ============
+// Tracks formal client approval for execution
+
+export const proposalApprovals = pgTable("proposal_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").references(() => prospectProposals.id).notNull(),
+  prospectClientId: varchar("prospect_client_id").references(() => prospectClients.id),
+  
+  // Approval status
+  status: varchar("status").notNull().default("pending"), // pending, approved, rejected, deferred
+  
+  // Disclosure acknowledgments
+  disclosureAcknowledged: boolean("disclosure_acknowledged").default(false),
+  disclosureAcknowledgedAt: timestamp("disclosure_acknowledged_at"),
+  riskAcknowledged: boolean("risk_acknowledged").default(false),
+  riskAcknowledgedAt: timestamp("risk_acknowledged_at"),
+  executionConsent: boolean("execution_consent").default(false),
+  executionConsentAt: timestamp("execution_consent_at"),
+  
+  // Digital signature
+  signatureType: varchar("signature_type"), // otp, esign, physical
+  signatureData: jsonb("signature_data"),
+  signedAt: timestamp("signed_at"),
+  
+  // Client notes
+  clientNotes: text("client_notes"),
+  
+  // Approval/Rejection details
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  deferredUntil: timestamp("deferred_until"),
+  
+  // Immutable audit
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_proposal_approvals_proposal").on(table.proposalId),
+  index("idx_proposal_approvals_status").on(table.status),
+]);
+
+export const insertProposalApprovalSchema = createInsertSchema(proposalApprovals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ProposalApproval = typeof proposalApprovals.$inferSelect;
+export type InsertProposalApproval = z.infer<typeof insertProposalApprovalSchema>;
+
 // Goal types for fresh investment proposals
 export const InvestmentGoalTypes = [
   'retirement',

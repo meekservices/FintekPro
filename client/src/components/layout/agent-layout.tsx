@@ -74,6 +74,7 @@ const agentNavCategories: NavCategory[] = [
       { title: "My Clients", href: "/clients", icon: Users, description: "Client portfolio" },
       { title: "Onboard Client", href: "/onboard-client", icon: UserPlus, description: "New client KYC" },
       { title: "Lead Pipeline", href: "/leads", icon: Target, description: "Track prospects" },
+      { title: "Client Acquisition", href: "/client-acquisition", icon: UserPlus, description: "Acquire new clients" },
       { title: "Sales Pipeline", href: "/crm/pipeline", icon: TrendingUp, description: "Deal stages" },
       { title: "CRM Analytics", href: "/crm/analytics", icon: BarChart3, description: "CRM insights" },
       { title: "Tasks", href: "/tasks", icon: CheckSquare, description: "Tasks and reminders" },
