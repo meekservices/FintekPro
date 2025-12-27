@@ -119,8 +119,13 @@ export default function Home() {
     activeUsers: string;
     portfolioValue: string;
     avgPortfolioValue: string;
+    portfoliosCount: string;
     dailyTrades: string;
     monthlyTrades: string;
+    mutualFundsCount: string;
+    bondsCount: string;
+    stocksCount: string;
+    activeIpos: string;
     investmentOptions: string;
   }>({
     queryKey: ["/api/platform/stats"],
@@ -161,12 +166,12 @@ export default function Home() {
   const investmentProducts = [
     {
       name: "Mutual Funds",
-      description: "MF Central integration with 2,500+ schemes",
+      description: "Comprehensive mutual fund investment platform",
       icon: Coins,
       color: "blue",
       route: "/mutual-funds",
       features: ["Live NAV", "SIP Calculator", "Goal Planning"],
-      volume: "₹45.2L Cr AUM"
+      volume: statsLoading ? "Loading..." : `${platformStatsData?.mutualFundsCount || "0"} Schemes Available`
     },
     {
       name: "Portfolio Tracker",
@@ -175,7 +180,7 @@ export default function Home() {
       color: "green", 
       route: "/portfolio",
       features: ["Real-time Tracking", "Risk Analysis", "Rebalancing"],
-      volume: "₹12.8L+ Portfolios"
+      volume: statsLoading ? "Loading..." : `${platformStatsData?.portfoliosCount || "0"} Active Portfolios`
     },
     {
       name: "IPO Center",
@@ -184,7 +189,7 @@ export default function Home() {
       color: "purple",
       route: "/ipo",
       features: ["Live Applications", "GMP Tracking", "Allotment Status"],
-      volume: "45+ Active IPOs"
+      volume: statsLoading ? "Loading..." : `${platformStatsData?.activeIpos || "0"} Active IPOs`
     },
     {
       name: "Market Intelligence",
@@ -193,7 +198,7 @@ export default function Home() {
       color: "red",
       route: "/markets", 
       features: ["Live Quotes", "Technical Charts", "News Feed"],
-      volume: "5,000+ Stocks Tracked"
+      volume: statsLoading ? "Loading..." : `${platformStatsData?.stocksCount || "0"} Stocks Tracked`
     },
     {
       name: "Bonds & NCDs",
@@ -202,7 +207,7 @@ export default function Home() {
       color: "yellow",
       route: "/bonds",
       features: ["Government Bonds", "Corporate NCDs", "Tax-free Bonds"],
-      volume: "₹85.4K Cr Issuances"
+      volume: statsLoading ? "Loading..." : `${platformStatsData?.bondsCount || "0"} Bonds Available`
     },
     {
       name: "Loan Services",
@@ -211,7 +216,7 @@ export default function Home() {
       color: "indigo",
       route: "/loans",
       features: ["LAS Facility", "Digital KYC", "Instant Approval"],
-      volume: "₹2,850 Cr Disbursed"
+      volume: "Multiple Lending Partners"
     }
   ];
 
@@ -219,8 +224,8 @@ export default function Home() {
     {
       category: "Investment Services",
       services: [
-        { name: "NSDL Services", desc: "410M+ demat accounts", icon: Database, route: "/nsdl-services" },
-        { name: "CDSL Services", desc: "6.5Cr+ BO accounts", icon: Shield, route: "/cdsl-services" },
+        { name: "NSDL Services", desc: "Depository services integration", icon: Database, route: "/nsdl-services" },
+        { name: "CDSL Services", desc: "Depository account access", icon: Shield, route: "/cdsl-services" },
         { name: "Pre-IPO Access", desc: "Unicorn equity stakes", icon: Sparkles, route: "/pre-ipo" },
         { name: "Unlisted Securities", desc: "Pre-IPO opportunities", icon: Building2, route: "/unlisted" }
       ]
@@ -228,16 +233,16 @@ export default function Home() {
     {
       category: "Loans & Credit",
       services: [
-        { name: "Personal Loan", desc: "Quick personal loans up to ₹40L", icon: CreditCard, route: "/loans?type=personal" },
+        { name: "Personal Loan", desc: "Quick personal loans", icon: CreditCard, route: "/loans?type=personal" },
         { name: "Home Loan", desc: "Competitive home loan rates", icon: Building2, route: "/loans?type=home" },
         { name: "Business Loan", desc: "SME & corporate financing", icon: Briefcase, route: "/loans?type=business" },
-        { name: "Loan Against Securities", desc: "LAS facility up to 80% value", icon: Receipt, route: "/loans?type=las" }
+        { name: "Loan Against Securities", desc: "Flexible LAS facility", icon: Receipt, route: "/loans?type=las" }
       ]
     },
     {
       category: "Professional Tools",
       services: [
-        { name: "Calculators", desc: "25+ financial tools", icon: Calculator, route: "/calculators" },
+        { name: "Calculators", desc: "Financial planning tools", icon: Calculator, route: "/calculators" },
         { name: "CIBIL Services", desc: "Credit score check", icon: Activity, route: "/cibil" },
         { name: "Capital Gains", desc: "Tax reports", icon: Receipt, route: "/capital-gains" },
         { name: "KYC Verification", desc: "KYC compliance", icon: CheckCircle, route: "/onboarding" }
@@ -304,7 +309,7 @@ export default function Home() {
                 
                 <div className="space-y-4">
                   <Badge className="bg-yellow-500 text-yellow-900 text-sm px-4 py-2 font-semibold">
-                    🚀 India's #1 Fintech Platform
+                    🚀 Your Complete Financial Platform
                   </Badge>
                   <h1 className="text-5xl lg:text-6xl font-bold leading-tight">
                     Build Wealth with 
@@ -314,7 +319,7 @@ export default function Home() {
                   </h1>
                   <p className="text-xl text-blue-100 leading-relaxed">
                     Complete financial platform with AI-powered portfolio management, real-time market data, 
-                    and access to 15,000+ investment options. Start your wealth journey with ₹500.
+                    and access to diverse investment options. Start your wealth journey today.
                   </p>
                 </div>
                 
