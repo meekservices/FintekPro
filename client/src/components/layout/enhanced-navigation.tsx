@@ -397,7 +397,7 @@ export function EnhancedNavigation() {
         },
         {
           name: "Client Proposals",
-          href: "/admin-proposals",
+          href: "/admin/proposals",
           icon: ClipboardCheck,
           description: "Create & manage proposals"
         },

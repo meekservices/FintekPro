@@ -26,14 +26,14 @@ export function QuickActionsWidget() {
   const guestActions: QuickAction[] = [
     { name: "Start Investing", href: "/auth", icon: TrendingUp, color: "text-blue-600", bgColor: "bg-blue-50 dark:bg-blue-950", description: "Begin your investment journey" },
     { name: "Explore Funds", href: "/mutual-funds", icon: PlusCircle, color: "text-green-600", bgColor: "bg-green-50 dark:bg-green-950", description: "Browse mutual funds" },
-    { name: "Calculators", href: "/financial-calculators", icon: Calculator, color: "text-purple-600", bgColor: "bg-purple-50 dark:bg-purple-950", description: "Plan your finances" },
+    { name: "Calculators", href: "/calculators", icon: Calculator, color: "text-purple-600", bgColor: "bg-purple-50 dark:bg-purple-950", description: "Plan your finances" },
   ];
 
   const authenticatedActions: QuickAction[] = [
     { name: "Add Investment", href: "/mutual-funds", icon: PlusCircle, color: "text-green-600", bgColor: "bg-green-50 dark:bg-green-950", description: "Invest in funds" },
     { name: "View Portfolio", href: "/portfolio", icon: TrendingUp, color: "text-blue-600", bgColor: "bg-blue-50 dark:bg-blue-950", description: "Check holdings" },
-    { name: "Tax Reports", href: "/capital-gains-reports", icon: FileText, color: "text-amber-600", bgColor: "bg-amber-50 dark:bg-amber-950", description: "Generate reports" },
-    { name: "Calculators", href: "/financial-calculators", icon: Calculator, color: "text-purple-600", bgColor: "bg-purple-50 dark:bg-purple-950", description: "Plan finances" },
+    { name: "Tax Reports", href: "/capital-gains", icon: FileText, color: "text-amber-600", bgColor: "bg-amber-50 dark:bg-amber-950", description: "Generate reports" },
+    { name: "Calculators", href: "/calculators", icon: Calculator, color: "text-purple-600", bgColor: "bg-purple-50 dark:bg-purple-950", description: "Plan finances" },
     { name: "KYC Status", href: "/kyc-dashboard", icon: Shield, color: "text-indigo-600", bgColor: "bg-indigo-50 dark:bg-indigo-950", description: "Verify identity" },
   ];
 
