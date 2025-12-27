@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +19,10 @@ import {
   PiggyBank,
   Users,
   Download,
-  RefreshCw
+  RefreshCw,
+  LogIn
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NetWorthData {
   summary: {
@@ -59,12 +62,52 @@ interface NetWorthData {
 
 export default function NetWorthPage() {
   const [includeFamilyWealth, setIncludeFamilyWealth] = useState(false);
+  const { user, isLoading: authLoading } = useAuth();
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; data: NetWorthData }>({
+  const { data, isLoading, isError, error, refetch } = useQuery<{ success: boolean; data: NetWorthData }>({
     queryKey: includeFamilyWealth ? ["/api/net-worth?includeFamily=true"] : ["/api/net-worth"],
+    enabled: !!user, // Only fetch when user is authenticated
+    retry: 2,
   });
 
   const netWorthData = data?.data;
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Checking authentication...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <LogIn className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2" data-testid="text-login-required">Login Required</h3>
+              <p className="text-muted-foreground mb-6">Please log in to view your net worth dashboard.</p>
+              <Link href="/auth">
+                <Button data-testid="button-login">
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Log In
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -112,15 +155,62 @@ export default function NetWorthPage() {
     );
   }
 
+  // Show error state with retry option
+  if (isError) {
+    const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+              <h3 className="text-lg font-semibold mb-2" data-testid="text-error-title">Failed to Load Net Worth</h3>
+              <p className="text-muted-foreground mb-4" data-testid="text-error-message">
+                {errorMessage.includes("401") || errorMessage.includes("Unauthorized") 
+                  ? "Your session may have expired. Please log in again."
+                  : "We couldn't load your net worth data. Please try again."}
+              </p>
+              <div className="flex justify-center gap-4">
+                <Button variant="outline" onClick={() => refetch()} data-testid="button-retry">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
+                <Link href="/">
+                  <Button variant="ghost" data-testid="button-go-home">
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!netWorthData) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Card>
-          <CardContent className="py-8">
+          <CardContent className="py-12">
             <div className="text-center">
-              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
-              <p className="text-muted-foreground">Unable to load net worth data. Please try again.</p>
+              <Wallet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2" data-testid="text-no-data">No Net Worth Data Yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Start by adding your investments, bank accounts, and liabilities to see your complete financial picture.
+              </p>
+              <div className="flex justify-center gap-4">
+                <Link href="/wealth-management">
+                  <Button data-testid="button-add-investments">
+                    <PiggyBank className="h-4 w-4 mr-2" />
+                    Add Investments
+                  </Button>
+                </Link>
+                <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-data">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
