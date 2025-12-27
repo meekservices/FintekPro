@@ -496,6 +496,65 @@ router.post("/refresh", requireOwnership('userId'), async (req: Request, res: Re
   }
 });
 
+// Retry a single failed data source
+router.post("/retry-source", async (req: Request, res: Response) => {
+  try {
+    // Get userId from session for security - don't rely on client-provided userId
+    const sessionUserId = req.session?.user?.id;
+    const { dataSource } = req.body;
+    
+    if (!sessionUserId) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required"
+      });
+    }
+    
+    if (!dataSource) {
+      return res.status(400).json({
+        success: false,
+        error: "dataSource is required"
+      });
+    }
+    
+    const userId = sessionUserId;
+
+    // Validate data source
+    const validSources = ['mutual_funds', 'demat', 'bank', 'loans', 'insurance', 'epf', 'nps', 'apy'];
+    if (!validSources.includes(dataSource)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid data source. Must be one of: ${validSources.join(', ')}`
+      });
+    }
+
+    // Check if user has consent for this data source
+    const hasConsent = await consentManagementService.hasValidConsent(userId, dataSource);
+    if (!hasConsent) {
+      return res.status(400).json({
+        success: false,
+        error: `No valid consent for ${dataSource}. Please grant consent first.`,
+        errorSuggestion: 'Grant consent for this data source before retrying.'
+      });
+    }
+
+    // Retry fetch for the specific data source
+    const result = await autoPopulationOrchestrator.retryDataSource(userId, dataSource);
+
+    res.json({
+      success: true,
+      message: `Retry initiated for ${dataSource}`,
+      result
+    });
+  } catch (error: any) {
+    console.error('Error retrying data source:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to retry data source'
+    });
+  }
+});
+
 // ===== DATA SOURCE SPECIFIC ENDPOINTS =====
 
 // Fetch loan liabilities from CIBIL

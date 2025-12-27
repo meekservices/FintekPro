@@ -1288,6 +1288,189 @@ export class AutoPopulationOrchestrator {
       .where(eq(autoPopulationStatus.userId, userId))
       .orderBy(desc(autoPopulationStatus.initiatedAt));
   }
+
+  /**
+   * Retry a single failed data source
+   */
+  async retryDataSource(userId: string, dataSource: DataSourceType): Promise<DataSourceResult> {
+    console.log(`🔄 Retrying data source: ${dataSource} for user ${userId}`);
+
+    try {
+      // Get KYC data from vault
+      const kycData = await this.getKYCData(userId);
+      if (!kycData) {
+        const { message, suggestion } = ERROR_MESSAGES['KYC_NOT_FOUND'];
+        return {
+          source: dataSource,
+          success: false,
+          recordsFetched: 0,
+          error: message,
+          errorSuggestion: suggestion,
+          retryable: false
+        };
+      }
+
+      // Check consent for this specific source
+      const hasConsent = await consentManagementService.hasValidConsent(userId, dataSource);
+      
+      // Retry the specific source
+      let result: DataSourceResult;
+      
+      switch (dataSource) {
+        case 'mutual_funds':
+          result = await this.fetchMutualFunds(kycData, hasConsent);
+          break;
+        case 'demat':
+          result = await this.fetchDematHoldings(kycData, hasConsent);
+          break;
+        case 'bank':
+          result = await this.fetchBankAccounts(kycData, hasConsent);
+          break;
+        case 'loans':
+          result = await this.fetchLoanLiabilities(kycData, hasConsent);
+          break;
+        case 'insurance':
+          result = await this.fetchInsurancePolicies(kycData, hasConsent);
+          break;
+        case 'epf':
+          result = await this.fetchEPFHoldings(kycData, hasConsent);
+          break;
+        case 'nps':
+          result = await this.fetchNPSAccounts(kycData, hasConsent);
+          break;
+        case 'apy':
+          result = await this.fetchAPYAccounts(kycData, hasConsent);
+          break;
+        default:
+          result = {
+            source: dataSource,
+            success: false,
+            recordsFetched: 0,
+            error: `Unknown data source: ${dataSource}`,
+            retryable: false
+          };
+      }
+
+      // Store data if successful
+      if (result.success && result.data) {
+        await this.storeHoldings(userId, dataSource, result.data);
+      }
+
+      // Update the latest workflow status for this user
+      await this.updateLatestWorkflowSourceStatus(userId, dataSource, result);
+
+      console.log(`${result.success ? '✅' : '❌'} Retry ${dataSource}: ${result.success ? 'succeeded' : 'failed'}`);
+      return result;
+
+    } catch (error: any) {
+      console.error(`❌ Error retrying ${dataSource}:`, error.message);
+      const { message, suggestion } = this.getEnhancedError(error);
+      const result: DataSourceResult = {
+        source: dataSource,
+        success: false,
+        recordsFetched: 0,
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: this.isRetryableError(error)
+      };
+      
+      // Update the latest workflow status for this user
+      await this.updateLatestWorkflowSourceStatus(userId, dataSource, result);
+      
+      return result;
+    }
+  }
+
+  /**
+   * Update latest workflow's source status after a retry
+   */
+  private async updateLatestWorkflowSourceStatus(
+    userId: string, 
+    dataSource: DataSourceType, 
+    result: DataSourceResult
+  ): Promise<void> {
+    try {
+      // Get the most recent workflow for this user
+      const workflows = await this.getUserWorkflows(userId);
+      if (workflows.length === 0) {
+        console.log(`No existing workflow to update for user ${userId}`);
+        return;
+      }
+
+      const latestWorkflow = workflows[0];
+      
+      // Parse existing source status and normalize legacy string values to objects
+      const rawSourceStatus = (latestWorkflow.sourceStatus as Record<string, any>) || {};
+      const sourceStatus: Record<string, any> = {};
+      
+      // Normalize existing entries - convert legacy string statuses to object format
+      for (const [key, value] of Object.entries(rawSourceStatus)) {
+        if (typeof value === 'string') {
+          // Legacy format: string like 'success', 'failed', 'pending'
+          sourceStatus[key] = {
+            status: value === 'success' ? 'completed' : value,
+            recordsFetched: 0,
+            error: value === 'failed' ? 'Unknown error' : undefined
+          };
+        } else if (typeof value === 'object' && value !== null) {
+          // Already object format
+          sourceStatus[key] = value;
+        }
+      }
+      
+      const sourceErrors = (latestWorkflow.sourceErrors as Record<string, any>) || {};
+      
+      // Update the specific source status
+      sourceStatus[dataSource] = {
+        status: result.success ? 'completed' : 'failed',
+        recordsFetched: result.recordsFetched,
+        totalValue: result.totalValue,
+        error: result.error,
+        errorSuggestion: result.errorSuggestion,
+        retryable: result.retryable,
+        lastRetryAt: new Date().toISOString()
+      };
+      
+      if (result.error) {
+        sourceErrors[dataSource] = result.error;
+      } else {
+        delete sourceErrors[dataSource];
+      }
+
+      // Recalculate summary using normalized data
+      const sources = Object.values(sourceStatus);
+      const successfulSources = sources.filter(s => 
+        s.status === 'completed' || s.status === 'success'
+      ).length;
+      const failedSources = sources.filter(s => s.status === 'failed').length;
+      const totalRecordsFetched = sources.reduce((sum, s) => sum + (s.recordsFetched || 0), 0);
+
+      // Preserve original totals for sources not yet updated
+      const originalSuccessful = latestWorkflow.successfulSources || 0;
+      const originalFailed = latestWorkflow.failedSources || 0;
+      const originalRecords = latestWorkflow.totalRecordsFetched || 0;
+
+      // Update workflow record
+      await db
+        .update(autoPopulationStatus)
+        .set({
+          sourceStatus,
+          sourceErrors,
+          successfulSources: Math.max(successfulSources, originalSuccessful - (result.success ? 0 : 1)),
+          failedSources: Math.max(0, failedSources),
+          totalRecordsFetched: result.success 
+            ? originalRecords + result.recordsFetched 
+            : originalRecords,
+          status: failedSources === 0 ? 'completed' : 'partial_success'
+        })
+        .where(eq(autoPopulationStatus.workflowId, latestWorkflow.workflowId));
+
+      console.log(`📊 Updated workflow ${latestWorkflow.workflowId} source status for ${dataSource}`);
+    } catch (error: any) {
+      console.error(`Failed to update workflow source status:`, error.message);
+      // Don't throw - this is not critical
+    }
+  }
 }
 
 // Export singleton instance

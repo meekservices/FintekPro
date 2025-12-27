@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   CheckCircle2,
   XCircle,
@@ -233,6 +234,32 @@ export default function AutoPopulationDashboard() {
     onError: (error: any) => {
       toast({
         title: 'Failed to renew consent',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  // Mutation: Retry a single failed data source
+  const retrySingleSourceMutation = useMutation({
+    mutationFn: async (dataSource: string) => {
+      // Server gets userId from session - more secure than client-sent
+      return apiRequest('POST', `/api/auto-populate/retry-source`, {
+        body: { dataSource }
+      });
+    },
+    onSuccess: (_data, variables) => {
+      const dataSource = variables;
+      toast({
+        title: 'Retrying data fetch',
+        description: `Attempting to fetch ${DATA_SOURCE_CONFIG[dataSource as DataSourceType]?.label || dataSource} data again.`
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/workflows', userId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/status', userId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Retry failed',
         description: error.message,
         variant: 'destructive'
       });
@@ -543,50 +570,112 @@ export default function AutoPopulationDashboard() {
               ) : (
                 <div className="space-y-3">
                   {workflows.map((workflow) => (
-                    <div
-                      key={workflow.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selectedWorkflow === workflow.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => setSelectedWorkflow(workflow.id)}
-                      data-testid={`workflow-item-${workflow.id}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">Workflow {workflow.id.substring(0, 8)}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Started: {new Date(workflow.startedAt).toLocaleString()}
-                          </p>
-                          {workflow.completedAt && (
-                            <p className="text-sm text-muted-foreground">
-                              Completed: {new Date(workflow.completedAt).toLocaleString()}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="text-sm font-medium">
-                              {workflow.summary.totalRecordsFetched} records
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {workflow.summary.successfulSources}/{workflow.summary.totalSources} sources
-                            </p>
+                    <Collapsible key={workflow.id}>
+                      <CollapsibleTrigger asChild>
+                        <div
+                          className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                            selectedWorkflow === workflow.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                          }`}
+                          onClick={() => setSelectedWorkflow(workflow.id)}
+                          data-testid={`workflow-item-${workflow.id}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Workflow {workflow.id.substring(0, 8)}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Started: {new Date(workflow.startedAt).toLocaleString()}
+                              </p>
+                              {workflow.completedAt && (
+                                <p className="text-sm text-muted-foreground">
+                                  Completed: {new Date(workflow.completedAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <p className="text-sm font-medium">
+                                  {workflow.summary.totalRecordsFetched} records
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {workflow.summary.successfulSources}/{workflow.summary.totalSources} sources
+                                </p>
+                              </div>
+                              <Badge
+                                variant={
+                                  workflow.status === 'completed'
+                                    ? 'default'
+                                    : workflow.status === 'failed'
+                                    ? 'destructive'
+                                    : 'secondary'
+                                }
+                                data-testid={`badge-status-${workflow.id}`}
+                              >
+                                {workflow.status}
+                              </Badge>
+                            </div>
                           </div>
-                          <Badge
-                            variant={
-                              workflow.status === 'completed'
-                                ? 'default'
-                                : workflow.status === 'failed'
-                                ? 'destructive'
-                                : 'secondary'
-                            }
-                            data-testid={`badge-status-${workflow.id}`}
-                          >
-                            {workflow.status}
-                          </Badge>
                         </div>
-                      </div>
-                    </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        {/* Source-level details with retry buttons for failed sources */}
+                        {workflow.sourceStatuses && Object.keys(workflow.sourceStatuses).length > 0 && (
+                          <div className="mt-2 ml-4 p-3 border-l-2 border-muted space-y-2">
+                            {Object.entries(workflow.sourceStatuses).map(([source, status]: [string, any]) => {
+                              const config = DATA_SOURCE_CONFIG[source as DataSourceType];
+                              const Icon = config?.icon || Database;
+                              const isFailed = status?.status === 'failed' || status?.error;
+                              
+                              return (
+                                <div
+                                  key={source}
+                                  className="flex items-center justify-between p-2 rounded-md bg-muted/30"
+                                  data-testid={`source-status-${source}`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Icon className={`h-4 w-4 ${config?.color || 'text-muted-foreground'}`} />
+                                    <div>
+                                      <p className="text-sm font-medium">{config?.label || source}</p>
+                                      {isFailed && status?.error && (
+                                        <p className="text-xs text-destructive">{status.error}</p>
+                                      )}
+                                      {isFailed && status?.errorSuggestion && (
+                                        <p className="text-xs text-muted-foreground">{status.errorSuggestion}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {isFailed ? (
+                                      <>
+                                        <Badge variant="destructive" className="text-xs">Failed</Badge>
+                                        {status?.retryable !== false && (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              retrySingleSourceMutation.mutate(source);
+                                            }}
+                                            disabled={retrySingleSourceMutation.isPending}
+                                            data-testid={`button-retry-${source}`}
+                                          >
+                                            <RotateCcw className={`h-3 w-3 mr-1 ${retrySingleSourceMutation.isPending ? 'animate-spin' : ''}`} />
+                                            Retry
+                                          </Button>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <Badge variant="default" className="text-xs bg-green-600">
+                                        {status?.recordsFetched || 0} records
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
                   ))}
                 </div>
               )}
