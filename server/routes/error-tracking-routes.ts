@@ -1,5 +1,7 @@
 import { Router, Request, Response } from "express";
 import { errorTrackingService } from "../services/error-tracking-service";
+import { errorWebhookService } from "../services/error-webhook-service";
+import { errorSpikeDetectionService } from "../services/error-spike-detection-service";
 import { errorIngestionSchema } from "../../shared/schema";
 import { z } from "zod";
 
@@ -91,6 +93,276 @@ router.get("/critical", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/webhooks", async (req: Request, res: Response) => {
+  try {
+    const webhooks = await errorWebhookService.getAllWebhookConfigs();
+    res.json(webhooks);
+  } catch (err) {
+    console.error("Error fetching webhooks:", err);
+    res.status(500).json({ error: "Failed to fetch webhooks" });
+  }
+});
+
+router.post("/webhooks", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { name, provider, webhookUrl, environment, triggerOnCritical, triggerOnSpike, triggerModules, cooldownMinutes } = req.body;
+    
+    if (!name || !provider || !webhookUrl) {
+      return res.status(400).json({ error: "Missing required fields: name, provider, webhookUrl" });
+    }
+    
+    if (!['slack', 'teams', 'discord', 'generic'].includes(provider)) {
+      return res.status(400).json({ error: "Invalid provider. Must be: slack, teams, discord, or generic" });
+    }
+    
+    const webhook = await errorWebhookService.createWebhookConfig({
+      name,
+      provider,
+      webhookUrl,
+      environment,
+      triggerOnCritical,
+      triggerOnSpike,
+      triggerModules,
+      cooldownMinutes,
+      createdBy: userId
+    });
+    
+    res.status(201).json(webhook);
+  } catch (err) {
+    console.error("Error creating webhook:", err);
+    res.status(500).json({ error: "Failed to create webhook" });
+  }
+});
+
+router.patch("/webhooks/:id", async (req: Request, res: Response) => {
+  try {
+    const { name, webhookUrl, isEnabled, environment, triggerOnCritical, triggerOnSpike, triggerModules, cooldownMinutes } = req.body;
+    
+    const updated = await errorWebhookService.updateWebhookConfig(req.params.id, {
+      name,
+      webhookUrl,
+      isEnabled,
+      environment,
+      triggerOnCritical,
+      triggerOnSpike,
+      triggerModules,
+      cooldownMinutes
+    });
+    
+    if (!updated) {
+      return res.status(404).json({ error: "Webhook not found" });
+    }
+    
+    res.json(updated);
+  } catch (err) {
+    console.error("Error updating webhook:", err);
+    res.status(500).json({ error: "Failed to update webhook" });
+  }
+});
+
+router.delete("/webhooks/:id", async (req: Request, res: Response) => {
+  try {
+    await errorWebhookService.deleteWebhookConfig(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error deleting webhook:", err);
+    res.status(500).json({ error: "Failed to delete webhook" });
+  }
+});
+
+router.post("/webhooks/:id/test", async (req: Request, res: Response) => {
+  try {
+    const result = await errorWebhookService.testWebhook(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error("Error testing webhook:", err);
+    res.status(500).json({ error: "Failed to test webhook" });
+  }
+});
+
+router.get("/thresholds", async (req: Request, res: Response) => {
+  try {
+    const thresholds = await errorWebhookService.getAllThresholds();
+    res.json(thresholds);
+  } catch (err) {
+    console.error("Error fetching thresholds:", err);
+    res.status(500).json({ error: "Failed to fetch thresholds" });
+  }
+});
+
+router.post("/thresholds", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { module, errorCode, windowMinutes, occurrenceThreshold, autoEscalateToCritical } = req.body;
+    
+    const threshold = await errorWebhookService.createThresholdConfig({
+      module,
+      errorCode,
+      windowMinutes,
+      occurrenceThreshold,
+      autoEscalateToCritical,
+      createdBy: userId
+    });
+    
+    res.status(201).json(threshold);
+  } catch (err) {
+    console.error("Error creating threshold:", err);
+    res.status(500).json({ error: "Failed to create threshold" });
+  }
+});
+
+router.patch("/thresholds/:id", async (req: Request, res: Response) => {
+  try {
+    const { windowMinutes, occurrenceThreshold, isEnabled, autoEscalateToCritical } = req.body;
+    
+    const updated = await errorWebhookService.updateThreshold(req.params.id, {
+      windowMinutes,
+      occurrenceThreshold,
+      isEnabled,
+      autoEscalateToCritical
+    });
+    
+    if (!updated) {
+      return res.status(404).json({ error: "Threshold not found" });
+    }
+    
+    res.json(updated);
+  } catch (err) {
+    console.error("Error updating threshold:", err);
+    res.status(500).json({ error: "Failed to update threshold" });
+  }
+});
+
+router.delete("/thresholds/:id", async (req: Request, res: Response) => {
+  try {
+    await errorWebhookService.deleteThreshold(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error deleting threshold:", err);
+    res.status(500).json({ error: "Failed to delete threshold" });
+  }
+});
+
+router.get("/alerts/history", async (req: Request, res: Response) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const history = await errorWebhookService.getAlertHistory(limit);
+    res.json(history);
+  } catch (err) {
+    console.error("Error fetching alert history:", err);
+    res.status(500).json({ error: "Failed to fetch alert history" });
+  }
+});
+
+router.get("/spike-summary", async (req: Request, res: Response) => {
+  try {
+    const summary = await errorSpikeDetectionService.getModuleSpikeSummary();
+    res.json(summary);
+  } catch (err) {
+    console.error("Error fetching spike summary:", err);
+    res.status(500).json({ error: "Failed to fetch spike summary" });
+  }
+});
+
+const feedbackValidationSchema = z.object({
+  errorId: z.string().uuid().optional().nullable(),
+  feedbackText: z.string().min(1).max(2000),
+  url: z.string().url().optional().nullable(),
+  userAgent: z.string().max(500).optional().nullable()
+});
+
+router.post("/feedback", async (req: Request, res: Response) => {
+  try {
+    const validatedData = feedbackValidationSchema.parse(req.body);
+    const { errorId, feedbackText, url, userAgent } = validatedData;
+    
+    const userId = (req as any).user?.id;
+    const userEmail = (req as any).user?.email;
+    
+    const { db } = await import("../db");
+    const { errorUserFeedback } = await import("../../shared/schema");
+    
+    const [feedback] = await db.insert(errorUserFeedback).values({
+      errorLedgerId: errorId || null,
+      errorId: errorId || null,
+      userId: userId || null,
+      userEmail: userEmail || null,
+      feedbackText: feedbackText.trim().substring(0, 2000),
+      url: url || null,
+      userAgent: userAgent || null,
+      status: 'new'
+    }).returning();
+    
+    console.log('[ErrorFeedback] Received feedback:', { errorId, userId, feedbackLength: feedbackText.length });
+    
+    res.status(201).json({ success: true, feedbackId: feedback.id });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ 
+        error: "Validation error", 
+        details: err.errors 
+      });
+    }
+    console.error("Error submitting feedback:", err);
+    res.status(500).json({ error: "Failed to submit feedback" });
+  }
+});
+
+router.get("/export", async (req: Request, res: Response) => {
+  try {
+    const { 
+      severity, status, module, errorCode, 
+      dateFrom, dateTo, format = 'csv'
+    } = req.query;
+    
+    const result = await errorTrackingService.getErrors({
+      severity: severity as string,
+      status: status as string,
+      module: module as string,
+      errorCode: errorCode as string,
+      dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+      dateTo: dateTo ? new Date(dateTo as string) : undefined,
+      limit: 1000,
+      offset: 0,
+    });
+
+    const errors = result.errors;
+    
+    const csvHeaders = [
+      'ID', 'Error Code', 'Severity', 'Status', 'Module', 'Source',
+      'Message', 'Transaction ID', 'PAN (Masked)', 'Occurrences',
+      'First Occurrence', 'Last Occurrence', 'Created At'
+    ].join(',');
+    
+    const csvRows = errors.map(err => [
+      `"${err.id}"`,
+      `"${err.errorCode}"`,
+      `"${err.severity}"`,
+      `"${err.status}"`,
+      `"${err.module}"`,
+      `"${err.source}"`,
+      `"${(err.message || '').replace(/"/g, '""').substring(0, 200)}"`,
+      `"${err.transactionId || ''}"`,
+      `"${err.panMasked || ''}"`,
+      err.occurrenceCount || 1,
+      `"${err.firstOccurrence || ''}"`,
+      `"${err.lastOccurrence || ''}"`,
+      `"${err.createdAt || ''}"`
+    ].join(','));
+    
+    const csvContent = [csvHeaders, ...csvRows].join('\n');
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=errors_export_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csvContent);
+  } catch (err) {
+    console.error("Error exporting errors:", err);
+    res.status(500).json({ error: "Failed to export errors" });
+  }
+});
+
+// Dynamic routes MUST be defined after all static routes
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const error = await errorTrackingService.getErrorById(req.params.id);

@@ -2,9 +2,10 @@ import { Component, ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, RefreshCw, Home, Copy, Check } from 'lucide-react';
+import { AlertCircle, RefreshCw, Home, Copy, Check, MessageSquare, Send } from 'lucide-react';
 import { ApiError } from '@/lib/queryClient';
 import { trackException } from '@/lib/error-tracking';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Props {
   children: ReactNode;
@@ -18,12 +19,23 @@ interface State {
   errorInfo?: React.ErrorInfo;
   errorId?: string | null;
   copied: boolean;
+  showFeedback: boolean;
+  feedbackText: string;
+  feedbackSubmitting: boolean;
+  feedbackSubmitted: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, copied: false };
+    this.state = { 
+      hasError: false, 
+      copied: false, 
+      showFeedback: false, 
+      feedbackText: '', 
+      feedbackSubmitting: false,
+      feedbackSubmitted: false 
+    };
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
@@ -57,6 +69,33 @@ export class ErrorBoundary extends Component<Props, State> {
 
   handleGoHome = () => {
     window.location.href = '/';
+  };
+
+  handleSubmitFeedback = async () => {
+    if (!this.state.feedbackText.trim()) return;
+    
+    this.setState({ feedbackSubmitting: true });
+    
+    try {
+      const response = await fetch('/api/errors/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          errorId: this.state.errorId,
+          feedbackText: this.state.feedbackText,
+          url: window.location.href,
+          userAgent: navigator.userAgent
+        })
+      });
+      
+      if (response.ok) {
+        this.setState({ feedbackSubmitted: true, feedbackSubmitting: false });
+      } else {
+        this.setState({ feedbackSubmitting: false });
+      }
+    } catch (err) {
+      this.setState({ feedbackSubmitting: false });
+    }
   };
 
   getUserFriendlyMessage(): string {
@@ -169,9 +208,70 @@ export class ErrorBoundary extends Component<Props, State> {
                 </Button>
               </div>
 
-              <p className="text-sm text-muted-foreground text-center">
-                If this problem persists, please contact support with the error ID above.
-              </p>
+              {!this.state.showFeedback && !this.state.feedbackSubmitted && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={() => this.setState({ showFeedback: true })}
+                  data-testid="button-report-issue"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Report this issue
+                </Button>
+              )}
+
+              {this.state.showFeedback && !this.state.feedbackSubmitted && (
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder="What were you trying to do when this error occurred?"
+                    value={this.state.feedbackText}
+                    onChange={(e) => this.setState({ feedbackText: e.target.value })}
+                    rows={3}
+                    className="text-sm"
+                    data-testid="input-feedback"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => this.setState({ showFeedback: false, feedbackText: '' })}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={this.handleSubmitFeedback}
+                      disabled={this.state.feedbackSubmitting || !this.state.feedbackText.trim()}
+                      data-testid="button-submit-feedback"
+                    >
+                      {this.state.feedbackSubmitting ? 'Sending...' : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send Feedback
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {this.state.feedbackSubmitted && (
+                <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                  <Check className="h-5 w-5 mx-auto mb-1 text-green-600" />
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Thank you for your feedback!
+                  </p>
+                </div>
+              )}
+
+              {!this.state.showFeedback && !this.state.feedbackSubmitted && (
+                <p className="text-sm text-muted-foreground text-center">
+                  If this problem persists, please contact support with the error ID above.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

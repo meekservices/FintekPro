@@ -19798,3 +19798,155 @@ export const errorIngestionSchema = z.object({
   buildVersion: z.string().optional(),
 });
 export type ErrorIngestionRequest = z.infer<typeof errorIngestionSchema>;
+
+// ===== ERROR ALERTING WEBHOOK CONFIGURATION =====
+
+// Webhook Provider Types
+export const WebhookProviderEnum = z.enum(['slack', 'teams', 'discord', 'generic']);
+export type WebhookProvider = z.infer<typeof WebhookProviderEnum>;
+
+// Error Webhook Configuration Table
+export const errorWebhookConfig = pgTable("error_webhook_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Webhook Details
+  name: varchar("name", { length: 100 }).notNull(),
+  provider: varchar("provider", { length: 20 }).notNull(), // slack, teams, discord, generic
+  webhookUrl: text("webhook_url").notNull(),
+  
+  // Configuration
+  isEnabled: boolean("is_enabled").default(true),
+  environment: varchar("environment", { length: 20 }).default("production"), // production, development, all
+  
+  // Trigger Conditions
+  triggerOnCritical: boolean("trigger_on_critical").default(true),
+  triggerOnSpike: boolean("trigger_on_spike").default(true),
+  triggerModules: text("trigger_modules").array(), // null = all modules
+  
+  // Rate Limiting
+  cooldownMinutes: integer("cooldown_minutes").default(5), // Min time between alerts
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertErrorWebhookConfigSchema = createInsertSchema(errorWebhookConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastTriggeredAt: true,
+});
+export type ErrorWebhookConfig = typeof errorWebhookConfig.$inferSelect;
+export type InsertErrorWebhookConfig = z.infer<typeof insertErrorWebhookConfigSchema>;
+
+// ===== ERROR SPIKE DETECTION THRESHOLDS =====
+
+// Error Alert Threshold Configuration
+export const errorAlertThreshold = pgTable("error_alert_threshold", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Scope (null = global default)
+  module: varchar("module", { length: 50 }), // null = applies to all modules
+  errorCode: varchar("error_code", { length: 100 }), // null = applies to all error codes
+  
+  // Threshold Configuration
+  windowMinutes: integer("window_minutes").default(5), // Rolling window size
+  occurrenceThreshold: integer("occurrence_threshold").default(10), // N occurrences to trigger
+  
+  // Behavior
+  isEnabled: boolean("is_enabled").default(true),
+  autoEscalateToCritical: boolean("auto_escalate_to_critical").default(true),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertErrorAlertThresholdSchema = createInsertSchema(errorAlertThreshold).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ErrorAlertThreshold = typeof errorAlertThreshold.$inferSelect;
+export type InsertErrorAlertThreshold = z.infer<typeof insertErrorAlertThresholdSchema>;
+
+// ===== ERROR ALERT HISTORY (for audit trail) =====
+
+export const errorAlertHistory = pgTable("error_alert_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Alert Details
+  alertType: varchar("alert_type", { length: 20 }).notNull(), // critical, spike
+  webhookConfigId: varchar("webhook_config_id").references(() => errorWebhookConfig.id),
+  
+  // Related Errors
+  errorIds: text("error_ids").array(), // Array of error ledger IDs that triggered this alert
+  errorCode: varchar("error_code", { length: 100 }),
+  module: varchar("module", { length: 50 }),
+  
+  // Spike Context (if applicable)
+  occurrenceCount: integer("occurrence_count"),
+  windowMinutes: integer("window_minutes"),
+  
+  // Delivery Status
+  deliveryStatus: varchar("delivery_status", { length: 20 }).default("pending"), // pending, sent, failed
+  deliveryResponse: text("delivery_response"),
+  deliveryAttempts: integer("delivery_attempts").default(0),
+  
+  // Timestamps
+  triggeredAt: timestamp("triggered_at").defaultNow(),
+  deliveredAt: timestamp("delivered_at"),
+}, (table) => [
+  index("idx_error_alert_history_type").on(table.alertType),
+  index("idx_error_alert_history_triggered").on(table.triggeredAt),
+]);
+
+export const insertErrorAlertHistorySchema = createInsertSchema(errorAlertHistory).omit({
+  id: true,
+  triggeredAt: true,
+  deliveredAt: true,
+});
+export type ErrorAlertHistory = typeof errorAlertHistory.$inferSelect;
+export type InsertErrorAlertHistory = z.infer<typeof insertErrorAlertHistorySchema>;
+
+// ===== USER ERROR FEEDBACK =====
+
+export const errorUserFeedback = pgTable("error_user_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to Error
+  errorLedgerId: varchar("error_ledger_id").references(() => errorLedger.id),
+  errorId: varchar("error_id", { length: 100 }), // Client-side error ID for matching
+  
+  // User Info
+  userId: varchar("user_id").references(() => users.id),
+  userEmail: varchar("user_email", { length: 255 }),
+  
+  // Feedback Content
+  feedbackText: text("feedback_text").notNull(),
+  expectedBehavior: text("expected_behavior"),
+  stepsToReproduce: text("steps_to_reproduce"),
+  
+  // Context
+  url: text("url"),
+  userAgent: text("user_agent"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("new"), // new, reviewed, addressed
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertErrorUserFeedbackSchema = createInsertSchema(errorUserFeedback).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
+});
+export type ErrorUserFeedback = typeof errorUserFeedback.$inferSelect;
+export type InsertErrorUserFeedback = z.infer<typeof insertErrorUserFeedbackSchema>;

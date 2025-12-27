@@ -3,6 +3,7 @@ import { errorLedger, ErrorLedgerEntry, users } from "../../shared/schema";
 import { eq, desc, and, gte, lte, sql, like, or, count } from "drizzle-orm";
 import crypto from "crypto";
 import { emailService } from "../email-service";
+import { errorSpikeDetectionService } from "./error-spike-detection-service";
 
 function maskPan(pan: string | undefined | null): string | null {
   if (!pan) return null;
@@ -84,6 +85,8 @@ class ErrorTrackingService {
           })
           .where(eq(errorLedger.id, existingError.id))
           .returning();
+        
+        this.checkForSpikes(updated);
         return updated;
       }
     }
@@ -116,7 +119,24 @@ class ErrorTrackingService {
       this.triggerCriticalAlert(newError);
     }
     
+    this.checkForSpikes(newError);
+    
     return newError;
+  }
+  
+  private async checkForSpikes(error: ErrorLedgerEntry): Promise<void> {
+    try {
+      await errorSpikeDetectionService.handleErrorIngested({
+        id: error.id,
+        errorCode: error.errorCode,
+        module: error.module,
+        severity: error.severity,
+        message: error.message,
+        environment: error.environment || 'production'
+      });
+    } catch (err) {
+      console.error('[ErrorTracking] Failed to check for spikes:', err);
+    }
   }
 
   async getErrors(filters: ErrorFilters): Promise<{ errors: ErrorLedgerEntry[]; total: number }> {

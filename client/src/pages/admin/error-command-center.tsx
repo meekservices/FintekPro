@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   AlertTriangle, AlertCircle, CheckCircle, Clock, Search, Filter, RefreshCw, 
   Eye, ExternalLink, ChevronRight, Bug, Shield, Zap, Server, Database, 
-  Globe, Smartphone, Users, TrendingUp, BarChart3, Activity
+  Globe, Smartphone, Users, TrendingUp, BarChart3, Activity, Download
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +80,417 @@ const STATUS_BADGES: Record<string, string> = {
 };
 
 const CHART_COLORS = ['#ef4444', '#f97316', '#eab308', '#3b82f6', '#22c55e', '#8b5cf6'];
+
+function TransactionTimeline({ errors, onViewError }: { errors: ErrorEntry[]; onViewError: (error: ErrorEntry) => void }) {
+  const transactionGroups = errors
+    .filter(e => e.transactionId)
+    .reduce((acc, error) => {
+      const txId = error.transactionId!;
+      if (!acc[txId]) {
+        acc[txId] = [];
+      }
+      acc[txId].push(error);
+      return acc;
+    }, {} as Record<string, ErrorEntry[]>);
+
+  const sortedTransactions = Object.entries(transactionGroups)
+    .map(([txId, errs]) => ({
+      transactionId: txId,
+      errors: errs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+      firstError: errs.reduce((min, e) => new Date(e.createdAt) < new Date(min.createdAt) ? e : min, errs[0]),
+      lastError: errs.reduce((max, e) => new Date(e.createdAt) > new Date(max.createdAt) ? e : max, errs[0]),
+      hasCritical: errs.some(e => e.severity === 'critical')
+    }))
+    .sort((a, b) => new Date(b.lastError.createdAt).getTime() - new Date(a.lastError.createdAt).getTime());
+
+  if (sortedTransactions.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="text-lg font-medium">No Transaction Errors</p>
+          <p className="text-sm">Errors without transaction IDs are not shown here</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Activity className="h-5 w-5" />
+          Transaction Error Timeline
+        </CardTitle>
+        <CardDescription>
+          Errors grouped by transaction ID for easier correlation
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="h-[500px]">
+          <div className="space-y-4">
+            {sortedTransactions.map(({ transactionId, errors, hasCritical }) => (
+              <div
+                key={transactionId}
+                className={`border rounded-lg p-4 ${hasCritical ? 'border-red-300 bg-red-50 dark:bg-red-950/20' : ''}`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <code className="text-sm font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                      {transactionId}
+                    </code>
+                    <Badge variant={hasCritical ? "destructive" : "secondary"}>
+                      {errors.length} error{errors.length > 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(errors[0].createdAt), { addSuffix: true })}
+                  </span>
+                </div>
+                
+                <div className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-3">
+                  {errors.map((error, idx) => (
+                    <div key={error.id} className="relative">
+                      <div className={`absolute -left-[17px] w-3 h-3 rounded-full ${SEVERITY_COLORS[error.severity] || 'bg-gray-400'}`} />
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{error.errorCode}</span>
+                            <Badge variant="outline" className="text-xs">{error.module}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate max-w-md">{error.message}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(error.createdAt), 'HH:mm:ss.SSS')}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onViewError(error)}
+                          data-testid={`button-timeline-view-${error.id}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WebhookAlertingSettings() {
+  const { toast } = useToast();
+  const [newWebhook, setNewWebhook] = useState({
+    name: '',
+    provider: 'slack',
+    webhookUrl: '',
+    environment: 'production',
+    triggerOnCritical: true,
+    triggerOnSpike: true,
+    cooldownMinutes: 5
+  });
+  const [showAddDialog, setShowAddDialog] = useState(false);
+
+  const { data: webhooks, isLoading, refetch } = useQuery<any[]>({
+    queryKey: ['/api/errors/webhooks'],
+  });
+
+  const { data: thresholds, refetch: refetchThresholds } = useQuery<any[]>({
+    queryKey: ['/api/errors/thresholds'],
+  });
+
+  const { data: alertHistory } = useQuery<any[]>({
+    queryKey: ['/api/errors/alerts/history'],
+  });
+
+  const createWebhookMutation = useMutation({
+    mutationFn: async (data: typeof newWebhook) => {
+      return apiRequest('/api/errors/webhooks', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/errors/webhooks'] });
+      toast({ title: "Webhook created", description: "Webhook configuration saved successfully." });
+      setShowAddDialog(false);
+      setNewWebhook({ name: '', provider: 'slack', webhookUrl: '', environment: 'production', triggerOnCritical: true, triggerOnSpike: true, cooldownMinutes: 5 });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create webhook.", variant: "destructive" });
+    }
+  });
+
+  const testWebhookMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/errors/webhooks/${id}/test`, { method: 'POST' });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: data.success ? "Test sent" : "Test failed", 
+        description: data.message,
+        variant: data.success ? "default" : "destructive"
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to test webhook.", variant: "destructive" });
+    }
+  });
+
+  const deleteWebhookMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/errors/webhooks/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/errors/webhooks'] });
+      toast({ title: "Webhook deleted" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete webhook.", variant: "destructive" });
+    }
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Webhook Channels
+              </span>
+              <Button size="sm" onClick={() => setShowAddDialog(true)} data-testid="button-add-webhook">
+                Add Webhook
+              </Button>
+            </CardTitle>
+            <CardDescription>
+              Configure Slack, Teams, or custom webhooks for alerts
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-32" />
+            ) : (webhooks?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Globe className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No webhooks configured</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {webhooks?.map((webhook: any) => (
+                  <div key={webhook.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{webhook.name}</span>
+                        <Badge variant="outline">{webhook.provider}</Badge>
+                        <Badge variant={webhook.isEnabled ? "default" : "secondary"}>
+                          {webhook.isEnabled ? "Active" : "Disabled"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {webhook.triggerOnCritical && "Critical"} {webhook.triggerOnSpike && "• Spikes"} • Cooldown: {webhook.cooldownMinutes}min
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => testWebhookMutation.mutate(webhook.id)}
+                        disabled={testWebhookMutation.isPending}
+                        data-testid={`button-test-webhook-${webhook.id}`}
+                      >
+                        Test
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => deleteWebhookMutation.mutate(webhook.id)}
+                        data-testid={`button-delete-webhook-${webhook.id}`}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              Spike Detection Settings
+            </CardTitle>
+            <CardDescription>
+              Configure thresholds for automatic spike detection
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(thresholds?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Default thresholds active</p>
+                <p className="text-xs mt-1">10 errors in 5 minutes triggers alert</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {thresholds?.map((threshold: any) => (
+                  <div key={threshold.id} className="flex items-center justify-between p-2 border rounded">
+                    <div>
+                      <span className="text-sm font-medium">
+                        {threshold.module || threshold.errorCode || "Global"}
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        {threshold.occurrenceThreshold} errors in {threshold.windowMinutes} min
+                      </p>
+                    </div>
+                    <Badge variant={threshold.isEnabled ? "default" : "secondary"}>
+                      {threshold.isEnabled ? "Active" : "Disabled"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Recent Alert History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {(alertHistory?.length ?? 0) === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No alerts sent yet</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[200px]">
+              <div className="space-y-2">
+                {alertHistory?.map((alert: any) => (
+                  <div key={alert.id} className="flex items-center justify-between p-2 border rounded text-sm">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={alert.alertType === 'critical' ? 'destructive' : 'secondary'}>
+                        {alert.alertType}
+                      </Badge>
+                      <span>{alert.errorCode}</span>
+                      <span className="text-muted-foreground">{alert.module}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={alert.deliveryStatus === 'sent' ? 'default' : 'destructive'}>
+                        {alert.deliveryStatus}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {alert.triggeredAt && formatDistanceToNow(new Date(alert.triggeredAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Webhook</DialogTitle>
+            <DialogDescription>Configure a new alerting webhook</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Name</label>
+              <Input
+                placeholder="e.g., Production Alerts"
+                value={newWebhook.name}
+                onChange={(e) => setNewWebhook({ ...newWebhook, name: e.target.value })}
+                data-testid="input-webhook-name"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Provider</label>
+              <Select
+                value={newWebhook.provider}
+                onValueChange={(v) => setNewWebhook({ ...newWebhook, provider: v })}
+              >
+                <SelectTrigger data-testid="select-webhook-provider">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="slack">Slack</SelectItem>
+                  <SelectItem value="teams">Microsoft Teams</SelectItem>
+                  <SelectItem value="discord">Discord</SelectItem>
+                  <SelectItem value="generic">Generic Webhook</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Webhook URL</label>
+              <Input
+                placeholder="https://hooks.slack.com/..."
+                value={newWebhook.webhookUrl}
+                onChange={(e) => setNewWebhook({ ...newWebhook, webhookUrl: e.target.value })}
+                data-testid="input-webhook-url"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Environment</label>
+              <Select
+                value={newWebhook.environment}
+                onValueChange={(v) => setNewWebhook({ ...newWebhook, environment: v })}
+              >
+                <SelectTrigger data-testid="select-webhook-environment">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="production">Production Only</SelectItem>
+                  <SelectItem value="development">Development Only</SelectItem>
+                  <SelectItem value="all">All Environments</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Cooldown (minutes)</label>
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                value={newWebhook.cooldownMinutes}
+                onChange={(e) => setNewWebhook({ ...newWebhook, cooldownMinutes: parseInt(e.target.value) || 5 })}
+                data-testid="input-webhook-cooldown"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => createWebhookMutation.mutate(newWebhook)}
+              disabled={createWebhookMutation.isPending || !newWebhook.name || !newWebhook.webhookUrl}
+              data-testid="button-save-webhook"
+            >
+              {createWebhookMutation.isPending ? "Saving..." : "Save Webhook"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 export default function ErrorCommandCenter() {
   const { toast } = useToast();
@@ -250,6 +661,14 @@ export default function ErrorCommandCenter() {
             <TabsTrigger value="analytics" className="gap-2">
               <TrendingUp className="h-4 w-4" />
               Analytics
+            </TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-2">
+              <Activity className="h-4 w-4" />
+              Transaction Timeline
+            </TabsTrigger>
+            <TabsTrigger value="webhooks" className="gap-2">
+              <Globe className="h-4 w-4" />
+              Alerting
             </TabsTrigger>
           </ScrollableTabsList>
 
@@ -472,6 +891,20 @@ export default function ErrorCommandCenter() {
                         <SelectItem value="ignored">Ignored</SelectItem>
                       </SelectContent>
                     </Select>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        if (filters.severity !== 'all') params.append('severity', filters.severity);
+                        if (filters.status !== 'all') params.append('status', filters.status);
+                        if (filters.module !== 'all') params.append('module', filters.module);
+                        window.open(`/api/errors/export?${params.toString()}`, '_blank');
+                      }}
+                      data-testid="button-export-errors"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -589,6 +1022,14 @@ export default function ErrorCommandCenter() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="timeline" className="space-y-4">
+            <TransactionTimeline errors={errorsData?.errors || []} onViewError={(error) => { setSelectedError(error); setDetailsOpen(true); }} />
+          </TabsContent>
+
+          <TabsContent value="webhooks" className="space-y-4">
+            <WebhookAlertingSettings />
           </TabsContent>
         </Tabs>
 
