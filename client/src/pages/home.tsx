@@ -120,7 +120,7 @@ export default function Home() {
       description: "Advanced portfolio analytics with real-time rebalancing suggestions and risk optimization using machine learning algorithms.",
       icon: Cpu,
       color: "blue",
-      stats: "₹28.5L+ Avg Portfolio Value"
+      stats: statsLoading ? "Loading..." : (platformStatsData?.avgPortfolioValue ? `${platformStatsData.avgPortfolioValue} Avg Portfolio` : "₹0 Avg Portfolio")
     },
     {
       title: "Real-Time Market Intelligence", 
@@ -134,7 +134,7 @@ export default function Home() {
       description: "Access to Mutual Funds, IPOs, Pre-IPO, Bonds, AIFs, PMS, and alternative investments from one platform.",
       icon: Target,
       color: "purple",
-      stats: "15,000+ Investment Options"
+      stats: statsLoading ? "Loading..." : (platformStatsData?.investmentOptions || "0+") + " Investment Options"
     },
     {
       title: "Smart Financial Tools",
@@ -236,8 +236,10 @@ export default function Home() {
   const { data: platformStatsData, isLoading: statsLoading } = useQuery<{
     activeUsers: string;
     portfolioValue: string;
+    avgPortfolioValue: string;
     dailyTrades: string;
     monthlyTrades: string;
+    investmentOptions: string;
   }>({
     queryKey: ["/api/platform/stats"],
     refetchInterval: 60000, // Refresh every minute

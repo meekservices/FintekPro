@@ -331,8 +331,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT 
           (SELECT COUNT(*) FROM users WHERE is_active = true) as active_users,
           (SELECT COALESCE(SUM(CAST(total_value AS numeric)), 0) FROM portfolios) as total_portfolio_value,
+          (SELECT COALESCE(AVG(CAST(total_value AS numeric)), 0) FROM portfolios WHERE total_value IS NOT NULL AND CAST(total_value AS numeric) > 0) as avg_portfolio_value,
           (SELECT COUNT(*) FROM unified_orders WHERE created_at >= CURRENT_DATE) as daily_orders,
-          (SELECT COUNT(*) FROM unified_orders WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as monthly_orders
+          (SELECT COUNT(*) FROM unified_orders WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as monthly_orders,
+          (SELECT COUNT(*) FROM mutual_funds) as mutual_funds_count,
+          (SELECT COUNT(*) FROM bond_catalog) as bonds_count,
+          (SELECT COUNT(*) FROM unlisted_companies) as unlisted_count
       `);
       
       const stats = result.rows[0] as any;
@@ -347,18 +351,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const formatCurrency = (num: number): string => {
         if (num >= 10000000) return `₹${(num / 10000000).toFixed(0)} Cr`;
         if (num >= 100000) return `₹${(num / 100000).toFixed(1)} L`;
-        return `₹${formatNumber(num)}`;
+        if (num >= 1000) return `₹${(num / 1000).toFixed(0)}K`;
+        return `₹${num.toFixed(0)}`;
       };
+
+      const totalInvestmentOptions = Number(stats.mutual_funds_count || 0) + Number(stats.bonds_count || 0) + Number(stats.unlisted_count || 0);
 
       res.json({
         activeUsers: formatNumber(Number(stats.active_users) || 0),
         activeUsersRaw: Number(stats.active_users) || 0,
         portfolioValue: formatCurrency(Number(stats.total_portfolio_value) || 0),
         portfolioValueRaw: Number(stats.total_portfolio_value) || 0,
+        avgPortfolioValue: formatCurrency(Number(stats.avg_portfolio_value) || 0),
+        avgPortfolioValueRaw: Number(stats.avg_portfolio_value) || 0,
         dailyTrades: formatNumber(Number(stats.daily_orders) || 0),
         dailyTradesRaw: Number(stats.daily_orders) || 0,
         monthlyTrades: formatNumber(Number(stats.monthly_orders) || 0),
         monthlyTradesRaw: Number(stats.monthly_orders) || 0,
+        investmentOptions: formatNumber(totalInvestmentOptions) + "+",
+        investmentOptionsRaw: totalInvestmentOptions,
         lastUpdated: new Date().toISOString()
       });
     } catch (error) {
@@ -368,10 +379,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeUsersRaw: 0,
         portfolioValue: "₹0",
         portfolioValueRaw: 0,
+        avgPortfolioValue: "₹0",
+        avgPortfolioValueRaw: 0,
         dailyTrades: "0",
         dailyTradesRaw: 0,
         monthlyTrades: "0",
         monthlyTradesRaw: 0,
+        investmentOptions: "0+",
+        investmentOptionsRaw: 0,
         lastUpdated: new Date().toISOString()
       });
     }
