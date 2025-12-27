@@ -34,7 +34,8 @@ import {
   FileSignature,
   DollarSign,
   Clock,
-  Trophy
+  Trophy,
+  GraduationCap
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -84,6 +85,8 @@ const agentNavCategories: NavCategory[] = [
     title: "AI Tools",
     icon: Brain,
     items: [
+      { title: "Recommendation Control", href: "/recommendation-control", icon: Target, description: "Client recommendations" },
+      { title: "Training & Certification", href: "/agent-training", icon: GraduationCap, description: "Complete training" },
       { title: "AI Advisory", href: "/investment-advisory", icon: Brain, description: "AI recommendations" },
       { title: "Bond AI", href: "/bond-recommendations", icon: Landmark, description: "Bond portfolio" },
       { title: "Stock AI", href: "/stock-ai", icon: TrendingUp, description: "Stock recommendations" },

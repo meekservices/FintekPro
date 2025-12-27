@@ -106,6 +106,8 @@ import AgentCrmPipeline from "@/pages/agent-crm-pipeline";
 import AgentCrmTasks from "@/pages/agent-crm-tasks";
 import AgentCrmAnalytics from "@/pages/agent-crm-analytics";
 import AgentInvestmentAdvisory from "@/pages/agent-investment-advisory";
+import AgentRecommendationControl from "@/pages/agent-recommendation-control";
+import AgentTrainingPage from "@/pages/agent-training";
 import AgentProposalsPage from "@/pages/agent-proposals";
 import AgentBondRecommendations from "@/pages/agent-bond-recommendations";
 import AgentStockAI from "@/pages/agent-stock-ai";
@@ -229,6 +231,7 @@ import AdminApiUsage from "@/pages/admin-api-usage";
 import AdminAiRecommendationTracking from "@/pages/admin-ai-recommendation-tracking";
 import AdminReportsHub from "@/pages/admin/reports-hub";
 import AdminAIInsights from "@/pages/admin/ai-insights";
+import AdminAgentOversightPage from "@/pages/admin/agent-oversight";
 import ClientTasks from "@/pages/client-tasks";
 import ClientAIRecommendations from "@/pages/client-ai-recommendations";
 import ClientReports from "@/pages/client-reports";
@@ -590,6 +593,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <DemoProposalsTracking />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/agent-oversight">
+        {() => (
+          <AdminLayout>
+            <AdminAgentOversightPage />
           </AdminLayout>
         )}
       </Route>
@@ -1012,6 +1022,16 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentCrmAnalytics />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent-training">
+        {() => <AgentTrainingPage />}
+      </Route>
+      <Route path="/recommendation-control">
+        {() => (
+          <AgentLayout>
+            <AgentRecommendationControl />
           </AgentLayout>
         )}
       </Route>

@@ -3412,6 +3412,282 @@ export const insertABTestingMetricsSchema = createInsertSchema(abTestingMetrics)
 export type ABTestingMetrics = typeof abTestingMetrics.$inferSelect;
 export type InsertABTestingMetrics = z.infer<typeof insertABTestingMetricsSchema>;
 
+// ============================================================
+// AGENT ENABLEMENT & GOVERNANCE - Performance & Certification
+// ============================================================
+
+// Agent Performance Metrics - Time-series capable
+export const agentPerformanceMetrics = pgTable("agent_performance_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  agentId: varchar("agent_id").notNull(),
+  agentName: varchar("agent_name"),
+  
+  // Time period
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  periodType: varchar("period_type").notNull(), // daily, weekly, monthly, quarterly
+  
+  // Recommendation metrics
+  totalRecommendations: integer("total_recommendations").default(0),
+  acceptedRecommendations: integer("accepted_recommendations").default(0),
+  rejectedRecommendations: integer("rejected_recommendations").default(0),
+  pendingRecommendations: integer("pending_recommendations").default(0),
+  
+  // Mode usage
+  conservativeModeCount: integer("conservative_mode_count").default(0),
+  balancedModeCount: integer("balanced_mode_count").default(0),
+  growthModeCount: integer("growth_mode_count").default(0),
+  
+  // Override metrics
+  totalOverrides: integer("total_overrides").default(0),
+  modeDowngradeOverrides: integer("mode_downgrade_overrides").default(0),
+  assetClassLockOverrides: integer("asset_class_lock_overrides").default(0),
+  allocationCapOverrides: integer("allocation_cap_overrides").default(0),
+  
+  // Compliance metrics
+  complianceViolations: integer("compliance_violations").default(0),
+  clientComplaints: integer("client_complaints").default(0),
+  
+  // AUM and revenue
+  totalAumManaged: decimal("total_aum_managed", { precision: 18, scale: 2 }).default("0"),
+  newAumBrought: decimal("new_aum_brought", { precision: 18, scale: 2 }).default("0"),
+  totalCommissionEarned: decimal("total_commission_earned", { precision: 18, scale: 2 }).default("0"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_perf_agent").on(table.agentId),
+  index("idx_agent_perf_period").on(table.periodStart, table.periodEnd),
+  index("idx_agent_perf_type").on(table.periodType),
+]);
+
+// Agent Portfolio Outcomes - Ex-post performance attribution
+export const agentPortfolioOutcomes = pgTable("agent_portfolio_outcomes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  agentId: varchar("agent_id").notNull(),
+  clientId: varchar("client_id").notNull(),
+  proposalId: varchar("proposal_id"),
+  
+  // Performance metrics
+  portfolioIrr: decimal("portfolio_irr", { precision: 8, scale: 4 }),
+  benchmarkReturn: decimal("benchmark_return", { precision: 8, scale: 4 }),
+  excessReturn: decimal("excess_return", { precision: 8, scale: 4 }),
+  
+  // Risk metrics
+  upsideCaptureRatio: decimal("upside_capture_ratio", { precision: 8, scale: 4 }),
+  downsideCaptureRatio: decimal("downside_capture_ratio", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  portfolioVolatility: decimal("portfolio_volatility", { precision: 8, scale: 4 }),
+  
+  // Client risk band comparison
+  clientRiskProfile: varchar("client_risk_profile"), // conservative, moderate, aggressive
+  actualRiskLevel: varchar("actual_risk_level"),
+  withinRiskBand: boolean("within_risk_band").default(true),
+  
+  // Benchmark info
+  benchmarkUsed: varchar("benchmark_used"), // NIFTY_50, CRISIL_COMPOSITE_BOND, etc.
+  evaluationPeriodMonths: integer("evaluation_period_months"),
+  
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+  dataAsOfDate: date("data_as_of_date"),
+}, (table) => [
+  index("idx_portfolio_outcome_agent").on(table.agentId),
+  index("idx_portfolio_outcome_client").on(table.clientId),
+]);
+
+// Agent Certification & Training
+export const agentCertifications = pgTable("agent_certifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  agentId: varchar("agent_id").notNull(),
+  
+  // Certification type
+  certificationType: varchar("certification_type").notNull(), // growth_optimized, advanced_advisory, compliance_expert
+  certificationName: varchar("certification_name").notNull(),
+  
+  // Training completion
+  trainingCompletedAt: timestamp("training_completed_at"),
+  trainingModulesCompleted: integer("training_modules_completed").default(0),
+  totalTrainingModules: integer("total_training_modules").default(0),
+  
+  // Quiz results
+  quizAttempts: integer("quiz_attempts").default(0),
+  quizPassedAt: timestamp("quiz_passed_at"),
+  quizScore: integer("quiz_score"), // Percentage
+  passingScore: integer("passing_score").default(80),
+  
+  // Certification status
+  isCertified: boolean("is_certified").default(false),
+  certifiedAt: timestamp("certified_at"),
+  expiresAt: timestamp("expires_at"),
+  
+  // Revocation
+  isRevoked: boolean("is_revoked").default(false),
+  revokedAt: timestamp("revoked_at"),
+  revocationReason: text("revocation_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_cert_agent").on(table.agentId),
+  index("idx_agent_cert_type").on(table.certificationType),
+  index("idx_agent_cert_status").on(table.isCertified),
+]);
+
+// Agent Compliance Document Repository (for SEBI inspection-ready docs)
+export const agentComplianceDocRepository = pgTable("agent_compliance_doc_repository", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Document info
+  documentType: varchar("document_type").notNull(), // policy, procedure, guideline, template
+  documentName: varchar("document_name").notNull(),
+  documentCategory: varchar("document_category").notNull(), // ai_recommendation, suitability, human_in_loop, override, explainability, ab_testing
+  
+  // Version control
+  version: varchar("version").notNull(),
+  effectiveDate: date("effective_date").notNull(),
+  expiryDate: date("expiry_date"),
+  isActive: boolean("is_active").default(true),
+  
+  // Content
+  contentHtml: text("content_html"),
+  contentPdf: text("content_pdf"), // Base64 or URL
+  summary: text("summary"),
+  
+  // Approval
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
+  // Audit
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_compliance_doc_type").on(table.documentType),
+  index("idx_agent_compliance_doc_category").on(table.documentCategory),
+  index("idx_agent_compliance_doc_active").on(table.isActive),
+]);
+
+// Inspection Evidence Records
+export const inspectionEvidence = pgTable("inspection_evidence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Reference
+  clientId: varchar("client_id").notNull(),
+  transactionId: varchar("transaction_id"),
+  proposalId: varchar("proposal_id"),
+  
+  // Evidence components
+  clientRiskProfile: jsonb("client_risk_profile").$type<{
+    riskScore: number;
+    riskCategory: string;
+    assessmentDate: string;
+    horizonYears: number;
+  }>(),
+  
+  recommendationMode: varchar("recommendation_mode").notNull(), // conservative, balanced, growth
+  
+  agentOverrides: jsonb("agent_overrides").$type<{
+    overrideType: string;
+    previousValue: string;
+    newValue: string;
+    reason: string;
+    timestamp: string;
+  }[]>(),
+  
+  aiExplanationShown: text("ai_explanation_shown"),
+  
+  clientConsent: jsonb("client_consent").$type<{
+    consentType: string;
+    consentedAt: string;
+    method: string; // signature, otp, checkbox
+    ipAddress?: string;
+  }>(),
+  
+  executionRecord: jsonb("execution_record").$type<{
+    executedAt: string;
+    amount: number;
+    products: { productId: string; productName: string; allocation: number }[];
+  }>(),
+  
+  // Metadata
+  exportedAt: timestamp("exported_at"),
+  exportedBy: varchar("exported_by"),
+  exportFormat: varchar("export_format"), // pdf, json
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_inspection_evidence_client").on(table.clientId),
+  index("idx_inspection_evidence_transaction").on(table.transactionId),
+]);
+
+// Agent Performance Scores - Computed scores for admin view
+export const agentPerformanceScores = pgTable("agent_performance_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  agentId: varchar("agent_id").notNull(),
+  
+  // Score period
+  scorePeriod: varchar("score_period").notNull(), // monthly, quarterly, yearly
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  
+  // Individual component scores (0-100)
+  recommendationAdoptionScore: integer("recommendation_adoption_score").default(0),
+  riskAdjustedPerformanceScore: integer("risk_adjusted_performance_score").default(0),
+  complianceDisciplineScore: integer("compliance_discipline_score").default(0),
+  
+  // Weighted final score
+  finalScore: integer("final_score").default(0),
+  
+  // Breakdown details
+  scoreBreakdown: jsonb("score_breakdown").$type<{
+    adoptionRate: number;
+    acceptedCount: number;
+    totalCount: number;
+    portfolioIrr: number;
+    benchmarkReturn: number;
+    violationsCount: number;
+    overrideComplianceRate: number;
+  }>(),
+  
+  // Rank among agents
+  agentRank: integer("agent_rank"),
+  totalAgents: integer("total_agents"),
+  
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_score_agent").on(table.agentId),
+  index("idx_agent_score_period").on(table.scorePeriod, table.periodStart),
+]);
+
+// Insert schemas for agent governance tables
+export const insertAgentPerformanceMetricsSchema = createInsertSchema(agentPerformanceMetrics).omit({ id: true, createdAt: true, updatedAt: true });
+export type AgentPerformanceMetrics = typeof agentPerformanceMetrics.$inferSelect;
+export type InsertAgentPerformanceMetrics = z.infer<typeof insertAgentPerformanceMetricsSchema>;
+
+export const insertAgentPortfolioOutcomesSchema = createInsertSchema(agentPortfolioOutcomes).omit({ id: true, calculatedAt: true });
+export type AgentPortfolioOutcomes = typeof agentPortfolioOutcomes.$inferSelect;
+export type InsertAgentPortfolioOutcomes = z.infer<typeof insertAgentPortfolioOutcomesSchema>;
+
+export const insertAgentCertificationsSchema = createInsertSchema(agentCertifications).omit({ id: true, createdAt: true, updatedAt: true });
+export type AgentCertifications = typeof agentCertifications.$inferSelect;
+export type InsertAgentCertifications = z.infer<typeof insertAgentCertificationsSchema>;
+
+export const insertAgentComplianceDocRepositorySchema = createInsertSchema(agentComplianceDocRepository).omit({ id: true, createdAt: true, updatedAt: true });
+export type AgentComplianceDocRepository = typeof agentComplianceDocRepository.$inferSelect;
+export type InsertAgentComplianceDocRepository = z.infer<typeof insertAgentComplianceDocRepositorySchema>;
+
+export const insertInspectionEvidenceSchema = createInsertSchema(inspectionEvidence).omit({ id: true, createdAt: true });
+export type InspectionEvidence = typeof inspectionEvidence.$inferSelect;
+export type InsertInspectionEvidence = z.infer<typeof insertInspectionEvidenceSchema>;
+
+export const insertAgentPerformanceScoresSchema = createInsertSchema(agentPerformanceScores).omit({ id: true, calculatedAt: true });
+export type AgentPerformanceScores = typeof agentPerformanceScores.$inferSelect;
+export type InsertAgentPerformanceScores = z.infer<typeof insertAgentPerformanceScoresSchema>;
+
 // Insert schemas for new tables
 export const insertIncomeStreamSchema = createInsertSchema(incomeStreams).omit({ id: true, createdAt: true, updatedAt: true });
 export type IncomeStream = typeof incomeStreams.$inferSelect;
