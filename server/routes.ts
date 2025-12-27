@@ -27849,6 +27849,7 @@ System Security Data:`;
   app.post("/api/cibil/improvement-tips", CibilAPI.getCreditImprovementTips);
   app.post("/api/cibil/loan-eligibility", CibilAPI.checkLoanEligibility);
   app.post("/api/cibil/card-eligibility", CibilAPI.checkCreditCardEligibility);
+  app.post("/api/cibil/fetch-loan-liabilities", CibilAPI.fetchLoanLiabilities);
   
   // Personalized Loan Recommendations
   app.get("/api/loans/personalized-recommendations", getPersonalizedLoanRecommendations);

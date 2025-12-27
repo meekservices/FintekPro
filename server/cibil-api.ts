@@ -565,7 +565,7 @@ export class CibilAPI {
 
       // In production, this would call the actual CIBIL API
       // For sandbox, generate realistic mock data
-      const loanAccounts = this.generateLoanLiabilities(panNumber, name);
+      const loanAccounts = CibilAPI.generateLoanLiabilities(panNumber, name);
 
       const response = {
         success: true,
@@ -573,7 +573,7 @@ export class CibilAPI {
         totalOutstanding: loanAccounts.reduce((sum, loan) => sum + loan.outstandingBalance, 0),
         totalMonthlyEMI: loanAccounts.reduce((sum, loan) => sum + (loan.emi || 0), 0),
         loanAccounts,
-        creditScore: this.generateCreditScore(name, panNumber),
+        creditScore: CibilAPI.generateCreditScore(name, panNumber),
         fetchedAt: new Date().toISOString(),
         dataSource: 'CIBIL Credit Bureau'
       };
