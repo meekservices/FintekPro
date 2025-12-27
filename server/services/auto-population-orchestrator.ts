@@ -59,6 +59,8 @@ interface DataSourceResult {
   recordsFetched: number;
   totalValue?: number;
   error?: string;
+  errorSuggestion?: string;
+  retryable?: boolean;
   data?: any;
 }
 
@@ -75,8 +77,157 @@ interface AutoPopulationResult {
   durationMs: number;
 }
 
+// Retry configuration
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 10000,
+  retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+  retryableErrors: ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND']
+};
+
+// User-friendly error messages with recovery suggestions
+const ERROR_MESSAGES: Record<string, { message: string; suggestion: string }> = {
+  'CONSENT_NOT_GRANTED': {
+    message: 'Data access not authorized',
+    suggestion: 'Grant consent for this data source in the Auto-Population Dashboard'
+  },
+  'KYC_NOT_FOUND': {
+    message: 'KYC verification required',
+    suggestion: 'Complete your KYC verification to enable data fetching'
+  },
+  'API_TIMEOUT': {
+    message: 'Data provider is slow to respond',
+    suggestion: 'Try again in a few minutes. The service may be experiencing high load.'
+  },
+  'API_UNAVAILABLE': {
+    message: 'Data provider temporarily unavailable',
+    suggestion: 'The external service is down. Please try again later.'
+  },
+  'RATE_LIMITED': {
+    message: 'Too many requests',
+    suggestion: 'Please wait a few minutes before trying again'
+  },
+  'INVALID_CREDENTIALS': {
+    message: 'Authentication failed with data provider',
+    suggestion: 'Contact support if this issue persists'
+  },
+  'DATA_NOT_FOUND': {
+    message: 'No data found for your account',
+    suggestion: 'Ensure you have active accounts with this provider'
+  },
+  'NETWORK_ERROR': {
+    message: 'Connection error',
+    suggestion: 'Check your internet connection and try again'
+  }
+};
+
 export class AutoPopulationOrchestrator {
   
+  /**
+   * Exponential backoff retry helper
+   */
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    maxRetries: number = RETRY_CONFIG.maxRetries
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if error is retryable
+        const isRetryable = this.isRetryableError(error);
+        
+        if (!isRetryable || attempt === maxRetries) {
+          console.error(`❌ ${operationName} failed after ${attempt + 1} attempts:`, error.message);
+          throw error;
+        }
+        
+        // Calculate delay with exponential backoff and jitter
+        const baseDelay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
+        const jitter = Math.random() * 1000;
+        const delay = Math.min(baseDelay + jitter, RETRY_CONFIG.maxDelayMs);
+        
+        console.log(`⏳ ${operationName} attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`);
+        await this.sleep(delay);
+      }
+    }
+    
+    throw lastError;
+  }
+
+  /**
+   * Check if an error is retryable
+   */
+  private isRetryableError(error: any): boolean {
+    // Check HTTP status code
+    if (error.response?.status) {
+      if (RETRY_CONFIG.retryableStatusCodes.includes(error.response.status)) {
+        return true;
+      }
+    }
+    
+    // Check error codes
+    if (error.code && RETRY_CONFIG.retryableErrors.includes(error.code)) {
+      return true;
+    }
+    
+    // Check axios timeout
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Get user-friendly error message and suggestion
+   */
+  private getEnhancedError(error: any): { message: string; suggestion: string } {
+    // Map common errors to user-friendly messages
+    if (error.response?.status === 429) {
+      return ERROR_MESSAGES['RATE_LIMITED'];
+    }
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return ERROR_MESSAGES['INVALID_CREDENTIALS'];
+    }
+    if (error.response?.status === 404) {
+      return ERROR_MESSAGES['DATA_NOT_FOUND'];
+    }
+    if (error.response?.status >= 500) {
+      return ERROR_MESSAGES['API_UNAVAILABLE'];
+    }
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return ERROR_MESSAGES['API_TIMEOUT'];
+    }
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      return ERROR_MESSAGES['NETWORK_ERROR'];
+    }
+    if (error.message?.includes('consent')) {
+      return ERROR_MESSAGES['CONSENT_NOT_GRANTED'];
+    }
+    if (error.message?.includes('KYC')) {
+      return ERROR_MESSAGES['KYC_NOT_FOUND'];
+    }
+    
+    return {
+      message: error.message || 'An unexpected error occurred',
+      suggestion: 'Try again or contact support if the issue persists'
+    };
+  }
+
+  /**
+   * Sleep helper
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   /**
    * Initiate auto-population after KYC completion
    */
@@ -289,18 +440,21 @@ export class AutoPopulationOrchestrator {
    */
   private async fetchMutualFunds(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
+      const { message, suggestion } = ERROR_MESSAGES['CONSENT_NOT_GRANTED'];
       return {
         source: 'mutual_funds',
         success: false,
         recordsFetched: 0,
-        error: 'User consent not granted'
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: false
       };
     }
 
     try {
       console.log(`🔍 Fetching mutual funds from BSE STAR CAS`);
       
-      // Call BSE STAR CAS API to fetch consolidated holdings
+      // Call BSE STAR CAS API with retry logic
       const casRequest: CASFetchRequest = {
         panNumber: kycData.pan,
         name: kycData.name,
@@ -309,14 +463,19 @@ export class AutoPopulationOrchestrator {
         email: kycData.email
       };
 
-      const casResponse = await bseStarCASService.fetchCAS(casRequest);
+      const casResponse = await this.withRetry(
+        () => bseStarCASService.fetchCAS(casRequest),
+        'Mutual Funds CAS Fetch'
+      );
 
       if (!casResponse.success) {
         return {
           source: 'mutual_funds',
           success: false,
           recordsFetched: 0,
-          error: casResponse.message || 'CAS fetch failed'
+          error: casResponse.message || 'CAS fetch failed',
+          errorSuggestion: 'Verify your PAN details and ensure you have active mutual fund investments',
+          retryable: true
         };
       }
 
@@ -331,11 +490,14 @@ export class AutoPopulationOrchestrator {
       };
     } catch (error: any) {
       console.error('❌ Mutual funds fetch error:', error.message);
+      const { message, suggestion } = this.getEnhancedError(error);
       return {
         source: 'mutual_funds',
         success: false,
         recordsFetched: 0,
-        error: error.message
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: this.isRetryableError(error)
       };
     }
   }
@@ -345,18 +507,21 @@ export class AutoPopulationOrchestrator {
    */
   private async fetchDematHoldings(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
+      const { message, suggestion } = ERROR_MESSAGES['CONSENT_NOT_GRANTED'];
       return {
         source: 'demat',
         success: false,
         recordsFetched: 0,
-        error: 'User consent not granted'
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: false
       };
     }
 
     try {
       console.log(`🔍 Fetching demat holdings from NSDL/CDSL via Account Aggregator`);
       
-      // Call demat holdings service
+      // Call demat holdings service with retry logic
       const dematRequest: DematFetchRequest = {
         panNumber: kycData.pan,
         name: kycData.name,
@@ -366,7 +531,10 @@ export class AutoPopulationOrchestrator {
         requestId: `demat_${kycData.userId}_${Date.now()}`
       };
 
-      const dematResponse = await dematHoldingsService.fetchHoldings(dematRequest);
+      const dematResponse = await this.withRetry(
+        () => dematHoldingsService.fetchHoldings(dematRequest),
+        'Demat Holdings Fetch'
+      );
 
       if (!dematResponse.success) {
         console.error(`❌ Demat holdings fetch failed: ${dematResponse.message}`);

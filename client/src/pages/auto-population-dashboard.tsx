@@ -20,19 +20,24 @@ import {
   Building,
   CreditCard,
   FileText,
-  Settings
+  Settings,
+  RotateCcw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AutoPopulationProgressIndicator } from '@/components/AutoPopulationProgressIndicator';
+import { ConsentPreviewDialog, RevokeConsentDialog, ConsentSettingsDrawer } from '@/components/consent';
 
 // Types
+type DataSourceType = 'mutual_funds' | 'demat' | 'bank' | 'loans' | 'insurance' | 'epf' | 'nps' | 'apy';
+
 interface ConsentRecord {
   id: string;
   userId: string;
-  dataSource: 'mutual_funds' | 'demat' | 'bank' | 'loans' | 'insurance';
+  dataSource: DataSourceType;
   provider?: string;
   status: 'active' | 'revoked' | 'expired';
   consentPurpose: string;
+  consentText?: string;
   grantedAt: string;
   expiresAt: string;
   lastSyncedAt?: string;
@@ -61,16 +66,26 @@ interface WorkflowStatus {
 }
 
 const DATA_SOURCE_CONFIG = {
-  mutual_funds: { icon: TrendingUp, label: 'Mutual Funds', color: 'text-blue-600' },
-  demat: { icon: Wallet, label: 'Demat Holdings', color: 'text-green-600' },
-  bank: { icon: Building, label: 'Bank Accounts', color: 'text-purple-600' },
-  loans: { icon: CreditCard, label: 'Loan Liabilities', color: 'text-orange-600' },
-  insurance: { icon: Shield, label: 'Insurance Policies', color: 'text-indigo-600' }
+  mutual_funds: { icon: TrendingUp, label: 'Mutual Funds', color: 'text-blue-600', provider: 'BSE STAR MFD API', description: 'Track all your mutual fund investments across AMCs' },
+  demat: { icon: Wallet, label: 'Demat Holdings', color: 'text-green-600', provider: 'NSDL/CDSL', description: 'View your stocks, ETFs, and bonds from demat accounts' },
+  bank: { icon: Building, label: 'Bank Accounts', color: 'text-purple-600', provider: 'Account Aggregator', description: 'Aggregate savings, current, and FD accounts' },
+  loans: { icon: CreditCard, label: 'Loan Liabilities', color: 'text-orange-600', provider: 'CIBIL', description: 'Track home loans, personal loans, and credit cards' },
+  insurance: { icon: Shield, label: 'Insurance Policies', color: 'text-indigo-600', provider: 'Turtlefin API', description: 'View life, health, and general insurance policies' },
+  epf: { icon: Wallet, label: 'EPF/VPF Account', color: 'text-amber-600', provider: 'EPFO', description: 'Track your provident fund balance and contributions' },
+  nps: { icon: TrendingUp, label: 'NPS Account', color: 'text-cyan-600', provider: 'NPS CRA', description: 'National Pension System investments and balance' },
+  apy: { icon: Shield, label: 'APY Benefits', color: 'text-rose-600', provider: 'NSDL/APY', description: 'Atal Pension Yojana pension benefits' }
 };
 
 export default function AutoPopulationDashboard() {
   const { toast } = useToast();
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
+  
+  // Dialog states
+  const [consentPreviewOpen, setConsentPreviewOpen] = useState(false);
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<DataSourceType | null>(null);
+  const [selectedConsent, setSelectedConsent] = useState<ConsentRecord | null>(null);
 
   // Fetch user ID from session (demo for now)
   const userId = 'demo-user-1'; // TODO: Get from auth context
@@ -155,9 +170,72 @@ export default function AutoPopulationDashboard() {
     onSuccess: () => {
       toast({
         title: 'Consent granted',
-        description: 'Data source access approved'
+        description: 'Data source access approved. Your data will be fetched shortly.'
+      });
+      setConsentPreviewOpen(false);
+      setSelectedSource(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to grant consent',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  // Mutation: Revoke consent
+  const revokeConsentMutation = useMutation({
+    mutationFn: async ({ consentId, reason }: { consentId: string; reason: string }) => {
+      return apiRequest('POST', `/api/auto-populate/consent/revoke`, {
+        body: { consentId, reason }
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Consent revoked',
+        description: 'Data access has been revoked successfully.'
+      });
+      setRevokeDialogOpen(false);
+      setSelectedConsent(null);
+      setSettingsDrawerOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to revoke consent',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  // Mutation: Renew consent (re-grant expired consent)
+  const renewConsentMutation = useMutation({
+    mutationFn: async (dataSource: string) => {
+      return apiRequest('POST', `/api/auto-populate/consent/grant`, {
+        body: {
+          userId,
+          dataSource,
+          consentPurpose: 'Renew consent for auto-population',
+          validityDays: 90
+        }
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Consent renewed',
+        description: 'Your consent has been renewed for 90 days.'
       });
       queryClient.invalidateQueries({ queryKey: ['/api/auto-populate/consent/user', userId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to renew consent',
+        description: error.message,
+        variant: 'destructive'
+      });
     }
   });
 
@@ -295,11 +373,42 @@ export default function AutoPopulationDashboard() {
                           <Button
                             size="sm"
                             className="mt-2 w-full"
-                            onClick={() => grantConsentMutation.mutate(key)}
+                            onClick={() => {
+                              setSelectedSource(key as DataSourceType);
+                              setConsentPreviewOpen(true);
+                            }}
                             disabled={grantConsentMutation.isPending}
                             data-testid={`button-grant-consent-${key}`}
                           >
                             Grant Consent
+                          </Button>
+                        )}
+                        {consentStatus === 'expired' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 w-full"
+                            onClick={() => renewConsentMutation.mutate(key)}
+                            disabled={renewConsentMutation.isPending}
+                            data-testid={`button-renew-consent-${key}`}
+                          >
+                            <RotateCcw className="mr-2 h-3 w-3" />
+                            Renew Consent
+                          </Button>
+                        )}
+                        {consentStatus === 'active' && consent && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="mt-2 w-full"
+                            onClick={() => {
+                              setSelectedConsent(consent);
+                              setSettingsDrawerOpen(true);
+                            }}
+                            data-testid={`button-settings-${key}`}
+                          >
+                            <Settings className="mr-2 h-3 w-3" />
+                            Settings
                           </Button>
                         )}
                       </CardContent>
@@ -384,9 +493,25 @@ export default function AutoPopulationDashboard() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => {
+                                setSelectedConsent(consent);
+                                setSettingsDrawerOpen(true);
+                              }}
                               data-testid={`button-manage-${consent.dataSource}`}
                             >
                               <Settings className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {consent.status === 'expired' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => renewConsentMutation.mutate(consent.dataSource)}
+                              disabled={renewConsentMutation.isPending}
+                              data-testid={`button-renew-list-${consent.dataSource}`}
+                            >
+                              <RotateCcw className="mr-1 h-3 w-3" />
+                              Renew
                             </Button>
                           )}
                         </div>
@@ -469,6 +594,51 @@ export default function AutoPopulationDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Consent Preview Dialog */}
+      {selectedSource && (
+        <ConsentPreviewDialog
+          open={consentPreviewOpen}
+          onOpenChange={setConsentPreviewOpen}
+          dataSource={selectedSource}
+          sourceLabel={DATA_SOURCE_CONFIG[selectedSource]?.label || selectedSource}
+          provider={DATA_SOURCE_CONFIG[selectedSource]?.provider || 'Unknown'}
+          description={DATA_SOURCE_CONFIG[selectedSource]?.description || ''}
+          onConfirm={() => grantConsentMutation.mutate(selectedSource)}
+          isPending={grantConsentMutation.isPending}
+        />
+      )}
+
+      {/* Revoke Consent Dialog */}
+      {selectedConsent && (
+        <RevokeConsentDialog
+          open={revokeDialogOpen}
+          onOpenChange={setRevokeDialogOpen}
+          dataSource={selectedConsent.dataSource}
+          sourceLabel={DATA_SOURCE_CONFIG[selectedConsent.dataSource]?.label || selectedConsent.dataSource}
+          onConfirm={(reason) => revokeConsentMutation.mutate({ consentId: selectedConsent.id, reason })}
+          isPending={revokeConsentMutation.isPending}
+        />
+      )}
+
+      {/* Consent Settings Drawer */}
+      {selectedConsent && (
+        <ConsentSettingsDrawer
+          open={settingsDrawerOpen}
+          onOpenChange={setSettingsDrawerOpen}
+          consent={selectedConsent}
+          sourceLabel={DATA_SOURCE_CONFIG[selectedConsent.dataSource]?.label || selectedConsent.dataSource}
+          sourceDescription={DATA_SOURCE_CONFIG[selectedConsent.dataSource]?.description || ''}
+          onRevoke={() => {
+            setSettingsDrawerOpen(false);
+            setRevokeDialogOpen(true);
+          }}
+          onRefreshNow={() => {
+            refreshMutation.mutate();
+          }}
+          isRefreshing={refreshMutation.isPending}
+        />
+      )}
     </div>
   );
 }
