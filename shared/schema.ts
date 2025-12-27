@@ -603,6 +603,10 @@ export const users = pgTable("users", {
   lastLoginAt: timestamp("last_login_at"),
   previousLoginAt: timestamp("previous_login_at"),
   loginCount: integer("login_count").default(0),
+  
+  // UI Preferences
+  navPosition: varchar("nav_position").default("left"), // left, top, bottom
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

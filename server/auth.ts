@@ -1027,8 +1027,47 @@ export function setupAuth(app: Express) {
       middleName: req.user.middleName,
       lastName: req.user.lastName,
       isEmailVerified: req.user.isEmailVerified,
-      isMobileVerified: req.user.isMobileVerified
+      isMobileVerified: req.user.isMobileVerified,
+      navPosition: (req.user as any).navPosition || "left"
     });
+  });
+
+  // Get user preferences
+  app.get("/api/user/preferences", (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return apiResponse.unauthorized(res);
+    }
+
+    return apiResponse.success(res, {
+      navPosition: (req.user as any).navPosition || "left"
+    });
+  });
+
+  // Update user preferences
+  app.patch("/api/user/preferences", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return apiResponse.unauthorized(res);
+    }
+
+    try {
+      const { navPosition } = req.body;
+      
+      // Validate navPosition - require a valid value
+      const validPositions = ["left", "top", "bottom"];
+      if (!navPosition || !validPositions.includes(navPosition)) {
+        return apiResponse.badRequest(res, "Invalid nav position. Must be 'left', 'top', or 'bottom'");
+      }
+
+      // Update user preferences
+      await storage.updateUser(req.user.id, { navPosition });
+
+      return apiResponse.success(res, {
+        navPosition
+      }, "Preferences updated successfully");
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      return apiResponse.serverError(res, "Failed to update preferences");
+    }
   });
 
   // Profile routes

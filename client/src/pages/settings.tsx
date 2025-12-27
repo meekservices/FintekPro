@@ -12,6 +12,8 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/theme-context";
+import { useUserPreferences, NavPosition } from "@/hooks/use-user-preferences";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Settings as SettingsIcon, 
   User, 
@@ -28,11 +30,15 @@ import {
   Sun,
   Moon,
   Monitor,
-  Palette
+  Palette,
+  PanelLeft,
+  PanelTop,
+  Dock
 } from "lucide-react";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductAccountPreferences } from "@/components/ProductAccountPreferences";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const accountFormSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -51,6 +57,162 @@ const securityFormSchema = z.object({
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
+
+function NavigationPositionSelector() {
+  const { navPosition, setNavPosition, isPending } = useUserPreferences();
+  const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const userRoles = (user as any)?.roles || [];
+  const isAdmin = userRoles.includes("admin") || userRoles.includes("superadmin");
+
+  if (isAdmin) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PanelLeft className="h-5 w-5" />
+            Navigation Bar Position
+          </CardTitle>
+          <CardDescription>
+            Admin users have a fixed left sidebar navigation for optimal workflow management.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted text-sm">
+            <PanelLeft className="h-4 w-4" />
+            <span>Left Sidebar (Admin Default)</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const handlePositionChange = (position: NavPosition) => {
+    if (isMobile && position === "left") {
+      toast({
+        title: "Mobile Adjustment",
+        description: "Left sidebar is not available on mobile. Switched to bottom navigation.",
+      });
+      setNavPosition("bottom");
+      return;
+    }
+    setNavPosition(position);
+    toast({
+      title: "Layout Updated",
+      description: `Navigation position changed to ${position}`,
+    });
+  };
+
+  const positions: { value: NavPosition; label: string; description: string; icon: any; disabled?: boolean; tooltip?: string }[] = [
+    { 
+      value: "left", 
+      label: "Left Sidebar", 
+      description: "Classic sidebar navigation",
+      icon: PanelLeft,
+      disabled: isMobile,
+      tooltip: isMobile ? "Not available on mobile devices" : undefined
+    },
+    { 
+      value: "top", 
+      label: "Top Header", 
+      description: "Horizontal navigation bar",
+      icon: PanelTop
+    },
+    { 
+      value: "bottom", 
+      label: "Bottom Bar", 
+      description: "Mobile-style bottom navigation",
+      icon: Dock
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <PanelLeft className="h-5 w-5" />
+          Navigation Bar Position
+        </CardTitle>
+        <CardDescription>
+          Choose where your navigation bar appears. Changes apply instantly.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {positions.map((pos) => {
+            const isActive = navPosition === pos.value;
+            const isDisabled = pos.disabled;
+            
+            const button = (
+              <button
+                key={pos.value}
+                onClick={() => !isDisabled && handlePositionChange(pos.value)}
+                disabled={isDisabled || isPending}
+                className={`relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all ${
+                  isDisabled 
+                    ? "opacity-50 cursor-not-allowed border-muted" 
+                    : isActive 
+                      ? "border-primary bg-primary/5 shadow-sm" 
+                      : "border-muted hover:border-primary/50 hover:bg-muted/30"
+                }`}
+                data-testid={`button-nav-position-${pos.value}`}
+              >
+                {isActive && (
+                  <div className="absolute top-2 right-2">
+                    <Check className="h-5 w-5 text-primary" />
+                  </div>
+                )}
+                <div className={`p-4 rounded-full ${isActive ? "bg-primary/10" : "bg-muted"}`}>
+                  <pos.icon className={`h-8 w-8 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold">{pos.label}</p>
+                  <p className="text-sm text-muted-foreground">{pos.description}</p>
+                </div>
+              </button>
+            );
+
+            if (pos.tooltip) {
+              return (
+                <TooltipProvider key={pos.value}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      {button}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{pos.tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            }
+
+            return button;
+          })}
+        </div>
+
+        <div className="pt-4 border-t">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Current Position</p>
+              <p className="text-sm text-muted-foreground">
+                Your navigation is displayed on the {navPosition === "left" ? "left side" : navPosition === "top" ? "top" : "bottom"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted">
+              {navPosition === "left" && <PanelLeft className="h-4 w-4" />}
+              {navPosition === "top" && <PanelTop className="h-4 w-4" />}
+              {navPosition === "bottom" && <Dock className="h-4 w-4" />}
+              <span className="font-medium capitalize">{navPosition}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -650,6 +812,8 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          <NavigationPositionSelector />
 
           <Card>
             <CardHeader>

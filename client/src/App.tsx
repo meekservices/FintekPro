@@ -65,6 +65,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { AgentLayout } from "@/components/layout/agent-layout";
 import { PartnerLayout } from "@/components/layout/partner-layout";
+import { LayoutResolver } from "@/components/layout/LayoutResolver";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -1190,7 +1191,7 @@ function Router() {
 
   // Render client portal on main domain
   return (
-    <AppLayout>
+    <LayoutResolver>
       <Switch>
         {/* Public routes - no authentication or profile completion required */}
         <Route path="/auth" component={AuthPage} />
@@ -1229,7 +1230,7 @@ function Router() {
         {/* User routes - require both authentication and profile completion */}
         <Route component={UserProtectedRoutes} />
       </Switch>
-    </AppLayout>
+    </LayoutResolver>
   );
 }
 
