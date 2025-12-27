@@ -12,7 +12,7 @@ declare global {
     }
   }
 }
-import { sql, eq, and, or, like, desc, asc, count } from "drizzle-orm";
+import { sql, eq, and, or, like, desc, asc, count, inArray } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
@@ -742,14 +742,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 1. AGGREGATE ASSETS - Portfolio Holdings with real-time market values
       const userPortfolios = await db.query.portfolios.findMany({
-        where: sql`${portfolios.userId} = ANY(${targetUserIds})`,
+        where: inArray(portfolios.userId, targetUserIds),
       });
       
       // Fetch holdings separately (no Drizzle relations defined)
       const portfolioIds = userPortfolios.map(p => p.id);
       const allHoldings = portfolioIds.length > 0 
         ? await db.query.portfolioHoldings.findMany({
-            where: sql`${portfolioHoldings.portfolioId} = ANY(${portfolioIds})`,
+            where: inArray(portfolioHoldings.portfolioId, portfolioIds),
           })
         : [];
       
@@ -774,7 +774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (symbolArray.length > 0) {
         const marketDataRecords = await db.query.marketData.findMany({
-          where: sql`${marketData.symbol} = ANY(${symbolArray})`,
+          where: inArray(marketData.symbol, symbolArray),
         });
         
         for (const record of marketDataRecords) {
@@ -823,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 2. BANK ACCOUNTS - Verified cash balances
       const bankAccounts = await db.query.userBankAccounts.findMany({
-        where: sql`${userBankAccounts.userId} = ANY(${targetUserIds}) AND ${userBankAccounts.isActive} = true`,
+        where: and(inArray(userBankAccounts.userId, targetUserIds), eq(userBankAccounts.isActive, true)),
       });
       
       // Note: We don't have real-time balance API, so we use cash from portfolios
@@ -845,7 +845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 3. PENDING INVESTMENTS - Orders in process
       const pendingOrders = await db.query.unifiedOrders.findMany({
-        where: sql`${unifiedOrders.userId} = ANY(${targetUserIds}) AND ${unifiedOrders.status} IN ('initiated', 'payment_pending', 'payment_completed', 'processing')`,
+        where: and(inArray(unifiedOrders.userId, targetUserIds), inArray(unifiedOrders.status, ['initiated', 'payment_pending', 'payment_completed', 'processing'])),
       });
       
       const pendingInvestments = pendingOrders.map(order => ({
@@ -867,7 +867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 5. AGGREGATE LIABILITIES - Loans and Credit
       const loans = await db.query.loanApplications.findMany({
-        where: sql`${loanApplications.userId} = ANY(${targetUserIds}) AND ${loanApplications.status} IN ('approved', 'disbursed')`,
+        where: and(inArray(loanApplications.userId, targetUserIds), inArray(loanApplications.status, ['approved', 'disbursed'])),
       });
       
       let shortTermLiabilities = [];
