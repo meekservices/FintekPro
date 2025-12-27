@@ -3290,6 +3290,128 @@ export const recommendationExplanations = pgTable("recommendation_explanations",
   index("idx_recommendation_explanations_goal").on(table.goalId),
 ]);
 
+// ============================================================
+// PROFIT-OPTIMIZED RECOMMENDATION ENGINE - Audit & Compliance
+// ============================================================
+
+// Agent Override Audit Log - Immutable compliance trail
+export const agentOverrideAuditLog = pgTable("agent_override_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent identification
+  agentId: varchar("agent_id").notNull(),
+  agentName: varchar("agent_name"),
+  
+  // Client context
+  clientId: varchar("client_id").notNull(),
+  basketId: varchar("basket_id"),
+  
+  // Override details
+  overrideType: varchar("override_type").notNull(), // mode_downgrade, asset_class_lock, allocation_cap
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  reason: text("reason").notNull(),
+  
+  // Mode context
+  originalMode: varchar("original_mode").notNull(), // conservative, balanced, growth
+  overriddenMode: varchar("overridden_mode"),
+  
+  // Scoring snapshot (immutable at time of override)
+  scoringSnapshot: jsonb("scoring_snapshot").$type<{
+    suitabilityScore: number;
+    upsideScore: number;
+    finalScore: number;
+    productId?: string;
+    productType?: string;
+  }>(),
+  
+  // Compliance metadata
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  complianceFlag: boolean("compliance_flag").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_override_agent").on(table.agentId),
+  index("idx_agent_override_client").on(table.clientId),
+  index("idx_agent_override_type").on(table.overrideType),
+  index("idx_agent_override_created").on(table.createdAt),
+]);
+
+// A/B Testing Experiment State - Persistent kill switch and config
+export const abTestingExperimentState = pgTable("ab_testing_experiment_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  experimentId: varchar("experiment_id").notNull().unique(),
+  experimentName: varchar("experiment_name").notNull(),
+  
+  // Kill switch state
+  isActive: boolean("is_active").default(true).notNull(),
+  killSwitchActivated: boolean("kill_switch_activated").default(false).notNull(),
+  killSwitchActivatedAt: timestamp("kill_switch_activated_at"),
+  killSwitchActivatedBy: varchar("kill_switch_activated_by"),
+  killSwitchReason: text("kill_switch_reason"),
+  
+  // Experiment configuration
+  controlGroup: varchar("control_group").default("balanced"),
+  treatmentGroup: varchar("treatment_group").default("growth"),
+  trafficAllocation: integer("traffic_allocation").default(50), // Percentage to treatment
+  
+  // Safety thresholds
+  safetyThresholds: jsonb("safety_thresholds").$type<{
+    maxAcceptanceRateDiff: number;
+    maxAllocationDiff: number;
+    minSampleSize: number;
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ab_experiment_id").on(table.experimentId),
+  index("idx_ab_experiment_active").on(table.isActive),
+]);
+
+// A/B Testing Metrics Collection
+export const abTestingMetrics = pgTable("ab_testing_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  experimentId: varchar("experiment_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Assignment info
+  assignedGroup: varchar("assigned_group").notNull(), // control or treatment
+  assignedMode: varchar("assigned_mode").notNull(), // balanced or growth
+  
+  // Engagement metrics
+  recommendationsViewed: integer("recommendations_viewed").default(0),
+  recommendationsAccepted: integer("recommendations_accepted").default(0),
+  totalAllocationAmount: decimal("total_allocation_amount", { precision: 18, scale: 2 }).default("0"),
+  timeToDecisionMs: integer("time_to_decision_ms"),
+  
+  // Outcome tracking
+  sessionStartedAt: timestamp("session_started_at").defaultNow(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ab_metrics_experiment").on(table.experimentId),
+  index("idx_ab_metrics_user").on(table.userId),
+  index("idx_ab_metrics_group").on(table.assignedGroup),
+]);
+
+// Insert schemas for profit-optimized tables
+export const insertAgentOverrideAuditLogSchema = createInsertSchema(agentOverrideAuditLog).omit({ id: true, createdAt: true });
+export type AgentOverrideAuditLog = typeof agentOverrideAuditLog.$inferSelect;
+export type InsertAgentOverrideAuditLog = z.infer<typeof insertAgentOverrideAuditLogSchema>;
+
+export const insertABTestingExperimentStateSchema = createInsertSchema(abTestingExperimentState).omit({ id: true, createdAt: true, updatedAt: true });
+export type ABTestingExperimentState = typeof abTestingExperimentState.$inferSelect;
+export type InsertABTestingExperimentState = z.infer<typeof insertABTestingExperimentStateSchema>;
+
+export const insertABTestingMetricsSchema = createInsertSchema(abTestingMetrics).omit({ id: true, createdAt: true });
+export type ABTestingMetrics = typeof abTestingMetrics.$inferSelect;
+export type InsertABTestingMetrics = z.infer<typeof insertABTestingMetricsSchema>;
+
 // Insert schemas for new tables
 export const insertIncomeStreamSchema = createInsertSchema(incomeStreams).omit({ id: true, createdAt: true, updatedAt: true });
 export type IncomeStream = typeof incomeStreams.$inferSelect;
