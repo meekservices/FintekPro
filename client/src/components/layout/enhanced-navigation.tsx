@@ -401,25 +401,25 @@ export function EnhancedNavigation() {
         },
         {
           name: "Client Proposals",
-          href: "/admin-proposals",
+          href: "/agent-proposals",
           icon: ClipboardCheck,
           description: "Create & manage proposals"
         },
         {
-          name: "Commission Reports",
-          href: "/agent-commissions",
+          name: "Revenue & Commissions",
+          href: "/agent-revenue-cockpit",
           icon: BadgePercent,
           description: "Earnings & payouts"
         },
         {
-          name: "ITR Cases",
-          href: "/agent-itr-dashboard",
+          name: "Tax Cases",
+          href: "/agent-tax-cases",
           icon: FileText,
           description: "Tax filing cases"
         },
         {
-          name: "Portfolio Review",
-          href: "/agent-portfolio-review",
+          name: "Portfolio Reports",
+          href: "/agent-portfolio-report-builder",
           icon: PieChart,
           description: "Client portfolio analysis"
         }
@@ -452,19 +452,19 @@ export function EnhancedNavigation() {
         },
         {
           name: "Commission Engine",
-          href: "/admin/commissions",
+          href: "/admin/commission-master",
           icon: CircleDollarSign,
           description: "Configure payouts"
         },
         {
-          name: "Product Catalogue",
-          href: "/admin/products",
+          name: "Store Management",
+          href: "/admin/store-management",
           icon: Package,
           description: "Manage products"
         },
         {
           name: "Audit Logs",
-          href: "/admin/audit-logs",
+          href: "/admin/unlisted/audit-log",
           icon: ScrollText,
           description: "Compliance audit trail"
         }
