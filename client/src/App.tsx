@@ -69,6 +69,14 @@ import { LayoutResolver } from "@/components/layout/LayoutResolver";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { useAuth } from "@/hooks/useAuth";
 import AdminDashboard from "@/pages/admin/dashboard";
+import SystemHealthMonitor from "@/pages/admin/system-health";
+import RevenueAnalytics from "@/pages/admin/revenue-analytics";
+import UserActivityTimeline from "@/pages/admin/user-activity-timeline";
+import BulkOperations from "@/pages/admin/bulk-operations";
+import ComplianceDashboardPage from "@/pages/admin/compliance-dashboard";
+import NotificationManagement from "@/pages/admin/notification-management";
+import FeatureFlags from "@/pages/admin/feature-flags";
+import ReportBuilder from "@/pages/admin/report-builder";
 import StakeholdersPage from "@/pages/admin/stakeholders";
 import KycCompliancePage from "@/pages/admin/kyc-compliance";
 import FinancialOperationsPage from "@/pages/admin/financial-operations";
@@ -636,10 +644,56 @@ function AdminRoutes() {
       <Route path="/admin/system-health">
         {() => (
           <AdminLayout>
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-bold text-white mb-4">System Health</h2>
-              <p className="text-gray-400">Coming soon...</p>
-            </div>
+            <SystemHealthMonitor />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/revenue-analytics">
+        {() => (
+          <AdminLayout>
+            <RevenueAnalytics />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/user-activity">
+        {() => (
+          <AdminLayout>
+            <UserActivityTimeline />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bulk-operations">
+        {() => (
+          <AdminLayout>
+            <BulkOperations />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/compliance-dashboard">
+        {() => (
+          <AdminLayout>
+            <ComplianceDashboardPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/notification-management">
+        {() => (
+          <AdminLayout>
+            <NotificationManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/feature-flags">
+        {() => (
+          <AdminLayout>
+            <FeatureFlags />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/report-builder">
+        {() => (
+          <AdminLayout>
+            <ReportBuilder />
           </AdminLayout>
         )}
       </Route>

@@ -1,0 +1,297 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Shield, 
+  Calendar, 
+  AlertTriangle, 
+  CheckCircle, 
+  Clock,
+  FileText,
+  Scale,
+  Building2,
+  RefreshCw,
+  Bell,
+  ExternalLink,
+  Download
+} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { format, formatDistanceToNow, addDays, isPast, isWithinInterval } from "date-fns";
+
+interface ComplianceDeadline {
+  id: string;
+  title: string;
+  regulator: 'SEBI' | 'RBI' | 'IRDAI' | 'MCA' | 'ITD';
+  dueDate: string;
+  status: 'completed' | 'pending' | 'overdue' | 'upcoming';
+  priority: 'high' | 'medium' | 'low';
+  description: string;
+  documentLink?: string;
+}
+
+interface ComplianceStatus {
+  category: string;
+  totalRequirements: number;
+  compliant: number;
+  nonCompliant: number;
+  percentage: number;
+}
+
+interface ComplianceDashboardData {
+  overallScore: number;
+  deadlines: ComplianceDeadline[];
+  statusByCategory: ComplianceStatus[];
+  recentUpdates: { title: string; date: string; regulator: string }[];
+  alerts: { id: string; severity: string; message: string; date: string }[];
+}
+
+const regulatorColors: Record<string, string> = {
+  SEBI: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  RBI: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
+  IRDAI: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+  MCA: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  ITD: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+};
+
+export default function ComplianceDashboard() {
+  const { data, isLoading, refetch, isFetching } = useQuery<ComplianceDashboardData>({
+    queryKey: ["/api/admin/compliance-dashboard"],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-emerald-100 text-emerald-800';
+      case 'pending': return 'bg-amber-100 text-amber-800';
+      case 'overdue': return 'bg-red-100 text-red-800';
+      case 'upcoming': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'border-l-4 border-l-red-500';
+      case 'medium': return 'border-l-4 border-l-amber-500';
+      case 'low': return 'border-l-4 border-l-blue-500';
+      default: return '';
+    }
+  };
+
+  const overdueCount = data?.deadlines?.filter(d => d.status === 'overdue').length || 0;
+  const upcomingCount = data?.deadlines?.filter(d => d.status === 'upcoming' || d.status === 'pending').length || 0;
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Compliance Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            SEBI, RBI, and regulatory compliance tracking
+          </p>
+        </div>
+        <Button onClick={() => refetch()} disabled={isFetching} variant="outline" data-testid="button-refresh">
+          <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-emerald-500 to-green-600 text-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Compliance Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-4xl font-bold">{data?.overallScore || 0}%</p>
+            <Progress value={data?.overallScore || 0} className="mt-2 bg-white/20" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+              Overdue Items
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600" data-testid="text-overdue">{overdueCount}</p>
+            <p className="text-xs text-muted-foreground">Require immediate action</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600" />
+              Upcoming Deadlines
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-amber-600" data-testid="text-upcoming">{upcomingCount}</p>
+            <p className="text-xs text-muted-foreground">Next 30 days</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Bell className="w-4 h-4 text-blue-600" />
+              Active Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-blue-600">{data?.alerts?.length || 0}</p>
+            <p className="text-xs text-muted-foreground">Regulatory updates</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="deadlines" className="w-full">
+        <TabsList>
+          <TabsTrigger value="deadlines" data-testid="tab-deadlines">Deadlines</TabsTrigger>
+          <TabsTrigger value="status" data-testid="tab-status">Status by Category</TabsTrigger>
+          <TabsTrigger value="updates" data-testid="tab-updates">Regulatory Updates</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="deadlines" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Compliance Calendar
+              </CardTitle>
+              <CardDescription>Upcoming regulatory deadlines and filings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {(data?.deadlines || []).map((deadline) => (
+                  <div 
+                    key={deadline.id} 
+                    className={`p-4 border rounded-lg ${getPriorityColor(deadline.priority)}`}
+                    data-testid={`deadline-${deadline.id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Badge className={regulatorColors[deadline.regulator]}>
+                          {deadline.regulator}
+                        </Badge>
+                        <span className="font-medium">{deadline.title}</span>
+                        <Badge className={getStatusColor(deadline.status)}>
+                          {deadline.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1" />}
+                          {deadline.status === 'overdue' && <AlertTriangle className="w-3 h-3 mr-1" />}
+                          {deadline.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          {format(new Date(deadline.dueDate), 'MMM dd, yyyy')}
+                        </span>
+                        {deadline.documentLink && (
+                          <Button size="sm" variant="ghost">
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{deadline.description}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="status" className="mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(data?.statusByCategory || []).map((category) => (
+              <Card key={category.category}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Scale className="w-5 h-5" />
+                    {category.category}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Compliance Rate</span>
+                      <span className="font-bold">{category.percentage}%</span>
+                    </div>
+                    <Progress value={category.percentage} />
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span>{category.compliant} Compliant</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                        <span>{category.nonCompliant} Non-compliant</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="updates" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Recent Regulatory Updates
+              </CardTitle>
+              <CardDescription>Latest circulars and notifications from regulators</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {(data?.recentUpdates || []).map((update, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                    data-testid={`update-${index}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Badge className={regulatorColors[update.regulator as keyof typeof regulatorColors] || 'bg-gray-100'}>
+                        {update.regulator}
+                      </Badge>
+                      <span className="font-medium">{update.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {format(new Date(update.date), 'MMM dd, yyyy')}
+                      </span>
+                      <Button size="sm" variant="ghost">
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
