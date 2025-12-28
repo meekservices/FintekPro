@@ -19916,14 +19916,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalLoginsResult = await db.execute(sql`SELECT SUM(COALESCE(login_count, 0))::int AS count FROM users`);
       const totalLogins = Number(totalLoginsResult.rows[0]?.count || 0);
       
-      console.log(`Admin Dashboard Stats: ${totalUsers} users, ${businessClients} business clients, ${activeUsers} active users`);
+      // Get new users today (registered in last 24 hours)
+      const newUsersTodayResult = await db.execute(sql`
+        SELECT COUNT(*)::int AS count FROM users 
+        WHERE created_at >= NOW() - INTERVAL '24 hours'
+      `);
+      const newUsersToday = Number(newUsersTodayResult.rows[0]?.count || 0);
+      
+      // Get new users this week vs last week for growth calculation
+      const thisWeekResult = await db.execute(sql`
+        SELECT COUNT(*)::int AS count FROM users 
+        WHERE created_at >= NOW() - INTERVAL '7 days'
+      `);
+      const lastWeekResult = await db.execute(sql`
+        SELECT COUNT(*)::int AS count FROM users 
+        WHERE created_at >= NOW() - INTERVAL '14 days' 
+        AND created_at < NOW() - INTERVAL '7 days'
+      `);
+      const thisWeekUsers = Number(thisWeekResult.rows[0]?.count || 0);
+      const lastWeekUsers = Number(lastWeekResult.rows[0]?.count || 0);
+      const clientGrowthPercent = lastWeekUsers > 0 
+        ? Math.round(((thisWeekUsers - lastWeekUsers) / lastWeekUsers) * 100)
+        : thisWeekUsers > 0 ? 100 : 0;
+      
+      // Get real revenue from transactions (if available)
+      let totalRevenue = 0;
+      try {
+        const revenueResult = await db.execute(sql`
+          SELECT COALESCE(SUM(amount), 0)::numeric AS total 
+          FROM transactions 
+          WHERE status = 'completed' 
+          AND created_at >= DATE_TRUNC('month', NOW())
+        `);
+        totalRevenue = Number(revenueResult.rows[0]?.total || 0);
+      } catch (e: any) {
+        console.log("[Admin Dashboard] Revenue query fallback - transactions table may not exist:", e.message);
+        totalRevenue = 0;
+      }
+      
+      // Get user growth data for last 7 days
+      const userGrowthResult = await db.execute(sql`
+        SELECT 
+          TO_CHAR(created_at::date, 'Dy') as name,
+          created_at::date as date,
+          COUNT(*)::int as users
+        FROM users 
+        WHERE created_at >= NOW() - INTERVAL '7 days'
+        GROUP BY created_at::date
+        ORDER BY created_at::date ASC
+      `);
+      
+      // Build complete 7-day data with zeros for missing days
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const userGrowthData: { name: string; users: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dayName = dayNames[date.getDay()];
+        const dateStr = date.toISOString().split('T')[0];
+        const found = userGrowthResult.rows.find((r: any) => 
+          r.date?.toISOString?.()?.split('T')[0] === dateStr || 
+          String(r.date).split('T')[0] === dateStr
+        );
+        userGrowthData.push({
+          name: dayName,
+          users: found ? Number(found.users) : 0
+        });
+      }
+      
+      console.log(`Admin Dashboard Stats: ${totalUsers} users, ${businessClients} business clients, ${activeUsers} active users, ${newUsersToday} new today`);
 
-      // Mock user stats object to match expected structure
       const userStats = {
         totalUsers,
         activeUsers,
         businessClients,
-        newUsersToday: 1,
+        newUsersToday,
         totalLogins,
         avgSessionTime: "2.5 hours"
       };
@@ -19935,9 +20002,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const platformInsights = {
-        registrationTrend: "up",
-        engagementRate: 0.75,
-        revenue: 125000
+        registrationTrend: clientGrowthPercent > 0 ? "up" : clientGrowthPercent < 0 ? "down" : "stable",
+        engagementRate: totalUsers > 0 ? Math.min(0.95, activeUsers / totalUsers) : 0,
+        revenue: totalRevenue
       };
 
       // Format data to match frontend expectations
@@ -19945,12 +20012,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Top-level fields expected by frontend
         totalClients: totalUsers,
         activeClients: activeUsers,
-        newClientsToday: 1,
+        newClientsToday: newUsersToday,
         totalLogins,
         avgSessionTime: "2.5 hours",
-        clientGrowthPercent: Math.floor((1 / Math.max(totalUsers - 1, 1)) * 100),
-        peakLogins: Math.floor(totalLogins / 30), // Approximate peak per day
-        loginsToday: Math.floor(totalLogins * 0.05), // Approximate today's logins
+        clientGrowthPercent,
+        peakLogins: Math.floor(totalLogins / 30),
+        loginsToday: Math.floor(totalLogins * 0.05),
+        
+        // User growth chart data
+        userGrowthData,
         
         // Nested objects
         userStats,
@@ -33686,7 +33756,7 @@ System Security Data:`;
             )
             .limit(1);
           hasDirectFundsAccess = userAdvisory.length > 0 && userAdvisory[0]?.directFundsAccess;
-        } catch (e) {
+        } catch (e: any) {
           console.error("Error checking advisory subscription:", e);
         }
       }

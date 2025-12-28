@@ -46,6 +46,7 @@ interface DashboardStats {
   clientGrowthPercent: number;
   peakLogins: number;
   loginsToday: number;
+  userGrowthData?: { name: string; users: number }[];
   userStats: {
     totalUsers: number;
     activeUsers: number;
@@ -113,14 +114,14 @@ export default function AdminDashboard() {
     queryKey: ["/api/admin/pending-orders/count"],
   });
 
-  const userGrowthData = [
-    { name: 'Mon', users: 45 },
-    { name: 'Tue', users: 52 },
-    { name: 'Wed', users: 48 },
-    { name: 'Thu', users: 61 },
-    { name: 'Fri', users: 55 },
-    { name: 'Sat', users: 38 },
-    { name: 'Sun', users: 42 },
+  const userGrowthData = dashboardData?.userGrowthData || [
+    { name: 'Mon', users: 0 },
+    { name: 'Tue', users: 0 },
+    { name: 'Wed', users: 0 },
+    { name: 'Thu', users: 0 },
+    { name: 'Fri', users: 0 },
+    { name: 'Sat', users: 0 },
+    { name: 'Sun', users: 0 },
   ];
 
   const kycDistribution = kycStats ? [
