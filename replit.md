@@ -34,6 +34,18 @@ Key features include real-time portfolio/market data, financial calculators, mul
 
 The Profit-Optimized AI Recommendation Engine provides multi-mode recommendations (Conservative, Balanced, Growth-Optimized) with deterministic numeric scoring. A Suitability Score (S) uses risk match (35%), time horizon (25%), liquidity (20%), and regulatory eligibility (20%) as gates. An Upside Score (U) is calculated per asset class using product-specific methodologies (e.g., momentum, valuation, sector for stocks; yield, credit quality, duration for bonds). Final scores are weighted by mode: Conservative (85% S / 15% U), Balanced (70% S / 30% U), Growth-Optimized (55% S / 45% U). Agent governance includes mode selection, override controls with mandatory reason logging, and immutable audit trails. An A/B testing framework with experiment assignment, metrics collection, and safety kill switch ensures controlled rollout. Client-facing disclosure banners and mandatory risk footers maintain SEBI compliance.
 
+#### Offline & Slow-Internet Resilience (SEBI-Compliant)
+The platform implements comprehensive offline and low-connectivity resilience with PWA capabilities:
+- **Global Network State Manager**: Real-time detection of online/offline/slow states with health check endpoint (2-second response guarantee)
+- **PWA Service Worker**: App shell caching with cache-first strategy for static assets and network-first for APIs; critical operations never cached
+- **Draft Auto-Save Engine**: IndexedDB-based persistence with AES encryption, 5-second auto-save intervals, and checksum verification
+- **Action Queue & Sync Engine**: Queues offline actions with idempotency keys, max 3 retries, and background sync on reconnection
+- **Backend Execution Guardrails**: Express middleware blocks execution of trades, payments, submissions, and consent capture when offline
+- **Adaptive Low-Data Mode**: Disables animations, removes shadows/gradients, and hides decorative images for slow connections
+- **Role-Based Offline RBAC**: Matrix blocks execute/pay/trade/submit actions offline for all roles; only view/draft/analyze allowed
+- **User Communication Layer**: Non-dismissible network banners when offline, compliance disclosures, and sync status indicators
+- **Immutable Audit Logs**: Append-only with SHA-256 chain verification, database-persisted checksums, and boot-time integrity checks
+
 #### System Design Choices
 The platform utilizes a subdomain-based portal architecture for Admin, Partner, and Client portals, ensuring isolated experiences, security, and role-based access control. Admin Portal registration is disabled.
 
