@@ -7,7 +7,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GDPRConsent } from "@/components/gdpr-consent";
 import { ThemeProvider } from "@/contexts/theme-context";
+import { LowDataProvider } from "@/contexts/LowDataContext";
 import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
+import { NetworkProvider } from "@/hooks/use-network-state";
+import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
@@ -1329,10 +1332,13 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
+      <NetworkProvider>
+      <LowDataProvider>
+        <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <UnifiedCartProvider>
             <TooltipProvider>
+              <NetworkStatusBanner />
               <Toaster />
               <GDPRConsent />
               <Router />
@@ -1340,6 +1346,8 @@ function App() {
           </UnifiedCartProvider>
         </QueryClientProvider>
       </ThemeProvider>
+        </LowDataProvider>
+    </NetworkProvider>
     </ErrorBoundary>
   );
 }

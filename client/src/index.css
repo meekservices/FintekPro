@@ -199,3 +199,26 @@
   }
 }
 
+/* Low Data Mode Styles */
+.low-data-mode {
+  /* Disable animations */
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  /* Reduce shadows for performance */
+  *[class*="shadow"] {
+    box-shadow: none !important;
+  }
+  
+  /* Hide decorative images */
+  .decorative-image {
+    display: none !important;
+  }
+  
+  /* Simplify gradients */
+  *[class*="gradient"] {
+    background: var(--background) !important;
+  }
+}

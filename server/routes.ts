@@ -1,4 +1,5 @@
 import type { Express, Request } from "express";
+import { executionGuard } from "./middleware/execution-guard";
 import { registerCrmRoutes } from './routes/crm';
 import { registerZohoBooksRoutes } from './routes/zoho-books';
 import { createServer, type Server } from "http";
@@ -167,6 +168,15 @@ const taxReminderSubscriptionSchema = z.object({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const server = createServer(app);
+
+  // Health check endpoint for network state detection (lightweight, no auth required)
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
   
   // Initialize market movers cache at startup (non-blocking)
   marketMoversCache.initialize().catch(err => console.error("Failed to initialize market movers cache:", err));
@@ -175,6 +185,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Auth middleware - setup both Replit Auth and local email/password auth
   setupReplitAuth(app);
+
+  // Apply execution guard middleware for SEBI-compliant offline protection
+  app.use(executionGuard({ logExecution: true, blockOfflineExecution: true }));
   setupLocalAuth(app);
   
   // Initialize user passwords with proper hashing

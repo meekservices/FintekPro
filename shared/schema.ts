@@ -20664,3 +20664,23 @@ export type InsertAppointmentAuditLog = z.infer<typeof insertAppointmentAuditLog
 export const insertPendingAppointmentSchema = createInsertSchema(pendingAppointments).omit({ id: true, createdAt: true, updatedAt: true });
 export type PendingAppointment = typeof pendingAppointments.$inferSelect;
 export type InsertPendingAppointment = z.infer<typeof insertPendingAppointmentSchema>;
+
+// Immutable Audit Logs Table (append-only, no updates or deletes allowed)
+export const immutableAuditLogs = pgTable("immutable_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  action: varchar("action", { length: 100 }).notNull(),
+  userId: varchar("user_id", { length: 255 }),
+  userRole: varchar("user_role", { length: 50 }),
+  entityType: varchar("entity_type", { length: 100 }),
+  entityId: varchar("entity_id", { length: 255 }),
+  previousState: jsonb("previous_state"),
+  newState: jsonb("new_state"),
+  metadata: jsonb("metadata").notNull().default('{}'),
+  checksum: varchar("checksum", { length: 64 }).notNull(),
+  previousChecksum: varchar("previous_checksum", { length: 64 }),
+});
+
+export type ImmutableAuditLog = typeof immutableAuditLogs.$inferSelect;
+export type InsertImmutableAuditLog = typeof immutableAuditLogs.$inferInsert;
