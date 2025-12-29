@@ -8,6 +8,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { unifiedESignService } from '../services/unified-esign-service';
 import { dscTokenESignService } from '../services/dsc-token-esign-service';
+import { auditLogService } from '../services/audit-log-service';
 import { AppError } from '../utils/errors';
 import { z } from 'zod';
 
@@ -141,17 +142,72 @@ router.post('/dsc/initiate', requireAuth, async (req: Request, res: Response, ne
     }
 
     const userId = (req.user as any)?.id;
+    const userRole = (req.user as any)?.role || 'client';
     if (!userId) {
       throw new AppError('User ID not found', 401, 'AUTH_REQUIRED');
     }
+
+    await auditLogService.log('DSC_ESIGN', 'SESSION_INITIATED', {
+      userId,
+      userRole,
+      entityType: 'esign_request',
+      newState: {
+        documentType: result.data.documentType,
+        documentName: result.data.documentName,
+        signerName: result.data.signerName,
+        signingMethod: result.data.signingMethod,
+        certificateClass: result.data.certificateInfo.certificateClass,
+        certificateIssuer: result.data.certificateInfo.issuer.commonName,
+        initiatedAt: new Date().toISOString(),
+      },
+      metadata: {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        requestPath: req.path,
+        requestMethod: req.method,
+      },
+    });
 
     const response = await unifiedESignService.initiateDSCSigningSession({
       userId,
       ...result.data,
     });
 
+    if (response.success) {
+      await auditLogService.log('DSC_ESIGN', 'SESSION_CREATED', {
+        userId,
+        userRole,
+        entityType: 'esign_request',
+        entityId: response.transactionId,
+        newState: {
+          transactionId: response.transactionId,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        },
+        metadata: {
+          ip: req.ip,
+        },
+      });
+    }
+
     res.json(response);
   } catch (error) {
+    const userId = (req.user as any)?.id;
+
+    await auditLogService.log('DSC_ESIGN', 'SESSION_INITIATION_FAILED', {
+      userId,
+      entityType: 'esign_request',
+      newState: {
+        error: (error as Error).message,
+        documentName: req.body?.documentName,
+        failedAt: new Date().toISOString(),
+      },
+      metadata: {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+
     next(error);
   }
 });
@@ -167,10 +223,68 @@ router.post('/dsc/submit-signature', requireAuth, async (req: Request, res: Resp
       });
     }
 
+    const userId = (req.user as any)?.id;
+    const userRole = (req.user as any)?.role || 'client';
+
+    await auditLogService.log('DSC_ESIGN', 'SIGNATURE_SUBMITTED', {
+      userId,
+      userRole,
+      entityType: 'esign_request',
+      entityId: result.data.transactionId,
+      newState: {
+        transactionId: result.data.transactionId,
+        signatureAlgorithm: result.data.signatureAlgorithm,
+        signedAt: result.data.signedAt.toISOString(),
+        submittedAt: new Date().toISOString(),
+      },
+      metadata: {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        requestPath: req.path,
+        requestMethod: req.method,
+      },
+    });
+
     const response = await unifiedESignService.submitDSCSignature(result.data);
+
+    if (response.success) {
+      await auditLogService.log('DSC_ESIGN', 'SIGNATURE_VERIFIED', {
+        userId,
+        userRole,
+        entityType: 'esign_request',
+        entityId: result.data.transactionId,
+        newState: {
+          transactionId: result.data.transactionId,
+          certificateId: response.certificateId,
+          status: 'completed',
+          verifiedAt: new Date().toISOString(),
+        },
+        metadata: {
+          ip: req.ip,
+          userAgent: req.headers['user-agent'],
+        },
+      });
+    }
 
     res.json(response);
   } catch (error) {
+    const userId = (req.user as any)?.id;
+    const transactionId = req.body?.transactionId;
+
+    await auditLogService.log('DSC_ESIGN', 'SIGNATURE_SUBMISSION_FAILED', {
+      userId,
+      entityType: 'esign_request',
+      entityId: transactionId,
+      newState: {
+        error: (error as Error).message,
+        failedAt: new Date().toISOString(),
+      },
+      metadata: {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+
     next(error);
   }
 });

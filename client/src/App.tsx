@@ -11,6 +11,7 @@ import { LowDataProvider } from "@/contexts/LowDataContext";
 import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
 import { NetworkProvider } from "@/hooks/use-network-state";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { DSCBackgroundSync } from "@/components/DSCBackgroundSync";
 import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
@@ -1339,6 +1340,7 @@ function App() {
           <UnifiedCartProvider>
             <TooltipProvider>
               <NetworkStatusBanner />
+              <DSCBackgroundSync />
               <Toaster />
               <GDPRConsent />
               <Router />

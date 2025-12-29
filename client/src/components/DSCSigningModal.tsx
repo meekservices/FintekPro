@@ -143,32 +143,45 @@ export function DSCSigningModal({
     setStep('sign');
   };
 
+  const queueSignatureForLaterSubmission = (payload: {
+    transactionId: string;
+    signature: string;
+    signatureAlgorithm: string;
+    signedAt: string;
+    documentName: string;
+  }) => {
+    const queueKey = 'dsc_pending_signatures';
+    const existing = localStorage.getItem(queueKey);
+    const queue = existing ? JSON.parse(existing) : [];
+    queue.push({
+      ...payload,
+      queuedAt: new Date().toISOString(),
+      id: `queued-${Date.now()}`,
+    });
+    localStorage.setItem(queueKey, JSON.stringify(queue));
+  };
+
   const handleSign = async () => {
     if (!selectedCert) return;
-
-    if (isOfflineOrSlow) {
-      setError('Cannot submit signature while offline or on slow network. Please wait for connectivity to restore.');
-      return;
-    }
 
     setIsLoading(true);
     setError(null);
     setProgress(60);
 
-    try {
-      const certInfo = {
-        serialNumber: selectedCert.serialNumber,
-        subject: selectedCert.subject,
-        issuer: selectedCert.issuer,
-        validFrom: selectedCert.validFrom.toISOString(),
-        validTo: selectedCert.validTo.toISOString(),
-        certificateClass: selectedCert.certificateClass,
-        certificateType: selectedCert.certificateType,
-        keyUsage: selectedCert.keyUsage,
-        fingerprint: selectedCert.fingerprint,
-        publicKey: selectedCert.publicKey,
-      };
+    const certInfo = {
+      serialNumber: selectedCert.serialNumber,
+      subject: selectedCert.subject,
+      issuer: selectedCert.issuer,
+      validFrom: selectedCert.validFrom.toISOString(),
+      validTo: selectedCert.validTo.toISOString(),
+      certificateClass: selectedCert.certificateClass,
+      certificateType: selectedCert.certificateType,
+      keyUsage: selectedCert.keyUsage,
+      fingerprint: selectedCert.fingerprint,
+      publicKey: selectedCert.publicKey,
+    };
 
+    try {
       const initiateResponse = await apiRequest('/api/esign/dsc/initiate', {
         method: 'POST',
         body: JSON.stringify({
@@ -195,6 +208,42 @@ export function DSCSigningModal({
 
       if (!signResult.success) {
         throw new Error(signResult.error || 'Signing failed');
+      }
+
+      if (isOfflineOrSlow) {
+        queueSignatureForLaterSubmission({
+          transactionId: initiateResponse.transactionId,
+          signature: signResult.signature!,
+          signatureAlgorithm: signResult.signatureAlgorithm!,
+          signedAt: signResult.signedAt?.toISOString() || new Date().toISOString(),
+          documentName,
+        });
+
+        setProgress(100);
+        setSigningResult({
+          success: true,
+          queued: true,
+          message: 'Signature created locally and queued for submission',
+          signatureData: {
+            signedAt: signResult.signedAt,
+            signatureAlgorithm: signResult.signatureAlgorithm,
+          },
+        });
+        setStep('complete');
+
+        toast({
+          title: 'Document Signed Locally',
+          description: 'Signature queued for submission when network is available.',
+          variant: 'default',
+        });
+
+        onSigningComplete?.({
+          success: true,
+          transactionId: initiateResponse.transactionId,
+          signedAt: signResult.signedAt,
+        });
+
+        return;
       }
 
       const submitResponse = await apiRequest('/api/esign/dsc/submit-signature', {
@@ -449,11 +498,10 @@ export function DSCSigningModal({
       </Card>
 
       {isOfflineOrSlow && (
-        <Alert variant="destructive">
+        <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            You are {networkState}. Signature submission is blocked for SEBI compliance.
-            Please wait for network connectivity to restore.
+            You are {networkState}. A brief connection is required to initiate signing (get server challenge), but the signature submission can be queued if connection drops during signing.
           </AlertDescription>
         </Alert>
       )}
@@ -476,7 +524,7 @@ export function DSCSigningModal({
         </Button>
         <Button 
           onClick={handleSign}
-          disabled={isLoading || isOfflineOrSlow}
+          disabled={isLoading}
           className="flex-1"
           data-testid="button-sign-document"
         >
@@ -507,60 +555,99 @@ export function DSCSigningModal({
     </div>
   );
 
-  const renderCompleteStep = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col items-center py-6">
-        <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
-        <h3 className="text-xl font-semibold">Document Signed Successfully</h3>
-        <p className="text-muted-foreground text-center mt-2">
-          Your document has been digitally signed using your DSC token.
-        </p>
-      </div>
+  const renderCompleteStep = () => {
+    const isQueued = signingResult?.queued;
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center py-6">
+          {isQueued ? (
+            <>
+              <Clock className="h-16 w-16 text-orange-500 mb-4" />
+              <h3 className="text-xl font-semibold">Document Signed Locally</h3>
+              <p className="text-muted-foreground text-center mt-2">
+                Your document has been signed with your DSC token. Submission is queued until network connectivity is restored.
+              </p>
+            </>
+          ) : (
+            <>
+              <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+              <h3 className="text-xl font-semibold">Document Signed Successfully</h3>
+              <p className="text-muted-foreground text-center mt-2">
+                Your document has been digitally signed using your DSC token.
+              </p>
+            </>
+          )}
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Signature Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Transaction ID:</span>
-            <span className="font-mono">{transactionId}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Certificate ID:</span>
-            <span className="font-mono">{signingResult?.certificateId}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Signed At:</span>
-            <span>{new Date(signingResult?.signatureData?.signedAt).toLocaleString('en-IN')}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Algorithm:</span>
-            <span>{signingResult?.signatureData?.signatureAlgorithm}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Issuer:</span>
-            <span>{signingResult?.signatureData?.issuer}</span>
-          </div>
-        </CardContent>
-      </Card>
+        {isQueued && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Signature will be automatically submitted when you're back online. Do not remove your DSC token until submission is complete.
+            </AlertDescription>
+          </Alert>
+        )}
 
-      <div className="flex gap-3">
-        <Button 
-          variant="outline" 
-          onClick={() => window.open(signingResult?.signedDocumentUrl, '_blank')}
-          className="flex-1"
-          data-testid="button-download-signed"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Download Signed Document
-        </Button>
-        <Button onClick={onClose} className="flex-1" data-testid="button-close-modal">
-          Done
-        </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Signature Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {transactionId && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Transaction ID:</span>
+                <span className="font-mono">{transactionId}</span>
+              </div>
+            )}
+            {signingResult?.certificateId && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Certificate ID:</span>
+                <span className="font-mono">{signingResult.certificateId}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Signed At:</span>
+              <span>{signingResult?.signatureData?.signedAt ? new Date(signingResult.signatureData.signedAt).toLocaleString('en-IN') : 'N/A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Algorithm:</span>
+              <span>{signingResult?.signatureData?.signatureAlgorithm || 'N/A'}</span>
+            </div>
+            {signingResult?.signatureData?.issuer && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Issuer:</span>
+                <span>{signingResult.signatureData.issuer}</span>
+              </div>
+            )}
+            {isQueued && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status:</span>
+                <Badge variant="outline" className="text-orange-500 border-orange-500">Queued</Badge>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-3">
+          {!isQueued && (
+            <Button 
+              variant="outline" 
+              onClick={() => window.open(signingResult?.signedDocumentUrl, '_blank')}
+              className="flex-1"
+              data-testid="button-download-signed"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Signed Document
+            </Button>
+          )}
+          <Button onClick={onClose} className={isQueued ? "w-full" : "flex-1"} data-testid="button-close-modal">
+            {isQueued ? 'Close' : 'Done'}
+          </Button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderErrorStep = () => (
     <div className="space-y-6">
