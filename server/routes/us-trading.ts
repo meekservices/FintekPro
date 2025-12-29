@@ -264,10 +264,10 @@ router.post("/orders", async (req, res) => {
 
     const data = orderSchema.parse(req.body);
 
-    if (!data.consentAcknowledged) {
+    if (!data.consent || !data.lrsDeclaration) {
       return res.status(400).json({ 
         success: false, 
-        error: "Trade consent must be acknowledged before placing order" 
+        error: "Both trade consent and LRS declaration must be acknowledged before placing order" 
       });
     }
 
@@ -310,9 +310,26 @@ router.post("/orders", async (req, res) => {
       side: data.side,
       quantity: data.quantity,
       notionalUsd: data.notionalUsd,
+      consent: data.consent,
+      lrsDeclaration: data.lrsDeclaration,
       timestamp: new Date().toISOString(),
     };
     const consentHash = usTradingService.generateConsentHash(consentData);
+    
+    await usTradingService.recordLrsDeclaration({
+      clientId: userId,
+      orderId: order.id,
+      declarationType: "lrs_trade_declaration",
+      declarationText: "I declare this transaction is within my LRS limit and complies with FEMA regulations",
+      declarationHash: crypto.createHash('sha256').update(JSON.stringify({
+        userId,
+        orderId: order.id,
+        lrsDeclaration: true,
+        timestamp: new Date().toISOString(),
+      })).digest('hex'),
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
 
     await usTradingService.recordConsent({
       clientId: userId,

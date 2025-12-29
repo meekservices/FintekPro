@@ -2,7 +2,8 @@ import { db } from "../db";
 import { 
   usBrokerAccounts, usOrders, usHoldings, usConsents, usLrsDeclarations, usWatchlist, usFeatureFlags,
   UsBrokerAccount, UsOrder, UsHolding, UsConsent, UsLrsDeclaration, UsWatchlist, UsFeatureFlag,
-  InsertUsBrokerAccount, InsertUsOrder, InsertUsHolding, InsertUsConsent, InsertUsLrsDeclaration, InsertUsWatchlist
+  InsertUsBrokerAccount, InsertUsOrder, InsertUsHolding, InsertUsConsent, InsertUsLrsDeclaration, InsertUsWatchlist,
+  users, riskProfiles, kycVault
 } from "@shared/schema";
 import { eq, and, desc, gte, sql } from "drizzle-orm";
 import crypto from "crypto";
@@ -93,24 +94,52 @@ class UsTradingService {
     }
   }
 
-  async checkCompliance(clientId: string): Promise<ComplianceCheckResult> {
+  async checkCompliance(clientId: string): Promise<ComplianceCheckResult & { riskProfile?: string; kycComplete?: boolean }> {
     const blockers: string[] = [];
     
     const account = await this.getBrokerAccount(clientId);
     
-    const femaResident = account?.femaEligible || false;
-    const panVerified = true;
-    const riskProfileComplete = account?.riskProfileCompleted || false;
+    const [userResult] = await db.select({
+      panNumber: users.panNumber,
+      residentStatus: users.residentStatus,
+      countryOfResidence: users.countryOfResidence,
+      riskTolerance: users.riskTolerance,
+      investorCategory: users.investorCategory,
+    }).from(users).where(eq(users.id, clientId)).limit(1);
+
+    const [kycResult] = await db.select({
+      kycStatus: kycVault.kycStatus,
+      panVerifiedAt: kycVault.panVerifiedAt,
+    }).from(kycVault).where(eq(kycVault.userId, clientId)).limit(1);
+
+    const [riskProfileResult] = await db.select({
+      riskTolerance: riskProfiles.riskTolerance,
+      riskScore: riskProfiles.riskScore,
+    }).from(riskProfiles).where(eq(riskProfiles.userId, clientId)).limit(1);
+
+    const panVerified = Boolean(kycResult?.panVerifiedAt) || Boolean(userResult?.panNumber);
+    
+    const isIndianResident = !userResult?.residentStatus || 
+      userResult.residentStatus === 'resident' || 
+      userResult.countryOfResidence === 'India' ||
+      userResult.countryOfResidence === 'IN';
+    const femaResident = isIndianResident;
+    
+    const riskProfileComplete = Boolean(riskProfileResult?.riskTolerance) || 
+      Boolean(userResult?.riskTolerance) || 
+      Boolean(account?.riskProfileCompleted);
+    
+    const kycComplete = kycResult?.kycStatus === 'verified' || Boolean(panVerified);
     
     const fy = this.getCurrentFinancialYear();
     const lrsUsed = account?.lrsUsedUsd ? parseFloat(account.lrsUsedUsd) : 0;
     const lrsRemainingUsd = LRS_ANNUAL_LIMIT_USD - lrsUsed;
     const lrsAvailable = lrsRemainingUsd > 0;
 
-    if (!femaResident) blockers.push("FEMA residency status not verified");
-    if (!panVerified) blockers.push("PAN not verified");
-    if (!riskProfileComplete) blockers.push("Risk profile incomplete");
-    if (!lrsAvailable) blockers.push("LRS limit exhausted for current financial year");
+    if (!femaResident) blockers.push("FEMA residency status not verified - must be Indian resident");
+    if (!panVerified) blockers.push("PAN verification required");
+    if (!riskProfileComplete) blockers.push("Complete your risk profile assessment");
+    if (!lrsAvailable) blockers.push("LRS limit of $250,000 exhausted for current financial year");
 
     return {
       eligible: blockers.length === 0,
@@ -122,6 +151,8 @@ class UsTradingService {
         lrsRemainingUsd,
       },
       blockers,
+      riskProfile: riskProfileResult?.riskTolerance || userResult?.riskTolerance || "Not assessed",
+      kycComplete,
     };
   }
 
