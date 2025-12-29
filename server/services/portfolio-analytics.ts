@@ -15,7 +15,8 @@ import {
   npsAccounts, 
   apyAccounts,
   userBankAccounts,
-  insuranceHoldings
+  insuranceHoldings,
+  usHoldings
 } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { FinancialCalculations, CashFlow, XIRRResult, CAGRResult } from './financial-calculations';
@@ -33,6 +34,7 @@ interface PortfolioSummary {
 
 interface AssetAllocation {
   equity: AllocationItem;
+  internationalEquity: AllocationItem;
   debt: AllocationItem;
   gold: AllocationItem;
   realEstate: AllocationItem;
@@ -78,14 +80,16 @@ export class PortfolioAnalytics {
       npsData,
       apyData,
       bankData,
-      insuranceData
+      insuranceData,
+      usEquityData
     ] = await Promise.all([
       db.select().from(comprehensiveHoldings).where(eq(comprehensiveHoldings.userId, userId)),
       db.select().from(epfHoldings).where(eq(epfHoldings.userId, userId)),
       db.select().from(npsAccounts).where(eq(npsAccounts.userId, userId)),
       db.select().from(apyAccounts).where(eq(apyAccounts.userId, userId)),
       db.select().from(userBankAccounts).where(eq(userBankAccounts.userId, userId)),
-      db.select().from(insuranceHoldings).where(eq(insuranceHoldings.userId, userId))
+      db.select().from(insuranceHoldings).where(eq(insuranceHoldings.userId, userId)),
+      db.select().from(usHoldings).where(eq(usHoldings.clientId, userId))
     ]);
 
     // Calculate totals
@@ -96,6 +100,7 @@ export class PortfolioAnalytics {
     // Asset allocation tracking
     const allocation = {
       equity: 0,
+      internationalEquity: 0,
       debt: 0,
       gold: 0,
       realEstate: 0,
@@ -106,6 +111,7 @@ export class PortfolioAnalytics {
 
     const counts = {
       equity: 0,
+      internationalEquity: 0,
       debt: 0,
       gold: 0,
       realEstate: 0,
@@ -202,6 +208,29 @@ export class PortfolioAnalytics {
       counts.insurance++;
     }
 
+    // Process US Equity holdings (international diversification)
+    for (const usHolding of usEquityData) {
+      const marketValueInr = parseFloat(usHolding.marketValueInr || '0');
+      const quantity = parseFloat(usHolding.quantity || '0');
+      const avgPriceUsd = parseFloat(usHolding.avgPriceUsd || '0');
+      // Use FX rate at time of purchase for accurate cost basis, fallback to current rate
+      const fxRateAtBuy = parseFloat(usHolding.fxRateAtBuy || usHolding.currentFxRate || '0');
+      const investedInr = avgPriceUsd * quantity * fxRateAtBuy;
+      
+      currentValue += marketValueInr;
+      totalInvested += investedInr;
+      allocation.internationalEquity += marketValueInr;
+      counts.internationalEquity++;
+
+      // Cash flows for XIRR (using first purchase date)
+      if (usHolding.createdAt && investedInr > 0) {
+        allCashFlows.push({
+          date: new Date(usHolding.createdAt),
+          amount: -investedInr
+        });
+      }
+    }
+
     // Add current value as final cash flow for XIRR
     allCashFlows.push({
       date: new Date(),
@@ -226,6 +255,11 @@ export class PortfolioAnalytics {
         value: allocation.equity,
         percentage: parseFloat(((allocation.equity / totalValue) * 100).toFixed(2)),
         count: counts.equity
+      },
+      internationalEquity: {
+        value: allocation.internationalEquity,
+        percentage: parseFloat(((allocation.internationalEquity / totalValue) * 100).toFixed(2)),
+        count: counts.internationalEquity
       },
       debt: {
         value: allocation.debt,
@@ -365,10 +399,11 @@ export class PortfolioAnalytics {
    * Calculate risk profile based on asset allocation
    */
   private static calculateRiskProfile(allocation: AssetAllocation): RiskProfile {
-    const equityPercentage = allocation.equity.percentage;
+    // Total equity includes both domestic and international equity
+    const equityPercentage = allocation.equity.percentage + allocation.internationalEquity.percentage;
     const debtPercentage = allocation.debt.percentage + allocation.cash.percentage;
     
-    // Risk score: 0-100 based on equity exposure
+    // Risk score: 0-100 based on total equity exposure
     const score = Math.round(equityPercentage);
 
     let classification: RiskProfile['classification'];
