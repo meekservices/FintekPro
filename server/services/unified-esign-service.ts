@@ -11,9 +11,10 @@ import { systemConfigs } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { authBridgeESignService } from '../authbridge-esign-service';
 import { proteanESignService } from './protean-esign-service';
+import { dscTokenESignService, DSCSigningRequest, DSCSignatureSubmission } from './dsc-token-esign-service';
 import { nanoid } from 'nanoid';
 
-export type ESignProvider = 'authbridge' | 'protean' | 'emudhra' | 'cvl';
+export type ESignProvider = 'authbridge' | 'protean' | 'emudhra' | 'cvl' | 'dsc_token';
 
 export interface ESignProviderConfig {
   provider: ESignProvider;
@@ -120,6 +121,17 @@ class UnifiedESignService {
       features: ['Aadhaar OTP', 'PDF Signing', 'Depository Integration'],
       environment: 'sandbox',
     }],
+    ['dsc_token', {
+      provider: 'dsc_token',
+      displayName: 'DSC Token (Hardware)',
+      description: 'Digital Signature Certificate via USB Token or Smart Card - Class 2/3 certificates',
+      pricingPerSign: 0.00,
+      pricingCurrency: 'INR',
+      isActive: true,
+      isConfigured: true,
+      features: ['USB Token', 'Smart Card', 'Class 2/3 DSC', 'No OTP Required', 'Offline Capable', 'TSA Timestamping'],
+      environment: 'sandbox',
+    }],
   ]);
 
   constructor() {
@@ -135,9 +147,14 @@ class UnifiedESignService {
     proteanConfig.isConfigured = !proteanESignService.isInMockMode();
     proteanConfig.environment = proteanESignService.getEnvironment() as 'sandbox' | 'production';
 
+    const dscConfig = this.defaultProviders.get('dsc_token')!;
+    dscConfig.isConfigured = true;
+    dscConfig.environment = dscTokenESignService.getEnvironment() as 'sandbox' | 'production';
+
     console.log('✅ Unified eSign Service initialized');
     console.log(`   AuthBridge: ${authbridgeConfig.isConfigured ? 'Configured' : 'Mock Mode'}`);
     console.log(`   Protean: ${proteanConfig.isConfigured ? 'Configured' : 'Mock Mode'}`);
+    console.log(`   DSC Token: ${dscConfig.isConfigured ? 'Available' : 'Mock Mode'}`);
   }
 
   private async loadPersistedPricing(): Promise<Map<ESignProvider, number>> {
@@ -165,6 +182,9 @@ class UnifiedESignService {
   detectProviderFromTransactionId(transactionId: string): ESignProvider {
     if (transactionId.startsWith('PROTEAN-')) {
       return 'protean';
+    }
+    if (transactionId.startsWith('DSC-')) {
+      return 'dsc_token';
     }
     return 'authbridge';
   }
@@ -373,6 +393,10 @@ class UnifiedESignService {
         const proteanStatus = await proteanESignService.getStatus(transactionId);
         return { ...proteanStatus, provider: 'protean' };
 
+      case 'dsc_token':
+        const dscStatus = await dscTokenESignService.getStatus(transactionId);
+        return { ...dscStatus, provider: 'dsc_token' };
+
       case 'authbridge':
       default:
         const authbridgeStatus = await authBridgeESignService.getStatus(transactionId);
@@ -406,7 +430,40 @@ class UnifiedESignService {
         lastUsed: null,
         estimatedCost: 0,
       },
+      {
+        provider: 'dsc_token',
+        displayName: 'DSC Token (Hardware)',
+        totalSigns: 0,
+        lastUsed: null,
+        estimatedCost: 0,
+      },
     ];
+  }
+
+  async initiateDSCSigningSession(request: DSCSigningRequest) {
+    console.log(`[UnifiedESign] Initiating DSC token signing session`);
+    return dscTokenESignService.initiateSigningSession(request);
+  }
+
+  async submitDSCSignature(submission: DSCSignatureSubmission) {
+    console.log(`[UnifiedESign] Submitting DSC signature for transaction: ${submission.transactionId}`);
+    return dscTokenESignService.submitSignature(submission);
+  }
+
+  async cancelDSCSession(transactionId: string, userId: string, reason?: string) {
+    return dscTokenESignService.cancelSession(transactionId, userId, reason);
+  }
+
+  getDSCKnownIssuers(): string[] {
+    return dscTokenESignService.getKnownIssuers();
+  }
+
+  getDSCSupportedAlgorithms(): string[] {
+    return dscTokenESignService.getSupportedAlgorithms();
+  }
+
+  isDSCProvider(provider: ESignProvider): boolean {
+    return provider === 'dsc_token';
   }
 }
 

@@ -19270,7 +19270,12 @@ export const esignRequests = pgTable("esign_requests", {
   apiResponse: jsonb("api_response"),
   
   // Provider tracking for multi-provider support
-  provider: varchar("provider").default("authbridge"), // authbridge, protean, emudhra, cvl
+  provider: varchar("provider").default("authbridge"), // authbridge, protean, emudhra, cvl, dsc_token
+  
+  // DSC Token specific fields
+  dscTokenInfo: jsonb("dsc_token_info"), // { serialNumber, issuer, subject, validFrom, validTo, class, type }
+  dscCertificateFingerprint: varchar("dsc_certificate_fingerprint"), // SHA-256 fingerprint of DSC certificate
+  dscSigningMethod: varchar("dsc_signing_method"), // usb_token, smart_card, software
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -19310,7 +19315,18 @@ export const esignCertificates = pgTable("esign_certificates", {
   revokedReason: text("revoked_reason"),
   
   // Provider tracking for multi-provider support
-  provider: varchar("provider").default("authbridge"), // authbridge, protean, emudhra, cvl
+  provider: varchar("provider").default("authbridge"), // authbridge, protean, emudhra, cvl, dsc_token
+  
+  // DSC Token specific fields
+  dscCertificateClass: varchar("dsc_certificate_class"), // Class 1, Class 2, Class 3
+  dscCertificateType: varchar("dsc_certificate_type"), // Signing, Encryption, Both
+  dscIssuer: text("dsc_issuer"), // Certificate issuing authority (e.g., eMudhra, Sify, (n)Code)
+  dscSubjectDN: text("dsc_subject_dn"), // Distinguished Name from certificate
+  dscCertificateFingerprint: varchar("dsc_certificate_fingerprint"), // SHA-256 fingerprint
+  dscTimestampAuthority: text("dsc_timestamp_authority"), // TSA used for timestamping
+  dscTimestamp: timestamp("dsc_timestamp"), // RFC 3161 timestamp
+  dscOcspStatus: varchar("dsc_ocsp_status"), // good, revoked, unknown
+  dscCrlStatus: varchar("dsc_crl_status"), // valid, revoked, unknown
   
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [

@@ -312,6 +312,11 @@ app.use((req, res, next) => {
   app.use(adminEsignRoutes.default);
   console.log('✅ Admin eSign provider configuration routes registered');
   
+  // Register DSC Token eSign routes
+  const dscEsignRoutes = await import('./routes/dsc-esign-routes');
+  app.use('/api/esign', dscEsignRoutes.default);
+  console.log('✅ DSC Token eSign routes registered');
+  
   // Register CA (Chartered Accountant) routes
   const caRoutes = await import('./routes/ca-routes');
   app.use('/api/ca', caRoutes.default);
