@@ -7,6 +7,19 @@ import { z } from "zod";
 
 const router = Router();
 
+router.get("/test-zoho-connection", async (req, res) => {
+  try {
+    const result = await zohoMeetingService.testConnection();
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error testing Zoho connection",
+      details: error.message
+    });
+  }
+});
+
 const bookMeetingSchema = z.object({
   agentId: z.string().min(1, "Agent ID is required"),
   topic: z.string().min(3, "Topic must be at least 3 characters"),

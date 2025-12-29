@@ -221,6 +221,58 @@ class ZohoMeetingService {
 
     return response.data;
   }
+
+  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+    if (!this.isConfigured()) {
+      return {
+        success: false,
+        message: "Zoho Meeting credentials not configured (missing ZOHO_CLIENT_ID or ZOHO_CLIENT_SECRET)"
+      };
+    }
+
+    if (!this.refreshToken) {
+      return {
+        success: false,
+        message: "Zoho refresh token not available (missing ZOHO_REFRESH_TOKEN)"
+      };
+    }
+
+    try {
+      const token = await this.refreshAccessToken();
+      const zsoid = process.env.ZOHO_ZSOID || "";
+      
+      const response = await axios.get(
+        `https://meeting.zoho.in/api/v2/${zsoid}/sessions.json`,
+        {
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+          },
+          params: {
+            fromIndex: 0,
+            limit: 1
+          }
+        }
+      );
+
+      return {
+        success: true,
+        message: "Zoho Meeting credentials verified successfully",
+        details: {
+          tokenRefreshed: true,
+          apiCallSuccess: true,
+          zsoid: zsoid ? "configured" : "not configured"
+        }
+      };
+    } catch (error: any) {
+      const errorDetails = error.response?.data || error.message;
+      console.error("Zoho Meeting test failed:", errorDetails);
+      return {
+        success: false,
+        message: "Failed to verify Zoho Meeting credentials",
+        details: errorDetails
+      };
+    }
+  }
 }
 
 export const zohoMeetingService = new ZohoMeetingService();
