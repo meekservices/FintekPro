@@ -75,18 +75,23 @@ export function executionGuard(options: ExecutionGuardOptions = {}) {
       });
     }
 
-    if (blockOfflineExecution && networkState === 'offline') {
-      console.warn(`[EXECUTION_GUARD] BLOCKED offline execution: ${req.path}`, {
+    if (blockOfflineExecution && (networkState === 'offline' || networkState === 'slow')) {
+      const isOffline = networkState === 'offline';
+      console.warn(`[EXECUTION_GUARD] BLOCKED ${networkState} execution: ${req.path}`, {
         executionId,
         userId: (req as any).user?.id,
+        networkState,
       });
       
       return res.status(400).json({
         success: false,
-        error: 'OFFLINE_EXECUTION_BLOCKED',
-        message: 'This action cannot be executed offline. Please ensure you have an active internet connection.',
+        error: isOffline ? 'OFFLINE_EXECUTION_BLOCKED' : 'SLOW_NETWORK_EXECUTION_BLOCKED',
+        message: isOffline 
+          ? 'This action cannot be executed offline. Please ensure you have an active internet connection.'
+          : 'This action cannot be executed on a slow network. Please wait for a stable connection to ensure transaction integrity.',
         executionId,
         code: 'NETWORK_REQUIRED',
+        networkState,
       });
     }
 
