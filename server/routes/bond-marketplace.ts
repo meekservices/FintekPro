@@ -708,6 +708,260 @@ router.post('/admin/match', requireAuth, async (req: Request, res: Response) => 
   }
 });
 
+// ===================================================================
+// ONE-CLICK BOND ORDER ROUTES
+// ===================================================================
+
+/**
+ * POST /api/bonds/orders
+ * Create a new bond order (one-click investment)
+ */
+router.post('/orders', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const {
+      isin,
+      bondType,
+      quantity,
+      orderType = 'market',
+      limitPrice,
+      price,
+      dematAccountNumber,
+      dpId,
+    } = req.body;
+
+    // Validate required fields
+    if (!isin || !quantity || quantity < 1) {
+      return apiResponse.badRequest(res, 'ISIN and valid quantity are required');
+    }
+
+    // Look up bond details
+    let bondDetails: any = null;
+    let bondName = '';
+    let issuer = '';
+    let faceValue = 1000;
+    let actualBondType = bondType || 'corporate';
+
+    // Try government securities first
+    const [govBond] = await db.select().from(schema.governmentSecurities)
+      .where(eq(schema.governmentSecurities.isin, isin));
+    
+    if (govBond) {
+      bondDetails = govBond;
+      bondName = govBond.securityName || govBond.isin;
+      issuer = 'Government of India';
+      faceValue = parseFloat(govBond.faceValue?.toString() || '1000');
+      actualBondType = 'government';
+    } else {
+      // Try corporate bonds
+      const [corpBond] = await db.select().from(schema.corporateBonds)
+        .where(eq(schema.corporateBonds.isin, isin));
+      
+      if (corpBond) {
+        bondDetails = corpBond;
+        bondName = corpBond.bondName || corpBond.isin;
+        issuer = corpBond.issuer || 'Unknown';
+        faceValue = parseFloat(corpBond.faceValue?.toString() || '1000');
+        actualBondType = 'corporate';
+      }
+    }
+
+    if (!bondDetails) {
+      return apiResponse.notFound(res, 'Bond not found with the specified ISIN');
+    }
+
+    // Calculate order amounts
+    const orderPrice = price || parseFloat(bondDetails.currentPrice?.toString() || bondDetails.lastPrice?.toString() || '1000');
+    const grossAmount = orderPrice * quantity;
+    const totalFaceValue = faceValue * quantity;
+    
+    // Calculate accrued interest (simplified)
+    const accruedInterest = 0; // Would need coupon rate and last coupon date for accurate calculation
+    const netAmount = grossAmount + accruedInterest;
+
+    // Generate order number
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const orderNumber = `BND${timestamp}${random}`;
+
+    // Create bond order
+    const [order] = await db.insert(schema.bondOrders).values({
+      orderNumber,
+      userId,
+      clientCode: dematAccountNumber || null,
+      bondId: bondDetails.id,
+      bondType: actualBondType,
+      isin,
+      bondName,
+      orderType: 'buy',
+      orderCategory: orderType,
+      quantity,
+      faceValue: faceValue.toString(),
+      totalFaceValue: totalFaceValue.toString(),
+      orderPrice: orderPrice.toString(),
+      limitPrice: limitPrice?.toString() || null,
+      grossAmount: grossAmount.toString(),
+      accruedInterest: accruedInterest.toString(),
+      netAmount: netAmount.toString(),
+      orderStatus: 'pending',
+      dematAccountNumber: dematAccountNumber || null,
+      orderPlacedBy: 'client',
+      exchange: 'bse',
+      paymentStatus: 'pending',
+    }).returning();
+
+    // Log audit
+    await db.insert(schema.bondMarketplaceAuditLogs).values({
+      userId,
+      userRole: 'client',
+      action: 'place_order',
+      entityType: 'bond_order',
+      entityId: order.id,
+      isin,
+      bondType: actualBondType,
+      instrumentType: actualBondType === 'government' ? 'government_security' : 'corporate_bond',
+      afterValue: {
+        orderNumber,
+        quantity,
+        price: orderPrice,
+        netAmount,
+        orderType,
+      },
+      changeDescription: `One-click bond order: ${quantity} units of ${bondName} at ₹${orderPrice} each. Total: ₹${netAmount.toFixed(2)}`,
+      complianceRelated: true,
+      retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000)
+    });
+
+    return apiResponse.success(res, {
+      order,
+      message: 'Bond order placed successfully',
+      orderNumber: order.orderNumber,
+    }, 201);
+  } catch (error: any) {
+    console.error('Error creating bond order:', error);
+    return apiResponse.serverError(res, 'Failed to place bond order');
+  }
+});
+
+/**
+ * GET /api/bonds/orders
+ * Get user's bond orders
+ */
+router.get('/orders', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+
+    const { status, limit = '50', offset = '0' } = req.query;
+
+    const conditions = [eq(schema.bondOrders.userId, userId)];
+    
+    if (status && typeof status === 'string') {
+      conditions.push(eq(schema.bondOrders.orderStatus, status));
+    }
+
+    const orders = await db.select().from(schema.bondOrders)
+      .where(and(...conditions))
+      .orderBy(desc(schema.bondOrders.createdAt))
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
+
+    return apiResponse.success(res, {
+      orders,
+      total: orders.length,
+    });
+  } catch (error: any) {
+    console.error('Error fetching bond orders:', error);
+    return apiResponse.serverError(res, 'Failed to fetch orders');
+  }
+});
+
+/**
+ * GET /api/bonds/orders/:id
+ * Get a specific bond order
+ */
+router.get('/orders/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    const { id } = req.params;
+
+    const [order] = await db.select().from(schema.bondOrders)
+      .where(and(
+        eq(schema.bondOrders.id, id),
+        eq(schema.bondOrders.userId, userId)
+      ));
+
+    if (!order) {
+      return apiResponse.notFound(res, 'Order not found');
+    }
+
+    return apiResponse.success(res, order);
+  } catch (error: any) {
+    console.error('Error fetching bond order:', error);
+    return apiResponse.serverError(res, 'Failed to fetch order');
+  }
+});
+
+/**
+ * PATCH /api/bonds/orders/:id/cancel
+ * Cancel a pending bond order
+ */
+router.patch('/orders/:id/cancel', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    const { id } = req.params;
+
+    const [order] = await db.select().from(schema.bondOrders)
+      .where(and(
+        eq(schema.bondOrders.id, id),
+        eq(schema.bondOrders.userId, userId)
+      ));
+
+    if (!order) {
+      return apiResponse.notFound(res, 'Order not found');
+    }
+
+    if (order.orderStatus !== 'pending') {
+      return apiResponse.badRequest(res, 'Only pending orders can be cancelled');
+    }
+
+    const [updated] = await db.update(schema.bondOrders)
+      .set({
+        orderStatus: 'cancelled',
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.bondOrders.id, id))
+      .returning();
+
+    // Log audit
+    await db.insert(schema.bondMarketplaceAuditLogs).values({
+      userId,
+      userRole: 'client',
+      action: 'cancel_order',
+      entityType: 'bond_order',
+      entityId: id,
+      isin: order.isin,
+      bondType: order.bondType,
+      beforeValue: { status: order.orderStatus },
+      afterValue: { status: 'cancelled' },
+      changeDescription: `Cancelled order ${order.orderNumber}`,
+      complianceRelated: true,
+      retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000)
+    });
+
+    return apiResponse.success(res, updated);
+  } catch (error: any) {
+    console.error('Error cancelling bond order:', error);
+    return apiResponse.serverError(res, 'Failed to cancel order');
+  }
+});
+
 /**
  * GET /api/bonds/admin/stats
  * Get bond marketplace statistics
