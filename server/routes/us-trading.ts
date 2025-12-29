@@ -227,6 +227,16 @@ router.get("/market/search", async (req, res) => {
   }
 });
 
+router.get("/market/stocks", async (req, res) => {
+  try {
+    const stocks = await polygonMarketService.getPopularStocks();
+    const fxRate = await polygonMarketService.getUsdInrRate();
+    res.json({ success: true, stocks, fxRate });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.get("/market/etfs", async (req, res) => {
   try {
     const etfs = await polygonMarketService.getPopularETFs();

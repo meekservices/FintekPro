@@ -117,17 +117,76 @@ class PolygonMarketService {
 
   async getMultipleQuotes(symbols: string[]): Promise<Map<string, StockQuote>> {
     const results = new Map<string, StockQuote>();
+    const uncachedSymbols: string[] = [];
     
-    await Promise.all(
-      symbols.map(async (symbol) => {
-        const quote = await this.getQuote(symbol);
-        if (quote) {
-          results.set(symbol.toUpperCase(), quote);
-        }
-      })
-    );
+    for (const symbol of symbols) {
+      const cacheKey = this.getCacheKey(symbol);
+      const cached = this.priceCache.get(cacheKey);
+      if (cached && this.isCacheValid(cached.cachedAt)) {
+        results.set(symbol.toUpperCase(), cached.data);
+      } else {
+        uncachedSymbols.push(symbol.toUpperCase());
+      }
+    }
 
-    return results;
+    if (uncachedSymbols.length === 0) {
+      return results;
+    }
+
+    if (!this.isConfigured()) {
+      for (const symbol of uncachedSymbols) {
+        results.set(symbol, this.getMockQuote(symbol));
+      }
+      return results;
+    }
+
+    try {
+      const tickerList = uncachedSymbols.join(",");
+      const response = await axios.get(
+        `${POLYGON_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers`,
+        {
+          params: { 
+            apiKey: this.apiKey,
+            tickers: tickerList,
+          },
+          timeout: 10000,
+        }
+      );
+
+      if (response.data.tickers) {
+        for (const ticker of response.data.tickers) {
+          const quote: StockQuote = {
+            symbol: ticker.ticker,
+            price: ticker.day?.c || ticker.prevDay?.c || 0,
+            change: ticker.todaysChange || 0,
+            changePercent: ticker.todaysChangePerc || 0,
+            open: ticker.day?.o || ticker.prevDay?.o || 0,
+            high: ticker.day?.h || ticker.prevDay?.h || 0,
+            low: ticker.day?.l || ticker.prevDay?.l || 0,
+            close: ticker.day?.c || ticker.prevDay?.c || 0,
+            volume: ticker.day?.v || ticker.prevDay?.v || 0,
+            timestamp: ticker.updated || Date.now(),
+          };
+          
+          this.priceCache.set(ticker.ticker, { data: quote, cachedAt: Date.now() });
+          results.set(ticker.ticker, quote);
+        }
+      }
+
+      for (const symbol of uncachedSymbols) {
+        if (!results.has(symbol)) {
+          results.set(symbol, this.getMockQuote(symbol));
+        }
+      }
+      
+      return results;
+    } catch (error: any) {
+      console.error(`Polygon batch quote error:`, error.message);
+      for (const symbol of uncachedSymbols) {
+        results.set(symbol, this.getMockQuote(symbol));
+      }
+      return results;
+    }
   }
 
   async getStockDetails(symbol: string): Promise<StockDetails | null> {
@@ -224,6 +283,26 @@ class PolygonMarketService {
     ];
   }
 
+  async getPopularStocks(): Promise<(StockDetails & { price?: number; change?: number; changePercent?: number })[]> {
+    const popularSymbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "JPM", "V", "JNJ"];
+    
+    const [quotes, ...detailsPromises] = await Promise.all([
+      this.getMultipleQuotes(popularSymbols),
+      ...popularSymbols.map(s => this.getStockDetails(s))
+    ]);
+
+    return popularSymbols.map((symbol, idx) => {
+      const details = detailsPromises[idx] || this.getMockDetails(symbol);
+      const quote = quotes.get(symbol);
+      return {
+        ...details,
+        price: quote?.price,
+        change: quote?.change,
+        changePercent: quote?.changePercent,
+      };
+    });
+  }
+
   async getPopularETFs(): Promise<ETFInfo[]> {
     const etfs: ETFInfo[] = [
       { symbol: "SPY", name: "SPDR S&P 500 ETF Trust", category: "Large Cap Blend", expenseRatio: 0.0945 },
@@ -236,16 +315,18 @@ class PolygonMarketService {
       { symbol: "ARKK", name: "ARK Innovation ETF", category: "Mid-Cap Growth", expenseRatio: 0.75 },
     ];
 
-    for (const etf of etfs) {
-      const quote = await this.getQuote(etf.symbol);
-      if (quote) {
-        (etf as any).price = quote.price;
-        (etf as any).change = quote.change;
-        (etf as any).changePercent = quote.changePercent;
-      }
-    }
+    const symbols = etfs.map(e => e.symbol);
+    const quotes = await this.getMultipleQuotes(symbols);
 
-    return etfs;
+    return etfs.map(etf => {
+      const quote = quotes.get(etf.symbol);
+      return {
+        ...etf,
+        price: quote?.price,
+        change: quote?.change,
+        changePercent: quote?.changePercent,
+      } as ETFInfo & { price?: number; change?: number; changePercent?: number };
+    });
   }
 
   async getUsdInrRate(): Promise<number> {
