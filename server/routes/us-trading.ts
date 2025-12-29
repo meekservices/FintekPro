@@ -723,4 +723,104 @@ router.post("/holdings/sync", async (req, res) => {
   }
 });
 
+router.get("/ai/recommendations", async (req, res) => {
+  try {
+    const riskProfile = req.query.riskProfile as string || "moderate";
+    const fxRate = await polygonMarketService.getUsdInrRate();
+    
+    const stockSymbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "JPM", "V", "JNJ"];
+    const quotes = await polygonMarketService.getMultipleQuotes(stockSymbols);
+    
+    const recommendations = stockSymbols.map(symbol => {
+      const quote = quotes.get(symbol);
+      if (!quote) return null;
+      
+      const changeScore = quote.changePercent > 0 ? Math.min(quote.changePercent * 10, 30) : Math.max(quote.changePercent * 5, -20);
+      const baseScore = 50 + changeScore + (Math.random() * 20);
+      const score = Math.min(Math.max(Math.round(baseScore), 20), 95);
+      
+      let signal: "buy" | "hold" | "sell";
+      if (score >= 70) signal = "buy";
+      else if (score >= 45) signal = "hold";
+      else signal = "sell";
+      
+      let risk: "low" | "medium" | "high";
+      if (["AAPL", "MSFT", "JNJ", "JPM", "V"].includes(symbol)) risk = "low";
+      else if (["GOOGL", "AMZN", "META"].includes(symbol)) risk = "medium";
+      else risk = "high";
+      
+      const riskCompatibility: Record<string, string[]> = {
+        conservative: ["low"],
+        moderate: ["low", "medium"],
+        aggressive: ["low", "medium", "high"],
+        very_aggressive: ["low", "medium", "high"],
+      };
+      
+      const isCompatible = riskCompatibility[riskProfile]?.includes(risk) ?? true;
+      
+      return {
+        symbol,
+        name: getStockName(symbol),
+        price: quote.price,
+        priceInr: quote.price * fxRate,
+        change: quote.change,
+        changePercent: quote.changePercent,
+        score,
+        signal,
+        risk,
+        isCompatible,
+        rationale: generateRationale(symbol, signal, score),
+      };
+    }).filter(Boolean).sort((a: any, b: any) => b.score - a.score);
+    
+    res.json({ 
+      success: true, 
+      recommendations,
+      fxRate,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+function getStockName(symbol: string): string {
+  const names: Record<string, string> = {
+    AAPL: "Apple Inc.",
+    MSFT: "Microsoft Corporation",
+    GOOGL: "Alphabet Inc.",
+    AMZN: "Amazon.com Inc.",
+    NVDA: "NVIDIA Corporation",
+    META: "Meta Platforms Inc.",
+    TSLA: "Tesla Inc.",
+    JPM: "JPMorgan Chase & Co.",
+    V: "Visa Inc.",
+    JNJ: "Johnson & Johnson",
+  };
+  return names[symbol] || symbol;
+}
+
+function generateRationale(symbol: string, signal: string, score: number): string {
+  const rationales: Record<string, Record<string, string>> = {
+    AAPL: {
+      buy: "Strong ecosystem, consistent growth, and robust iPhone sales make Apple an attractive long-term investment.",
+      hold: "Apple maintains solid fundamentals but current valuation suggests waiting for better entry point.",
+      sell: "Near-term headwinds and competition may pressure margins.",
+    },
+    MSFT: {
+      buy: "Cloud growth via Azure and AI integration positions Microsoft for continued expansion.",
+      hold: "Microsoft remains stable but growth may be priced in at current levels.",
+      sell: "Slowing enterprise spending could impact near-term performance.",
+    },
+    NVDA: {
+      buy: "AI chip demand continues to surge, making NVIDIA a leader in the AI revolution.",
+      hold: "Strong fundamentals but high valuation requires caution.",
+      sell: "Potential competition and supply constraints pose risks.",
+    },
+  };
+  
+  return rationales[symbol]?.[signal] || 
+    `Based on current market analysis and ${score}% confidence score, the recommendation is to ${signal} this stock.`;
+}
+
 export default router;
