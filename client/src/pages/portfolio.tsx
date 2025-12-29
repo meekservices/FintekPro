@@ -28,6 +28,9 @@ import { ConsentAwareSchemeTab } from "@/components/ConsentAwareSchemeTab";
 import { useAuth } from "@/hooks/useAuth";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
+import { useNetworkState } from "@/hooks/use-network-state";
 
 interface UnifiedOrder {
   id: string;
@@ -320,8 +323,18 @@ export default function Portfolio() {
     );
   }
 
+  const { state: networkState } = useNetworkState();
+
   return (
     <div className="space-y-8" data-testid="portfolio-page">
+      {/* Network Status Banner for Offline Resilience */}
+      <NetworkStatusBanner />
+      
+      {/* Sync Status Indicator */}
+      <div className="flex justify-end px-4">
+        <SyncStatusIndicator />
+      </div>
+
       <div className="space-y-6">
         
 
@@ -808,6 +821,25 @@ export default function Portfolio() {
                 </CardContent>
               </Card>
             )}
+            
+            {/* SEBI Risk Disclosure Footer */}
+            <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg" data-testid="sebi-disclosure-fintekpro">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <p className="font-semibold mb-1">SEBI Risk Disclosure</p>
+                  <p className="text-xs leading-relaxed">
+                    Investments in securities market are subject to market risks. Read all scheme related documents carefully before investing. 
+                    Past performance is not indicative of future returns. FintekPro is a SEBI registered investment platform. 
+                    {networkState !== 'online' && (
+                      <span className="block mt-2 font-medium text-red-600 dark:text-red-400">
+                        Note: Trading and order execution are disabled while offline or on slow networks to ensure transaction integrity.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Tracker Portfolio Tab - PAN-level consolidated holdings from NSDL/CDSL */}
@@ -976,6 +1008,24 @@ export default function Portfolio() {
                 )}
               </CardContent>
             </Card>
+            
+            {/* SEBI Risk Disclosure Footer for Tracker */}
+            <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg" data-testid="sebi-disclosure-tracker">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <p className="font-semibold mb-1">SEBI Compliance Notice</p>
+                  <p className="text-xs leading-relaxed">
+                    This consolidated view is sourced from NSDL/CDSL via your PAN card. Data accuracy depends on depository updates.
+                    {networkState !== 'online' && (
+                      <span className="block mt-2 font-medium text-red-600 dark:text-red-400">
+                        You are currently {networkState}. Portfolio data shown is from cache. Refresh when online for latest values.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
           </TabsContent>
 
           {/* External Portfolio Tab - DERIVED as (Tracker - FintekPro) */}
