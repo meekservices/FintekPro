@@ -1003,22 +1003,22 @@ export default function StorePage() {
                   <Badge variant="outline" className="text-purple-600 border-purple-600">
                     {getFilteredProducts(
                       selectedCategory === "all" 
-                        ? mockProducts 
-                        : mockProducts.filter(p => p.category === selectedCategory)
+                        ? products 
+                        : products.filter(p => p.category === selectedCategory)
                     ).length} Products
                   </Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {getFilteredProducts(
                     selectedCategory === "all" 
-                      ? mockProducts 
-                      : mockProducts.filter(p => p.category === selectedCategory)
+                      ? products 
+                      : products.filter(p => p.category === selectedCategory)
                   ).map(renderProductCard)}
                 </div>
                 {getFilteredProducts(
                   selectedCategory === "all" 
-                    ? mockProducts 
-                    : mockProducts.filter(p => p.category === selectedCategory)
+                    ? products 
+                    : products.filter(p => p.category === selectedCategory)
                 ).length === 0 && (
                   <div className="text-center py-12">
                     <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
