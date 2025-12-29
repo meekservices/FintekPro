@@ -16,7 +16,8 @@ const orderSchema = z.object({
   notionalUsd: z.number().positive().optional(),
   limitPrice: z.number().positive().optional(),
   stopPrice: z.number().positive().optional(),
-  consentAcknowledged: z.boolean(),
+  consent: z.boolean(),
+  lrsDeclaration: z.boolean(),
 });
 
 router.get("/feature-flags", async (req, res) => {
@@ -64,6 +65,40 @@ router.get("/compliance/check", async (req, res) => {
 
     const result = await usTradingService.checkCompliance(userId);
     res.json({ success: true, ...result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/eligibility", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.json({
+        eligible: false,
+        reasons: ["Authentication required"],
+        lrsUsed: 0,
+        lrsLimit: 250000,
+        lrsRemaining: 250000,
+        riskProfile: "Unknown",
+        panVerified: false,
+        kycComplete: false,
+      });
+    }
+
+    const compliance = await usTradingService.checkCompliance(userId);
+    const lrsUsage = await usTradingService.getLrsUsage(userId);
+    
+    res.json({
+      eligible: compliance.eligible,
+      reasons: compliance.reasons || [],
+      lrsUsed: lrsUsage.usedUsd || 0,
+      lrsLimit: 250000,
+      lrsRemaining: 250000 - (lrsUsage.usedUsd || 0),
+      riskProfile: compliance.riskProfile || "Moderate",
+      panVerified: compliance.panVerified || false,
+      kycComplete: compliance.kycComplete || false,
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -482,6 +517,144 @@ router.get("/broker/test-connection", async (req, res) => {
       success: true,
       alpaca: alpacaResult,
       polygon: polygonResult,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/market-data", async (req, res) => {
+  try {
+    const popularSymbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "JPM", "V", "JNJ"];
+    const etfSymbols = ["SPY", "QQQ", "VTI", "VOO", "IWM", "VUG"];
+    
+    const [stockQuotes, etfQuotes, exchangeRate] = await Promise.all([
+      Promise.all(popularSymbols.map(async (symbol) => {
+        const quote = await polygonMarketService.getQuote(symbol);
+        return quote;
+      })),
+      Promise.all(etfSymbols.map(async (symbol) => {
+        const quote = await polygonMarketService.getQuote(symbol);
+        return quote;
+      })),
+      polygonMarketService.getUsdInrRate(),
+    ]);
+    
+    const now = new Date();
+    const nyHour = parseInt(now.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }));
+    const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+    const marketStatus = isWeekend ? "closed" : (nyHour >= 9 && nyHour < 16) ? "open" : "closed";
+    
+    res.json({
+      indices: [
+        { symbol: "^GSPC", name: "S&P 500", price: 5998.74, change: 23.45, changePercent: 0.39 },
+        { symbol: "^IXIC", name: "NASDAQ", price: 19764.88, change: -45.32, changePercent: -0.23 },
+        { symbol: "^DJI", name: "Dow Jones", price: 42992.21, change: 168.53, changePercent: 0.39 },
+        { symbol: "^VIX", name: "VIX", price: 14.58, change: -0.87, changePercent: -5.63 },
+      ],
+      stocks: stockQuotes.filter(Boolean),
+      etfs: etfQuotes.filter(Boolean),
+      exchangeRate: { rate: exchangeRate, currency: "INR" },
+      marketStatus,
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/holdings", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.json({
+        holdings: [],
+        totalValue: 0,
+        totalValueINR: 0,
+        totalProfitLoss: 0,
+        totalProfitLossPercent: 0,
+      });
+    }
+
+    const holdings = await usTradingService.getHoldings(userId);
+    const fxRate = await polygonMarketService.getUsdInrRate();
+    
+    let totalValue = 0;
+    let totalCost = 0;
+    
+    const formattedHoldings = holdings.map((h: any) => {
+      const currentPrice = parseFloat(h.currentPriceUsd) || 0;
+      const avgPrice = parseFloat(h.avgPriceUsd) || 0;
+      const qty = parseFloat(h.quantity) || 0;
+      const value = currentPrice * qty;
+      const cost = avgPrice * qty;
+      const pl = value - cost;
+      const plPercent = cost > 0 ? (pl / cost) * 100 : 0;
+      
+      totalValue += value;
+      totalCost += cost;
+      
+      return {
+        id: h.id,
+        symbol: h.symbol,
+        companyName: h.companyName || h.symbol,
+        quantity: qty,
+        avgPrice,
+        currentPrice,
+        totalValue: value,
+        profitLoss: pl,
+        profitLossPercent: plPercent,
+        priceInINR: value * fxRate,
+      };
+    });
+    
+    const totalPL = totalValue - totalCost;
+    const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
+    
+    res.json({
+      holdings: formattedHoldings,
+      totalValue,
+      totalValueINR: totalValue * fxRate,
+      totalProfitLoss: totalPL,
+      totalProfitLossPercent: totalPLPercent,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/watchlist", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.json({ items: [] });
+    }
+
+    const items = await usTradingService.getWatchlist(userId);
+    res.json({ items: items.map((i: any) => ({ symbol: i.symbol, addedAt: i.addedAt })) });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/orders", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.json({ orders: [] });
+    }
+
+    const orders = await usTradingService.getOrders(userId);
+    res.json({ 
+      orders: orders.map((o: any) => ({
+        id: o.id,
+        symbol: o.symbol,
+        side: o.side,
+        quantity: parseFloat(o.quantity) || 0,
+        price: parseFloat(o.filledAvgPrice || o.limitPrice || "0"),
+        status: o.status,
+        createdAt: o.createdAt,
+      }))
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
