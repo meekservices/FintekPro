@@ -134,6 +134,7 @@ import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
 import portfolioReportsRoutes from "./routes/portfolio-reports";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
+import usTradingRoutes from "./routes/us-trading";
 import { registerAIInvestmentOrchestratorRoutes } from "./routes/ai-investment-orchestrator-routes";
 import { registerProfitOptimizedRoutes } from "./routes/profit-optimized-routes";
 import { registerAgentGovernanceRoutes } from "./routes/agent-governance-routes";
@@ -500,6 +501,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(portfolioReportsRoutes);
   app.use("/api/ai-recommendations-tracking", aiRecommendationTrackingRoutes);
   app.use("/api/errors", errorTrackingRoutes);
+  app.use("/api/us-trading", usTradingRoutes);
+  console.log("✅ US Trading routes registered");
   console.log("✅ Error Tracking routes registered");
   console.log("✅ AI Recommendation Tracking routes registered");
 

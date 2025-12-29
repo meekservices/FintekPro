@@ -20700,3 +20700,227 @@ export const immutableAuditLogs = pgTable("immutable_audit_logs", {
 
 export type ImmutableAuditLog = typeof immutableAuditLogs.$inferSelect;
 export type InsertImmutableAuditLog = typeof immutableAuditLogs.$inferInsert;
+
+// ============================================
+// US TRADING MODULE (Alpaca + Polygon)
+// ============================================
+
+// US Broker Account Status Enum
+export const usBrokerAccountStatusValues = ['pending', 'paper', 'live', 'suspended', 'closed'] as const;
+export const UsBrokerAccountStatusEnum = z.enum(usBrokerAccountStatusValues);
+
+// US Order Side Enum
+export const usOrderSideValues = ['buy', 'sell'] as const;
+export const UsOrderSideEnum = z.enum(usOrderSideValues);
+
+// US Order Type Enum
+export const usOrderTypeValues = ['market', 'limit', 'stop', 'stop_limit'] as const;
+export const UsOrderTypeEnum = z.enum(usOrderTypeValues);
+
+// US Order Status Enum
+export const usOrderStatusValues = ['pending', 'submitted', 'accepted', 'filled', 'partially_filled', 'cancelled', 'rejected', 'expired'] as const;
+export const UsOrderStatusEnum = z.enum(usOrderStatusValues);
+
+// US Time in Force Enum
+export const usTimeInForceValues = ['day', 'gtc', 'ioc', 'fok'] as const;
+export const UsTimeInForceEnum = z.enum(usTimeInForceValues);
+
+// US Broker Accounts Table
+export const usBrokerAccounts = pgTable("us_broker_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  alpacaAccountId: varchar("alpaca_account_id"),
+  status: varchar("status").default("pending").notNull(), // pending, paper, live, suspended, closed
+  
+  // LRS Tracking (USD 250k/year limit)
+  lrsUsedUsd: decimal("lrs_used_usd", { precision: 15, scale: 2 }).default("0"),
+  lrsFinancialYear: varchar("lrs_financial_year"), // e.g., "2024-25"
+  
+  // Compliance
+  femaEligible: boolean("fema_eligible").default(false),
+  riskProfileCompleted: boolean("risk_profile_completed").default(false),
+  w8benSubmitted: boolean("w8ben_submitted").default(false),
+  fatcaCompliant: boolean("fatca_compliant").default(false),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastSyncAt: timestamp("last_sync_at"),
+}, (table) => [
+  index("idx_us_broker_accounts_client").on(table.clientId),
+  index("idx_us_broker_accounts_status").on(table.status),
+]);
+
+export const insertUsBrokerAccountSchema = createInsertSchema(usBrokerAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export type UsBrokerAccount = typeof usBrokerAccounts.$inferSelect;
+export type InsertUsBrokerAccount = z.infer<typeof insertUsBrokerAccountSchema>;
+
+// US Orders Table
+export const usOrders = pgTable("us_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  brokerAccountId: varchar("broker_account_id").references(() => usBrokerAccounts.id),
+  recommendationId: varchar("recommendation_id"), // Link to AI recommendation if any
+  
+  // Order Details
+  symbol: varchar("symbol", { length: 10 }).notNull(), // e.g., AAPL, SPY, QQQ
+  side: varchar("side", { length: 10 }).notNull(), // buy, sell
+  orderType: varchar("order_type", { length: 20 }).default("market").notNull(), // market, limit, stop, stop_limit
+  timeInForce: varchar("time_in_force", { length: 10 }).default("day").notNull(), // day, gtc, ioc, fok
+  
+  // Quantity (either qty OR notional, not both for Alpaca)
+  quantity: decimal("quantity", { precision: 15, scale: 6 }),
+  notionalUsd: decimal("notional_usd", { precision: 15, scale: 2 }), // Dollar amount for fractional
+  limitPrice: decimal("limit_price", { precision: 15, scale: 4 }),
+  stopPrice: decimal("stop_price", { precision: 15, scale: 4 }),
+  
+  // Execution Details
+  filledQuantity: decimal("filled_quantity", { precision: 15, scale: 6 }).default("0"),
+  avgFillPrice: decimal("avg_fill_price", { precision: 15, scale: 4 }),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  
+  // Broker Reference
+  alpacaOrderId: varchar("alpaca_order_id"),
+  alpacaClientOrderId: varchar("alpaca_client_order_id"),
+  
+  // FX Rate at Order Time
+  fxRateUsdInr: decimal("fx_rate_usd_inr", { precision: 10, scale: 4 }),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  submittedAt: timestamp("submitted_at"),
+  filledAt: timestamp("filled_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_us_orders_client").on(table.clientId),
+  index("idx_us_orders_symbol").on(table.symbol),
+  index("idx_us_orders_status").on(table.status),
+  index("idx_us_orders_alpaca_id").on(table.alpacaOrderId),
+]);
+
+export const insertUsOrderSchema = createInsertSchema(usOrders).omit({ id: true, createdAt: true, updatedAt: true });
+export type UsOrder = typeof usOrders.$inferSelect;
+export type InsertUsOrder = z.infer<typeof insertUsOrderSchema>;
+
+// US Holdings Table
+export const usHoldings = pgTable("us_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  brokerAccountId: varchar("broker_account_id").references(() => usBrokerAccounts.id),
+  
+  // Holding Details
+  symbol: varchar("symbol", { length: 10 }).notNull(),
+  assetType: varchar("asset_type", { length: 20 }).default("stock"), // stock, etf
+  quantity: decimal("quantity", { precision: 15, scale: 6 }).notNull(),
+  avgPriceUsd: decimal("avg_price_usd", { precision: 15, scale: 4 }).notNull(),
+  
+  // Current Valuation (updated via sync)
+  currentPriceUsd: decimal("current_price_usd", { precision: 15, scale: 4 }),
+  marketValueUsd: decimal("market_value_usd", { precision: 15, scale: 2 }),
+  unrealizedPlUsd: decimal("unrealized_pl_usd", { precision: 15, scale: 2 }),
+  unrealizedPlPercent: decimal("unrealized_pl_percent", { precision: 8, scale: 4 }),
+  
+  // FX Tracking
+  fxRateAtBuy: decimal("fx_rate_at_buy", { precision: 10, scale: 4 }),
+  currentFxRate: decimal("current_fx_rate", { precision: 10, scale: 4 }),
+  marketValueInr: decimal("market_value_inr", { precision: 15, scale: 2 }),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastSyncAt: timestamp("last_sync_at"),
+}, (table) => [
+  index("idx_us_holdings_client").on(table.clientId),
+  index("idx_us_holdings_symbol").on(table.symbol),
+]);
+
+export const insertUsHoldingSchema = createInsertSchema(usHoldings).omit({ id: true, createdAt: true, updatedAt: true });
+export type UsHolding = typeof usHoldings.$inferSelect;
+export type InsertUsHolding = z.infer<typeof insertUsHoldingSchema>;
+
+// US Trade Consents Table (Immutable Audit Trail)
+export const usConsents = pgTable("us_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  orderId: varchar("order_id").references(() => usOrders.id),
+  
+  // Consent Details
+  consentType: varchar("consent_type", { length: 50 }).notNull(), // trade_approval, lrs_declaration, risk_acknowledgment
+  consentHash: varchar("consent_hash", { length: 128 }).notNull(), // SHA-256 hash of consent data
+  consentData: jsonb("consent_data").notNull(), // Original consent payload
+  
+  // Verification
+  verificationMethod: varchar("verification_method", { length: 50 }), // otp, biometric, signature
+  verificationRef: varchar("verification_ref"), // OTP reference or signature ID
+  
+  // IP & Device Tracking
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_us_consents_client").on(table.clientId),
+  index("idx_us_consents_order").on(table.orderId),
+  index("idx_us_consents_hash").on(table.consentHash),
+]);
+
+export const insertUsConsentSchema = createInsertSchema(usConsents).omit({ id: true, createdAt: true });
+export type UsConsent = typeof usConsents.$inferSelect;
+export type InsertUsConsent = z.infer<typeof insertUsConsentSchema>;
+
+// US LRS Declarations Table
+export const usLrsDeclarations = pgTable("us_lrs_declarations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // LRS Details
+  financialYear: varchar("financial_year", { length: 10 }).notNull(), // e.g., "2024-25"
+  purposeCode: varchar("purpose_code", { length: 20 }).default("S0001"), // Overseas investment
+  amountUsd: decimal("amount_usd", { precision: 15, scale: 2 }).notNull(),
+  
+  // Declaration
+  declarationText: text("declaration_text").notNull(),
+  declarationHash: varchar("declaration_hash", { length: 128 }).notNull(),
+  
+  // Timestamps
+  declaredAt: timestamp("declared_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_us_lrs_client").on(table.clientId),
+  index("idx_us_lrs_fy").on(table.financialYear),
+]);
+
+export const insertUsLrsDeclarationSchema = createInsertSchema(usLrsDeclarations).omit({ id: true, declaredAt: true });
+export type UsLrsDeclaration = typeof usLrsDeclarations.$inferSelect;
+export type InsertUsLrsDeclaration = z.infer<typeof insertUsLrsDeclarationSchema>;
+
+// US Market Watchlist Table
+export const usWatchlist = pgTable("us_watchlist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  symbol: varchar("symbol", { length: 10 }).notNull(),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+  notes: text("notes"),
+}, (table) => [
+  index("idx_us_watchlist_client").on(table.clientId),
+]);
+
+export const insertUsWatchlistSchema = createInsertSchema(usWatchlist).omit({ id: true, addedAt: true });
+export type UsWatchlist = typeof usWatchlist.$inferSelect;
+export type InsertUsWatchlist = z.infer<typeof insertUsWatchlistSchema>;
+
+// Feature Flags Table for US Trading
+export const usFeatureFlags = pgTable("us_feature_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  flagName: varchar("flag_name", { length: 100 }).notNull().unique(),
+  isEnabled: boolean("is_enabled").default(false).notNull(),
+  description: text("description"),
+  metadata: jsonb("metadata").default({}),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedBy: varchar("updated_by"),
+});
+
+export const insertUsFeatureFlagSchema = createInsertSchema(usFeatureFlags).omit({ id: true, updatedAt: true });
+export type UsFeatureFlag = typeof usFeatureFlags.$inferSelect;
+export type InsertUsFeatureFlag = z.infer<typeof insertUsFeatureFlagSchema>;
