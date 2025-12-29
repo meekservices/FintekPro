@@ -81,6 +81,24 @@ const POPULAR_ETFS = [
   { symbol: "VUG", name: "Vanguard Growth ETF", category: "Growth" },
 ];
 
+function ErrorCard({ title, message, onRetry }: { title: string; message: string; onRetry?: () => void }) {
+  return (
+    <Card className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
+      <CardContent className="p-6 text-center">
+        <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-red-500" />
+        <h3 className="font-semibold text-red-800 dark:text-red-200 mb-2">{title}</h3>
+        <p className="text-sm text-red-600 dark:text-red-400 mb-4">{message}</p>
+        {onRetry && (
+          <Button variant="outline" size="sm" onClick={onRetry} className="border-red-300">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function USTradingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("discover");
@@ -93,7 +111,7 @@ export default function USTradingPage() {
   const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
 
-  const { data: eligibilityData, isLoading: isLoadingEligibility } = useQuery<{
+  const { data: eligibilityData, isLoading: isLoadingEligibility, isError: isEligibilityError, refetch: refetchEligibility } = useQuery<{
     eligible: boolean;
     reasons: string[];
     lrsUsed: number;
@@ -105,9 +123,10 @@ export default function USTradingPage() {
   }>({
     queryKey: ["/api/us-trading/eligibility"],
     enabled: isAuthenticated,
+    retry: 2,
   });
 
-  const { data: marketData, isLoading: isLoadingMarket, refetch: refetchMarket } = useQuery<{
+  const { data: marketData, isLoading: isLoadingMarket, isError: isMarketError, refetch: refetchMarket } = useQuery<{
     indices: MarketIndex[];
     stocks: StockQuote[];
     etfs: StockQuote[];
@@ -117,9 +136,10 @@ export default function USTradingPage() {
   }>({
     queryKey: ["/api/us-trading/market-data"],
     refetchInterval: 60000,
+    retry: 2,
   });
 
-  const { data: holdings, isLoading: isLoadingHoldings } = useQuery<{
+  const { data: holdings, isLoading: isLoadingHoldings, isError: isHoldingsError, refetch: refetchHoldings } = useQuery<{
     holdings: USHolding[];
     totalValue: number;
     totalValueINR: number;
@@ -128,16 +148,18 @@ export default function USTradingPage() {
   }>({
     queryKey: ["/api/us-trading/holdings"],
     enabled: isAuthenticated,
+    retry: 2,
   });
 
-  const { data: watchlist, isLoading: isLoadingWatchlist } = useQuery<{
+  const { data: watchlist, isLoading: isLoadingWatchlist, isError: isWatchlistError, refetch: refetchWatchlist } = useQuery<{
     items: Array<{ symbol: string; addedAt: string }>;
   }>({
     queryKey: ["/api/us-trading/watchlist"],
     enabled: isAuthenticated,
+    retry: 2,
   });
 
-  const { data: orders, isLoading: isLoadingOrders } = useQuery<{
+  const { data: orders, isLoading: isLoadingOrders, isError: isOrdersError, refetch: refetchOrders } = useQuery<{
     orders: Array<{
       id: number;
       symbol: string;
@@ -150,6 +172,7 @@ export default function USTradingPage() {
   }>({
     queryKey: ["/api/us-trading/orders"],
     enabled: isAuthenticated,
+    retry: 2,
   });
 
   const placeOrderMutation = useMutation({
@@ -290,6 +313,12 @@ export default function USTradingPage() {
 
         {isLoadingEligibility ? (
           <Skeleton className="h-24" />
+        ) : isEligibilityError ? (
+          <ErrorCard 
+            title="Could not check eligibility" 
+            message="Unable to verify your trading eligibility. Please try again."
+            onRetry={() => refetchEligibility()}
+          />
         ) : eligibilityData && !eligibilityData.eligible ? (
           <Alert variant="destructive" data-testid="eligibility-alert">
             <AlertTriangle className="h-4 w-4" />
@@ -394,6 +423,13 @@ export default function USTradingPage() {
               </Button>
             </div>
 
+            {isMarketError ? (
+              <ErrorCard 
+                title="Market Data Unavailable" 
+                message="Could not load market data. Please try refreshing."
+                onRetry={() => refetchMarket()}
+              />
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -518,6 +554,7 @@ export default function USTradingPage() {
                 </CardContent>
               </Card>
             </div>
+            )}
           </TabsContent>
 
           <TabsContent value="watchlist" className="space-y-4">
@@ -532,6 +569,15 @@ export default function USTradingPage() {
                     {Array(3).fill(0).map((_, i) => (
                       <Skeleton key={i} className="h-16" />
                     ))}
+                  </div>
+                ) : isWatchlistError ? (
+                  <div className="text-center py-8">
+                    <AlertTriangle className="h-10 w-10 mx-auto text-red-500 mb-3" />
+                    <p className="text-muted-foreground mb-4">Could not load watchlist</p>
+                    <Button variant="outline" size="sm" onClick={() => refetchWatchlist()}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry
+                    </Button>
                   </div>
                 ) : watchlist?.items?.length ? (
                   <div className="space-y-2">
@@ -588,6 +634,12 @@ export default function USTradingPage() {
           <TabsContent value="portfolio" className="space-y-4">
             {isLoadingHoldings ? (
               <Skeleton className="h-48" />
+            ) : isHoldingsError ? (
+              <ErrorCard 
+                title="Could not load portfolio" 
+                message="Unable to fetch your holdings. Please try again."
+                onRetry={() => refetchHoldings()}
+              />
             ) : holdings?.holdings?.length ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -696,6 +748,15 @@ export default function USTradingPage() {
                     {Array(3).fill(0).map((_, i) => (
                       <Skeleton key={i} className="h-16" />
                     ))}
+                  </div>
+                ) : isOrdersError ? (
+                  <div className="text-center py-8">
+                    <AlertTriangle className="h-10 w-10 mx-auto text-red-500 mb-3" />
+                    <p className="text-muted-foreground mb-4">Could not load orders</p>
+                    <Button variant="outline" size="sm" onClick={() => refetchOrders()}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry
+                    </Button>
                   </div>
                 ) : orders?.orders?.length ? (
                   <div className="space-y-2">
