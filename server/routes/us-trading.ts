@@ -3,6 +3,8 @@ import { z } from "zod";
 import { usTradingService } from "../services/us-trading-service";
 import { polygonMarketService } from "../services/polygon-market-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
+import { usOrderNotificationService } from "../services/us-order-notification-service";
+import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import crypto from "crypto";
 
 const router = Router();
@@ -822,5 +824,100 @@ function generateRationale(symbol: string, signal: string, score: number): strin
   return rationales[symbol]?.[signal] || 
     `Based on current market analysis and ${score}% confidence score, the recommendation is to ${signal} this stock.`;
 }
+
+router.get("/notifications", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required" });
+    }
+
+    const limit = parseInt(req.query.limit as string) || 20;
+    const notifications = await usOrderNotificationService.getNotifications(userId, limit);
+    const unreadCount = await usOrderNotificationService.getUnreadCount(userId);
+
+    res.json({ success: true, notifications, unreadCount });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/notifications/:id/read", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const success = await usOrderNotificationService.markAsRead(id);
+    res.json({ success });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/notifications/read-all", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required" });
+    }
+
+    const success = await usOrderNotificationService.markAllAsRead(userId);
+    res.json({ success });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/rebalancing/analyze", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required" });
+    }
+
+    const analysis = await usRebalancingEngine.analyzePortfolio(userId);
+    if (!analysis) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Risk profile required for rebalancing analysis" 
+      });
+    }
+
+    res.json({ success: true, analysis });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/rebalancing/save", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required" });
+    }
+
+    const analysis = await usRebalancingEngine.analyzePortfolio(userId);
+    if (!analysis) {
+      return res.status(400).json({ success: false, error: "Unable to analyze portfolio" });
+    }
+
+    const suggestionId = await usRebalancingEngine.saveSuggestion(userId, analysis);
+    res.json({ success: true, suggestionId });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/rebalancing/suggestion", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "Authentication required" });
+    }
+
+    const suggestion = await usRebalancingEngine.getSuggestion(userId);
+    res.json({ success: true, suggestion });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 export default router;
