@@ -20952,3 +20952,26 @@ export const notificationPreferences = pgTable("notification_preferences", {
 export const insertNotificationPreferenceSchema = createInsertSchema(notificationPreferences).omit({ id: true, updatedAt: true });
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
+
+// ============================================
+// WhatsApp Contact Tracking - Track if user has ever messaged
+// ============================================
+export const whatsappContacts = pgTable("whatsapp_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
+  userId: varchar("user_id").references(() => users.id),
+  hasInitiatedContact: boolean("has_initiated_contact").default(false).notNull(),
+  firstContactAt: timestamp("first_contact_at"),
+  lastMessageAt: timestamp("last_message_at"),
+  messageCount: integer("message_count").default(0).notNull(),
+  optedOut: boolean("opted_out").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_whatsapp_contacts_phone").on(table.phoneNumber),
+  index("idx_whatsapp_contacts_user").on(table.userId),
+]);
+
+export const insertWhatsappContactSchema = createInsertSchema(whatsappContacts).omit({ id: true, createdAt: true, updatedAt: true });
+export type WhatsappContact = typeof whatsappContacts.$inferSelect;
+export type InsertWhatsappContact = z.infer<typeof insertWhatsappContactSchema>;
