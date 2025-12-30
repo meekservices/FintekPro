@@ -236,6 +236,11 @@ app.use((req, res, next) => {
   const { registerMarketingRoutes } = await import('./marketing-routes');
   registerMarketingRoutes(app);
   
+  // Register Twilio Webhook routes (Two-way SMS & WhatsApp communication)
+  const { createTwilioWebhookRouter } = await import('./services/twilio-webhook-service');
+  app.use('/api/twilio', createTwilioWebhookRouter());
+  console.log('✅ Twilio webhook routes registered');
+  
   // Register Probe42 Advanced Analytics routes (Lead Scoring, Surplus Detection, Director Networks)
   const probe42AnalyticsRoutes = await import('./routes/probe42-analytics-routes');
   app.use('/api/admin/analytics', probe42AnalyticsRoutes.default);
