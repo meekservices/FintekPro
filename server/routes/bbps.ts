@@ -1,0 +1,184 @@
+import { Express } from 'express';
+import BBPSService from '../services/bbpsService';
+import { digilockerService } from '../services/digilockerService';
+import { CashfreeAadhaarService } from '../services/cashfree-aadhaar-service';
+import { storage } from '../storage';
+
+const cashfreeAadhaarService = new CashfreeAadhaarService();
+
+export async function registerBBPSRoutes(app: Express): Promise<void> {
+  await BBPSService.initializeBBPSData();
+  
+  digilockerService.initializeDigiLockerApp().catch(err => {
+    console.warn('⚠️ DigiLocker optional service unavailable, using Cashfree OKYC fallback');
+  });
+
+  app.post("/api/digilocker/fetch-aadhaar", async (req, res) => {
+    try {
+      const { aadhaarNumber } = req.body;
+      
+      if (!aadhaarNumber || aadhaarNumber.length !== 12) {
+        return res.status(400).json({ error: "Invalid Aadhaar number" });
+      }
+
+      try {
+        const digilockerResult = await digilockerService.fetchAadhaarDetails(aadhaarNumber);
+        if (digilockerResult?.success) {
+          return res.json({
+            success: true,
+            source: 'digilocker',
+            data: digilockerResult.data
+          });
+        }
+      } catch (digilockerError: any) {
+        console.warn('DigiLocker unavailable, trying Cashfree OKYC fallback:', digilockerError.message);
+      }
+
+      try {
+        const otpResponse = await cashfreeAadhaarService.generateOTP(aadhaarNumber);
+        
+        if (otpResponse.status === 'success' && otpResponse.data?.ref_id) {
+          return res.json({
+            success: true,
+            source: 'cashfree_okyc',
+            requiresOtp: true,
+            ref_id: otpResponse.data.ref_id,
+            message: 'OTP sent to Aadhaar-linked mobile. Please verify to fetch details.'
+          });
+        } else {
+          throw new Error(otpResponse.message || 'Failed to generate OTP');
+        }
+      } catch (cashfreeError: any) {
+        console.error('Cashfree OKYC also failed:', cashfreeError);
+        return res.status(503).json({
+          success: false,
+          error: 'All verification services temporarily unavailable. Please enter details manually.',
+          fallback: 'manual'
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in fetch-aadhaar endpoint:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch Aadhaar details",
+        fallback: 'manual'
+      });
+    }
+  });
+
+  app.get("/api/digilocker/widget-config", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const config = await digilockerService.generateWidgetConfig("handleDigiLockerCallback");
+      res.json(config);
+    } catch (error) {
+      console.error("Error generating DigiLocker widget config:", error);
+      res.status(500).json({ error: "Failed to generate widget configuration" });
+    }
+  });
+
+  app.post("/api/digilocker/share-document", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { docId, uri, docType, source, txn, filename, contentType, sharedTill } = req.body;
+      
+      if (!uri || !docType || !txn) {
+        return res.status(400).json({ error: "Missing required document metadata" });
+      }
+
+      const metadata = { docId, uri, docType, source, txn, filename, contentType, sharedTill };
+      const sharedDocument = await digilockerService.handleDocumentSharing(req.user.id, metadata);
+      
+      res.json({ success: true, document: sharedDocument });
+    } catch (error) {
+      console.error("Error handling DigiLocker document sharing:", error);
+      res.status(500).json({ error: "Failed to process document sharing" });
+    }
+  });
+
+  app.get("/api/digilocker/documents", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const documents = await digilockerService.getUserDocuments(req.user.id);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching DigiLocker documents:", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  app.get("/api/digilocker/documents/:documentId", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { documentId } = req.params;
+      const document = await digilockerService.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      if (document.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching DigiLocker document:", error);
+      res.status(500).json({ error: "Failed to fetch document" });
+    }
+  });
+
+  app.post("/api/digilocker/auto-populate-kyc", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      let kycData;
+      let source = 'digilocker';
+
+      try {
+        kycData = await digilockerService.autoPopulateKYCFields(req.user.id);
+      } catch (digilockerError) {
+        console.warn("DigiLocker KYC failed, trying BSE Star fallback:", digilockerError);
+        
+        const { bseStarKYCService } = await import('../services/bse-star-kyc-service');
+        
+        const user = await storage.getUserProfile(req.user.id);
+        if (!user?.panNumber) {
+          throw new Error("PAN number required for KYC verification");
+        }
+
+        kycData = await bseStarKYCService.autoPopulateKYC(user.panNumber);
+        source = 'bse_star';
+      }
+
+      res.json({ 
+        success: true, 
+        kycData,
+        source,
+        fallbackUsed: source === 'bse_star'
+      });
+    } catch (error) {
+      console.error("Error auto-populating KYC fields:", error);
+      res.status(500).json({ 
+        error: "Failed to auto-populate KYC fields",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  console.log("✅ BBPS and DigiLocker routes registered");
+}
