@@ -43,6 +43,7 @@ import {
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
 import { requireAuth } from '../middleware/roleMiddleware';
+import { orderAuditHook } from '../services/order-audit-hook';
 
 // Admin middleware for unlisted marketplace admin routes
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -1485,6 +1486,22 @@ router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) 
       ...validatedData,
       buyerUserId: req.user.id,
     });
+
+    // Log to immutable SEBI-compliant audit trail
+    await orderAuditHook.logUnlistedOrderCreated(
+      request.id,
+      req.user.id,
+      'client',
+      {
+        companyId: validatedData.companyId,
+        companyName: company.name,
+        orderType: 'buy',
+        quantity: validatedData.quantity,
+        maxPrice: validatedData.maxPrice,
+        transactionValue,
+      },
+      req
+    );
     
     return apiResponse.created(res, request, 'Buy request created successfully');
   } catch (error: any) {

@@ -5,6 +5,7 @@ import { polygonMarketService } from "../services/polygon-market-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
 import { usOrderNotificationService } from "../services/us-order-notification-service";
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
+import { orderAuditHook } from "../services/order-audit-hook";
 import crypto from "crypto";
 
 const router = Router();
@@ -352,6 +353,23 @@ router.post("/orders", async (req, res) => {
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
+
+    // Log to immutable SEBI-compliant audit trail
+    await orderAuditHook.logUSOrderCreated(
+      order.id,
+      userId,
+      'client',
+      {
+        symbol: data.symbol.toUpperCase(),
+        side: data.side,
+        orderType: data.orderType,
+        quantity: data.quantity,
+        notionalUsd: data.notionalUsd,
+        fxRate,
+      },
+      compliance,
+      req
+    );
 
     try {
       const alpacaOrder = await alpacaBrokerService.placeOrder({

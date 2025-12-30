@@ -11,6 +11,7 @@ import { eq, desc, and, gte, lte, like, or, sql, count, isNull } from 'drizzle-o
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { requireAuth } from '../middleware/roleMiddleware';
+import { orderAuditHook } from '../services/order-audit-hook';
 
 const isAuthenticated = requireAuth;
 
@@ -523,6 +524,22 @@ router.post('/api/mf-orders', isAuthenticated, async (req: Request, res: Respons
       undefined, 
       'created', 
       { orderType: validated.orderType, amount: validated.amount },
+      req
+    );
+
+    await orderAuditHook.logMFOrderCreated(
+      order.id,
+      userId,
+      userRole,
+      {
+        orderReference: order.orderReference,
+        schemeCode: validated.schemeCode,
+        schemeName: validated.schemeName,
+        orderType: validated.orderType,
+        amount: validated.amount,
+        units: validated.units,
+      },
+      complianceCheck.flags || {},
       req
     );
 

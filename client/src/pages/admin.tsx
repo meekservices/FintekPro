@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link as RouterLink } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalSkeleton } from "@/components/PortalSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -920,6 +921,12 @@ export default function AdminPanel() {
     queryKey: ['/api/admin/system-errors'],
   });
   const systemErrors = Array.isArray(systemErrorsData) ? systemErrorsData : (systemErrorsData?.errors || []);
+
+  const isInitialLoading = statsLoading && usersLoading && agentsLoading;
+
+  if (isInitialLoading) {
+    return <PortalSkeleton variant="admin" />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">

@@ -83,13 +83,23 @@ class MarketMoversCache {
   private refreshLock = false;
   private crumbInitialized = false;
   private crumbInitTime = 0;
+  private isInitialized = false;
 
   async initialize(): Promise<void> {
-    console.log('📈 [MarketMoversCache] Initializing cache with first data fetch...');
+    console.log('📈 [MarketMoversCache] Starting background initialization...');
+    // Non-blocking initialization - start background tasks without awaiting
+    this.initializeInBackground().catch(err => 
+      console.error('❌ [MarketMoversCache] Background initialization failed:', err)
+    );
+    this.startBackgroundRefresh();
+    console.log('✅ [MarketMoversCache] Background initialization started (non-blocking)');
+  }
+
+  private async initializeInBackground(): Promise<void> {
     await this.initializeYahooCrumb();
     await this.refreshCache();
-    this.startBackgroundRefresh();
-    console.log('✅ [MarketMoversCache] Cache initialized successfully');
+    this.isInitialized = true;
+    console.log('✅ [MarketMoversCache] Background initialization completed');
   }
 
   private async initializeYahooCrumb(): Promise<void> {
@@ -229,6 +239,18 @@ class MarketMoversCache {
     }
 
     this.metrics.misses++;
+    
+    // Non-blocking: Return fallback data immediately if not initialized
+    // This prevents blocking the first request while Yahoo Finance initializes
+    if (!this.isInitialized) {
+      console.log('📌 [MarketMoversCache] Not initialized yet, returning fallback data immediately');
+      // Trigger background refresh if not already in progress
+      if (!this.refreshLock) {
+        this.refreshCache().catch(console.error);
+      }
+      return { data: FALLBACK_DATA, cached: false, cacheAge: 0 };
+    }
+
     console.log('🔍 [MarketMoversCache] Cache MISS, fetching fresh data...');
 
     if (!this.refreshLock) {

@@ -12,6 +12,7 @@ import { eq, and, or, desc, asc, gte, lte, sql, isNotNull } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import { determineRegulatoryTier, checkTierEligibility } from '../bond-kyc-gate';
 import { getBondRiskDisclosures, validateDisclosureAcknowledgments } from '../services/bond-risk-disclosures';
+import { orderAuditHook } from '../services/order-audit-hook';
 
 const router = Router();
 
@@ -814,7 +815,7 @@ router.post('/orders', requireAuth, async (req: Request, res: Response) => {
       paymentStatus: 'pending',
     }).returning();
 
-    // Log audit
+    // Log audit to domain-specific table
     await db.insert(schema.bondMarketplaceAuditLogs).values({
       userId,
       userRole: 'client',
@@ -835,6 +836,24 @@ router.post('/orders', requireAuth, async (req: Request, res: Response) => {
       complianceRelated: true,
       retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000)
     });
+
+    // Log to immutable SEBI-compliant audit trail
+    await orderAuditHook.logBondOrderCreated(
+      order.id,
+      userId,
+      'client',
+      {
+        orderNumber,
+        isin,
+        bondType: actualBondType,
+        bondName,
+        quantity,
+        orderPrice,
+        netAmount,
+        faceValue,
+      },
+      req
+    );
 
     return apiResponse.success(res, {
       order,

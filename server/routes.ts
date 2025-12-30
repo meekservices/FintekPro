@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize market movers cache at startup (non-blocking)
   marketMoversCache.initialize().catch(err => console.error("Failed to initialize market movers cache:", err));
   // Initialize API usage tracking service
-  await apiUsageTrackingService.initialize();
+  apiUsageTrackingService.initialize().catch(err => console.error("Failed to initialize API usage tracking:", err)); // Deferred startup
   
   // Auth middleware - setup both Replit Auth and local email/password auth
   setupReplitAuth(app);

@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PortalSkeleton } from "@/components/PortalSkeleton";
 import type { AgentProfile, AgentStats, AgentPartner } from "@shared/schema";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
@@ -532,16 +533,9 @@ export default function AgentPortal() {
     );
   }
 
-  // Show loading state
+  // Show loading state with skeleton
   if (userLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading Partner Portal...</p>
-        </div>
-      </div>
-    );
+    return <PortalSkeleton variant="agent" />;
   }
 
   const handleAddPartner = (data: PartnerFormData) => {
