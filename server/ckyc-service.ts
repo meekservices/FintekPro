@@ -1,4 +1,6 @@
-import { type User } from "@shared/schema";
+import { type User, ckycRecords, type CkycRecord } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 // CKYC Service for Central KYC Registry Integration
 export interface CKYCRegistrationRequest {
@@ -538,6 +540,255 @@ export class CKYCService {
         found: false,
         message: 'CKYC search completed (mock) - No record found',
       };
+    }
+  }
+
+  /**
+   * Search CKYC with caching - checks local cache first, then external API
+   * Caches successful results for future lookups
+   */
+  async searchCKYCWithCaching(userId: string, request: CKYCSearchRequest): Promise<CKYCSearchResponse> {
+    try {
+      // Step 1: Check local cache first
+      const cachedRecord = await this.getCachedCKYCRecord(request.panNumber || '');
+      
+      if (cachedRecord && !this.isCacheExpired(cachedRecord)) {
+        console.log('✅ CKYC cache hit for PAN:', request.panNumber?.slice(0, 4) + '***');
+        return this.convertCacheToResponse(cachedRecord);
+      }
+
+      // Step 2: Cache miss or expired - query external API
+      console.log('🔍 CKYC cache miss, querying registry for PAN:', request.panNumber?.slice(0, 4) + '***');
+      const apiResponse = await this.searchCKYC(request);
+
+      // Step 3: Cache successful results
+      if (apiResponse.success && apiResponse.found && apiResponse.data) {
+        await this.cacheCKYCRecord(userId, request, apiResponse);
+        console.log('💾 CKYC record cached for PAN:', request.panNumber?.slice(0, 4) + '***');
+      }
+
+      return apiResponse;
+    } catch (error) {
+      console.error('CKYC search with caching error:', error);
+      // Fall back to regular search
+      return this.searchCKYC(request);
+    }
+  }
+
+  /**
+   * Get cached CKYC record by PAN number
+   */
+  async getCachedCKYCRecord(panNumber: string): Promise<CkycRecord | null> {
+    if (!panNumber) return null;
+
+    try {
+      const records = await db
+        .select()
+        .from(ckycRecords)
+        .where(eq(ckycRecords.panNumber, panNumber))
+        .limit(1);
+
+      return records[0] || null;
+    } catch (error) {
+      console.error('Error fetching cached CKYC record:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if cached CKYC record is expired (90-day validity)
+   */
+  private isCacheExpired(record: CkycRecord): boolean {
+    if (record.status === 'expired') return true;
+    
+    if (record.expiryDate) {
+      const expiryDate = new Date(record.expiryDate);
+      return expiryDate < new Date();
+    }
+
+    // Default: consider valid if last verified within 90 days
+    if (record.lastVerifiedAt) {
+      const lastVerified = new Date(record.lastVerifiedAt);
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      return lastVerified < ninetyDaysAgo;
+    }
+
+    // If no verification date, check created date
+    if (record.createdAt) {
+      const createdAt = new Date(record.createdAt);
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      return createdAt < ninetyDaysAgo;
+    }
+
+    return false;
+  }
+
+  /**
+   * Map database status to CKYC API status vocabulary
+   * Database uses: pending/verified/rejected/expired
+   * API expects: active/inactive/expired
+   */
+  private mapDbStatusToApiStatus(dbStatus: string | null): 'active' | 'inactive' | 'expired' {
+    if (!dbStatus) return 'active';
+    
+    switch (dbStatus.toLowerCase()) {
+      case 'verified':
+      case 'active':
+        return 'active';
+      case 'expired':
+        return 'expired';
+      case 'pending':
+      case 'rejected':
+      case 'inactive':
+      default:
+        return 'inactive';
+    }
+  }
+
+  /**
+   * Map CKYC API status to database status vocabulary
+   * API uses: active/inactive/expired
+   * Database expects: pending/verified/rejected/expired
+   */
+  private mapApiStatusToDbStatus(apiStatus: string | undefined): string {
+    if (!apiStatus) return 'pending';
+    
+    switch (apiStatus.toLowerCase()) {
+      case 'active':
+        return 'verified';
+      case 'inactive':
+        return 'pending';
+      case 'expired':
+        return 'expired';
+      default:
+        return 'pending';
+    }
+  }
+
+  /**
+   * Convert cached CKYC record to API response format
+   */
+  private convertCacheToResponse(record: CkycRecord): CKYCSearchResponse {
+    return {
+      success: true,
+      found: true,
+      ckycNumber: record.ckycNumber || undefined,
+      status: this.mapDbStatusToApiStatus(record.status),
+      verificationLevel: record.verificationLevel as 'basic' | 'enhanced' || 'basic',
+      lastVerifiedAt: record.lastVerifiedAt?.toISOString(),
+      expiryDate: record.expiryDate || undefined,
+      data: {
+        firstName: record.firstName,
+        middleName: record.middleName || undefined,
+        lastName: record.lastName,
+        dateOfBirth: record.dateOfBirth,
+        mobileNumber: record.mobileNumber,
+        emailAddress: record.emailAddress,
+        address: record.addressLine1,
+        city: record.city,
+        state: record.state,
+        pincode: record.pincode,
+        country: record.country || 'India',
+      },
+      message: 'CKYC record retrieved from cache',
+    };
+  }
+
+  /**
+   * Cache CKYC API response to database
+   */
+  async cacheCKYCRecord(userId: string, request: CKYCSearchRequest, response: CKYCSearchResponse): Promise<void> {
+    if (!response.found || !response.data) return;
+
+    try {
+      // Calculate expiry date as proper Date object (90 days from now if not provided)
+      const expiryDateString = response.expiryDate || 
+        new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // Parse lastVerifiedAt from response, fallback to current time only if not provided
+      const lastVerifiedAt = response.lastVerifiedAt 
+        ? new Date(response.lastVerifiedAt) 
+        : new Date();
+
+      // Map API status to database status vocabulary
+      const dbStatus = this.mapApiStatusToDbStatus(response.status);
+
+      // Check if record already exists
+      const existingRecord = await this.getCachedCKYCRecord(request.panNumber || '');
+
+      if (existingRecord) {
+        // Update existing record
+        await db
+          .update(ckycRecords)
+          .set({
+            ckycNumber: response.ckycNumber,
+            status: dbStatus,
+            verificationLevel: response.verificationLevel,
+            lastVerifiedAt: lastVerifiedAt,
+            expiryDate: expiryDateString,
+            firstName: response.data.firstName,
+            middleName: response.data.middleName,
+            lastName: response.data.lastName,
+            mobileNumber: response.data.mobileNumber,
+            emailAddress: response.data.emailAddress,
+            addressLine1: response.data.address,
+            city: response.data.city,
+            state: response.data.state,
+            pincode: response.data.pincode,
+            country: response.data.country,
+            updatedAt: new Date(),
+          })
+          .where(eq(ckycRecords.id, existingRecord.id));
+        
+        console.log('✅ CKYC cache updated for PAN:', request.panNumber?.slice(0, 4) + '***');
+      } else {
+        // Insert new record
+        await db.insert(ckycRecords).values({
+          userId: userId,
+          ckycNumber: response.ckycNumber,
+          panNumber: request.panNumber || '',
+          firstName: response.data.firstName,
+          middleName: response.data.middleName,
+          lastName: response.data.lastName,
+          dateOfBirth: response.data.dateOfBirth,
+          mobileNumber: response.data.mobileNumber,
+          emailAddress: response.data.emailAddress,
+          addressLine1: response.data.address,
+          city: response.data.city,
+          state: response.data.state,
+          pincode: response.data.pincode,
+          country: response.data.country || 'India',
+          status: dbStatus,
+          verificationLevel: response.verificationLevel,
+          lastVerifiedAt: lastVerifiedAt,
+          expiryDate: expiryDateString,
+        });
+
+        console.log('✅ CKYC record cached for PAN:', request.panNumber?.slice(0, 4) + '***');
+      }
+    } catch (error) {
+      console.error('Error caching CKYC record:', error);
+      // Don't throw - caching failure shouldn't break the flow
+    }
+  }
+
+  /**
+   * Get cached CKYC record by user ID
+   */
+  async getCachedCKYCByUserId(userId: string): Promise<CkycRecord | null> {
+    try {
+      const records = await db
+        .select()
+        .from(ckycRecords)
+        .where(eq(ckycRecords.userId, userId))
+        .limit(1);
+
+      return records[0] || null;
+    } catch (error) {
+      console.error('Error fetching CKYC by user ID:', error);
+      return null;
     }
   }
 
