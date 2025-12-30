@@ -17,8 +17,10 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Search, TrendingUp, TrendingDown, Star, Globe, DollarSign, ArrowUpRight, 
   ArrowDownRight, Clock, Info, Shield, AlertTriangle, CheckCircle, BarChart3,
-  Wallet, RefreshCw, Plus, Minus, Building2, Sparkles, ArrowRight, LineChart
+  Wallet, RefreshCw, Plus, Minus, Building2, Sparkles, ArrowRight, LineChart,
+  Bell, Scale, Target, ChevronRight
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface StockQuote {
   symbol: string;
@@ -175,6 +177,46 @@ export default function USTradingPage() {
     retry: 2,
   });
 
+  const { data: notifications } = useQuery<{
+    notifications: Array<{
+      id: string;
+      type: string;
+      title: string;
+      message: string;
+      isRead: boolean;
+      createdAt: string;
+    }>;
+    unreadCount: number;
+  }>({
+    queryKey: ["/api/us-trading/notifications"],
+    enabled: isAuthenticated,
+    refetchInterval: 30000,
+  });
+
+  const { data: rebalancing, isLoading: isLoadingRebalancing, refetch: refetchRebalancing } = useQuery<{
+    analysis: {
+      currentAllocation: Record<string, number>;
+      targetAllocation: Record<string, number>;
+      deviations: Record<string, number>;
+      suggestedTrades: Array<{
+        symbol: string;
+        name: string;
+        side: 'buy' | 'sell';
+        quantity: number;
+        estimatedValue: number;
+        reason: string;
+        priority: 'high' | 'medium' | 'low';
+      }>;
+      riskScore: number;
+      rationale: string;
+      expectedImpact: string;
+    };
+  }>({
+    queryKey: ["/api/us-trading/rebalancing/analyze"],
+    enabled: isAuthenticated && activeTab === "portfolio",
+    staleTime: 5 * 60 * 1000,
+  });
+
   const placeOrderMutation = useMutation({
     mutationFn: async (orderData: {
       symbol: string;
@@ -308,6 +350,44 @@ export default function USTradingPage() {
               <Clock className="h-3 w-3 mr-1" />
               Market {marketData?.marketStatus || "Closed"}
             </Badge>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="relative" data-testid="notifications-bell">
+                  <Bell className="h-4 w-4" />
+                  {(notifications?.unreadCount || 0) > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                      {notifications?.unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <div className="p-3 border-b">
+                  <h4 className="font-semibold">Notifications</h4>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications?.notifications?.length ? (
+                    notifications.notifications.slice(0, 5).map((notif) => (
+                      <div 
+                        key={notif.id} 
+                        className={`p-3 border-b last:border-0 hover:bg-muted/50 cursor-pointer ${!notif.isRead ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
+                      >
+                        <p className="font-medium text-sm">{notif.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{notif.message}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(notif.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-6 text-center text-muted-foreground">
+                      <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No notifications yet</p>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -716,6 +796,114 @@ export default function USTradingPage() {
                         </div>
                       ))}
                     </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-blue-200 dark:border-blue-800">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Scale className="h-5 w-5 text-blue-600" />
+                        <CardTitle>AI Portfolio Rebalancing</CardTitle>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => refetchRebalancing()} data-testid="refresh-rebalancing">
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <CardDescription>AI-powered suggestions to optimize your portfolio allocation</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingRebalancing ? (
+                      <div className="space-y-3">
+                        <Skeleton className="h-16" />
+                        <Skeleton className="h-24" />
+                      </div>
+                    ) : rebalancing?.analysis ? (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">Analysis</p>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">{rebalancing.analysis.rationale}</p>
+                        </div>
+                        
+                        {rebalancing.analysis.suggestedTrades.length > 0 ? (
+                          <>
+                            <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Target className="h-4 w-4 text-green-600" />
+                                <p className="text-sm font-medium text-green-800 dark:text-green-200">Expected Impact</p>
+                              </div>
+                              <p className="text-sm text-green-700 dark:text-green-300">{rebalancing.analysis.expectedImpact}</p>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Suggested Trades</p>
+                              {rebalancing.analysis.suggestedTrades.map((trade, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                                  data-testid={`rebalance-trade-${trade.symbol}`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant={trade.side === "buy" ? "default" : "secondary"}>
+                                      {trade.side.toUpperCase()}
+                                    </Badge>
+                                    <div>
+                                      <p className="font-medium">{trade.symbol}</p>
+                                      <p className="text-xs text-muted-foreground">{trade.name}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="font-medium">{trade.quantity} shares</p>
+                                    <p className="text-xs text-muted-foreground">₹{(trade.estimatedValue / 100000).toFixed(2)}L</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={trade.priority === 'high' ? 'border-red-300 text-red-600' : trade.priority === 'medium' ? 'border-yellow-300 text-yellow-600' : 'border-gray-300'}
+                                    >
+                                      {trade.priority}
+                                    </Badge>
+                                    <Button 
+                                      size="sm" 
+                                      onClick={() => {
+                                        const stockData: StockQuote = {
+                                          symbol: trade.symbol,
+                                          name: trade.name,
+                                          price: trade.estimatedValue / trade.quantity / exchangeRate,
+                                          change: 0,
+                                          changePercent: 0,
+                                          previousClose: 0,
+                                          open: 0,
+                                          high: 0,
+                                          low: 0,
+                                          volume: 0,
+                                          marketCap: 0,
+                                          exchange: "NASDAQ"
+                                        };
+                                        handleTrade(stockData, trade.side);
+                                      }}
+                                      data-testid={`execute-rebalance-${trade.symbol}`}
+                                    >
+                                      Execute <ChevronRight className="h-4 w-4 ml-1" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                            <p>Your portfolio is well-balanced. No rebalancing needed.</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Scale className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        <p>Complete your risk profile to get personalized rebalancing suggestions</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </>
