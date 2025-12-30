@@ -297,6 +297,11 @@ app.use((req, res, next) => {
   const mfOrdersRoutes = await import('./routes/mf-orders');
   app.use(mfOrdersRoutes.default);
   
+  // Register Unified Order Management routes (cross-product order lifecycle)
+  const { registerOrderRoutes } = await import('./order-routes');
+  registerOrderRoutes(app);
+  console.log('✅ Unified Order Management routes registered');
+  
   // Register AI MF Recommendation routes (Smart fund recommendations with rich rationale)
   const aiMFRecommendationRoutes = await import('./routes/ai-mf-recommendation-routes');
   app.use(aiMFRecommendationRoutes.default);
