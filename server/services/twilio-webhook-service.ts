@@ -1,8 +1,8 @@
 import twilio from 'twilio';
 import { Request, Response, Router } from 'express';
 import { db } from '../db';
-import { users, userNotifications } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { users, userNotifications, whatsappContacts } from '@shared/schema';
+import { eq, sql } from 'drizzle-orm';
 import { twilioWhatsAppService } from './twilio-whatsapp-service';
 import { smsService } from './sms-service';
 
@@ -105,6 +105,69 @@ class TwilioWebhookService {
     return null;
   }
 
+  private normalizePhoneNumber(phone: string): string {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('91') && cleaned.length === 12) {
+      return `+${cleaned}`;
+    }
+    if (cleaned.length === 10) {
+      return `+91${cleaned}`;
+    }
+    return `+${cleaned}`;
+  }
+
+  async markWhatsAppContact(phoneNumber: string, userId?: string): Promise<void> {
+    const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
+    
+    try {
+      const [existing] = await db.select()
+        .from(whatsappContacts)
+        .where(eq(whatsappContacts.phoneNumber, normalizedPhone))
+        .limit(1);
+
+      if (existing) {
+        await db.update(whatsappContacts)
+          .set({
+            hasInitiatedContact: true,
+            lastMessageAt: new Date(),
+            messageCount: existing.messageCount + 1,
+            updatedAt: new Date(),
+            ...(userId && !existing.userId ? { userId } : {}),
+          })
+          .where(eq(whatsappContacts.phoneNumber, normalizedPhone));
+        console.log(`📱 Updated WhatsApp contact: ${normalizedPhone}`);
+      } else {
+        await db.insert(whatsappContacts).values({
+          phoneNumber: normalizedPhone,
+          userId: userId || null,
+          hasInitiatedContact: true,
+          firstContactAt: new Date(),
+          lastMessageAt: new Date(),
+          messageCount: 1,
+        });
+        console.log(`📱 Created WhatsApp contact: ${normalizedPhone}`);
+      }
+    } catch (error) {
+      console.error('Error marking WhatsApp contact:', error);
+    }
+  }
+
+  async hasWhatsAppContact(phoneNumber: string): Promise<boolean> {
+    const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
+    
+    try {
+      const [contact] = await db.select()
+        .from(whatsappContacts)
+        .where(eq(whatsappContacts.phoneNumber, normalizedPhone))
+        .limit(1);
+      
+      return contact?.hasInitiatedContact ?? false;
+    } catch (error) {
+      console.error('Error checking WhatsApp contact:', error);
+      return false;
+    }
+  }
+
   private parseCommand(body: string): { command: string; args: string[] } {
     const trimmed = body.trim().toUpperCase();
     const parts = trimmed.split(/\s+/);
@@ -141,6 +204,8 @@ class TwilioWebhookService {
     const phoneNumber = this.extractPhoneNumber(message.From);
     const user = await this.findUserByPhone(phoneNumber);
     const { command, args } = this.parseCommand(message.Body);
+
+    await this.markWhatsAppContact(phoneNumber, user?.id);
 
     this.logMessage({
       id: message.MessageSid,
