@@ -20924,3 +20924,31 @@ export const usFeatureFlags = pgTable("us_feature_flags", {
 export const insertUsFeatureFlagSchema = createInsertSchema(usFeatureFlags).omit({ id: true, updatedAt: true });
 export type UsFeatureFlag = typeof usFeatureFlags.$inferSelect;
 export type InsertUsFeatureFlag = z.infer<typeof insertUsFeatureFlagSchema>;
+
+// User Notification Preferences Table
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Channel preferences
+  emailEnabled: boolean("email_enabled").default(true).notNull(),
+  smsEnabled: boolean("sms_enabled").default(false).notNull(),
+  pushEnabled: boolean("push_enabled").default(true).notNull(),
+  
+  // US Trading notifications
+  usOrderFilled: boolean("us_order_filled").default(true).notNull(),
+  usOrderCancelled: boolean("us_order_cancelled").default(true).notNull(),
+  usOrderRejected: boolean("us_order_rejected").default(true).notNull(),
+  usMarketAlerts: boolean("us_market_alerts").default(true).notNull(),
+  usRebalancingSuggestions: boolean("us_rebalancing_suggestions").default(true).notNull(),
+  
+  // Other trading notifications
+  orderUpdates: boolean("order_updates").default(true).notNull(),
+  portfolioAlerts: boolean("portfolio_alerts").default(true).notNull(),
+  
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertNotificationPreferenceSchema = createInsertSchema(notificationPreferences).omit({ id: true, updatedAt: true });
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
