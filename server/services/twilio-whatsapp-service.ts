@@ -1,4 +1,7 @@
 import twilio from 'twilio';
+import { db } from '../db';
+import { whatsappContacts } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 interface WhatsAppMessage {
   to: string;
@@ -11,6 +14,19 @@ interface WhatsAppTemplateMessage {
   templateSid: string;
   templateVariables?: Record<string, string>;
 }
+
+interface WhatsAppTemplateConfig {
+  contentSid: string;
+  contentVariables?: Record<string, string>;
+}
+
+const DEFAULT_TEMPLATES: Record<string, string> = {
+  welcome: process.env.TWILIO_WHATSAPP_WELCOME_TEMPLATE || '',
+  order_update: process.env.TWILIO_WHATSAPP_ORDER_TEMPLATE || '',
+  kyc_update: process.env.TWILIO_WHATSAPP_KYC_TEMPLATE || '',
+  otp: process.env.TWILIO_WHATSAPP_OTP_TEMPLATE || '',
+  notification: process.env.TWILIO_WHATSAPP_NOTIFICATION_TEMPLATE || '',
+};
 
 class TwilioWhatsAppService {
   private client: any;
@@ -61,7 +77,33 @@ class TwilioWhatsAppService {
     return `whatsapp:+${cleaned}`;
   }
 
-  async sendMessage(to: string, body: string, mediaUrl?: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+  private normalizePhoneForDb(mobile: string): string {
+    const cleaned = mobile.replace(/\D/g, '');
+    if (cleaned.startsWith('91') && cleaned.length === 12) {
+      return `+${cleaned}`;
+    }
+    if (cleaned.length === 10) {
+      return `+91${cleaned}`;
+    }
+    return `+${cleaned}`;
+  }
+
+  async hasUserInitiatedContact(phoneNumber: string): Promise<boolean> {
+    try {
+      const normalizedPhone = this.normalizePhoneForDb(phoneNumber);
+      const [contact] = await db.select()
+        .from(whatsappContacts)
+        .where(eq(whatsappContacts.phoneNumber, normalizedPhone))
+        .limit(1);
+      
+      return contact?.hasInitiatedContact ?? false;
+    } catch (error) {
+      console.error('Error checking WhatsApp contact status:', error);
+      return false;
+    }
+  }
+
+  async sendMessage(to: string, body: string, mediaUrl?: string, templateType?: string): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
     if (!this.isConfigured) {
       console.log(`📱 WhatsApp message to ${to.substring(0, 6)}****: ${body.substring(0, 50)}... (not configured)`);
       return { success: false, error: 'WhatsApp service not configured' };
@@ -69,13 +111,36 @@ class TwilioWhatsAppService {
 
     try {
       const toNumber = this.formatWhatsAppNumber(to);
-      
+      const hasContact = await this.hasUserInitiatedContact(to);
+
+      if (hasContact) {
+        return this.sendFreeformMessage(toNumber, body, mediaUrl);
+      } else {
+        const templateSid = templateType ? DEFAULT_TEMPLATES[templateType] : DEFAULT_TEMPLATES.notification;
+        if (templateSid) {
+          return this.sendTemplateMessage(toNumber, templateSid, { body });
+        } else {
+          console.log(`⚠️ No template configured for ${templateType || 'notification'}, user has not initiated contact`);
+          return { 
+            success: false, 
+            error: 'User has not initiated WhatsApp contact. Please configure a message template or have the user message first.',
+            usedTemplate: false 
+          };
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to send WhatsApp message:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  private async sendFreeformMessage(toNumber: string, body: string, mediaUrl?: string): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
+    try {
       const messageOptions: any = {
         body,
         to: toNumber,
       };
 
-      // For WhatsApp, use the from number directly (Messaging Service SID doesn't work well with WhatsApp)
       if (this.fromNumber) {
         messageOptions.from = this.fromNumber;
       }
@@ -84,16 +149,56 @@ class TwilioWhatsAppService {
         messageOptions.mediaUrl = [mediaUrl];
       }
 
-      console.log(`📱 Sending WhatsApp message to ${toNumber.substring(0, 15)}***`);
-      console.log(`   Options: ${JSON.stringify({ ...messageOptions, body: body.substring(0, 30) + '...' })}`);
+      console.log(`📱 Sending freeform WhatsApp message to ${toNumber.substring(0, 15)}***`);
 
       const message = await this.client.messages.create(messageOptions);
-      console.log(`✅ WhatsApp message sent to ${toNumber.substring(0, 15)}*** - SID: ${message.sid}`);
+      console.log(`✅ WhatsApp freeform message sent - SID: ${message.sid}`);
       
-      return { success: true, messageSid: message.sid };
+      return { success: true, messageSid: message.sid, usedTemplate: false };
     } catch (error: any) {
-      console.error('❌ Failed to send WhatsApp message:', error.message);
+      console.error('❌ Failed to send freeform WhatsApp message:', error.message);
       return { success: false, error: error.message };
+    }
+  }
+
+  async sendTemplateMessage(toNumber: string, contentSid: string, variables?: Record<string, string>): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
+    try {
+      const messageOptions: any = {
+        to: toNumber,
+        contentSid: contentSid,
+      };
+
+      if (this.fromNumber) {
+        messageOptions.from = this.fromNumber;
+      }
+
+      if (variables && Object.keys(variables).length > 0) {
+        messageOptions.contentVariables = JSON.stringify(variables);
+      }
+
+      console.log(`📱 Sending template WhatsApp message to ${toNumber.substring(0, 15)}*** (template: ${contentSid})`);
+
+      const message = await this.client.messages.create(messageOptions);
+      console.log(`✅ WhatsApp template message sent - SID: ${message.sid}`);
+      
+      return { success: true, messageSid: message.sid, usedTemplate: true };
+    } catch (error: any) {
+      console.error('❌ Failed to send template WhatsApp message:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async sendMessageForced(to: string, body: string, useTemplate: boolean = false, templateSid?: string, templateVars?: Record<string, string>): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
+    if (!this.isConfigured) {
+      return { success: false, error: 'WhatsApp service not configured' };
+    }
+
+    const toNumber = this.formatWhatsAppNumber(to);
+
+    if (useTemplate && templateSid) {
+      return this.sendTemplateMessage(toNumber, templateSid, templateVars);
+    } else {
+      return this.sendFreeformMessage(toNumber, body);
     }
   }
 
