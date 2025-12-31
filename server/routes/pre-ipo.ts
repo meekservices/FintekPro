@@ -1,4 +1,5 @@
 import { Express, Request, Response } from 'express';
+import { adminService } from '../admin-service';
 
 export function registerPreIPORoutes(app: Express) {
   app.get("/api/pre-ipo/upcoming", async (req, res) => {
