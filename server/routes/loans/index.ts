@@ -3,9 +3,13 @@ import { requireAuth, requireClientOrHigher } from '../../middleware/auth';
 import { iciciBankAPI } from '../../icici-bank-api';
 import { LoanOrchestrator } from '../../loan-marketplace/loan-orchestrator';
 import { storage } from '../../storage';
+import { registerLoanAdminRoutes } from './admin';
 
 const requireLevel1 = requireClientOrHigher;
 const loanOrchestrator = new LoanOrchestrator();
+
+// Re-export admin routes for separate registration if needed
+export { registerLoanAdminRoutes } from './admin';
 
 export function registerLoanRoutes(app: Express) {
   app.post("/api/icici/loans/apply", requireAuth, async (req: any, res: any) => {
@@ -292,6 +296,70 @@ export function registerLoanRoutes(app: Express) {
       res.status(500).json({
         success: false,
         error: "Failed to fetch provider products"
+      });
+    }
+  });
+
+  // EMI Calculator (public endpoint)
+  app.post("/api/marketplace/emi-calculator", async (req: any, res: any) => {
+    try {
+      const { principal, annualRate, tenureMonths } = req.body;
+      
+      if (!principal || !annualRate || !tenureMonths) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required fields: principal, annualRate, tenureMonths"
+        });
+      }
+
+      const calculation = loanOrchestrator.calculateEMI(
+        parseFloat(principal),
+        parseFloat(annualRate),
+        parseInt(tenureMonths)
+      );
+
+      res.json({
+        success: true,
+        data: calculation
+      });
+    } catch (error: any) {
+      console.error("Error calculating EMI:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to calculate EMI"
+      });
+    }
+  });
+
+  // Pre-qualification check (requires auth)
+  app.post("/api/marketplace/prequalify", requireLevel1, async (req: any, res: any) => {
+    try {
+      const { productKey, requestedAmount, monthlyIncome, creditScore, existingEMIs } = req.body;
+      
+      if (!productKey || !requestedAmount || !monthlyIncome) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required fields: productKey, requestedAmount, monthlyIncome"
+        });
+      }
+
+      const result = await loanOrchestrator.softPrequalify(
+        productKey,
+        parseFloat(requestedAmount),
+        parseFloat(monthlyIncome),
+        creditScore ? parseInt(creditScore) : undefined,
+        existingEMIs ? parseFloat(existingEMIs) : undefined
+      );
+
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error: any) {
+      console.error("Error in pre-qualification:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to run pre-qualification check"
       });
     }
   });
@@ -981,5 +1049,9 @@ export function registerLoanComparisonRoutes(app: Express) {
 
   // ============ END LOAN COMPARISON API ROUTES ============
 
+  // Register admin routes for loan marketplace management
+  registerLoanAdminRoutes(app);
+
   console.log('✅ Loan Comparison routes registered');
+  console.log('✅ Loan Admin routes registered');
 }

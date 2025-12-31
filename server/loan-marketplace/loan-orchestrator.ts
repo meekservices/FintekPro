@@ -587,7 +587,576 @@ export class LoanOrchestrator {
       return [];
     }
   }
+
+  // ==================== Product & Provider Methods ====================
+  
+  // Get all loan products with their details
+  getLoanProducts(): LoanProductData[] {
+    return LOAN_PRODUCTS;
+  }
+
+  // Get a specific loan product by key
+  getLoanProduct(productKey: string): LoanProductData | undefined {
+    return LOAN_PRODUCTS.find(p => p.productKey === productKey);
+  }
+
+  // Get all loan providers with their details
+  getLoanProviders(): LoanProviderData[] {
+    return LOAN_PROVIDERS;
+  }
+
+  // Get a specific loan provider by key
+  getLoanProvider(providerKey: string): LoanProviderData | undefined {
+    return LOAN_PROVIDERS.find(p => p.providerKey === providerKey);
+  }
+
+  // Get products offered by a specific provider
+  getProviderProducts(providerKey: string): ProviderProductOffering[] | undefined {
+    const provider = LOAN_PROVIDERS.find(p => p.providerKey === providerKey);
+    if (!provider) return undefined;
+    
+    return provider.products;
+  }
+
+  // Get all providers offering a specific product
+  getProductProviders(productKey: string): LoanProviderData[] {
+    return LOAN_PROVIDERS.filter(p => 
+      p.products.some(prod => prod.productKey === productKey && prod.isActive)
+    );
+  }
+
+  // ==================== EMI Calculator ====================
+  
+  calculateEMI(principal: number, annualRate: number, tenureMonths: number): EMICalculation {
+    // Handle edge cases to prevent NaN
+    if (tenureMonths <= 0) {
+      return {
+        emi: 0,
+        totalPayment: 0,
+        totalInterest: 0,
+        principal,
+        interestRate: annualRate,
+        tenureMonths,
+        schedule: []
+      };
+    }
+    
+    if (annualRate <= 0) {
+      // Zero interest case - simple division
+      const emi = principal / tenureMonths;
+      const schedule: AmortizationEntry[] = [];
+      let balance = principal;
+      
+      for (let month = 1; month <= tenureMonths; month++) {
+        const principalPayment = emi;
+        balance -= principalPayment;
+        schedule.push({
+          month,
+          emi: Math.round(emi * 100) / 100,
+          principal: Math.round(principalPayment * 100) / 100,
+          interest: 0,
+          balance: Math.max(0, Math.round(balance * 100) / 100)
+        });
+      }
+      
+      return {
+        emi: Math.round(emi * 100) / 100,
+        totalPayment: Math.round(principal * 100) / 100,
+        totalInterest: 0,
+        principal,
+        interestRate: annualRate,
+        tenureMonths,
+        schedule
+      };
+    }
+    
+    const monthlyRate = annualRate / 12 / 100;
+    
+    // EMI = P * r * (1+r)^n / ((1+r)^n - 1)
+    const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, tenureMonths) / 
+                (Math.pow(1 + monthlyRate, tenureMonths) - 1);
+    
+    const totalPayment = emi * tenureMonths;
+    const totalInterest = totalPayment - principal;
+    
+    // Generate amortization schedule
+    const schedule: AmortizationEntry[] = [];
+    let balance = principal;
+    
+    for (let month = 1; month <= tenureMonths; month++) {
+      const interestPayment = balance * monthlyRate;
+      const principalPayment = emi - interestPayment;
+      balance -= principalPayment;
+      
+      schedule.push({
+        month,
+        emi: Math.round(emi * 100) / 100,
+        principal: Math.round(principalPayment * 100) / 100,
+        interest: Math.round(interestPayment * 100) / 100,
+        balance: Math.max(0, Math.round(balance * 100) / 100)
+      });
+    }
+    
+    return {
+      emi: Math.round(emi * 100) / 100,
+      totalPayment: Math.round(totalPayment * 100) / 100,
+      totalInterest: Math.round(totalInterest * 100) / 100,
+      principal,
+      interestRate: annualRate,
+      tenureMonths,
+      schedule
+    };
+  }
+
+  // ==================== Pre-qualification Check ====================
+  
+  async softPrequalify(
+    productKey: string,
+    requestedAmount: number,
+    monthlyIncome: number,
+    creditScore?: number,
+    existingEMIs?: number
+  ): Promise<PrequalificationResult> {
+    const product = this.getLoanProduct(productKey);
+    if (!product) {
+      return {
+        eligible: false,
+        score: 0,
+        maxEligibleAmount: 0,
+        reasons: ['Invalid product selected'],
+        recommendations: []
+      };
+    }
+
+    const score = this.calculateEligibilityScore(productKey, requestedAmount, monthlyIncome, creditScore, existingEMIs);
+    const foirLimit = 0.5; // Fixed Obligation to Income Ratio limit
+    const availableIncome = monthlyIncome - (existingEMIs || 0);
+    const maxEMI = availableIncome * foirLimit;
+    
+    // Estimate max loan amount based on available EMI capacity
+    const avgRate = (product.minInterestRate + product.maxInterestRate) / 2;
+    const avgTenure = Math.floor((product.minTenure + product.maxTenure) / 2);
+    const maxEligibleAmount = this.calculateMaxLoanFromEMI(maxEMI, avgRate, avgTenure);
+    
+    const reasons: string[] = [];
+    const recommendations: string[] = [];
+    
+    // Check amount limits
+    if (requestedAmount < product.minAmount) {
+      reasons.push(`Minimum loan amount is ₹${product.minAmount.toLocaleString('en-IN')}`);
+    }
+    if (requestedAmount > product.maxAmount) {
+      reasons.push(`Maximum loan amount is ₹${product.maxAmount.toLocaleString('en-IN')}`);
+    }
+    
+    // Check income eligibility
+    if (monthlyIncome < (product.minIncome || 0)) {
+      reasons.push(`Minimum monthly income requirement is ₹${(product.minIncome || 0).toLocaleString('en-IN')}`);
+    }
+    
+    // Check credit score
+    if (creditScore && creditScore < (product.minCibilScore || 600)) {
+      reasons.push(`Minimum credit score requirement is ${product.minCibilScore || 600}`);
+      recommendations.push('Consider improving your credit score before applying');
+    }
+    
+    // Check FOIR
+    if (requestedAmount > maxEligibleAmount) {
+      reasons.push('Loan amount exceeds your repayment capacity');
+      recommendations.push(`Based on your income, you may be eligible for up to ₹${Math.floor(maxEligibleAmount).toLocaleString('en-IN')}`);
+    }
+    
+    const eligible = reasons.length === 0 && score >= 60;
+    
+    if (eligible) {
+      recommendations.push('You appear to be eligible for this loan. Complete your application to get personalized offers.');
+    }
+    
+    return {
+      eligible,
+      score,
+      maxEligibleAmount: Math.min(maxEligibleAmount, product.maxAmount),
+      reasons,
+      recommendations,
+      suggestedProviders: eligible ? this.getProductProviders(productKey).slice(0, 3).map(p => p.providerName) : []
+    };
+  }
+
+  private calculateEligibilityScore(
+    productKey: string,
+    amount: number,
+    monthlyIncome: number,
+    creditScore?: number,
+    existingEMIs?: number
+  ): number {
+    let score = 50; // Base score
+    
+    // Credit score contribution (30 points)
+    if (creditScore) {
+      if (creditScore >= 750) score += 30;
+      else if (creditScore >= 700) score += 20;
+      else if (creditScore >= 650) score += 10;
+      else if (creditScore >= 600) score += 5;
+    }
+    
+    // Income vs loan amount ratio (20 points)
+    const loanToIncomeRatio = amount / (monthlyIncome * 12);
+    if (loanToIncomeRatio <= 2) score += 20;
+    else if (loanToIncomeRatio <= 4) score += 15;
+    else if (loanToIncomeRatio <= 6) score += 10;
+    else if (loanToIncomeRatio <= 8) score += 5;
+    
+    // FOIR check (20 points)
+    const foir = (existingEMIs || 0) / monthlyIncome;
+    if (foir <= 0.3) score += 20;
+    else if (foir <= 0.4) score += 15;
+    else if (foir <= 0.5) score += 10;
+    
+    return Math.min(100, Math.max(0, score));
+  }
+
+  private calculateMaxLoanFromEMI(maxEMI: number, annualRate: number, tenureMonths: number): number {
+    const monthlyRate = annualRate / 12 / 100;
+    // P = EMI * ((1+r)^n - 1) / (r * (1+r)^n)
+    const principal = maxEMI * (Math.pow(1 + monthlyRate, tenureMonths) - 1) / 
+                      (monthlyRate * Math.pow(1 + monthlyRate, tenureMonths));
+    return Math.floor(principal);
+  }
 }
+
+// ==================== Static Product & Provider Data ====================
+
+export interface LoanProductData {
+  productKey: string;
+  productName: string;
+  category: 'secured' | 'unsecured';
+  collateralType?: string;
+  description: string;
+  icon: string;
+  minAmount: number;
+  maxAmount: number;
+  minTenure: number; // months
+  maxTenure: number;
+  minInterestRate: number;
+  maxInterestRate: number;
+  minAge: number;
+  maxAge: number;
+  minIncome?: number;
+  minCibilScore?: number;
+  documentsRequired: string[];
+  features: string[];
+  eligibilityCriteria: string[];
+  isActive: boolean;
+}
+
+export interface ProviderProductOffering {
+  productKey: string;
+  productName: string;
+  interestRateMin: number;
+  interestRateMax: number;
+  processingFee: number; // percentage
+  maxProcessingFee?: number; // flat cap
+  maxLTV?: number; // for secured loans
+  commissionRate: number; // % of loan amount
+  features: string[];
+  isActive: boolean;
+}
+
+export interface LoanProviderData {
+  providerKey: string;
+  providerName: string;
+  providerType: 'bank' | 'nbfc';
+  logoUrl?: string;
+  description: string;
+  rating: number; // out of 5
+  avgProcessingTime: string;
+  hasApi: boolean;
+  supportsInstantOffers: boolean;
+  contactEmail?: string;
+  contactPhone?: string;
+  website?: string;
+  products: ProviderProductOffering[];
+  isActive: boolean;
+}
+
+export interface EMICalculation {
+  emi: number;
+  totalPayment: number;
+  totalInterest: number;
+  principal: number;
+  interestRate: number;
+  tenureMonths: number;
+  schedule: AmortizationEntry[];
+}
+
+export interface AmortizationEntry {
+  month: number;
+  emi: number;
+  principal: number;
+  interest: number;
+  balance: number;
+}
+
+export interface PrequalificationResult {
+  eligible: boolean;
+  score: number;
+  maxEligibleAmount: number;
+  reasons: string[];
+  recommendations: string[];
+  suggestedProviders?: string[];
+}
+
+// Loan Products Data
+const LOAN_PRODUCTS: LoanProductData[] = [
+  {
+    productKey: 'personal',
+    productName: 'Personal Loan',
+    category: 'unsecured',
+    description: 'Multipurpose loan for personal needs like medical emergencies, travel, wedding, or home renovation.',
+    icon: 'User',
+    minAmount: 50000,
+    maxAmount: 4000000,
+    minTenure: 12,
+    maxTenure: 60,
+    minInterestRate: 10.49,
+    maxInterestRate: 24.00,
+    minAge: 21,
+    maxAge: 60,
+    minIncome: 20000,
+    minCibilScore: 650,
+    documentsRequired: ['PAN Card', 'Aadhaar Card', 'Income Proof', 'Bank Statements (6 months)', 'Address Proof'],
+    features: ['No collateral required', 'Quick disbursement', 'Flexible tenure', 'Minimal documentation'],
+    eligibilityCriteria: ['Age 21-60 years', 'Minimum income ₹20,000/month', 'CIBIL score 650+', 'Employed or self-employed'],
+    isActive: true
+  },
+  {
+    productKey: 'home',
+    productName: 'Home Loan',
+    category: 'secured',
+    collateralType: 'property',
+    description: 'Finance your dream home with competitive interest rates and long tenure options.',
+    icon: 'Home',
+    minAmount: 500000,
+    maxAmount: 100000000,
+    minTenure: 60,
+    maxTenure: 360,
+    minInterestRate: 8.35,
+    maxInterestRate: 12.00,
+    minAge: 21,
+    maxAge: 65,
+    minIncome: 25000,
+    minCibilScore: 650,
+    documentsRequired: ['PAN Card', 'Aadhaar Card', 'Income Proof', 'Bank Statements (12 months)', 'Property Documents', 'Sale Agreement', 'NOC from Society'],
+    features: ['Lowest interest rates', 'Up to 30 years tenure', 'Tax benefits under Section 80C & 24(b)', 'Balance transfer facility'],
+    eligibilityCriteria: ['Age 21-65 years', 'Minimum income ₹25,000/month', 'CIBIL score 650+', 'Clear property title'],
+    isActive: true
+  },
+  {
+    productKey: 'car',
+    productName: 'Car Loan',
+    category: 'secured',
+    collateralType: 'vehicle',
+    description: 'Drive your dream car home with easy financing for new and pre-owned vehicles.',
+    icon: 'Car',
+    minAmount: 100000,
+    maxAmount: 10000000,
+    minTenure: 12,
+    maxTenure: 84,
+    minInterestRate: 7.25,
+    maxInterestRate: 15.00,
+    minAge: 21,
+    maxAge: 65,
+    minIncome: 20000,
+    minCibilScore: 650,
+    documentsRequired: ['PAN Card', 'Aadhaar Card', 'Income Proof', 'Bank Statements (6 months)', 'Proforma Invoice', 'Driving License'],
+    features: ['Up to 100% on-road funding', 'Quick approval', 'Flexible repayment', 'Used car financing available'],
+    eligibilityCriteria: ['Age 21-65 years', 'Minimum income ₹20,000/month', 'CIBIL score 650+', 'Valid driving license'],
+    isActive: true
+  },
+  {
+    productKey: 'business',
+    productName: 'Business Loan',
+    category: 'unsecured',
+    description: 'Fuel your business growth with working capital and expansion finance.',
+    icon: 'Building2',
+    minAmount: 100000,
+    maxAmount: 50000000,
+    minTenure: 12,
+    maxTenure: 60,
+    minInterestRate: 12.00,
+    maxInterestRate: 24.00,
+    minAge: 21,
+    maxAge: 65,
+    minIncome: 50000,
+    minCibilScore: 675,
+    documentsRequired: ['PAN Card', 'Aadhaar Card', 'Business Registration', 'GST Returns', 'ITR (2 years)', 'Bank Statements (12 months)', 'Financial Statements'],
+    features: ['No collateral required', 'Overdraft facility', 'Flexible end-use', 'Quick processing'],
+    eligibilityCriteria: ['Business vintage 2+ years', 'Annual turnover ₹10 Lakhs+', 'CIBIL score 675+', 'Profitable operations'],
+    isActive: true
+  },
+  {
+    productKey: 'education',
+    productName: 'Education Loan',
+    category: 'unsecured',
+    description: 'Invest in your future with education loans for higher studies in India and abroad.',
+    icon: 'GraduationCap',
+    minAmount: 100000,
+    maxAmount: 15000000,
+    minTenure: 36,
+    maxTenure: 180,
+    minInterestRate: 8.50,
+    maxInterestRate: 14.00,
+    minAge: 18,
+    maxAge: 35,
+    minIncome: 0, // Co-applicant income considered
+    minCibilScore: 650,
+    documentsRequired: ['PAN Card', 'Aadhaar Card', 'Admission Letter', 'Fee Structure', 'Academic Records', 'Co-applicant Income Proof'],
+    features: ['Moratorium during study', 'Tax benefits under Section 80E', 'Covers tuition, living, travel', 'Subsidy schemes available'],
+    eligibilityCriteria: ['Age 18-35 years', 'Confirmed admission', 'Co-applicant with income', 'Academic merit'],
+    isActive: true
+  },
+  {
+    productKey: 'gold',
+    productName: 'Gold Loan',
+    category: 'secured',
+    collateralType: 'gold',
+    description: 'Get instant funds against your gold jewelry with minimal documentation.',
+    icon: 'Star',
+    minAmount: 10000,
+    maxAmount: 10000000,
+    minTenure: 3,
+    maxTenure: 36,
+    minInterestRate: 7.00,
+    maxInterestRate: 17.00,
+    minAge: 18,
+    maxAge: 70,
+    documentsRequired: ['PAN Card', 'Aadhaar Card', 'Gold Ornaments'],
+    features: ['Instant disbursement', 'Minimal documentation', 'No income proof required', 'Flexible repayment'],
+    eligibilityCriteria: ['Age 18-70 years', 'Own gold jewelry (18-22 Karat)', 'Valid ID proof'],
+    isActive: true
+  },
+  {
+    productKey: 'lap',
+    productName: 'Loan Against Property',
+    category: 'secured',
+    collateralType: 'property',
+    description: 'Unlock the value of your property for business or personal needs.',
+    icon: 'Building2',
+    minAmount: 500000,
+    maxAmount: 50000000,
+    minTenure: 36,
+    maxTenure: 240,
+    minInterestRate: 9.00,
+    maxInterestRate: 14.00,
+    minAge: 25,
+    maxAge: 70,
+    minIncome: 30000,
+    minCibilScore: 650,
+    documentsRequired: ['PAN Card', 'Aadhaar Card', 'Income Proof', 'Property Documents', 'Valuation Report', 'Bank Statements (12 months)'],
+    features: ['Higher loan amount', 'Lower interest rates', 'Long tenure', 'Multipurpose usage'],
+    eligibilityCriteria: ['Age 25-70 years', 'Own property (residential/commercial)', 'Clear title', 'CIBIL score 650+'],
+    isActive: true
+  }
+];
+
+// Partner Lenders Data
+const LOAN_PROVIDERS: LoanProviderData[] = [
+  {
+    providerKey: 'icici',
+    providerName: 'ICICI Bank',
+    providerType: 'bank',
+    description: "India's leading private sector bank with extensive loan offerings.",
+    rating: 4.5,
+    avgProcessingTime: '2-3 days',
+    hasApi: true,
+    supportsInstantOffers: true,
+    website: 'https://www.icicibank.com',
+    products: [
+      { productKey: 'personal', productName: 'Personal Loan', interestRateMin: 10.75, interestRateMax: 19.00, processingFee: 2.25, maxProcessingFee: 5000, commissionRate: 0.75, features: ['Instant approval', 'Zero prepayment charges'], isActive: true },
+      { productKey: 'home', productName: 'Home Loan', interestRateMin: 8.40, interestRateMax: 10.05, processingFee: 0.50, maxProcessingFee: 10000, maxLTV: 80, commissionRate: 0.40, features: ['Balance transfer benefit', 'Property search assistance'], isActive: true },
+      { productKey: 'car', productName: 'Car Loan', interestRateMin: 7.75, interestRateMax: 12.00, processingFee: 0.50, maxProcessingFee: 6000, maxLTV: 100, commissionRate: 0.50, features: ['100% on-road funding', 'Used car loans available'], isActive: true },
+      { productKey: 'business', productName: 'Business Loan', interestRateMin: 14.00, interestRateMax: 20.00, processingFee: 2.00, commissionRate: 1.00, features: ['Overdraft facility', 'Quick turnaround'], isActive: true },
+      { productKey: 'lap', productName: 'Loan Against Property', interestRateMin: 9.25, interestRateMax: 12.50, processingFee: 1.00, maxLTV: 65, commissionRate: 0.50, features: ['High loan amount', 'Balance transfer option'], isActive: true }
+    ],
+    isActive: true
+  },
+  {
+    providerKey: 'hdfc',
+    providerName: 'HDFC Bank',
+    providerType: 'bank',
+    description: "India's largest private sector bank by assets with diverse loan portfolio.",
+    rating: 4.6,
+    avgProcessingTime: '2-4 days',
+    hasApi: true,
+    supportsInstantOffers: true,
+    website: 'https://www.hdfcbank.com',
+    products: [
+      { productKey: 'personal', productName: 'Personal Loan', interestRateMin: 10.50, interestRateMax: 21.00, processingFee: 2.50, maxProcessingFee: 4500, commissionRate: 0.80, features: ['Pre-approved offers', 'Instant disbursal'], isActive: true },
+      { productKey: 'home', productName: 'Home Loan', interestRateMin: 8.35, interestRateMax: 9.90, processingFee: 0.50, maxProcessingFee: 15000, maxLTV: 85, commissionRate: 0.35, features: ['Top-up facility', 'Part-prepayment allowed'], isActive: true },
+      { productKey: 'car', productName: 'Car Loan', interestRateMin: 7.50, interestRateMax: 13.00, processingFee: 0.40, maxLTV: 100, commissionRate: 0.55, features: ['Pre-approved for existing customers', 'Zero foreclosure charges'], isActive: true },
+      { productKey: 'business', productName: 'Business Loan', interestRateMin: 13.50, interestRateMax: 19.50, processingFee: 1.75, commissionRate: 0.90, features: ['Working capital finance', 'GST-linked loans'], isActive: true },
+      { productKey: 'education', productName: 'Education Loan', interestRateMin: 9.55, interestRateMax: 13.25, processingFee: 1.00, commissionRate: 0.40, features: ['Moratorium benefit', 'Top foreign universities covered'], isActive: true }
+    ],
+    isActive: true
+  },
+  {
+    providerKey: 'bajaj_finance',
+    providerName: 'Bajaj Finserv',
+    providerType: 'nbfc',
+    description: 'Leading NBFC with quick digital loan processing and wide product range.',
+    rating: 4.3,
+    avgProcessingTime: '24 hours',
+    hasApi: true,
+    supportsInstantOffers: true,
+    website: 'https://www.bajajfinserv.in',
+    products: [
+      { productKey: 'personal', productName: 'Personal Loan', interestRateMin: 11.00, interestRateMax: 22.00, processingFee: 3.00, maxProcessingFee: 4000, commissionRate: 1.00, features: ['Flexi loan option', 'Part-prepayment allowed'], isActive: true },
+      { productKey: 'business', productName: 'Business Loan', interestRateMin: 15.00, interestRateMax: 24.00, processingFee: 2.50, commissionRate: 1.25, features: ['Flexi business loan', 'Instant approval'], isActive: true },
+      { productKey: 'gold', productName: 'Gold Loan', interestRateMin: 7.50, interestRateMax: 14.00, processingFee: 1.00, maxLTV: 75, commissionRate: 0.60, features: ['Instant disbursement', 'No income proof needed'], isActive: true },
+      { productKey: 'lap', productName: 'Loan Against Property', interestRateMin: 9.50, interestRateMax: 13.00, processingFee: 1.25, maxLTV: 70, commissionRate: 0.65, features: ['High loan-to-value', 'Flexible tenure'], isActive: true }
+    ],
+    isActive: true
+  },
+  {
+    providerKey: 'tata_capital',
+    providerName: 'Tata Capital',
+    providerType: 'nbfc',
+    description: 'Trusted Tata Group company offering comprehensive lending solutions.',
+    rating: 4.2,
+    avgProcessingTime: '2-3 days',
+    hasApi: false,
+    supportsInstantOffers: false,
+    website: 'https://www.tatacapital.com',
+    products: [
+      { productKey: 'personal', productName: 'Personal Loan', interestRateMin: 10.99, interestRateMax: 20.00, processingFee: 2.00, commissionRate: 0.85, features: ['Trusted brand', 'Transparent pricing'], isActive: true },
+      { productKey: 'home', productName: 'Home Loan', interestRateMin: 8.75, interestRateMax: 11.00, processingFee: 0.75, maxLTV: 80, commissionRate: 0.45, features: ['Home improvement loans', 'Plot + construction'], isActive: true },
+      { productKey: 'car', productName: 'Car Loan', interestRateMin: 8.00, interestRateMax: 14.00, processingFee: 0.50, maxLTV: 90, commissionRate: 0.50, features: ['Used car financing', 'Refinance available'], isActive: true },
+      { productKey: 'business', productName: 'Business Loan', interestRateMin: 14.50, interestRateMax: 21.00, processingFee: 2.00, commissionRate: 1.00, features: ['MSME focus', 'Equipment finance'], isActive: true },
+      { productKey: 'education', productName: 'Education Loan', interestRateMin: 10.00, interestRateMax: 13.50, processingFee: 1.00, commissionRate: 0.45, features: ['Study abroad loans', 'Domestic courses covered'], isActive: true }
+    ],
+    isActive: true
+  },
+  {
+    providerKey: 'kotak',
+    providerName: 'Kotak Mahindra Bank',
+    providerType: 'bank',
+    description: 'Premium banking experience with competitive loan offerings.',
+    rating: 4.4,
+    avgProcessingTime: '2-4 days',
+    hasApi: true,
+    supportsInstantOffers: true,
+    website: 'https://www.kotak.com',
+    products: [
+      { productKey: 'personal', productName: 'Personal Loan', interestRateMin: 10.99, interestRateMax: 18.00, processingFee: 2.00, maxProcessingFee: 5000, commissionRate: 0.70, features: ['Instant approval', 'No hidden charges'], isActive: true },
+      { productKey: 'home', productName: 'Home Loan', interestRateMin: 8.50, interestRateMax: 10.50, processingFee: 0.50, maxLTV: 80, commissionRate: 0.38, features: ['Doorstep service', 'Quick sanction'], isActive: true },
+      { productKey: 'car', productName: 'Car Loan', interestRateMin: 7.99, interestRateMax: 12.50, processingFee: 0.50, maxLTV: 100, commissionRate: 0.52, features: ['Pre-approved for salary accounts', 'Zero documentation'], isActive: true },
+      { productKey: 'business', productName: 'Business Loan', interestRateMin: 14.00, interestRateMax: 20.00, processingFee: 1.50, commissionRate: 0.95, features: ['Trade finance', 'Bill discounting'], isActive: true },
+      { productKey: 'gold', productName: 'Gold Loan', interestRateMin: 8.00, interestRateMax: 15.00, processingFee: 0.50, maxLTV: 75, commissionRate: 0.55, features: ['Online gold loan', 'Flexible repayment'], isActive: true },
+      { productKey: 'lap', productName: 'Loan Against Property', interestRateMin: 9.00, interestRateMax: 12.00, processingFee: 1.00, maxLTV: 65, commissionRate: 0.55, features: ['Competitive rates', 'Fast processing'], isActive: true }
+    ],
+    isActive: true
+  }
+];
 
 // Export singleton instance
 export const loanOrchestrator = new LoanOrchestrator();

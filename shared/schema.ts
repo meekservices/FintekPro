@@ -6804,6 +6804,480 @@ export const insertLoanComparisonAnalyticsSchema = createInsertSchema(loanCompar
   createdAt: true,
 });
 
+// Partner Lender Staff Management
+export const lenderStaff = pgTable("lender_staff", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  
+  // Staff Details
+  staffCode: varchar("staff_code").notNull().unique(),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  email: varchar("email").notNull(),
+  phone: varchar("phone"),
+  
+  // Designation Hierarchy
+  designation: varchar("designation").notNull(), // rm, senior_rm, branch_manager, area_manager, credit_officer, zonal_head, regional_head, national_head
+  department: varchar("department").default("sales"), // sales, credit, operations, collections
+  branchCode: varchar("branch_code"),
+  branchName: varchar("branch_name"),
+  regionCode: varchar("region_code"),
+  zoneCode: varchar("zone_code"),
+  
+  // Reporting Structure
+  reportsToId: varchar("reports_to_id").references((): any => lenderStaff.id),
+  
+  // Employment Details
+  employeeId: varchar("employee_id"), // Lender's internal employee ID
+  joiningDate: timestamp("joining_date"),
+  confirmationDate: timestamp("confirmation_date"),
+  
+  // Status Management
+  status: varchar("status").notNull().default("active"), // active, on_leave, resigned, terminated, transferred
+  statusReason: text("status_reason"),
+  statusChangedAt: timestamp("status_changed_at"),
+  statusChangedBy: varchar("status_changed_by"),
+  
+  // Contact for Escalation
+  isEscalationContact: boolean("is_escalation_contact").default(false),
+  escalationLevel: integer("escalation_level"), // 1, 2, 3 for escalation hierarchy
+  
+  // Performance Metrics
+  totalLeadsAssigned: integer("total_leads_assigned").default(0),
+  totalConversions: integer("total_conversions").default(0),
+  totalDisbursements: integer("total_disbursements").default(0),
+  totalDisbursedAmount: decimal("total_disbursed_amount", { precision: 15, scale: 2 }).default("0"),
+  avgProcessingDays: decimal("avg_processing_days", { precision: 5, scale: 2 }),
+  lastPerformanceReview: timestamp("last_performance_review"),
+  
+  // Additional Info
+  specializations: jsonb("specializations").default([]), // Product types they specialize in
+  certifications: jsonb("certifications").default([]),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Lender Staff History - Track all changes (resignation, termination, transfers, promotions)
+export const lenderStaffHistory = pgTable("lender_staff_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  staffId: varchar("staff_id").references(() => lenderStaff.id).notNull(),
+  
+  // Change Type
+  changeType: varchar("change_type").notNull(), // resignation, termination, transfer, promotion, demotion, leave_start, leave_end, rejoined, status_change
+  
+  // Previous State
+  previousProviderId: varchar("previous_provider_id").references(() => loanProviders.id),
+  previousDesignation: varchar("previous_designation"),
+  previousStatus: varchar("previous_status"),
+  previousBranchCode: varchar("previous_branch_code"),
+  previousReportsToId: varchar("previous_reports_to_id"),
+  
+  // New State
+  newProviderId: varchar("new_provider_id").references(() => loanProviders.id),
+  newDesignation: varchar("new_designation"),
+  newStatus: varchar("new_status"),
+  newBranchCode: varchar("new_branch_code"),
+  newReportsToId: varchar("new_reports_to_id"),
+  
+  // Change Details
+  effectiveDate: timestamp("effective_date").notNull(),
+  reason: text("reason"),
+  remarks: text("remarks"),
+  
+  // For Resignation/Termination
+  relievingDate: timestamp("relieving_date"),
+  lastWorkingDay: timestamp("last_working_day"),
+  exitInterviewNotes: text("exit_interview_notes"),
+  isEligibleForRehire: boolean("is_eligible_for_rehire"),
+  
+  // For Leave
+  leaveType: varchar("leave_type"), // sick, vacation, maternity, sabbatical
+  leaveStartDate: timestamp("leave_start_date"),
+  leaveEndDate: timestamp("leave_end_date"),
+  
+  // Lead Reassignment
+  leadsReassignedTo: varchar("leads_reassigned_to").references(() => lenderStaff.id),
+  leadsReassignedCount: integer("leads_reassigned_count").default(0),
+  
+  // Audit Trail
+  changedBy: varchar("changed_by").notNull(),
+  changedByRole: varchar("changed_by_role"),
+  ipAddress: varchar("ip_address"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Provider Product Commissions - Commission structure per product-provider combination
+export const providerProductCommissions = pgTable("provider_product_commissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
+  
+  // Commission Structure (% of loan amount or processing fee)
+  commissionType: varchar("commission_type").notNull().default("percentage"), // percentage, flat, hybrid
+  commissionBase: varchar("commission_base").notNull().default("loan_amount"), // loan_amount, processing_fee, first_emi
+  
+  // Commission Rates
+  baseCommissionRate: decimal("base_commission_rate", { precision: 6, scale: 4 }).notNull(), // e.g., 0.75%
+  minCommission: decimal("min_commission", { precision: 12, scale: 2 }), // Minimum commission amount
+  maxCommission: decimal("max_commission", { precision: 12, scale: 2 }), // Maximum cap
+  
+  // Slab-based Commissions (JSON for flexibility)
+  slabCommissions: jsonb("slab_commissions").default([]), // [{minAmount: 100000, maxAmount: 500000, rate: 0.80}, ...]
+  
+  // Volume-based Incentives
+  volumeIncentives: jsonb("volume_incentives").default([]), // Additional % for hitting volume targets
+  
+  // Payout Split Configuration
+  fintekProShare: decimal("fintekpro_share", { precision: 5, scale: 2 }).notNull().default("40.00"), // FintekPro's share %
+  partnerShare: decimal("partner_share", { precision: 5, scale: 2 }).default("30.00"), // Partner's share %
+  agentShare: decimal("agent_share", { precision: 5, scale: 2 }).default("30.00"), // Agent's share %
+  
+  // Management Override (additional % from subordinate performance)
+  managementOverrideRate: decimal("management_override_rate", { precision: 5, scale: 2 }).default("0.00"),
+  
+  // Payment Terms
+  paymentTermsDays: integer("payment_terms_days").default(30), // Days after disbursement
+  paymentFrequency: varchar("payment_frequency").default("monthly"), // monthly, quarterly
+  
+  // Clawback Rules
+  clawbackPeriodMonths: integer("clawback_period_months").default(3), // Clawback if loan defaults within this period
+  clawbackRate: decimal("clawback_rate", { precision: 5, scale: 2 }).default("100.00"), // % of commission to claw back
+  
+  // Validity
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  isActive: boolean("is_active").default(true),
+  
+  // Approval
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Loan Commission Ledger - Track every commission earned and paid
+export const loanCommissionLedger = pgTable("loan_commission_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").references(() => loanApplicationsMarketplace.id).notNull(),
+  commissionConfigId: varchar("commission_config_id").references(() => providerProductCommissions.id),
+  
+  // Loan Details for Reference
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
+  loanAmount: decimal("loan_amount", { precision: 15, scale: 2 }).notNull(),
+  disbursementDate: timestamp("disbursement_date"),
+  
+  // Commission Calculation
+  commissionableBase: decimal("commissionable_base", { precision: 15, scale: 2 }).notNull(),
+  commissionRate: decimal("commission_rate", { precision: 6, scale: 4 }).notNull(),
+  grossCommission: decimal("gross_commission", { precision: 12, scale: 2 }).notNull(),
+  
+  // TDS and Net
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }).default("5.00"),
+  tdsAmount: decimal("tds_amount", { precision: 12, scale: 2 }).default("0"),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).default("18.00"),
+  gstAmount: decimal("gst_amount", { precision: 12, scale: 2 }).default("0"),
+  netCommission: decimal("net_commission", { precision: 12, scale: 2 }).notNull(),
+  
+  // Payout Distribution
+  fintekProAmount: decimal("fintekpro_amount", { precision: 12, scale: 2 }).notNull(),
+  partnerAmount: decimal("partner_amount", { precision: 12, scale: 2 }).default("0"),
+  agentAmount: decimal("agent_amount", { precision: 12, scale: 2 }).default("0"),
+  managementOverrideAmount: decimal("management_override_amount", { precision: 12, scale: 2 }).default("0"),
+  
+  // Beneficiaries
+  partnerId: varchar("partner_id"),
+  agentId: varchar("agent_id"),
+  managerId: varchar("manager_id"), // For management override
+  
+  // Status
+  status: varchar("status").notNull().default("pending"), // pending, approved, invoiced, paid, clawed_back, disputed
+  
+  // Payment Tracking
+  invoiceNumber: varchar("invoice_number"),
+  invoiceDate: timestamp("invoice_date"),
+  paymentDueDate: timestamp("payment_due_date"),
+  paymentDate: timestamp("payment_date"),
+  paymentReference: varchar("payment_reference"),
+  paymentMode: varchar("payment_mode"), // neft, rtgs, upi, cheque
+  
+  // Clawback
+  isClawedBack: boolean("is_clawed_back").default(false),
+  clawbackReason: text("clawback_reason"),
+  clawbackAmount: decimal("clawback_amount", { precision: 12, scale: 2 }),
+  clawbackDate: timestamp("clawback_date"),
+  
+  // Zoho Books Integration
+  zohoInvoiceId: varchar("zoho_invoice_id"),
+  zohoPaymentId: varchar("zoho_payment_id"),
+  zohoSyncStatus: varchar("zoho_sync_status").default("pending"), // pending, synced, failed
+  zohoSyncError: text("zoho_sync_error"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Referral Payout Configuration - Agent and Partner payout structure
+export const referralPayoutConfig = pgTable("referral_payout_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Configuration Level
+  configLevel: varchar("config_level").notNull(), // global, provider, product, agent, partner
+  providerId: varchar("provider_id").references(() => loanProviders.id),
+  productId: varchar("product_id").references(() => loanProducts.id),
+  agentId: varchar("agent_id"),
+  partnerId: varchar("partner_id"),
+  
+  // Payout Structure
+  payoutType: varchar("payout_type").notNull().default("percentage"), // percentage, flat, tiered
+  payoutBase: varchar("payout_base").notNull().default("commission"), // commission, loan_amount
+  
+  // Rates
+  agentPayoutRate: decimal("agent_payout_rate", { precision: 5, scale: 2 }).default("30.00"), // % of commission
+  partnerPayoutRate: decimal("partner_payout_rate", { precision: 5, scale: 2 }).default("30.00"),
+  
+  // Tiered Payout (for high performers)
+  tieredPayouts: jsonb("tiered_payouts").default([]), // [{minConversions: 10, rate: 35}, {minConversions: 20, rate: 40}]
+  
+  // Management Hierarchy Overrides
+  level1OverrideRate: decimal("level1_override_rate", { precision: 5, scale: 2 }).default("5.00"), // Direct manager
+  level2OverrideRate: decimal("level2_override_rate", { precision: 5, scale: 2 }).default("2.00"), // Manager's manager
+  level3OverrideRate: decimal("level3_override_rate", { precision: 5, scale: 2 }).default("1.00"), // Zonal/Regional head
+  
+  // Incentive Bonuses
+  monthlyTargetBonus: decimal("monthly_target_bonus", { precision: 12, scale: 2 }),
+  quarterlyTargetBonus: decimal("quarterly_target_bonus", { precision: 12, scale: 2 }),
+  annualTargetBonus: decimal("annual_target_bonus", { precision: 12, scale: 2 }),
+  
+  // Validity
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  isActive: boolean("is_active").default(true),
+  
+  // Approval
+  approvedBy: varchar("approved_by"),
+  approvalDate: timestamp("approval_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Referral Payout Transactions - Track individual payouts
+export const referralPayoutTransactions = pgTable("referral_payout_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  commissionLedgerId: varchar("commission_ledger_id").references(() => loanCommissionLedger.id).notNull(),
+  payoutConfigId: varchar("payout_config_id").references(() => referralPayoutConfig.id),
+  
+  // Beneficiary
+  beneficiaryType: varchar("beneficiary_type").notNull(), // agent, partner, manager_l1, manager_l2, manager_l3
+  beneficiaryId: varchar("beneficiary_id").notNull(),
+  beneficiaryName: varchar("beneficiary_name"),
+  
+  // Payout Details
+  payoutAmount: decimal("payout_amount", { precision: 12, scale: 2 }).notNull(),
+  payoutRate: decimal("payout_rate", { precision: 5, scale: 2 }),
+  
+  // Tax Deductions
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }).default("5.00"),
+  tdsAmount: decimal("tds_amount", { precision: 12, scale: 2 }).default("0"),
+  netPayoutAmount: decimal("net_payout_amount", { precision: 12, scale: 2 }).notNull(),
+  
+  // Status
+  status: varchar("status").notNull().default("pending"), // pending, approved, processing, paid, failed, cancelled
+  
+  // Payment Details
+  bankAccountId: varchar("bank_account_id"),
+  paymentMode: varchar("payment_mode"), // neft, rtgs, upi, wallet
+  paymentReference: varchar("payment_reference"),
+  paymentDate: timestamp("payment_date"),
+  paymentRemarks: text("payment_remarks"),
+  
+  // For Failed Payments
+  failureReason: text("failure_reason"),
+  retryCount: integer("retry_count").default(0),
+  
+  // Zoho Books Integration
+  zohoExpenseId: varchar("zoho_expense_id"),
+  zohoBillId: varchar("zoho_bill_id"),
+  zohoSyncStatus: varchar("zoho_sync_status").default("pending"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Lead Management for Loan Marketplace
+export const loanLeads = pgTable("loan_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Lead Source
+  source: varchar("source").notNull(), // website, referral, partner, agent, call_center, social_media
+  sourceId: varchar("source_id"), // Partner/Agent ID if applicable
+  campaignId: varchar("campaign_id"),
+  utmSource: varchar("utm_source"),
+  utmMedium: varchar("utm_medium"),
+  utmCampaign: varchar("utm_campaign"),
+  
+  // Customer Details
+  userId: varchar("user_id").references(() => users.id),
+  customerName: varchar("customer_name").notNull(),
+  email: varchar("email"),
+  phone: varchar("phone").notNull(),
+  alternatePhone: varchar("alternate_phone"),
+  city: varchar("city"),
+  state: varchar("state"),
+  pincode: varchar("pincode"),
+  
+  // Loan Requirements
+  productId: varchar("product_id").references(() => loanProducts.id),
+  requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }),
+  requestedTenure: integer("requested_tenure"),
+  purpose: text("purpose"),
+  
+  // Lead Qualification
+  employmentType: varchar("employment_type"), // salaried, self_employed, business, professional
+  monthlyIncome: decimal("monthly_income", { precision: 15, scale: 2 }),
+  existingEMIs: decimal("existing_emis", { precision: 15, scale: 2 }),
+  creditScore: integer("credit_score"),
+  
+  // Lead Scoring
+  leadScore: integer("lead_score").default(0), // 0-100
+  scoringFactors: jsonb("scoring_factors").default({}),
+  qualificationStatus: varchar("qualification_status").default("new"), // new, qualified, not_qualified, needs_review
+  
+  // Assignment
+  assignedToStaffId: varchar("assigned_to_staff_id").references(() => lenderStaff.id),
+  assignedToAgentId: varchar("assigned_to_agent_id"),
+  assignedAt: timestamp("assigned_at"),
+  reassignmentCount: integer("reassignment_count").default(0),
+  
+  // Funnel Status
+  funnelStage: varchar("funnel_stage").notNull().default("inquiry"), // inquiry, contacted, interested, documents_pending, documents_submitted, processing, sanctioned, disbursed, rejected, dropped
+  subStage: varchar("sub_stage"),
+  
+  // Interaction Tracking
+  lastContactedAt: timestamp("last_contacted_at"),
+  nextFollowUpAt: timestamp("next_follow_up_at"),
+  contactAttempts: integer("contact_attempts").default(0),
+  
+  // Preferred Providers (if any)
+  preferredProviders: jsonb("preferred_providers").default([]),
+  
+  // Application Reference (once converted)
+  applicationId: varchar("application_id").references(() => loanApplicationsMarketplace.id),
+  
+  // Outcome
+  isConverted: boolean("is_converted").default(false),
+  conversionDate: timestamp("conversion_date"),
+  rejectionReason: text("rejection_reason"),
+  dropReason: text("drop_reason"),
+  
+  // Priority
+  priority: varchar("priority").default("normal"), // low, normal, high, urgent
+  isHotLead: boolean("is_hot_lead").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Lead Activity Log - Track all interactions with leads
+export const leadActivityLog = pgTable("lead_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => loanLeads.id).notNull(),
+  
+  // Activity Details
+  activityType: varchar("activity_type").notNull(), // call, email, sms, whatsapp, meeting, document_request, document_received, stage_change, note, escalation
+  activitySubType: varchar("activity_sub_type"), // outbound_call, inbound_call, follow_up, etc.
+  
+  // Content
+  subject: varchar("subject"),
+  description: text("description"),
+  callDuration: integer("call_duration"), // seconds
+  callRecordingUrl: varchar("call_recording_url"),
+  
+  // Stage Transition (for stage_change type)
+  fromStage: varchar("from_stage"),
+  toStage: varchar("to_stage"),
+  
+  // Performed By
+  performedBy: varchar("performed_by").notNull(),
+  performedByType: varchar("performed_by_type"), // staff, agent, system
+  
+  // Outcome
+  outcome: varchar("outcome"), // connected, not_answered, call_back, interested, not_interested, wrong_number
+  nextAction: text("next_action"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schemas for new tables
+export const insertLenderStaffSchema = createInsertSchema(lenderStaff).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLenderStaffHistorySchema = createInsertSchema(lenderStaffHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProviderProductCommissionsSchema = createInsertSchema(providerProductCommissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoanCommissionLedgerSchema = createInsertSchema(loanCommissionLedger).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReferralPayoutConfigSchema = createInsertSchema(referralPayoutConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReferralPayoutTransactionsSchema = createInsertSchema(referralPayoutTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLoanLeadsSchema = createInsertSchema(loanLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLeadActivityLogSchema = createInsertSchema(leadActivityLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Export types for new tables
+export type LenderStaff = typeof lenderStaff.$inferSelect;
+export type InsertLenderStaff = z.infer<typeof insertLenderStaffSchema>;
+export type LenderStaffHistory = typeof lenderStaffHistory.$inferSelect;
+export type InsertLenderStaffHistory = z.infer<typeof insertLenderStaffHistorySchema>;
+export type ProviderProductCommissions = typeof providerProductCommissions.$inferSelect;
+export type InsertProviderProductCommissions = z.infer<typeof insertProviderProductCommissionsSchema>;
+export type LoanCommissionLedger = typeof loanCommissionLedger.$inferSelect;
+export type InsertLoanCommissionLedger = z.infer<typeof insertLoanCommissionLedgerSchema>;
+export type ReferralPayoutConfig = typeof referralPayoutConfig.$inferSelect;
+export type InsertReferralPayoutConfig = z.infer<typeof insertReferralPayoutConfigSchema>;
+export type ReferralPayoutTransactions = typeof referralPayoutTransactions.$inferSelect;
+export type InsertReferralPayoutTransactions = z.infer<typeof insertReferralPayoutTransactionsSchema>;
+export type LoanLeads = typeof loanLeads.$inferSelect;
+export type InsertLoanLeads = z.infer<typeof insertLoanLeadsSchema>;
+export type LeadActivityLog = typeof leadActivityLog.$inferSelect;
+export type InsertLeadActivityLog = z.infer<typeof insertLeadActivityLogSchema>;
+
 // Export types for loan marketplace tables
 export type LoanProduct = typeof loanProducts.$inferSelect;
 export type InsertLoanProduct = z.infer<typeof insertLoanProductSchema>;
