@@ -3,7 +3,7 @@ import { requireAuth, requireAdmin, requireClientOrHigher } from '../middleware/
 import { validateKYC } from '../kyc-middleware';
 import { storage } from '../storage';
 import { db } from '../db';
-import { userCart, userCartItems, products, investmentProposals, userInvestments } from '@shared/schema';
+import { userCart, userCartItems, products, investmentProposals, userInvestments, storeProducts, storeCategories } from '@shared/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 export function registerCartRoutes(app: Express) {
