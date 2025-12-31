@@ -32,6 +32,7 @@ import { CurrencySelector } from "@/components/CurrencySelector";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LoanOffersCard } from "@/components/LoanOffersCard";
+import { ProductAccountPreferences } from "@/components/ProductAccountPreferences";
 
 // Exchange Rates Table Component
 function ExchangeRatesTable({ baseCurrency }: { baseCurrency: string }) {
@@ -2021,6 +2022,19 @@ export default function ProfilePage() {
                   </CardHeader>
                   <CardContent>
                     <DematTab />
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
+                      Product Preferences
+                    </CardTitle>
+                    <CardDescription>Customize your investment product settings and preferences</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ProductAccountPreferences />
                   </CardContent>
                 </Card>
               </div>

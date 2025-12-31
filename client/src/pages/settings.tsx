@@ -37,7 +37,6 @@ import {
 } from "lucide-react";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProductAccountPreferences } from "@/components/ProductAccountPreferences";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const accountFormSchema = z.object({
@@ -289,14 +288,6 @@ export default function SettingsPage() {
           <TabsTrigger value="security" data-testid="tab-security">
             <Shield className="h-4 w-4 mr-2" />
             Security & Privacy
-          </TabsTrigger>
-          <TabsTrigger value="connections" data-testid="tab-connections">
-            <LinkIcon className="h-4 w-4 mr-2" />
-            Connected Accounts
-          </TabsTrigger>
-          <TabsTrigger value="product-preferences" data-testid="tab-product-preferences">
-            <SettingsIcon className="h-4 w-4 mr-2" />
-            Product Accounts
           </TabsTrigger>
           <TabsTrigger value="appearance" data-testid="tab-appearance">
             <Palette className="h-4 w-4 mr-2" />
@@ -623,79 +614,6 @@ export default function SettingsPage() {
               </p>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Connected Accounts Tab */}
-        <TabsContent value="connections" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bank Accounts</CardTitle>
-              <CardDescription>Manage your linked bank accounts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <LinkIcon className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">HDFC Bank ****1234</p>
-                    <p className="text-sm text-muted-foreground">Linked 3 months ago</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" data-testid="button-remove-hdfc">Remove</Button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
-                    <LinkIcon className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">ICICI Bank ****5678</p>
-                    <p className="text-sm text-muted-foreground">Linked 1 month ago</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" data-testid="button-remove-icici">Remove</Button>
-              </div>
-
-              <Button variant="outline" className="w-full" data-testid="button-add-bank">
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Link New Bank Account
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Demat Accounts</CardTitle>
-              <CardDescription>Connected demat and trading accounts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <LinkIcon className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Zerodha - DP12345678</p>
-                    <p className="text-sm text-muted-foreground">Active</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" data-testid="button-remove-zerodha">Remove</Button>
-              </div>
-
-              <Button variant="outline" className="w-full" data-testid="button-add-demat">
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Link Demat Account
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Product Account Preferences Tab */}
-        <TabsContent value="product-preferences" className="space-y-6">
-          <ProductAccountPreferences />
         </TabsContent>
 
         {/* Appearance Tab */}
