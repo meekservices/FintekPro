@@ -1,5 +1,6 @@
 import { Express, Request, Response, NextFunction } from 'express';
 import { ZohoBooksService, getZohoBooksService } from '../zoho/services/books';
+import { zohoTransactionSyncService, ProductType } from '../services/zoho-transaction-sync-service';
 
 // Role-based access middleware for admin and accounts team
 const requireAdminOrAccounts = (req: Request, res: Response, next: NextFunction) => {
@@ -398,5 +399,75 @@ export function registerZohoBooksRoutes(app: Express) {
     }
   });
 
+  // ==================== Transaction Sync ====================
+
+  app.get('/api/admin/zoho-books/sync/status', async (req, res) => {
+    try {
+      const status = await zohoTransactionSyncService.getSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('Error fetching sync status:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/zoho-books/sync/all', async (req, res) => {
+    try {
+      const { productTypes, limit, fromDate } = req.body;
+      
+      const result = await zohoTransactionSyncService.syncPendingTransactions({
+        productTypes: productTypes as ProductType[],
+        limit: limit ? parseInt(limit) : undefined,
+        fromDate: fromDate ? new Date(fromDate) : undefined
+      });
+      
+      res.json({
+        success: true,
+        message: `Synced ${result.successCount} of ${result.totalProcessed} transactions`,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Error syncing transactions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/zoho-books/sync/mutual-fund/:orderId', async (req, res) => {
+    try {
+      const result = await zohoTransactionSyncService.syncMutualFundOrder(req.params.orderId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/zoho-books/sync/bond/:orderId', async (req, res) => {
+    try {
+      const result = await zohoTransactionSyncService.syncBondOrder(req.params.orderId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/zoho-books/sync/ipo/:applicationId', async (req, res) => {
+    try {
+      const result = await zohoTransactionSyncService.syncIPOApplication(req.params.applicationId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/zoho-books/sync/unlisted/:dealId', async (req, res) => {
+    try {
+      const result = await zohoTransactionSyncService.syncUnlistedDeal(req.params.dealId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   console.log('✅ Zoho Books API routes registered');
+  console.log('   📊 Transaction sync endpoints: /api/admin/zoho-books/sync/*');
 }

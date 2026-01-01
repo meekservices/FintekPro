@@ -161,6 +161,60 @@ export class ZohoBooksService {
     return response.data;
   }
 
+  async createInvoice(data: {
+    customer_id?: string;
+    customer_name?: string;
+    reference_number?: string;
+    date: string;
+    due_date?: string;
+    line_items: Array<{
+      name: string;
+      description?: string;
+      rate: number;
+      quantity: number;
+      tax_id?: string;
+    }>;
+    notes?: string;
+    terms?: string;
+    discount?: number;
+    discount_type?: 'entity_level' | 'item_level';
+  }): Promise<ZohoBooksInvoice> {
+    const response = await this.client.post('/invoices', {
+      ...this.getOrgParam(),
+      ...data
+    });
+    return response.data?.invoice;
+  }
+
+  async sendInvoice(invoiceId: string, emailOptions?: {
+    to_mail_ids?: string[];
+    cc_mail_ids?: string[];
+    subject?: string;
+    body?: string;
+  }): Promise<boolean> {
+    const response = await this.client.post(`/invoices/${invoiceId}/email`, {
+      ...this.getOrgParam(),
+      ...emailOptions
+    });
+    return response.data?.code === 0;
+  }
+
+  async recordInvoicePayment(invoiceId: string, data: {
+    amount: number;
+    date: string;
+    payment_mode?: string;
+    reference_number?: string;
+    description?: string;
+    bank_charges?: number;
+    account_id?: string;
+  }): Promise<any> {
+    const response = await this.client.post(`/invoices/${invoiceId}/payments`, {
+      ...this.getOrgParam(),
+      ...data
+    });
+    return response.data?.payment;
+  }
+
   // ==================== Bills ====================
 
   async getBills(params?: {
@@ -198,6 +252,44 @@ export class ZohoBooksService {
     return response.data?.bill || null;
   }
 
+  async createBill(data: {
+    vendor_id?: string;
+    vendor_name?: string;
+    reference_number?: string;
+    date: string;
+    due_date?: string;
+    line_items: Array<{
+      name: string;
+      description?: string;
+      rate: number;
+      quantity: number;
+      account_id?: string;
+      tax_id?: string;
+    }>;
+    notes?: string;
+  }): Promise<ZohoBooksBill> {
+    const response = await this.client.post('/bills', {
+      ...this.getOrgParam(),
+      ...data
+    });
+    return response.data?.bill;
+  }
+
+  async recordBillPayment(billId: string, data: {
+    amount: number;
+    date: string;
+    payment_mode?: string;
+    reference_number?: string;
+    description?: string;
+    account_id?: string;
+  }): Promise<any> {
+    const response = await this.client.post(`/bills/${billId}/payments`, {
+      ...this.getOrgParam(),
+      ...data
+    });
+    return response.data?.payment;
+  }
+
   // ==================== Contacts (Customers & Vendors) ====================
 
   async getContacts(params?: {
@@ -229,6 +321,58 @@ export class ZohoBooksService {
   async getContact(contactId: string): Promise<ZohoBooksContact | null> {
     const response = await this.client.get(`/contacts/${contactId}`, this.getOrgParam());
     return response.data?.contact || null;
+  }
+
+  async createContact(data: {
+    contact_name: string;
+    company_name?: string;
+    contact_type: 'customer' | 'vendor';
+    email?: string;
+    phone?: string;
+    billing_address?: {
+      address?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+      country?: string;
+    };
+    gst_no?: string;
+    pan_no?: string;
+    notes?: string;
+  }): Promise<ZohoBooksContact> {
+    const response = await this.client.post('/contacts', {
+      ...this.getOrgParam(),
+      ...data
+    });
+    return response.data?.contact;
+  }
+
+  async findOrCreateContact(params: {
+    contact_name: string;
+    contact_type: 'customer' | 'vendor';
+    email?: string;
+    phone?: string;
+  }): Promise<ZohoBooksContact> {
+    const contacts = await this.getContacts({
+      contact_type: params.contact_type,
+      status: 'active'
+    });
+
+    const existing = contacts.items.find(
+      c => c.contact_name.toLowerCase() === params.contact_name.toLowerCase() ||
+           (params.email && c.email?.toLowerCase() === params.email?.toLowerCase())
+    );
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.createContact({
+      contact_name: params.contact_name,
+      contact_type: params.contact_type,
+      email: params.email,
+      phone: params.phone
+    });
   }
 
   // ==================== Chart of Accounts ====================
