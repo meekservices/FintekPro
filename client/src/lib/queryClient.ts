@@ -109,58 +109,99 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+function isSlowNetwork(): boolean {
+  const connection = (navigator as any).connection || 
+                     (navigator as any).mozConnection || 
+                     (navigator as any).webkitConnection;
+  
+  if (connection) {
+    const effectiveType = connection.effectiveType;
+    if (effectiveType === 'slow-2g' || effectiveType === '2g') {
+      return true;
+    }
+    if (effectiveType === '3g' && connection.rtt && connection.rtt > 400) {
+      return true;
+    }
+    if (connection.downlink !== undefined && connection.downlink < 0.5) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getNetworkAwareStaleTime(): number {
+  return isSlowNetwork() ? 10 * 60 * 1000 : 5 * 60 * 1000;
+}
+
+function getNetworkAwareRetryCount(): number {
+  return isSlowNetwork() ? 4 : 2;
+}
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes instead of Infinity
+      staleTime: 5 * 60 * 1000,
+      gcTime: 15 * 60 * 1000,
+      networkMode: 'offlineFirst',
       retry: (failureCount, error: any) => {
-        // Don't retry for 4xx errors except 408 (timeout) and 429 (rate limit)
+        const maxRetries = getNetworkAwareRetryCount();
+        
         if (error instanceof ApiError) {
           if (error.status >= 400 && error.status < 500) {
-            // Retry timeouts and rate limits
             if (error.status === 408 || error.status === 429) {
-              return failureCount < 3;
+              return failureCount < maxRetries + 1;
             }
             return false;
           }
-          // Retry 5xx and network errors
-          return failureCount < 2;
+          return failureCount < maxRetries;
         }
-        // Retry unknown errors
-        return failureCount < 2;
+        
+        if (error?.name === 'TypeError' && error?.message?.includes('fetch')) {
+          return failureCount < maxRetries + 2;
+        }
+        
+        return failureCount < maxRetries;
       },
       retryDelay: (attemptIndex, error) => {
-        // Rate limit errors may include retry-after
+        const baseDelay = isSlowNetwork() ? 2000 : 1000;
+        const maxDelay = isSlowNetwork() ? 60000 : 30000;
+        
         if (error instanceof ApiError && error.status === 429) {
-          // Exponential backoff with longer delays for rate limits
           return Math.min(5000 * 2 ** attemptIndex, 60000);
         }
-        // Standard exponential backoff
-        return Math.min(1000 * 2 ** attemptIndex, 30000);
+        
+        return Math.min(baseDelay * 2 ** attemptIndex, maxDelay);
       },
     },
     mutations: {
       retry: (failureCount, error: any) => {
+        const maxRetries = isSlowNetwork() ? 2 : 1;
+        
         if (error instanceof ApiError) {
-          // Only retry mutations for 5xx errors and network failures
           if (error.status >= 500 || !error.status) {
-            return failureCount < 1;
+            return failureCount < maxRetries;
           }
-          // Retry rate limits once
           if (error.status === 429) {
-            return failureCount < 1;
+            return failureCount < maxRetries;
           }
         }
+        
+        if (error?.name === 'TypeError' && error?.message?.includes('fetch')) {
+          return failureCount < maxRetries + 1;
+        }
+        
         return false;
       },
       retryDelay: (attemptIndex, error) => {
+        const baseDelay = isSlowNetwork() ? 4000 : 2000;
+        
         if (error instanceof ApiError && error.status === 429) {
-          return 5000; // Wait 5s for rate limit
+          return 5000;
         }
-        return 2000;
+        return baseDelay * (attemptIndex + 1);
       },
     },
   },
