@@ -184,3 +184,81 @@ self.addEventListener('message', (event) => {
     );
   }
 });
+
+self.addEventListener('push', (event) => {
+  console.log('[ServiceWorker] Push received');
+  
+  let data = {
+    title: 'FintekPro',
+    body: 'You have a new notification',
+    icon: '/favicon.ico',
+    badge: '/favicon.ico',
+    tag: 'fintekpro-notification',
+    data: { url: '/' }
+  };
+  
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      data = {
+        title: payload.title || 'FintekPro',
+        body: payload.body || payload.message || 'You have a new notification',
+        icon: payload.icon || '/favicon.ico',
+        badge: payload.badge || '/favicon.ico',
+        tag: payload.tag || 'fintekpro-notification',
+        data: {
+          url: payload.url || payload.link || '/',
+          notificationId: payload.id,
+          type: payload.type
+        }
+      };
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+  
+  const options = {
+    body: data.body,
+    icon: data.icon,
+    badge: data.badge,
+    tag: data.tag,
+    data: data.data,
+    vibrate: [100, 50, 100],
+    requireInteraction: false,
+    actions: [
+      { action: 'open', title: 'View' },
+      { action: 'dismiss', title: 'Dismiss' }
+    ]
+  };
+  
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  console.log('[ServiceWorker] Notification clicked:', event.action);
+  
+  event.notification.close();
+  
+  if (event.action === 'dismiss') {
+    return;
+  }
+  
+  const url = event.notification.data?.url || '/';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.navigate(url);
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(url);
+        }
+      })
+  );
+});
