@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { ZohoOAuthService } from './oauth';
 import { ZohoCRMService } from './services/crm';
 import { db } from '../db';
@@ -7,6 +8,97 @@ import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import { zohoRateLimiter } from './rate-limiter';
 
 const router = Router();
+
+/**
+ * Extended Request interface for raw body access
+ * The express.json() middleware is configured with 'verify' to store raw body
+ */
+interface WebhookRequest extends Request {
+  rawBody?: Buffer;
+}
+
+/**
+ * Zoho Webhook Signature Validation Middleware
+ * Validates HMAC-SHA256 signature from Zoho webhook payloads
+ * 
+ * Zoho sends signatures in 'x-zoho-webhook-signature' header
+ * The signature is computed as HMAC-SHA256(rawPayload, webhook_secret)
+ * 
+ * NOTE: Requires express.json() configured with verify option to capture raw body:
+ *   app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }))
+ */
+function validateZohoWebhookSignature(req: WebhookRequest, res: Response, next: NextFunction): void {
+  const webhookSecret = process.env.ZOHO_WEBHOOK_SECRET;
+  
+  if (!webhookSecret) {
+    console.warn('[Zoho Webhook] ZOHO_WEBHOOK_SECRET not configured - skipping signature validation in development');
+    if (process.env.NODE_ENV === 'production') {
+      res.status(500).json({ 
+        message: 'Webhook secret not configured',
+        code: 'WEBHOOK_CONFIG_ERROR'
+      });
+      return;
+    }
+    next();
+    return;
+  }
+  
+  const signature = req.headers['x-zoho-webhook-signature'] as string;
+  
+  if (!signature) {
+    console.warn('[Zoho Webhook] Missing signature header');
+    res.status(401).json({ 
+      message: 'Missing webhook signature',
+      code: 'MISSING_SIGNATURE'
+    });
+    return;
+  }
+  
+  try {
+    let rawBody: string;
+    if (req.rawBody) {
+      rawBody = req.rawBody.toString('utf8');
+    } else {
+      rawBody = JSON.stringify(req.body);
+      console.warn('[Zoho Webhook] Raw body not available, using JSON.stringify - signature may not match exactly');
+    }
+    
+    const expectedSignature = createHmac('sha256', webhookSecret)
+      .update(rawBody, 'utf8')
+      .digest('base64');
+    
+    const signatureBuffer = Buffer.from(signature, 'base64');
+    const expectedBuffer = Buffer.from(expectedSignature, 'base64');
+    
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      console.warn('[Zoho Webhook] Signature length mismatch');
+      res.status(401).json({ 
+        message: 'Invalid webhook signature',
+        code: 'SIGNATURE_MISMATCH'
+      });
+      return;
+    }
+    
+    if (!timingSafeEqual(signatureBuffer, expectedBuffer)) {
+      console.warn('[Zoho Webhook] Signature verification failed');
+      res.status(401).json({ 
+        message: 'Invalid webhook signature',
+        code: 'SIGNATURE_INVALID'
+      });
+      return;
+    }
+    
+    console.info('[Zoho Webhook] Signature verified successfully');
+    next();
+  } catch (error: any) {
+    console.error('[Zoho Webhook] Signature validation error:', error.message);
+    res.status(401).json({ 
+      message: 'Webhook signature validation failed',
+      code: 'VALIDATION_ERROR'
+    });
+    return;
+  }
+}
 
 /**
  * GET /api/zoho/auth/url
@@ -318,14 +410,12 @@ router.get('/sync-logs', async (req, res) => {
 /**
  * POST /api/zoho/webhooks/crm
  * Webhook receiver for Zoho CRM events
+ * Protected by HMAC-SHA256 signature validation
  */
-router.post('/webhooks/crm', async (req, res) => {
+router.post('/webhooks/crm', validateZohoWebhookSignature, async (req, res) => {
   try {
     const payload = req.body;
     
-    // TODO: Implement webhook signature validation
-    
-    // Log webhook event
     await db.insert(zohoWebhookEvents).values({
       zohoService: 'CRM',
       zohoModule: payload.module || 'unknown',
@@ -344,8 +434,9 @@ router.post('/webhooks/crm', async (req, res) => {
 /**
  * POST /api/zoho/webhooks/books
  * Webhook receiver for Zoho Books events
+ * Protected by HMAC-SHA256 signature validation
  */
-router.post('/webhooks/books', async (req, res) => {
+router.post('/webhooks/books', validateZohoWebhookSignature, async (req, res) => {
   try {
     const payload = req.body;
     
@@ -367,8 +458,9 @@ router.post('/webhooks/books', async (req, res) => {
 /**
  * POST /api/zoho/webhooks/desk
  * Webhook receiver for Zoho Desk events
+ * Protected by HMAC-SHA256 signature validation
  */
-router.post('/webhooks/desk', async (req, res) => {
+router.post('/webhooks/desk', validateZohoWebhookSignature, async (req, res) => {
   try {
     const payload = req.body;
     

@@ -1072,8 +1072,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
       
       // Emergency fund recommendation: 6 months of average expenses
-      // TODO: Calculate from expense tracking system
-      const recommendedEmergencyFund = 300000; // Placeholder: ₹3L
+      // Calculate from expense tracking system
+      let recommendedEmergencyFund = 300000; // Default: ₹3L
+      
+      try {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        
+        const expenseData = await db
+          .select({
+            totalExpenses: sql<string>`COALESCE(SUM(${schema.userExpenses.amount}), 0)`,
+            expenseCount: sql<number>`COUNT(*)`,
+          })
+          .from(schema.userExpenses)
+          .where(
+            and(
+              eq(schema.userExpenses.userId, userId),
+              gte(schema.userExpenses.transactionDate, sixMonthsAgo)
+            )
+          );
+        
+        if (expenseData.length > 0 && expenseData[0].expenseCount > 0) {
+          const totalExpenses = parseFloat(expenseData[0].totalExpenses) || 0;
+          const monthsOfData = Math.min(6, Math.max(1, Math.ceil((Date.now() - sixMonthsAgo.getTime()) / (30 * 24 * 60 * 60 * 1000))));
+          const avgMonthlyExpense = totalExpenses / monthsOfData;
+          recommendedEmergencyFund = avgMonthlyExpense * 6;
+          console.info(`[Net Worth] User ${userId}: Calculated emergency fund based on ${expenseData[0].expenseCount} expenses - ₹${recommendedEmergencyFund.toFixed(0)}`);
+        }
+      } catch (error: any) {
+        console.warn('[Net Worth] Failed to calculate expenses from tracking system:', error.message);
+      }
       
       res.json({
         success: true,
@@ -21787,10 +21815,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Invalid ITR form type" });
       }
       
-      // Check if user has expert ITR filing service (would need to check user profile or services)
-      // For now, we'll assume this would be checked against user's purchased services
+      // Check if user has expert ITR filing service
+      // Users with active CA-assisted ITR cases get free reminders
       const userProfile = await storage.getUserProfile(userId);
-      const hasExpertService = false; // TODO: Implement actual check for expert ITR filing service
+      let hasExpertService = false;
+      
+      try {
+        const activeItrCases = await db
+          .select({ id: schema.agentItrCases.id, status: schema.agentItrCases.status, caId: schema.agentItrCases.caId })
+          .from(schema.agentItrCases)
+          .where(
+            and(
+              eq(schema.agentItrCases.clientId, userId),
+              sql`${schema.agentItrCases.status} NOT IN ('completed', 'cancelled', 'rejected')`
+            )
+          )
+          .limit(1);
+        
+        hasExpertService = activeItrCases.length > 0 && activeItrCases[0].caId !== null;
+        
+        if (hasExpertService) {
+          console.info(`[Tax Reminder] User ${userId} has active CA-assisted ITR case - eligible for free tier`);
+        }
+      } catch (error: any) {
+        console.warn('[Tax Reminder] Failed to check expert service status:', error.message);
+        hasExpertService = false;
+      }
       
       const isFree = hasExpertService;
       if (isFree) {

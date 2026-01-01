@@ -25,6 +25,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { AutoPopulationProgressIndicator } from '@/components/AutoPopulationProgressIndicator';
 import { ConsentPreviewDialog, RevokeConsentDialog, ConsentSettingsDrawer } from '@/components/consent';
 
@@ -79,6 +80,7 @@ const DATA_SOURCE_CONFIG = {
 
 export default function AutoPopulationDashboard() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
   
   // Dialog states
@@ -88,8 +90,8 @@ export default function AutoPopulationDashboard() {
   const [selectedSource, setSelectedSource] = useState<DataSourceType | null>(null);
   const [selectedConsent, setSelectedConsent] = useState<ConsentRecord | null>(null);
 
-  // Fetch user ID from session (demo for now)
-  const userId = 'demo-user-1'; // TODO: Get from auth context
+  // Get user ID from auth context
+  const userId = user?.id || '';
 
   // Query: Get all consents
   const { data: consentsData, isLoading: consentsLoading } = useQuery<{ consents: ConsentRecord[] }>({

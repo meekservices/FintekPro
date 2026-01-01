@@ -20,6 +20,7 @@ import {
   Plus, Trash2, Edit, RefreshCw, Shield, Target, Landmark
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
@@ -89,12 +90,14 @@ const PIE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B
 
 export default function InvestableSurplusPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [obligationDialogOpen, setObligationDialogOpen] = useState(false);
   const [emergencyDialogOpen, setEmergencyDialogOpen] = useState(false);
   
-  const userId = "demo-user-1"; // TODO: Get from auth context
+  // Get user ID from auth context
+  const userId = user?.id || '';
 
   const { data: summary, isLoading, refetch } = useQuery({
     queryKey: ['/api/surplus/summary', userId],

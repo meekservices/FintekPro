@@ -557,19 +557,83 @@ router.post("/retry-source", async (req: Request, res: Response) => {
 
 // ===== DATA SOURCE SPECIFIC ENDPOINTS =====
 
+/**
+ * Verify PAN ownership for the authenticated user
+ * Ensures users can only fetch data for their own verified PAN
+ */
+async function verifyPanOwnership(
+  sessionUserId: string,
+  providedPan: string
+): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const [userRecord] = await db
+      .select({
+        panNumber: users.panNumber,
+        kycStatus: users.kycStatus,
+      })
+      .from(users)
+      .where(eq(users.id, parseInt(sessionUserId)))
+      .limit(1);
+
+    if (!userRecord) {
+      return { valid: false, error: 'User not found' };
+    }
+
+    if (!userRecord.panNumber) {
+      return { valid: false, error: 'No verified PAN on file for this user. Please complete KYC first.' };
+    }
+
+    let storedPan = userRecord.panNumber;
+    try {
+      storedPan = encryptionService.decrypt(userRecord.panNumber) || userRecord.panNumber;
+    } catch {
+    }
+
+    const normalizedProvidedPan = providedPan.toUpperCase().trim();
+    const normalizedStoredPan = storedPan.toUpperCase().trim();
+
+    if (normalizedProvidedPan !== normalizedStoredPan) {
+      console.warn(`[SECURITY] PAN mismatch for user ${sessionUserId}: provided PAN does not match verified PAN on file`);
+      return { 
+        valid: false, 
+        error: 'The provided PAN does not match the verified PAN on your account. You can only fetch data for your own PAN.' 
+      };
+    }
+
+    return { valid: true };
+  } catch (error: any) {
+    console.error('[SECURITY] PAN verification error:', error);
+    return { valid: false, error: 'Failed to verify PAN ownership' };
+  }
+}
+
 // Fetch loan liabilities from CIBIL
-// Security: This endpoint accepts PAN/name/DOB, so we must ensure the user can only fetch their own data
-router.post("/fetch/loans", async (req: Request, res: Response) => {
+// Security: This endpoint verifies PAN ownership before allowing CIBIL data fetch
+router.post("/fetch/loans", requireAuth, async (req: Request, res: Response) => {
   try {
     const sessionUserId = req.session.user.id;
+    const { panNumber, name, dob } = req.body;
     
-    // TODO: Verify that the provided PAN/DOB belongs to the authenticated user
-    // This should query kycVault to confirm ownership before making CIBIL API call
-    // For now, we're passing through to CIBIL API (accepts any PAN - NOT production ready)
+    if (!panNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'PAN number is required'
+      });
+    }
+
+    const ownershipCheck = await verifyPanOwnership(sessionUserId, panNumber);
     
-    console.warn(`⚠️ SECURITY WARNING: CIBIL loan fetch for user ${sessionUserId} without PAN ownership verification`);
+    if (!ownershipCheck.valid) {
+      console.warn(`[SECURITY] PAN ownership verification failed for user ${sessionUserId}`);
+      return res.status(403).json({
+        success: false,
+        error: ownershipCheck.error,
+        code: 'PAN_OWNERSHIP_FAILED'
+      });
+    }
+
+    console.info(`✅ PAN ownership verified for user ${sessionUserId}, proceeding with CIBIL fetch`);
     
-    // Pass through to CIBIL API
     return CibilAPI.fetchLoanLiabilities(req, res);
   } catch (error: any) {
     console.error('Error fetching loans:', error);

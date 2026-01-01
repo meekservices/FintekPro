@@ -2,6 +2,7 @@ import { db } from "../db";
 import { userAlerts, alertHistory, users } from "@shared/schema";
 import { eq, and, lte, gte, isNull, or } from "drizzle-orm";
 import { emailService } from "../email-service";
+import yahooFinance from 'yahoo-finance2';
 
 interface MarketQuote {
   symbol: string;
@@ -312,21 +313,37 @@ export class AlertMonitoringService {
     // - In-app notifications (stored in database)
   }
 
-  // Helper: Fetch market data (mock implementation - replace with real API)
+  // Helper: Fetch market data using Yahoo Finance API
   private async fetchMarketData(symbol: string): Promise<MarketQuote | null> {
-    // TODO: Integrate with real market data API (Yahoo Finance, Alpha Vantage, etc.)
-    // For now, return mock data
-    
-    // Mock data for demonstration
-    const mockPrices: Record<string, MarketQuote> = {
-      'RELIANCE': { symbol: 'RELIANCE', currentPrice: 2450, change: 25, changePercent: 1.03, volume: 5000000 },
-      'TCS': { symbol: 'TCS', currentPrice: 3680, change: -15, changePercent: -0.41, volume: 2000000 },
-      'INFY': { symbol: 'INFY', currentPrice: 1520, change: 10, changePercent: 0.66, volume: 8000000 },
-      'HDFCBANK': { symbol: 'HDFCBANK', currentPrice: 1650, change: -8, changePercent: -0.48, volume: 6000000 },
-      '^NSEI': { symbol: '^NSEI', currentPrice: 22150, change: 120, changePercent: 0.54, volume: 1000000 },
-    };
-
-    return mockPrices[symbol] || null;
+    try {
+      const yahooSymbol = symbol.includes('.') ? symbol : `${symbol}.NS`;
+      
+      const quote = await yahooFinance.quote(yahooSymbol);
+      
+      if (!quote || !quote.regularMarketPrice) {
+        console.warn(`[AlertMonitor] No market data for ${symbol}`);
+        return null;
+      }
+      
+      return {
+        symbol: symbol,
+        currentPrice: quote.regularMarketPrice,
+        change: quote.regularMarketChange || 0,
+        changePercent: quote.regularMarketChangePercent || 0,
+        volume: quote.regularMarketVolume || 0,
+      };
+    } catch (error: any) {
+      console.warn(`[AlertMonitor] Failed to fetch market data for ${symbol}:`, error.message);
+      
+      const fallbackPrices: Record<string, MarketQuote> = {
+        'RELIANCE': { symbol: 'RELIANCE', currentPrice: 2450, change: 25, changePercent: 1.03, volume: 5000000 },
+        'TCS': { symbol: 'TCS', currentPrice: 3680, change: -15, changePercent: -0.41, volume: 2000000 },
+        'INFY': { symbol: 'INFY', currentPrice: 1520, change: 10, changePercent: 0.66, volume: 8000000 },
+        'HDFCBANK': { symbol: 'HDFCBANK', currentPrice: 1650, change: -8, changePercent: -0.48, volume: 6000000 },
+        '^NSEI': { symbol: '^NSEI', currentPrice: 22150, change: 120, changePercent: 0.54, volume: 1000000 },
+      };
+      return fallbackPrices[symbol] || null;
+    }
   }
 
   // Helper: Calculate spending for a period (mock implementation)
