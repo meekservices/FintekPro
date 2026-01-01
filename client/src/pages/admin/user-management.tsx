@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Users, Plus, Pencil, Trash2, Search, Shield, UserCheck, UserX, TrendingUp } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, Search, Shield, UserCheck, UserX, TrendingUp, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Checkbox } from '@/components/ui/checkbox';
+import { BulkSelectTable, type Column, type BulkAction } from '@/components/admin/BulkSelectTable';
 
 interface User {
   id: string;
@@ -202,6 +203,157 @@ export default function UserManagement() {
     if (roles.includes('partner')) return <Badge className="bg-purple-500" data-testid={`badge-partner`}>Partner</Badge>;
     return <Badge variant="secondary" data-testid={`badge-user`}>User</Badge>;
   };
+
+  const refetchUsers = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/admin/users-stats'] });
+  };
+
+  const userColumns: Column<User>[] = useMemo(() => [
+    {
+      id: "userId",
+      header: "User ID",
+      cell: (user) => <span className="font-mono text-sm" data-testid={`text-userId-${user.id}`}>{user.userId}</span>,
+    },
+    {
+      id: "name",
+      header: "Name",
+      cell: (user) => <span data-testid={`text-name-${user.id}`}>{[user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ') || 'N/A'}</span>,
+    },
+    {
+      id: "email",
+      header: "Email",
+      cell: (user) => <span data-testid={`text-email-${user.id}`}>{user.email || 'N/A'}</span>,
+    },
+    {
+      id: "mobile",
+      header: "Mobile",
+      cell: (user) => <span data-testid={`text-mobile-${user.id}`}>{user.mobile || 'N/A'}</span>,
+    },
+    {
+      id: "role",
+      header: "Role",
+      cell: (user) => getRoleBadge(user.roles),
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: (user) => user.isActive ? (
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" data-testid={`badge-active-${user.id}`}>Active</Badge>
+      ) : (
+        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200" data-testid={`badge-inactive-${user.id}`}>Inactive</Badge>
+      ),
+    },
+    {
+      id: "lastLogin",
+      header: "Last Login",
+      cell: (user) => <span className="text-sm text-muted-foreground" data-testid={`text-lastLogin-${user.id}`}>{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}</span>,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (user) => (
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" onClick={() => setEditingUser(user)} data-testid={`button-edit-${user.id}`}>
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => setDeletingUser(user)} data-testid={`button-delete-${user.id}`}>
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ], []);
+
+  const userBulkActions: BulkAction<User>[] = useMemo(() => [
+    {
+      id: "batch-activate",
+      label: "Activate Selected",
+      icon: <UserCheck className="h-4 w-4 mr-2" />,
+      variant: "default",
+      requiresConfirmation: true,
+      confirmTitle: "Activate Users",
+      confirmDescription: "Are you sure you want to activate the selected users?",
+      onExecute: async (items) => {
+        try {
+          const inactiveItems = items.filter(u => !u.isActive);
+          if (inactiveItems.length === 0) {
+            toast({ title: "No inactive users selected", variant: "destructive" });
+            return;
+          }
+          const response = await apiRequest("POST", "/api/admin/users/batch-activate", {
+            body: { ids: inactiveItems.map(u => u.id) },
+          });
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || "Failed to activate users");
+          }
+          const result = await response.json();
+          toast({ title: result.success ? "Success" : "Partial Success", description: result.message, variant: result.success ? "default" : "destructive" });
+          refetchUsers();
+        } catch (error: any) {
+          toast({ title: "Error", description: error.message || "Activation failed", variant: "destructive" });
+        }
+      },
+    },
+    {
+      id: "batch-suspend",
+      label: "Suspend Selected",
+      icon: <UserX className="h-4 w-4 mr-2" />,
+      variant: "destructive",
+      requiresConfirmation: true,
+      confirmTitle: "Suspend Users",
+      confirmDescription: "Are you sure you want to suspend the selected users? They will not be able to log in.",
+      onExecute: async (items) => {
+        try {
+          const activeItems = items.filter(u => u.isActive);
+          if (activeItems.length === 0) {
+            toast({ title: "No active users selected", variant: "destructive" });
+            return;
+          }
+          const response = await apiRequest("POST", "/api/admin/users/batch-suspend", {
+            body: { ids: activeItems.map(u => u.id), reason: "Bulk suspension via admin console" },
+          });
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || "Failed to suspend users");
+          }
+          const result = await response.json();
+          toast({ title: result.success ? "Success" : "Partial Success", description: result.message, variant: result.success ? "default" : "destructive" });
+          refetchUsers();
+        } catch (error: any) {
+          toast({ title: "Error", description: error.message || "Suspension failed", variant: "destructive" });
+        }
+      },
+    },
+    {
+      id: "batch-export",
+      label: "Export Selected",
+      icon: <Download className="h-4 w-4 mr-2" />,
+      variant: "outline",
+      requiresConfirmation: false,
+      onExecute: async (items) => {
+        try {
+          const response = await apiRequest("POST", "/api/admin/users/batch-export", {
+            body: { ids: items.map(u => u.id), format: "csv" },
+          });
+          if (!response.ok) throw new Error("Export failed");
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "users_export.csv";
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          toast({ title: "Export Complete", description: `Exported ${items.length} users` });
+        } catch (error: any) {
+          toast({ title: "Error", description: error.message || "Export failed", variant: "destructive" });
+        }
+      },
+    },
+  ], [toast]);
 
   if (isLoading) {
     return <LoadingState variant="table" />;
@@ -437,86 +589,20 @@ export default function UserManagement() {
         </CardContent>
       </Card>
 
-      {/* Users Table */}
+      {/* Users Table with Bulk Selection */}
       <Card>
         <CardHeader>
           <CardTitle>All Users ({users.length})</CardTitle>
-          <CardDescription>Complete list of users in the system</CardDescription>
+          <CardDescription>Complete list of users in the system - Select users for bulk actions</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Mobile</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      No users found matching your criteria
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  users.map((user) => (
-                    <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
-                      <TableCell className="font-mono text-sm" data-testid={`text-userId-${user.id}`}>{user.userId}</TableCell>
-                      <TableCell data-testid={`text-name-${user.id}`}>
-                        {[user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ') || 'N/A'}
-                      </TableCell>
-                      <TableCell data-testid={`text-email-${user.id}`}>{user.email || 'N/A'}</TableCell>
-                      <TableCell data-testid={`text-mobile-${user.id}`}>{user.mobile || 'N/A'}</TableCell>
-                      <TableCell>{getRoleBadge(user.roles)}</TableCell>
-                      <TableCell>
-                        {user.isActive ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" data-testid={`badge-active-${user.id}`}>
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200" data-testid={`badge-inactive-${user.id}`}>
-                            Inactive
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-lastLogin-${user.id}`}>
-                        {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
-                            onClick={() => setEditingUser(user)}
-                            data-testid={`button-edit-${user.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-                            onClick={() => setDeletingUser(user)}
-                            data-testid={`button-delete-${user.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+        <CardContent className="p-0">
+          <BulkSelectTable
+            data={users}
+            columns={userColumns}
+            bulkActions={userBulkActions}
+            isLoading={isLoading}
+            emptyMessage="No users found matching your criteria"
+          />
         </CardContent>
       </Card>
 

@@ -395,6 +395,159 @@ router.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/users/batch-activate - Batch activate users
+router.post('/api/admin/users/batch-activate', requireAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return apiResponse.badRequest(res, 'No user IDs provided');
+    }
+
+    const results = { success: [] as string[], failed: [] as string[] };
+
+    for (const id of ids) {
+      try {
+        if (id === req.user?.id) {
+          results.failed.push(id);
+          continue;
+        }
+        const [updated] = await db
+          .update(users)
+          .set({ isActive: true, updatedAt: new Date() })
+          .where(eq(users.id, id))
+          .returning({ id: users.id });
+        
+        if (updated) {
+          results.success.push(id);
+        } else {
+          results.failed.push(id);
+        }
+      } catch (err) {
+        results.failed.push(id);
+      }
+    }
+
+    const allFailed = results.success.length === 0;
+    res.status(allFailed ? 400 : 200).json({
+      success: !allFailed,
+      message: allFailed 
+        ? 'All users failed to activate' 
+        : `Activated ${results.success.length} users${results.failed.length > 0 ? `, ${results.failed.length} failed` : ''}`,
+      results
+    });
+  } catch (error: any) {
+    console.error('Error batch activating users:', error);
+    return apiResponse.serverError(res, 'Failed to batch activate users');
+  }
+});
+
+// POST /api/admin/users/batch-suspend - Batch suspend/deactivate users
+router.post('/api/admin/users/batch-suspend', requireAdmin, async (req, res) => {
+  try {
+    const { ids, reason } = req.body;
+    
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return apiResponse.badRequest(res, 'No user IDs provided');
+    }
+
+    const results = { success: [] as string[], failed: [] as string[] };
+
+    for (const id of ids) {
+      try {
+        if (id === req.user?.id) {
+          results.failed.push(id);
+          continue;
+        }
+        const [updated] = await db
+          .update(users)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(users.id, id))
+          .returning({ id: users.id });
+        
+        if (updated) {
+          results.success.push(id);
+        } else {
+          results.failed.push(id);
+        }
+      } catch (err) {
+        results.failed.push(id);
+      }
+    }
+
+    const allFailed = results.success.length === 0;
+    res.status(allFailed ? 400 : 200).json({
+      success: !allFailed,
+      message: allFailed 
+        ? 'All users failed to suspend' 
+        : `Suspended ${results.success.length} users${results.failed.length > 0 ? `, ${results.failed.length} failed` : ''}`,
+      results,
+      reason: reason || 'Bulk suspension via admin console'
+    });
+  } catch (error: any) {
+    console.error('Error batch suspending users:', error);
+    return apiResponse.serverError(res, 'Failed to batch suspend users');
+  }
+});
+
+// POST /api/admin/users/batch-export - Export selected users
+router.post('/api/admin/users/batch-export', requireAdmin, async (req, res) => {
+  try {
+    const { ids, format = 'json' } = req.body;
+    
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return apiResponse.badRequest(res, 'No user IDs provided');
+    }
+
+    const selectedUsers = await db
+      .select({
+        id: users.id,
+        userId: users.userId,
+        email: users.email,
+        mobile: users.mobile,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        roles: users.roles,
+        isActive: users.isActive,
+        panNumber: users.panNumber,
+        createdAt: users.createdAt,
+        lastLoginAt: users.lastLoginAt,
+      })
+      .from(users)
+      .where(sql`${users.id} = ANY(${ids})`);
+
+    if (format === 'csv') {
+      const headers = ['User ID', 'First Name', 'Last Name', 'Email', 'Mobile', 'PAN', 'Roles', 'Status', 'Created At', 'Last Login'];
+      const rows = selectedUsers.map((u) => [
+        u.userId || 'N/A',
+        u.firstName || 'N/A',
+        u.lastName || 'N/A',
+        u.email || 'N/A',
+        u.mobile || 'N/A',
+        u.panNumber || 'N/A',
+        (u.roles || []).join(';'),
+        u.isActive ? 'Active' : 'Inactive',
+        u.createdAt || 'N/A',
+        u.lastLoginAt || 'Never'
+      ]);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=users_export.csv');
+      return res.send(csv);
+    }
+
+    res.json({
+      success: true,
+      data: selectedUsers,
+      count: selectedUsers.length
+    });
+  } catch (error: any) {
+    console.error('Error batch exporting users:', error);
+    return apiResponse.serverError(res, 'Failed to export users');
+  }
+});
+
 // GET /api/admin/users/stats - Get user statistics
 router.get('/api/admin/users-stats', requireAdmin, async (req, res) => {
   try {
