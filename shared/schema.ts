@@ -1096,6 +1096,33 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const externalHoldings = pgTable("external_holdings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  symbol: text("symbol").notNull(),
+  name: text("name"),
+  isin: text("isin"),
+  assetType: text("asset_type").default("Equity"),
+  quantity: decimal("quantity", { precision: 15, scale: 4 }).notNull(),
+  avgPrice: decimal("avg_price", { precision: 15, scale: 4 }).default("0"),
+  currentValue: decimal("current_value", { precision: 15, scale: 2 }).default("0"),
+  source: text("source").notNull(), // CDSL, NSDL, UPLOADED
+  depository: text("depository"),
+  dpId: text("dp_id"),
+  clientId: text("client_id"),
+  consentId: text("consent_id"),
+  lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  cobStatus: text("cob_status").default("none"), // none, in_progress, completed, failed
+  cobInitiatedAt: timestamp("cob_initiated_at"),
+  cobInitiatedBy: varchar("cob_initiated_by").references(() => users.id),
+  cobTargetBroker: text("cob_target_broker"),
+  cobReason: text("cob_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_external_holdings_user").on(table.userId),
+  index("idx_external_holdings_source").on(table.source),
+]);
+
 export const watchlists = pgTable("watchlists", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
@@ -4213,6 +4240,13 @@ export const insertPortfolioHoldingSchema = createInsertSchema(portfolioHoldings
   updatedAt: true,
 });
 
+export const insertExternalHoldingSchema = createInsertSchema(externalHoldings).omit({
+  id: true,
+  createdAt: true,
+  lastSyncedAt: true,
+  cobInitiatedAt: true,
+});
+
 export const insertWatchlistSchema = createInsertSchema(watchlists).omit({
   id: true,
   createdAt: true,
@@ -4720,6 +4754,8 @@ export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
 export type Portfolio = typeof portfolios.$inferSelect;
 export type InsertPortfolioHolding = z.infer<typeof insertPortfolioHoldingSchema>;
 export type PortfolioHolding = typeof portfolioHoldings.$inferSelect;
+export type InsertExternalHolding = z.infer<typeof insertExternalHoldingSchema>;
+export type ExternalHolding = typeof externalHoldings.$inferSelect;
 export type InsertWatchlist = z.infer<typeof insertWatchlistSchema>;
 export type Watchlist = typeof watchlists.$inferSelect;
 export type MarketData = typeof marketData.$inferSelect;
