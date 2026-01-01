@@ -67,49 +67,49 @@ const agentNavCategories: NavCategory[] = [
     title: "Core Operations",
     icon: Home,
     items: [
-      { title: "Dashboard", href: "/", icon: Home, description: "Overview and metrics" },
-      { title: "Revenue Cockpit", href: "/revenue", icon: Wallet, description: "AUM and commissions" },
-      { title: "Leaderboard", href: "/leaderboard", icon: Trophy, description: "Agent rankings" },
-      { title: "Commission Calculator", href: "/commission-calculator", icon: Calculator, description: "Calculate earnings" },
-      { title: "My Clients", href: "/clients", icon: Users, description: "Client portfolio" },
-      { title: "Onboard Client", href: "/onboard-client", icon: UserPlus, description: "New client KYC" },
-      { title: "Lead Pipeline", href: "/leads", icon: Target, description: "Track prospects" },
-      { title: "Client Acquisition", href: "/client-acquisition", icon: UserPlus, description: "Acquire new clients" },
-      { title: "Sales Pipeline", href: "/crm/pipeline", icon: TrendingUp, description: "Deal stages" },
-      { title: "CRM Analytics", href: "/crm/analytics", icon: BarChart3, description: "CRM insights" },
-      { title: "Tasks", href: "/tasks", icon: CheckSquare, description: "Tasks and reminders" },
-      { title: "Calendar", href: "/calendar", icon: Calendar, description: "Appointments & scheduling" },
-      { title: "Bulk Communication", href: "/bulk-communication", icon: Bell, description: "SMS, Email, WhatsApp" },
+      { title: "Dashboard", href: "/agent", icon: Home, description: "Overview and metrics" },
+      { title: "Revenue Cockpit", href: "/agent/revenue", icon: Wallet, description: "AUM and commissions" },
+      { title: "Leaderboard", href: "/agent/leaderboard", icon: Trophy, description: "Agent rankings" },
+      { title: "Commission Calculator", href: "/agent/commission-calculator", icon: Calculator, description: "Calculate earnings" },
+      { title: "My Clients", href: "/agent/clients", icon: Users, description: "Client portfolio" },
+      { title: "Onboard Client", href: "/agent/onboard-client", icon: UserPlus, description: "New client KYC" },
+      { title: "Lead Pipeline", href: "/agent/leads", icon: Target, description: "Track prospects" },
+      { title: "Client Acquisition", href: "/agent/client-acquisition", icon: UserPlus, description: "Acquire new clients" },
+      { title: "Sales Pipeline", href: "/agent/crm/pipeline", icon: TrendingUp, description: "Deal stages" },
+      { title: "CRM Analytics", href: "/agent/crm/analytics", icon: BarChart3, description: "CRM insights" },
+      { title: "Tasks", href: "/agent/tasks", icon: CheckSquare, description: "Tasks and reminders" },
+      { title: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Appointments & scheduling" },
+      { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Bell, description: "SMS, Email, WhatsApp" },
     ]
   },
   {
     title: "AI Tools",
     icon: Brain,
     items: [
-      { title: "Recommendation Control", href: "/recommendation-control", icon: Target, description: "Client recommendations" },
-      { title: "Training & Certification", href: "/agent-training", icon: GraduationCap, description: "Complete training" },
-      { title: "AI Advisory", href: "/investment-advisory", icon: Brain, description: "AI recommendations" },
-      { title: "Bond AI", href: "/bond-recommendations", icon: Landmark, description: "Bond portfolio" },
-      { title: "Stock AI", href: "/stock-ai", icon: TrendingUp, description: "Stock recommendations" },
-      { title: "F&O Analytics", href: "/derivatives", icon: Activity, description: "Futures & Options" },
+      { title: "Recommendation Control", href: "/agent/recommendation-control", icon: Target, description: "Client recommendations" },
+      { title: "Training & Certification", href: "/agent/training", icon: GraduationCap, description: "Complete training" },
+      { title: "AI Advisory", href: "/agent/investment-advisory", icon: Brain, description: "AI recommendations" },
+      { title: "Bond AI", href: "/agent/bond-recommendations", icon: Landmark, description: "Bond portfolio" },
+      { title: "Stock AI", href: "/agent/stock-ai", icon: TrendingUp, description: "Stock recommendations" },
+      { title: "F&O Analytics", href: "/agent/derivatives", icon: Activity, description: "Futures & Options" },
     ]
   },
   {
     title: "Documents",
     icon: FileText,
     items: [
-      { title: "Proposal Builder", href: "/proposal-builder", icon: UserPlus, description: "Create proposals" },
-      { title: "Proposals", href: "/proposals", icon: FileText, description: "View proposals" },
-      { title: "E-Sign", href: "/esign", icon: FileSignature, description: "Electronic signatures" },
-      { title: "Reports", href: "/reports", icon: BarChart3, description: "Client reports" },
-      { title: "Demo Progress", href: "/demo-progress", icon: TrendingUp, description: "Track demos" },
+      { title: "Proposal Builder", href: "/agent/proposal-builder", icon: UserPlus, description: "Create proposals" },
+      { title: "Proposals", href: "/agent/proposals", icon: FileText, description: "View proposals" },
+      { title: "E-Sign", href: "/agent/esign", icon: FileSignature, description: "Electronic signatures" },
+      { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
+      { title: "Demo Progress", href: "/agent/demo-progress", icon: TrendingUp, description: "Track demos" },
     ]
   },
   {
     title: "Settings",
     icon: Settings,
     items: [
-      { title: "Profile & Settings", href: "/agent-portal", icon: Settings, description: "Your preferences" },
+      { title: "Profile & Settings", href: "/agent", icon: Settings, description: "Your preferences" },
     ]
   }
 ];
@@ -474,19 +474,19 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Quick Actions">
-            <CommandItem onSelect={() => { navigate('/clients'); setSearchOpen(false); }}>
+            <CommandItem onSelect={() => { navigate('/agent/clients'); setSearchOpen(false); }}>
               <Users className="mr-2 h-4 w-4" />
               <span>View All Clients</span>
             </CommandItem>
-            <CommandItem onSelect={() => { navigate('/proposal-builder'); setSearchOpen(false); }}>
+            <CommandItem onSelect={() => { navigate('/agent/proposal-builder'); setSearchOpen(false); }}>
               <Plus className="mr-2 h-4 w-4" />
               <span>Create New Proposal</span>
             </CommandItem>
-            <CommandItem onSelect={() => { navigate('/tasks'); setSearchOpen(false); }}>
+            <CommandItem onSelect={() => { navigate('/agent/tasks'); setSearchOpen(false); }}>
               <CheckSquare className="mr-2 h-4 w-4" />
               <span>View Tasks</span>
             </CommandItem>
-            <CommandItem onSelect={() => { navigate('/leads'); setSearchOpen(false); }}>
+            <CommandItem onSelect={() => { navigate('/agent/leads'); setSearchOpen(false); }}>
               <Target className="mr-2 h-4 w-4" />
               <span>Lead Pipeline</span>
             </CommandItem>
