@@ -459,7 +459,7 @@ export default function AgentDashboard() {
     return (
       <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon size={12} />
-        {status.replace("_", " ").toUpperCase()}
+        {(status || 'pending').replace("_", " ").toUpperCase()}
       </Badge>
     );
   };
@@ -483,7 +483,8 @@ export default function AgentDashboard() {
     );
   };
 
-  const getProposalStatusBadge = (status: string) => {
+  const getProposalStatusBadge = (status: string | undefined) => {
+    const safeStatus = status || 'draft';
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
       draft: { variant: "outline", icon: FileText },
       sent: { variant: "secondary", icon: Send },
@@ -492,13 +493,13 @@ export default function AgentDashboard() {
       partially_approved: { variant: "outline", icon: AlertCircle }
     };
 
-    const config = statusConfig[status] || { variant: "outline", icon: AlertCircle };
+    const config = statusConfig[safeStatus] || { variant: "outline", icon: AlertCircle };
     const Icon = config.icon;
 
     return (
       <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon size={12} />
-        {status.replace("_", " ").toUpperCase()}
+        {safeStatus.replace("_", " ").toUpperCase()}
       </Badge>
     );
   };
@@ -970,7 +971,7 @@ export default function AgentDashboard() {
                             </div>
                             <div className="flex flex-col items-end gap-2">
                               <Badge className={`${getStatusBadgeColor(itrCase.status)}`}>
-                                {itrCase.status.replace(/_/g, " ").toUpperCase()}
+                                {(itrCase.status || 'pending').replace(/_/g, " ").toUpperCase()}
                               </Badge>
                               <span className="text-xs text-gray-500">Due: {itrCase.dueDate}</span>
                             </div>
@@ -2495,7 +2496,7 @@ function ViewProposalDialog({ proposal, open, onOpenChange }: ViewProposalDialog
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div>
                         <Label className="text-xs font-medium text-gray-500">Product Type</Label>
-                        <p className="text-sm font-medium">{item.productType.replace("_", " ").toUpperCase()}</p>
+                        <p className="text-sm font-medium">{(item.productType || 'investment').replace("_", " ").toUpperCase()}</p>
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-gray-500">Product Name</Label>
@@ -2514,7 +2515,7 @@ function ViewProposalDialog({ proposal, open, onOpenChange }: ViewProposalDialog
                       <div>
                         <Label className="text-xs font-medium text-gray-500">Risk Level</Label>
                         <Badge variant={item.riskLevel === 'high' ? 'destructive' : item.riskLevel === 'moderate' ? 'secondary' : 'outline'}>
-                          {item.riskLevel.toUpperCase()}
+                          {(item.riskLevel || 'moderate').toUpperCase()}
                         </Badge>
                       </div>
                       {item.expectedReturn && (
@@ -2550,7 +2551,8 @@ function ViewProposalDialog({ proposal, open, onOpenChange }: ViewProposalDialog
 }
 
 // Helper function for proposal status badges
-const getProposalStatusBadge = (status: string) => {
+const getProposalStatusBadge = (status: string | undefined) => {
+  const safeStatus = status || 'draft';
   const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
     draft: { variant: "outline", icon: FileText },
     sent: { variant: "secondary", icon: Send },
@@ -2559,13 +2561,13 @@ const getProposalStatusBadge = (status: string) => {
     partially_approved: { variant: "outline", icon: AlertCircle }
   };
 
-  const config = statusConfig[status] || { variant: "outline", icon: AlertCircle };
+  const config = statusConfig[safeStatus] || { variant: "outline", icon: AlertCircle };
   const Icon = config.icon;
 
   return (
     <Badge variant={config.variant} className="flex items-center gap-1">
       <Icon size={12} />
-      {status.replace("_", " ").toUpperCase()}
+      {safeStatus.replace("_", " ").toUpperCase()}
     </Badge>
   );
 };

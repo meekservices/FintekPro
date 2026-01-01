@@ -159,7 +159,7 @@ function renderDocumentWithDiffs(
       <span
         key={`change-${change.id}`}
         className={`px-1 rounded ${opClass}`}
-        title={`${change.operation.toUpperCase()} by ${change.suggestedByRole} - ${change.status}`}
+        title={`${(change.operation || 'modify').toUpperCase()} by ${change.suggestedByRole || 'system'} - ${change.status || 'pending'}`}
         data-testid={`inline-change-${change.id}`}
       >
         {displayText}
@@ -607,7 +607,7 @@ export default function AdminDLMNegotiatePage() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                   <Badge variant="outline" className="text-xs">
-                                    {change.operation.toUpperCase()}
+                                    {(change.operation || 'modify').toUpperCase()}
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">
                                     by {change.suggestedBy} ({change.suggestedByRole})

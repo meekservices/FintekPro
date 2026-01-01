@@ -845,7 +845,7 @@ export default function USTradingPage() {
                                 >
                                   <div className="flex items-center gap-3">
                                     <Badge variant={trade.side === "buy" ? "default" : "secondary"}>
-                                      {trade.side.toUpperCase()}
+                                      {(trade.side || 'buy').toUpperCase()}
                                     </Badge>
                                     <div>
                                       <p className="font-medium">{trade.symbol}</p>
@@ -956,7 +956,7 @@ export default function USTradingPage() {
                       >
                         <div className="flex items-center gap-3">
                           <Badge variant={order.side === "buy" ? "default" : "secondary"}>
-                            {order.side.toUpperCase()}
+                            {(order.side || 'buy').toUpperCase()}
                           </Badge>
                           <div>
                             <p className="font-medium">{order.symbol}</p>

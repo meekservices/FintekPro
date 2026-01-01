@@ -333,7 +333,7 @@ export default function InvestableSurplusPage() {
       {emergencyFund && (
         <Alert variant={emergencyFund.status === 'adequate' ? 'default' : 'destructive'} data-testid="alert-emergency-fund">
           <Shield className="h-4 w-4" />
-          <AlertTitle>Emergency Fund Status: {emergencyFund.status.toUpperCase()}</AlertTitle>
+          <AlertTitle>Emergency Fund Status: {(emergencyFund.status || 'unknown').toUpperCase()}</AlertTitle>
           <AlertDescription className="flex items-center justify-between">
             <span>
               Coverage: {emergencyFund.coverageMonths.toFixed(1)} months | 
