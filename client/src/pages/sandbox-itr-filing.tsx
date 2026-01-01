@@ -163,7 +163,7 @@ export default function SandboxITRFiling() {
                       <p className="text-sm text-gray-600">Last updated: {new Date(itrData.lastUpdated).toLocaleDateString()}</p>
                     </div>
                     <Badge className={getStatusColor(itrData.status)}>
-                      {itrData.status.charAt(0).toUpperCase() + itrData.status.slice(1)}
+                      {(itrData.status || 'pending').charAt(0).toUpperCase() + (itrData.status || 'pending').slice(1)}
                     </Badge>
                   </div>
                   

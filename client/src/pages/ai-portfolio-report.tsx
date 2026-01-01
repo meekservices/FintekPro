@@ -245,7 +245,7 @@ export default function AIPortfolioReport() {
                               insight.impact === 'medium' ? 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300' :
                               'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                             }>
-                              {insight.impact.toUpperCase()}
+                              {(insight.impact || 'low').toUpperCase()}
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">{insight.description}</p>

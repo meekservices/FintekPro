@@ -315,7 +315,7 @@ function InvestmentLinkingSection({ goalId, investments }: { goalId: string; inv
                   </div>
                   <div>
                     <p className="text-sm font-medium">{inv.investmentName}</p>
-                    <p className="text-xs text-muted-foreground">{inv.investmentType?.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</p>
+                    <p className="text-xs text-muted-foreground">{(inv.investmentType || 'investment').replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -421,7 +421,7 @@ function GoalDetailDialog({ goalId, onClose }: { goalId: string; onClose: () => 
               {projection.onTrackStatus === "ahead" && <TrendingUp className="h-3 w-3 mr-1" />}
               {projection.onTrackStatus === "behind" && <TrendingDown className="h-3 w-3 mr-1" />}
               {projection.onTrackStatus === "at_risk" && <AlertTriangle className="h-3 w-3 mr-1" />}
-              {projection.onTrackStatus.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
+              {(projection.onTrackStatus || 'on_track').replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
             </Badge>
             <span className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />

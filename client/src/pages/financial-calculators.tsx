@@ -448,7 +448,7 @@ export default function FinancialCalculators() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Tax Calculation Results</CardTitle>
-                    <Badge variant="outline">{taxResult.regime.toUpperCase()} Tax Regime</Badge>
+                    <Badge variant="outline">{(taxResult.regime || 'new').toUpperCase()} Tax Regime</Badge>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">

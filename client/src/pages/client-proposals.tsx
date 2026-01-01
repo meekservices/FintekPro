@@ -578,7 +578,7 @@ export default function ClientProposalsPage() {
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">
-                              {item.productType.replace('_', ' ').toUpperCase()}
+                              {(item.productType || 'other').replace('_', ' ').toUpperCase()}
                             </Badge>
                           </TableCell>
                           <TableCell>

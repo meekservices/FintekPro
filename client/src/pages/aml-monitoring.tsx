@@ -220,7 +220,7 @@ export default function AMLMonitoring() {
                         <span className="font-medium">{alert.alertType}</span>
                       </div>
                       <Badge className={getRiskBadgeColor(alert.riskLevel)}>
-                        {alert.riskLevel.toUpperCase()}
+                        {(alert.riskLevel || 'unknown').toUpperCase()}
                       </Badge>
                     </div>
                     <p className="text-sm text-gray-600">{alert.description}</p>

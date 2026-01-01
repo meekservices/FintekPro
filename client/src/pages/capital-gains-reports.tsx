@@ -486,7 +486,7 @@ export default function CapitalGainsReports() {
                   fetchCAMSReportMutation.isPending) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Generate {selectedSource === 'fintech' ? 'KFintech' : selectedSource.toUpperCase()} Report
+                Generate {selectedSource === 'fintech' ? 'KFintech' : (selectedSource || 'nsdl').toUpperCase()} Report
               </Button>
             </CardContent>
           </Card>
@@ -501,7 +501,7 @@ export default function CapitalGainsReports() {
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5" />
-                      Capital Gains Summary - {currentReport.source.toUpperCase()}
+                      Capital Gains Summary - {(currentReport.source || 'NSDL').toUpperCase()}
                     </div>
                     <Badge variant="secondary">
                       {currentReport.financialYear}
@@ -718,7 +718,7 @@ export default function CapitalGainsReports() {
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline">{report.source.toUpperCase()}</Badge>
+                              <Badge variant="outline">{(report.source || 'nsdl').toUpperCase()}</Badge>
                               <Badge variant="secondary">{report.financialYear}</Badge>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
