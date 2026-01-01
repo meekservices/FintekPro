@@ -79,8 +79,9 @@ export class ChatGPTService {
     const messages = this.buildMessagesFromHistory(history, session, options.systemPrompt);
     messages.push({ role: 'user', content });
 
-    // Get AI response
-    const { provider = 'openai', model = 'gpt-5' } = options;
+    // Get AI response using GPT-5.1 via Replit AI Integrations
+    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+    const { provider = 'openai', model = 'gpt-5.1' } = options;
     const result = await aiService.chat(messages, { provider, model, ...options });
 
     // Save AI message
@@ -146,7 +147,7 @@ export class ChatGPTService {
     messages.push({ role: 'user', content });
 
     // Get AI response with streaming
-    const { provider = 'openai', model = 'gpt-5' } = options;
+    const { provider = 'openai', model = 'gpt-5.1' } = options;
     const result = await aiService.streamChat(messages, onChunk, { provider, model, ...options });
 
     // Save AI message

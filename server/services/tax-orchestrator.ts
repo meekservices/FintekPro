@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { GoogleGenAI } from "@google/genai";
+import { aiService } from "./ai-service";
 import type { 
   TaxSession, 
   InsertTaxSession, 
@@ -13,8 +13,8 @@ import type {
   InsertAiOptimizationSuggestion
 } from "@shared/schema";
 
-// Initialize Gemini AI client for tax optimization
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+// Tax orchestrator uses GPT-5.1 via Replit AI Integrations for accurate tax analysis
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 
 // Tax orchestrator service for unified smart filing workflow
 export class TaxOrchestrator {
@@ -101,7 +101,7 @@ export class TaxOrchestrator {
     return dataSources;
   }
 
-  // AI-powered ITR form suggestion
+  // AI-powered ITR form suggestion using GPT-5.1 via Replit AI Integrations
   private async suggestItrForm(userProfile: any): Promise<{
     form: string;
     reason: string;
@@ -124,31 +124,20 @@ ITR Forms:
 - ITR-3: Business/profession income
 - ITR-4: Presumptive business income
 
-Respond with JSON:
+Respond with JSON only:
 {
   "form": "ITR-X",
   "reason": "explanation for choice",
   "confidence": 0.85
 }`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              form: { type: "string" },
-              reason: { type: "string" },
-              confidence: { type: "number" }
-            },
-            required: ["form", "reason", "confidence"]
-          }
-        },
-        contents: prompt,
-      });
+      const response = await aiService.chat(
+        [{ role: 'user', content: prompt }],
+        { provider: 'openai', model: 'gpt-5.1', temperature: 0.3, maxTokens: 1024 }
+      );
 
-      const result = JSON.parse(response.text || "{}");
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+      const result = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
       return {
         form: result.form || "ITR-1",
         reason: result.reason || "Default selection for salaried individuals",
@@ -164,7 +153,7 @@ Respond with JSON:
     }
   }
 
-  // AI-powered tax regime recommendation
+  // AI-powered tax regime recommendation using GPT-5.1 via Replit AI Integrations
   private async suggestTaxRegime(userProfile: any): Promise<{
     regime: "old" | "new";
     reason: string;
@@ -185,31 +174,20 @@ Analyze:
 3. Potential tax savings in each regime
 4. Provide estimated annual savings
 
-Respond with JSON:
+Respond with JSON only:
 {
   "regime": "old" or "new",
   "reason": "detailed explanation for choice",
   "estimatedSavings": 15000
 }`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              regime: { type: "string", enum: ["old", "new"] },
-              reason: { type: "string" },
-              estimatedSavings: { type: "number" }
-            },
-            required: ["regime", "reason", "estimatedSavings"]
-          }
-        },
-        contents: prompt,
-      });
+      const response = await aiService.chat(
+        [{ role: 'user', content: prompt }],
+        { provider: 'openai', model: 'gpt-5.1', temperature: 0.3, maxTokens: 1024 }
+      );
 
-      const result = JSON.parse(response.text || "{}");
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+      const result = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
       return {
         regime: result.regime || "new",
         reason: result.reason || "New regime typically benefits most taxpayers",
