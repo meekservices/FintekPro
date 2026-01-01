@@ -111,35 +111,25 @@ export default function CkycManagement() {
   // Fetch CKYC records
   const { data: ckycRecords, isLoading: recordsLoading } = useQuery<CkycRecord[]>({
     queryKey: ["/api/admin/ckyc"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/ckyc");
-      return response.json();
-    }
   });
 
   // Fetch notification triggers
   const { data: notificationTriggers } = useQuery<NotificationTrigger[]>({
     queryKey: ["/api/admin/ckyc/notifications"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/ckyc/notifications");
-      return response.json();
-    }
   });
 
   // Fetch action logs
   const { data: actionLogs } = useQuery<ActionLog[]>({
     queryKey: ["/api/admin/ckyc/action-logs"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/ckyc/action-logs");
-      return response.json();
-    }
   });
 
   // Create notification trigger mutation
   const createNotificationMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/admin/ckyc/notifications", data);
-      return response.json();
+      return await apiRequest("/api/admin/ckyc/notifications", { 
+        method: "POST", 
+        body: JSON.stringify(data) 
+      });
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Notification trigger created successfully" });
@@ -154,8 +144,10 @@ export default function CkycManagement() {
   // Create progress step mutation
   const createProgressStepMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/admin/ckyc/progress-steps", data);
-      return response.json();
+      return await apiRequest("/api/admin/ckyc/progress-steps", { 
+        method: "POST", 
+        body: JSON.stringify(data) 
+      });
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Progress step created successfully" });
@@ -170,10 +162,10 @@ export default function CkycManagement() {
   // Update CKYC status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: string; status: string }) => {
-      const response = await apiRequest("PATCH", `/api/admin/ckyc/${userId}/status`, { 
-        verificationStatus: status 
+      return await apiRequest(`/api/admin/ckyc/${userId}/status`, { 
+        method: "PATCH",
+        body: JSON.stringify({ verificationStatus: status })
       });
-      return response.json();
     },
     onSuccess: () => {
       toast({ title: "Success", description: "CKYC status updated successfully" });
@@ -187,8 +179,7 @@ export default function CkycManagement() {
   // Process pending notifications mutation
   const processNotificationsMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/admin/ckyc/process-notifications");
-      return response.json();
+      return await apiRequest("/api/admin/ckyc/process-notifications", { method: "POST" });
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Pending notifications processed" });

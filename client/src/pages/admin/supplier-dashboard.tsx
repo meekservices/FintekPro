@@ -111,7 +111,10 @@ export default function SupplierDashboard() {
   // Promote product mutation
   const promoteProductMutation = useMutation({
     mutationFn: async ({ productId, duration }: { productId: string; duration: number }) => {
-      await apiRequest("POST", `/api/admin/products/${productId}/promote`, { duration });
+      await apiRequest(`/api/admin/products/${productId}/promote`, { 
+        method: "POST", 
+        body: JSON.stringify({ duration }) 
+      });
     },
     onSuccess: () => {
       toast({

@@ -124,8 +124,9 @@ export default function KycCompliancePage() {
   // Review KYC submission mutation
   const reviewMutation = useMutation({
     mutationFn: async ({ id, status, notes, reason }: any) => {
-      return await apiRequest("POST", `/api/admin/kyc/manual-submissions/${id}/review`, {
-        body: { status, notes, rejectionReason: reason },
+      return await apiRequest(`/api/admin/kyc/manual-submissions/${id}/review`, {
+        method: "POST",
+        body: JSON.stringify({ status, notes, rejectionReason: reason }),
       });
     },
     onSuccess: () => {
@@ -272,14 +273,10 @@ export default function KycCompliancePage() {
             toast({ title: "No pending submissions selected", variant: "destructive" });
             return;
           }
-          const response = await apiRequest("POST", "/api/admin/kyc/batch-approve", {
-            body: { ids: pendingItems.map(i => i.id), notes: "Batch approved via admin console" },
+          const result = await apiRequest("/api/admin/kyc/batch-approve", {
+            method: "POST",
+            body: JSON.stringify({ ids: pendingItems.map(i => i.id), notes: "Batch approved via admin console" }),
           });
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || "Failed to batch approve");
-          }
-          const result = await response.json();
           toast({
             title: result.success ? "Success" : "Partial Success",
             description: result.message,
@@ -307,14 +304,10 @@ export default function KycCompliancePage() {
             toast({ title: "No pending submissions selected", variant: "destructive" });
             return;
           }
-          const response = await apiRequest("POST", "/api/admin/kyc/batch-reject", {
-            body: { ids: pendingItems.map(i => i.id), reason: "Batch rejected - Incomplete documentation" },
+          const result = await apiRequest("/api/admin/kyc/batch-reject", {
+            method: "POST",
+            body: JSON.stringify({ ids: pendingItems.map(i => i.id), reason: "Batch rejected - Incomplete documentation" }),
           });
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || "Failed to batch reject");
-          }
-          const result = await response.json();
           toast({
             title: result.success ? "Success" : "Partial Success",
             description: result.message,
@@ -335,8 +328,11 @@ export default function KycCompliancePage() {
       requiresConfirmation: false,
       onExecute: async (items) => {
         try {
-          const response = await apiRequest("POST", "/api/admin/kyc/batch-export", {
-            body: { ids: items.map(i => i.id), format: "csv" },
+          const response = await fetch("/api/admin/kyc/batch-export", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: items.map(i => i.id), format: "csv" }),
+            credentials: "include",
           });
           if (!response.ok) {
             throw new Error("Export failed");

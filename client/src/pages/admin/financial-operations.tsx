@@ -145,7 +145,7 @@ export default function FinancialOperations() {
   // View order details mutation
   const viewOrderDetailsMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      return await apiRequest("GET", `/api/admin/financial/orders/${orderId}`);
+      return await apiRequest(`/api/admin/financial/orders/${orderId}`);
     },
     onSuccess: (data) => {
       setSelectedOrder(data.data);
@@ -163,8 +163,9 @@ export default function FinancialOperations() {
   // Initiate refund mutation
   const initiateRefundMutation = useMutation({
     mutationFn: async ({ orderId, amount, reason }: any) => {
-      return await apiRequest("POST", "/api/admin/financial/refunds/initiate", {
-        body: { orderId, amount, reason },
+      return await apiRequest("/api/admin/financial/refunds/initiate", {
+        method: "POST",
+        body: JSON.stringify({ orderId, amount, reason }),
       });
     },
     onSuccess: () => {

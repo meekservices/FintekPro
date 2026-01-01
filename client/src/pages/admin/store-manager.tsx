@@ -99,8 +99,10 @@ export default function AdminStoreManager() {
 
   const toggleAifPublish = useMutation({
     mutationFn: async ({ id, isPublished }: { id: string; isPublished: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/store/aif/${id}/publish`, { isPublished });
-      return response.json();
+      return await apiRequest(`/api/store/aif/${id}/publish`, { 
+        method: "PATCH", 
+        body: JSON.stringify({ isPublished }) 
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/store/aif/admin"] });
@@ -121,8 +123,10 @@ export default function AdminStoreManager() {
 
   const togglePmsPublish = useMutation({
     mutationFn: async ({ id, isPublished }: { id: string; isPublished: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/store/pms/${id}/publish`, { isPublished });
-      return response.json();
+      return await apiRequest(`/api/store/pms/${id}/publish`, { 
+        method: "PATCH", 
+        body: JSON.stringify({ isPublished }) 
+      });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/store/pms/admin"] });
