@@ -9811,6 +9811,23 @@ export const bondOrders = pgTable("bond_orders", {
   kycLevel: varchar("kyc_level"), // 'basic', 'full', 'enhanced'
   kycValidated: boolean("kyc_validated").default(false),
   
+  // Inventory-based sales (FintekPro as dealer/principal)
+  inventorySale: boolean("inventory_sale").default(false), // true = selling from FintekPro's inventory
+  purchaseCost: decimal("purchase_cost", { precision: 15, scale: 2 }), // Original cost basis per unit
+  totalPurchaseCost: decimal("total_purchase_cost", { precision: 15, scale: 2 }), // Total COGS
+  inventoryItemId: varchar("inventory_item_id"), // Zoho Inventory item reference
+  profitMargin: decimal("profit_margin", { precision: 15, scale: 2 }), // Sale price - cost
+  
+  // Brokerage (for agency transactions)
+  brokerageFee: decimal("brokerage_fee", { precision: 15, scale: 2 }),
+  brokerageRate: decimal("brokerage_rate", { precision: 8, scale: 4 }), // Percentage
+  
+  // Zoho Books Sync
+  zohoInvoiceId: varchar("zoho_invoice_id"), // Revenue invoice
+  zohoExpenseId: varchar("zoho_expense_id"), // COGS entry
+  zohoSyncedAt: timestamp("zoho_synced_at"),
+  zohoSyncStatus: varchar("zoho_sync_status", { length: 50 }), // pass_through, fee_invoiced, inventory_sale
+  
   // Audit trail
   orderPlacedBy: varchar("order_placed_by"), // 'client', 'advisor', 'system'
   remarks: text("remarks"),
@@ -9823,6 +9840,7 @@ export const bondOrders = pgTable("bond_orders", {
   index("idx_bond_orders_user_id").on(table.userId),
   index("idx_bond_orders_status").on(table.orderStatus),
   index("idx_bond_orders_date").on(table.orderDate),
+  index("idx_bond_orders_inventory").on(table.inventorySale),
 ]);
 
 // Bond Holdings table - User's bond portfolio

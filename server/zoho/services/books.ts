@@ -514,6 +514,149 @@ export class ZohoBooksService {
     return response.data;
   }
 
+  // ==================== Items (Inventory) ====================
+
+  async createItem(params: {
+    name: string;
+    description?: string;
+    rate: number;
+    sku?: string;
+    unit?: string;
+    item_type?: 'sales' | 'purchases' | 'sales_and_purchases' | 'inventory';
+    product_type?: 'goods' | 'service';
+    initial_stock?: number;
+    initial_stock_rate?: number;
+    purchase_rate?: number;
+    account_id?: string;
+    inventory_account_id?: string;
+    purchase_account_id?: string;
+  }): Promise<{ item_id: string; name: string; sku: string }> {
+    const response = await this.client.post('/items', {
+      ...this.getOrgParam(),
+      ...params,
+      item_type: params.item_type || 'inventory',
+      product_type: params.product_type || 'goods'
+    });
+    
+    return {
+      item_id: response.data?.item?.item_id || '',
+      name: response.data?.item?.name || params.name,
+      sku: response.data?.item?.sku || params.sku || ''
+    };
+  }
+
+  async getItem(itemId: string): Promise<any> {
+    const response = await this.client.get(`/items/${itemId}`, this.getOrgParam());
+    return response.data?.item || null;
+  }
+
+  async adjustInventory(params: {
+    item_id: string;
+    adjustment_type: 'quantity' | 'value';
+    quantity_adjusted?: number;
+    value_adjusted?: number;
+    reason?: string;
+    description?: string;
+    date?: string;
+  }): Promise<{ inventory_adjustment_id: string }> {
+    const response = await this.client.post('/inventoryadjustments', {
+      ...this.getOrgParam(),
+      line_items: [{
+        item_id: params.item_id,
+        quantity_adjusted: params.quantity_adjusted,
+        value_adjusted: params.value_adjusted
+      }],
+      adjustment_type: params.adjustment_type,
+      reason: params.reason || 'Sale from inventory',
+      description: params.description,
+      date: params.date || new Date().toISOString().split('T')[0]
+    });
+    
+    return {
+      inventory_adjustment_id: response.data?.inventory_adjustment?.inventory_adjustment_id || ''
+    };
+  }
+
+  // ==================== Expenses (COGS) ====================
+
+  async createExpense(params: {
+    account_id: string;
+    amount: number;
+    date?: string;
+    reference_number?: string;
+    description?: string;
+    vendor_id?: string;
+    is_billable?: boolean;
+  }): Promise<{ expense_id: string }> {
+    const response = await this.client.post('/expenses', {
+      ...this.getOrgParam(),
+      account_id: params.account_id,
+      amount: params.amount,
+      date: params.date || new Date().toISOString().split('T')[0],
+      reference_number: params.reference_number,
+      description: params.description,
+      vendor_id: params.vendor_id,
+      is_billable: params.is_billable || false
+    });
+    
+    return {
+      expense_id: response.data?.expense?.expense_id || ''
+    };
+  }
+
+  async getExpenses(params?: {
+    page?: number;
+    per_page?: number;
+    status?: string;
+    account_id?: string;
+    date_start?: string;
+    date_end?: string;
+  }): Promise<PaginatedResponse<any>> {
+    const response = await this.client.get('/expenses', {
+      ...this.getOrgParam(),
+      page: params?.page || 1,
+      per_page: params?.per_page || 25,
+      status: params?.status,
+      account_id: params?.account_id,
+      date_start: params?.date_start,
+      date_end: params?.date_end
+    });
+    
+    return {
+      items: response.data?.expenses || [],
+      page: params?.page || 1,
+      hasMorePage: response.data?.page_context?.has_more_page || false,
+      totalRecords: response.data?.page_context?.total || 0
+    };
+  }
+
+  // Get or create COGS account for bond inventory sales
+  async getOrCreateCOGSAccount(): Promise<{ account_id: string; account_name: string }> {
+    // Try to find existing COGS account
+    const accounts = await this.getChartOfAccounts();
+    const cogsAccount = accounts.find(
+      acc => acc.account_name.toLowerCase().includes('cost of goods') || 
+             acc.account_type === 'cost_of_goods_sold'
+    );
+    
+    if (cogsAccount) {
+      return { account_id: cogsAccount.account_id, account_name: cogsAccount.account_name };
+    }
+    
+    // Create if not exists
+    const response = await this.client.post('/chartofaccounts', {
+      ...this.getOrgParam(),
+      account_name: 'Cost of Goods Sold - Bond Inventory',
+      account_type: 'cost_of_goods_sold',
+      description: 'Cost of bonds sold from FintekPro inventory'
+    });
+    
+    return {
+      account_id: response.data?.account?.account_id || '',
+      account_name: response.data?.account?.account_name || 'Cost of Goods Sold - Bond Inventory'
+    };
+  }
+
   // ==================== Dashboard Summary ====================
 
   async getDashboardSummary(): Promise<{
