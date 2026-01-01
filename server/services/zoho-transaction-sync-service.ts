@@ -114,12 +114,21 @@ class ZohoTransactionSyncService {
   }
 
   /**
-   * Bond Orders: 
-   * For listed bonds via exchange (NSE/BSE), money flows through exchange clearing.
-   * FintekPro may earn brokerage on the transaction.
+   * Bond Orders - Three transaction types:
    * 
-   * Invoice only for brokerage/service fees, not the principal bond amount.
-   * Principal investment amount is pass-through.
+   * 1. INVENTORY SALE (inventorySale = true):
+   *    - FintekPro sells bonds from its own inventory (dealer model)
+   *    - Create revenue invoice for full sale amount
+   *    - Record COGS expense for original purchase cost
+   *    - Profit margin = sale price - cost
+   * 
+   * 2. BROKERAGE (inventorySale = false, brokerageFee > 0):
+   *    - Agency transaction via exchange
+   *    - Invoice only the brokerage fee
+   *    - Principal is pass-through
+   * 
+   * 3. PASS-THROUGH (no inventory, no brokerage):
+   *    - Compliance tracking only
    */
   async syncBondOrder(orderId: string): Promise<TransactionSyncResult> {
     if (!this.zohoService) {
@@ -153,30 +162,84 @@ class ZohoTransactionSyncService {
         };
       }
 
-      // Calculate brokerage fee (typically 0.1% to 0.5% of transaction value)
-      const investmentAmount = parseFloat(order.investmentAmount?.toString() || '0');
+      const saleAmount = parseFloat(order.netAmount?.toString() || order.grossAmount?.toString() || '0');
       const brokerageFee = parseFloat(order.brokerageFee?.toString() || '0');
+      const isInventorySale = order.inventorySale === true;
+      const purchaseCost = parseFloat(order.totalPurchaseCost?.toString() || '0');
 
-      // Only create invoice if there's a brokerage fee
-      if (brokerageFee > 0 && this.zohoService) {
-        const [user] = await db.select()
-          .from(schema.users)
-          .where(eq(schema.users.id, order.userId))
-          .limit(1);
+      // Get customer info
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.id, order.userId))
+        .limit(1);
+      const customerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown' : 'Unknown';
 
-        const customerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown' : 'Unknown';
-
+      // SCENARIO 1: Inventory Sale (FintekPro as dealer/principal)
+      if (isInventorySale && this.zohoService) {
+        // Create revenue invoice for full sale amount
         const invoice = await this.zohoService.createInvoice({
           customer_name: customerName,
-          reference_number: `BOND-FEE-${order.id.substring(0, 8).toUpperCase()}`,
+          reference_number: `BOND-INV-${order.orderNumber || order.id.substring(0, 8).toUpperCase()}`,
           date: new Date(order.createdAt || new Date()).toISOString().split('T')[0],
           line_items: [{
-            name: `Bond Brokerage Fee - ${order.bondName || order.isinCode || 'Bond'}`,
-            description: `ISIN: ${order.isinCode || 'N/A'}, Investment: ₹${investmentAmount.toLocaleString()}`,
+            name: `${order.bondName || 'Bond'} - ${order.isin || 'ISIN'}`,
+            description: `Qty: ${order.quantity}, Type: ${order.bondType || 'corporate'}`,
+            rate: saleAmount,
+            quantity: 1
+          }],
+          notes: `Inventory Sale | Order: ${order.orderNumber} | ISIN: ${order.isin}`
+        });
+
+        // Record COGS expense if purchase cost is known
+        let expenseId: string | undefined;
+        if (purchaseCost > 0) {
+          const cogsAccount = await this.zohoService.getOrCreateCOGSAccount();
+          const expense = await this.zohoService.createExpense({
+            account_id: cogsAccount.account_id,
+            amount: purchaseCost,
+            date: new Date(order.createdAt || new Date()).toISOString().split('T')[0],
+            reference_number: `COGS-${order.orderNumber || order.id.substring(0, 8).toUpperCase()}`,
+            description: `Cost of ${order.bondName || 'Bond'} sold | ISIN: ${order.isin} | Qty: ${order.quantity}`
+          });
+          expenseId = expense.expense_id;
+        }
+
+        // Calculate profit margin
+        const profitMargin = saleAmount - purchaseCost;
+
+        await db.update(schema.bondOrders)
+          .set({ 
+            zohoInvoiceId: invoice.invoice_id,
+            zohoExpenseId: expenseId,
+            zohoSyncedAt: new Date(),
+            zohoSyncStatus: 'inventory_sale',
+            profitMargin: profitMargin.toFixed(2)
+          })
+          .where(eq(schema.bondOrders.id, orderId));
+
+        return { 
+          success: true, 
+          productType: 'bond', 
+          transactionId: orderId, 
+          zohoInvoiceId: invoice.invoice_id,
+          syncType: 'invoice',
+          reason: `Inventory sale: Revenue ₹${saleAmount.toLocaleString()}, COGS ₹${purchaseCost.toLocaleString()}, Profit ₹${profitMargin.toLocaleString()}`
+        };
+      }
+
+      // SCENARIO 2: Brokerage fee only (agency transaction)
+      if (brokerageFee > 0 && this.zohoService) {
+        const invoice = await this.zohoService.createInvoice({
+          customer_name: customerName,
+          reference_number: `BOND-FEE-${order.orderNumber || order.id.substring(0, 8).toUpperCase()}`,
+          date: new Date(order.createdAt || new Date()).toISOString().split('T')[0],
+          line_items: [{
+            name: `Bond Brokerage Fee - ${order.bondName || order.isin || 'Bond'}`,
+            description: `ISIN: ${order.isin || 'N/A'}, Transaction: ₹${saleAmount.toLocaleString()}`,
             rate: brokerageFee,
             quantity: 1
           }],
-          notes: `Order ID: ${order.id}, Principal investment flows to exchange (pass-through)`
+          notes: `Order: ${order.orderNumber} | Principal flows through exchange (pass-through)`
         });
 
         await db.update(schema.bondOrders)
@@ -197,7 +260,7 @@ class ZohoTransactionSyncService {
         };
       }
 
-      // No brokerage fee - just mark as synced for compliance
+      // SCENARIO 3: Pass-through (compliance tracking only)
       await db.update(schema.bondOrders)
         .set({ 
           zohoSyncedAt: new Date(),
