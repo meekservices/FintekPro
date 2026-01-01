@@ -17,11 +17,14 @@ import {
   prospectLeads,
   leadActivities,
   clientIntelligence,
-  users
+  users,
+  whatsappContacts
 } from '../shared/schema';
-import { eq, and, desc, sql, ilike, gte, lte } from 'drizzle-orm';
+import { eq, and, desc, sql, ilike, gte, lte, count } from 'drizzle-orm';
 import { getZohoCampaignsService } from './zoho-campaigns-service';
 import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
+import { smsMarketingService } from './services/sms-marketing-service';
+import { whatsAppMarketingService } from './services/whatsapp-marketing-service';
 import { getProbe42Service } from './probe42-service';
 import { apiResponse } from './utils/responses';
 
@@ -864,5 +867,364 @@ export function registerMarketingRoutes(app: any) {
     }
   });
 
+  // ============================================================================
+  // SMS MARKETING - Bulk SMS via Twilio Messaging Service
+  // ============================================================================
+
+  /**
+   * Get SMS & WhatsApp marketing service status
+   */
+  app.get('/api/admin/marketing/sms/status', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const smsStatus = smsMarketingService.getStatus();
+      const whatsappStatus = whatsAppMarketingService.getStatus();
+
+      const [userStats] = await db.select({
+        total: count(),
+        withConsent: sql<number>`COUNT(*) FILTER (WHERE marketing_consent = true)`,
+        withMobile: sql<number>`COUNT(*) FILTER (WHERE mobile IS NOT NULL)`,
+        eligibleForMarketing: sql<number>`COUNT(*) FILTER (WHERE marketing_consent = true AND mobile IS NOT NULL)`
+      }).from(users);
+
+      res.json({
+        success: true,
+        services: {
+          sms: smsStatus,
+          whatsapp: whatsappStatus
+        },
+        audience: {
+          totalUsers: userStats?.total || 0,
+          usersWithConsent: userStats?.withConsent || 0,
+          usersWithMobile: userStats?.withMobile || 0,
+          eligibleRecipients: userStats?.eligibleForMarketing || 0
+        }
+      });
+    } catch (error: any) {
+      console.error('Error getting marketing status:', error);
+      return apiResponse.serverError(res, 'Failed to get marketing status');
+    }
+  });
+
+  /**
+   * Send single marketing SMS
+   */
+  app.post('/api/admin/marketing/sms/send', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { mobile, message, productType, details } = req.body;
+
+      if (!mobile) {
+        return apiResponse.badRequest(res, 'Mobile number is required');
+      }
+
+      let result;
+      if (productType && details) {
+        result = await smsMarketingService.sendPromotionalSMS(mobile, productType, details);
+      } else if (message) {
+        result = await smsMarketingService.sendMarketingSMS(mobile, message);
+      } else {
+        return apiResponse.badRequest(res, 'Message or productType with details is required');
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error sending SMS:', error);
+      return apiResponse.serverError(res, 'Failed to send SMS');
+    }
+  });
+
+  /**
+   * Send bulk marketing SMS
+   */
+  app.post('/api/admin/marketing/sms/bulk', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { recipients, messageTemplate, campaignId } = req.body;
+
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return apiResponse.badRequest(res, 'Recipients array is required');
+      }
+
+      if (!messageTemplate) {
+        return apiResponse.badRequest(res, 'Message template is required');
+      }
+
+      const result = await smsMarketingService.sendBulkSMS(recipients, messageTemplate, campaignId);
+
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('Error sending bulk SMS:', error);
+      return apiResponse.serverError(res, 'Failed to send bulk SMS');
+    }
+  });
+
+  /**
+   * Run SMS campaign to all consented users
+   */
+  app.post('/api/admin/marketing/sms/campaign', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { campaignId, message, targetSegment, customFilters } = req.body;
+
+      if (!message) {
+        return apiResponse.badRequest(res, 'Message is required');
+      }
+
+      let finalCampaignId = campaignId;
+
+      if (!campaignId) {
+        const [campaign] = await db.insert(marketingCampaigns).values({
+          name: `SMS Campaign ${new Date().toISOString().split('T')[0]}`,
+          campaignType: 'sms',
+          status: 'sending',
+          targetSegment: targetSegment || 'all_consented',
+          createdBy: req.user?.id,
+          createdAt: new Date()
+        }).returning();
+
+        finalCampaignId = campaign.id;
+      } else {
+        await db.update(marketingCampaigns)
+          .set({ status: 'sending', updatedAt: new Date() })
+          .where(eq(marketingCampaigns.id, campaignId));
+      }
+
+      const result = await smsMarketingService.sendCampaignSMS({
+        campaignId: finalCampaignId,
+        message,
+        targetSegment,
+        customFilters
+      });
+
+      res.json({ 
+        success: true, 
+        campaignId: finalCampaignId,
+        ...result 
+      });
+    } catch (error: any) {
+      console.error('Error running SMS campaign:', error);
+      return apiResponse.serverError(res, 'Failed to run SMS campaign');
+    }
+  });
+
+  // ============================================================================
+  // WHATSAPP MARKETING - Template-based marketing via Twilio
+  // ============================================================================
+
+  /**
+   * Get WhatsApp marketing templates
+   */
+  app.get('/api/admin/marketing/whatsapp/templates', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const templates = whatsAppMarketingService.getAvailableTemplates();
+      res.json({ success: true, templates });
+    } catch (error: any) {
+      console.error('Error getting templates:', error);
+      return apiResponse.serverError(res, 'Failed to get templates');
+    }
+  });
+
+  /**
+   * Send WhatsApp marketing message using template
+   */
+  app.post('/api/admin/marketing/whatsapp/send', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { mobile, templateType, variables, fallbackMessage } = req.body;
+
+      if (!mobile) {
+        return apiResponse.badRequest(res, 'Mobile number is required');
+      }
+
+      if (!templateType) {
+        return apiResponse.badRequest(res, 'Template type is required');
+      }
+
+      const result = await whatsAppMarketingService.sendMarketingMessage(
+        mobile,
+        templateType,
+        variables || {},
+        fallbackMessage
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error sending WhatsApp:', error);
+      return apiResponse.serverError(res, 'Failed to send WhatsApp message');
+    }
+  });
+
+  /**
+   * Send WhatsApp IPO alert
+   */
+  app.post('/api/admin/marketing/whatsapp/ipo-alert', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { mobile, companyName, openDate, priceMin, priceMax } = req.body;
+
+      if (!mobile || !companyName || !openDate) {
+        return apiResponse.badRequest(res, 'Mobile, companyName, and openDate are required');
+      }
+
+      const result = await whatsAppMarketingService.sendIPOAlert(mobile, {
+        companyName,
+        openDate,
+        priceMin: priceMin || 0,
+        priceMax: priceMax || 0
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error sending IPO alert:', error);
+      return apiResponse.serverError(res, 'Failed to send IPO alert');
+    }
+  });
+
+  /**
+   * Send WhatsApp promotion
+   */
+  app.post('/api/admin/marketing/whatsapp/promotion', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { mobile, offerTitle, offerDetails, ctaLink } = req.body;
+
+      if (!mobile || !offerTitle) {
+        return apiResponse.badRequest(res, 'Mobile and offerTitle are required');
+      }
+
+      const result = await whatsAppMarketingService.sendPromotion(mobile, {
+        offerTitle,
+        offerDetails: offerDetails || '',
+        ctaLink
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error sending promotion:', error);
+      return apiResponse.serverError(res, 'Failed to send promotion');
+    }
+  });
+
+  /**
+   * Send bulk WhatsApp template messages
+   */
+  app.post('/api/admin/marketing/whatsapp/bulk', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { recipients, templateType, campaignId } = req.body;
+
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return apiResponse.badRequest(res, 'Recipients array is required');
+      }
+
+      if (!templateType) {
+        return apiResponse.badRequest(res, 'Template type is required');
+      }
+
+      const result = await whatsAppMarketingService.sendBulkTemplateMessages(
+        recipients,
+        templateType,
+        (recipient) => ({
+          customer_name: recipient.name || 'Valued Customer'
+        }),
+        campaignId
+      );
+
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error('Error sending bulk WhatsApp:', error);
+      return apiResponse.serverError(res, 'Failed to send bulk WhatsApp');
+    }
+  });
+
+  // ============================================================================
+  // CONSENT MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Process opt-out request
+   */
+  app.post('/api/admin/marketing/consent/opt-out', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { mobile } = req.body;
+
+      if (!mobile) {
+        return apiResponse.badRequest(res, 'Mobile number is required');
+      }
+
+      const result = await smsMarketingService.processOptOut(mobile);
+
+      res.json({ 
+        success: result, 
+        message: result ? 'Successfully opted out' : 'Failed to process opt-out'
+      });
+    } catch (error: any) {
+      console.error('Error processing opt-out:', error);
+      return apiResponse.serverError(res, 'Failed to process opt-out');
+    }
+  });
+
+  /**
+   * Process opt-in request
+   */
+  app.post('/api/admin/marketing/consent/opt-in', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { mobile, userId } = req.body;
+
+      if (!mobile && !userId) {
+        return apiResponse.badRequest(res, 'Mobile or userId is required');
+      }
+
+      let updateResult;
+      if (userId) {
+        updateResult = await db.update(users)
+          .set({ marketingConsent: true })
+          .where(eq(users.id, userId))
+          .returning();
+      } else {
+        const cleaned = mobile.replace(/\D/g, '');
+        updateResult = await db.update(users)
+          .set({ marketingConsent: true })
+          .where(sql`REPLACE(${users.mobile}, '+', '') LIKE ${'%' + cleaned.slice(-10)}`)
+          .returning();
+      }
+
+      res.json({ 
+        success: updateResult.length > 0, 
+        message: updateResult.length > 0 ? 'Successfully opted in' : 'User not found'
+      });
+    } catch (error: any) {
+      console.error('Error processing opt-in:', error);
+      return apiResponse.serverError(res, 'Failed to process opt-in');
+    }
+  });
+
+  /**
+   * Get eligible marketing audience
+   */
+  app.get('/api/admin/marketing/audience/eligible', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { segment, limit = 100 } = req.query;
+
+      const eligibleUsers = await db.select({
+        id: users.id,
+        fullName: users.fullName,
+        mobile: users.mobile,
+        email: users.email,
+        marketingConsent: users.marketingConsent
+      })
+      .from(users)
+      .where(and(
+        eq(users.marketingConsent, true),
+        sql`${users.mobile} IS NOT NULL`
+      ))
+      .limit(Number(limit));
+
+      res.json({ 
+        success: true, 
+        count: eligibleUsers.length,
+        users: eligibleUsers 
+      });
+    } catch (error: any) {
+      console.error('Error getting eligible audience:', error);
+      return apiResponse.serverError(res, 'Failed to get eligible audience');
+    }
+  });
+
   console.log('✅ Marketing routes registered');
+  console.log('   📱 SMS Marketing: ' + (smsMarketingService.isAvailable() ? 'Active' : 'Not configured'));
+  console.log('   💬 WhatsApp Marketing: ' + (whatsAppMarketingService.isAvailable() ? 'Active' : 'Not configured'));
 }
