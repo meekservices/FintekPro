@@ -1219,11 +1219,7 @@ function AgentRoutes() {
         {() => <AgentTrainingPage />}
       </Route>
       <Route path="/recommendation-control">
-        {() => (
-          <AgentLayout>
-            <AgentRecommendationControl />
-          </AgentLayout>
-        )}
+        {() => <AgentRecommendationControl />}
       </Route>
       <Route path="/investment-advisory">
         {() => (
@@ -1244,11 +1240,7 @@ function AgentRoutes() {
         )}
       </Route>
       <Route path="/derivatives">
-        {() => (
-          <AgentLayout>
-            <AgentDerivatives />
-          </AgentLayout>
-        )}
+        {() => <AgentDerivatives />}
       </Route>
       <Route path="/stock-ai">
         {() => (
