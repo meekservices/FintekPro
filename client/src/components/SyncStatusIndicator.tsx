@@ -64,6 +64,14 @@ export function SyncStatusIndicator({
           color: 'text-red-600 dark:text-red-400',
           bgColor: 'bg-red-100 dark:bg-red-900/30',
         };
+      default:
+        return {
+          icon: Cloud,
+          label: 'Ready',
+          description: 'Ready to sync',
+          color: 'text-gray-500 dark:text-gray-400',
+          bgColor: 'bg-gray-100 dark:bg-gray-800/30',
+        };
     }
   };
 
