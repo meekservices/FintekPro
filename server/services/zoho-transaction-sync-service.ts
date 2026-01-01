@@ -356,13 +356,26 @@ class ZohoTransactionSyncService {
   }
 
   /**
-   * Unlisted Share Deals:
-   * When FintekPro manages escrow for unlisted share transactions, we handle actual money flow.
+   * Unlisted Share Deals - Supports 4 Transaction Scenarios:
    * 
-   * - If escrowManaged = true: Create invoices/bills for the transaction value
-   * - If escrowManaged = false: Only invoice brokerage/facilitation fees
+   * SCENARIO 1: INVENTORY SALE (Primary Market - Dealer Model)
+   * - FintekPro sells from own pre-IPO stock purchased directly from company/promoters
+   * - Creates revenue invoice with Zoho inventory item linkage (auto COGS/inventory reduction)
+   * - Typical margin: 5-15% on pre-IPO shares
    * 
-   * This is one of the few products where FintekPro may handle principal amounts.
+   * SCENARIO 2: BROKERAGE (Secondary Market - Agency Model)
+   * - P2P transaction between investors, FintekPro acts as facilitator
+   * - Invoice only the brokerage/facilitation fee (typically 1-3%)
+   * - Principal exchanged directly between parties
+   * 
+   * SCENARIO 3: ESCROW MANAGED (Secondary Market with Escrow)
+   * - FintekPro holds funds in escrow during share transfer
+   * - Full transaction value flows through FintekPro temporarily
+   * - Invoice to buyer, bill to seller
+   * 
+   * SCENARIO 4: PASS-THROUGH (Compliance Tracking Only)
+   * - Direct P2P deal, no FintekPro involvement in money flow
+   * - Track for regulatory compliance only
    */
   async syncUnlistedDeal(dealId: string): Promise<TransactionSyncResult> {
     if (!this.zohoService) {
@@ -399,25 +412,94 @@ class ZohoTransactionSyncService {
       const totalValue = parseFloat(deal.totalValue?.toString() || '0');
       const brokerageFee = parseFloat(deal.brokerageFee?.toString() || '0');
       const escrowManaged = deal.escrowManaged === true;
+      const isInventorySale = deal.inventorySale === true;
+      const purchaseCost = parseFloat(deal.totalPurchaseCost?.toString() || '0');
+      const quantity = deal.quantity || 1;
+      const pricePerShare = parseFloat(deal.pricePerShare?.toString() || (totalValue / quantity).toString());
 
-      // Only create invoices if FintekPro manages escrow OR has brokerage fees
+      // Get company info for SKU
+      let companyInfo: { name: string; cin?: string | null } = { name: deal.companyName || 'Unknown Company' };
+      if (deal.companyId) {
+        const [company] = await db.select({ name: schema.unlistedCompanies.name, cin: schema.unlistedCompanies.cin })
+          .from(schema.unlistedCompanies)
+          .where(eq(schema.unlistedCompanies.id, deal.companyId))
+          .limit(1);
+        if (company) companyInfo = company;
+      }
+
+      // SCENARIO 1: Inventory Sale (Primary Market - FintekPro as Dealer)
+      if (isInventorySale && this.zohoService) {
+        const unitPurchaseCost = parseFloat(deal.purchaseCost?.toString() || '0');
+
+        // Create or get Zoho inventory item for this company's shares
+        let itemId = deal.inventoryItemId;
+        if (!itemId) {
+          const item = await this.zohoService.createItem({
+            name: `Unlisted Shares - ${companyInfo.name}`,
+            description: `Pre-IPO/Unlisted shares. CIN: ${companyInfo.cin || 'N/A'}`,
+            sku: companyInfo.cin || `UNL-${deal.companyId?.substring(0, 8) || deal.id.substring(0, 8)}`,
+            rate: pricePerShare,
+            purchase_rate: unitPurchaseCost,
+            item_type: 'inventory',
+            product_type: 'goods'
+          });
+          itemId = item.item_id;
+        }
+
+        // Create invoice with inventory item (Zoho auto-deducts inventory and posts COGS)
+        const invoice = await this.zohoService.createInvoice({
+          customer_name: deal.buyerName || 'Buyer',
+          reference_number: `UNL-INV-${deal.id.substring(0, 8).toUpperCase()}`,
+          date: new Date(deal.createdAt || new Date()).toISOString().split('T')[0],
+          line_items: [{
+            item_id: itemId,
+            name: `Unlisted Shares - ${companyInfo.name}`,
+            description: `CIN: ${companyInfo.cin || 'N/A'}, Market: Primary`,
+            rate: pricePerShare,
+            quantity: quantity
+          }],
+          notes: `Primary Market Sale | Deal ID: ${deal.id} | Unit Cost: ₹${unitPurchaseCost}`
+        });
+
+        // Calculate profit margin
+        const profitMargin = totalValue - purchaseCost;
+
+        await db.update(schema.unlistedDeals)
+          .set({ 
+            zohoInvoiceId: invoice.invoice_id,
+            inventoryItemId: itemId,
+            zohoSyncedAt: new Date(),
+            zohoSyncStatus: 'inventory_sale',
+            profitMargin: profitMargin.toFixed(2)
+          })
+          .where(eq(schema.unlistedDeals.id, dealId));
+
+        return { 
+          success: true, 
+          productType: 'unlisted', 
+          transactionId: dealId, 
+          zohoInvoiceId: invoice.invoice_id,
+          syncType: 'invoice',
+          reason: `Primary market inventory sale: Revenue ₹${totalValue.toLocaleString()}, COGS ₹${purchaseCost.toLocaleString()}, Profit ₹${profitMargin.toLocaleString()} (Zoho auto-adjusts inventory)`
+        };
+      }
+
+      // SCENARIO 2: Escrow Managed (Secondary Market with Escrow)
       if (escrowManaged && this.zohoService) {
-        // FintekPro manages escrow - create full transaction invoices/bills
         const isBuyer = deal.dealType === 'buy';
 
         if (isBuyer) {
-          // Invoice to buyer for shares purchased via FintekPro escrow
           const invoice = await this.zohoService.createInvoice({
             customer_name: deal.buyerName || 'Buyer',
             reference_number: `UNL-ESC-${deal.id.substring(0, 8).toUpperCase()}`,
             date: new Date(deal.createdAt || new Date()).toISOString().split('T')[0],
             line_items: [{
-              name: `Unlisted Shares (Escrow) - ${deal.companyName || 'Company'}`,
-              description: `Quantity: ${deal.quantity || 0}, Price: ₹${deal.pricePerShare || 0}`,
+              name: `Unlisted Shares (Escrow) - ${companyInfo.name}`,
+              description: `Quantity: ${quantity}, Price: ₹${pricePerShare}, Market: Secondary`,
               rate: totalValue,
               quantity: 1
             }],
-            notes: `Deal ID: ${deal.id}, Escrow-managed transaction`
+            notes: `Secondary Market Escrow | Deal ID: ${deal.id}`
           });
 
           await db.update(schema.unlistedDeals)
@@ -434,17 +516,16 @@ class ZohoTransactionSyncService {
             transactionId: dealId, 
             zohoInvoiceId: invoice.invoice_id,
             syncType: 'invoice',
-            reason: 'Escrow-managed deal. Full transaction invoiced.'
+            reason: 'Escrow-managed secondary market deal. Full transaction invoiced to buyer.'
           };
         } else {
-          // Bill to seller for payment via FintekPro escrow
           const bill = await this.zohoService.createBill({
             vendor_name: deal.sellerName || 'Seller',
             reference_number: `UNL-ESC-${deal.id.substring(0, 8).toUpperCase()}`,
             date: new Date(deal.createdAt || new Date()).toISOString().split('T')[0],
             line_items: [{
-              name: `Unlisted Shares Payment (Escrow) - ${deal.companyName || 'Company'}`,
-              description: `Quantity: ${deal.quantity || 0}, Price: ₹${deal.pricePerShare || 0}`,
+              name: `Unlisted Shares Payment (Escrow) - ${companyInfo.name}`,
+              description: `Quantity: ${quantity}, Price: ₹${pricePerShare}, Market: Secondary`,
               rate: totalValue,
               quantity: 1
             }]
@@ -464,22 +545,24 @@ class ZohoTransactionSyncService {
             transactionId: dealId, 
             zohoBillId: bill.bill_id,
             syncType: 'bill',
-            reason: 'Escrow-managed deal. Seller payment billed.'
+            reason: 'Escrow-managed secondary market deal. Seller payment billed.'
           };
         }
-      } else if (brokerageFee > 0 && this.zohoService) {
-        // No escrow but brokerage fee - invoice only the fee
+      }
+
+      // SCENARIO 3: Brokerage Fee Only (Secondary Market - Agency Model)
+      if (brokerageFee > 0 && this.zohoService) {
         const invoice = await this.zohoService.createInvoice({
           customer_name: deal.buyerName || deal.sellerName || 'Client',
           reference_number: `UNL-FEE-${deal.id.substring(0, 8).toUpperCase()}`,
           date: new Date(deal.createdAt || new Date()).toISOString().split('T')[0],
           line_items: [{
-            name: `Unlisted Share Brokerage Fee - ${deal.companyName || 'Company'}`,
-            description: `Deal Value: ₹${totalValue.toLocaleString()}, Qty: ${deal.quantity || 0}`,
+            name: `Unlisted Share Facilitation Fee - ${companyInfo.name}`,
+            description: `Deal Value: ₹${totalValue.toLocaleString()}, Qty: ${quantity}, Market: Secondary`,
             rate: brokerageFee,
             quantity: 1
           }],
-          notes: `Deal ID: ${deal.id}, Fee-only (principal exchanged directly between parties)`
+          notes: `Secondary Market Brokerage | Deal ID: ${deal.id} | Principal exchanged directly between parties`
         });
 
         await db.update(schema.unlistedDeals)
@@ -496,11 +579,11 @@ class ZohoTransactionSyncService {
           transactionId: dealId, 
           zohoInvoiceId: invoice.invoice_id,
           syncType: 'invoice',
-          reason: 'Brokerage fee invoiced. Principal exchanged directly between parties.'
+          reason: `Secondary market brokerage: Fee ₹${brokerageFee.toLocaleString()} invoiced. Principal exchanged directly between parties.`
         };
       }
 
-      // No escrow, no brokerage - just track for compliance
+      // SCENARIO 4: Pass-through (Compliance Tracking Only)
       await db.update(schema.unlistedDeals)
         .set({ 
           zohoSyncedAt: new Date(),
@@ -513,7 +596,7 @@ class ZohoTransactionSyncService {
         productType: 'unlisted', 
         transactionId: dealId,
         syncType: 'compliance_only',
-        reason: 'No escrow or fees. Principal exchanged directly between parties. Tracked for compliance.'
+        reason: 'No escrow, inventory, or fees. Direct P2P transaction tracked for compliance.'
       };
     } catch (error: any) {
       return { 

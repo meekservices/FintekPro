@@ -12491,6 +12491,29 @@ export const unlistedDeals = pgTable("unlisted_deals", {
   complianceChecked: boolean("compliance_checked").default(false),
   complianceNotes: text("compliance_notes"),
   
+  // Market Type & Inventory (for dealer/principal model)
+  marketType: varchar("market_type"), // 'primary' (pre-IPO from company) or 'secondary' (P2P between investors)
+  inventorySale: boolean("inventory_sale").default(false), // true = FintekPro selling from own inventory (primary market)
+  purchaseCost: decimal("purchase_cost", { precision: 20, scale: 2 }), // Original cost basis per share
+  totalPurchaseCost: decimal("total_purchase_cost", { precision: 20, scale: 2 }), // Total COGS
+  inventoryItemId: varchar("inventory_item_id"), // Zoho Inventory item reference
+  profitMargin: decimal("profit_margin", { precision: 20, scale: 2 }), // Sale price - cost
+  escrowManaged: boolean("escrow_managed").default(false), // Whether FintekPro manages escrow
+  dealType: varchar("deal_type"), // 'buy' or 'sell' perspective
+  buyerName: varchar("buyer_name"),
+  sellerName: varchar("seller_name"),
+  companyName: varchar("company_name"),
+  pricePerShare: decimal("price_per_share", { precision: 20, scale: 2 }),
+  brokerageFee: decimal("brokerage_fee", { precision: 20, scale: 2 }),
+  brokerageRate: decimal("brokerage_rate", { precision: 8, scale: 4 }),
+  
+  // Zoho Books Sync
+  zohoInvoiceId: varchar("zoho_invoice_id"),
+  zohoBillId: varchar("zoho_bill_id"),
+  zohoExpenseId: varchar("zoho_expense_id"),
+  zohoSyncedAt: timestamp("zoho_synced_at"),
+  zohoSyncStatus: varchar("zoho_sync_status", { length: 50 }),
+  
   // Metadata
   matchedAt: timestamp("matched_at").defaultNow(),
   completedAt: timestamp("completed_at"),
@@ -12505,6 +12528,8 @@ export const unlistedDeals = pgTable("unlisted_deals", {
   index("idx_unlisted_deals_company").on(table.companyId),
   index("idx_unlisted_deals_status").on(table.status),
   index("idx_unlisted_deals_matched").on(table.matchedAt),
+  index("idx_unlisted_deals_market_type").on(table.marketType),
+  index("idx_unlisted_deals_inventory").on(table.inventorySale),
 ]);
 
 // Probe42 Sync Log table
