@@ -464,20 +464,21 @@ export default function AgentDashboard() {
     );
   };
 
-  const getNotificationStatusBadge = (status: string) => {
+  const getNotificationStatusBadge = (status: string | undefined) => {
+    const safeStatus = status || 'pending';
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
       pending: { variant: "outline", icon: Clock },
       sent: { variant: "default", icon: CheckCircle },
       failed: { variant: "destructive", icon: XCircle }
     };
 
-    const config = statusConfig[status] || { variant: "outline", icon: AlertCircle };
+    const config = statusConfig[safeStatus] || { variant: "outline", icon: AlertCircle };
     const Icon = config.icon;
 
     return (
       <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon size={12} />
-        {status.toUpperCase()}
+        {safeStatus.toUpperCase()}
       </Badge>
     );
   };
@@ -1104,7 +1105,7 @@ export default function AgentDashboard() {
                                   quarter.status === "overdue" ? "bg-red-100 text-red-700" :
                                   "bg-yellow-100 text-yellow-700"
                                 }`}>
-                                  {quarter.status.toUpperCase()}
+                                  {(quarter.status || 'pending').toUpperCase()}
                                 </Badge>
                               </div>
                             </div>
