@@ -1011,6 +1011,30 @@ export const ckycStatusHistory = pgTable("ckyc_status_history", {
   changedAt: timestamp("changed_at").defaultNow(),
 });
 
+// KYC Upgrade Reminders - Track reminders sent to users with incomplete KYC
+export const kycUpgradeReminders = pgTable("kyc_upgrade_reminders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  reminderType: varchar("reminder_type").notNull(), // 'email', 'in_app', 'sms'
+  reminderSequence: integer("reminder_sequence").notNull(), // 1, 2, 3, 4... (Day 1, 3, 7, 14)
+  currentKycTier: varchar("current_kyc_tier").notNull(), // 'basic', 'enhanced'
+  targetKycTier: varchar("target_kyc_tier").notNull(), // 'enhanced', 'accredited'
+  missingSteps: text("missing_steps").array(), // ['aadhaar_verification', 'bank_verification', etc.]
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  inAppCreated: boolean("in_app_created").default(false),
+  inAppNotificationId: varchar("in_app_notification_id"),
+  smsSent: boolean("sms_sent").default(false),
+  smsSentAt: timestamp("sms_sent_at"),
+  userAcknowledged: boolean("user_acknowledged").default(false),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  scheduledFor: timestamp("scheduled_for").notNull(), // When this reminder should be sent
+  sentAt: timestamp("sent_at"), // When actually sent
+  status: varchar("status").default("pending"), // 'pending', 'sent', 'acknowledged', 'expired'
+  metadata: jsonb("metadata"), // Additional context like products blocked, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ===== FAMILY COLLABORATION TABLES =====
 
 // Family Groups - Core table for family/couple financial planning

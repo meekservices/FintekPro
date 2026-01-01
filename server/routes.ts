@@ -839,6 +839,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // KYC Upgrade Notification Status - for persistent banner and progress widget
+  app.get("/api/kyc/notification-status", async (req, res) => {
+    try {
+      // Allow unauthenticated access - return empty state
+      if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
+        return res.json({
+          hasIncompleteKyc: false,
+          currentTier: 'none',
+          percentComplete: 0,
+          missingSteps: [],
+          blockedProducts: [],
+          urgencyLevel: 'low',
+          notifications: [],
+        });
+      }
+
+      const userId = req.user.id;
+      const { kycUpgradeNotificationService } = await import("./services/kyc-upgrade-notification-service");
+      const status = await kycUpgradeNotificationService.getPendingNotifications(userId);
+      
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting KYC notification status:", error);
+      res.status(500).json({
+        hasIncompleteKyc: false,
+        currentTier: 'none',
+        percentComplete: 0,
+        missingSteps: [],
+        blockedProducts: [],
+        urgencyLevel: 'low',
+        notifications: [],
+      });
+    }
+  });
+
+  // Schedule KYC reminders for a user (called after incomplete registration)
+  app.post("/api/kyc/schedule-reminders", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { kycUpgradeNotificationService } = await import("./services/kyc-upgrade-notification-service");
+      await kycUpgradeNotificationService.scheduleReminders(userId);
+      
+      res.json({ success: true, message: "KYC reminders scheduled" });
+    } catch (error) {
+      console.error("Error scheduling KYC reminders:", error);
+      res.status(500).json({ success: false, error: "Failed to schedule reminders" });
+    }
+  });
+
+  // Acknowledge KYC reminder (when user clicks Complete KYC)
+  app.post("/api/kyc/acknowledge-reminder", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { reminderId } = req.body;
+      const { kycUpgradeNotificationService } = await import("./services/kyc-upgrade-notification-service");
+      await kycUpgradeNotificationService.acknowledgeReminder(userId, reminderId);
+      
+      res.json({ success: true, message: "Reminder acknowledged" });
+    } catch (error) {
+      console.error("Error acknowledging KYC reminder:", error);
+      res.status(500).json({ success: false, error: "Failed to acknowledge reminder" });
+    }
+  });
+
   // Net Worth Aggregation API - Intelligent multi-source wealth tracking
   app.get("/api/net-worth", requireClientOrHigher, async (req, res) => {
     try {

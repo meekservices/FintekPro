@@ -469,6 +469,20 @@ export function initializeCronJobs(): void {
     }
   });
 
+  // KYC Upgrade Reminder Job - Run every 4 hours
+  // Processes scheduled reminders for users with incomplete KYC
+  cron.schedule('0 */4 * * *', async () => {
+    console.log('[CRON] Processing KYC upgrade reminders...');
+    try {
+      const { kycUpgradeNotificationService } = await import('./services/kyc-upgrade-notification-service');
+      const stats = await kycUpgradeNotificationService.processScheduledReminders();
+      
+      console.log(`[CRON] KYC reminders: processed ${stats.processed}, sent ${stats.sent}`);
+    } catch (error: any) {
+      console.error('[CRON] KYC reminder job failed:', error.message);
+    }
+  });
+
   stockSyncScheduler.initialize();
   console.log('✓ Cron jobs initialized successfully');
 }
