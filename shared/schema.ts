@@ -22493,3 +22493,94 @@ export const ckycMockBlockedAttempts = pgTable("ckyc_mock_blocked_attempts", {
 export const insertCkycMockBlockedAttemptSchema = createInsertSchema(ckycMockBlockedAttempts).omit({ id: true, attemptedAt: true });
 export type CkycMockBlockedAttempt = typeof ckycMockBlockedAttempts.$inferSelect;
 export type InsertCkycMockBlockedAttempt = z.infer<typeof insertCkycMockBlockedAttemptSchema>;
+
+// CKYC Audit Log - Immutable event log for compliance and inspection
+export const ckycAuditLog = pgTable("ckyc_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Event Context
+  caseId: varchar("case_id").references(() => ckycDeferredCases.id),
+  userId: varchar("user_id").references(() => users.id),
+  panNumber: varchar("pan_number", { length: 10 }),
+  
+  // Event Details
+  eventType: varchar("event_type", { length: 50 }).notNull(), // case_created, status_change, admin_action, sla_breach, escalation, resolution
+  eventSubtype: varchar("event_subtype", { length: 50 }), // provider_failed, manual_kyc_initiated, vkyc_scheduled, rejected, etc.
+  
+  // State Transition
+  previousState: varchar("previous_state", { length: 50 }),
+  newState: varchar("new_state", { length: 50 }),
+  
+  // Event Data (JSON for flexibility)
+  eventData: jsonb("event_data").default({}), // Provider details, failure reasons, admin notes, etc.
+  
+  // Actor Information
+  actorId: varchar("actor_id").references(() => users.id), // Who performed the action
+  actorRole: varchar("actor_role", { length: 50 }), // system, admin, compliance_head, user
+  actorName: varchar("actor_name", { length: 255 }),
+  
+  // Immutability Protection
+  checksum: varchar("checksum", { length: 64 }), // SHA-256 hash of event data for tamper detection
+  previousLogId: varchar("previous_log_id").references((): any => ckycAuditLog.id), // Chain reference
+  
+  // Compliance Metadata
+  isComplianceEvent: boolean("is_compliance_event").default(false),
+  isEscalation: boolean("is_escalation").default(false),
+  isSLARelated: boolean("is_sla_related").default(false),
+  
+  // Timestamps
+  eventTimestamp: timestamp("event_timestamp").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ckyc_audit_case").on(table.caseId),
+  index("idx_ckyc_audit_user").on(table.userId),
+  index("idx_ckyc_audit_type").on(table.eventType),
+  index("idx_ckyc_audit_time").on(table.eventTimestamp),
+  index("idx_ckyc_audit_compliance").on(table.isComplianceEvent),
+  index("idx_ckyc_audit_pan").on(table.panNumber),
+]);
+
+export const insertCkycAuditLogSchema = createInsertSchema(ckycAuditLog).omit({ id: true, createdAt: true });
+export type CkycAuditLog = typeof ckycAuditLog.$inferSelect;
+export type InsertCkycAuditLog = z.infer<typeof insertCkycAuditLogSchema>;
+
+// CKYC Escalation History - Track all escalations for a case
+export const ckycEscalationHistory = pgTable("ckyc_escalation_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Case Reference
+  caseId: varchar("case_id").references(() => ckycDeferredCases.id).notNull(),
+  
+  // Escalation Details
+  escalationLevel: integer("escalation_level").notNull(), // 1=compliance_head, 2=management, 3=ceo
+  escalatedFrom: integer("escalated_from").default(0).notNull(), // Previous level
+  
+  // Escalation Recipients
+  escalatedToUserId: varchar("escalated_to_user_id").references(() => users.id),
+  escalatedToEmail: varchar("escalated_to_email", { length: 255 }),
+  escalatedToRole: varchar("escalated_to_role", { length: 50 }), // compliance_head, compliance_manager, management
+  
+  // Escalation Trigger
+  escalationTrigger: varchar("escalation_trigger", { length: 50 }).notNull(), // sla_breach, manual, auto_aging
+  hoursOverdue: integer("hours_overdue").default(0),
+  
+  // Notification Status
+  emailSent: boolean("email_sent").default(false),
+  emailSentAt: timestamp("email_sent_at"),
+  emailMessageId: varchar("email_message_id", { length: 255 }),
+  
+  // Acknowledgement
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+  
+  // Timestamps
+  escalatedAt: timestamp("escalated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_escalation_case").on(table.caseId),
+  index("idx_escalation_level").on(table.escalationLevel),
+  index("idx_escalation_time").on(table.escalatedAt),
+]);
+
+export const insertCkycEscalationHistorySchema = createInsertSchema(ckycEscalationHistory).omit({ id: true, escalatedAt: true });
+export type CkycEscalationHistory = typeof ckycEscalationHistory.$inferSelect;
+export type InsertCkycEscalationHistory = z.infer<typeof insertCkycEscalationHistorySchema>;

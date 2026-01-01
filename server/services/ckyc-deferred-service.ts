@@ -15,6 +15,7 @@ import { db } from "../db";
 import { ckycDeferredCases, users, type CkycDeferredCase, type InsertCkycDeferredCase } from "@shared/schema";
 import { eq, and, desc, lt, gte, sql, count, isNull } from "drizzle-orm";
 import { ckycEnvironmentService } from "./ckyc-environment-service";
+import { ckycAuditService } from "./ckyc-audit-service";
 
 export interface DeferredCaseAgingBuckets {
   lessThan24h: number;
@@ -233,6 +234,14 @@ class CkycDeferredService {
   async takeAdminAction(caseId: string, action: AdminAction): Promise<CkycDeferredCase> {
     const now = new Date();
     
+    // Get current case state for audit logging
+    const [currentCase] = await db.select()
+      .from(ckycDeferredCases)
+      .where(eq(ckycDeferredCases.id, caseId))
+      .limit(1);
+    
+    const previousStatus = currentCase?.status || 'unknown';
+    
     let newStatus = 'ckyc_deferred';
     let resolvedAt: Date | null = null;
     
@@ -259,6 +268,44 @@ class CkycDeferredService {
       })
       .where(eq(ckycDeferredCases.id, caseId))
       .returning();
+    
+    // Log to audit trail
+    await ckycAuditService.logAdminAction(
+      caseId,
+      updated.userId,
+      updated.panNumber,
+      action.action,
+      action.reason,
+      action.adminId,
+      'Admin User' // Would need to fetch admin name from users table
+    );
+    
+    // If status changed, log status change
+    if (previousStatus !== newStatus) {
+      await ckycAuditService.logStatusChange(
+        caseId,
+        updated.userId,
+        updated.panNumber,
+        previousStatus,
+        newStatus,
+        action.adminId,
+        'Admin User',
+        action.reason
+      );
+    }
+    
+    // If resolved, log resolution
+    if (newStatus === 'resolved' || newStatus === 'rejected') {
+      await ckycAuditService.logResolution(
+        caseId,
+        updated.userId,
+        updated.panNumber,
+        newStatus === 'resolved' ? 'admin_override' : 'rejected',
+        action.reason,
+        action.adminId,
+        'Admin User'
+      );
+    }
     
     console.log(`[CKYC Deferred] Admin action ${action.action} on case ${caseId} by ${action.adminId}`);
     

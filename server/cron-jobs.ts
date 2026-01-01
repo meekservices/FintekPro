@@ -4,6 +4,7 @@ import { DealMatcherService } from './services/deal-matcher';
 import { probe42Service } from './services/probe42-service';
 import { stockSyncScheduler } from './services/stock-sync-scheduler';
 import { getProbe42AnalyticsService } from './services/probe42-analytics-service';
+import { ckycSlaEscalationService } from './services/ckyc-sla-escalation-service';
 
 /**
  * Initialize scheduled cron jobs
@@ -484,5 +485,13 @@ export function initializeCronJobs(): void {
   });
 
   stockSyncScheduler.initialize();
+
+  // Initialize CKYC SLA Escalation Service - Runs hourly
+  try {
+    ckycSlaEscalationService.initialize();
+  } catch (error: any) {
+    console.error('[CRON] Failed to initialize CKYC SLA Escalation Service:', error.message);
+  }
+  
   console.log('✓ Cron jobs initialized successfully');
 }

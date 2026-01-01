@@ -12,6 +12,8 @@
 import { Router } from "express";
 import { ckycDeferredService } from "../../services/ckyc-deferred-service";
 import { ckycEnvironmentService } from "../../services/ckyc-environment-service";
+import { ckycAuditService } from "../../services/ckyc-audit-service";
+import { ckycSlaEscalationService } from "../../services/ckyc-sla-escalation-service";
 import { z } from "zod";
 
 const router = Router();
@@ -122,13 +124,14 @@ router.post('/cases/:caseId/action', async (req, res) => {
 
 router.post('/check-sla-breaches', async (req, res) => {
   try {
-    const breachedCount = await ckycDeferredService.checkAndEscalateSLABreaches();
+    // Use the new SLA escalation service for comprehensive breach detection
+    const { breachedCount, escalatedCount } = await ckycSlaEscalationService.triggerManualCheck();
     
     res.json({
       success: true,
-      data: { breachedCount },
+      data: { breachedCount, escalatedCount },
       message: breachedCount > 0 
-        ? `${breachedCount} case(s) escalated for SLA breach`
+        ? `${breachedCount} breach(es) found, ${escalatedCount} case(s) escalated`
         : 'No SLA breaches found',
     });
   } catch (error) {
@@ -152,6 +155,102 @@ router.get('/environment-compliance', async (req, res) => {
   } catch (error) {
     console.error('[CKYC Deferred Admin] Failed to get compliance status:', error);
     res.status(500).json({ success: false, error: 'Failed to get compliance status' });
+  }
+});
+
+// === AUDIT LOG ENDPOINTS ===
+
+router.get('/cases/:caseId/audit-log', async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const logs = await ckycAuditService.getAuditLogsByCase(caseId);
+    
+    res.json({
+      success: true,
+      data: {
+        caseId,
+        totalEvents: logs.length,
+        logs,
+      },
+    });
+  } catch (error) {
+    console.error('[CKYC Deferred Admin] Failed to get audit log:', error);
+    res.status(500).json({ success: false, error: 'Failed to get audit log' });
+  }
+});
+
+router.get('/cases/:caseId/journey', async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const journey = await ckycAuditService.reconstructJourney(caseId);
+    
+    if (!journey) {
+      return res.status(404).json({ success: false, error: 'Case not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: journey,
+    });
+  } catch (error) {
+    console.error('[CKYC Deferred Admin] Failed to reconstruct journey:', error);
+    res.status(500).json({ success: false, error: 'Failed to reconstruct CKYC journey' });
+  }
+});
+
+router.get('/cases/:caseId/export', async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const format = (req.query.format as 'json' | 'csv') || 'json';
+    
+    const exported = await ckycAuditService.exportAuditTrail(caseId, format);
+    
+    const contentType = format === 'csv' ? 'text/csv' : 'application/json';
+    const filename = `ckyc-audit-${caseId.slice(0, 8)}-${Date.now()}.${format}`;
+    
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(exported);
+  } catch (error) {
+    console.error('[CKYC Deferred Admin] Failed to export audit trail:', error);
+    res.status(500).json({ success: false, error: 'Failed to export audit trail' });
+  }
+});
+
+router.get('/cases/:caseId/verify-integrity', async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const integrity = await ckycAuditService.verifyChainIntegrity(caseId);
+    
+    res.json({
+      success: true,
+      data: integrity,
+    });
+  } catch (error) {
+    console.error('[CKYC Deferred Admin] Failed to verify integrity:', error);
+    res.status(500).json({ success: false, error: 'Failed to verify audit chain integrity' });
+  }
+});
+
+router.get('/compliance-events', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const start = startDate ? new Date(startDate as string) : undefined;
+    const end = endDate ? new Date(endDate as string) : undefined;
+    
+    const events = await ckycAuditService.getComplianceEvents(start, end);
+    
+    res.json({
+      success: true,
+      data: {
+        totalEvents: events.length,
+        events,
+      },
+    });
+  } catch (error) {
+    console.error('[CKYC Deferred Admin] Failed to get compliance events:', error);
+    res.status(500).json({ success: false, error: 'Failed to get compliance events' });
   }
 });
 
