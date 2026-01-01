@@ -545,11 +545,7 @@ function AdminRoutes() {
         )}
       </Route>
       <Route path="/admin/replit-suggestions">
-        {() => (
-          <AdminLayout>
-            <ReplitSuggestions />
-          </AdminLayout>
-        )}
+        {() => <ReplitSuggestions />}
       </Route>
       <Route path="/admin/zoho-dashboard">
         {() => (
@@ -658,18 +654,10 @@ function AdminRoutes() {
         )}
       </Route>
       <Route path="/admin/appointments">
-        {() => (
-          <AdminLayout>
-            <AdminAppointmentsDashboard />
-          </AdminLayout>
-        )}
+        {() => <AdminAppointmentsDashboard />}
       </Route>
       <Route path="/admin/agent-oversight">
-        {() => (
-          <AdminLayout>
-            <AdminAgentOversightPage />
-          </AdminLayout>
-        )}
+        {() => <AdminAgentOversightPage />}
       </Route>
       <Route path="/admin/ai-insights">
         {() => (
@@ -1031,11 +1019,7 @@ function AdminRoutes() {
         )}
       </Route>
       <Route path="/admin/api-usage">
-        {() => (
-          <AdminLayout>
-            <AdminApiUsage />
-          </AdminLayout>
-        )}
+        {() => <AdminApiUsage />}
       </Route>
       <Route path="/admin/ai-recommendation-tracking">
         {() => (
