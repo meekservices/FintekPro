@@ -14,6 +14,7 @@ import { registerBankingRoutes } from './routes/banking';
 import { registerLoanRoutes, registerLoanProcessingRoutes, registerLoanComparisonRoutes } from './routes/loans';
 import { registerPreIPORoutes } from './routes/pre-ipo';
 import { registerCartRoutes } from './routes/cart';
+import { registerDLMRoutes } from './routes/dlm-routes';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 
@@ -26606,5 +26607,9 @@ Provide analysis in JSON format with these sections:
   registerPreIPORoutes(app);
   registerCartRoutes(app);
   registerPartnerPortalRoutes(app);
+  
+  // Document Lifecycle Management (DLM) System
+  registerDLMRoutes(app);
+  
   return server;
 }
