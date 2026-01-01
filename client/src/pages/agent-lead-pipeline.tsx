@@ -153,9 +153,9 @@ export default function AgentLeadPipeline() {
   const displayStats = stats || defaultStats;
 
   const filteredLeads = displayLeads.filter(lead =>
-    lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.phone.includes(searchQuery)
+    (lead.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (lead.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (lead.phone || '').includes(searchQuery)
   );
 
   const getLeadsByStage = (stage: string) => 

@@ -806,7 +806,7 @@ export default function AgentDashboard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {clientsByStatus.map((item, idx) => (
-                        <div key={idx} className="space-y-2" data-testid={`distribution-${item.status.toLowerCase().replace(' ', '-')}`}>
+                        <div key={idx} className="space-y-2" data-testid={`distribution-${(item.status || 'unknown').toLowerCase().replace(' ', '-')}`}>
                           <div className="flex items-center justify-between text-sm">
                             <span className="flex items-center gap-2">
                               <div className={`w-3 h-3 rounded-full ${item.color}`} />
@@ -1651,7 +1651,7 @@ export default function AgentDashboard() {
                             {getNotificationStatusBadge(trigger.status)}
                           </div>
                           <div className="text-sm text-gray-600">
-                            <div>Type: {trigger.triggerType.replace("_", " ")}</div>
+                            <div>Type: {(trigger.triggerType || 'notification').replace("_", " ")}</div>
                             <div>Method: {trigger.notificationMethod}</div>
                             <div>Recipient: {trigger.recipientEmail || trigger.recipientMobile}</div>
                             <div>Created: {new Date(trigger.createdAt).toLocaleString()}</div>

@@ -266,7 +266,7 @@ export default function AgentClientProfile() {
             <div className="flex flex-col md:flex-row gap-6">
               <Avatar className="h-24 w-24 border-2 border-emerald-500">
                 <AvatarFallback className="bg-emerald-500/20 text-emerald-400 text-2xl">
-                  {client.name.split(' ').map(n => n[0]).join('')}
+                  {(client.name || 'U').split(' ').map(n => n[0] || '').join('')}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
@@ -275,7 +275,7 @@ export default function AgentClientProfile() {
                     <h1 className="text-2xl font-bold text-white flex items-center gap-2" data-testid="text-client-name">
                       {client.name}
                       <Badge className={getRiskColor(client.riskProfile)}>
-                        {client.riskProfile.charAt(0).toUpperCase() + client.riskProfile.slice(1)}
+                        {(client.riskProfile || 'moderate').charAt(0).toUpperCase() + (client.riskProfile || 'moderate').slice(1)}
                       </Badge>
                     </h1>
                     <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-400">
@@ -325,7 +325,7 @@ export default function AgentClientProfile() {
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-4">
               <p className="text-slate-400 text-sm">Invested Since</p>
-              <p className="text-xl font-bold text-white">{formatDate(client.investedSince).split(' ')[1]} {formatDate(client.investedSince).split(' ')[2]}</p>
+              <p className="text-xl font-bold text-white">{(formatDate(client.investedSince) || 'N/A').split(' ')[1] || ''} {(formatDate(client.investedSince) || 'N/A').split(' ')[2] || ''}</p>
               <p className="text-sm text-slate-400">{Math.floor((Date.now() - new Date(client.investedSince).getTime()) / (365 * 24 * 60 * 60 * 1000))} years</p>
             </CardContent>
           </Card>
@@ -336,7 +336,7 @@ export default function AgentClientProfile() {
                 {client.kycStatus === 'verified' && <CheckCircle className="h-3 w-3 mr-1" />}
                 {client.kycStatus === 'pending' && <Clock className="h-3 w-3 mr-1" />}
                 {client.kycStatus === 'expired' && <XCircle className="h-3 w-3 mr-1" />}
-                {client.kycStatus.charAt(0).toUpperCase() + client.kycStatus.slice(1)}
+                {(client.kycStatus || 'pending').charAt(0).toUpperCase() + (client.kycStatus || 'pending').slice(1)}
               </Badge>
               <p className="text-sm text-slate-400 mt-1">Expires: {formatDate(client.kycExpiry)}</p>
             </CardContent>

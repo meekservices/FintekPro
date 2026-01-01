@@ -334,7 +334,7 @@ export default function AgentReportsHub() {
                           <Icon className="h-6 w-6" />
                         </div>
                         <Badge className={getCategoryColor(template.category)}>
-                          {template.category.charAt(0).toUpperCase() + template.category.slice(1)}
+                          {(template.category || 'report').charAt(0).toUpperCase() + (template.category || 'report').slice(1)}
                         </Badge>
                       </div>
                       <CardTitle className="text-white text-lg mt-3">{template.name}</CardTitle>
@@ -344,7 +344,7 @@ export default function AgentReportsHub() {
                       <div className="flex flex-wrap gap-1 mb-4">
                         {template.fields.map((field) => (
                           <Badge key={field} variant="outline" className="text-xs border-slate-600 text-slate-400">
-                            {field.replace('_', ' ')}
+                            {(field || '').replace('_', ' ')}
                           </Badge>
                         ))}
                       </div>
@@ -511,7 +511,7 @@ export default function AgentReportsHub() {
                   <div className="flex flex-wrap gap-2">
                     {selectedTemplate.fields.map((field) => (
                       <Badge key={field} className="bg-emerald-500/20 text-emerald-400">
-                        {field.replace('_', ' ')}
+                        {(field || '').replace('_', ' ')}
                       </Badge>
                     ))}
                   </div>

@@ -779,7 +779,7 @@ export default function AgentStockAI() {
                                     {derivative.action}
                                   </Badge>
                                   <Badge variant="outline" className="text-purple-400 border-purple-500/30">
-                                    {derivative.instrumentType.replace('_', ' ')}
+                                    {(derivative.instrumentType || 'option').replace('_', ' ')}
                                   </Badge>
                                 </div>
                                 <p className="text-slate-400 text-sm">

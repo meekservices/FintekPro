@@ -969,7 +969,7 @@ export default function AgentInvestmentAdvisory() {
                       <AlertTitle className="flex items-center gap-2">
                         {alert.title}
                         <Badge variant="outline" className="text-xs">
-                          {alert.alertType.replace('_', ' ')}
+                          {(alert.alertType || 'alert').replace('_', ' ')}
                         </Badge>
                       </AlertTitle>
                       <AlertDescription className="mt-1">

@@ -1000,7 +1000,7 @@ export default function AgentDemoProposalBuilder() {
                         }`}>
                           <div className="flex items-center gap-3 mb-2">
                             <Scale className="h-6 w-6" />
-                            <h3 className="font-semibold text-lg capitalize">{config.riskProfile.category.replace('_', ' ')} Investor</h3>
+                            <h3 className="font-semibold text-lg capitalize">{(config.riskProfile?.category || 'moderate').replace('_', ' ')} Investor</h3>
                           </div>
                           <p className="text-gray-600 dark:text-gray-400">{config.riskProfile.tolerance}</p>
                           <Badge className="mt-2">Score: {config.riskProfile.score}/100</Badge>
@@ -1191,7 +1191,7 @@ export default function AgentDemoProposalBuilder() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Investment Goal:</span>
-                            <span className="font-medium capitalize">{config.investmentGoals.primaryGoal.replace('_', ' ')}</span>
+                            <span className="font-medium capitalize">{(config.investmentGoals?.primaryGoal || 'growth').replace('_', ' ')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Target Corpus:</span>
@@ -1203,7 +1203,7 @@ export default function AgentDemoProposalBuilder() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Risk Profile:</span>
-                            <span className="font-medium capitalize">{config.riskProfile.category.replace('_', ' ')}</span>
+                            <span className="font-medium capitalize">{(config.riskProfile?.category || 'moderate').replace('_', ' ')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Sections:</span>
@@ -1491,8 +1491,8 @@ export default function AgentDemoProposalBuilder() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={PROPOSAL_STATUS_COLORS[proposal.status]}>
-                              {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
+                            <Badge className={PROPOSAL_STATUS_COLORS[proposal.status || 'draft']}>
+                              {(proposal.status || 'draft').charAt(0).toUpperCase() + (proposal.status || 'draft').slice(1)}
                             </Badge>
                           </TableCell>
                           <TableCell>
