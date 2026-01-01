@@ -221,6 +221,7 @@ import BondCommissionSettings from "@/pages/admin/bond-commission-settings";
 import CommissionMaster from "@/pages/admin/commission-master";
 import AdminLoanManagement from "@/pages/admin-loan-management";
 import AdminDLM from "@/pages/admin-dlm";
+import AdminDLMNegotiate from "@/pages/admin-dlm-negotiate";
 import AdminStoreManager from "@/pages/admin/store-manager";
 import BrowseUnlisted from "@/pages/unlisted/BrowseUnlisted";
 import CompanyDetails from "@/pages/unlisted/CompanyDetails";
@@ -877,6 +878,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AdminDLM />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/dlm/negotiate/:documentId">
+        {() => (
+          <AdminLayout>
+            <AdminDLMNegotiate />
           </AdminLayout>
         )}
       </Route>

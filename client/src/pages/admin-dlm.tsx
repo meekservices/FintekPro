@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,8 @@ import {
   Shield,
   History,
   BarChart3,
-  RefreshCw
+  RefreshCw,
+  GitCompare
 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -123,7 +125,10 @@ export default function AdminDLMPage() {
   // Create document mutation
   const createDocumentMutation = useMutation({
     mutationFn: async (data: CreateDocumentFormData) => {
-      return apiRequest("POST", "/api/dlm/documents", data);
+      return apiRequest("/api/dlm/documents", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       toast({ title: "Document created successfully" });
@@ -140,7 +145,10 @@ export default function AdminDLMPage() {
   // Transition document mutation
   const transitionMutation = useMutation({
     mutationFn: async ({ documentId, action, reason }: { documentId: string; action: string; reason?: string }) => {
-      return apiRequest("POST", `/api/dlm/documents/${documentId}/transition`, { action, reason });
+      return apiRequest(`/api/dlm/documents/${documentId}/transition`, {
+        method: "POST",
+        body: JSON.stringify({ action, reason }),
+      });
     },
     onSuccess: () => {
       toast({ title: "Document status updated" });
@@ -578,6 +586,16 @@ export default function AdminDLMPage() {
                                   Risk: {doc.riskScore}
                                 </Badge>
                               )}
+                              <Link href={`/admin/dlm/negotiate/${doc.id}`}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid={`button-negotiate-${doc.id}`}
+                                >
+                                  <GitCompare className="w-4 h-4 mr-1" />
+                                  Negotiate
+                                </Button>
+                              </Link>
                               <Button
                                 variant="ghost"
                                 size="sm"
