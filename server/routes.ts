@@ -24453,12 +24453,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const id of ids) {
         try {
-          await storage.reviewManualKycSubmission(id, req.user.id, 'approved', notes || 'Batch approved', null);
-          results.success.push(id);
+          const updated = await storage.reviewManualKycSubmission(id, req.user.id, 'approved', notes || 'Batch approved', null);
+          if (updated) {
+            results.success.push(id);
+          } else {
+            results.failed.push(id);
+          }
         } catch (err) {
           results.failed.push(id);
         }
       }
+
+      const logStatus = results.failed.length === 0 ? 'success' : 
+                        results.success.length === 0 ? 'failure' : 'partial_success';
 
       complianceMonitor.logEvent({
         userId: req.user.id,
@@ -24466,17 +24473,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: 'kyc_compliance',
         action: 'Batch KYC Approval',
         resource: '/api/admin/kyc/batch-approve',
-        status: 'success',
+        status: logStatus,
         metadata: {
           approvedCount: results.success.length,
           failedCount: results.failed.length,
-          ids
+          successIds: results.success,
+          failedIds: results.failed
         }
       });
 
-      res.json({
-        success: true,
-        message: `Batch approved ${results.success.length} submissions`,
+      const allFailed = results.success.length === 0;
+      res.status(allFailed ? 400 : 200).json({
+        success: !allFailed,
+        message: allFailed 
+          ? 'All submissions failed to approve' 
+          : `Batch approved ${results.success.length} submissions${results.failed.length > 0 ? `, ${results.failed.length} failed` : ''}`,
         results
       });
     } catch (error) {
@@ -24502,12 +24513,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const id of ids) {
         try {
-          await storage.reviewManualKycSubmission(id, req.user.id, 'rejected', null, reason);
-          results.success.push(id);
+          const updated = await storage.reviewManualKycSubmission(id, req.user.id, 'rejected', null, reason);
+          if (updated) {
+            results.success.push(id);
+          } else {
+            results.failed.push(id);
+          }
         } catch (err) {
           results.failed.push(id);
         }
       }
+
+      const logStatus = results.failed.length === 0 ? 'success' : 
+                        results.success.length === 0 ? 'failure' : 'partial_success';
 
       complianceMonitor.logEvent({
         userId: req.user.id,
@@ -24515,18 +24533,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: 'kyc_compliance',
         action: 'Batch KYC Rejection',
         resource: '/api/admin/kyc/batch-reject',
-        status: 'success',
+        status: logStatus,
         metadata: {
           rejectedCount: results.success.length,
           failedCount: results.failed.length,
           reason,
-          ids
+          successIds: results.success,
+          failedIds: results.failed
         }
       });
 
-      res.json({
-        success: true,
-        message: `Batch rejected ${results.success.length} submissions`,
+      const allFailed = results.success.length === 0;
+      res.status(allFailed ? 400 : 200).json({
+        success: !allFailed,
+        message: allFailed 
+          ? 'All submissions failed to reject' 
+          : `Batch rejected ${results.success.length} submissions${results.failed.length > 0 ? `, ${results.failed.length} failed` : ''}`,
         results
       });
     } catch (error) {
