@@ -362,4 +362,124 @@ router.post('/seed', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/admin/ckyc/verify
+ * Test CKYC verification using the adapter system
+ */
+router.post('/verify', async (req: Request, res: Response) => {
+  try {
+    const { 
+      userId, 
+      panNumber, 
+      fullName, 
+      dateOfBirth, 
+      aadhaarNumber, 
+      mobileNumber, 
+      emailAddress,
+      riskCategory,
+      hasAadhaarConsent,
+      hasCkycReference,
+      canDoVideoKyc 
+    } = req.body;
+    
+    if (!panNumber || !fullName || !dateOfBirth) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: panNumber, fullName, dateOfBirth',
+      });
+    }
+    
+    const result = await ckycProviderResolutionService.verifyCkyc({
+      userId: userId || (req as any).user?.id || 'test-user',
+      panNumber,
+      fullName,
+      dateOfBirth,
+      aadhaarNumber,
+      mobileNumber,
+      emailAddress,
+      riskCategory,
+      hasAadhaarConsent,
+      hasCkycReference,
+      canDoVideoKyc,
+    });
+    
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[CKYC Provider Routes] Error verifying CKYC:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to verify CKYC',
+    });
+  }
+});
+
+/**
+ * POST /api/admin/ckyc/health-check-all
+ * Run health checks on all providers
+ */
+router.post('/health-check-all', async (req: Request, res: Response) => {
+  try {
+    const results = await ckycProviderResolutionService.runHealthChecks();
+    
+    res.json({
+      success: true,
+      data: results,
+      meta: {
+        checkedAt: new Date().toISOString(),
+        totalProviders: results.length,
+        healthyProviders: results.filter(r => r.healthy).length,
+      },
+    });
+  } catch (error) {
+    console.error('[CKYC Provider Routes] Error running health checks:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to run health checks',
+    });
+  }
+});
+
+/**
+ * GET /api/admin/ckyc/config
+ * Get CKYC provider configuration status and feature flags
+ */
+router.get('/config', async (req: Request, res: Response) => {
+  try {
+    const mode = process.env.CKYC_PROVIDER_MODE || 'CONFIG';
+    const providers = await ckycProviderResolutionService.getAllProviders();
+    const enabledProviders = await ckycProviderResolutionService.getEnabledProviders();
+    
+    res.json({
+      success: true,
+      data: {
+        mode,
+        environment: process.env.NODE_ENV || 'development',
+        featureFlags: {
+          CKYC_PROVIDER_MODE: mode,
+          CKYC_ALLOW_FALLBACK: process.env.CKYC_ALLOW_FALLBACK !== 'false',
+          CKYC_MAX_RETRIES: parseInt(process.env.CKYC_MAX_RETRIES || '3'),
+        },
+        providers: {
+          total: providers.length,
+          enabled: enabledProviders.length,
+          configured: {
+            truthscreen: !!(process.env.TRUTHSCREEN_USERNAME && process.env.TRUTHSCREEN_PASSWORD),
+            cersai: !!process.env.CERSAI_API_KEY,
+            vkyc: !!process.env.VKYC_API_KEY,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error('[CKYC Provider Routes] Error fetching config:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch CKYC configuration',
+    });
+  }
+});
+
 export default router;

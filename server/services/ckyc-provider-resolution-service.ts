@@ -552,6 +552,177 @@ export class CkycProviderResolutionService {
       })
       .where(eq(ckycVerificationRequests.id, requestId));
   }
+
+  /**
+   * Perform CKYC verification using resolved provider with fallback chain
+   */
+  async verifyCkyc(
+    context: ClientEligibilityContext & {
+      fullName: string;
+      dateOfBirth: string;
+      aadhaarNumber?: string;
+      mobileNumber?: string;
+      emailAddress?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    found: boolean;
+    provider: string;
+    kin?: string;
+    status?: string;
+    data?: unknown;
+    responseTimeMs: number;
+    message: string;
+    fallbackAttempts: Array<{ provider: string; timestamp: string; reason: string }>;
+  }> {
+    const { getAdapter } = await import('./ckyc-provider-adapter');
+    
+    const resolution = await this.resolveCkycProvider(context);
+    const fallbackAttempts: Array<{ provider: string; timestamp: string; reason: string }> = [];
+    
+    const requestId = await this.recordVerificationRequest(
+      context.userId,
+      context.panNumber,
+      resolution.selectedProvider,
+      resolution.selectionReason,
+      fallbackAttempts
+    );
+    
+    for (const providerCode of resolution.fallbackChain) {
+      try {
+        const adapter = await getAdapter(providerCode);
+        
+        const result = await adapter.verify({
+          panNumber: context.panNumber,
+          fullName: context.fullName,
+          dateOfBirth: context.dateOfBirth,
+          aadhaarNumber: context.aadhaarNumber,
+          mobileNumber: context.mobileNumber,
+          emailAddress: context.emailAddress,
+          userId: context.userId,
+        });
+        
+        if (result.success && result.found) {
+          await this.updateVerificationRequestResponse(
+            requestId,
+            'success',
+            'CKYC_FOUND',
+            result.message,
+            { found: true, kin: result.kin, status: result.status },
+            result.responseTimeMs
+          );
+          
+          await this.updateProviderHealth(providerCode, 'healthy');
+          
+          return {
+            success: true,
+            found: true,
+            provider: providerCode,
+            kin: result.kin,
+            status: result.status,
+            data: result.data,
+            responseTimeMs: result.responseTimeMs,
+            message: result.message,
+            fallbackAttempts,
+          };
+        }
+        
+        if (!result.success) {
+          fallbackAttempts.push({
+            provider: providerCode,
+            timestamp: new Date().toISOString(),
+            reason: result.message,
+          });
+          
+          await this.updateProviderHealth(providerCode, 'degraded');
+          continue;
+        }
+        
+        if (result.status === 'not_found') {
+          await this.updateVerificationRequestResponse(
+            requestId,
+            'success',
+            'CKYC_NOT_FOUND',
+            result.message,
+            { found: false },
+            result.responseTimeMs
+          );
+          
+          return {
+            success: true,
+            found: false,
+            provider: providerCode,
+            responseTimeMs: result.responseTimeMs,
+            message: result.message,
+            fallbackAttempts,
+          };
+        }
+        
+      } catch (error: any) {
+        console.error(`[CKYC Provider] Error with ${providerCode}:`, error.message);
+        
+        fallbackAttempts.push({
+          provider: providerCode,
+          timestamp: new Date().toISOString(),
+          reason: error.message,
+        });
+        
+        await this.updateProviderHealth(providerCode, 'unhealthy');
+      }
+    }
+    
+    await this.updateVerificationRequestResponse(
+      requestId,
+      'failed',
+      'ALL_PROVIDERS_FAILED',
+      'All CKYC providers failed',
+      { found: false },
+      0
+    );
+    
+    return {
+      success: false,
+      found: false,
+      provider: 'none',
+      responseTimeMs: 0,
+      message: 'All CKYC providers failed',
+      fallbackAttempts,
+    };
+  }
+
+  /**
+   * Run health checks on all providers
+   */
+  async runHealthChecks(): Promise<Array<{ provider: string; healthy: boolean; latencyMs?: number }>> {
+    const { getAdapter } = await import('./ckyc-provider-adapter');
+    const providers = await this.getAllProviders();
+    const results: Array<{ provider: string; healthy: boolean; latencyMs?: number }> = [];
+    
+    for (const provider of providers) {
+      try {
+        const adapter = await getAdapter(provider.providerCode);
+        const health = await adapter.checkHealth();
+        
+        await this.updateProviderHealth(
+          provider.providerCode as CkycProviderCode,
+          health.healthy ? 'healthy' : 'unhealthy'
+        );
+        
+        results.push({
+          provider: provider.providerCode,
+          healthy: health.healthy,
+          latencyMs: health.latencyMs,
+        });
+      } catch (error: any) {
+        results.push({
+          provider: provider.providerCode,
+          healthy: false,
+        });
+      }
+    }
+    
+    return results;
+  }
 }
 
 // Export singleton instance
