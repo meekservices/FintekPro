@@ -13,6 +13,7 @@ import {
 } from "@shared/schema";
 import { eq, and, desc, gte, lte, inArray, isNotNull, or, ilike } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
+import { aiService, getComplexAnalysisModel, isGpt52Available } from "./ai-service";
 import { 
   InvestmentProduct, 
   UnifiedProductType, 
@@ -617,7 +618,8 @@ class AIInvestmentOrchestratorService {
   }
 
   private async enrichWithAIRationales(basket: RecommendationBasket, clientProfile: ClientProfile): Promise<void> {
-    if (!this.genAI) return;
+    // Allow AI rationales if either GPT-5.2 or Gemini is available
+    if (!this.genAI && !isGpt52Available()) return;
     
     const itemsNeedingRationale = basket.products.filter(item => {
       const cacheKey = this.getRationaleCacheKey(item.product, clientProfile);
@@ -648,7 +650,9 @@ class AIInvestmentOrchestratorService {
   }
 
   private async generateAIRationale(item: BasketItem, clientProfile: ClientProfile): Promise<void> {
-    if (!this.genAI) return;
+    // Use GPT-5.2 Thinking for complex financial analysis if available, otherwise Gemini
+    const useGpt52 = isGpt52Available();
+    if (!this.genAI && !useGpt52) return;
     
     try {
       const prompt = `Generate a brief investment rationale for:
@@ -666,12 +670,26 @@ Provide:
 
 Format response as JSON: {"rationale": "...", "pros": ["...", "...", "..."], "cons": ["...", "...", "..."]}`;
 
-      const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.0-flash-001',
-        contents: prompt,
-      });
+      let text = '';
       
-      const text = response.text || '';
+      if (useGpt52) {
+        // Use GPT-5.2 Thinking for enhanced reasoning on complex financial analysis
+        const { provider, model } = getComplexAnalysisModel();
+        const response = await aiService.chat(
+          [{ role: 'user', content: prompt }],
+          { provider, model, maxTokens: 1024, reasoningEffort: 'high' }
+        );
+        text = response.content;
+        console.log(`📊 Investment rationale generated using ${model}`);
+      } else if (this.genAI) {
+        // Fallback to Gemini
+        const response = await this.genAI.models.generateContent({
+          model: 'gemini-2.0-flash-001',
+          contents: prompt,
+        });
+        text = response.text || '';
+      }
+      
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
