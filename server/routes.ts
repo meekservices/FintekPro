@@ -24440,6 +24440,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch KYC approval endpoint
+  app.post('/api/admin/kyc/batch-approve', requireAdmin, async (req: any, res) => {
+    try {
+      const { ids, notes } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: 'No submission IDs provided' });
+      }
+
+      const results = { success: [] as string[], failed: [] as string[] };
+
+      for (const id of ids) {
+        try {
+          await storage.reviewManualKycSubmission(id, req.user.id, 'approved', notes || 'Batch approved', null);
+          results.success.push(id);
+        } catch (err) {
+          results.failed.push(id);
+        }
+      }
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'batch_kyc_approval',
+        category: 'kyc_compliance',
+        action: 'Batch KYC Approval',
+        resource: '/api/admin/kyc/batch-approve',
+        status: 'success',
+        metadata: {
+          approvedCount: results.success.length,
+          failedCount: results.failed.length,
+          ids
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Batch approved ${results.success.length} submissions`,
+        results
+      });
+    } catch (error) {
+      console.error('Error batch approving KYC:', error);
+      res.status(500).json({ message: 'Failed to batch approve' });
+    }
+  });
+
+  // Batch KYC rejection endpoint
+  app.post('/api/admin/kyc/batch-reject', requireAdmin, async (req: any, res) => {
+    try {
+      const { ids, reason } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: 'No submission IDs provided' });
+      }
+
+      if (!reason) {
+        return res.status(400).json({ message: 'Rejection reason is required' });
+      }
+
+      const results = { success: [] as string[], failed: [] as string[] };
+
+      for (const id of ids) {
+        try {
+          await storage.reviewManualKycSubmission(id, req.user.id, 'rejected', null, reason);
+          results.success.push(id);
+        } catch (err) {
+          results.failed.push(id);
+        }
+      }
+
+      complianceMonitor.logEvent({
+        userId: req.user.id,
+        eventType: 'batch_kyc_rejection',
+        category: 'kyc_compliance',
+        action: 'Batch KYC Rejection',
+        resource: '/api/admin/kyc/batch-reject',
+        status: 'success',
+        metadata: {
+          rejectedCount: results.success.length,
+          failedCount: results.failed.length,
+          reason,
+          ids
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Batch rejected ${results.success.length} submissions`,
+        results
+      });
+    } catch (error) {
+      console.error('Error batch rejecting KYC:', error);
+      res.status(500).json({ message: 'Failed to batch reject' });
+    }
+  });
+
+  // Batch export KYC data
+  app.post('/api/admin/kyc/batch-export', requireAdmin, async (req: any, res) => {
+    try {
+      const { ids, format = 'json' } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: 'No submission IDs provided' });
+      }
+
+      const submissions = await storage.getManualKycSubmissions({ status: 'all', limit: 1000 });
+      const selectedSubmissions = submissions.filter((s: any) => ids.includes(s.id));
+
+      if (format === 'csv') {
+        const headers = ['ID', 'User', 'Email', 'Type', 'Tier', 'Status', 'Submitted At'];
+        const rows = selectedSubmissions.map((s: any) => [
+          s.id,
+          s.userName || 'N/A',
+          s.userEmail || 'N/A',
+          s.applicantType || 'N/A',
+          s.tier || 'N/A',
+          s.status || 'N/A',
+          s.createdAt || 'N/A'
+        ]);
+        const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=kyc_export.csv');
+        return res.send(csv);
+      }
+
+      res.json({
+        success: true,
+        data: selectedSubmissions,
+        count: selectedSubmissions.length
+      });
+    } catch (error) {
+      console.error('Error batch exporting KYC:', error);
+      res.status(500).json({ message: 'Failed to export' });
+    }
+  });
+
 
   // ===================================================================
   // PUBLIC STORE ROUTES (Client-facing - No Auth Required)
