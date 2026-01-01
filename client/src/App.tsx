@@ -465,9 +465,11 @@ function AdminRoutes() {
     <Switch>
       {/* Public auth routes - no AdminLayout wrapper */}
       <Route path="/auth" component={AuthPage} />
+      <Route path="/admin/auth" component={AuthPage} />
       
       {/* Protected admin routes - wrapped in AdminLayout */}
       <Route path="/" component={AdminRoot} />
+      <Route path="/admin" component={AdminRoot} />
       
       <Route path="/admin/dashboard">
         {() => (
@@ -1006,7 +1008,15 @@ function PartnerRoutes() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
+      <Route path="/partner/auth" component={AuthPage} />
       <Route path="/">
+        {() => (
+          <PartnerLayout>
+            <DistributionPartnerPortal />
+          </PartnerLayout>
+        )}
+      </Route>
+      <Route path="/partner">
         {() => (
           <PartnerLayout>
             <DistributionPartnerPortal />
@@ -1063,7 +1073,15 @@ function AgentRoutes() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
+      <Route path="/agent/auth" component={AuthPage} />
       <Route path="/">
+        {() => (
+          <AgentLayout>
+            <FieldAgentPortal />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent">
         {() => (
           <AgentLayout>
             <FieldAgentPortal />

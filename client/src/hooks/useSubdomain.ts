@@ -22,10 +22,16 @@ export function useSubdomain() {
       }
     }
     
-    // Also check for /admin routes in the pathname for Replit dev environment
+    // Check for path-based portal detection for Replit environments (both dev and production)
     const pathname = window.location.pathname;
-    if ((hostname.includes('replit.dev') || hostname.includes('replit.app')) && pathname.startsWith('/admin')) {
-      return 'admin';
+    if (hostname.includes('replit.dev') || hostname.includes('replit.app')) {
+      if (pathname.startsWith('/admin')) {
+        return 'admin';
+      } else if (pathname.startsWith('/agent')) {
+        return 'agent';
+      } else if (pathname.startsWith('/partner')) {
+        return 'partner';
+      }
     }
     
     // For localhost development (admin.localhost, partner.localhost, agent.localhost, or just localhost)

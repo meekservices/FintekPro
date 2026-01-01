@@ -34,6 +34,14 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  // Determine if we're on a custom domain or Replit domain
+  const replitDomains = process.env.REPLIT_DOMAINS || '';
+  const isReplitDomain = replitDomains.includes('replit.app') || replitDomains.includes('replit.dev');
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  // Only set domain for custom domains (fintekpro.com), not Replit domains
+  const cookieDomain = isProduction && !isReplitDomain ? ".fintekpro.com" : undefined;
+  
   return session({
     name: 'fintekpro.sid',
     secret: process.env.SESSION_SECRET!,
@@ -43,12 +51,12 @@ export function getSession() {
     rolling: true,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: sessionTtl,
       path: '/',
-      // Share cookie across all fintekpro.com subdomains in production
-      domain: process.env.NODE_ENV === "production" ? ".fintekpro.com" : undefined,
+      // Share cookie across subdomains only for custom domains, not Replit domains
+      domain: cookieDomain,
     },
   });
 }
