@@ -6,8 +6,8 @@ import { stockSyncScheduler } from './services/stock-sync-scheduler';
 import { getProbe42AnalyticsService } from './services/probe42-analytics-service';
 import { ckycSlaEscalationService } from './services/ckyc-sla-escalation-service';
 import { db } from './db';
-import { users, unlistedCompanies, sellListings, buyRequests } from '@shared/schema';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { users, unlistedCompanies } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 /**
  * Initialize scheduled cron jobs
@@ -134,20 +134,22 @@ export function initializeCronJobs(): void {
             const user = await db.select().from(users).where(eq(users.id, listing.userId)).limit(1);
             if (user[0]?.email) {
               const company = await db.select().from(unlistedCompanies).where(eq(unlistedCompanies.id, listing.companyId)).limit(1);
+              const companyName = company[0]?.name || 'Unlisted Stock';
+              const price = listing.pricePerShare?.toLocaleString('en-IN') || 'N/A';
               await emailService.sendEmail({
                 to: user[0].email,
-                subject: `⏰ Your sell listing expires in 24 hours - ${company[0]?.name || 'Unlisted Stock'}`,
+                subject: `⏰ Your sell listing expires in 24 hours - ${companyName}`,
                 html: `
                   <h2>Listing Expiry Reminder</h2>
-                  <p>Your sell listing for <strong>${company[0]?.name || 'Unlisted Stock'}</strong> will expire soon.</p>
+                  <p>Your sell listing for <strong>${companyName}</strong> will expire soon.</p>
                   <ul>
-                    <li>Quantity: ${listing.quantity} shares</li>
-                    <li>Price: ₹${listing.pricePerShare?.toLocaleString('en-IN')}/share</li>
-                    <li>Expires: ${new Date(listing.validUntil!).toLocaleString('en-IN')}</li>
+                    <li>Quantity: ${listing.quantity || 0} shares</li>
+                    <li>Price: ₹${price}/share</li>
+                    <li>Expires: ${listing.validUntil ? new Date(listing.validUntil).toLocaleString('en-IN') : 'Soon'}</li>
                   </ul>
                   <p>Log in to FintekPro to extend or modify your listing.</p>
                 `,
-                text: `Your sell listing for ${company[0]?.name} expires in 24 hours. Quantity: ${listing.quantity}, Price: ₹${listing.pricePerShare}/share`
+                text: `Your sell listing for ${companyName} expires in 24 hours. Quantity: ${listing.quantity || 0}, Price: ₹${price}/share`
               });
               console.log(`[CRON] Sent expiry notification to ${user[0].email} for listing ${listing.id}`);
             }
@@ -162,20 +164,22 @@ export function initializeCronJobs(): void {
             const user = await db.select().from(users).where(eq(users.id, request.userId)).limit(1);
             if (user[0]?.email) {
               const company = await db.select().from(unlistedCompanies).where(eq(unlistedCompanies.id, request.companyId)).limit(1);
+              const reqCompanyName = company[0]?.name || 'Unlisted Stock';
+              const maxPrice = request.maxPricePerShare?.toLocaleString('en-IN') || 'N/A';
               await emailService.sendEmail({
                 to: user[0].email,
-                subject: `⏰ Your buy request expires in 24 hours - ${company[0]?.name || 'Unlisted Stock'}`,
+                subject: `⏰ Your buy request expires in 24 hours - ${reqCompanyName}`,
                 html: `
                   <h2>Buy Request Expiry Reminder</h2>
-                  <p>Your buy request for <strong>${company[0]?.name || 'Unlisted Stock'}</strong> will expire soon.</p>
+                  <p>Your buy request for <strong>${reqCompanyName}</strong> will expire soon.</p>
                   <ul>
-                    <li>Quantity: ${request.quantity} shares</li>
-                    <li>Max Price: ₹${request.maxPricePerShare?.toLocaleString('en-IN')}/share</li>
-                    <li>Expires: ${new Date(request.validUntil!).toLocaleString('en-IN')}</li>
+                    <li>Quantity: ${request.quantity || 0} shares</li>
+                    <li>Max Price: ₹${maxPrice}/share</li>
+                    <li>Expires: ${request.validUntil ? new Date(request.validUntil).toLocaleString('en-IN') : 'Soon'}</li>
                   </ul>
                   <p>Log in to FintekPro to extend or modify your request.</p>
                 `,
-                text: `Your buy request for ${company[0]?.name} expires in 24 hours. Quantity: ${request.quantity}, Max Price: ₹${request.maxPricePerShare}/share`
+                text: `Your buy request for ${reqCompanyName} expires in 24 hours. Quantity: ${request.quantity || 0}, Max Price: ₹${maxPrice}/share`
               });
               console.log(`[CRON] Sent expiry notification to ${user[0].email} for request ${request.id}`);
             }
@@ -447,21 +451,23 @@ export function initializeCronJobs(): void {
             const { emailService } = await import('./email-service');
             const user = await db.select().from(users).where(eq(users.id, order.userId)).limit(1);
             if (user[0]?.email) {
+              const productName = order.productName || 'Product';
+              const orderAmount = order.amount?.toLocaleString('en-IN') || 'N/A';
               await emailService.sendEmail({
                 to: user[0].email,
                 subject: `❌ Order Expired - ${order.orderNumber}`,
                 html: `
                   <h2>Order Expired</h2>
-                  <p>Your order <strong>${order.orderNumber}</strong> for <strong>${order.productName}</strong> has expired due to incomplete payment.</p>
+                  <p>Your order <strong>${order.orderNumber}</strong> for <strong>${productName}</strong> has expired due to incomplete payment.</p>
                   <ul>
                     <li>Order Number: ${order.orderNumber}</li>
-                    <li>Product: ${order.productName}</li>
-                    <li>Amount: ₹${order.amount?.toLocaleString('en-IN')}</li>
-                    <li>Created: ${new Date(order.createdAt!).toLocaleString('en-IN')}</li>
+                    <li>Product: ${productName}</li>
+                    <li>Amount: ₹${orderAmount}</li>
+                    <li>Created: ${order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : 'N/A'}</li>
                   </ul>
                   <p>If you still wish to make this purchase, please place a new order on FintekPro.</p>
                 `,
-                text: `Your order ${order.orderNumber} for ${order.productName} has expired. Amount: ₹${order.amount}. Please place a new order if you still wish to proceed.`
+                text: `Your order ${order.orderNumber} for ${productName} has expired. Amount: ₹${orderAmount}. Please place a new order if you still wish to proceed.`
               });
               console.log(`[CRON] Sent expiry notification to ${user[0].email} for order ${order.orderNumber}`);
             }
