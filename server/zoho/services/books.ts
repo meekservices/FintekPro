@@ -168,6 +168,7 @@ export class ZohoBooksService {
     date: string;
     due_date?: string;
     line_items: Array<{
+      item_id?: string; // Zoho inventory item ID (enables auto COGS/inventory adjustment)
       name: string;
       description?: string;
       rate: number;

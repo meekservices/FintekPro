@@ -176,33 +176,40 @@ class ZohoTransactionSyncService {
 
       // SCENARIO 1: Inventory Sale (FintekPro as dealer/principal)
       if (isInventorySale && this.zohoService) {
-        // Create revenue invoice for full sale amount
+        const quantity = order.quantity || 1;
+        const unitPurchaseCost = parseFloat(order.purchaseCost?.toString() || '0');
+        const unitSalePrice = saleAmount / quantity;
+
+        // Create or get Zoho inventory item for this bond
+        let itemId = order.inventoryItemId;
+        if (!itemId) {
+          // Create inventory item in Zoho if not exists
+          const item = await this.zohoService.createItem({
+            name: `${order.bondName || 'Bond'} - ${order.isin}`,
+            description: `ISIN: ${order.isin}, Type: ${order.bondType || 'corporate'}`,
+            sku: order.isin || `BOND-${order.id.substring(0, 8)}`,
+            rate: unitSalePrice,
+            purchase_rate: unitPurchaseCost,
+            item_type: 'inventory',
+            product_type: 'goods'
+          });
+          itemId = item.item_id;
+        }
+
+        // Create invoice with inventory item (Zoho will auto-deduct inventory and post COGS)
         const invoice = await this.zohoService.createInvoice({
           customer_name: customerName,
           reference_number: `BOND-INV-${order.orderNumber || order.id.substring(0, 8).toUpperCase()}`,
           date: new Date(order.createdAt || new Date()).toISOString().split('T')[0],
           line_items: [{
+            item_id: itemId,
             name: `${order.bondName || 'Bond'} - ${order.isin || 'ISIN'}`,
-            description: `Qty: ${order.quantity}, Type: ${order.bondType || 'corporate'}`,
-            rate: saleAmount,
-            quantity: 1
+            description: `ISIN: ${order.isin}, Type: ${order.bondType || 'corporate'}`,
+            rate: unitSalePrice,
+            quantity: quantity
           }],
-          notes: `Inventory Sale | Order: ${order.orderNumber} | ISIN: ${order.isin}`
+          notes: `Inventory Sale | Order: ${order.orderNumber} | ISIN: ${order.isin} | Unit Cost: ₹${unitPurchaseCost}`
         });
-
-        // Record COGS expense if purchase cost is known
-        let expenseId: string | undefined;
-        if (purchaseCost > 0) {
-          const cogsAccount = await this.zohoService.getOrCreateCOGSAccount();
-          const expense = await this.zohoService.createExpense({
-            account_id: cogsAccount.account_id,
-            amount: purchaseCost,
-            date: new Date(order.createdAt || new Date()).toISOString().split('T')[0],
-            reference_number: `COGS-${order.orderNumber || order.id.substring(0, 8).toUpperCase()}`,
-            description: `Cost of ${order.bondName || 'Bond'} sold | ISIN: ${order.isin} | Qty: ${order.quantity}`
-          });
-          expenseId = expense.expense_id;
-        }
 
         // Calculate profit margin
         const profitMargin = saleAmount - purchaseCost;
@@ -210,7 +217,7 @@ class ZohoTransactionSyncService {
         await db.update(schema.bondOrders)
           .set({ 
             zohoInvoiceId: invoice.invoice_id,
-            zohoExpenseId: expenseId,
+            inventoryItemId: itemId,
             zohoSyncedAt: new Date(),
             zohoSyncStatus: 'inventory_sale',
             profitMargin: profitMargin.toFixed(2)
@@ -223,7 +230,7 @@ class ZohoTransactionSyncService {
           transactionId: orderId, 
           zohoInvoiceId: invoice.invoice_id,
           syncType: 'invoice',
-          reason: `Inventory sale: Revenue ₹${saleAmount.toLocaleString()}, COGS ₹${purchaseCost.toLocaleString()}, Profit ₹${profitMargin.toLocaleString()}`
+          reason: `Inventory sale: Revenue ₹${saleAmount.toLocaleString()}, COGS ₹${purchaseCost.toLocaleString()}, Profit ₹${profitMargin.toLocaleString()} (Zoho auto-adjusts inventory)`
         };
       }
 
