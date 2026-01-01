@@ -39,19 +39,103 @@ export function initializeCronJobs(): void {
     }
   });
 
-  // Order Cleanup Job - Run every 24 hours
-  cron.schedule('0 0 * * *', async () => {
+  // Order Cleanup Job - Run every 12 hours (more frequent for better user experience)
+  cron.schedule('0 */12 * * *', async () => {
     console.log('[CRON] Starting order cleanup job...');
     try {
       const dealMatcher = new DealMatcherService(storage);
       const { expiredListings, expiredRequests } =
         await dealMatcher.cleanupExpiredOrders();
 
-      console.log(
-        `[CRON] Cleanup completed: ${expiredListings} expired listings, ${expiredRequests} expired requests`
-      );
+      if (expiredListings > 0 || expiredRequests > 0) {
+        console.log(
+          `[CRON] Cleanup completed: ${expiredListings} expired listings, ${expiredRequests} expired requests`
+        );
+        
+        // Log for audit trail
+        console.log(`[CRON][AUDIT] Unlisted marketplace cleanup: ${JSON.stringify({
+          timestamp: new Date().toISOString(),
+          expiredListings,
+          expiredRequests,
+          action: 'auto_expire'
+        })}`);
+      } else {
+        console.log('[CRON] Order cleanup: No expired listings or requests found');
+      }
     } catch (error: any) {
       console.error('[CRON] Order cleanup job failed:', error);
+    }
+  });
+
+  // Expiry Warning Job - Run daily at 9 AM IST (3:30 AM UTC)
+  // Alerts users when their listings will expire within 24 hours
+  cron.schedule('30 3 * * *', async () => {
+    console.log('[CRON] Checking for listings expiring soon...');
+    try {
+      const { db } = await import('./db');
+      const { sellListings, buyRequests } = await import('@shared/schema');
+      const { eq, and, gte, lte, sql } = await import('drizzle-orm');
+      
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      
+      // Find listings expiring within 24 hours
+      const expiringListings = await db
+        .select({
+          id: sellListings.id,
+          userId: sellListings.userId,
+          companyId: sellListings.companyId,
+          quantity: sellListings.quantity,
+          pricePerShare: sellListings.pricePerShare,
+          validUntil: sellListings.validUntil
+        })
+        .from(sellListings)
+        .where(
+          and(
+            eq(sellListings.status, 'active'),
+            gte(sellListings.validUntil, now),
+            lte(sellListings.validUntil, tomorrow)
+          )
+        )
+        .limit(100);
+
+      const expiringRequests = await db
+        .select({
+          id: buyRequests.id,
+          userId: buyRequests.userId,
+          companyId: buyRequests.companyId,
+          quantity: buyRequests.quantity,
+          maxPricePerShare: buyRequests.maxPricePerShare,
+          validUntil: buyRequests.validUntil
+        })
+        .from(buyRequests)
+        .where(
+          and(
+            eq(buyRequests.status, 'active'),
+            gte(buyRequests.validUntil, now),
+            lte(buyRequests.validUntil, tomorrow)
+          )
+        )
+        .limit(100);
+
+      if (expiringListings.length > 0 || expiringRequests.length > 0) {
+        console.log(`[CRON] Found ${expiringListings.length} listings and ${expiringRequests.length} requests expiring within 24 hours`);
+        
+        // TODO: Send notifications to users about expiring listings
+        // This can be integrated with the notification service
+        
+        // Log for audit
+        for (const listing of expiringListings) {
+          console.log(`[CRON][WARN] Sell listing ${listing.id} expires at ${listing.validUntil}`);
+        }
+        for (const request of expiringRequests) {
+          console.log(`[CRON][WARN] Buy request ${request.id} expires at ${request.validUntil}`);
+        }
+      } else {
+        console.log('[CRON] No listings expiring within 24 hours');
+      }
+    } catch (error: any) {
+      console.error('[CRON] Expiry warning job failed:', error.message);
     }
   });
 
@@ -246,6 +330,142 @@ export function initializeCronJobs(): void {
       console.log(`[CRON] Lead scoring completed: ${scored} leads updated`);
     } catch (error: any) {
       console.error('[CRON] Lead scoring refresh failed:', error.message);
+    }
+  });
+
+  // Stale Order Cleanup - Run every 6 hours
+  // Auto-cancel orders stuck in 'initiated' or 'payment_pending' for >24 hours
+  cron.schedule('0 */6 * * *', async () => {
+    console.log('[CRON] Starting stale order cleanup...');
+    try {
+      const { db } = await import('./db');
+      const { unifiedOrders, users } = await import('@shared/schema');
+      const { eq, and, lt, inArray, sql } = await import('drizzle-orm');
+      
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      // Find stale orders - stuck in initial states for >24 hours
+      const staleOrders = await db
+        .select({
+          id: unifiedOrders.id,
+          orderNumber: unifiedOrders.orderNumber,
+          userId: unifiedOrders.userId,
+          productName: unifiedOrders.productName,
+          amount: unifiedOrders.amount,
+          status: unifiedOrders.status,
+          createdAt: unifiedOrders.createdAt
+        })
+        .from(unifiedOrders)
+        .where(
+          and(
+            inArray(unifiedOrders.status, ['initiated', 'payment_pending']),
+            lt(unifiedOrders.createdAt, twentyFourHoursAgo)
+          )
+        )
+        .limit(100);
+      
+      if (staleOrders.length === 0) {
+        console.log('[CRON] No stale orders found');
+        return;
+      }
+      
+      let cancelled = 0;
+      let failed = 0;
+      
+      for (const order of staleOrders) {
+        try {
+          // Update order status to expired
+          await db
+            .update(unifiedOrders)
+            .set({
+              status: 'expired',
+              paymentStatus: 'expired',
+              executionStatus: 'cancelled',
+              failureReason: 'Order expired - no payment received within 24 hours',
+              updatedAt: new Date()
+            })
+            .where(eq(unifiedOrders.id, order.id));
+          
+          // Log the expiry for audit
+          console.log(`[CRON] Order ${order.orderNumber} expired (created: ${order.createdAt})`);
+          cancelled++;
+          
+          // TODO: Send notification to user about expired order
+          // This can be integrated with the notification service
+          
+        } catch (orderError: any) {
+          console.error(`[CRON] Failed to expire order ${order.orderNumber}:`, orderError.message);
+          failed++;
+        }
+      }
+      
+      console.log(`[CRON] Stale order cleanup completed: ${cancelled} expired, ${failed} failed`);
+      
+    } catch (error: any) {
+      console.error('[CRON] Stale order cleanup failed:', error.message);
+    }
+  });
+
+  // Processing Order Timeout - Run every hour
+  // Auto-fail orders stuck in 'processing' for >4 hours (indicates execution failure)
+  cron.schedule('0 * * * *', async () => {
+    console.log('[CRON] Checking for stuck processing orders...');
+    try {
+      const { db } = await import('./db');
+      const { unifiedOrders } = await import('@shared/schema');
+      const { eq, and, lt, sql } = await import('drizzle-orm');
+      
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+      
+      // Find orders stuck in processing
+      const stuckOrders = await db
+        .select({
+          id: unifiedOrders.id,
+          orderNumber: unifiedOrders.orderNumber,
+          userId: unifiedOrders.userId,
+          status: unifiedOrders.status,
+          updatedAt: unifiedOrders.updatedAt
+        })
+        .from(unifiedOrders)
+        .where(
+          and(
+            eq(unifiedOrders.status, 'processing'),
+            lt(unifiedOrders.updatedAt, fourHoursAgo)
+          )
+        )
+        .limit(50);
+      
+      if (stuckOrders.length === 0) {
+        console.log('[CRON] No stuck processing orders found');
+        return;
+      }
+      
+      let flagged = 0;
+      for (const order of stuckOrders) {
+        try {
+          // Mark as execution_failed - requires manual review
+          await db
+            .update(unifiedOrders)
+            .set({
+              status: 'execution_failed',
+              executionStatus: 'failed',
+              failureReason: 'Order processing timed out - requires manual review',
+              updatedAt: new Date()
+            })
+            .where(eq(unifiedOrders.id, order.id));
+          
+          console.warn(`[CRON] Order ${order.orderNumber} marked as execution_failed (stuck since: ${order.updatedAt})`);
+          flagged++;
+          
+        } catch (orderError: any) {
+          console.error(`[CRON] Failed to flag stuck order ${order.orderNumber}:`, orderError.message);
+        }
+      }
+      
+      console.log(`[CRON] Stuck order check completed: ${flagged} orders flagged for review`);
+      
+    } catch (error: any) {
+      console.error('[CRON] Stuck order check failed:', error.message);
     }
   });
 

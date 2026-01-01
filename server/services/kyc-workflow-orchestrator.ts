@@ -722,6 +722,283 @@ export class KYCWorkflowOrchestrator {
       };
     }
   }
+
+  /**
+   * KYC Step Recovery: Detect interrupted flows and resume from last completed step
+   * Returns the current progress state and guidance on next step
+   */
+  async getRecoveryState(userId: string): Promise<{
+    hasInterruptedFlow: boolean;
+    currentStep: string;
+    completedSteps: string[];
+    nextStep: string | null;
+    canResume: boolean;
+    resumeData: any;
+    message: string;
+  }> {
+    try {
+      console.log(`[KYC Recovery] Checking recovery state for user ${userId}`);
+
+      // Check all KYC progress tables to find the current state
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user) {
+        return {
+          hasInterruptedFlow: false,
+          currentStep: 'not_started',
+          completedSteps: [],
+          nextStep: 'pan_verification',
+          canResume: false,
+          resumeData: null,
+          message: 'User not found'
+        };
+      }
+
+      // Check KYC Vault for completed KYC
+      const [vaultRecord] = await db
+        .select()
+        .from(kycVault)
+        .where(eq(kycVault.userId, userId));
+
+      if (vaultRecord && vaultRecord.kycStatus === 'verified') {
+        return {
+          hasInterruptedFlow: false,
+          currentStep: 'completed',
+          completedSteps: ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'ckyc_lookup', 'vault_storage', 'consent', 'token_generation'],
+          nextStep: null,
+          canResume: false,
+          resumeData: null,
+          message: 'KYC already completed'
+        };
+      }
+
+      // Check for partial vault record (interrupted after vault but before completion)
+      if (vaultRecord && vaultRecord.kycStatus !== 'verified') {
+        const completedSteps = ['pan_verification', 'aadhaar_otp', 'aadhaar_verification'];
+        
+        if (vaultRecord.ckycKinNumber) {
+          completedSteps.push('ckyc_lookup');
+        }
+        
+        completedSteps.push('vault_storage');
+
+        return {
+          hasInterruptedFlow: true,
+          currentStep: 'vault_stored',
+          completedSteps,
+          nextStep: 'consent',
+          canResume: true,
+          resumeData: {
+            vaultId: vaultRecord.id,
+            panTokenized: vaultRecord.panTokenized,
+            ckycKinNumber: vaultRecord.ckycKinNumber
+          },
+          message: 'KYC was interrupted after vault storage. Can resume from consent step.'
+        };
+      }
+
+      // Check consent logs - if consent exists but no vault, something is wrong
+      const [consentLog] = await db
+        .select()
+        .from(kycConsentLogs)
+        .where(eq(kycConsentLogs.userId, userId));
+
+      if (consentLog && !vaultRecord) {
+        return {
+          hasInterruptedFlow: true,
+          currentStep: 'consent_recorded',
+          completedSteps: ['pan_verification', 'aadhaar_otp', 'aadhaar_verification', 'consent'],
+          nextStep: 'vault_storage',
+          canResume: false,
+          resumeData: null,
+          message: 'Consent recorded but vault storage failed. Requires re-verification.'
+        };
+      }
+
+      // Check user record for partial completion indicators
+      const userMeta = (user as any).kycMetadata || {};
+      
+      if (userMeta.okycRefId && !vaultRecord) {
+        // OKYC was initiated but not completed
+        const initiatedAt = userMeta.okycInitiatedAt;
+        const hoursSinceInit = initiatedAt ? 
+          (Date.now() - new Date(initiatedAt).getTime()) / (1000 * 60 * 60) : 0;
+
+        if (hoursSinceInit > 24) {
+          // OTP has expired, need to restart
+          return {
+            hasInterruptedFlow: true,
+            currentStep: 'okyc_expired',
+            completedSteps: ['pan_verification'],
+            nextStep: 'aadhaar_otp',
+            canResume: false,
+            resumeData: null,
+            message: 'OTP expired (>24 hours). Please restart Aadhaar verification.'
+          };
+        }
+
+        return {
+          hasInterruptedFlow: true,
+          currentStep: 'aadhaar_otp_sent',
+          completedSteps: ['pan_verification', 'aadhaar_otp'],
+          nextStep: 'aadhaar_verification',
+          canResume: true,
+          resumeData: {
+            refId: userMeta.okycRefId,
+            maskedAadhaar: userMeta.maskedAadhaar,
+            panNumber: user.panNumber
+          },
+          message: 'OTP was sent but not verified. Can resume from OTP verification.'
+        };
+      }
+
+      // Check if PAN is verified but nothing else
+      if (user.panNumber && !userMeta.okycRefId) {
+        return {
+          hasInterruptedFlow: (user as any).kycTier !== 'basic',
+          currentStep: 'pan_verified',
+          completedSteps: ['pan_verification'],
+          nextStep: 'aadhaar_otp',
+          canResume: true,
+          resumeData: {
+            panNumber: user.panNumber
+          },
+          message: 'PAN verified. Continue with Aadhaar verification.'
+        };
+      }
+
+      // Fresh start
+      return {
+        hasInterruptedFlow: false,
+        currentStep: 'not_started',
+        completedSteps: [],
+        nextStep: 'pan_verification',
+        canResume: false,
+        resumeData: null,
+        message: 'No KYC progress found. Start fresh.'
+      };
+
+    } catch (error: any) {
+      console.error('[KYC Recovery] Error checking recovery state:', error);
+      return {
+        hasInterruptedFlow: false,
+        currentStep: 'error',
+        completedSteps: [],
+        nextStep: null,
+        canResume: false,
+        resumeData: null,
+        message: `Error checking recovery state: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Resume an interrupted KYC workflow from the last completed step
+   */
+  async resumeWorkflow(
+    userId: string,
+    resumeData: any,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<WorkflowResult> {
+    try {
+      const recoveryState = await this.getRecoveryState(userId);
+
+      if (!recoveryState.canResume) {
+        return {
+          success: false,
+          step: 'resume_not_possible',
+          error: recoveryState.message
+        };
+      }
+
+      console.log(`[KYC Recovery] Resuming workflow for user ${userId} from step: ${recoveryState.currentStep}`);
+
+      switch (recoveryState.currentStep) {
+        case 'aadhaar_otp_sent':
+          if (!resumeData.otp) {
+            return {
+              success: false,
+              step: 'missing_otp',
+              error: 'OTP is required to resume from this step',
+              data: { refId: recoveryState.resumeData?.refId }
+            };
+          }
+          
+          // Verify OTP first
+          const okycResult = await this.verifyOKYC(resumeData.otp, recoveryState.resumeData?.refId);
+          if (!okycResult.success || !okycResult.data) {
+            return okycResult;
+          }
+          
+          // Continue with full workflow - CKYC lookup and vault storage
+          const okycData = okycResult.data as any;
+          const panNumber = resumeData.panNumber || recoveryState.resumeData?.panNumber;
+          
+          if (!panNumber) {
+            return {
+              success: false,
+              step: 'missing_pan',
+              error: 'PAN number is required to complete KYC'
+            };
+          }
+          
+          // Continue with storePreVerifiedKYCData which handles CKYC, vault, consent, and token
+          return await this.storePreVerifiedKYCData(
+            userId,
+            panNumber,
+            okycData,
+            recoveryState.resumeData?.refId,
+            ipAddress,
+            userAgent
+          );
+
+        case 'vault_stored':
+          const consentResult = await this.recordConsent(userId, ipAddress, userAgent);
+          if (!consentResult.success) {
+            console.warn('⚠️  Consent recording failed during resume');
+          }
+          
+          const tokenResult = await this.generateReuseToken(userId, 'resume_flow', 'FintekPro Platform');
+          
+          return {
+            success: true,
+            step: 'workflow_complete',
+            kycStatus: 'verified',
+            ckycKinNumber: recoveryState.resumeData?.ckycKinNumber,
+            kycReuseToken: tokenResult.kycReuseToken,
+            message: 'KYC workflow resumed and completed successfully'
+          };
+
+        case 'pan_verified':
+          if (!resumeData.aadhaarNumber) {
+            return {
+              success: false,
+              step: 'missing_aadhaar',
+              error: 'Aadhaar number is required to continue'
+            };
+          }
+          return await this.initiateOKYC(resumeData.aadhaarNumber);
+
+        default:
+          return {
+            success: false,
+            step: 'unknown_state',
+            error: `Cannot resume from state: ${recoveryState.currentStep}`
+          };
+      }
+    } catch (error: any) {
+      console.error('[KYC Recovery] Resume workflow error:', error);
+      return {
+        success: false,
+        step: 'resume_error',
+        error: error.message || 'Failed to resume workflow'
+      };
+    }
+  }
 }
 
 export const kycWorkflowOrchestrator = new KYCWorkflowOrchestrator();

@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { userAlerts, alertHistory, users } from "@shared/schema";
-import { eq, and, lte, gte, isNull, or } from "drizzle-orm";
+import { userAlerts, alertHistory, users, userExpenses, portfolioHoldings, portfolios } from "@shared/schema";
+import { eq, and, lte, gte, isNull, or, sql, sum } from "drizzle-orm";
 import { emailService } from "../email-service";
 import yahooFinance from 'yahoo-finance2';
 
@@ -346,26 +346,128 @@ export class AlertMonitoringService {
     }
   }
 
-  // Helper: Calculate spending for a period (mock implementation)
+  // Helper: Calculate spending for a period
   private async calculateSpending(
     userId: string,
     category: string,
     period: string
   ): Promise<number> {
-    // TODO: Integrate with transaction/spending tracking system
-    // Query transactions from database and sum by category and period
-    
-    // Mock implementation
-    return Math.random() * 15000; // Random amount for demonstration
+    try {
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (period) {
+        case 'daily':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'weekly':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'monthly':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'yearly':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1); // Default to monthly
+      }
+
+      // Build query with proper category filtering
+      let whereClause;
+      if (category && category !== 'all' && category !== '') {
+        whereClause = and(
+          eq(userExpenses.userId, userId),
+          gte(userExpenses.transactionDate, startDate),
+          lte(userExpenses.transactionDate, now),
+          eq(userExpenses.category, category)
+        );
+      } else {
+        whereClause = and(
+          eq(userExpenses.userId, userId),
+          gte(userExpenses.transactionDate, startDate),
+          lte(userExpenses.transactionDate, now)
+        );
+      }
+
+      const result = await db
+        .select({
+          totalSpending: sql<string>`COALESCE(SUM(CAST(${userExpenses.amount} AS NUMERIC)), 0)`
+        })
+        .from(userExpenses)
+        .where(whereClause);
+
+      const totalSpending = parseFloat(result[0]?.totalSpending || '0');
+      console.log(`[AlertMonitor] Calculated spending for user ${userId}, category: ${category}, period: ${period}: ₹${totalSpending.toLocaleString()}`);
+      
+      return totalSpending;
+    } catch (error: any) {
+      console.error(`[AlertMonitor] Failed to calculate spending for user ${userId}:`, error.message);
+      return 0;
+    }
   }
 
-  // Helper: Calculate portfolio value (mock implementation)
+  // Helper: Calculate portfolio value
   private async calculatePortfolioValue(userId: string): Promise<number> {
-    // TODO: Integrate with portfolio service to calculate actual value
-    // Sum all holdings * current prices
-    
-    // Mock implementation
-    return 500000 + Math.random() * 100000; // Random portfolio value
+    try {
+      // Get user's portfolios
+      const userPortfolios = await db
+        .select({ id: portfolios.id })
+        .from(portfolios)
+        .where(eq(portfolios.userId, userId));
+
+      if (userPortfolios.length === 0) {
+        return 0;
+      }
+
+      const portfolioIds = userPortfolios.map(p => p.id);
+      
+      // Get all holdings across user's portfolios
+      const holdings = await db
+        .select({
+          symbol: portfolioHoldings.symbol,
+          quantity: portfolioHoldings.quantity,
+          avgPrice: portfolioHoldings.avgPrice,
+          assetType: portfolioHoldings.assetType
+        })
+        .from(portfolioHoldings)
+        .where(sql`${portfolioHoldings.portfolioId} = ANY(${portfolioIds})`);
+
+      if (holdings.length === 0) {
+        return 0;
+      }
+
+      // Calculate current value for each holding
+      let totalValue = 0;
+      
+      for (const holding of holdings) {
+        const quantity = parseFloat(holding.quantity || '0');
+        const avgPrice = parseFloat(holding.avgPrice || '0');
+        
+        // For equities and mutual funds, try to get current price
+        if (['equity', 'mf'].includes(holding.assetType)) {
+          try {
+            const quote = await this.fetchMarketData(holding.symbol);
+            if (quote) {
+              totalValue += quantity * quote.currentPrice;
+              continue;
+            }
+          } catch {
+            // Fall through to use avg price
+          }
+        }
+        
+        // For other assets or if market data unavailable, use avg price
+        totalValue += quantity * avgPrice;
+      }
+
+      console.log(`[AlertMonitor] Calculated portfolio value for user ${userId}: ₹${totalValue.toLocaleString()}`);
+      return totalValue;
+    } catch (error: any) {
+      console.error(`[AlertMonitor] Failed to calculate portfolio value for user ${userId}:`, error.message);
+      return 0;
+    }
   }
 }
 
