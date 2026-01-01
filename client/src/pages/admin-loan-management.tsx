@@ -140,6 +140,57 @@ export default function AdminLoanManagement() {
     },
   });
 
+  const updateStaffMutation = useMutation({
+    mutationFn: async ({ staffId, data }: { staffId: string; data: Partial<StaffFormData> }) => {
+      const response = await apiRequest("PUT", `/api/admin/loan-marketplace/staff/${staffId}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Staff Updated", description: "Staff member has been updated successfully." });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/loan-marketplace/staff", selectedProvider] });
+      setEditingStaff(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update staff member.", variant: "destructive" });
+    },
+  });
+
+  const deleteStaffMutation = useMutation({
+    mutationFn: async (staffId: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/loan-marketplace/staff/${staffId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Staff Removed", description: "Staff member has been removed successfully." });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/loan-marketplace/staff", selectedProvider] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to remove staff member.", variant: "destructive" });
+    },
+  });
+
+  const handleEditStaff = (staff: LenderStaff) => {
+    setEditingStaff(staff);
+    staffForm.setValue("name", staff.name);
+    staffForm.setValue("email", staff.email);
+    staffForm.setValue("phone", staff.phone);
+    staffForm.setValue("designation", staff.designation);
+    staffForm.setValue("branch", staff.branch || "");
+    staffForm.setValue("region", staff.region || "");
+  };
+
+  const handleUpdateStaff = (data: StaffFormData) => {
+    if (editingStaff) {
+      updateStaffMutation.mutate({ staffId: editingStaff.id, data });
+    }
+  };
+
+  const handleDeleteStaff = (staffId: string) => {
+    if (confirm("Are you sure you want to remove this staff member?")) {
+      deleteStaffMutation.mutate(staffId);
+    }
+  };
+
   const updatePayoutConfigMutation = useMutation({
     mutationFn: async (config: CommissionConfig) => {
       const response = await apiRequest("PUT", "/api/admin/loan-marketplace/payout-config", config);
@@ -529,6 +580,121 @@ export default function AdminLoanManagement() {
                     </Form>
                   </DialogContent>
                 </Dialog>
+
+                {/* Edit Staff Dialog */}
+                <Dialog open={!!editingStaff} onOpenChange={(open) => !open && setEditingStaff(null)}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Edit Staff Member</DialogTitle>
+                    </DialogHeader>
+                    <Form {...staffForm}>
+                      <form onSubmit={staffForm.handleSubmit(handleUpdateStaff)} className="space-y-4">
+                        <FormField
+                          control={staffForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Full Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="John Doe" data-testid="edit-staff-name-input" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={staffForm.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                  <Input {...field} type="email" placeholder="john@bank.com" data-testid="edit-staff-email-input" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={staffForm.control}
+                            name="phone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Phone</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="9876543210" data-testid="edit-staff-phone-input" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={staffForm.control}
+                          name="designation"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Designation</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="edit-staff-designation-select">
+                                    <SelectValue placeholder="Select designation" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="relationship_manager">Relationship Manager</SelectItem>
+                                  <SelectItem value="branch_manager">Branch Manager</SelectItem>
+                                  <SelectItem value="credit_officer">Credit Officer</SelectItem>
+                                  <SelectItem value="zonal_head">Zonal Head</SelectItem>
+                                  <SelectItem value="regional_head">Regional Head</SelectItem>
+                                  <SelectItem value="sales_executive">Sales Executive</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={staffForm.control}
+                            name="branch"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Branch (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Branch name" data-testid="edit-staff-branch-input" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={staffForm.control}
+                            name="region"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Region (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Region" data-testid="edit-staff-region-input" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <DialogFooter>
+                          <Button type="button" variant="outline" onClick={() => setEditingStaff(null)}>
+                            Cancel
+                          </Button>
+                          <Button type="submit" disabled={updateStaffMutation.isPending} data-testid="update-staff-btn">
+                            {updateStaffMutation.isPending ? "Updating..." : "Update Staff"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
               )}
             </div>
           </div>
@@ -602,11 +768,22 @@ export default function AdminLoanManagement() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" data-testid={`edit-staff-${member.id}`}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleEditStaff(member)}
+                            data-testid={`edit-staff-${member.id}`}
+                          >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`transfer-staff-${member.id}`}>
-                            <ArrowRightLeft className="h-4 w-4" />
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteStaff(member.id)}
+                            data-testid={`delete-staff-${member.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>

@@ -12,9 +12,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, IndianRupee, GraduationCap, Star, TrendingUp, Shield, RefreshCw, Search, Filter, ArrowRight, Plus, GitCompare, Target, Zap } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
+import { apiRequest } from "@/lib/queryClient";
 
 // Marketplace schemas for form validation
 const loanRequestSchema = z.object({
@@ -60,6 +61,16 @@ interface CreditProfile {
   existingEMI: number;
 }
 
+interface EMICalculation {
+  emi: number;
+  totalPayment: number;
+  totalInterest: number;
+  principal: number;
+  interestRate: number;
+  tenureMonths: number;
+  schedule: { month: number; emi: number; principal: number; interest: number; balance: number }[];
+}
+
 export default function Loans() {
   const [activeTab, setActiveTab] = useState("marketplace");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
@@ -67,6 +78,13 @@ export default function Loans() {
   const [selectedOffers, setSelectedOffers] = useState<string[]>([]);
   const [isGeneratingOffers, setIsGeneratingOffers] = useState(false);
   const [lastRequestId, setLastRequestId] = useState<string>("");
+  
+  const [calcAmount, setCalcAmount] = useState<number>(500000);
+  const [calcRate, setCalcRate] = useState<number>(10.5);
+  const [calcTenure, setCalcTenure] = useState<number>(5);
+  const [emiResult, setEmiResult] = useState<EMICalculation | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -240,6 +258,54 @@ export default function Loans() {
         : [...prev, offerId]
     );
   };
+
+  const calculateEMI = useCallback(async () => {
+    if (calcAmount <= 0 || calcRate <= 0 || calcTenure <= 0) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter valid values for amount, rate, and tenure.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCalculating(true);
+    try {
+      const response = await fetch("/api/marketplace/emi-calculator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          principal: calcAmount,
+          annualRate: calcRate,
+          tenureMonths: calcTenure * 12,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to calculate EMI");
+      
+      const result = await response.json();
+      if (result.success) {
+        setEmiResult(result.data);
+      }
+    } catch (error) {
+      toast({
+        title: "Calculation Error",
+        description: "Failed to calculate EMI. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCalculating(false);
+    }
+  }, [calcAmount, calcRate, calcTenure, toast]);
+
+  useEffect(() => {
+    if (activeTab === "calculator" && calcAmount > 0 && calcRate > 0 && calcTenure > 0) {
+      const timer = setTimeout(() => {
+        calculateEMI();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [calcAmount, calcRate, calcTenure, activeTab, calculateEMI]);
 
   return (
     <div className="space-y-8" data-testid="loan-marketplace">
@@ -1063,21 +1129,36 @@ export default function Loans() {
                   EMI Calculator
                 </CardTitle>
                 <p className="text-gray-600">
-                  Calculate your monthly EMI for any loan amount
+                  Calculate your monthly EMI for any loan amount with full amortization schedule
                 </p>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-2 block">
                         Loan Amount (₹)
                       </label>
                       <Input 
                         type="number" 
+                        value={calcAmount}
+                        onChange={(e) => setCalcAmount(Number(e.target.value))}
                         placeholder="5,00,000" 
                         data-testid="calc-amount"
                       />
+                      <div className="flex gap-2 mt-2">
+                        {[500000, 1000000, 2500000, 5000000].map((amt) => (
+                          <Button 
+                            key={amt}
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setCalcAmount(amt)}
+                            className="text-xs"
+                          >
+                            {formatCurrency(amt)}
+                          </Button>
+                        ))}
+                      </div>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -1085,9 +1166,25 @@ export default function Loans() {
                       </label>
                       <Input 
                         type="number" 
+                        step="0.1"
+                        value={calcRate}
+                        onChange={(e) => setCalcRate(Number(e.target.value))}
                         placeholder="10.5" 
                         data-testid="calc-rate"
                       />
+                      <div className="flex gap-2 mt-2">
+                        {[8.5, 10.5, 12, 14].map((rate) => (
+                          <Button 
+                            key={rate}
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setCalcRate(rate)}
+                            className="text-xs"
+                          >
+                            {rate}%
+                          </Button>
+                        ))}
+                      </div>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -1095,17 +1192,50 @@ export default function Loans() {
                       </label>
                       <Input 
                         type="number" 
+                        value={calcTenure}
+                        onChange={(e) => setCalcTenure(Number(e.target.value))}
                         placeholder="5" 
                         data-testid="calc-tenure"
                       />
+                      <div className="flex gap-2 mt-2">
+                        {[1, 3, 5, 10, 20].map((tenure) => (
+                          <Button 
+                            key={tenure}
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setCalcTenure(tenure)}
+                            className="text-xs"
+                          >
+                            {tenure}Y
+                          </Button>
+                        ))}
+                      </div>
                     </div>
+                    <Button 
+                      onClick={calculateEMI}
+                      disabled={isCalculating}
+                      className="w-full"
+                      data-testid="calc-button"
+                    >
+                      {isCalculating ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Calculating...
+                        </>
+                      ) : (
+                        <>
+                          <Calculator className="h-4 w-4 mr-2" />
+                          Calculate EMI
+                        </>
+                      )}
+                    </Button>
                   </div>
 
                   <div className="space-y-6">
                     <div className="text-center p-6 bg-blue-50 rounded-lg">
                       <h3 className="text-sm font-medium text-gray-700 mb-2">Monthly EMI</h3>
                       <p className="text-3xl font-bold text-blue-600" data-testid="calc-emi">
-                        ₹0
+                        {emiResult ? formatCurrency(emiResult.emi) : '₹0'}
                       </p>
                     </div>
                     
@@ -1113,24 +1243,67 @@ export default function Loans() {
                       <div className="p-4 bg-green-50 rounded-lg">
                         <h4 className="text-sm font-medium text-gray-700">Principal Amount</h4>
                         <p className="text-lg font-bold text-green-600" data-testid="calc-principal">
-                          ₹0
+                          {emiResult ? formatCurrency(emiResult.principal) : '₹0'}
                         </p>
                       </div>
                       <div className="p-4 bg-red-50 rounded-lg">
                         <h4 className="text-sm font-medium text-gray-700">Total Interest</h4>
                         <p className="text-lg font-bold text-red-600" data-testid="calc-interest">
-                          ₹0
+                          {emiResult ? formatCurrency(emiResult.totalInterest) : '₹0'}
                         </p>
                       </div>
                       <div className="p-4 bg-purple-50 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-700">Total Amount</h4>
+                        <h4 className="text-sm font-medium text-gray-700">Total Amount Payable</h4>
                         <p className="text-lg font-bold text-purple-600" data-testid="calc-total">
-                          ₹0
+                          {emiResult ? formatCurrency(emiResult.totalPayment) : '₹0'}
                         </p>
                       </div>
                     </div>
+
+                    {emiResult && (
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => setShowSchedule(!showSchedule)}
+                        data-testid="toggle-schedule"
+                      >
+                        {showSchedule ? 'Hide' : 'Show'} Amortization Schedule
+                      </Button>
+                    )}
                   </div>
                 </div>
+
+                {showSchedule && emiResult && emiResult.schedule.length > 0 && (
+                  <div className="mt-8 border rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 border-b">
+                      <h4 className="font-semibold">Amortization Schedule ({emiResult.schedule.length} months)</h4>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-100 sticky top-0">
+                          <tr>
+                            <th className="text-left py-2 px-4 font-medium">Month</th>
+                            <th className="text-right py-2 px-4 font-medium">EMI</th>
+                            <th className="text-right py-2 px-4 font-medium">Principal</th>
+                            <th className="text-right py-2 px-4 font-medium">Interest</th>
+                            <th className="text-right py-2 px-4 font-medium">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {emiResult.schedule.map((row) => (
+                            <tr key={row.month} className="border-t hover:bg-gray-50">
+                              <td className="py-2 px-4">{row.month}</td>
+                              <td className="py-2 px-4 text-right">{formatCurrency(row.emi)}</td>
+                              <td className="py-2 px-4 text-right text-green-600">{formatCurrency(row.principal)}</td>
+                              <td className="py-2 px-4 text-right text-red-600">{formatCurrency(row.interest)}</td>
+                              <td className="py-2 px-4 text-right font-medium">{formatCurrency(row.balance)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
