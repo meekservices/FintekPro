@@ -1417,7 +1417,7 @@ export function registerAdminPanelRoutes(app: Express): void {
 
   // AI Analysis functions
   async function performAIAnalysis(analysisType: string, timeRange: string) {
-    const { analyzeSentiment } = await import('./gemini-service');
+    const { analyzeSentiment } = await import('../../gemini-service');
     
     const systemErrors = await getSystemErrors(timeRange);
     const apiStatus = await getApiStatus();
@@ -1511,7 +1511,7 @@ System Security Data:`;
 
   async function analyzeWithGemini(prompt: string) {
     try {
-      const { analyzeSentiment } = await import('./gemini-service');
+      const { analyzeSentiment } = await import('../../gemini-service');
       
       // For now, return a structured response
       // This would be replaced with actual Gemini API call
