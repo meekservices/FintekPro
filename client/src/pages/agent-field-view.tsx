@@ -174,7 +174,7 @@ export default function AgentFieldView() {
                     </div>
                   </div>
                   <Badge className={getPurposeColor(visit.purpose)}>
-                    {visit.purpose.toUpperCase()}
+                    {(visit.purpose || 'general').toUpperCase()}
                   </Badge>
                 </div>
                 
@@ -248,7 +248,7 @@ export default function AgentFieldView() {
                     </div>
                   </div>
                   <Badge className={getPurposeColor(visit.purpose)}>
-                    {visit.purpose.toUpperCase()}
+                    {(visit.purpose || 'general').toUpperCase()}
                   </Badge>
                 </div>
               </CardContent>

@@ -248,7 +248,7 @@ export default function PortfolioStressTest() {
                       'text-green-500'
                     }`} />
                     <Badge className={getSeverityColor(scenario.severity)}>
-                      {scenario.severity.toUpperCase()}
+                      {(scenario.severity || 'medium').toUpperCase()}
                     </Badge>
                   </div>
                   <CardTitle className="text-lg">{scenario.name}</CardTitle>
@@ -447,7 +447,7 @@ export default function PortfolioStressTest() {
                       }`} />
                       <div>
                         <p className="font-medium">{holding.name}</p>
-                        <p className="text-sm text-muted-foreground">{holding.type.toUpperCase()}</p>
+                        <p className="text-sm text-muted-foreground">{(holding.type || 'equity').toUpperCase()}</p>
                       </div>
                     </div>
                     <div className="text-right">

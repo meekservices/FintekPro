@@ -250,10 +250,10 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
                         <CardTitle className="text-lg mb-2">{rec.title}</CardTitle>
                         <div className="flex items-center space-x-2">
                           <Badge className={getPriorityColor(rec.priority)}>
-                            {rec.priority.toUpperCase()} Priority
+                            {(rec.priority || 'medium').toUpperCase()} Priority
                           </Badge>
                           <Badge className={getRiskColor(rec.riskLevel)}>
-                            {rec.riskLevel.toUpperCase()} Risk
+                            {(rec.riskLevel || 'moderate').toUpperCase()} Risk
                           </Badge>
                           <Badge variant="outline" className="text-gray-600">
                             <Clock className="w-3 h-3 mr-1" />
