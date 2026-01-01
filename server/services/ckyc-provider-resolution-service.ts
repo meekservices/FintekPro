@@ -184,19 +184,22 @@ export class CkycProviderResolutionService {
   /**
    * Get enabled providers ordered by priority
    */
-  async getEnabledProviders(environment: string = 'all'): Promise<typeof ckycProviderConfig.$inferSelect[]> {
-    const currentEnv = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  async getEnabledProviders(environment?: string): Promise<typeof ckycProviderConfig.$inferSelect[]> {
+    const currentEnv = environment || (process.env.NODE_ENV === 'production' ? 'production' : 'development');
     
-    return db.select()
+    const allEnabled = await db.select()
       .from(ckycProviderConfig)
       .where(
         and(
           eq(ckycProviderConfig.isEnabled, true),
-          eq(ckycProviderConfig.isDeleted, false),
-          // Match environment or 'all'
+          eq(ckycProviderConfig.isDeleted, false)
         )
       )
       .orderBy(asc(ckycProviderConfig.priority));
+    
+    return allEnabled.filter(p => 
+      p.environment === 'all' || p.environment === currentEnv
+    );
   }
 
   /**
@@ -576,19 +579,56 @@ export class CkycProviderResolutionService {
     fallbackAttempts: Array<{ provider: string; timestamp: string; reason: string }>;
   }> {
     const { getAdapter } = await import('./ckyc-provider-adapter');
-    
-    const resolution = await this.resolveCkycProvider(context);
     const fallbackAttempts: Array<{ provider: string; timestamp: string; reason: string }> = [];
+    
+    const enabledProviders = await this.getEnabledProviders();
+    const providerCodes = enabledProviders.map(p => p.providerCode as CkycProviderCode);
+    
+    if (!providerCodes.includes('manual')) {
+      providerCodes.push('manual');
+    }
     
     const requestId = await this.recordVerificationRequest(
       context.userId,
       context.panNumber,
-      resolution.selectedProvider,
-      resolution.selectionReason,
+      providerCodes[0] || 'manual',
+      'Starting verification with fallback chain',
       fallbackAttempts
     );
     
-    for (const providerCode of resolution.fallbackChain) {
+    for (const providerCode of providerCodes) {
+      const providerConfig = enabledProviders.find(p => p.providerCode === providerCode);
+      
+      if (providerConfig) {
+        if (providerConfig.healthStatus === 'unhealthy') {
+          fallbackAttempts.push({
+            provider: providerCode,
+            timestamp: new Date().toISOString(),
+            reason: 'Provider unhealthy, skipping',
+          });
+          continue;
+        }
+        
+        if (this.isRateLimited(providerConfig)) {
+          fallbackAttempts.push({
+            provider: providerCode,
+            timestamp: new Date().toISOString(),
+            reason: 'Provider rate limited, skipping',
+          });
+          continue;
+        }
+        
+        const eligibility = await this.checkClientEligibility(providerConfig, context);
+        if (!eligibility.eligible) {
+          fallbackAttempts.push({
+            provider: providerCode,
+            timestamp: new Date().toISOString(),
+            reason: eligibility.reason || 'Not eligible',
+          });
+          continue;
+        }
+      }
+      
       try {
         const adapter = await getAdapter(providerCode);
         
