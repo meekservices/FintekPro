@@ -404,8 +404,8 @@ export default function Loans() {
                           <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 bg-blue-100">
                             <IconComponent className="h-6 w-6 text-blue-600" />
                           </div>
-                          <h3 className="font-bold text-gray-900 mb-2">{product.productName || product.name}</h3>
-                          <p className="text-gray-600 text-sm mb-4">{product.description}</p>
+                          <h3 className="text-lg font-bold text-gray-900 mb-1">{product.productName || product.name || 'Loan Product'}</h3>
+                          <p className="text-gray-500 text-sm mb-4 line-clamp-2">{product.description}</p>
                           
                           <div className="space-y-2 text-xs text-gray-600 mb-4">
                             <div className="flex justify-between">
