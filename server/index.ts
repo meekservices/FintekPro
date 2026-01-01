@@ -431,6 +431,21 @@ app.use((req, res, next) => {
       console.error('❌ Error importing session cleanup cron:', error);
     }
     
+    // Initialize CKYC Provider Configuration (non-blocking)
+    try {
+      import('./services/ckyc-provider-resolution-service').then(({ ckycProviderResolutionService }) => {
+        ckycProviderResolutionService.seedDefaultProviders().then(() => {
+          console.log('✅ CKYC Provider Configuration Service initialized');
+        }).catch(error => {
+          console.warn('⚠️ CKYC Provider seeding skipped (will retry on first request):', error instanceof Error ? error.message : 'Unknown error');
+        });
+      }).catch(error => {
+        console.warn('⚠️ CKYC Provider Service not loaded (app continues without it):', error instanceof Error ? error.message : 'Unknown error');
+      });
+    } catch (error) {
+      console.warn('⚠️ Error importing CKYC provider service (non-blocking):', error instanceof Error ? error.message : 'Unknown error');
+    }
+    
     // Initialize Retention Cleanup Service (8-year PMLA/RBI compliance)
     try {
       import('./services/retention-cleanup-service').then(({ retentionCleanupService }) => {

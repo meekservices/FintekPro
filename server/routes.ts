@@ -145,6 +145,7 @@ import { taxRoutes } from "./tax-routes";
 import meetingBookingsRoutes from "./routes/meeting-bookings";
 import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
 import portfolioReportsRoutes from "./routes/portfolio-reports";
+import ckycProviderRoutes from "./routes/ckyc-provider-routes";
 import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
 import errorTrackingRoutes from "./routes/error-tracking-routes";
 import usTradingRoutes from "./routes/us-trading";
@@ -534,6 +535,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log("✅ US Trading routes registered");
   console.log("✅ Error Tracking routes registered");
   console.log("✅ AI Recommendation Tracking routes registered");
+  
+  // CKYC Provider Configuration Routes
+  app.use("/api/admin/ckyc", requireAdmin, ckycProviderRoutes);
+  console.log("✅ CKYC Provider Configuration routes registered");
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {

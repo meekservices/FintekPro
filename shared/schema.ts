@@ -22248,3 +22248,138 @@ export const documentOverrides = pgTable("document_overrides", {
 export const insertDocumentOverrideSchema = createInsertSchema(documentOverrides).omit({ id: true, createdAt: true });
 export type DocumentOverride = typeof documentOverrides.$inferSelect;
 export type InsertDocumentOverride = z.infer<typeof insertDocumentOverrideSchema>;
+
+// ============================================================================
+// CKYC Provider Configuration (Config-Based Provider Switching)
+// ============================================================================
+
+// CKYC Provider Configuration Table
+export const ckycProviderConfig = pgTable("ckyc_provider_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Provider Identity
+  providerCode: varchar("provider_code", { length: 50 }).notNull().unique(), // truthscreen, cersai_reference, offline_aadhaar, vkyc, manual
+  providerName: varchar("provider_name", { length: 100 }).notNull(),
+  providerDescription: text("provider_description"),
+  
+  // Configuration
+  isEnabled: boolean("is_enabled").default(true).notNull(),
+  priority: integer("priority").default(100).notNull(), // Lower number = higher priority
+  environment: varchar("environment", { length: 20 }).default("all"), // development, production, all
+  
+  // Health & Status
+  lastHealthCheck: timestamp("last_health_check"),
+  healthStatus: varchar("health_status", { length: 20 }).default("unknown"), // healthy, degraded, unhealthy, unknown
+  consecutiveFailures: integer("consecutive_failures").default(0),
+  autoDisabledAt: timestamp("auto_disabled_at"),
+  
+  // API Configuration (stored as encrypted JSON)
+  apiConfig: jsonb("api_config").default({}), // endpoint URLs, timeout settings
+  
+  // Eligibility Rules
+  eligibilityRules: jsonb("eligibility_rules").default({}), // risk categories, consent requirements
+  
+  // Rate Limiting
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(100),
+  rateLimitPerDay: integer("rate_limit_per_day").default(10000),
+  currentMinuteCount: integer("current_minute_count").default(0),
+  currentDayCount: integer("current_day_count").default(0),
+  rateLimitResetAt: timestamp("rate_limit_reset_at"),
+  
+  // Audit
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  
+  // Soft Delete
+  isDeleted: boolean("is_deleted").default(false),
+  deletedAt: timestamp("deleted_at"),
+}, (table) => [
+  index("idx_ckyc_provider_code").on(table.providerCode),
+  index("idx_ckyc_provider_enabled").on(table.isEnabled),
+  index("idx_ckyc_provider_priority").on(table.priority),
+]);
+
+export const insertCkycProviderConfigSchema = createInsertSchema(ckycProviderConfig).omit({ id: true, createdAt: true, updatedAt: true });
+export type CkycProviderConfig = typeof ckycProviderConfig.$inferSelect;
+export type InsertCkycProviderConfig = z.infer<typeof insertCkycProviderConfigSchema>;
+
+// CKYC Provider Audit Log (Immutable)
+export const ckycProviderAuditLog = pgTable("ckyc_provider_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // What Changed
+  providerId: varchar("provider_id").references(() => ckycProviderConfig.id).notNull(),
+  providerCode: varchar("provider_code", { length: 50 }).notNull(),
+  action: varchar("action", { length: 50 }).notNull(), // enabled, disabled, priority_changed, config_updated, health_check, auto_disabled
+  
+  // Change Details
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  changeReason: text("change_reason"),
+  
+  // Actor
+  performedBy: varchar("performed_by").references(() => users.id),
+  performedByRole: varchar("performed_by_role", { length: 50 }),
+  performedByIp: varchar("performed_by_ip", { length: 45 }),
+  
+  // System Context
+  isSystemAction: boolean("is_system_action").default(false),
+  systemTrigger: varchar("system_trigger", { length: 100 }), // health_check, rate_limit, fallback
+  
+  // Timestamp (immutable)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ckyc_audit_provider").on(table.providerId),
+  index("idx_ckyc_audit_action").on(table.action),
+  index("idx_ckyc_audit_time").on(table.createdAt),
+]);
+
+export const insertCkycProviderAuditLogSchema = createInsertSchema(ckycProviderAuditLog).omit({ id: true, createdAt: true });
+export type CkycProviderAuditLog = typeof ckycProviderAuditLog.$inferSelect;
+export type InsertCkycProviderAuditLog = z.infer<typeof insertCkycProviderAuditLogSchema>;
+
+// CKYC Verification Requests (Track all CKYC attempts)
+export const ckycVerificationRequests = pgTable("ckyc_verification_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Request Context
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  panNumber: varchar("pan_number", { length: 10 }).notNull(),
+  requestType: varchar("request_type", { length: 50 }).default("verification"), // verification, status_check, fetch
+  
+  // Provider Selection
+  selectedProvider: varchar("selected_provider", { length: 50 }).notNull(),
+  providerSelectionReason: text("provider_selection_reason"),
+  fallbackAttempts: jsonb("fallback_attempts").default([]), // Array of {provider, timestamp, reason}
+  
+  // Request Details
+  requestPayload: jsonb("request_payload"), // Encrypted or hashed sensitive data
+  
+  // Response
+  responseStatus: varchar("response_status", { length: 50 }), // success, failure, timeout, rate_limited
+  responseCode: varchar("response_code", { length: 50 }),
+  responseMessage: text("response_message"),
+  
+  // CKYC Result
+  ckycFound: boolean("ckyc_found"),
+  ckycKin: varchar("ckyc_kin", { length: 50 }),
+  ckycStatus: varchar("ckyc_status", { length: 50 }),
+  
+  // Performance
+  responseTimeMs: integer("response_time_ms"),
+  
+  // Timestamps
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_ckyc_req_user").on(table.userId),
+  index("idx_ckyc_req_pan").on(table.panNumber),
+  index("idx_ckyc_req_provider").on(table.selectedProvider),
+  index("idx_ckyc_req_status").on(table.responseStatus),
+  index("idx_ckyc_req_time").on(table.requestedAt),
+]);
+
+export const insertCkycVerificationRequestSchema = createInsertSchema(ckycVerificationRequests).omit({ id: true, requestedAt: true });
+export type CkycVerificationRequest = typeof ckycVerificationRequests.$inferSelect;
+export type InsertCkycVerificationRequest = z.infer<typeof insertCkycVerificationRequestSchema>;
