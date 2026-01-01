@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { 
   TrendingUp, 
@@ -20,7 +22,9 @@ import {
   Users,
   Download,
   RefreshCw,
-  LogIn
+  LogIn,
+  Building,
+  Receipt
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -62,6 +66,7 @@ interface NetWorthData {
 
 export default function NetWorthPage() {
   const [includeFamilyWealth, setIncludeFamilyWealth] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
   const { user, isLoading: authLoading } = useAuth();
 
   const { data, isLoading, isError, error, refetch } = useQuery<{ success: boolean; data: NetWorthData }>({
@@ -384,19 +389,154 @@ export default function NetWorthPage() {
         </Card>
       </div>
 
-      {/* Assets and Liabilities Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Assets Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Assets Breakdown</CardTitle>
-            <CardDescription>
-              {netWorthData.assets.portfolioCount} portfolios, {netWorthData.assets.bankAccountsCount} bank accounts
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {assetsPieData.length > 0 ? (
-              <>
+      {/* Assets and Liabilities Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+        <ScrollableTabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex gap-1">
+          <TabsTrigger value="overview" data-testid="tab-overview">
+            <Wallet className="w-4 h-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="assets" data-testid="tab-assets">
+            <Building className="w-4 h-4 mr-2" />
+            Assets
+          </TabsTrigger>
+          <TabsTrigger value="liabilities" data-testid="tab-liabilities">
+            <Receipt className="w-4 h-4 mr-2" />
+            Liabilities
+          </TabsTrigger>
+        </ScrollableTabsList>
+
+        <TabsContent value="overview" className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Assets Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Assets Breakdown</CardTitle>
+                <CardDescription>
+                  {netWorthData.assets.portfolioCount} portfolios, {netWorthData.assets.bankAccountsCount} bank accounts
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {assetsPieData.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          data={assetsPieData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {assetsPieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-2 mt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-green-600" />
+                          <span className="text-sm">Liquid</span>
+                        </div>
+                        <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.liquid.value)}</div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-blue-600" />
+                          <span className="text-sm">Semi-Liquid</span>
+                        </div>
+                        <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.semiLiquid.value)}</div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-orange-600" />
+                          <span className="text-sm">Illiquid</span>
+                        </div>
+                        <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.illiquid.value)}</div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">No assets to display</div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Liabilities Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Liabilities Breakdown</CardTitle>
+                <CardDescription>{netWorthData.liabilities.count} active obligations</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {netWorthData.summary.totalLiabilities > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          data={liabilitiesPieData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {liabilitiesPieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-2 mt-4">
+                      {netWorthData.liabilities.breakdown.shortTerm.value > 0 && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-red-600" />
+                            <span className="text-sm">Short-term</span>
+                          </div>
+                          <div className="font-semibold">{formatCurrency(netWorthData.liabilities.breakdown.shortTerm.value)}</div>
+                        </div>
+                      )}
+                      {netWorthData.liabilities.breakdown.longTerm.value > 0 && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-red-700" />
+                            <span className="text-sm">Long-term</span>
+                          </div>
+                          <div className="font-semibold">{formatCurrency(netWorthData.liabilities.breakdown.longTerm.value)}</div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-green-600 text-5xl mb-2">✓</div>
+                    <p className="font-semibold">Debt Free!</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="assets" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="w-5 h-5 text-green-600" />
+                All Assets
+              </CardTitle>
+              <CardDescription>Complete breakdown of your assets by liquidity category</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
@@ -405,7 +545,7 @@ export default function NetWorthPage() {
                       cy="50%"
                       labelLine={false}
                       label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
+                      outerRadius={100}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -417,162 +557,138 @@ export default function NetWorthPage() {
                   </PieChart>
                 </ResponsiveContainer>
 
-                <Separator className="my-4" />
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-green-600" />
-                      <span className="text-sm">Liquid (24h)</span>
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-green-700 dark:text-green-400">Liquid Assets (24h)</span>
+                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.liquid.value)}</span>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.liquid.value)}</div>
-                      <div className="text-xs text-muted-foreground">{netWorthData.assets.breakdown.liquid.percentage.toFixed(1)}%</div>
-                    </div>
+                    <p className="text-sm text-muted-foreground">{netWorthData.assets.breakdown.liquid.percentage.toFixed(1)}% of total assets</p>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-blue-600" />
-                      <span className="text-sm">Semi-Liquid (1-7 days)</span>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-blue-700 dark:text-blue-400">Semi-Liquid (1-7 days)</span>
+                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.semiLiquid.value)}</span>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.semiLiquid.value)}</div>
-                      <div className="text-xs text-muted-foreground">{netWorthData.assets.breakdown.semiLiquid.percentage.toFixed(1)}%</div>
-                    </div>
+                    <p className="text-sm text-muted-foreground">{netWorthData.assets.breakdown.semiLiquid.percentage.toFixed(1)}% of total assets</p>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-orange-600" />
-                      <span className="text-sm">Illiquid (90+ days)</span>
+                  <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-orange-700 dark:text-orange-400">Illiquid (90+ days)</span>
+                      <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.illiquid.value)}</span>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.illiquid.value)}</div>
-                      <div className="text-xs text-muted-foreground">{netWorthData.assets.breakdown.illiquid.percentage.toFixed(1)}%</div>
-                    </div>
+                    <p className="text-sm text-muted-foreground">{netWorthData.assets.breakdown.illiquid.percentage.toFixed(1)}% of total assets</p>
                   </div>
-
                   {netWorthData.assets.breakdown.pending.value > 0 && (
-                    <>
-                      <Separator />
+                    <div className="p-4 bg-gray-50 dark:bg-gray-950/30 rounded-lg border">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Info className="w-3 h-3 text-muted-foreground" />
-                          <span className="text-sm">Pending Orders</span>
-                        </div>
-                        <div className="font-semibold">{formatCurrency(netWorthData.assets.breakdown.pending.value)}</div>
+                        <span className="font-semibold">Pending Orders</span>
+                        <span className="text-xl font-bold">{formatCurrency(netWorthData.assets.breakdown.pending.value)}</span>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
-              </>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No assets to display
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Liabilities Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Liabilities Breakdown</CardTitle>
-            <CardDescription>
-              {netWorthData.liabilities.count} active loans
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {netWorthData.summary.totalLiabilities > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={liabilitiesPieData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {liabilitiesPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  </PieChart>
-                </ResponsiveContainer>
+        <TabsContent value="liabilities" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-red-600" />
+                All Liabilities & Obligations
+              </CardTitle>
+              <CardDescription>Loans, EMIs, and financial obligations</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {netWorthData.summary.totalLiabilities > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={liabilitiesPieData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {liabilitiesPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    </PieChart>
+                  </ResponsiveContainer>
 
-                <Separator className="my-4" />
-
-                <div className="space-y-3">
-                  {netWorthData.liabilities.breakdown.shortTerm.value > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-600" />
-                        <span className="text-sm">Short-term (&lt;1 year)</span>
+                  <div className="space-y-4">
+                    {netWorthData.liabilities.breakdown.shortTerm.value > 0 && (
+                      <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-red-700 dark:text-red-400">Short-term Liabilities</span>
+                          <span className="text-xl font-bold">{formatCurrency(netWorthData.liabilities.breakdown.shortTerm.value)}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Due within 1 year</p>
                       </div>
-                      <div className="font-semibold">{formatCurrency(netWorthData.liabilities.breakdown.shortTerm.value)}</div>
-                    </div>
-                  )}
-
-                  {netWorthData.liabilities.breakdown.longTerm.value > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-700" />
-                        <span className="text-sm">Long-term (&gt;1 year)</span>
+                    )}
+                    {netWorthData.liabilities.breakdown.longTerm.value > 0 && (
+                      <div className="p-4 bg-red-100 dark:bg-red-950/50 rounded-lg border border-red-300 dark:border-red-700">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-red-800 dark:text-red-300">Long-term Liabilities</span>
+                          <span className="text-xl font-bold">{formatCurrency(netWorthData.liabilities.breakdown.longTerm.value)}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Due after 1 year</p>
                       </div>
-                      <div className="font-semibold">{formatCurrency(netWorthData.liabilities.breakdown.longTerm.value)}</div>
-                    </div>
-                  )}
-                </div>
+                    )}
 
-                {netWorthData.liabilities.breakdown.shortTerm.items.length > 0 && (
-                  <>
-                    <Separator className="my-4" />
+                    <Separator />
+
                     <div className="space-y-2">
-                      <h4 className="text-sm font-semibold">Active Loans</h4>
+                      <h4 className="font-semibold">Active Loans & Obligations</h4>
                       {netWorthData.liabilities.breakdown.shortTerm.items.map((loan: any, idx: number) => (
-                        <div key={idx} className="text-xs p-2 bg-secondary rounded-md">
+                        <div key={`short-${idx}`} className="p-3 bg-secondary rounded-lg">
                           <div className="flex justify-between mb-1">
                             <span className="font-medium">{loan.type}</span>
-                            <span>{formatCurrency(loan.outstandingAmount)}</span>
+                            <span className="font-semibold">{formatCurrency(loan.outstandingAmount)}</span>
                           </div>
-                          <div className="text-muted-foreground">
+                          <div className="text-sm text-muted-foreground">
                             Interest: {loan.interestRate}% | Tenure: {loan.tenure} months
                           </div>
                         </div>
                       ))}
                       {netWorthData.liabilities.breakdown.longTerm.items.map((loan: any, idx: number) => (
-                        <div key={idx} className="text-xs p-2 bg-secondary rounded-md">
+                        <div key={`long-${idx}`} className="p-3 bg-secondary rounded-lg">
                           <div className="flex justify-between mb-1">
                             <span className="font-medium">{loan.type}</span>
-                            <span>{formatCurrency(loan.outstandingAmount)}</span>
+                            <span className="font-semibold">{formatCurrency(loan.outstandingAmount)}</span>
                           </div>
-                          <div className="text-muted-foreground">
+                          <div className="text-sm text-muted-foreground">
                             Interest: {loan.interestRate}% | Tenure: {loan.tenure} months
                           </div>
                         </div>
                       ))}
+                      {netWorthData.liabilities.breakdown.shortTerm.items.length === 0 && 
+                       netWorthData.liabilities.breakdown.longTerm.items.length === 0 && (
+                        <p className="text-sm text-muted-foreground">No detailed loan information available</p>
+                      )}
                     </div>
-                  </>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-8">
-                <div className="text-green-600 text-5xl mb-2">✓</div>
-                <p className="font-semibold">Debt Free!</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  You have no outstanding liabilities
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-green-600 text-6xl mb-4">✓</div>
+                  <h3 className="text-xl font-semibold mb-2">Debt Free!</h3>
+                  <p className="text-muted-foreground">You have no outstanding liabilities or obligations</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Comparison Chart */}
       <Card className="mb-8">

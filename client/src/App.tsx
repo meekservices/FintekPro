@@ -268,6 +268,13 @@ import AgentFieldView from "@/pages/agent-field-view";
 import AgentPerformance from "@/pages/agent-performance";
 import NotificationPreferences from "@/pages/notification-preferences";
 import AIPortfolioReport from "@/pages/ai-portfolio-report";
+import PortfolioHoldings from "@/pages/portfolio-holdings";
+import PortfolioGoals from "@/pages/portfolio-goals";
+import PortfolioRetirement from "@/pages/portfolio-retirement";
+import PortfolioAIInsights from "@/pages/portfolio-ai-insights";
+import PortfolioRebalancing from "@/pages/portfolio-rebalancing";
+import TrackerPortfolioReport from "@/pages/tracker-portfolio-report";
+import AgentExternalPortfolios from "@/pages/agent-external-portfolios";
 
 function UserProtectedRoutes() {
   return (
@@ -276,12 +283,18 @@ function UserProtectedRoutes() {
         <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
         <Route path="/portfolio" component={Portfolio} />
+        <Route path="/portfolio/holdings" component={PortfolioHoldings} />
+        <Route path="/portfolio/goals" component={PortfolioGoals} />
+        <Route path="/portfolio/retirement" component={PortfolioRetirement} />
+        <Route path="/portfolio/ai-insights" component={PortfolioAIInsights} />
+        <Route path="/portfolio/rebalancing" component={PortfolioRebalancing} />
         <Route path="/portfolio-stress-test" component={PortfolioStressTest} />
         <Route path="/dividend-calendar" component={DividendCalendar} />
         <Route path="/tax-loss-harvesting" component={TaxLossHarvesting} />
         <Route path="/tax-regime-comparison" component={TaxRegimeComparison} />
         <Route path="/agent-field-view" component={AgentFieldView} />
         <Route path="/agent-performance" component={AgentPerformance} />
+        <Route path="/agent/external-portfolios" component={AgentExternalPortfolios} />
         <Route path="/notification-preferences" component={NotificationPreferences} />
         <Route path="/ai-portfolio-report" component={AIPortfolioReport} />
         <Route path="/risk-profiling" component={RiskProfilingPage} />
@@ -340,6 +353,7 @@ function UserProtectedRoutes() {
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
         <Route path="/reports" component={ReportsHub} />
+        <Route path="/reports/tracker-portfolio" component={TrackerPortfolioReport} />
         <Route path="/my-tasks" component={ClientTasks} />
         <Route path="/ai-recommendations" component={ClientAIRecommendations} />
         <Route path="/my-reports" component={ClientReports} />

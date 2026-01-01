@@ -189,16 +189,12 @@ export function EnhancedNavigation() {
           icon: PieChart,
           description: "Complete investment holdings",
           subItems: [
-            { name: "FintekPro Portfolio", href: "/portfolio?view=fintekpro", description: "Transactions executed via FintekPro" },
-            { name: "Tracker Portfolio", href: "/portfolio?view=tracker", description: "PAN-level consolidated holdings" },
-            { name: "External Portfolio", href: "/portfolio?view=external", description: "Holdings from other platforms" }
+            { name: "My Holdings", href: "/portfolio/holdings", description: "Unified domestic & global investments" },
+            { name: "Goal Planning", href: "/portfolio/goals", description: "Plan & execute financial goals", badge: "AI" },
+            { name: "Retirement Planning", href: "/portfolio/retirement", description: "Retirement corpus planning", badge: "AI" },
+            { name: "AI Insights", href: "/portfolio/ai-insights", description: "AI-powered investment insights", badge: "AI" },
+            { name: "AI Rebalancing", href: "/portfolio/rebalancing", description: "Smart portfolio rebalancing", badge: "AI" }
           ]
-        },
-        {
-          name: "My Obligations",
-          href: "/wealth-management?tab=obligations",
-          icon: ClipboardList,
-          description: "EMIs, SIPs, insurance premiums, dues"
         },
         // Proposals visible to all authenticated users
         ...(isAuthenticated ? [{
@@ -363,6 +359,7 @@ export function EnhancedNavigation() {
           icon: Folder,
           description: "All reports",
           subItems: [
+            { name: "Tracker Portfolio", href: "/reports/tracker-portfolio", description: "PAN-level consolidated holdings" },
             { name: "Transactions", href: "/reports?type=transactions", description: "Transaction history" },
             { name: "Capital Gains", href: "/reports?type=capital-gains", description: "Tax reports" },
             { name: "Compliance", href: "/reports?type=compliance", description: "Regulatory reports" }
@@ -418,6 +415,12 @@ export function EnhancedNavigation() {
           href: "/ai-recommendations",
           icon: PieChart,
           description: "AI-powered insights"
+        },
+        {
+          name: "External Portfolios",
+          href: "/agent/external-portfolios",
+          icon: Briefcase,
+          description: "COB & external holdings management"
         }
       ]
     });
