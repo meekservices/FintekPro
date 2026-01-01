@@ -392,18 +392,19 @@ export default function Loans() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {loanProducts?.data?.map((product: any, index: number) => {
-                    const IconComponent = getIcon(product.key);
+                    const productKey = product.productKey || product.key;
+                    const IconComponent = getIcon(productKey);
                     return (
                       <Card 
-                        key={product.id}
+                        key={product.id || productKey}
                         className="hover:shadow-md transition-shadow cursor-pointer group"
-                        data-testid={`product-${product.key}`}
+                        data-testid={`product-${productKey}`}
                       >
                         <CardContent className="p-6">
                           <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 bg-blue-100">
                             <IconComponent className="h-6 w-6 text-blue-600" />
                           </div>
-                          <h3 className="font-bold text-gray-900 mb-2">{product.name}</h3>
+                          <h3 className="font-bold text-gray-900 mb-2">{product.productName || product.name}</h3>
                           <p className="text-gray-600 text-sm mb-4">{product.description}</p>
                           
                           <div className="space-y-2 text-xs text-gray-600 mb-4">
@@ -430,11 +431,11 @@ export default function Loans() {
                             size="sm" 
                             className="w-full group-hover:bg-blue-600 group-hover:text-white transition-colors"
                             onClick={() => {
-                              setSelectedProduct(product.key);
-                              form.setValue("productKey", product.key);
+                              setSelectedProduct(productKey);
+                              form.setValue("productKey", productKey);
                               setActiveTab("request");
                             }}
-                            data-testid={`select-${product.key}`}
+                            data-testid={`select-${productKey}`}
                           >
                             Get Offers
                             <ArrowRight className="h-4 w-4 ml-2" />
@@ -498,8 +499,8 @@ export default function Loans() {
                               </FormControl>
                               <SelectContent>
                                 {loanProducts?.data?.map((product: any) => (
-                                  <SelectItem key={product.id} value={product.key}>
-                                    {product.name}
+                                  <SelectItem key={product.id || product.productKey} value={product.productKey || product.key}>
+                                    {product.productName || product.name}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
