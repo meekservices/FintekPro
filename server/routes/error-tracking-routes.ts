@@ -362,6 +362,51 @@ router.get("/export", async (req: Request, res: Response) => {
   }
 });
 
+// AI-powered error analysis routes (GPT-5.1)
+router.post("/ai-analyze/:id", async (req: Request, res: Response) => {
+  try {
+    const analysis = await errorTrackingService.analyzeErrorWithAI(req.params.id);
+    
+    if (!analysis) {
+      return res.status(404).json({ error: "Error not found or analysis failed" });
+    }
+    
+    res.json({
+      success: true,
+      errorId: req.params.id,
+      analysis
+    });
+  } catch (err) {
+    console.error("Error analyzing error with AI:", err);
+    res.status(500).json({ error: "Failed to analyze error with AI" });
+  }
+});
+
+router.post("/ai-analyze-patterns", async (req: Request, res: Response) => {
+  try {
+    const { errorIds } = req.body;
+    
+    if (!errorIds || !Array.isArray(errorIds) || errorIds.length === 0) {
+      return res.status(400).json({ error: "errorIds array is required" });
+    }
+    
+    if (errorIds.length > 20) {
+      return res.status(400).json({ error: "Maximum 20 errors can be analyzed at once" });
+    }
+    
+    const analysis = await errorTrackingService.analyzeErrorPatterns(errorIds);
+    
+    res.json({
+      success: true,
+      errorCount: errorIds.length,
+      ...analysis
+    });
+  } catch (err) {
+    console.error("Error analyzing error patterns:", err);
+    res.status(500).json({ error: "Failed to analyze error patterns" });
+  }
+});
+
 // Dynamic routes MUST be defined after all static routes
 router.get("/:id", async (req: Request, res: Response) => {
   try {

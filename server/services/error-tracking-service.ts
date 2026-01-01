@@ -4,6 +4,18 @@ import { eq, desc, and, gte, lte, sql, like, or, count } from "drizzle-orm";
 import crypto from "crypto";
 import { emailService } from "../email-service";
 import { errorSpikeDetectionService } from "./error-spike-detection-service";
+import { aiService } from "./ai-service";
+
+interface AIErrorAnalysis {
+  rootCause: string;
+  suggestedFix: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  category: string;
+  impactAssessment: string;
+  preventionTips: string[];
+  relatedErrors: string[];
+  confidence: number;
+}
 
 function maskPan(pan: string | undefined | null): string | null {
   if (!pan) return null;
@@ -331,6 +343,134 @@ class ErrorTrackingService {
       ))
       .orderBy(desc(errorLedger.createdAt))
       .limit(limit);
+  }
+
+  /**
+   * AI-powered error analysis using GPT-5.1
+   * Provides root cause analysis, fix suggestions, and impact assessment
+   */
+  async analyzeErrorWithAI(errorId: string): Promise<AIErrorAnalysis | null> {
+    const error = await this.getErrorById(errorId);
+    if (!error) return null;
+
+    try {
+      const prompt = `You are an expert software engineer analyzing a production error in a SEBI/RBI-compliant financial platform (FintekPro).
+
+ERROR DETAILS:
+- Error Code: ${error.errorCode}
+- Module: ${error.module}
+- Message: ${error.message}
+- Severity: ${error.severity}
+- Occurrence Count: ${error.occurrenceCount}
+- Environment: ${error.environment}
+${error.stackTrace ? `- Stack Trace (first 500 chars): ${error.stackTrace.substring(0, 500)}` : ''}
+${error.url ? `- URL: ${error.url}` : ''}
+${error.metadata ? `- Metadata: ${JSON.stringify(error.metadata)}` : ''}
+
+Analyze this error and provide:
+1. Root cause analysis
+2. Suggested fix
+3. Correct severity assessment (critical/high/medium/low)
+4. Error category (e.g., database, authentication, payment, API, validation, infrastructure)
+5. Impact assessment for users/business
+6. Prevention tips (3-5 actionable items)
+7. Related error patterns to monitor
+8. Confidence level (0-100)
+
+IMPORTANT: Consider financial compliance implications (SEBI/RBI regulations).
+
+Respond ONLY in valid JSON format:
+{
+  "rootCause": "...",
+  "suggestedFix": "...",
+  "severity": "critical|high|medium|low",
+  "category": "...",
+  "impactAssessment": "...",
+  "preventionTips": ["...", "...", "..."],
+  "relatedErrors": ["...", "..."],
+  "confidence": 85
+}`;
+
+      // Use GPT-5.1 via Replit AI Integrations for analysis
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      const response = await aiService.chat(
+        [{ role: 'user', content: prompt }],
+        { provider: 'openai', model: 'gpt-5.1', temperature: 0.3, maxTokens: 2048 }
+      );
+
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const analysis = JSON.parse(jsonMatch[0]) as AIErrorAnalysis;
+        console.log(`🤖 AI error analysis completed for ${errorId} using GPT-5.1`);
+        return analysis;
+      }
+
+      return null;
+    } catch (err) {
+      console.error(`[ErrorTracking] AI analysis failed for ${errorId}:`, err);
+      return null;
+    }
+  }
+
+  /**
+   * Batch analyze multiple errors for patterns
+   */
+  async analyzeErrorPatterns(errorIds: string[]): Promise<{
+    commonPatterns: string[];
+    recommendations: string[];
+    prioritizedFixes: Array<{ errorId: string; priority: number; fix: string }>;
+  }> {
+    const errors = await Promise.all(errorIds.map(id => this.getErrorById(id)));
+    const validErrors = errors.filter(e => e !== null);
+
+    if (validErrors.length === 0) {
+      return { commonPatterns: [], recommendations: [], prioritizedFixes: [] };
+    }
+
+    try {
+      const errorSummaries = validErrors.map(e => ({
+        id: e!.id,
+        code: e!.errorCode,
+        module: e!.module,
+        message: e!.message,
+        count: e!.occurrenceCount,
+        severity: e!.severity
+      }));
+
+      const prompt = `Analyze these production errors from a financial platform for patterns:
+
+ERRORS:
+${JSON.stringify(errorSummaries, null, 2)}
+
+Identify:
+1. Common patterns across these errors
+2. System-wide recommendations to prevent similar errors
+3. Prioritized fixes (1=highest priority)
+
+Respond in JSON:
+{
+  "commonPatterns": ["pattern1", "pattern2"],
+  "recommendations": ["rec1", "rec2"],
+  "prioritizedFixes": [
+    {"errorId": "...", "priority": 1, "fix": "..."},
+    {"errorId": "...", "priority": 2, "fix": "..."}
+  ]
+}`;
+
+      const response = await aiService.chat(
+        [{ role: 'user', content: prompt }],
+        { provider: 'openai', model: 'gpt-5.1', temperature: 0.2, maxTokens: 2048 }
+      );
+
+      const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (err) {
+      console.error('[ErrorTracking] Pattern analysis failed:', err);
+    }
+
+    return { commonPatterns: [], recommendations: [], prioritizedFixes: [] };
   }
 
   private async triggerCriticalAlert(error: ErrorLedgerEntry) {
