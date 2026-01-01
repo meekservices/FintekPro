@@ -22532,12 +22532,12 @@ export const ckycAuditLog = pgTable("ckyc_audit_log", {
   eventTimestamp: timestamp("event_timestamp").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
-  index("idx_ckyc_audit_case").on(table.caseId),
-  index("idx_ckyc_audit_user").on(table.userId),
-  index("idx_ckyc_audit_type").on(table.eventType),
-  index("idx_ckyc_audit_time").on(table.eventTimestamp),
-  index("idx_ckyc_audit_compliance").on(table.isComplianceEvent),
-  index("idx_ckyc_audit_pan").on(table.panNumber),
+  index("idx_ckyc_case_audit_case").on(table.caseId),
+  index("idx_ckyc_case_audit_user").on(table.userId),
+  index("idx_ckyc_case_audit_type").on(table.eventType),
+  index("idx_ckyc_case_audit_time").on(table.eventTimestamp),
+  index("idx_ckyc_case_audit_compliance").on(table.isComplianceEvent),
+  index("idx_ckyc_case_audit_pan").on(table.panNumber),
 ]);
 
 export const insertCkycAuditLogSchema = createInsertSchema(ckycAuditLog).omit({ id: true, createdAt: true });
