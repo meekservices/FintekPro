@@ -221,7 +221,7 @@ export function AccountSelectionWidget({
                   <div>
                     <p className="font-medium text-sm">{selectedBank.bankName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {selectedBank.accountType.toUpperCase()} - ****{selectedBank.accountNumber.slice(-4)}
+                      {(selectedBank.accountType || 'savings').toUpperCase()} - ****{selectedBank.accountNumber?.slice(-4) || '****'}
                     </p>
                   </div>
                 </div>

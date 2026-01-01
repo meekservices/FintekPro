@@ -574,13 +574,13 @@ export default function AgentDerivatives() {
                             <TableRow key={leg.id}>
                               <TableCell>
                                 <Badge variant={leg.type === 'call' ? 'default' : 'secondary'}>
-                                  {leg.type.toUpperCase()}
+                                  {(leg.type || 'call').toUpperCase()}
                                 </Badge>
                               </TableCell>
                               <TableCell>{leg.strikePrice}</TableCell>
                               <TableCell>
                                 <Badge variant={leg.action === 'buy' ? 'outline' : 'destructive'}>
-                                  {leg.action.toUpperCase()}
+                                  {(leg.action || 'buy').toUpperCase()}
                                 </Badge>
                               </TableCell>
                               <TableCell>

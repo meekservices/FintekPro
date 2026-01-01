@@ -383,7 +383,7 @@ export default function SupplierDashboard() {
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-semibold text-gray-900">{suggestion.productName}</h4>
                           <Badge className={getPriorityBadge(suggestion.priority)}>
-                            {suggestion.priority.toUpperCase()}
+                            {(suggestion.priority || 'medium').toUpperCase()}
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-600 mb-2">{suggestion.reason}</p>

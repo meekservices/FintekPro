@@ -130,7 +130,7 @@ export default function DuplicateManagementPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Badge className={getRiskBadgeColor(match.riskLevel)}>
-                {match.riskLevel.toUpperCase()} RISK
+                {(match.riskLevel || 'medium').toUpperCase()} RISK
               </Badge>
               <span className="text-gray-400 text-sm" data-testid={`risk-score-${index}`}>
                 Risk Score: {match.riskScore}/100

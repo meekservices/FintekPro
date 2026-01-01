@@ -374,7 +374,7 @@ export default function DividendCalendar() {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span>Ex-Date: {format(dividend.exDate, 'MMM d, yyyy')}</span>
                           <Badge className={getTypeBadgeColor(dividend.type)}>
-                            {dividend.type.toUpperCase()}
+                            {(dividend.type || 'dividend').toUpperCase()}
                           </Badge>
                         </div>
                       </div>

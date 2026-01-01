@@ -199,7 +199,8 @@ export default function CkycManagement() {
     }
   });
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | undefined) => {
+    const safeStatus = status || 'pending';
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
       pending: { variant: "outline", icon: Clock },
       verified: { variant: "default", icon: CheckCircle },
@@ -207,31 +208,32 @@ export default function CkycManagement() {
       under_review: { variant: "secondary", icon: AlertCircle }
     };
 
-    const config = statusConfig[status] || { variant: "outline", icon: AlertCircle };
+    const config = statusConfig[safeStatus] || { variant: "outline", icon: AlertCircle };
     const Icon = config.icon;
 
     return (
       <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon size={12} />
-        {status.replace("_", " ").toUpperCase()}
+        {safeStatus.replace("_", " ").toUpperCase()}
       </Badge>
     );
   };
 
-  const getNotificationStatusBadge = (status: string) => {
+  const getNotificationStatusBadge = (status: string | undefined) => {
+    const safeStatus = status || 'pending';
     const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", icon: any }> = {
       pending: { variant: "outline", icon: Clock },
       sent: { variant: "default", icon: CheckCircle },
       failed: { variant: "destructive", icon: XCircle }
     };
 
-    const config = statusConfig[status] || { variant: "outline", icon: AlertCircle };
+    const config = statusConfig[safeStatus] || { variant: "outline", icon: AlertCircle };
     const Icon = config.icon;
 
     return (
       <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon size={12} />
-        {status.toUpperCase()}
+        {safeStatus.toUpperCase()}
       </Badge>
     );
   };
