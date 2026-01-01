@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -6,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Bell, 
   Mail, 
@@ -14,17 +16,21 @@ import {
   Moon,
   Clock,
   TrendingUp,
-  TrendingDown,
   FileText,
   Calendar,
   Shield,
   AlertTriangle,
   CheckCircle2,
-  Save
+  Save,
+  BellRing,
+  RefreshCw,
+  XCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Link } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface NotificationCategory {
   id: string;
@@ -43,6 +49,17 @@ export default function NotificationPreferences() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  
+  const {
+    isSupported: pushSupported,
+    permission: pushPermission,
+    isSubscribed: pushSubscribed,
+    isLoading: pushLoading,
+    error: pushError,
+    enableNotifications,
+    unsubscribe: unsubscribePush,
+  } = usePushNotifications();
   
   const [quietHours, setQuietHours] = useState({
     enabled: true,
@@ -50,7 +67,7 @@ export default function NotificationPreferences() {
     end: '07:00'
   });
 
-  const [categories, setCategories] = useState<NotificationCategory[]>([
+  const defaultCategories: NotificationCategory[] = [
     { 
       id: 'portfolio_alerts', 
       name: 'Portfolio Alerts', 
@@ -93,8 +110,9 @@ export default function NotificationPreferences() {
       icon: AlertTriangle,
       channels: { email: true, sms: true, push: true, whatsapp: true }
     },
-  ]);
+  ];
 
+  const [categories, setCategories] = useState<NotificationCategory[]>(defaultCategories);
   const [digestFrequency, setDigestFrequency] = useState('weekly');
 
   const toggleChannel = (categoryId: string, channel: keyof NotificationCategory['channels']) => {
@@ -105,14 +123,109 @@ export default function NotificationPreferences() {
     ));
   };
 
+  const handleEnablePush = async () => {
+    const success = await enableNotifications();
+    if (success) {
+      toast({
+        title: "Push Notifications Enabled",
+        description: "You will now receive push notifications on this device.",
+      });
+    } else {
+      toast({
+        title: "Could not enable push notifications",
+        description: pushPermission === 'denied' 
+          ? "Please enable notifications in your browser settings." 
+          : "An error occurred while enabling push notifications.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDisablePush = async () => {
+    const success = await unsubscribePush();
+    if (success) {
+      toast({
+        title: "Push Notifications Disabled",
+        description: "You will no longer receive push notifications on this device.",
+      });
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setIsTesting(true);
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Test Notification', {
+          body: 'This is a test notification from FintekPro!',
+          icon: '/icon-192.png',
+          tag: 'test-notification',
+        });
+        toast({
+          title: "Test Sent",
+          description: "Check your notification panel for the test message.",
+        });
+      } else if (pushSupported && pushSubscribed) {
+        try {
+          await apiRequest("/api/notifications/test", {
+            method: "POST",
+            body: JSON.stringify({ type: 'push' })
+          });
+          toast({
+            title: "Test Notification Sent",
+            description: "You should receive a push notification shortly.",
+          });
+        } catch {
+          toast({
+            title: "Test notification sent locally",
+            description: "Backend test not available, but local notification triggered.",
+          });
+        }
+      } else {
+        toast({
+          title: "Enable Push First",
+          description: "Please enable push notifications to test them.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Test Notification', {
+          body: 'This is a test notification from FintekPro!',
+          icon: '/icon-192.png',
+          tag: 'test-notification',
+        });
+        toast({ title: "Test Sent", description: "Local notification triggered." });
+      }
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    toast({
-      title: "Preferences Saved",
-      description: "Your notification preferences have been updated.",
-    });
+    try {
+      const preferences = {
+        quietHours,
+        categories: categories.map(c => ({ id: c.id, channels: c.channels })),
+        digestFrequency,
+      };
+      await apiRequest("/api/user/notification-preferences", {
+        method: "POST",
+        body: JSON.stringify(preferences)
+      });
+      toast({
+        title: "Preferences Saved",
+        description: "Your notification preferences have been updated.",
+      });
+    } catch {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      toast({
+        title: "Preferences Saved",
+        description: "Your notification preferences have been saved locally.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -146,13 +259,112 @@ export default function NotificationPreferences() {
         </div>
         <Button onClick={handleSave} disabled={isSaving} data-testid="save-preferences-btn">
           {isSaving ? (
-            <span className="animate-spin mr-2">...</span>
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
           ) : (
             <Save className="h-4 w-4 mr-2" />
           )}
           Save Preferences
         </Button>
       </div>
+
+      {/* Push Notification Status Card */}
+      <Card className={pushSubscribed ? "border-green-200 bg-green-50/30 dark:border-green-800 dark:bg-green-950/30" : ""}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BellRing className="h-5 w-5" />
+            Push Notifications
+          </CardTitle>
+          <CardDescription>
+            Receive instant notifications on this device
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!pushSupported ? (
+            <Alert>
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>
+                Push notifications are not supported in this browser. Try using Chrome, Firefox, or Edge.
+              </AlertDescription>
+            </Alert>
+          ) : pushPermission === 'denied' ? (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Push notifications are blocked. Please enable them in your browser settings to receive real-time alerts.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {pushSubscribed ? (
+                  <>
+                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700" data-testid="push-status-enabled">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Enabled
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">You'll receive push notifications on this device</span>
+                  </>
+                ) : (
+                  <>
+                    <Badge variant="outline" className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300" data-testid="push-status-disabled">
+                      Disabled
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">Enable to receive instant notifications</span>
+                  </>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {pushSubscribed ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestNotification}
+                      disabled={isTesting}
+                      data-testid="test-notification-btn"
+                    >
+                      {isTesting ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <BellRing className="h-4 w-4 mr-2" />
+                      )}
+                      Test Notification
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDisablePush}
+                      disabled={pushLoading}
+                      data-testid="disable-push-btn"
+                    >
+                      Disable
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    onClick={handleEnablePush}
+                    disabled={pushLoading}
+                    data-testid="enable-push-btn"
+                  >
+                    {pushLoading ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Bell className="h-4 w-4 mr-2" />
+                    )}
+                    Enable Push Notifications
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          {pushError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{pushError}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

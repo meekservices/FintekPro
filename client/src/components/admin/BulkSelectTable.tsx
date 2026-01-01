@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ChevronDown, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export interface BulkAction<T> {
   id: string;
@@ -227,11 +228,18 @@ export function BulkSelectTable<T extends { id: string | number }>({
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} className="h-24 text-center">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }, (_, i) => (
+                <TableRow key={`skeleton-${i}`} data-testid={`skeleton-row-${i}`}>
+                  <TableCell className="w-12">
+                    <Skeleton className="h-4 w-4" />
+                  </TableCell>
+                  {columns.map((column) => (
+                    <TableCell key={column.id} className={column.className}>
+                      <Skeleton className="h-4 w-full max-w-[150px]" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length + 1} className="h-24 text-center text-muted-foreground">

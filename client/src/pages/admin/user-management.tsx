@@ -281,14 +281,10 @@ export default function UserManagement() {
             toast({ title: "No inactive users selected", variant: "destructive" });
             return;
           }
-          const response = await apiRequest("POST", "/api/admin/users/batch-activate", {
-            body: { ids: inactiveItems.map(u => u.id) },
+          const result = await apiRequest("/api/admin/users/batch-activate", {
+            method: "POST",
+            body: JSON.stringify({ ids: inactiveItems.map(u => u.id) }),
           });
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || "Failed to activate users");
-          }
-          const result = await response.json();
           toast({ title: result.success ? "Success" : "Partial Success", description: result.message, variant: result.success ? "default" : "destructive" });
           refetchUsers();
         } catch (error: any) {
@@ -311,14 +307,10 @@ export default function UserManagement() {
             toast({ title: "No active users selected", variant: "destructive" });
             return;
           }
-          const response = await apiRequest("POST", "/api/admin/users/batch-suspend", {
-            body: { ids: activeItems.map(u => u.id), reason: "Bulk suspension via admin console" },
+          const result = await apiRequest("/api/admin/users/batch-suspend", {
+            method: "POST",
+            body: JSON.stringify({ ids: activeItems.map(u => u.id), reason: "Bulk suspension via admin console" }),
           });
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || "Failed to suspend users");
-          }
-          const result = await response.json();
           toast({ title: result.success ? "Success" : "Partial Success", description: result.message, variant: result.success ? "default" : "destructive" });
           refetchUsers();
         } catch (error: any) {
@@ -334,8 +326,11 @@ export default function UserManagement() {
       requiresConfirmation: false,
       onExecute: async (items) => {
         try {
-          const response = await apiRequest("POST", "/api/admin/users/batch-export", {
-            body: { ids: items.map(u => u.id), format: "csv" },
+          const response = await fetch("/api/admin/users/batch-export", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: items.map(u => u.id), format: "csv" }),
+            credentials: "include",
           });
           if (!response.ok) throw new Error("Export failed");
           const blob = await response.blob();

@@ -90,6 +90,7 @@ import APIConfiguration from "@/pages/admin/api-configuration";
 import ProductionReadiness from "@/pages/admin/production-readiness";
 import ReplitSuggestions from "@/pages/admin/replit-suggestions";
 import ErrorCommandCenter from "@/pages/admin/error-command-center";
+import CkycDeferredDashboard from "@/pages/admin/ckyc-deferred-dashboard";
 const ZohoDashboardPage = lazy(() => import("@/pages/admin/zoho-dashboard"));
 const ZohoConnectionsPage = lazy(() => import("@/pages/admin/zoho-connections"));
 const ZohoLogsPage = lazy(() => import("@/pages/admin/zoho-logs"));
@@ -513,6 +514,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <KycCompliancePage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/ckyc-deferred">
+        {() => (
+          <AdminLayout>
+            <CkycDeferredDashboard />
           </AdminLayout>
         )}
       </Route>
