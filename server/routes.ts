@@ -9241,6 +9241,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Financial Obligations endpoints (EMIs, loans, credit obligations)
+  app.get("/api/financial-obligations", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const obligations = await storage.getFinancialObligations(userId);
+      res.json(obligations);
+    } catch (error) {
+      console.error("Error fetching financial obligations:", error);
+      res.status(500).json({ error: "Failed to fetch financial obligations" });
+    }
+  });
+
+  app.post("/api/financial-obligations", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const obligation = await storage.createFinancialObligation({
+        ...req.body,
+        userId
+      });
+      res.json(obligation);
+    } catch (error) {
+      console.error("Error creating financial obligation:", error);
+      res.status(500).json({ error: "Failed to create financial obligation" });
+    }
+  });
+
+  app.patch("/api/financial-obligations/:id", requireAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.id;
+      
+      // Verify ownership
+      const existing = await storage.getFinancialObligationById(id);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Obligation not found" });
+      }
+      
+      const updated = await storage.updateFinancialObligation(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating financial obligation:", error);
+      res.status(500).json({ error: "Failed to update financial obligation" });
+    }
+  });
+
+  app.delete("/api/financial-obligations/:id", requireAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.id;
+      
+      // Verify ownership
+      const existing = await storage.getFinancialObligationById(id);
+      if (!existing || existing.userId !== userId) {
+        return res.status(404).json({ error: "Obligation not found" });
+      }
+      
+      await storage.deleteFinancialObligation(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting financial obligation:", error);
+      res.status(500).json({ error: "Failed to delete financial obligation" });
+    }
+  });
+
   // Government Scheme Holdings endpoints
   app.get("/api/government-schemes/epf", requireAuth, async (req: any, res) => {
     try {
