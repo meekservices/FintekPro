@@ -1150,62 +1150,62 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
-      <Route path="/proposal-builder">
+      <Route path="/agent/proposal-builder">
         {() => (
           <AgentLayout>
             <AgentDemoProposalBuilder />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/prospect-proposals">
+      <Route path="/agent/prospect-proposals">
         {() => (
           <AgentLayout>
             <AgentDemoProposalBuilder />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/clients">
+      <Route path="/agent/clients">
         {() => (
           <AgentLayout>
             <AgentClientsPage />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/crm/clients/:clientId">
+      <Route path="/agent/crm/clients/:clientId">
         {() => (
           <AgentLayout>
             <AgentCrmClient360 />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/crm/pipeline">
+      <Route path="/agent/crm/pipeline">
         {() => (
           <AgentLayout>
             <AgentCrmPipeline />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/crm/tasks">
+      <Route path="/agent/crm/tasks">
         {() => (
           <AgentLayout>
             <AgentCrmTasks />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/crm/analytics">
+      <Route path="/agent/crm/analytics">
         {() => (
           <AgentLayout>
             <AgentCrmAnalytics />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/agent-training">
+      <Route path="/agent/training">
         {() => <AgentTrainingPage />}
       </Route>
-      <Route path="/recommendation-control">
+      <Route path="/agent/recommendation-control">
         {() => <AgentRecommendationControl />}
       </Route>
-      <Route path="/investment-advisory">
+      <Route path="/agent/investment-advisory">
         {() => (
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
@@ -1214,7 +1214,7 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
-      <Route path="/bond-recommendations">
+      <Route path="/agent/bond-recommendations">
         {() => (
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
@@ -1223,10 +1223,10 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
-      <Route path="/derivatives">
+      <Route path="/agent/derivatives">
         {() => <AgentDerivatives />}
       </Route>
-      <Route path="/stock-ai">
+      <Route path="/agent/stock-ai">
         {() => (
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
@@ -1235,35 +1235,35 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
-      <Route path="/demo-progress">
+      <Route path="/agent/demo-progress">
         {() => (
           <AgentLayout>
             <AgentDemoProgress />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/dashboard">
+      <Route path="/agent/dashboard">
         {() => (
           <AgentLayout>
             <AgentDashboard />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/proposals">
+      <Route path="/agent/proposals">
         {() => (
           <AgentLayout>
             <AgentProposalsPage />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/client-acquisition">
+      <Route path="/agent/client-acquisition">
         {() => (
           <AgentLayout>
             <AgentClientAcquisitionPage />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/treasury">
+      <Route path="/agent/treasury">
         {() => (
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
@@ -1272,14 +1272,14 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
-      <Route path="/tax-cases">
+      <Route path="/agent/tax-cases">
         {() => (
           <AgentLayout>
             <AgentTaxCasesPage />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/revenue">
+      <Route path="/agent/revenue">
         {() => (
           <AgentLayout>
             <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
@@ -1288,77 +1288,77 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
-      <Route path="/leads">
+      <Route path="/agent/leads">
         {() => (
           <AgentLayout>
             <AgentLeadPipeline />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/clients/:id">
+      <Route path="/agent/clients/:id">
         {() => (
           <AgentLayout>
             <AgentClientProfile />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/tasks">
+      <Route path="/agent/tasks">
         {() => (
           <AgentLayout>
             <AgentTasks />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/reports">
+      <Route path="/agent/reports">
         {() => (
           <AgentLayout>
             <AgentReportsHub />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/report-builder">
+      <Route path="/agent/report-builder">
         {() => (
           <AgentLayout>
             <AgentPortfolioReportBuilder />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/leaderboard">
+      <Route path="/agent/leaderboard">
         {() => (
           <AgentLayout>
             <AgentLeaderboard />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/commission-calculator">
+      <Route path="/agent/commission-calculator">
         {() => (
           <AgentLayout>
             <AgentCommissionCalculator />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/bulk-communication">
+      <Route path="/agent/bulk-communication">
         {() => (
           <AgentLayout>
             <AgentBulkCommunication />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/calendar">
+      <Route path="/agent/calendar">
         {() => (
           <AgentLayout>
             <AgentCalendar />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/esign">
+      <Route path="/agent/esign">
         {() => (
           <AgentLayout>
             <AgentESign />
           </AgentLayout>
         )}
       </Route>
-      <Route path="/onboard-client">
+      <Route path="/agent/onboard-client">
         {() => (
           <AgentLayout>
             <AgentClientOnboarding />
