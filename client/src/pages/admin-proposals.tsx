@@ -462,7 +462,7 @@ export default function AdminProposalsPage() {
                         <TableCell>
                           <Badge className={statusColors[proposal.status]} variant="secondary">
                             <StatusIcon className="h-3 w-3 mr-1" />
-                            {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
+                            {(proposal.status || 'pending').charAt(0).toUpperCase() + (proposal.status || 'pending').slice(1)}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -563,7 +563,7 @@ export default function AdminProposalsPage() {
                   <Label className="text-sm font-medium">Status</Label>
                   <div className="mt-1">
                     <Badge className={statusColors[selectedProposal.status]} variant="secondary">
-                      {selectedProposal.status.charAt(0).toUpperCase() + selectedProposal.status.slice(1)}
+                      {(selectedProposal.status || 'pending').charAt(0).toUpperCase() + (selectedProposal.status || 'pending').slice(1)}
                     </Badge>
                   </div>
                 </div>
@@ -609,7 +609,7 @@ export default function AdminProposalsPage() {
                           <TableCell>{item.productName}</TableCell>
                           <TableCell>
                             <Badge variant="outline">
-                              {item.productType.replace('_', ' ').toUpperCase()}
+                              {(item.productType || 'other').replace('_', ' ').toUpperCase()}
                             </Badge>
                           </TableCell>
                           <TableCell>{formatCurrency(item.amount)}</TableCell>

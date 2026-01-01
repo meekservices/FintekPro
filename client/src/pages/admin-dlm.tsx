@@ -573,7 +573,7 @@ export default function AdminDLMPage() {
                           <div className="flex items-center gap-4">
                             <div className="text-right text-sm">
                               <Badge variant="outline" className={STATUS_COLORS[doc.status]}>
-                                {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                                {(doc.status || 'pending').charAt(0).toUpperCase() + (doc.status || 'pending').slice(1)}
                               </Badge>
                               <p className="text-muted-foreground mt-1">
                                 {doc.expiryDate ? `Expires: ${formatDate(doc.expiryDate)}` : "No expiry"}
@@ -694,7 +694,7 @@ export default function AdminDLMPage() {
                           <History className="w-4 h-4 text-blue-600" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium">{event.eventType.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</p>
+                          <p className="font-medium">{(event.eventType || 'event').replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</p>
                           <p className="text-sm text-muted-foreground">
                             {event.actorRole && `by ${event.actorRole}`} • {formatDate(event.createdAt)}
                           </p>

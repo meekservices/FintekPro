@@ -499,7 +499,7 @@ export default function AdminDLMNegotiatePage() {
             </div>
             <div className="flex items-center gap-3">
               <Badge className={STATUS_COLORS[document.status]} data-testid="badge-status">
-                {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
+                {(document.status || 'pending').charAt(0).toUpperCase() + (document.status || 'pending').slice(1)}
               </Badge>
               <Button
                 variant="outline"

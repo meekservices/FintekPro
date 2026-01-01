@@ -743,7 +743,7 @@ export default function AdminLoanManagement() {
                         <div className="font-medium">{member.name}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge variant="outline">{member.designation.replace(/_/g, ' ')}</Badge>
+                        <Badge variant="outline">{(member.designation || 'staff').replace(/_/g, ' ')}</Badge>
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-sm">

@@ -739,7 +739,7 @@ function AIBusinessIntelligenceDashboard() {
                           {insight.priority}
                         </Badge>
                         <span className="text-xs text-muted-foreground capitalize">
-                          {insight.category.replace('_', ' ')}
+                          {(insight.category || 'general').replace('_', ' ')}
                         </span>
                       </div>
                     </div>

@@ -1027,7 +1027,7 @@ export default function PartnerPortal() {
                         </TableCell>
                         <TableCell>
                           <Badge className={INVITATION_STATUS_COLORS[inv.status] || ""}>
-                            {inv.status.replace("_", " ")}
+                            {(inv.status || 'pending').replace("_", " ")}
                           </Badge>
                         </TableCell>
                         <TableCell>

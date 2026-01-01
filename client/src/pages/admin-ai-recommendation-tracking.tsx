@@ -135,7 +135,7 @@ export default function AdminAiRecommendationTracking() {
     return (
       <Badge variant={config.variant} className="flex items-center gap-1" data-testid={`badge-status-${status}`}>
         <Icon className="h-3 w-3" />
-        {status.replace('_', ' ').toUpperCase()}
+        {(status || 'pending').replace('_', ' ').toUpperCase()}
       </Badge>
     );
   };
