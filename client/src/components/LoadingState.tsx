@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 interface LoadingStateProps {
-  variant?: 'card' | 'list' | 'table' | 'form' | 'stats' | 'chart' | 'dashboard' | 'portfolio' | 'market-movers';
+  variant?: 'card' | 'list' | 'table' | 'form' | 'stats' | 'chart' | 'dashboard' | 'portfolio' | 'market-movers' | 'agent-dashboard' | 'partner-dashboard';
   count?: number;
   className?: string;
 }
@@ -276,6 +276,132 @@ export function LoadingState({ variant = 'card', count = 1, className = '' }: Lo
           ))}
         </CardContent>
       </Card>
+    );
+  }
+
+  if (variant === 'agent-dashboard') {
+    return (
+      <div className={`space-y-6 ${className}`} data-testid="loading-agent-dashboard" style={{ minHeight: '600px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="bg-slate-800/50 border-slate-700">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-20 bg-slate-700" />
+                    <Skeleton className="h-8 w-28 bg-slate-700" />
+                  </div>
+                  <Skeleton className="h-10 w-10 rounded-lg bg-slate-700" />
+                </div>
+                <Skeleton className="h-3 w-16 mt-3 bg-slate-700" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2 bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <Skeleton className="h-6 w-32 bg-slate-700" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 flex items-end justify-between gap-2">
+                {[45, 72, 58, 35, 68, 42, 55, 78].map((height, i) => (
+                  <Skeleton key={i} className="flex-1 rounded-t bg-slate-700" style={{ height: `${height}%` }} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <Skeleton className="h-6 w-28 bg-slate-700" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-8 w-8 rounded-full bg-slate-700" />
+                  <div className="flex-1 space-y-1">
+                    <Skeleton className="h-4 w-24 bg-slate-700" />
+                    <Skeleton className="h-3 w-16 bg-slate-700" />
+                  </div>
+                  <Skeleton className="h-5 w-12 bg-slate-700" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <Skeleton className="h-6 w-40 bg-slate-700" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 p-3 border border-slate-700 rounded-lg">
+                  <Skeleton className="h-10 w-10 rounded bg-slate-700" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32 bg-slate-700" />
+                    <Skeleton className="h-3 w-20 bg-slate-700" />
+                  </div>
+                  <Skeleton className="h-8 w-20 bg-slate-700" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (variant === 'partner-dashboard') {
+    return (
+      <div className={`space-y-6 ${className}`} data-testid="loading-partner-dashboard" style={{ minHeight: '600px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="bg-indigo-800/30 border-indigo-700">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24 bg-indigo-700" />
+                    <Skeleton className="h-8 w-32 bg-indigo-700" />
+                  </div>
+                  <Skeleton className="h-12 w-12 rounded-lg bg-indigo-700" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="bg-indigo-800/30 border-indigo-700">
+            <CardHeader>
+              <Skeleton className="h-6 w-36 bg-indigo-700" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-48 flex items-end justify-between gap-2">
+                {[55, 72, 38, 65, 45, 78, 52, 68].map((height, i) => (
+                  <Skeleton key={i} className="flex-1 rounded-t bg-indigo-700" style={{ height: `${height}%` }} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-indigo-800/30 border-indigo-700">
+            <CardHeader>
+              <Skeleton className="h-6 w-32 bg-indigo-700" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded bg-indigo-700" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-28 bg-indigo-700" />
+                    <Skeleton className="h-3 w-20 bg-indigo-700" />
+                  </div>
+                  <Skeleton className="h-6 w-16 bg-indigo-700" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     );
   }
 

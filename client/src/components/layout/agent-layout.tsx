@@ -37,7 +37,7 @@ import {
   Trophy,
   GraduationCap
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -163,7 +163,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
     },
   });
 
-  const toggleCategory = (title: string) => {
+  const toggleCategory = useCallback((title: string) => {
     setExpandedCategories(prev => {
       const newSet = new Set(prev);
       if (newSet.has(title)) {
@@ -173,9 +173,9 @@ export function AgentLayout({ children }: AgentLayoutProps) {
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const getNotificationIcon = (type: AgentNotification['type']) => {
+  const getNotificationIcon = useCallback((type: AgentNotification['type']) => {
     switch (type) {
       case 'lead_assigned': return Target;
       case 'task_due': return CheckSquare;
@@ -184,9 +184,9 @@ export function AgentLayout({ children }: AgentLayoutProps) {
       case 'commission_credited': return DollarSign;
       default: return Bell;
     }
-  };
+  }, []);
 
-  const getNotificationColor = (type: AgentNotification['type']) => {
+  const getNotificationColor = useCallback((type: AgentNotification['type']) => {
     switch (type) {
       case 'lead_assigned': return "bg-blue-500/20 text-blue-400";
       case 'task_due': return "bg-amber-500/20 text-amber-400";
@@ -195,9 +195,9 @@ export function AgentLayout({ children }: AgentLayoutProps) {
       case 'commission_credited': return "bg-green-500/20 text-green-400";
       default: return "bg-slate-500/20 text-slate-400";
     }
-  };
+  }, []);
 
-  const formatTimeAgo = (dateString: string) => {
+  const formatTimeAgo = useCallback((dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -209,7 +209,130 @@ export function AgentLayout({ children }: AgentLayoutProps) {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
-  };
+  }, []);
+
+  const notificationList = useMemo(() => (
+    notifications.length === 0 ? (
+      <div className="p-6 text-center">
+        <Bell className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+        <p className="text-slate-500 text-sm">No notifications yet</p>
+      </div>
+    ) : (
+      <div className="p-2 space-y-1">
+        {notifications.map(notification => {
+          const Icon = getNotificationIcon(notification.type);
+          return (
+            <Link
+              key={notification.id}
+              href={notification.link || '/'}
+              onClick={() => {
+                if (!notification.read) {
+                  markAsRead(notification.id);
+                }
+                setNotificationsOpen(false);
+              }}
+              className={cn(
+                "flex items-start gap-3 p-3 rounded-lg transition-colors",
+                notification.read 
+                  ? "hover:bg-slate-800/50" 
+                  : "bg-slate-800/50 hover:bg-slate-800"
+              )}
+              data-testid={`notification-${notification.id}`}
+            >
+              <div className={cn("p-2 rounded-full", getNotificationColor(notification.type))}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={cn(
+                  "text-sm",
+                  notification.read ? "text-slate-300" : "text-white font-medium"
+                )}>
+                  {notification.title}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">
+                  {notification.message}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {formatTimeAgo(notification.createdAt)}
+                </p>
+              </div>
+              {!notification.read && (
+                <span className="w-2 h-2 bg-emerald-500 rounded-full mt-2 flex-shrink-0" />
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    )
+  ), [notifications, getNotificationIcon, getNotificationColor, formatTimeAgo, markAsRead]);
+
+  const sidebarContent = useMemo(() => (
+    <nav className="p-3 space-y-1">
+      {agentNavCategories.map((category) => {
+        const CategoryIcon = category.icon;
+        const isExpanded = expandedCategories.has(category.title);
+        const hasActiveItem = category.items.some(item => location === item.href);
+
+        return (
+          <div key={category.title} className="space-y-1">
+            <button
+              onClick={() => toggleCategory(category.title)}
+              className={cn(
+                "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                hasActiveItem 
+                  ? "bg-slate-800 text-white" 
+                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+              )}
+              data-testid={`button-category-${category.title.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              <div className="flex items-center gap-2">
+                <CategoryIcon className="h-4 w-4" />
+                <span>{category.title}</span>
+              </div>
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </button>
+
+            {isExpanded && (
+              <div className="ml-4 pl-2 border-l border-slate-800 space-y-1">
+                {category.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location === item.href;
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
+                        isActive
+                          ? "bg-emerald-600 text-white"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      )}
+                      data-testid={`link-agent-${item.href.split('/').pop() || 'home'}`}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm",
+                          isActive ? "text-white font-medium" : "text-slate-300 group-hover:text-white"
+                        )}>
+                          {item.title}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </nav>
+  ), [expandedCategories, location, toggleCategory]);
 
   if (isLoading) {
     return (
@@ -322,58 +445,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
                   )}
                 </div>
                 <ScrollArea className="max-h-96">
-                  {notifications.length === 0 ? (
-                    <div className="p-6 text-center">
-                      <Bell className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-                      <p className="text-slate-500 text-sm">No notifications yet</p>
-                    </div>
-                  ) : (
-                    <div className="p-2 space-y-1">
-                      {notifications.map(notification => {
-                        const Icon = getNotificationIcon(notification.type);
-                        return (
-                          <Link
-                            key={notification.id}
-                            href={notification.link || '/'}
-                            onClick={() => {
-                              if (!notification.read) {
-                                markAsRead(notification.id);
-                              }
-                              setNotificationsOpen(false);
-                            }}
-                            className={cn(
-                              "flex items-start gap-3 p-3 rounded-lg transition-colors",
-                              notification.read 
-                                ? "hover:bg-slate-800/50" 
-                                : "bg-slate-800/50 hover:bg-slate-800"
-                            )}
-                            data-testid={`notification-${notification.id}`}
-                          >
-                            <div className={cn("p-2 rounded-full", getNotificationColor(notification.type))}>
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={cn(
-                                "text-sm",
-                                notification.read ? "text-slate-300" : "text-white font-medium"
-                              )}>
-                                {notification.title}
-                              </p>
-                              <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-slate-500 mt-1">
-                                {formatTimeAgo(notification.createdAt)}
-                              </p>
-                            </div>
-                            {!notification.read && (
-                              <span className="w-2 h-2 bg-emerald-500 rounded-full mt-2 flex-shrink-0" />
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {notificationList}
                 </ScrollArea>
               </PopoverContent>
             </Popover>
@@ -441,73 +513,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
             sidebarOpen ? "w-72" : "w-0 border-0"
           )}
         >
-          {sidebarOpen && (
-            <nav className="p-3 space-y-1">
-              {agentNavCategories.map((category) => {
-                const CategoryIcon = category.icon;
-                const isExpanded = expandedCategories.has(category.title);
-                const hasActiveItem = category.items.some(item => location === item.href);
-
-                return (
-                  <div key={category.title} className="space-y-1">
-                    <button
-                      onClick={() => toggleCategory(category.title)}
-                      className={cn(
-                        "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                        hasActiveItem 
-                          ? "bg-slate-800 text-white" 
-                          : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
-                      )}
-                      data-testid={`button-category-${category.title.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <CategoryIcon className="h-4 w-4" />
-                        <span>{category.title}</span>
-                      </div>
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-
-                    {isExpanded && (
-                      <div className="ml-4 pl-2 border-l border-slate-800 space-y-1">
-                        {category.items.map((item) => {
-                          const Icon = item.icon;
-                          const isActive = location === item.href;
-
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              className={cn(
-                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                                isActive
-                                  ? "bg-emerald-600 text-white"
-                                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                              )}
-                              data-testid={`link-agent-${item.href.split('/').pop() || 'home'}`}
-                            >
-                              <Icon className="h-4 w-4 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className={cn(
-                                  "text-sm",
-                                  isActive ? "text-white font-medium" : "text-slate-300 group-hover:text-white"
-                                )}>
-                                  {item.title}
-                                </p>
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </nav>
-          )}
+          {sidebarOpen && sidebarContent}
         </aside>
 
         <main className="flex-1 p-6">

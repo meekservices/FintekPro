@@ -33,7 +33,7 @@ import FinancialCalculators from "@/pages/financial-calculators";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import AdminPanel from "@/pages/admin";
-import PartnerPortal from "@/pages/partner-portal";
+const PartnerPortal = lazy(() => import("@/pages/partner-portal"));
 import Support from "@/pages/support";
 import InvestSmart from "@/pages/wealth-management";
 import Achievements from "@/pages/achievements";
@@ -113,24 +113,24 @@ import LoanDashboard from "@/pages/loan-dashboard";
 import ProposalsPage from "@/pages/proposals";
 import BrokingPage from "@/pages/broking";
 import AgentPortal from "@/pages/agent-portal";
-import DistributionPartnerPortal from "@/pages/distribution-partner-portal";
+const DistributionPartnerPortal = lazy(() => import("@/pages/distribution-partner-portal"));
 import FieldAgentPortal from "@/pages/field-agent-portal";
 import AgentClientsPage from "@/pages/agent-clients";
 import AgentCrmClient360 from "@/pages/agent-crm-client-360";
 import AgentCrmPipeline from "@/pages/agent-crm-pipeline";
 import AgentCrmTasks from "@/pages/agent-crm-tasks";
 import AgentCrmAnalytics from "@/pages/agent-crm-analytics";
-import AgentInvestmentAdvisory from "@/pages/agent-investment-advisory";
 import AgentRecommendationControl from "@/pages/agent-recommendation-control";
 import AgentTrainingPage from "@/pages/agent-training";
 import AgentProposalsPage from "@/pages/agent-proposals";
 import AgentClientAcquisitionPage from "@/pages/agent-client-acquisition";
-import AgentBondRecommendations from "@/pages/agent-bond-recommendations";
-import AgentStockAI from "@/pages/agent-stock-ai";
 import AgentDerivatives from "@/pages/agent-derivatives";
-import AgentTreasuryPage from "@/pages/agent-treasury";
 import AgentTaxCasesPage from "@/pages/agent-tax-cases";
-import AgentRevenueCockpit from "@/pages/agent-revenue-cockpit";
+const AgentInvestmentAdvisory = lazy(() => import("@/pages/agent-investment-advisory"));
+const AgentBondRecommendations = lazy(() => import("@/pages/agent-bond-recommendations"));
+const AgentStockAI = lazy(() => import("@/pages/agent-stock-ai"));
+const AgentTreasuryPage = lazy(() => import("@/pages/agent-treasury"));
+const AgentRevenueCockpit = lazy(() => import("@/pages/agent-revenue-cockpit"));
 import AgentLeadPipeline from "@/pages/agent-lead-pipeline";
 import AgentClientProfile from "@/pages/agent-client-profile";
 import AgentTasks from "@/pages/agent-tasks";
@@ -167,7 +167,7 @@ import TaxCADeskPage from "@/pages/tax-ca-desk";
 import PropertyServices from "@/pages/property-services";
 import LoanComparison from "@/pages/loan-comparison";
 import LoanRecommendations from "@/pages/loan-recommendations";
-import PartnerApplication from "@/pages/partner-application";
+const PartnerApplication = lazy(() => import("@/pages/partner-application"));
 import InvestmentDashboard from "@/pages/investment-dashboard";
 import NRIServices from "@/pages/nri-services";
 import ITRTaxServices from "@/pages/itr-tax-services";
@@ -320,7 +320,13 @@ function UserProtectedRoutes() {
         <Route path="/kfintech-services" component={KfintechServices} />
         <Route path="/agricultural-insights" component={AgriculturalInsights} />
         <Route path="/calculators" component={FinancialCalculators} />
-        <Route path="/partner" component={PartnerPortal} />
+        <Route path="/partner">
+          {() => (
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerPortal />
+            </Suspense>
+          )}
+        </Route>
         <Route path="/partner/ca-dashboard" component={CADashboard} />
         <Route path="/partner/ca-support" component={CASupportDashboard} />
         <Route path="/partner/ca-support/:id" component={CASupportDetail} />
@@ -368,7 +374,13 @@ function UserProtectedRoutes() {
         <Route path="/property" component={PropertyServices} />
         <Route path="/loan-comparison" component={LoanComparison} />
         <Route path="/loan-recommendations" component={LoanRecommendations} />
-        <Route path="/partner-application/:lender" component={PartnerApplication} />
+        <Route path="/partner-application/:lender">
+          {() => (
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerApplication />
+            </Suspense>
+          )}
+        </Route>
         <Route path="/investment-dashboard" component={InvestmentDashboard} />
         <Route path="/ib-trading" component={IBTradingPage} />
         <Route path="/store" component={StorePage} />
@@ -1063,28 +1075,36 @@ function PartnerRoutes() {
       <Route path="/">
         {() => (
           <PartnerLayout>
-            <DistributionPartnerPortal />
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <DistributionPartnerPortal />
+            </Suspense>
           </PartnerLayout>
         )}
       </Route>
       <Route path="/partner">
         {() => (
           <PartnerLayout>
-            <DistributionPartnerPortal />
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <DistributionPartnerPortal />
+            </Suspense>
           </PartnerLayout>
         )}
       </Route>
       <Route path="/partner-portal">
         {() => (
           <PartnerLayout>
-            <DistributionPartnerPortal />
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <DistributionPartnerPortal />
+            </Suspense>
           </PartnerLayout>
         )}
       </Route>
       <Route path="/products">
         {() => (
           <PartnerLayout>
-            <PartnerPortal />
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerPortal />
+            </Suspense>
           </PartnerLayout>
         )}
       </Route>
@@ -1208,14 +1228,18 @@ function AgentRoutes() {
       <Route path="/investment-advisory">
         {() => (
           <AgentLayout>
-            <AgentInvestmentAdvisory />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentInvestmentAdvisory />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
       <Route path="/bond-recommendations">
         {() => (
           <AgentLayout>
-            <AgentBondRecommendations />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentBondRecommendations />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
@@ -1229,7 +1253,9 @@ function AgentRoutes() {
       <Route path="/stock-ai">
         {() => (
           <AgentLayout>
-            <AgentStockAI />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentStockAI />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
@@ -1264,7 +1290,9 @@ function AgentRoutes() {
       <Route path="/treasury">
         {() => (
           <AgentLayout>
-            <AgentTreasuryPage />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTreasuryPage />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
@@ -1278,7 +1306,9 @@ function AgentRoutes() {
       <Route path="/revenue">
         {() => (
           <AgentLayout>
-            <AgentRevenueCockpit />
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentRevenueCockpit />
+            </Suspense>
           </AgentLayout>
         )}
       </Route>
