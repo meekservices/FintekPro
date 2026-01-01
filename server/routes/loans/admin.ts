@@ -196,11 +196,11 @@ export function registerLoanAdminRoutes(app: Express) {
       const [newStaff] = await db.insert(schema.lenderStaff)
         .values({
           ...validatedData,
-          joiningDate: validatedData.joiningDate ? new Date(validatedData.joiningDate) : undefined,
-          specializations: validatedData.specializations || [],
+          isActive: true,
+          status: 'active',
         })
         .returning();
-      
+
       res.status(201).json({ success: true, data: newStaff });
     } catch (error: any) {
       console.error('Error creating lender staff:', error);
@@ -211,7 +211,50 @@ export function registerLoanAdminRoutes(app: Express) {
     }
   });
 
-  // Update lender staff
+  // Create new lender staff via provider route (alias for frontend compatibility)
+  app.post('/api/admin/loan-marketplace/providers/:providerId/staff', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { providerId } = req.params;
+      
+      // Map frontend designation format to backend enum
+      const designationMap: Record<string, string> = {
+        'relationship_manager': 'rm',
+        'branch_manager': 'branch_manager',
+        'credit_officer': 'credit_officer',
+        'zonal_head': 'zonal_head',
+        'regional_head': 'regional_head',
+        'sales_executive': 'rm',
+        'senior_rm': 'senior_rm',
+        'area_manager': 'area_manager',
+        'national_head': 'national_head',
+      };
+      
+      const designation = designationMap[req.body.designation] || 'rm';
+      
+      const [newStaff] = await db.insert(schema.lenderStaff)
+        .values({
+          providerId,
+          staffCode: `STAFF-${Date.now()}`,
+          firstName: req.body.name?.split(' ')[0] || 'Staff',
+          lastName: req.body.name?.split(' ').slice(1).join(' ') || 'Member',
+          email: req.body.email,
+          phone: req.body.phone,
+          designation,
+          branchName: req.body.branch,
+          regionCode: req.body.region,
+          isActive: true,
+          status: 'active',
+        })
+        .returning();
+      
+      res.status(201).json({ success: true, data: newStaff });
+    } catch (error: any) {
+      console.error('Error creating lender staff:', error);
+      res.status(500).json({ success: false, error: 'Failed to create lender staff' });
+    }
+  });
+
+  // Update lender staff (PATCH)
   app.patch('/api/admin/loan-marketplace/staff/:staffId', requireAdmin, async (req: any, res: Response) => {
     try {
       const { staffId } = req.params;
@@ -233,6 +276,57 @@ export function registerLoanAdminRoutes(app: Express) {
     } catch (error: any) {
       console.error('Error updating lender staff:', error);
       res.status(500).json({ success: false, error: 'Failed to update lender staff' });
+    }
+  });
+
+  // Update lender staff (PUT - alias for PATCH)
+  app.put('/api/admin/loan-marketplace/staff/:staffId', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { staffId } = req.params;
+      const updates = req.body;
+      
+      const [updatedStaff] = await db.update(schema.lenderStaff)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.lenderStaff.id, staffId))
+        .returning();
+      
+      if (!updatedStaff) {
+        return res.status(404).json({ success: false, error: 'Staff member not found' });
+      }
+      
+      res.json({ success: true, data: updatedStaff });
+    } catch (error: any) {
+      console.error('Error updating lender staff:', error);
+      res.status(500).json({ success: false, error: 'Failed to update lender staff' });
+    }
+  });
+
+  // Delete lender staff (soft delete by changing status)
+  app.delete('/api/admin/loan-marketplace/staff/:staffId', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { staffId } = req.params;
+      
+      // Soft delete - mark as terminated
+      const [deletedStaff] = await db.update(schema.lenderStaff)
+        .set({
+          status: 'terminated',
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.lenderStaff.id, staffId))
+        .returning();
+      
+      if (!deletedStaff) {
+        return res.status(404).json({ success: false, error: 'Staff member not found' });
+      }
+      
+      res.json({ success: true, data: deletedStaff, message: 'Staff member has been removed' });
+    } catch (error: any) {
+      console.error('Error deleting lender staff:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete lender staff' });
     }
   });
 

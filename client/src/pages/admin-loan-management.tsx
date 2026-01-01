@@ -463,6 +463,7 @@ export default function AdminLoanManagement() {
                 />
               </div>
               {selectedProvider && (
+                <>
                 <Dialog open={isAddStaffOpen} onOpenChange={setIsAddStaffOpen}>
                   <DialogTrigger asChild>
                     <Button data-testid="add-staff-btn">
@@ -695,6 +696,7 @@ export default function AdminLoanManagement() {
                     </Form>
                   </DialogContent>
                 </Dialog>
+                </>
               )}
             </div>
           </div>
