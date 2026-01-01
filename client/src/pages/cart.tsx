@@ -512,14 +512,14 @@ export default function Cart() {
                 <Badge variant="outline" className="font-mono text-xs" data-testid={`badge-id-${proposal.id}`}>
                   {proposal.id}
                 </Badge>
-                <Badge className={`text-xs px-2 py-0.5 border ${getStatusColor(proposal.status)}`} data-testid={`badge-status-${proposal.id}`}>
-                  {proposal.status.toUpperCase()}
+                <Badge className={`text-xs px-2 py-0.5 border ${getStatusColor(proposal.status || '')}`} data-testid={`badge-status-${proposal.id}`}>
+                  {(proposal.status || 'pending').toUpperCase()}
                 </Badge>
               </div>
               <CardTitle className="text-lg" data-testid={`text-title-${proposal.id}`}>{proposal.title}</CardTitle>
               <div className="flex items-center gap-2 mt-1">
-                <Badge variant={getPriorityColor(proposal.priority)}>
-                  {proposal.priority.toUpperCase()}
+                <Badge variant={getPriorityColor(proposal.priority || 'medium')}>
+                  {(proposal.priority || 'medium').toUpperCase()}
                 </Badge>
                 <Badge variant="secondary" className="capitalize">
                   {proposal.proposalSource} Generated
@@ -1012,7 +1012,7 @@ export default function Cart() {
                                     {item.source === 'ai' && <Bot className="w-3 h-3 mr-1" />}
                                     {item.source === 'agent' && <Users className="w-3 h-3 mr-1" />}
                                     {item.source === 'client' && <User className="w-3 h-3 mr-1" />}
-                                    {item.source.toUpperCase()}
+                                    {(item.source || 'client').toUpperCase()}
                                   </Badge>
                                   {/* Status Badge */}
                                   <Badge 

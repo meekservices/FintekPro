@@ -585,7 +585,7 @@ export default function ExpensesBudgetsPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                          <span data-testid={`text-expense-category-${expense.id}`}>{expense.category?.replace('_', ' ').toUpperCase()}</span>
+                          <span data-testid={`text-expense-category-${expense.id}`}>{(expense.category || 'other').replace('_', ' ').toUpperCase()}</span>
                           <span>•</span>
                           <span>{format(new Date(expense.transactionDate), 'MMM dd, yyyy')}</span>
                           {expense.merchantName && (
@@ -644,7 +644,7 @@ export default function ExpensesBudgetsPage() {
                         <div>
                           <CardTitle className="text-lg" data-testid={`text-budget-name-${budget.id}`}>{budget.budgetName}</CardTitle>
                           <CardDescription data-testid={`text-budget-category-${budget.id}`}>
-                            {budget.category.replace('_', ' ').toUpperCase()} • {budget.period.toUpperCase()}
+                            {(budget.category || 'general').replace('_', ' ').toUpperCase()} • {(budget.period || 'monthly').toUpperCase()}
                           </CardDescription>
                         </div>
                         {isOverBudget && (
