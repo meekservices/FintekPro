@@ -1224,6 +1224,88 @@ export function registerMarketingRoutes(app: any) {
     }
   });
 
+  /**
+   * Get audience stats for marketing dashboard
+   */
+  app.get('/api/admin/marketing/audience/stats', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const allUsers = await db.select({
+        id: users.id,
+        marketingConsent: users.marketingConsent,
+        kycTier: users.kycTier
+      }).from(users);
+
+      const totalUsers = allUsers.length;
+      const consentedUsers = allUsers.filter(u => u.marketingConsent === true).length;
+      const optedOutUsers = allUsers.filter(u => u.marketingConsent === false).length;
+
+      const byKycTier: Record<string, number> = {};
+      allUsers.forEach(u => {
+        const tier = u.kycTier || 'unknown';
+        byKycTier[tier] = (byKycTier[tier] || 0) + 1;
+      });
+
+      res.json({
+        totalUsers,
+        consentedUsers,
+        optedOutUsers,
+        byKycTier
+      });
+    } catch (error: any) {
+      console.error('Error getting audience stats:', error);
+      return apiResponse.serverError(res, 'Failed to get audience stats');
+    }
+  });
+
+  /**
+   * Get audience list with filters
+   */
+  app.get('/api/admin/marketing/audience', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { filter = 'all', consentOnly = 'false', limit = 500 } = req.query;
+
+      let query = db.select({
+        userId: users.id,
+        mobile: users.mobile,
+        name: users.fullName,
+        kycTier: users.kycTier,
+        marketingConsent: users.marketingConsent
+      }).from(users);
+
+      const conditions: any[] = [sql`${users.mobile} IS NOT NULL`];
+
+      if (consentOnly === 'true') {
+        conditions.push(eq(users.marketingConsent, true));
+      }
+
+      if (filter !== 'all') {
+        conditions.push(eq(users.kycTier, filter));
+      }
+
+      const audience = await query
+        .where(and(...conditions))
+        .limit(Number(limit));
+
+      res.json(audience);
+    } catch (error: any) {
+      console.error('Error getting audience:', error);
+      return apiResponse.serverError(res, 'Failed to get audience');
+    }
+  });
+
+  /**
+   * Get WhatsApp service status
+   */
+  app.get('/api/admin/marketing/whatsapp/status', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const status = whatsAppMarketingService.getStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error('Error getting WhatsApp status:', error);
+      return apiResponse.serverError(res, 'Failed to get WhatsApp status');
+    }
+  });
+
   console.log('✅ Marketing routes registered');
   console.log('   📱 SMS Marketing: ' + (smsMarketingService.isAvailable() ? 'Active' : 'Not configured'));
   console.log('   💬 WhatsApp Marketing: ' + (whatsAppMarketingService.isAvailable() ? 'Active' : 'Not configured'));

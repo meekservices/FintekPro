@@ -4,12 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  MessageSquare, 
+  Phone, 
   Plus, 
   Send, 
   Users, 
@@ -18,16 +19,17 @@ import {
   AlertTriangle,
   Settings,
   RefreshCw,
-  Eye
+  Filter
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 
-interface WhatsAppServiceStatus {
+interface SMSServiceStatus {
   configured: boolean;
+  messagingServiceSid: string;
   fromNumber: string;
-  availableTemplates: string[];
+  capabilities: string[];
 }
 
 interface AudienceStats {
@@ -38,10 +40,8 @@ interface AudienceStats {
 }
 
 interface BulkSendResult {
-  totalRecipients: number;
   sent: number;
   failed: number;
-  templateUsed: boolean;
   results: Array<{
     mobile: string;
     success: boolean;
@@ -50,26 +50,15 @@ interface BulkSendResult {
   }>;
 }
 
-const TEMPLATE_TYPES = [
-  { id: 'welcome', name: 'Welcome Message', description: 'Greet new users joining the platform' },
-  { id: 'ipo_alert', name: 'IPO Alert', description: 'Notify users about upcoming IPO opportunities' },
-  { id: 'portfolio_update', name: 'Portfolio Update', description: 'Send portfolio performance updates' },
-  { id: 'kyc_reminder', name: 'KYC Reminder', description: 'Remind users to complete KYC verification' },
-  { id: 'promotion', name: 'Promotional Offer', description: 'Share special offers and promotions' },
-  { id: 'mutual_fund_update', name: 'Mutual Fund Update', description: 'Send mutual fund performance alerts' },
-  { id: 'dividend_alert', name: 'Dividend Alert', description: 'Notify about dividend announcements' },
-  { id: 'order_confirmation', name: 'Order Confirmation', description: 'Confirm order placements' }
-];
-
-export default function WhatsAppCampaigns() {
+export default function SMSCampaigns() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [audienceFilter, setAudienceFilter] = useState<string>('all');
-  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
+  const [customMessage, setCustomMessage] = useState('');
 
-  const { data: serviceStatus, isLoading: statusLoading } = useQuery<WhatsAppServiceStatus>({
-    queryKey: ['/api/admin/marketing/whatsapp/status']
+  const { data: serviceStatus, isLoading: statusLoading } = useQuery<SMSServiceStatus>({
+    queryKey: ['/api/admin/marketing/sms/status']
   });
 
   const { data: audienceStats, isLoading: audienceLoading } = useQuery<AudienceStats>({
@@ -90,21 +79,16 @@ export default function WhatsAppCampaigns() {
     }
   });
 
-  const sendBulkWhatsAppMutation = useMutation({
-    mutationFn: async (data: { 
-      recipients: Array<{ mobile: string; name?: string }>; 
-      templateType: string;
-      variables: Record<string, string>;
-    }) => {
-      return apiRequest('/api/admin/marketing/whatsapp/bulk', 'POST', data);
+  const sendBulkSMSMutation = useMutation({
+    mutationFn: async (data: { recipients: Array<{ mobile: string; name: string }>; message: string }) => {
+      return apiRequest('/api/admin/marketing/sms/bulk', 'POST', data);
     },
     onSuccess: (result: BulkSendResult) => {
       toast({ 
-        title: `WhatsApp Campaign Sent`,
+        title: `SMS Campaign Sent`,
         description: `${result.sent} sent, ${result.failed} failed`
       });
       setIsCreateOpen(false);
-      setTemplateVariables({});
     },
     onError: (error: any) => {
       toast({ 
@@ -115,29 +99,29 @@ export default function WhatsAppCampaigns() {
     }
   });
 
-  const sendSingleWhatsAppMutation = useMutation({
-    mutationFn: async (data: { to: string; templateType: string; variables: Record<string, string> }) => {
-      return apiRequest('/api/admin/marketing/whatsapp/send', 'POST', data);
+  const sendPromotionalSMSMutation = useMutation({
+    mutationFn: async (data: { to: string; productType: string; details: Record<string, any> }) => {
+      return apiRequest('/api/admin/marketing/sms/promotional', 'POST', data);
     },
     onSuccess: () => {
-      toast({ title: 'WhatsApp message sent successfully' });
+      toast({ title: 'Promotional SMS sent successfully' });
     },
     onError: (error: any) => {
       toast({ 
-        title: 'Failed to send message',
+        title: 'Failed to send SMS',
         description: error.message,
         variant: 'destructive'
       });
     }
   });
 
-  const handleSendBulkWhatsApp = () => {
+  const handleSendBulkSMS = () => {
     if (!consentedUsers || consentedUsers.length === 0) {
       toast({ title: 'No recipients selected', variant: 'destructive' });
       return;
     }
-    if (!selectedTemplate) {
-      toast({ title: 'Please select a template', variant: 'destructive' });
+    if (!customMessage.trim()) {
+      toast({ title: 'Please enter a message', variant: 'destructive' });
       return;
     }
 
@@ -146,34 +130,10 @@ export default function WhatsAppCampaigns() {
       name: u.name
     }));
 
-    sendBulkWhatsAppMutation.mutate({
+    sendBulkSMSMutation.mutate({
       recipients,
-      templateType: selectedTemplate,
-      variables: templateVariables
+      message: customMessage
     });
-  };
-
-  const getTemplateFields = (templateType: string): string[] => {
-    switch (templateType) {
-      case 'welcome':
-        return ['customer_name'];
-      case 'ipo_alert':
-        return ['company_name', 'open_date', 'price_range'];
-      case 'portfolio_update':
-        return ['portfolio_value', 'change_percent'];
-      case 'kyc_reminder':
-        return ['customer_name', 'pending_step'];
-      case 'promotion':
-        return ['offer_details', 'valid_until'];
-      case 'mutual_fund_update':
-        return ['fund_name', 'nav_change', 'returns'];
-      case 'dividend_alert':
-        return ['company_name', 'dividend_amount', 'record_date'];
-      case 'order_confirmation':
-        return ['order_id', 'order_details', 'amount'];
-      default:
-        return [];
-    }
   };
 
   if (statusLoading) {
@@ -186,15 +146,15 @@ export default function WhatsAppCampaigns() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">WhatsApp Marketing</h1>
+          <h1 className="text-3xl font-bold tracking-tight">SMS Marketing</h1>
           <p className="text-muted-foreground">
-            Send template-based WhatsApp campaigns via Twilio Business API
+            Send bulk SMS campaigns via Twilio Messaging Service
           </p>
         </div>
         <div className="flex gap-2">
           <Button 
             variant="outline" 
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/whatsapp/status'] })}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/sms/status'] })}
             data-testid="button-refresh-status"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -202,16 +162,16 @@ export default function WhatsAppCampaigns() {
           </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button disabled={!isConfigured} data-testid="button-create-whatsapp-campaign">
+              <Button disabled={!isConfigured} data-testid="button-create-sms-campaign">
                 <Plus className="mr-2 h-4 w-4" />
-                New WhatsApp Campaign
+                New SMS Campaign
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Create WhatsApp Campaign</DialogTitle>
+                <DialogTitle>Create SMS Campaign</DialogTitle>
                 <DialogDescription>
-                  Send pre-approved template messages to users who have consented to marketing
+                  Send bulk SMS to users who have consented to marketing communications
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -234,62 +194,62 @@ export default function WhatsAppCampaigns() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Message Template</Label>
+                  <Label>Quick Templates</Label>
                   <Select value={selectedTemplate} onValueChange={(val) => {
                     setSelectedTemplate(val);
-                    setTemplateVariables({});
+                    switch (val) {
+                      case 'ipo':
+                        setCustomMessage('🎯 FintekPro IPO Alert!\n\n[Company] IPO opens [Date].\nPrice: ₹[Min]-₹[Max]\nApply now on FintekPro!\n\nReply STOP to opt-out.');
+                        break;
+                      case 'mf':
+                        setCustomMessage('📈 FintekPro MF Update!\n\n[Fund] delivered [X]% returns.\nStart SIP from ₹500/month.\n\nReply STOP to opt-out.');
+                        break;
+                      case 'kyc':
+                        setCustomMessage('🔐 FintekPro KYC Reminder\n\nComplete your KYC to unlock all features.\n- Stocks & MFs\n- IPOs\n- Loans & more\n\nComplete now: fintekpro.in/kyc\n\nReply STOP to opt-out.');
+                        break;
+                      case 'custom':
+                        setCustomMessage('');
+                        break;
+                    }
                   }}>
                     <SelectTrigger data-testid="select-template">
-                      <SelectValue placeholder="Select a template" />
+                      <SelectValue placeholder="Select a template or write custom" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TEMPLATE_TYPES.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="ipo">IPO Alert</SelectItem>
+                      <SelectItem value="mf">Mutual Fund Update</SelectItem>
+                      <SelectItem value="kyc">KYC Reminder</SelectItem>
+                      <SelectItem value="custom">Custom Message</SelectItem>
                     </SelectContent>
                   </Select>
-                  {selectedTemplate && (
-                    <p className="text-xs text-muted-foreground">
-                      {TEMPLATE_TYPES.find(t => t.id === selectedTemplate)?.description}
-                    </p>
-                  )}
                 </div>
 
-                {selectedTemplate && getTemplateFields(selectedTemplate).length > 0 && (
-                  <div className="space-y-3">
-                    <Label>Template Variables</Label>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {getTemplateFields(selectedTemplate).map((field) => (
-                        <div key={field} className="space-y-1">
-                          <Label htmlFor={field} className="text-xs">
-                            {field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                          </Label>
-                          <Input
-                            id={field}
-                            value={templateVariables[field] || ''}
-                            onChange={(e) => setTemplateVariables({ 
-                              ...templateVariables, 
-                              [field]: e.target.value 
-                            })}
-                            placeholder={`Enter ${field.replace(/_/g, ' ')}`}
-                            data-testid={`input-${field}`}
-                          />
-                        </div>
-                      ))}
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="message">Message Content</Label>
+                  <Textarea
+                    id="message"
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    placeholder="Enter your SMS message..."
+                    rows={6}
+                    data-testid="input-message"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{customMessage.length} characters</span>
+                    <span className={customMessage.length > 160 ? 'text-orange-500' : ''}>
+                      {Math.ceil(customMessage.length / 160)} SMS segment(s)
+                    </span>
                   </div>
-                )}
+                </div>
 
-                <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
                   <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
                     <div className="text-sm">
-                      <p className="font-medium text-green-800 dark:text-green-200">WhatsApp Business Compliance</p>
-                      <p className="text-green-700 dark:text-green-300">
-                        Only pre-approved templates are used. Messages are only sent to users who have
-                        opted in to marketing communications.
+                      <p className="font-medium text-amber-800 dark:text-amber-200">TRAI Compliance Notice</p>
+                      <p className="text-amber-700 dark:text-amber-300">
+                        Only users who have opted in to marketing communications will receive this SMS.
+                        All messages include opt-out instructions.
                       </p>
                     </div>
                   </div>
@@ -305,11 +265,11 @@ export default function WhatsAppCampaigns() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={handleSendBulkWhatsApp}
-                    disabled={sendBulkWhatsAppMutation.isPending || !consentedUsers?.length || !selectedTemplate}
+                    onClick={handleSendBulkSMS}
+                    disabled={sendBulkSMSMutation.isPending || !consentedUsers?.length}
                     data-testid="button-send-campaign"
                   >
-                    {sendBulkWhatsAppMutation.isPending ? (
+                    {sendBulkSMSMutation.isPending ? (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                         Sending...
@@ -349,7 +309,7 @@ export default function WhatsAppCampaigns() {
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {serviceStatus?.fromNumber || 'Twilio WhatsApp not configured'}
+              {serviceStatus?.messagingServiceSid || 'Twilio not configured'}
             </p>
           </CardContent>
         </Card>
@@ -380,76 +340,67 @@ export default function WhatsAppCampaigns() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-templates">
+        <Card data-testid="card-opted-out">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Templates</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Opted Out</CardTitle>
+            <XCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {TEMPLATE_TYPES.length}
+            <div className="text-2xl font-bold text-red-600">
+              {audienceLoading ? '...' : audienceStats?.optedOutUsers || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Pre-approved templates</p>
+            <p className="text-xs text-muted-foreground">Unsubscribed users</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="templates" className="space-y-4">
+      <Tabs defaultValue="quick-send" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="templates" data-testid="tab-templates">Templates</TabsTrigger>
           <TabsTrigger value="quick-send" data-testid="tab-quick-send">Quick Send</TabsTrigger>
+          <TabsTrigger value="templates" data-testid="tab-templates">Templates</TabsTrigger>
           <TabsTrigger value="history" data-testid="tab-history">Campaign History</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="templates">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pre-Approved Templates</CardTitle>
-              <CardDescription>
-                WhatsApp Business Policy requires using pre-approved templates for marketing messages
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                {TEMPLATE_TYPES.map((template) => (
-                  <div 
-                    key={template.id} 
-                    className="border rounded-lg p-4 hover:bg-accent transition-colors"
-                    data-testid={`template-${template.id}`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <MessageSquare className="h-5 w-5 text-green-500" />
-                      <h3 className="font-semibold">{template.name}</h3>
-                      <Badge variant="outline" className="ml-auto">Approved</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{template.description}</p>
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {getTemplateFields(template.id).map((field) => (
-                        <Badge key={field} variant="secondary" className="text-xs">
-                          {`{{${field}}}`}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="quick-send">
           <Card>
             <CardHeader>
-              <CardTitle>Quick Send</CardTitle>
-              <CardDescription>Send a single WhatsApp message to a specific user</CardDescription>
+              <CardTitle>Quick Promotional SMS</CardTitle>
+              <CardDescription>Send a promotional SMS to a single user</CardDescription>
             </CardHeader>
             <CardContent>
-              <QuickSendForm 
-                templates={TEMPLATE_TYPES}
-                getFields={getTemplateFields}
-                onSend={sendSingleWhatsAppMutation.mutate} 
-                isPending={sendSingleWhatsAppMutation.isPending} 
-              />
+              <QuickSendForm onSend={sendPromotionalSMSMutation.mutate} isPending={sendPromotionalSMSMutation.isPending} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="templates">
+          <Card>
+            <CardHeader>
+              <CardTitle>SMS Templates</CardTitle>
+              <CardDescription>Pre-approved message templates for different product types</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                {[
+                  { type: 'ipo', title: 'IPO Alert', icon: '🎯', preview: 'IPO opens [Date]. Price: ₹[Min]-₹[Max]' },
+                  { type: 'mutual_fund', title: 'Mutual Fund Update', icon: '📈', preview: '[Fund] delivered [X]% returns' },
+                  { type: 'stock_tip', title: 'Stock Alert', icon: '💹', preview: '[Symbol]: [Action] @ ₹[Price]' },
+                  { type: 'loan', title: 'Loan Offer', icon: '🏦', preview: 'Pre-approved loan up to ₹[Amount]' },
+                  { type: 'kyc_reminder', title: 'KYC Reminder', icon: '🔐', preview: 'Complete your KYC to unlock features' },
+                  { type: 'portfolio_update', title: 'Portfolio Update', icon: '📊', preview: 'Your portfolio: ₹[Value], Today: [Change]%' }
+                ].map((template) => (
+                  <div key={template.type} className="border rounded-lg p-4 hover:bg-accent transition-colors" data-testid={`template-${template.type}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl">{template.icon}</span>
+                      <h3 className="font-semibold">{template.title}</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{template.preview}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      All messages include "Reply STOP to opt-out"
+                    </p>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -458,11 +409,11 @@ export default function WhatsAppCampaigns() {
           <Card>
             <CardHeader>
               <CardTitle>Campaign History</CardTitle>
-              <CardDescription>View past WhatsApp campaigns and their performance</CardDescription>
+              <CardDescription>View past SMS campaigns and their performance</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-8 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Campaign history will appear here after you send your first campaign.</p>
               </div>
             </CardContent>
@@ -473,27 +424,34 @@ export default function WhatsAppCampaigns() {
   );
 }
 
-function QuickSendForm({ 
-  templates, 
-  getFields,
-  onSend, 
-  isPending 
-}: { 
-  templates: typeof TEMPLATE_TYPES;
-  getFields: (type: string) => string[];
-  onSend: (data: any) => void; 
-  isPending: boolean;
-}) {
+function QuickSendForm({ onSend, isPending }: { onSend: (data: any) => void; isPending: boolean }) {
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [templateType, setTemplateType] = useState('');
-  const [variables, setVariables] = useState<Record<string, string>>({});
+  const [productType, setProductType] = useState('');
+  const [details, setDetails] = useState<Record<string, string>>({});
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSend({ to: phoneNumber, templateType, variables });
+    onSend({ to: phoneNumber, productType, details });
   };
 
-  const fields = templateType ? getFields(templateType) : [];
+  const getDetailsFields = () => {
+    switch (productType) {
+      case 'ipo':
+        return ['companyName', 'openDate', 'priceMin', 'priceMax'];
+      case 'mutual_fund':
+        return ['fundName', 'returns', 'minSip'];
+      case 'stock_tip':
+        return ['symbol', 'action', 'price', 'target'];
+      case 'loan':
+        return ['loanType', 'amount', 'rate'];
+      case 'kyc_reminder':
+        return ['link'];
+      case 'portfolio_update':
+        return ['value', 'change', 'link'];
+      default:
+        return ['message'];
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -511,50 +469,42 @@ function QuickSendForm({
         </div>
 
         <div className="space-y-2">
-          <Label>Template</Label>
-          <Select value={templateType} onValueChange={(val) => {
-            setTemplateType(val);
-            setVariables({});
-          }}>
-            <SelectTrigger data-testid="select-template-quick">
-              <SelectValue placeholder="Select template" />
+          <Label>Product Type</Label>
+          <Select value={productType} onValueChange={setProductType}>
+            <SelectTrigger data-testid="select-product-type">
+              <SelectValue placeholder="Select product type" />
             </SelectTrigger>
             <SelectContent>
-              {templates.map((template) => (
-                <SelectItem key={template.id} value={template.id}>
-                  {template.name}
-                </SelectItem>
-              ))}
+              <SelectItem value="ipo">IPO Alert</SelectItem>
+              <SelectItem value="mutual_fund">Mutual Fund</SelectItem>
+              <SelectItem value="stock_tip">Stock Tip</SelectItem>
+              <SelectItem value="loan">Loan Offer</SelectItem>
+              <SelectItem value="kyc_reminder">KYC Reminder</SelectItem>
+              <SelectItem value="portfolio_update">Portfolio Update</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {fields.length > 0 && (
+      {productType && (
         <div className="grid gap-4 md:grid-cols-2">
-          {fields.map((field) => (
+          {getDetailsFields().map((field) => (
             <div key={field} className="space-y-2">
-              <Label htmlFor={`quick-${field}`}>
-                {field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-              </Label>
+              <Label htmlFor={field}>{field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</Label>
               <Input
-                id={`quick-${field}`}
-                value={variables[field] || ''}
-                onChange={(e) => setVariables({ ...variables, [field]: e.target.value })}
-                placeholder={`Enter ${field.replace(/_/g, ' ')}`}
-                data-testid={`input-quick-${field}`}
+                id={field}
+                value={details[field] || ''}
+                onChange={(e) => setDetails({ ...details, [field]: e.target.value })}
+                placeholder={`Enter ${field}`}
+                data-testid={`input-${field}`}
               />
             </div>
           ))}
         </div>
       )}
 
-      <Button 
-        type="submit" 
-        disabled={isPending || !phoneNumber || !templateType} 
-        data-testid="button-send-quick"
-      >
-        {isPending ? 'Sending...' : 'Send WhatsApp Message'}
+      <Button type="submit" disabled={isPending || !phoneNumber || !productType} data-testid="button-send-quick">
+        {isPending ? 'Sending...' : 'Send SMS'}
       </Button>
     </form>
   );

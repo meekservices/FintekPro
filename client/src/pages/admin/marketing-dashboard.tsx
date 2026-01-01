@@ -84,20 +84,26 @@ export default function MarketingDashboard() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Marketing Dashboard</h1>
           <p className="text-muted-foreground">
-            Manage email campaigns, WhatsApp broadcasts, and B2B lead prospecting
+            Manage SMS, WhatsApp, email campaigns, and B2B lead prospecting
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/admin/email-campaigns">
-            <Button data-testid="button-create-email-campaign">
-              <Mail className="mr-2 h-4 w-4" />
-              New Email Campaign
+          <Link href="/admin/sms-campaigns">
+            <Button data-testid="button-create-sms-campaign">
+              <Send className="mr-2 h-4 w-4" />
+              SMS Campaign
             </Button>
           </Link>
           <Link href="/admin/whatsapp-campaigns">
             <Button variant="outline" data-testid="button-create-whatsapp-campaign">
               <MessageSquare className="mr-2 h-4 w-4" />
-              New WhatsApp Broadcast
+              WhatsApp Campaign
+            </Button>
+          </Link>
+          <Link href="/admin/email-campaigns">
+            <Button variant="outline" data-testid="button-create-email-campaign">
+              <Mail className="mr-2 h-4 w-4" />
+              Email Campaign
             </Button>
           </Link>
         </div>
@@ -171,16 +177,16 @@ export default function MarketingDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/admin/email-campaigns">
-          <Card className="cursor-pointer hover:border-primary transition-colors" data-testid="card-email-campaigns">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Link href="/admin/sms-campaigns">
+          <Card className="cursor-pointer hover:border-primary transition-colors" data-testid="card-sms-campaigns">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-blue-500" />
-                <CardTitle className="text-base">Email Campaigns</CardTitle>
+                <Send className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-base">SMS Marketing</CardTitle>
               </div>
               <CardDescription>
-                Create and manage email campaigns via Zoho Campaigns
+                Bulk SMS campaigns via Twilio Messaging Service
               </CardDescription>
             </CardHeader>
           </Card>
@@ -191,10 +197,24 @@ export default function MarketingDashboard() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-green-500" />
-                <CardTitle className="text-base">WhatsApp Broadcasts</CardTitle>
+                <CardTitle className="text-base">WhatsApp Marketing</CardTitle>
               </div>
               <CardDescription>
-                Send template-based WhatsApp messages via AiSensy
+                Template-based WhatsApp via Twilio Business API
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/admin/email-campaigns">
+          <Card className="cursor-pointer hover:border-primary transition-colors" data-testid="card-email-campaigns">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-purple-500" />
+                <CardTitle className="text-base">Email Campaigns</CardTitle>
+              </div>
+              <CardDescription>
+                Create and manage email campaigns via Zoho Campaigns
               </CardDescription>
             </CardHeader>
           </Card>
@@ -208,7 +228,7 @@ export default function MarketingDashboard() {
                 <CardTitle className="text-base">Lead Prospecting</CardTitle>
               </div>
               <CardDescription>
-                Search 2.8M Indian companies with Probe42 financial data
+                Search 2.8M Indian companies with Probe42 data
               </CardDescription>
             </CardHeader>
           </Card>

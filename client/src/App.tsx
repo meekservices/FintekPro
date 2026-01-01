@@ -199,6 +199,7 @@ import GovernmentSchemes from "@/pages/government-schemes";
 import MarketingDashboard from "@/pages/admin/marketing-dashboard";
 import EmailCampaigns from "@/pages/admin/email-campaigns";
 import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
+import SMSCampaigns from "@/pages/admin/sms-campaigns";
 import LeadProspecting from "@/pages/admin/lead-prospecting";
 import ProspectAnalytics from "@/pages/admin/prospect-analytics";
 import ClientIntelligence from "@/pages/admin/client-intelligence";
@@ -573,6 +574,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <WhatsAppCampaigns />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/sms-campaigns">
+        {() => (
+          <AdminLayout>
+            <SMSCampaigns />
           </AdminLayout>
         )}
       </Route>
