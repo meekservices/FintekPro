@@ -15582,6 +15582,10 @@ export const mfOrders = pgTable("mf_orders", {
   ipAddress: varchar("ip_address"),
   userAgent: text("user_agent"),
   
+  // Zoho Books Sync (SEBI/AMFI Compliance - Pass-Through only, no invoices)
+  zohoSyncedAt: timestamp("zoho_synced_at"), // When compliance tracking was done
+  zohoSyncStatus: varchar("zoho_sync_status", { length: 50 }), // pass_through (money flows to AMC)
+  
   // Timestamps
   placedAt: timestamp("placed_at"),
   confirmedAt: timestamp("confirmed_at"),

@@ -505,32 +505,43 @@ export default function ZohoBooksPage() {
                 </div>
               )}
 
-              <Card>
+              <Card className="border-amber-500/30 bg-amber-500/5">
                 <CardHeader>
-                  <CardTitle className="text-base">How Transaction Sync Works</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                    SEBI/RBI Regulatory Compliance
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <TrendingUp className="h-5 w-5" />
-                        <span className="font-medium">Inflows (Invoices)</span>
+                      <div className="flex items-center gap-2 text-blue-400">
+                        <ArrowUpDown className="h-5 w-5" />
+                        <span className="font-medium">Pass-Through (Compliance Only)</span>
                       </div>
+                      <p className="text-xs text-muted-foreground ml-7 mb-2">
+                        Money flows directly to AMC/Issuer - no invoices created
+                      </p>
                       <ul className="text-sm text-muted-foreground space-y-1 ml-7">
-                        <li>MF Purchase & SIP orders</li>
-                        <li>Bond investments</li>
-                        <li>IPO applications (allotted)</li>
-                        <li>Unlisted share purchases</li>
+                        <li>• MF/SIP orders (via BSE/NSE to AMC)</li>
+                        <li>• AIF/PMS investments (to fund manager)</li>
+                        <li>• IPO applications (ASBA to issuer)</li>
+                        <li>• Bond principal (via exchange clearing)</li>
                       </ul>
                     </div>
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-red-400">
-                        <TrendingDown className="h-5 w-5" />
-                        <span className="font-medium">Outflows (Bills)</span>
+                      <div className="flex items-center gap-2 text-emerald-400">
+                        <TrendingUp className="h-5 w-5" />
+                        <span className="font-medium">Invoiceable Revenue</span>
                       </div>
+                      <p className="text-xs text-muted-foreground ml-7 mb-2">
+                        FintekPro earns fees/commissions - invoices created
+                      </p>
                       <ul className="text-sm text-muted-foreground space-y-1 ml-7">
-                        <li>MF Redemptions</li>
-                        <li>Unlisted share sales</li>
+                        <li>• Distributor commissions from AMC</li>
+                        <li>• Bond brokerage fees</li>
+                        <li>• Unlisted escrow transactions</li>
+                        <li>• Advisory/facilitation fees</li>
                       </ul>
                     </div>
                   </div>
