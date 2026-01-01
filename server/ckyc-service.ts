@@ -1,8 +1,10 @@
-import { type User, ckycRecords, type CkycRecord } from "@shared/schema";
+import { type User, ckycRecords, type CkycRecord, ckycMockBlockedAttempts } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
+import { ckycEnvironmentService, CkycComplianceError } from "./services/ckyc-environment-service";
 
 // CKYC Service for Central KYC Registry Integration
+// PRODUCTION SAFETY: Mock mode is completely blocked in PROD environment
 export interface CKYCRegistrationRequest {
   // Personal Information
   firstName: string;
@@ -219,13 +221,14 @@ export class CKYCService {
    * Upload KYC documents to NSDL CKYC registry
    * Submits personal info + documents in a single package
    */
-  async uploadCKYCDocuments(request: CKYCUploadRequest): Promise<CKYCUploadResponse> {
+  async uploadCKYCDocuments(request: CKYCUploadRequest, context?: { userId?: string }): Promise<CKYCUploadResponse> {
     const hasCredentials = this.hasValidCredentials();
     
     // Use mock mode when credentials are not configured
     if (!hasCredentials) {
       console.warn('⚠️ Using mock CKYC upload response (credentials not configured)');
-      return this.getMockUploadResponse();
+      // PRODUCTION SAFETY: Mock throws error in PROD, returns response in DEV
+      return await this.getMockUploadResponse({ userId: context?.userId, panNumber: request.personalInfo.panNumber });
     }
 
     console.log('📤 Uploading CKYC documents to NSDL for PAN:', request.personalInfo.panNumber.slice(0, 4) + '***');
@@ -299,13 +302,14 @@ export class CKYCService {
    * Poll NSDL for KIN (CKYC Number) generation status
    * Should be called periodically after document upload
    */
-  async pollKINStatus(applicationNumber: string): Promise<KINPollResponse> {
+  async pollKINStatus(applicationNumber: string, context?: { userId?: string; panNumber?: string }): Promise<KINPollResponse> {
     const hasCredentials = this.hasValidCredentials();
     
     // Use mock mode when credentials are not configured
     if (!hasCredentials) {
       console.warn('⚠️ Using mock KIN poll response (credentials not configured)');
-      return this.getMockKINPollResponse(applicationNumber);
+      // PRODUCTION SAFETY: Mock throws error in PROD, returns response in DEV
+      return await this.getMockKINPollResponse(applicationNumber, context);
     }
 
     console.log('🔍 Polling KIN status for application:', applicationNumber);
@@ -356,9 +360,19 @@ export class CKYCService {
   }
 
   /**
-   * Mock upload response for development
+   * Mock upload response for development ONLY
+   * PRODUCTION SAFETY: This method throws an error if called in PROD
    */
-  private getMockUploadResponse(): CKYCUploadResponse {
+  private async getMockUploadResponse(context?: { userId?: string; panNumber?: string }): Promise<CKYCUploadResponse> {
+    // PRODUCTION SAFETY: Block mock in PROD environment
+    if (ckycEnvironmentService.isProductionMode()) {
+      await this.logMockBlockedAttemptSync('mock_upload', context);
+      throw new CkycComplianceError(
+        'MOCK_BLOCKED_IN_PROD',
+        'Mock CKYC upload is not allowed in production environment. Configure real API credentials.'
+      );
+    }
+    
     return {
       success: true,
       applicationNumber: `APP${Date.now()}`,
@@ -368,9 +382,19 @@ export class CKYCService {
   }
 
   /**
-   * Mock KIN poll response for development
+   * Mock KIN poll response for development ONLY
+   * PRODUCTION SAFETY: This method throws an error if called in PROD
    */
-  private getMockKINPollResponse(applicationNumber: string): KINPollResponse {
+  private async getMockKINPollResponse(applicationNumber: string, context?: { userId?: string; panNumber?: string }): Promise<KINPollResponse> {
+    // PRODUCTION SAFETY: Block mock in PROD environment
+    if (ckycEnvironmentService.isProductionMode()) {
+      await this.logMockBlockedAttemptSync('mock_kin_poll', context);
+      throw new CkycComplianceError(
+        'MOCK_BLOCKED_IN_PROD',
+        'Mock KIN polling is not allowed in production environment. Configure real API credentials.'
+      );
+    }
+    
     // Simulate different statuses based on time
     const elapsed = Date.now() - parseInt(applicationNumber.replace('APP', ''));
     const seconds = Math.floor(elapsed / 1000);
@@ -397,6 +421,40 @@ export class CKYCService {
         applicationNumber,
         message: 'KIN generated successfully (mock)',
       };
+    }
+  }
+
+  /**
+   * Synchronous mock blocking check - throws immediately in PROD
+   * Use this at the entry point of mock-able methods
+   */
+  private assertNotProductionMock(context?: { userId?: string; panNumber?: string }): void {
+    if (ckycEnvironmentService.isProductionMode()) {
+      // Fire and forget - log in background, throw immediately
+      this.logMockBlockedAttemptSync('mock_assertion', context).catch(console.error);
+      throw new CkycComplianceError(
+        'MOCK_BLOCKED_IN_PROD',
+        'Mock CKYC operations are not allowed in production environment. Configure real API credentials or use an alternative provider.'
+      );
+    }
+  }
+
+  /**
+   * Log mock blocked attempt to database for security audit
+   */
+  private async logMockBlockedAttemptSync(attemptType: string, context?: { userId?: string; panNumber?: string }): Promise<void> {
+    try {
+      await db.insert(ckycMockBlockedAttempts).values({
+        attemptedProvider: attemptType,
+        userId: context?.userId || null,
+        panNumber: context?.panNumber || null,
+        blockedReason: `Mock ${attemptType} blocked in PROD environment`,
+        isSecurityEvent: true,
+        environmentMode: ckycEnvironmentService.getMode(),
+      });
+      console.error(`[CKYC SECURITY] 🚫 Mock ${attemptType} blocked in PROD - logged to audit table`);
+    } catch (error) {
+      console.error(`[CKYC SECURITY] Failed to log mock blocked attempt:`, error);
     }
   }
 

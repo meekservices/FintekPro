@@ -3,6 +3,7 @@ import { db } from '../../db';
 import { sql } from 'drizzle-orm';
 import { storage } from '../../storage';
 import { adminService } from '../../admin-service';
+import ckycDeferredRoutes from './ckyc-deferred-routes';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
@@ -2700,6 +2701,10 @@ System Security Data:`;
       res.status(500).json({ error: "Failed to fetch EUIN/ARN data" });
     }
   });
+
+  // CKYC Deferred Cases Management Routes
+  app.use("/api/admin/ckyc-deferred", requireAdmin, ckycDeferredRoutes);
+  console.log("✅ CKYC Deferred Cases routes registered");
 
   console.log("✅ Admin Panel routes registered");
 }

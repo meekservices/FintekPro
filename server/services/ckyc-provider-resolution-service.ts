@@ -4,6 +4,11 @@
  * Config-Based Provider Switching with Runtime Resolution
  * Implements SEBI-compliant fallback chain with health checks
  * 
+ * PRODUCTION SAFETY:
+ * - Mock provider is COMPLETELY DISABLED in PROD environment
+ * - All blocked attempts are logged as security events
+ * - CKYC_DEFERRED status emitted when all providers exhausted
+ * 
  * Provider Priority (default):
  * 1. TruthScreen (API-based)
  * 2. CERSAI Reference (Manual verification)
@@ -15,6 +20,7 @@
 import { db } from "../db";
 import { ckycProviderConfig, ckycProviderAuditLog, ckycVerificationRequests, users } from "@shared/schema";
 import { eq, and, asc, isNull } from "drizzle-orm";
+import { ckycEnvironmentService, type CkycVerificationStatus, type CkycDeferralReason } from "./ckyc-environment-service";
 
 // Provider codes
 export type CkycProviderCode = 
@@ -100,13 +106,24 @@ interface ClientEligibilityContext {
   canDoVideoKyc?: boolean;
 }
 
+// Fallback attempt record
+interface FallbackAttempt {
+  provider: string;
+  reason: string;
+  timestamp: string;
+}
+
 // Provider resolution result
 interface ProviderResolutionResult {
-  selectedProvider: CkycProviderCode;
+  selectedProvider: CkycProviderCode | 'none';
   providerName: string;
   selectionReason: string;
   fallbackChain: CkycProviderCode[];
+  fallbackAttempts: FallbackAttempt[];
   isFallback: boolean;
+  isDeferred: boolean;
+  deferralReason?: CkycDeferralReason;
+  verificationStatus: CkycVerificationStatus;
 }
 
 export class CkycProviderResolutionService {
@@ -204,28 +221,59 @@ export class CkycProviderResolutionService {
 
   /**
    * Resolve the best CKYC provider based on config, health, and client eligibility
+   * 
+   * PRODUCTION SAFETY:
+   * - Mock provider is completely excluded in PROD environment
+   * - All fallback attempts are tracked with reason codes
+   * - CKYC_DEFERRED status is returned when all providers exhausted
    */
   async resolveCkycProvider(context: ClientEligibilityContext): Promise<ProviderResolutionResult> {
-    const enabledProviders = await this.getEnabledProviders();
+    const isProductionMode = ckycEnvironmentService.isProductionMode();
+    let enabledProviders = await this.getEnabledProviders();
+    
+    // PROD SAFETY: Filter out mock provider in production
+    if (isProductionMode) {
+      enabledProviders = enabledProviders.filter(p => p.providerCode !== 'mock');
+      console.log('[CKYC Provider] PROD mode: Mock provider excluded from resolution chain');
+    }
+    
     const fallbackChain: CkycProviderCode[] = [];
+    const fallbackAttempts: FallbackAttempt[] = [];
+    let lastProviderAttempted: string | undefined;
     
     for (const provider of enabledProviders) {
       const providerCode = provider.providerCode as CkycProviderCode;
       fallbackChain.push(providerCode);
+      lastProviderAttempted = providerCode;
       
       // Check health status
       if (provider.healthStatus === 'unhealthy') {
-        continue; // Skip unhealthy providers
+        fallbackAttempts.push({
+          provider: providerCode,
+          reason: 'Provider unhealthy',
+          timestamp: new Date().toISOString(),
+        });
+        continue;
       }
       
       // Check rate limits
       if (this.isRateLimited(provider)) {
+        fallbackAttempts.push({
+          provider: providerCode,
+          reason: 'Rate limit exceeded',
+          timestamp: new Date().toISOString(),
+        });
         continue;
       }
       
       // Check eligibility
       const eligibility = await this.checkClientEligibility(provider, context);
       if (!eligibility.eligible) {
+        fallbackAttempts.push({
+          provider: providerCode,
+          reason: eligibility.reason || 'Eligibility check failed',
+          timestamp: new Date().toISOString(),
+        });
         continue;
       }
       
@@ -235,17 +283,59 @@ export class CkycProviderResolutionService {
         providerName: provider.providerName,
         selectionReason: eligibility.reason || 'Primary provider available',
         fallbackChain,
+        fallbackAttempts,
         isFallback: fallbackChain.length > 1,
+        isDeferred: false,
+        verificationStatus: 'in_progress',
       };
     }
     
-    // Default to manual if no provider available
+    // Check if manual provider is available and eligible
+    const manualProvider = enabledProviders.find(p => p.providerCode === 'manual');
+    if (manualProvider) {
+      const manualEligibility = await this.checkClientEligibility(manualProvider, context);
+      if (manualEligibility.eligible) {
+        return {
+          selectedProvider: 'manual',
+          providerName: 'Manual CKYC',
+          selectionReason: 'All automated providers exhausted, manual verification required',
+          fallbackChain,
+          fallbackAttempts,
+          isFallback: true,
+          isDeferred: true, // Manual is considered deferred until admin action
+          verificationStatus: 'ckyc_deferred',
+          deferralReason: {
+            code: 'ALL_PROVIDERS_EXHAUSTED',
+            message: 'All automated CKYC providers exhausted. Case routed to manual review queue.',
+            lastProviderAttempted,
+            failureReasons: fallbackAttempts,
+            slaStartedAt: new Date().toISOString(),
+            slaDeadline: ckycEnvironmentService.calculateSlaDeadline(72).toISOString(),
+          },
+        };
+      }
+    }
+    
+    // All providers exhausted including manual - return CKYC_DEFERRED
+    console.warn(`[CKYC Provider] All providers exhausted for user ${context.userId}, status: CKYC_DEFERRED`);
+    
     return {
-      selectedProvider: 'manual',
-      providerName: 'Manual CKYC',
-      selectionReason: 'No eligible provider available, defaulting to manual verification',
+      selectedProvider: 'none',
+      providerName: 'None Available',
+      selectionReason: 'All CKYC providers exhausted. Case requires immediate admin attention.',
       fallbackChain,
+      fallbackAttempts,
       isFallback: true,
+      isDeferred: true,
+      verificationStatus: 'ckyc_deferred',
+      deferralReason: {
+        code: 'NO_PROVIDER_AVAILABLE',
+        message: 'All CKYC providers failed or unavailable. This case has been escalated to the admin queue.',
+        lastProviderAttempted,
+        failureReasons: fallbackAttempts,
+        slaStartedAt: new Date().toISOString(),
+        slaDeadline: ckycEnvironmentService.calculateSlaDeadline(72).toISOString(),
+      },
     };
   }
 

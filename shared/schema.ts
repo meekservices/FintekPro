@@ -22407,3 +22407,89 @@ export const ckycVerificationRequests = pgTable("ckyc_verification_requests", {
 export const insertCkycVerificationRequestSchema = createInsertSchema(ckycVerificationRequests).omit({ id: true, requestedAt: true });
 export type CkycVerificationRequest = typeof ckycVerificationRequests.$inferSelect;
 export type InsertCkycVerificationRequest = z.infer<typeof insertCkycVerificationRequestSchema>;
+
+// CKYC Deferred Cases - Tracks cases where all providers failed
+export const ckycDeferredCases = pgTable("ckyc_deferred_cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Case Context
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  panNumber: varchar("pan_number", { length: 10 }).notNull(),
+  
+  // Deferral Status
+  status: varchar("status", { length: 50 }).default("ckyc_deferred").notNull(), // ckyc_deferred, manual_review_in_progress, resolved, rejected
+  deferralCode: varchar("deferral_code", { length: 50 }).notNull(), // ALL_PROVIDERS_EXHAUSTED, NO_PROVIDER_AVAILABLE, API_FAILURE
+  deferralMessage: text("deferral_message"),
+  
+  // Provider Fallback Chain
+  lastProviderAttempted: varchar("last_provider_attempted", { length: 50 }),
+  fallbackAttempts: jsonb("fallback_attempts").default([]), // Array of {provider, reason, timestamp}
+  
+  // SLA Tracking
+  slaStartedAt: timestamp("sla_started_at").defaultNow().notNull(),
+  slaDeadline: timestamp("sla_deadline").notNull(),
+  slaBreach: boolean("sla_breach").default(false),
+  slaBreachedAt: timestamp("sla_breached_at"),
+  
+  // Admin Actions
+  assignedToAdmin: varchar("assigned_to_admin").references(() => users.id),
+  adminAction: varchar("admin_action", { length: 50 }), // manual_kyc_initiated, vkyc_scheduled, rejected, resolved
+  adminActionReason: text("admin_action_reason"),
+  adminActionAt: timestamp("admin_action_at"),
+  
+  // Resolution
+  resolvedAt: timestamp("resolved_at"),
+  resolutionMethod: varchar("resolution_method", { length: 50 }), // manual_ckyc, vkyc, admin_override
+  resolutionNotes: text("resolution_notes"),
+  
+  // Escalation
+  escalationLevel: integer("escalation_level").default(0), // 0=none, 1=compliance_head, 2=management
+  escalatedAt: timestamp("escalated_at"),
+  escalatedTo: varchar("escalated_to").references(() => users.id),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ckyc_deferred_user").on(table.userId),
+  index("idx_ckyc_deferred_pan").on(table.panNumber),
+  index("idx_ckyc_deferred_status").on(table.status),
+  index("idx_ckyc_deferred_sla").on(table.slaDeadline),
+  index("idx_ckyc_deferred_breach").on(table.slaBreach),
+  index("idx_ckyc_deferred_assigned").on(table.assignedToAdmin),
+]);
+
+export const insertCkycDeferredCaseSchema = createInsertSchema(ckycDeferredCases).omit({ id: true, createdAt: true, updatedAt: true });
+export type CkycDeferredCase = typeof ckycDeferredCases.$inferSelect;
+export type InsertCkycDeferredCase = z.infer<typeof insertCkycDeferredCaseSchema>;
+
+// CKYC Mock Blocked Attempts - Security audit log for production
+export const ckycMockBlockedAttempts = pgTable("ckyc_mock_blocked_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Attempt Context
+  attemptedProvider: varchar("attempted_provider", { length: 50 }).default("mock").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  panNumber: varchar("pan_number", { length: 10 }),
+  
+  // Block Details
+  blockedReason: text("blocked_reason").notNull(),
+  isSecurityEvent: boolean("is_security_event").default(true).notNull(),
+  environmentMode: varchar("environment_mode", { length: 20 }).notNull(), // PROD, UAT, DEV, DEMO
+  
+  // Request Context
+  requestPath: varchar("request_path", { length: 255 }),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
+  
+  // Timestamp
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mock_blocked_time").on(table.attemptedAt),
+  index("idx_mock_blocked_user").on(table.userId),
+  index("idx_mock_blocked_env").on(table.environmentMode),
+]);
+
+export const insertCkycMockBlockedAttemptSchema = createInsertSchema(ckycMockBlockedAttempts).omit({ id: true, attemptedAt: true });
+export type CkycMockBlockedAttempt = typeof ckycMockBlockedAttempts.$inferSelect;
+export type InsertCkycMockBlockedAttempt = z.infer<typeof insertCkycMockBlockedAttemptSchema>;
