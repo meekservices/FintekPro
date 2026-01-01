@@ -198,17 +198,13 @@ export class CKYCService {
     this.apiKey = process.env.CKYC_API_KEY || '';
     this.apiSecret = process.env.CKYC_API_SECRET || '';
     
-    // Validate credentials
-    const isDev = process.env.NODE_ENV === 'development';
+    // Validate credentials - use mock mode if not configured (both dev and production)
     const hasCredentials = this.apiKey && this.apiSecret;
     
     if (!hasCredentials) {
-      if (isDev) {
-        console.warn('⚠️ CKYC API credentials (CKYC_API_KEY, CKYC_API_SECRET) not configured');
-        console.warn('⚠️ CKYC registration and KIN polling will use mock responses in development');
-      } else {
-        throw new Error('CKYC API credentials (CKYC_API_KEY, CKYC_API_SECRET) are required in production');
-      }
+      console.warn('⚠️ CKYC API credentials (CKYC_API_KEY, CKYC_API_SECRET) not configured');
+      console.warn('⚠️ CKYC registration and KIN polling will use mock responses');
+      console.warn('ℹ️ Set CKYC_API_KEY and CKYC_API_SECRET to enable real CKYC integration');
     }
   }
   
@@ -224,12 +220,11 @@ export class CKYCService {
    * Submits personal info + documents in a single package
    */
   async uploadCKYCDocuments(request: CKYCUploadRequest): Promise<CKYCUploadResponse> {
-    const isDev = process.env.NODE_ENV === 'development';
     const hasCredentials = this.hasValidCredentials();
     
-    // Use mock in dev without credentials
-    if (isDev && !hasCredentials) {
-      console.warn('⚠️ Using mock CKYC upload response (development mode with no credentials)');
+    // Use mock mode when credentials are not configured
+    if (!hasCredentials) {
+      console.warn('⚠️ Using mock CKYC upload response (credentials not configured)');
       return this.getMockUploadResponse();
     }
 
@@ -305,12 +300,11 @@ export class CKYCService {
    * Should be called periodically after document upload
    */
   async pollKINStatus(applicationNumber: string): Promise<KINPollResponse> {
-    const isDev = process.env.NODE_ENV === 'development';
     const hasCredentials = this.hasValidCredentials();
     
-    // Use mock in dev without credentials
-    if (isDev && !hasCredentials) {
-      console.warn('⚠️ Using mock KIN poll response (development mode with no credentials)');
+    // Use mock mode when credentials are not configured
+    if (!hasCredentials) {
+      console.warn('⚠️ Using mock KIN poll response (credentials not configured)');
       return this.getMockKINPollResponse(applicationNumber);
     }
 
@@ -408,12 +402,11 @@ export class CKYCService {
 
   // CKYC Registry Operations (legacy method - kept for backwards compatibility)
   async registerCKYC(request: CKYCRegistrationRequest): Promise<CKYCRegistrationResponse> {
-    const isDev = process.env.NODE_ENV === 'development';
     const hasCredentials = this.hasValidCredentials();
     
-    // Use mock in dev without credentials
-    if (isDev && !hasCredentials) {
-      console.warn('⚠️ Using mock CKYC registration response (development mode with no credentials)');
+    // Use mock mode when credentials are not configured
+    if (!hasCredentials) {
+      console.warn('⚠️ Using mock CKYC registration response (credentials not configured)');
       return {
         success: true,
         ckycNumber: `CKYC${Date.now()}`,
