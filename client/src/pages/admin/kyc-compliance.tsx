@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Shield, 
@@ -17,6 +17,7 @@ import {
   FileText,
   Users
 } from "lucide-react";
+import { BulkSelectTable, type Column, type BulkAction } from "@/components/admin/BulkSelectTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -105,7 +106,7 @@ export default function KycCompliancePage() {
   const stats = statsResponse?.data;
 
   // Fetch KYC submissions
-  const { data: submissionsResponse, refetch: refetchSubmissions } = useQuery<{ success: boolean; data: KycSubmission[]; pagination: { total: number; limit: number; offset: number; hasMore: boolean } }>({
+  const { data: submissionsResponse, refetch: refetchSubmissions, isLoading: isLoadingSubmissions } = useQuery<{ success: boolean; data: KycSubmission[]; pagination: { total: number; limit: number; offset: number; hasMore: boolean } }>({
     queryKey: ["/api/admin/kyc/submissions", { 
       status: statusFilter === "all" ? undefined : statusFilter,
       tier: tierFilter === "all" ? undefined : tierFilter,
@@ -167,6 +168,195 @@ export default function KycCompliancePage() {
 
   const submissions = submissionsResponse?.data || [];
   const alerts = alertsResponse?.data || [];
+
+  const kycColumns: Column<KycSubmission>[] = useMemo(() => [
+    {
+      id: "user",
+      header: "User",
+      cell: (submission) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-gray-400" />
+          <div>
+            <div className="font-medium">{submission.userName}</div>
+            <div className="text-sm text-gray-500">{submission.userEmail}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "type",
+      header: "Type",
+      cell: (submission) => <Badge variant="outline">{submission.type}</Badge>,
+    },
+    {
+      id: "tier",
+      header: "Tier",
+      cell: (submission) => <Badge variant="secondary">{submission.tier}</Badge>,
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: (submission) => (
+        <Badge 
+          variant={
+            submission.status === "approved" ? "default" : 
+            submission.status === "rejected" ? "destructive" : 
+            "secondary"
+          }
+          className={
+            submission.status === "pending" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" : ""
+          }
+        >
+          {submission.status}
+        </Badge>
+      ),
+    },
+    {
+      id: "submittedAt",
+      header: "Submitted",
+      cell: (submission) => (
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <Calendar className="h-4 w-4" />
+          {new Date(submission.submittedAt).toLocaleDateString()}
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (submission) => (
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" data-testid={`button-view-${submission.id}`}>
+            <Eye className="h-4 w-4" />
+          </Button>
+          {submission.status === "pending" && (
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-green-600"
+                onClick={() => openReviewDialog(submission, "approve")}
+                data-testid={`button-approve-${submission.id}`}
+              >
+                <CheckCircle className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-red-600"
+                onClick={() => openReviewDialog(submission, "reject")}
+                data-testid={`button-reject-${submission.id}`}
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      ),
+    },
+  ], []);
+
+  const kycBulkActions: BulkAction<KycSubmission>[] = useMemo(() => [
+    {
+      id: "batch-approve",
+      label: "Approve Selected",
+      icon: <CheckCircle className="h-4 w-4 mr-2" />,
+      variant: "default",
+      requiresConfirmation: true,
+      confirmTitle: "Batch Approve KYC Submissions",
+      confirmDescription: "Are you sure you want to approve the selected KYC submissions? This action cannot be undone.",
+      onExecute: async (items) => {
+        try {
+          const pendingItems = items.filter(i => i.status === "pending");
+          if (pendingItems.length === 0) {
+            toast({ title: "No pending submissions selected", variant: "destructive" });
+            return;
+          }
+          const response = await apiRequest("POST", "/api/admin/kyc/batch-approve", {
+            body: { ids: pendingItems.map(i => i.id), notes: "Batch approved via admin console" },
+          });
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || "Failed to batch approve");
+          }
+          const result = await response.json();
+          toast({
+            title: result.success ? "Success" : "Partial Success",
+            description: result.message,
+            variant: result.success ? "default" : "destructive",
+          });
+          await refetchSubmissions();
+          await refetchStats();
+        } catch (error: any) {
+          toast({ title: "Error", description: error.message || "Batch approval failed", variant: "destructive" });
+        }
+      },
+    },
+    {
+      id: "batch-reject",
+      label: "Reject Selected",
+      icon: <XCircle className="h-4 w-4 mr-2" />,
+      variant: "destructive",
+      requiresConfirmation: true,
+      confirmTitle: "Batch Reject KYC Submissions",
+      confirmDescription: "Are you sure you want to reject the selected KYC submissions? Please provide a reason below.",
+      onExecute: async (items) => {
+        try {
+          const pendingItems = items.filter(i => i.status === "pending");
+          if (pendingItems.length === 0) {
+            toast({ title: "No pending submissions selected", variant: "destructive" });
+            return;
+          }
+          const response = await apiRequest("POST", "/api/admin/kyc/batch-reject", {
+            body: { ids: pendingItems.map(i => i.id), reason: "Batch rejected - Incomplete documentation" },
+          });
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || "Failed to batch reject");
+          }
+          const result = await response.json();
+          toast({
+            title: result.success ? "Success" : "Partial Success",
+            description: result.message,
+            variant: result.success ? "default" : "destructive",
+          });
+          await refetchSubmissions();
+          await refetchStats();
+        } catch (error: any) {
+          toast({ title: "Error", description: error.message || "Batch rejection failed", variant: "destructive" });
+        }
+      },
+    },
+    {
+      id: "batch-export",
+      label: "Export Selected",
+      icon: <Download className="h-4 w-4 mr-2" />,
+      variant: "outline",
+      requiresConfirmation: false,
+      onExecute: async (items) => {
+        try {
+          const response = await apiRequest("POST", "/api/admin/kyc/batch-export", {
+            body: { ids: items.map(i => i.id), format: "csv" },
+          });
+          if (!response.ok) {
+            throw new Error("Export failed");
+          }
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "kyc_export.csv";
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          toast({ title: "Export Complete", description: `Exported ${items.length} submissions` });
+        } catch (error: any) {
+          toast({ title: "Error", description: error.message || "Export failed", variant: "destructive" });
+        }
+      },
+    },
+  ], [toast, refetchSubmissions, refetchStats]);
 
   return (
     <div className="space-y-6">
@@ -342,99 +532,16 @@ export default function KycCompliancePage() {
             </Button>
           </div>
 
-          {/* Submissions Table */}
+          {/* Submissions Table with Bulk Selection */}
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Tier</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Submitted</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {submissions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                        No KYC submissions found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    submissions.map((submission: KycSubmission) => (
-                      <TableRow key={submission.id} data-testid={`row-kyc-${submission.id}`}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <div>
-                              <div className="font-medium">{submission.userName}</div>
-                              <div className="text-sm text-gray-500">{submission.userEmail}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{submission.type}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{submission.tier}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              submission.status === "approved" ? "default" : 
-                              submission.status === "rejected" ? "destructive" : 
-                              "secondary"
-                            }
-                            className={
-                              submission.status === "pending" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" : ""
-                            }
-                          >
-                            {submission.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Calendar className="h-4 w-4" />
-                            {new Date(submission.submittedAt).toLocaleDateString()}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" data-testid={`button-view-${submission.id}`}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {submission.status === "pending" && (
-                              <>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-green-600"
-                                  onClick={() => openReviewDialog(submission, "approve")}
-                                  data-testid={`button-approve-${submission.id}`}
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-red-600"
-                                  onClick={() => openReviewDialog(submission, "reject")}
-                                  data-testid={`button-reject-${submission.id}`}
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <BulkSelectTable
+                data={submissions}
+                columns={kycColumns}
+                bulkActions={kycBulkActions}
+                isLoading={isLoadingSubmissions}
+                emptyMessage="No KYC submissions found"
+              />
             </CardContent>
           </Card>
         </TabsContent>
