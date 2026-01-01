@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   BookOpen,
   FileText,
@@ -24,7 +27,13 @@ import {
   ExternalLink,
   ChevronRight,
   Banknote,
-  CreditCard
+  CreditCard,
+  ArrowUpDown,
+  Loader2,
+  Briefcase,
+  TrendingDown as Stocks,
+  Landmark,
+  Building
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -84,6 +93,34 @@ interface Contact {
   outstanding_payable_amount?: number;
 }
 
+interface SyncStatus {
+  configured: boolean;
+  pendingSync: {
+    mutualFunds: number;
+    bonds: number;
+    ipos: number;
+    unlisted: number;
+    total: number;
+  };
+  lastSyncedAt?: string;
+}
+
+interface SyncResult {
+  success: boolean;
+  message: string;
+  totalProcessed: number;
+  successCount: number;
+  failedCount: number;
+  results: Array<{
+    success: boolean;
+    productType: string;
+    transactionId: string;
+    zohoInvoiceId?: string;
+    zohoBillId?: string;
+    error?: string;
+  }>;
+}
+
 const statusColors: Record<string, string> = {
   paid: "bg-emerald-500/20 text-emerald-400",
   sent: "bg-blue-500/20 text-blue-400",
@@ -100,10 +137,43 @@ export default function ZohoBooksPage() {
   const [invoiceFilter, setInvoiceFilter] = useState("all");
   const [billFilter, setBillFilter] = useState("all");
   const [contactType, setContactType] = useState("customer");
+  const { toast } = useToast();
 
   const { data: connectionStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery<ZohoConnectionStatus>({
     queryKey: ["/api/admin/zoho-books/status"],
     refetchInterval: 60000,
+  });
+
+  const { data: syncStatus, isLoading: syncStatusLoading, refetch: refetchSyncStatus } = useQuery<SyncStatus>({
+    queryKey: ["/api/admin/zoho-books/sync/status"],
+    enabled: connectionStatus?.connected === true,
+    refetchInterval: 30000,
+  });
+
+  const syncAllMutation = useMutation({
+    mutationFn: async (productTypes?: string[]) => {
+      const response = await apiRequest("POST", "/api/admin/zoho-books/sync/all", {
+        productTypes,
+        limit: 50
+      });
+      return response.json();
+    },
+    onSuccess: (data: SyncResult) => {
+      toast({
+        title: data.success ? "Sync Complete" : "Sync Completed with Errors",
+        description: data.message,
+        variant: data.failedCount > 0 ? "destructive" : "default"
+      });
+      refetchSyncStatus();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/zoho-books"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   });
 
   const { data: dashboard, isLoading: dashboardLoading, refetch: refetchDashboard } = useQuery<DashboardSummary>({
@@ -289,6 +359,14 @@ export default function ZohoBooksPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="sync" className="relative">
+                Transaction Sync
+                {syncStatus?.pendingSync?.total ? (
+                  <Badge className="ml-2 h-5 px-1.5 bg-orange-500 text-white text-xs">
+                    {syncStatus.pendingSync.total}
+                  </Badge>
+                ) : null}
+              </TabsTrigger>
               <TabsTrigger value="invoices">Invoices</TabsTrigger>
               <TabsTrigger value="bills">Bills</TabsTrigger>
               <TabsTrigger value="contacts">Contacts</TabsTrigger>
@@ -296,6 +374,171 @@ export default function ZohoBooksPage() {
           </Tabs>
         </CardHeader>
         <CardContent>
+          {activeTab === "sync" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Transaction Synchronization</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Sync completed orders to Zoho Books as invoices (inflows) or bills (outflows)
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => syncAllMutation.mutate(undefined)}
+                  disabled={syncAllMutation.isPending || !syncStatus?.pendingSync?.total}
+                  data-testid="button-sync-all"
+                >
+                  {syncAllMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                  )}
+                  Sync All Pending
+                </Button>
+              </div>
+
+              {syncStatusLoading ? (
+                <div className="grid grid-cols-4 gap-4">
+                  {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-4">
+                  <Card className="border-blue-500/30">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Mutual Funds</p>
+                          <p className="text-2xl font-bold text-blue-400">
+                            {syncStatus?.pendingSync?.mutualFunds || 0}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">pending sync</p>
+                        </div>
+                        <Briefcase className="h-8 w-8 text-blue-400 opacity-50" />
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full mt-3"
+                        disabled={syncAllMutation.isPending || !syncStatus?.pendingSync?.mutualFunds}
+                        onClick={() => syncAllMutation.mutate(['mutual_fund'])}
+                        data-testid="button-sync-mf"
+                      >
+                        Sync MF Orders
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-green-500/30">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Bonds</p>
+                          <p className="text-2xl font-bold text-green-400">
+                            {syncStatus?.pendingSync?.bonds || 0}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">pending sync</p>
+                        </div>
+                        <Landmark className="h-8 w-8 text-green-400 opacity-50" />
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full mt-3"
+                        disabled={syncAllMutation.isPending || !syncStatus?.pendingSync?.bonds}
+                        onClick={() => syncAllMutation.mutate(['bond'])}
+                        data-testid="button-sync-bonds"
+                      >
+                        Sync Bond Orders
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-purple-500/30">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">IPO</p>
+                          <p className="text-2xl font-bold text-purple-400">
+                            {syncStatus?.pendingSync?.ipos || 0}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">pending sync</p>
+                        </div>
+                        <Receipt className="h-8 w-8 text-purple-400 opacity-50" />
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full mt-3"
+                        disabled={syncAllMutation.isPending || !syncStatus?.pendingSync?.ipos}
+                        onClick={() => syncAllMutation.mutate(['ipo'])}
+                        data-testid="button-sync-ipo"
+                      >
+                        Sync IPO Applications
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-orange-500/30">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Unlisted</p>
+                          <p className="text-2xl font-bold text-orange-400">
+                            {syncStatus?.pendingSync?.unlisted || 0}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">pending sync</p>
+                        </div>
+                        <Building className="h-8 w-8 text-orange-400 opacity-50" />
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full mt-3"
+                        disabled={syncAllMutation.isPending || !syncStatus?.pendingSync?.unlisted}
+                        onClick={() => syncAllMutation.mutate(['unlisted'])}
+                        data-testid="button-sync-unlisted"
+                      >
+                        Sync Unlisted Deals
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">How Transaction Sync Works</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-emerald-400">
+                        <TrendingUp className="h-5 w-5" />
+                        <span className="font-medium">Inflows (Invoices)</span>
+                      </div>
+                      <ul className="text-sm text-muted-foreground space-y-1 ml-7">
+                        <li>MF Purchase & SIP orders</li>
+                        <li>Bond investments</li>
+                        <li>IPO applications (allotted)</li>
+                        <li>Unlisted share purchases</li>
+                      </ul>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-red-400">
+                        <TrendingDown className="h-5 w-5" />
+                        <span className="font-medium">Outflows (Bills)</span>
+                      </div>
+                      <ul className="text-sm text-muted-foreground space-y-1 ml-7">
+                        <li>MF Redemptions</li>
+                        <li>Unlisted share sales</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {activeTab === "overview" && (
             <div className="grid grid-cols-2 gap-6">
               <Card>
