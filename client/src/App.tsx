@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation, Redirect } from "wouter";
-import { lazy, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,6 +13,7 @@ import { NetworkProvider } from "@/hooks/use-network-state";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { DSCBackgroundSync } from "@/components/DSCBackgroundSync";
 import { GlobalActionQueueMonitor } from "@/components/GlobalActionQueueMonitor";
+import { LoadingState } from "@/components/LoadingState";
 import Home from "@/pages/home";
 import Portfolio from "@/pages/portfolio";
 import Markets from "@/pages/markets";
@@ -89,21 +90,22 @@ import APIConfiguration from "@/pages/admin/api-configuration";
 import ProductionReadiness from "@/pages/admin/production-readiness";
 import ReplitSuggestions from "@/pages/admin/replit-suggestions";
 import ErrorCommandCenter from "@/pages/admin/error-command-center";
-import ZohoDashboardPage from "@/pages/admin/zoho-dashboard";
-import ZohoConnectionsPage from "@/pages/admin/zoho-connections";
-import ZohoLogsPage from "@/pages/admin/zoho-logs";
-import ZohoBooksPage from "@/pages/admin/zoho-books";
-import StoreManagement from "@/pages/admin/store-management";
-import BondSeedAdmin from "@/pages/admin/bond-seed";
-import MldSeedAdmin from "@/pages/admin/mld-seed";
-import AifSeedAdmin from "@/pages/admin/aif-seed";
-import PmsSeedAdmin from "@/pages/admin/pms-seed";
-import MutualFundsSeeding from "@/pages/admin/mutual-funds-seeding";
-import ListedStocksSeed from "@/pages/admin/listed-stocks-seed";
-import SeedUnlistedPage from "@/pages/admin/seed-unlisted";
-import UnlistedPreviewPage from "@/pages/admin/unlisted-preview";
-import UnlistedPricingPreviewPage from "@/pages/admin/unlisted-pricing-preview";
-import DuplicateManagementPage from "@/pages/admin/duplicate-management";
+const ZohoDashboardPage = lazy(() => import("@/pages/admin/zoho-dashboard"));
+const ZohoConnectionsPage = lazy(() => import("@/pages/admin/zoho-connections"));
+const ZohoLogsPage = lazy(() => import("@/pages/admin/zoho-logs"));
+const ZohoBooksPage = lazy(() => import("@/pages/admin/zoho-books"));
+const StoreManagement = lazy(() => import("@/pages/admin/store-management"));
+const BondSeedAdmin = lazy(() => import("@/pages/admin/bond-seed"));
+const MldSeedAdmin = lazy(() => import("@/pages/admin/mld-seed"));
+const AifSeedAdmin = lazy(() => import("@/pages/admin/aif-seed"));
+const PmsSeedAdmin = lazy(() => import("@/pages/admin/pms-seed"));
+const MutualFundsSeeding = lazy(() => import("@/pages/admin/mutual-funds-seeding"));
+const ListedStocksSeed = lazy(() => import("@/pages/admin/listed-stocks-seed"));
+const SeedUnlistedPage = lazy(() => import("@/pages/admin/seed-unlisted"));
+const UnlistedPreviewPage = lazy(() => import("@/pages/admin/unlisted-preview"));
+const UnlistedPricingPreviewPage = lazy(() => import("@/pages/admin/unlisted-pricing-preview"));
+const DuplicateManagementPage = lazy(() => import("@/pages/admin/duplicate-management"));
+const ComprehensivePortfolio = lazy(() => import("@/pages/comprehensive-portfolio"));
 import BBPSPage from "@/pages/BBPSPage";
 import DigiLockerPage from "@/pages/DigiLockerPage";
 import LoanApplication from "@/pages/loan-application";
@@ -283,10 +285,13 @@ function UserProtectedRoutes() {
         <Route path="/ai-portfolio-report" component={AIPortfolioReport} />
         <Route path="/risk-profiling" component={RiskProfilingPage} />
         <Route path="/analytics" component={PredictiveAnalytics} />
-        <Route path="/comprehensive-portfolio">{() => {
-          const ComprehensivePortfolio = lazy(() => import("@/pages/comprehensive-portfolio"));
-          return <ComprehensivePortfolio />;
-        }}</Route>
+        <Route path="/comprehensive-portfolio">
+          {() => (
+            <Suspense fallback={<LoadingState variant="portfolio" />}>
+              <ComprehensivePortfolio />
+            </Suspense>
+          )}
+        </Route>
         <Route path="/broking" component={BrokingPage} />
         <Route path="/markets" component={Markets} />
         <Route path="/ipo" component={IPO} />
@@ -426,9 +431,15 @@ function UserProtectedRoutes() {
         <Route path="/investable-surplus" component={InvestableSurplusPage} />
         <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
         {/* Admin seed pages accessible from main site for development */}
-        <Route path="/admin/aif-seed" component={AifSeedAdmin} />
-        <Route path="/admin/pms-seed" component={PmsSeedAdmin} />
-        <Route path="/admin/mld-seed" component={MldSeedAdmin} />
+        <Route path="/admin/aif-seed">
+          {() => <Suspense fallback={<LoadingState variant="dashboard" />}><AifSeedAdmin /></Suspense>}
+        </Route>
+        <Route path="/admin/pms-seed">
+          {() => <Suspense fallback={<LoadingState variant="dashboard" />}><PmsSeedAdmin /></Suspense>}
+        </Route>
+        <Route path="/admin/mld-seed">
+          {() => <Suspense fallback={<LoadingState variant="dashboard" />}><MldSeedAdmin /></Suspense>}
+        </Route>
       </Switch>
     </ProfileCompletionGuard>
   );
@@ -531,28 +542,36 @@ function AdminRoutes() {
       <Route path="/admin/zoho-dashboard">
         {() => (
           <AdminLayout>
-            <ZohoDashboardPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoDashboardPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/zoho-connections">
         {() => (
           <AdminLayout>
-            <ZohoConnectionsPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoConnectionsPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/zoho-logs">
         {() => (
           <AdminLayout>
-            <ZohoLogsPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoLogsPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/zoho-books">
         {() => (
           <AdminLayout>
-            <ZohoBooksPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoBooksPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
@@ -657,7 +676,9 @@ function AdminRoutes() {
       <Route path="/admin/duplicates">
         {() => (
           <AdminLayout>
-            <DuplicateManagementPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <DuplicateManagementPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
@@ -741,7 +762,9 @@ function AdminRoutes() {
       <Route path="/admin/store-management">
         {() => (
           <AdminLayout>
-            <StoreManagement />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <StoreManagement />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
@@ -755,21 +778,27 @@ function AdminRoutes() {
       <Route path="/admin/store/seed-unlisted">
         {() => (
           <AdminLayout>
-            <SeedUnlistedPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SeedUnlistedPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/unlisted/preview/:id">
         {() => (
           <AdminLayout>
-            <UnlistedPreviewPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <UnlistedPreviewPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/unlisted/pricing-preview/:companyId">
         {() => (
           <AdminLayout>
-            <UnlistedPricingPreviewPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <UnlistedPricingPreviewPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
@@ -818,7 +847,9 @@ function AdminRoutes() {
       <Route path="/admin/unlisted/seed">
         {() => (
           <AdminLayout>
-            <SeedUnlistedPage />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SeedUnlistedPage />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
@@ -909,28 +940,36 @@ function AdminRoutes() {
       <Route path="/admin/bond-seed">
         {() => (
           <AdminLayout>
-            <BondSeedAdmin />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <BondSeedAdmin />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/mld-seed">
         {() => (
           <AdminLayout>
-            <MldSeedAdmin />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <MldSeedAdmin />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/aif-seed">
         {() => (
           <AdminLayout>
-            <AifSeedAdmin />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AifSeedAdmin />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/pms-seed">
         {() => (
           <AdminLayout>
-            <PmsSeedAdmin />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <PmsSeedAdmin />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
@@ -943,14 +982,18 @@ function AdminRoutes() {
       <Route path="/admin/mutual-funds-seeding">
         {() => (
           <AdminLayout>
-            <MutualFundsSeeding />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <MutualFundsSeeding />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
       <Route path="/admin/listed-stocks-seed">
         {() => (
           <AdminLayout>
-            <ListedStocksSeed />
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ListedStocksSeed />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>
