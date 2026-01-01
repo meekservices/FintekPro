@@ -1,6 +1,7 @@
 // FintekPro Server - Main entry point
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import compression from "compression";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { validationResult } from "express-validator";
@@ -38,6 +39,18 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false
+}));
+
+// Gzip/Brotli compression for API responses
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  level: 6,
+  threshold: 1024,
 }));
 
 // CORS configuration
