@@ -495,6 +495,75 @@ export function registerZohoBooksRoutes(app: Express) {
     }
   });
 
+  // ==================== Commission Reconciliation ====================
+
+  app.get('/api/admin/commission-reconciliation', requireAdminOrAccounts, async (req, res) => {
+    try {
+      const { productType, syncStatus, limit = '100' } = req.query;
+      
+      const items = await zohoTransactionSyncService.getReconciliationItems({
+        productType: productType as string,
+        syncStatus: syncStatus as string,
+        limit: parseInt(limit as string),
+      });
+      
+      const summary = {
+        totalTransactions: items.length,
+        matched: items.filter(i => i.matchStatus === 'matched').length,
+        pending: items.filter(i => i.matchStatus === 'pending').length,
+        failed: items.filter(i => i.matchStatus === 'failed').length,
+        totalAmount: items.reduce((sum, i) => sum + parseFloat(i.amount || '0'), 0).toFixed(2),
+        syncedAmount: items
+          .filter(i => i.matchStatus === 'matched')
+          .reduce((sum, i) => sum + parseFloat(i.amount || '0'), 0)
+          .toFixed(2),
+      };
+      
+      res.json({ success: true, items, summary });
+    } catch (error: any) {
+      console.error('Error fetching reconciliation data:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/admin/commission-payouts', requireAdminOrAccounts, async (req, res) => {
+    try {
+      const payouts = await zohoTransactionSyncService.getCommissionPayouts();
+      
+      const summary = {
+        totalPending: payouts
+          .filter(p => p.status === 'pending')
+          .reduce((sum, p) => sum + parseFloat(p.netAmount || '0'), 0)
+          .toFixed(2),
+        totalApproved: payouts
+          .filter(p => p.status === 'approved')
+          .reduce((sum, p) => sum + parseFloat(p.netAmount || '0'), 0)
+          .toFixed(2),
+        totalPaid: payouts
+          .filter(p => p.status === 'paid')
+          .reduce((sum, p) => sum + parseFloat(p.netAmount || '0'), 0)
+          .toFixed(2),
+        pendingCount: payouts.filter(p => p.status === 'pending').length,
+      };
+      
+      res.json({ success: true, payouts, summary });
+    } catch (error: any) {
+      console.error('Error fetching commission payouts:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/commission-payouts/:id/approve', requireAdminOrAccounts, async (req, res) => {
+    try {
+      const result = await zohoTransactionSyncService.approveCommissionPayout(req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error approving payout:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   console.log('✅ Zoho Books API routes registered');
   console.log('   📊 Transaction sync endpoints: /api/admin/zoho-books/sync/*');
+  console.log('   💰 Commission reconciliation: /api/admin/commission-reconciliation');
 }

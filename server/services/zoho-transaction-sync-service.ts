@@ -977,6 +977,309 @@ class ZohoTransactionSyncService {
 
     return results;
   }
+
+  /**
+   * Get reconciliation items for commission matching
+   */
+  async getReconciliationItems(options: {
+    productType?: string;
+    syncStatus?: string;
+    limit?: number;
+  } = {}): Promise<Array<{
+    id: string;
+    transactionType: string;
+    productType: string;
+    productName: string;
+    amount: string;
+    status: string;
+    createdAt: string;
+    zohoSyncedAt?: string;
+    zohoInvoiceId?: string;
+    zohoBillId?: string;
+    zohoSyncStatus?: string;
+    matchStatus: 'matched' | 'pending' | 'failed' | 'skipped';
+    commissionAmount?: string;
+    commissionPaid?: boolean;
+  }>> {
+    const { productType, syncStatus, limit = 100 } = options;
+    
+    try {
+      // Query using Drizzle ORM for type safety
+      const transactions = await db.select({
+        id: schema.storeTransactionLogs.id,
+        transactionType: schema.storeTransactionLogs.transactionType,
+        productCategory: schema.storeTransactionLogs.productCategory,
+        productName: schema.storeTransactionLogs.productName,
+        amount: schema.storeTransactionLogs.amount,
+        status: schema.storeTransactionLogs.status,
+        createdAt: schema.storeTransactionLogs.createdAt,
+        zohoSyncedAt: schema.storeTransactionLogs.zohoSyncedAt,
+        zohoInvoiceId: schema.storeTransactionLogs.zohoInvoiceId,
+        zohoBillId: schema.storeTransactionLogs.zohoBillId,
+        zohoSyncStatus: schema.storeTransactionLogs.zohoSyncStatus,
+        commissionAmount: schema.storeTransactionLogs.commissionAmount,
+      })
+      .from(schema.storeTransactionLogs)
+      .orderBy(desc(schema.storeTransactionLogs.createdAt))
+      .limit(limit);
+      
+      const items = transactions.map((row) => {
+        let matchStatus: 'matched' | 'pending' | 'failed' | 'skipped' = 'pending';
+        
+        if (row.zohoInvoiceId || row.zohoBillId) {
+          matchStatus = 'matched';
+        } else if (row.zohoSyncStatus === 'pass_through' || row.zohoSyncStatus === 'compliance_only' || row.zohoSyncStatus === 'not_applicable') {
+          matchStatus = 'skipped';
+        } else if (row.zohoSyncStatus === 'failed') {
+          matchStatus = 'failed';
+        }
+        
+        // Apply product type filter
+        if (productType && productType !== 'all' && row.productCategory !== productType) {
+          return null;
+        }
+        
+        // Apply sync status filter if provided
+        if (syncStatus && syncStatus !== 'all' && matchStatus !== syncStatus) {
+          return null;
+        }
+        
+        return {
+          id: row.id,
+          transactionType: row.transactionType || 'unknown',
+          productType: row.productCategory || 'unknown',
+          productName: row.productName || '',
+          amount: row.amount?.toString() || '0',
+          status: row.status || 'pending',
+          createdAt: row.createdAt?.toISOString() || new Date().toISOString(),
+          zohoSyncedAt: row.zohoSyncedAt?.toISOString(),
+          zohoInvoiceId: row.zohoInvoiceId || undefined,
+          zohoBillId: row.zohoBillId || undefined,
+          zohoSyncStatus: row.zohoSyncStatus || undefined,
+          matchStatus,
+          commissionAmount: row.commissionAmount?.toString(),
+        };
+      }).filter(Boolean) as any[];
+      
+      return items;
+    } catch (error: any) {
+      console.error('[ZohoSync] Error fetching reconciliation items:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get commission payouts for reconciliation
+   */
+  async getCommissionPayouts(): Promise<Array<{
+    id: string;
+    agentId: string;
+    agentName: string;
+    agentRole: string;
+    productType: string;
+    transactionId: string;
+    transactionDate: string;
+    commissionAmount: string;
+    tdsAmount: string;
+    netAmount: string;
+    status: 'pending' | 'approved' | 'paid' | 'rejected';
+    zohoBillId?: string;
+    payoutDate?: string;
+  }>> {
+    try {
+      // Query agent commissions using Drizzle ORM
+      const commissions = await db.select({
+        id: schema.agentCommissions.id,
+        agentId: schema.agentCommissions.agentId,
+        productType: schema.agentCommissions.productType,
+        orderId: schema.agentCommissions.orderId,
+        transactionDate: schema.agentCommissions.transactionDate,
+        agentCommissionAmount: schema.agentCommissions.agentCommissionAmount,
+        agentTdsAmount: schema.agentCommissions.agentTdsAmount,
+        agentNetCommission: schema.agentCommissions.agentNetCommission,
+        agentSettlementStatus: schema.agentCommissions.agentSettlementStatus,
+        agentSettledAt: schema.agentCommissions.agentSettledAt,
+      })
+      .from(schema.agentCommissions)
+      .orderBy(desc(schema.agentCommissions.createdAt))
+      .limit(100);
+      
+      return commissions.map((row) => {
+        // Map settlement status to payout status
+        let status: 'pending' | 'approved' | 'paid' | 'rejected' = 'pending';
+        if (row.agentSettlementStatus === 'settled') status = 'paid';
+        else if (row.agentSettlementStatus === 'approved') status = 'approved';
+        else if (row.agentSettlementStatus === 'cancelled') status = 'rejected';
+        
+        return {
+          id: row.id,
+          agentId: row.agentId || '',
+          agentName: 'Agent',
+          agentRole: 'Agent',
+          productType: row.productType || 'unknown',
+          transactionId: row.orderId || '',
+          transactionDate: row.transactionDate?.toISOString() || new Date().toISOString(),
+          commissionAmount: row.agentCommissionAmount?.toString() || '0',
+          tdsAmount: row.agentTdsAmount?.toString() || '0',
+          netAmount: row.agentNetCommission?.toString() || '0',
+          status,
+          payoutDate: row.agentSettledAt?.toISOString(),
+        };
+      });
+    } catch (error: any) {
+      console.error('[ZohoSync] Error fetching commission payouts:', error);
+      
+      // If agent_commissions table doesn't exist or query fails, try partner_commissions
+      try {
+        const partnerCommissions = await db.select({
+          id: schema.partnerCommissions.id,
+          partnerId: schema.partnerCommissions.partnerId,
+          productType: schema.partnerCommissions.productType,
+          transactionId: schema.partnerCommissions.transactionId,
+          createdAt: schema.partnerCommissions.createdAt,
+          commissionAmount: schema.partnerCommissions.commissionAmount,
+          tdsAmount: schema.partnerCommissions.tdsAmount,
+          netCommission: schema.partnerCommissions.netCommission,
+          status: schema.partnerCommissions.status,
+          zohoBillId: schema.partnerCommissions.zohoBillId,
+        })
+        .from(schema.partnerCommissions)
+        .orderBy(desc(schema.partnerCommissions.createdAt))
+        .limit(100);
+        
+        return partnerCommissions.map((row) => {
+          // Map status correctly
+          let status: 'pending' | 'approved' | 'paid' | 'rejected' = 'pending';
+          if (row.status === 'settled' || row.status === 'paid') status = 'paid';
+          else if (row.status === 'approved') status = 'approved';
+          else if (row.status === 'rejected' || row.status === 'cancelled') status = 'rejected';
+          
+          return {
+            id: row.id,
+            agentId: row.partnerId || '',
+            agentName: 'Partner',
+            agentRole: 'Partner',
+            productType: row.productType || 'unknown',
+            transactionId: row.transactionId || '',
+            transactionDate: row.createdAt?.toISOString() || new Date().toISOString(),
+            commissionAmount: row.commissionAmount?.toString() || '0',
+            tdsAmount: row.tdsAmount?.toString() || '0',
+            netAmount: row.netCommission?.toString() || '0',
+            status,
+            zohoBillId: row.zohoBillId || undefined,
+          };
+        });
+      } catch (innerError) {
+        console.error('[ZohoSync] Error fetching partner commissions:', innerError);
+        return [];
+      }
+    }
+  }
+
+  /**
+   * Approve a commission payout and create Zoho Bill
+   */
+  async approveCommissionPayout(payoutId: string): Promise<{
+    success: boolean;
+    zohoBillId?: string;
+    error?: string;
+  }> {
+    try {
+      const zohoService = await getZohoBooksService();
+      
+      // Try agent_commissions first
+      let payout: any = null;
+      let tableName = 'agent_commissions';
+      
+      try {
+        const [agentPayout] = await db.select()
+          .from(schema.agentCommissions)
+          .where(eq(schema.agentCommissions.id, payoutId))
+          .limit(1);
+        
+        if (agentPayout) {
+          payout = agentPayout;
+        }
+      } catch (e) {
+        // Table might not exist, try partner_commissions
+        console.warn('[ZohoSync] Agent commissions query failed:', e);
+      }
+      
+      if (!payout) {
+        try {
+          const [partnerPayout] = await db.select()
+            .from(schema.partnerCommissions)
+            .where(eq(schema.partnerCommissions.id, payoutId))
+            .limit(1);
+          
+          if (partnerPayout) {
+            payout = partnerPayout;
+            tableName = 'partner_commissions';
+          }
+        } catch (e) {
+          console.warn('[ZohoSync] Partner commissions query failed:', e);
+        }
+      }
+      
+      if (!payout) {
+        return { success: false, error: 'Payout not found' };
+      }
+      
+      // Create Zoho Bill if connected
+      let zohoBillId: string | undefined;
+      if (zohoService) {
+        try {
+          const netAmount = payout.agentNetCommission || payout.netCommission || '0';
+          const bill = await zohoService.createBill({
+            vendor_name: payout.agentId || payout.partnerId || 'Unknown',
+            reference_number: `COMM-${payoutId.substring(0, 8)}`,
+            date: new Date().toISOString().split('T')[0],
+            line_items: [{
+              name: 'Commission Payout',
+              description: `Commission for ${payout.productType || 'transaction'}`,
+              rate: parseFloat(netAmount.toString()),
+              quantity: 1
+            }],
+            notes: `Transaction: ${payout.orderId || payout.transactionId || ''}`
+          });
+          zohoBillId = bill?.bill?.bill_id || bill?.bill_id;
+        } catch (err) {
+          console.warn('[ZohoSync] Bill creation failed:', err);
+        }
+      }
+      
+      // Update the payout status using Drizzle ORM
+      if (tableName === 'agent_commissions') {
+        await db.update(schema.agentCommissions)
+          .set({ 
+            agentSettlementStatus: 'approved',
+            agentSettledAt: new Date(),
+          })
+          .where(eq(schema.agentCommissions.id, payoutId));
+        
+        console.log(`[ZohoSync] Agent commission ${payoutId} approved`);
+      } else {
+        // Partner commissions table has zohoBillId field
+        const updateData: any = { 
+          status: 'approved',
+        };
+        if (zohoBillId) {
+          updateData.zohoBillId = zohoBillId;
+        }
+        
+        await db.update(schema.partnerCommissions)
+          .set(updateData)
+          .where(eq(schema.partnerCommissions.id, payoutId));
+        
+        console.log(`[ZohoSync] Partner commission ${payoutId} approved${zohoBillId ? ` with Zoho Bill ${zohoBillId}` : ''}`);
+      }
+      
+      return { success: true, zohoBillId };
+    } catch (error: any) {
+      console.error('[ZohoSync] Error approving payout:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 export const zohoTransactionSyncService = new ZohoTransactionSyncService();
