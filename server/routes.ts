@@ -26723,6 +26723,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .returning();
       
+      // Sync prospect to Zoho CRM as Lead with agent attribution
+      try {
+        const { ZohoCRMService } = await import("./zoho/services/crm");
+        const { zohoConnections } = await import("@shared/schema");
+        
+        const [connection] = await db
+          .select()
+          .from(zohoConnections)
+          .where(eq(zohoConnections.isDefault, true))
+          .limit(1);
+        
+        if (connection) {
+          const zohoCRM = new ZohoCRMService(connection.id, connection.dataCenter || 'com');
+          await zohoCRM.syncProspectToLead({
+            name,
+            email: email || undefined,
+            phone: mobile || undefined,
+            agentId,
+            notes: `Client Type: ${clientType || 'individual'}, Risk Profile: ${indicativeRiskProfile || 'Not assessed'}`
+          });
+          console.log(`✅ Prospect ${name} synced to Zoho CRM as Lead`);
+        }
+      } catch (zohoError) {
+        console.warn("Zoho CRM prospect sync failed (non-blocking):", zohoError);
+      }
+      
       res.status(201).json(newClient);
     } catch (error) {
       console.error('Error creating prospect client:', error);

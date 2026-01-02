@@ -153,6 +153,7 @@ import NetWorthPage from "@/pages/net-worth";
 import AdminProposalsPage from "@/pages/admin-proposals";
 import ClientProposalsPage from "@/pages/client-proposals";
 import MyProposalsPage from "@/pages/my-proposals";
+import ClientSmartProposals from "@/pages/client-smart-proposals";
 import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
@@ -240,6 +241,11 @@ import CASupportDashboard from "@/pages/ca-support-dashboard";
 import CASupportDetail from "@/pages/ca-support-detail";
 import CARegistration from "@/pages/ca-registration";
 import CADashboard from "@/pages/ca-dashboard";
+import PartnerAgentDashboard from "@/pages/partner-agent-dashboard";
+import PartnerCAManagement from "@/pages/partner-ca-management";
+import AgentPayoutDashboard from "@/pages/agent-payout-dashboard";
+import AdminPayoutManagement from "@/pages/admin-payout-management";
+import FreshInvestmentDiscovery from "@/pages/fresh-investment-discovery";
 import TDSCompliance from "@/pages/tds-compliance";
 import AIProposalsPage from "@/pages/ai-proposals";
 import AIProposalReviewPage from "@/pages/ai-proposal-review";
@@ -344,6 +350,8 @@ function UserProtectedRoutes() {
           )}
         </Route>
         <Route path="/partner/ca-dashboard" component={CADashboard} />
+        <Route path="/partner/agents" component={PartnerAgentDashboard} />
+        <Route path="/partner/ca-management" component={PartnerCAManagement} />
         <Route path="/partner/ca-support" component={CASupportDashboard} />
         <Route path="/partner/ca-support/:id" component={CASupportDetail} />
         <Route path="/support" component={Support} />
@@ -352,6 +360,8 @@ function UserProtectedRoutes() {
         <Route path="/wealth-management" component={InvestSmart} />
         <Route path="/proposals" component={ProposalsPage} />
         <Route path="/my-proposals" component={MyProposalsPage} />
+        <Route path="/smart-proposals" component={ClientSmartProposals} />
+        <Route path="/discover" component={FreshInvestmentDiscovery} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
         <Route path="/reports" component={ReportsHub} />
@@ -780,6 +790,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <CAManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/payouts">
+        {() => (
+          <AdminLayout>
+            <AdminPayoutManagement />
           </AdminLayout>
         )}
       </Route>
@@ -1367,6 +1384,13 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentCommissionCalculator />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/payouts">
+        {() => (
+          <AgentLayout>
+            <AgentPayoutDashboard />
           </AgentLayout>
         )}
       </Route>

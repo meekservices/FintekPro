@@ -4,6 +4,30 @@ import { amfiValidationService } from "./amfi-validation-service";
 import { CashfreeAadhaarService } from "./services/cashfree-aadhaar-service";
 import { z } from "zod";
 import { randomUUID } from "crypto";
+import { ZohoCRMService } from "./zoho/services/crm";
+
+// Helper to get Zoho CRM service (uses default connection)
+async function getZohoCRMService(): Promise<ZohoCRMService | null> {
+  try {
+    const { zohoConnections } = await import("@shared/schema");
+    const { db } = await import("./db");
+    const { eq } = await import("drizzle-orm");
+    
+    const [connection] = await db
+      .select()
+      .from(zohoConnections)
+      .where(eq(zohoConnections.isDefault, true))
+      .limit(1);
+    
+    if (connection) {
+      return new ZohoCRMService(connection.id, connection.dataCenter || 'com');
+    }
+    return null;
+  } catch (error) {
+    console.warn("Zoho CRM service not available:", error);
+    return null;
+  }
+}
 
 const router = Router();
 
@@ -437,6 +461,17 @@ router.post("/api/agents/register", async (req, res) => {
       });
     }
 
+    // Sync agent to Zoho CRM as Lead (pending approval)
+    try {
+      const zohoCRM = await getZohoCRMService();
+      if (zohoCRM) {
+        await zohoCRM.createAgentAsLead(agent.id);
+        console.log(`✅ Agent ${agent.id} synced to Zoho CRM as Lead`);
+      }
+    } catch (zohoError) {
+      console.warn("Zoho CRM sync failed (non-blocking):", zohoError);
+    }
+
     res.json({ 
       success: true, 
       agent: {
@@ -776,6 +811,19 @@ router.post("/api/admin/agents/:agentId/approve", requireAdmin, async (req, res)
 
     if (!agent) {
       return res.status(404).json({ error: "Agent not found" });
+    }
+
+    // If approved, sync agent to Zoho CRM as Contact
+    if (status === "approved") {
+      try {
+        const zohoCRM = await getZohoCRMService();
+        if (zohoCRM) {
+          await zohoCRM.syncAgentToContact(agentId);
+          console.log(`✅ Approved agent ${agentId} synced to Zoho CRM as Contact`);
+        }
+      } catch (zohoError) {
+        console.warn("Zoho CRM sync on approval failed (non-blocking):", zohoError);
+      }
     }
 
     res.json({ success: true, agent });

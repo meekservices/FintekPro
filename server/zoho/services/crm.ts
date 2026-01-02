@@ -458,6 +458,225 @@ export class ZohoCRMService {
   }
 
   /**
+   * Sync FintekPro agent to Zoho CRM as Contact with Agent tag
+   * Called when agent is approved
+   */
+  async syncAgentToContact(agentId: string): Promise<string> {
+    const { customerCareAgents } = await import('@shared/schema');
+    
+    const [agent] = await db
+      .select()
+      .from(customerCareAgents)
+      .where(eq(customerCareAgents.id, agentId))
+      .limit(1);
+
+    if (!agent) {
+      throw new Error('Agent not found');
+    }
+
+    // Check if mapping already exists
+    const [existingMapping] = await db
+      .select()
+      .from(zohoEntityMappings)
+      .where(
+        and(
+          eq(zohoEntityMappings.connectionId, this.connectionId),
+          eq(zohoEntityMappings.fintekproEntityType, 'agent'),
+          eq(zohoEntityMappings.fintekproEntityId, agentId),
+          eq(zohoEntityMappings.zohoModule, 'Contacts')
+        )
+      )
+      .limit(1);
+
+    // Parse name
+    const nameParts = (agent.fullName || 'Agent').split(' ');
+    const firstName = nameParts[0] || 'Agent';
+    const lastName = nameParts.slice(1).join(' ') || 'FintekPro';
+
+    // Build tags based on agent properties
+    const tags: string[] = ['FintekPro Agent'];
+    if (agent.agentLevel) tags.push(`Level: ${agent.agentLevel}`);
+    if (agent.regulatoryCategory) tags.push(agent.regulatoryCategory);
+    if (agent.productTypes && Array.isArray(agent.productTypes)) {
+      agent.productTypes.forEach((pt: string) => tags.push(pt));
+    }
+
+    const contactData: ZohoCRMContact = {
+      First_Name: firstName,
+      Last_Name: lastName,
+      Email: agent.email || undefined,
+      Phone: agent.phone || undefined,
+      Mobile: agent.phone || undefined,
+      Title: agent.agentLevel === 'master' ? 'Master Agent' : agent.agentLevel === 'sub_agent' ? 'Sub-Agent' : 'Associate Agent',
+      Description: `FintekPro Agent - ARN: ${agent.arnCode || 'N/A'}, EUIN: ${agent.euinNumber || 'N/A'}\nProducts: ${(agent.productTypes || []).join(', ')}`,
+      Lead_Source: 'FintekPro Platform',
+      Tag: tags
+    };
+
+    if (existingMapping) {
+      // Update existing contact
+      const response = await this.apiClient.put(
+        `/Contacts/${existingMapping.zohoRecordId}`,
+        { data: [contactData] }
+      );
+
+      await db
+        .update(zohoEntityMappings)
+        .set({
+          zohoRecordData: response.data,
+          lastSyncedAt: new Date(),
+          syncStatus: 'synced',
+          updatedAt: new Date()
+        })
+        .where(eq(zohoEntityMappings.id, existingMapping.id));
+
+      return existingMapping.zohoRecordId;
+    } else {
+      // Create new contact
+      const response = await this.apiClient.post(
+        '/Contacts',
+        { data: [contactData] }
+      );
+
+      const zohoRecordId = response.data?.data?.[0]?.details?.id;
+
+      if (!zohoRecordId) {
+        throw new Error('Failed to create Zoho Contact for Agent');
+      }
+
+      // Create mapping
+      await db.insert(zohoEntityMappings).values({
+        connectionId: this.connectionId,
+        fintekproEntityType: 'agent',
+        fintekproEntityId: agentId,
+        zohoService: 'CRM',
+        zohoModule: 'Contacts',
+        zohoRecordId,
+        zohoRecordData: response.data,
+        syncDirection: 'bidirectional',
+        lastSyncedAt: new Date(),
+        syncStatus: 'synced'
+      });
+
+      return zohoRecordId;
+    }
+  }
+
+  /**
+   * Create agent as Lead in Zoho CRM (for pending agents)
+   * Called when agent registers, before approval
+   */
+  async createAgentAsLead(agentId: string): Promise<string> {
+    const { customerCareAgents } = await import('@shared/schema');
+    
+    const [agent] = await db
+      .select()
+      .from(customerCareAgents)
+      .where(eq(customerCareAgents.id, agentId))
+      .limit(1);
+
+    if (!agent) {
+      throw new Error('Agent not found');
+    }
+
+    // Check if lead already exists
+    const [existingMapping] = await db
+      .select()
+      .from(zohoEntityMappings)
+      .where(
+        and(
+          eq(zohoEntityMappings.connectionId, this.connectionId),
+          eq(zohoEntityMappings.fintekproEntityType, 'agent'),
+          eq(zohoEntityMappings.fintekproEntityId, agentId),
+          eq(zohoEntityMappings.zohoModule, 'Leads')
+        )
+      )
+      .limit(1);
+
+    if (existingMapping) {
+      return existingMapping.zohoRecordId;
+    }
+
+    const nameParts = (agent.fullName || 'Agent').split(' ');
+    const firstName = nameParts[0] || 'Agent';
+    const lastName = nameParts.slice(1).join(' ') || 'FintekPro';
+
+    const leadData: ZohoCRMLead = {
+      First_Name: firstName,
+      Last_Name: lastName,
+      Email: agent.email || undefined,
+      Phone: agent.phone || undefined,
+      Mobile: agent.phone || undefined,
+      Company: 'FintekPro Agent Network',
+      Designation: agent.agentLevel === 'master' ? 'Master Agent' : agent.agentLevel === 'sub_agent' ? 'Sub-Agent' : 'Associate Agent',
+      Lead_Source: 'FintekPro Platform',
+      Lead_Status: 'Pending Approval',
+      Industry: 'Financial Services',
+      Description: `Agent Registration - ARN: ${agent.arnCode || 'Pending'}, EUIN: ${agent.euinNumber || 'Pending'}\nProducts: ${(agent.productTypes || []).join(', ')}`,
+      Tag: ['FintekPro Agent', 'Pending Approval', ...(agent.productTypes || [])]
+    };
+
+    const zohoRecordId = await this.createLead(leadData);
+
+    if (zohoRecordId) {
+      await db.insert(zohoEntityMappings).values({
+        connectionId: this.connectionId,
+        fintekproEntityType: 'agent',
+        fintekproEntityId: agentId,
+        zohoService: 'CRM',
+        zohoModule: 'Leads',
+        zohoRecordId,
+        zohoRecordData: { id: zohoRecordId },
+        syncDirection: 'to_zoho',
+        lastSyncedAt: new Date(),
+        syncStatus: 'synced'
+      });
+    }
+
+    return zohoRecordId;
+  }
+
+  /**
+   * Sync client/prospect to Zoho CRM with agent attribution
+   */
+  async syncProspectToLead(prospectData: {
+    name: string;
+    email?: string;
+    phone?: string;
+    agentId: string;
+    portfolioValue?: number;
+    notes?: string;
+  }): Promise<string> {
+    const nameParts = prospectData.name.split(' ');
+    const firstName = nameParts[0] || 'Prospect';
+    const lastName = nameParts.slice(1).join(' ') || 'Client';
+
+    // Get agent info for attribution
+    const { customerCareAgents } = await import('@shared/schema');
+    const [agent] = await db
+      .select()
+      .from(customerCareAgents)
+      .where(eq(customerCareAgents.id, prospectData.agentId))
+      .limit(1);
+
+    const leadData: ZohoCRMLead = {
+      First_Name: firstName,
+      Last_Name: lastName,
+      Email: prospectData.email || undefined,
+      Phone: prospectData.phone || undefined,
+      Mobile: prospectData.phone || undefined,
+      Company: 'Individual Investor',
+      Lead_Source: 'Agent Referral',
+      Lead_Status: 'Prospect',
+      Industry: 'Individual',
+      Description: `Referred by Agent: ${agent?.fullName || 'Unknown'}\nPortfolio Value: ₹${prospectData.portfolioValue?.toLocaleString() || 'N/A'}\n${prospectData.notes || ''}`,
+      Tag: ['FintekPro Prospect', 'Agent Referral', agent?.fullName || 'Direct']
+    };
+
+    return await this.createLead(leadData);
+  }
+
+  /**
    * Get all deals for a partner
    */
   async getPartnerDeals(partnerId: string): Promise<ZohoCRMDeal[]> {
