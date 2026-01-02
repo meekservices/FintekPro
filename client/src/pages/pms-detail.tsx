@@ -129,6 +129,101 @@ function getStatusBadge(status: string | null) {
 
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+interface OtherFund {
+  id: string;
+  name: string;
+  strategy?: string | null;
+  category?: string | null;
+  fundHouse: string | null;
+  aum: string | null;
+  return1Y: string | null;
+  return3Y: string | null;
+  fundType: 'pms' | 'aif';
+}
+
+function OtherFundsByManager({ 
+  managerId, 
+  currentFundId, 
+  fundType, 
+  navigate 
+}: { 
+  managerId: string; 
+  currentFundId: string; 
+  fundType: 'pms' | 'aif';
+  navigate: (path: string) => void;
+}) {
+  const { data, isLoading } = useQuery<{ otherFunds: OtherFund[] }>({
+    queryKey: ["/api/store/fund-managers", managerId, "other-funds", { excludeFundId: currentFundId, fundType }],
+    enabled: !!managerId,
+  });
+
+  const otherFunds = data?.otherFunds || [];
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Other Funds by This Manager</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (otherFunds.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Briefcase className="w-5 h-5 text-purple-500" />
+          Other Funds by This Manager
+        </CardTitle>
+        <CardDescription>Explore other investment strategies managed by the same portfolio manager</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {otherFunds.map((fund) => (
+            <div
+              key={fund.id}
+              className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-gray-50 hover:bg-white"
+              onClick={() => navigate(`/${fund.fundType}/${fund.id}`)}
+              data-testid={`other-fund-${fund.id}`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <h4 className="font-semibold text-sm line-clamp-2">{fund.name}</h4>
+                <span className={`text-xs px-2 py-0.5 rounded ${fund.fundType === 'pms' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {fund.fundType.toUpperCase()}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">{fund.strategy || fund.category || 'N/A'}</p>
+              <div className="flex justify-between text-xs">
+                <div>
+                  <span className="text-gray-500">1Y Return</span>
+                  <p className={`font-semibold ${fund.return1Y && parseFloat(fund.return1Y) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatPercent(fund.return1Y)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-500">AUM</span>
+                  <p className="font-semibold">{formatCurrency(fund.aum)}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function PMSDetail() {
   const [, navigate] = useLocation();
   const [match, params] = useRoute("/pms/:id");
@@ -433,45 +528,48 @@ export default function PMSDetail() {
 
         <TabsContent value="manager" className="space-y-6">
           {scheme.manager ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Award className="w-5 h-5 text-indigo-500" />
-                  Portfolio Manager Profile
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold mb-1">{scheme.manager.name}</h3>
-                    <p className="text-gray-600 mb-4">{scheme.manager.designation || "Portfolio Manager"}</p>
-                    {scheme.manager.bio && (
-                      <p className="text-gray-700 mb-6">{scheme.manager.bio}</p>
-                    )}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-500">Experience</p>
-                        <p className="font-semibold">{scheme.manager.experienceYears ? `${scheme.manager.experienceYears}+ years` : "N/A"}</p>
-                      </div>
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-500">Strategies Managed</p>
-                        <p className="font-semibold">{scheme.manager.fundsManaged || "N/A"}</p>
-                      </div>
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-500">Total AUM</p>
-                        <p className="font-semibold">{formatCurrency(scheme.manager.aumManaged)}</p>
-                      </div>
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-500">Avg Alpha</p>
-                        <p className={`font-semibold ${scheme.manager.avgAlpha && parseFloat(scheme.manager.avgAlpha) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {formatPercent(scheme.manager.avgAlpha)}
-                        </p>
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Award className="w-5 h-5 text-indigo-500" />
+                    Portfolio Manager Profile
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold mb-1">{scheme.manager.name}</h3>
+                      <p className="text-gray-600 mb-4">{scheme.manager.designation || "Portfolio Manager"}</p>
+                      {scheme.manager.bio && (
+                        <p className="text-gray-700 mb-6">{scheme.manager.bio}</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-500">Experience</p>
+                          <p className="font-semibold">{scheme.manager.experienceYears ? `${scheme.manager.experienceYears}+ years` : "N/A"}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-500">Strategies Managed</p>
+                          <p className="font-semibold">{scheme.manager.fundsManaged || "N/A"}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-500">Total AUM</p>
+                          <p className="font-semibold">{formatCurrency(scheme.manager.aumManaged)}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-500">Avg Alpha</p>
+                          <p className={`font-semibold ${scheme.manager.avgAlpha && parseFloat(scheme.manager.avgAlpha) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatPercent(scheme.manager.avgAlpha)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+              <OtherFundsByManager managerId={scheme.manager.id} currentFundId={id || ""} fundType="pms" navigate={navigate} />
+            </>
           ) : (
             <Card className="p-8 text-center">
               <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-4" />

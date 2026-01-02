@@ -9,12 +9,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Search, Building2, Eye, EyeOff, RefreshCw, TrendingUp, 
-  AlertTriangle, Shield, BarChart3, Settings
+  AlertTriangle, Shield, BarChart3, Settings, Users, Plus, Pencil, Trash2, Award
 } from "lucide-react";
+
+interface FundManager {
+  id: string;
+  name: string;
+  designation: string | null;
+  bio: string | null;
+  experienceYears: number | null;
+  qualifications: string | null;
+  photoUrl: string | null;
+  linkedinUrl: string | null;
+  totalAumManaged: string | null;
+  fundsManaged: number | null;
+  avgAlpha: string | null;
+  consistencyScore: string | null;
+}
 
 interface AifScheme {
   id: string;
@@ -88,9 +106,57 @@ export default function AdminStoreManager() {
   const [pmsSearch, setPmsSearch] = useState("");
   const [aifStatusFilter, setAifStatusFilter] = useState<string>("all");
   const [pmsStatusFilter, setPmsStatusFilter] = useState<string>("all");
+  const [managerSearch, setManagerSearch] = useState("");
+  const [editingManager, setEditingManager] = useState<FundManager | null>(null);
+  const [isManagerDialogOpen, setIsManagerDialogOpen] = useState(false);
+  const [newManager, setNewManager] = useState({
+    name: "", designation: "", bio: "", experienceYears: "",
+    qualifications: "", photoUrl: "", linkedinUrl: "",
+    totalAumManaged: "", fundsManaged: "", avgAlpha: "", consistencyScore: ""
+  });
+
+  const { data: fundManagersData, isLoading: managersLoading, refetch: refetchManagers } = useQuery<{ managers: FundManager[]; pagination: any }>({
+    queryKey: ["/api/store/fund-managers", { search: managerSearch }],
+  });
 
   const { data: aifData, isLoading: aifLoading, refetch: refetchAif } = useQuery<{ schemes: AifScheme[] }>({
     queryKey: ["/api/store/aif/admin", { search: aifSearch, status: aifStatusFilter }],
+  });
+
+  const createManagerMutation = useMutation({
+    mutationFn: async (data: typeof newManager) => {
+      return await apiRequest("/api/store/fund-managers", { method: "POST", body: JSON.stringify(data) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/fund-managers"] });
+      toast({ title: "Fund Manager Created", description: "New fund manager added successfully." });
+      setIsManagerDialogOpen(false);
+      setNewManager({ name: "", designation: "", bio: "", experienceYears: "", qualifications: "", photoUrl: "", linkedinUrl: "", totalAumManaged: "", fundsManaged: "", avgAlpha: "", consistencyScore: "" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const updateManagerMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<typeof newManager>) => {
+      return await apiRequest(`/api/store/fund-managers/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/fund-managers"] });
+      toast({ title: "Fund Manager Updated" });
+      setEditingManager(null);
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteManagerMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/store/fund-managers/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store/fund-managers"] });
+      toast({ title: "Fund Manager Deleted" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
   });
 
   const { data: pmsData, isLoading: pmsLoading, refetch: refetchPms } = useQuery<{ schemes: PmsScheme[] }>({
@@ -218,7 +284,7 @@ export default function AdminStoreManager() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full md:w-auto grid-cols-2 md:inline-flex">
+        <TabsList className="grid w-full md:w-auto grid-cols-3 md:inline-flex">
           <TabsTrigger value="aif" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
             AIF Schemes ({aifSchemes.length})
@@ -226,6 +292,10 @@ export default function AdminStoreManager() {
           <TabsTrigger value="pms" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             PMS Strategies ({pmsSchemes.length})
+          </TabsTrigger>
+          <TabsTrigger value="managers" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Fund Managers ({fundManagersData?.managers?.length || 0})
           </TabsTrigger>
         </TabsList>
 
@@ -421,6 +491,220 @@ export default function AdminStoreManager() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="managers">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-amber-500" />
+                    Fund Managers
+                  </CardTitle>
+                  <CardDescription>Manage portfolio managers and their profiles</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Search managers..."
+                      value={managerSearch}
+                      onChange={(e) => setManagerSearch(e.target.value)}
+                      className="pl-10 w-64"
+                      data-testid="manager-search"
+                    />
+                  </div>
+                  <Dialog open={isManagerDialogOpen} onOpenChange={setIsManagerDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-manager-btn">
+                        <Plus className="w-4 h-4 mr-2" /> Add Manager
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Add New Fund Manager</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="name">Name *</Label>
+                            <Input id="name" value={newManager.name} onChange={(e) => setNewManager({ ...newManager, name: e.target.value })} placeholder="Fund Manager Name" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="designation">Designation</Label>
+                            <Input id="designation" value={newManager.designation} onChange={(e) => setNewManager({ ...newManager, designation: e.target.value })} placeholder="e.g., Chief Investment Officer" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bio">Bio</Label>
+                          <Textarea id="bio" value={newManager.bio} onChange={(e) => setNewManager({ ...newManager, bio: e.target.value })} placeholder="Professional background and investment philosophy..." rows={3} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="experience">Experience (Years)</Label>
+                            <Input id="experience" type="number" value={newManager.experienceYears} onChange={(e) => setNewManager({ ...newManager, experienceYears: e.target.value })} placeholder="15" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="fundsManaged">Funds Managed</Label>
+                            <Input id="fundsManaged" type="number" value={newManager.fundsManaged} onChange={(e) => setNewManager({ ...newManager, fundsManaged: e.target.value })} placeholder="5" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="totalAum">Total AUM (in Cr)</Label>
+                            <Input id="totalAum" type="number" value={newManager.totalAumManaged} onChange={(e) => setNewManager({ ...newManager, totalAumManaged: e.target.value })} placeholder="500" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="avgAlpha">Avg Alpha (%)</Label>
+                            <Input id="avgAlpha" type="number" step="0.01" value={newManager.avgAlpha} onChange={(e) => setNewManager({ ...newManager, avgAlpha: e.target.value })} placeholder="3.5" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="consistencyScore">Consistency Score (%)</Label>
+                            <Input id="consistencyScore" type="number" step="0.01" value={newManager.consistencyScore} onChange={(e) => setNewManager({ ...newManager, consistencyScore: e.target.value })} placeholder="85" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="qualifications">Qualifications</Label>
+                          <Input id="qualifications" value={newManager.qualifications} onChange={(e) => setNewManager({ ...newManager, qualifications: e.target.value })} placeholder="CFA, MBA Finance" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="photoUrl">Photo URL</Label>
+                            <Input id="photoUrl" value={newManager.photoUrl} onChange={(e) => setNewManager({ ...newManager, photoUrl: e.target.value })} placeholder="https://..." />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+                            <Input id="linkedinUrl" value={newManager.linkedinUrl} onChange={(e) => setNewManager({ ...newManager, linkedinUrl: e.target.value })} placeholder="https://linkedin.com/in/..." />
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsManagerDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={() => createManagerMutation.mutate(newManager)} disabled={!newManager.name || createManagerMutation.isPending}>
+                          {createManagerMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                          Create Manager
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {managersLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+                </div>
+              ) : !fundManagersData?.managers?.length ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No fund managers found</p>
+                  <p className="text-sm">Add fund managers to associate with PMS and AIF schemes</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Designation</TableHead>
+                      <TableHead>Experience</TableHead>
+                      <TableHead>Funds Managed</TableHead>
+                      <TableHead>AUM</TableHead>
+                      <TableHead>Avg Alpha</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fundManagersData.managers.map((manager) => (
+                      <TableRow key={manager.id} data-testid={`manager-row-${manager.id}`}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{manager.name}</p>
+                            {manager.qualifications && <p className="text-xs text-gray-500">{manager.qualifications}</p>}
+                          </div>
+                        </TableCell>
+                        <TableCell>{manager.designation || "N/A"}</TableCell>
+                        <TableCell>{manager.experienceYears ? `${manager.experienceYears} yrs` : "N/A"}</TableCell>
+                        <TableCell>{manager.fundsManaged || "N/A"}</TableCell>
+                        <TableCell>{manager.totalAumManaged ? formatCurrency(manager.totalAumManaged) : "N/A"}</TableCell>
+                        <TableCell className={manager.avgAlpha && parseFloat(manager.avgAlpha) >= 0 ? "text-green-600" : "text-red-600"}>
+                          {manager.avgAlpha ? `${parseFloat(manager.avgAlpha) >= 0 ? "+" : ""}${parseFloat(manager.avgAlpha).toFixed(2)}%` : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => setEditingManager(manager)} data-testid={`edit-manager-${manager.id}`}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => deleteManagerMutation.mutate(manager.id)} data-testid={`delete-manager-${manager.id}`}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {editingManager && (
+            <Dialog open={!!editingManager} onOpenChange={() => setEditingManager(null)}>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Edit Fund Manager</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Name *</Label>
+                      <Input value={editingManager.name} onChange={(e) => setEditingManager({ ...editingManager, name: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Designation</Label>
+                      <Input value={editingManager.designation || ""} onChange={(e) => setEditingManager({ ...editingManager, designation: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bio</Label>
+                    <Textarea value={editingManager.bio || ""} onChange={(e) => setEditingManager({ ...editingManager, bio: e.target.value })} rows={3} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Experience (Years)</Label>
+                      <Input type="number" value={editingManager.experienceYears || ""} onChange={(e) => setEditingManager({ ...editingManager, experienceYears: parseInt(e.target.value) || null })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Funds Managed</Label>
+                      <Input type="number" value={editingManager.fundsManaged || ""} onChange={(e) => setEditingManager({ ...editingManager, fundsManaged: parseInt(e.target.value) || null })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Total AUM</Label>
+                      <Input value={editingManager.totalAumManaged || ""} onChange={(e) => setEditingManager({ ...editingManager, totalAumManaged: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Avg Alpha (%)</Label>
+                      <Input value={editingManager.avgAlpha || ""} onChange={(e) => setEditingManager({ ...editingManager, avgAlpha: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Consistency Score (%)</Label>
+                      <Input value={editingManager.consistencyScore || ""} onChange={(e) => setEditingManager({ ...editingManager, consistencyScore: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setEditingManager(null)}>Cancel</Button>
+                  <Button onClick={() => updateManagerMutation.mutate({ id: editingManager.id, ...editingManager })} disabled={updateManagerMutation.isPending}>
+                    {updateManagerMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
+                    Update Manager
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </TabsContent>
       </Tabs>
     </div>

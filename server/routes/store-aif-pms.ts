@@ -2185,4 +2185,275 @@ router.post("/mld/orders", requireAuth, async (req: any, res) => {
   }
 });
 
+// ============ FUND MANAGER ROUTES ============
+
+// GET /fund-managers - List all fund managers (admin)
+router.get("/fund-managers", requireAdmin, async (req, res) => {
+  try {
+    const { search, sortBy = "name", page = "1", limit = "50" } = req.query;
+    
+    const conditions: any[] = [];
+    if (search) {
+      conditions.push(
+        or(
+          ilike(fundManagers.name, `%${search}%`),
+          ilike(fundManagers.designation, `%${search}%`)
+        )
+      );
+    }
+
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    
+    const managers = await db
+      .select()
+      .from(fundManagers)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(sortBy === "experience" ? desc(fundManagers.experienceYears) : asc(fundManagers.name))
+      .limit(parseInt(limit as string))
+      .offset(offset);
+
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(fundManagers);
+    
+    res.json({
+      managers,
+      pagination: {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        total: countResult[0]?.count || 0
+      }
+    });
+  } catch (error: any) {
+    console.error("Error fetching fund managers:", error);
+    res.status(500).json({ error: "Failed to fetch fund managers" });
+  }
+});
+
+// GET /fund-managers/:id - Get fund manager details with managed funds
+router.get("/fund-managers/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const [manager] = await db
+      .select()
+      .from(fundManagers)
+      .where(eq(fundManagers.id, id))
+      .limit(1);
+    
+    if (!manager) {
+      return res.status(404).json({ error: "Fund manager not found" });
+    }
+
+    // Get PMS funds managed by this manager
+    const pmsFunds = await db
+      .select({
+        id: pmsMaster.id,
+        name: pmsMaster.name,
+        strategy: pmsMaster.strategy,
+        fundHouse: pmsMaster.fundHouseName,
+        aum: pmsMaster.aum,
+        return1Y: pmsMaster.return1Y,
+        return3Y: pmsMaster.return3Y,
+        fundType: sql<string>`'pms'`
+      })
+      .from(pmsMaster)
+      .where(and(
+        eq(pmsMaster.managerId, id),
+        eq(pmsMaster.isPublished, true)
+      ));
+
+    // Get AIF funds managed by this manager
+    const aifFunds = await db
+      .select({
+        id: aifMaster.id,
+        name: aifMaster.name,
+        category: aifMaster.category,
+        fundHouse: aifMaster.fundHouseName,
+        aum: aifMaster.aum,
+        return1Y: aifMaster.return1Y,
+        return3Y: aifMaster.return3Y,
+        fundType: sql<string>`'aif'`
+      })
+      .from(aifMaster)
+      .where(and(
+        eq(aifMaster.managerId, id),
+        eq(aifMaster.isPublished, true)
+      ));
+
+    res.json({
+      manager,
+      managedFunds: {
+        pms: pmsFunds,
+        aif: aifFunds,
+        total: pmsFunds.length + aifFunds.length
+      }
+    });
+  } catch (error: any) {
+    console.error("Error fetching fund manager:", error);
+    res.status(500).json({ error: "Failed to fetch fund manager details" });
+  }
+});
+
+// GET /fund-managers/:id/other-funds - Get other funds by the same manager (excludes current fund)
+router.get("/fund-managers/:id/other-funds", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { excludeFundId, fundType } = req.query;
+    
+    const otherFunds: any[] = [];
+
+    // Get PMS funds
+    const pmsFunds = await db
+      .select({
+        id: pmsMaster.id,
+        name: pmsMaster.name,
+        strategy: pmsMaster.strategy,
+        fundHouse: pmsMaster.fundHouseName,
+        aum: pmsMaster.aum,
+        return1Y: pmsMaster.return1Y,
+        return3Y: pmsMaster.return3Y,
+        riskScore: pmsMaster.riskScore
+      })
+      .from(pmsMaster)
+      .where(and(
+        eq(pmsMaster.managerId, id),
+        eq(pmsMaster.isPublished, true)
+      ));
+
+    pmsFunds.forEach(fund => {
+      if (excludeFundId && fundType === 'pms' && fund.id === excludeFundId) return;
+      otherFunds.push({ ...fund, fundType: 'pms' });
+    });
+
+    // Get AIF funds
+    const aifFunds = await db
+      .select({
+        id: aifMaster.id,
+        name: aifMaster.name,
+        category: aifMaster.category,
+        fundHouse: aifMaster.fundHouseName,
+        aum: aifMaster.aum,
+        return1Y: aifMaster.return1Y,
+        return3Y: aifMaster.return3Y,
+        riskScore: aifMaster.riskScore
+      })
+      .from(aifMaster)
+      .where(and(
+        eq(aifMaster.managerId, id),
+        eq(aifMaster.isPublished, true)
+      ));
+
+    aifFunds.forEach(fund => {
+      if (excludeFundId && fundType === 'aif' && fund.id === excludeFundId) return;
+      otherFunds.push({ ...fund, fundType: 'aif' });
+    });
+
+    res.json({ otherFunds });
+  } catch (error: any) {
+    console.error("Error fetching other funds:", error);
+    res.status(500).json({ error: "Failed to fetch other funds" });
+  }
+});
+
+// POST /fund-managers - Create a new fund manager (admin)
+router.post("/fund-managers", requireAdmin, async (req, res) => {
+  try {
+    const { 
+      name, designation, bio, experienceYears, qualifications, 
+      photoUrl, linkedinUrl, totalAumManaged, fundsManaged, avgAlpha, consistencyScore 
+    } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: "Fund manager name is required" });
+    }
+
+    const [manager] = await db
+      .insert(fundManagers)
+      .values({
+        name,
+        designation,
+        bio,
+        experienceYears: experienceYears ? parseInt(experienceYears) : null,
+        qualifications,
+        photoUrl,
+        linkedinUrl,
+        totalAumManaged: totalAumManaged?.toString(),
+        fundsManaged: fundsManaged ? parseInt(fundsManaged) : null,
+        avgAlpha: avgAlpha?.toString(),
+        consistencyScore: consistencyScore?.toString()
+      })
+      .returning();
+
+    res.json({ success: true, manager });
+  } catch (error: any) {
+    console.error("Error creating fund manager:", error);
+    res.status(500).json({ error: "Failed to create fund manager" });
+  }
+});
+
+// PATCH /fund-managers/:id - Update fund manager (admin)
+router.patch("/fund-managers/:id", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    // Convert numeric fields
+    if (updates.experienceYears) {
+      updates.experienceYears = parseInt(updates.experienceYears);
+    }
+    if (updates.fundsManaged) {
+      updates.fundsManaged = parseInt(updates.fundsManaged);
+    }
+    if (updates.totalAumManaged) {
+      updates.totalAumManaged = updates.totalAumManaged.toString();
+    }
+    if (updates.avgAlpha) {
+      updates.avgAlpha = updates.avgAlpha.toString();
+    }
+    if (updates.consistencyScore) {
+      updates.consistencyScore = updates.consistencyScore.toString();
+    }
+
+    const [manager] = await db
+      .update(fundManagers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(fundManagers.id, id))
+      .returning();
+
+    if (!manager) {
+      return res.status(404).json({ error: "Fund manager not found" });
+    }
+
+    res.json({ success: true, manager });
+  } catch (error: any) {
+    console.error("Error updating fund manager:", error);
+    res.status(500).json({ error: "Failed to update fund manager" });
+  }
+});
+
+// DELETE /fund-managers/:id - Delete fund manager (admin)
+router.delete("/fund-managers/:id", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if manager has associated funds
+    const pmsCount = await db.select({ count: sql<number>`count(*)` }).from(pmsMaster).where(eq(pmsMaster.managerId, id));
+    const aifCount = await db.select({ count: sql<number>`count(*)` }).from(aifMaster).where(eq(aifMaster.managerId, id));
+    
+    if ((pmsCount[0]?.count || 0) > 0 || (aifCount[0]?.count || 0) > 0) {
+      return res.status(400).json({ 
+        error: "Cannot delete fund manager with associated funds. Please reassign or remove funds first." 
+      });
+    }
+
+    await db.delete(fundManagers).where(eq(fundManagers.id, id));
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Error deleting fund manager:", error);
+    res.status(500).json({ error: "Failed to delete fund manager" });
+  }
+});
+
 export default router;
