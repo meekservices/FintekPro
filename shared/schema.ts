@@ -21600,10 +21600,14 @@ export const notificationPreferences = pgTable("notification_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull().unique(),
   
-  // Channel preferences
+  // Channel preferences (email and whatsapp enabled by default, sms as fallback)
   emailEnabled: boolean("email_enabled").default(true).notNull(),
+  whatsappEnabled: boolean("whatsapp_enabled").default(true).notNull(),
   smsEnabled: boolean("sms_enabled").default(false).notNull(),
   pushEnabled: boolean("push_enabled").default(true).notNull(),
+  
+  // OTP delivery channel priority order (default: email, whatsapp, sms)
+  preferredOtpChannels: text("preferred_otp_channels").array().default(sql`ARRAY['email', 'whatsapp', 'sms']`),
   
   // US Trading notifications
   usOrderFilled: boolean("us_order_filled").default(true).notNull(),

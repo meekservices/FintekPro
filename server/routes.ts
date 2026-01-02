@@ -820,6 +820,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
+
+  // Communication Preferences - Get user's notification channel preferences
+  app.get("/api/user/communication-preferences", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { notificationPreferences } = await import("@shared/schema");
+      
+      let prefs = await db.query.notificationPreferences.findFirst({
+        where: eq(notificationPreferences.userId, userId),
+      });
+      
+      // Return defaults if no preferences exist
+      if (!prefs) {
+        prefs = {
+          id: '',
+          userId,
+          emailEnabled: true,
+          whatsappEnabled: true,
+          smsEnabled: false,
+          pushEnabled: true,
+          preferredOtpChannels: ['email', 'whatsapp', 'sms'],
+          usOrderFilled: true,
+          usOrderCancelled: true,
+          usOrderRejected: true,
+          usMarketAlerts: true,
+          usRebalancingSuggestions: true,
+          orderUpdates: true,
+          portfolioAlerts: true,
+          updatedAt: new Date(),
+        };
+      }
+      
+      res.json({
+        success: true,
+        preferences: {
+          emailEnabled: prefs.emailEnabled,
+          whatsappEnabled: prefs.whatsappEnabled,
+          smsEnabled: prefs.smsEnabled,
+          pushEnabled: prefs.pushEnabled,
+          preferredOtpChannels: prefs.preferredOtpChannels || ['email', 'whatsapp', 'sms'],
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching communication preferences:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch preferences" });
+    }
+  });
+
+  // Communication Preferences - Update user's notification channel preferences
+  app.patch("/api/user/communication-preferences", requireClientOrHigher, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { emailEnabled, whatsappEnabled, smsEnabled, pushEnabled, preferredOtpChannels } = req.body;
+      const { notificationPreferences } = await import("@shared/schema");
+      
+      // Validate preferredOtpChannels - only allow valid channel names
+      const validChannels = ['email', 'whatsapp', 'sms'];
+      let sanitizedChannels = ['email', 'whatsapp', 'sms'];
+      if (Array.isArray(preferredOtpChannels)) {
+        sanitizedChannels = preferredOtpChannels.filter(c => validChannels.includes(c));
+        if (sanitizedChannels.length === 0) {
+          sanitizedChannels = ['email', 'whatsapp', 'sms'];
+        }
+      }
+      
+      // Check if preferences exist
+      const existing = await db.query.notificationPreferences.findFirst({
+        where: eq(notificationPreferences.userId, userId),
+      });
+      
+      const updates: any = { updatedAt: new Date() };
+      if (typeof emailEnabled === 'boolean') updates.emailEnabled = emailEnabled;
+      if (typeof whatsappEnabled === 'boolean') updates.whatsappEnabled = whatsappEnabled;
+      if (typeof smsEnabled === 'boolean') updates.smsEnabled = smsEnabled;
+      if (typeof pushEnabled === 'boolean') updates.pushEnabled = pushEnabled;
+      if (Array.isArray(preferredOtpChannels)) updates.preferredOtpChannels = sanitizedChannels;
+      
+      let prefs;
+      if (existing) {
+        await db.update(notificationPreferences)
+          .set(updates)
+          .where(eq(notificationPreferences.userId, userId));
+        prefs = await db.query.notificationPreferences.findFirst({
+          where: eq(notificationPreferences.userId, userId),
+        });
+      } else {
+        const [created] = await db.insert(notificationPreferences)
+          .values({
+            userId,
+            emailEnabled: emailEnabled ?? true,
+            whatsappEnabled: whatsappEnabled ?? true,
+            smsEnabled: smsEnabled ?? false,
+            pushEnabled: pushEnabled ?? true,
+            preferredOtpChannels: sanitizedChannels,
+            usOrderFilled: true,
+            usOrderCancelled: true,
+            usOrderRejected: true,
+            usMarketAlerts: true,
+            usRebalancingSuggestions: true,
+            orderUpdates: true,
+            portfolioAlerts: true,
+          })
+          .returning();
+        prefs = created;
+      }
+      
+      console.log(`✅ Updated communication preferences for user ${userId}`);
+      
+      res.json({
+        success: true,
+        preferences: {
+          emailEnabled: prefs?.emailEnabled,
+          whatsappEnabled: prefs?.whatsappEnabled,
+          smsEnabled: prefs?.smsEnabled,
+          pushEnabled: prefs?.pushEnabled,
+          preferredOtpChannels: prefs?.preferredOtpChannels || ['email', 'whatsapp', 'sms'],
+        },
+        message: "Communication preferences updated successfully"
+      });
+    } catch (error) {
+      console.error("Error updating communication preferences:", error);
+      res.status(500).json({ success: false, error: "Failed to update preferences" });
+    }
+  });
+
   // Advisory Subscription Check endpoint
   app.get("/api/user/advisory-subscription", requireClientOrHigher, async (req, res) => {
     try {

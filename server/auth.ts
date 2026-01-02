@@ -285,16 +285,16 @@ export function setupAuth(app: Express) {
         console.log(`⚠️ Email delivery failed for ${email}`);
       }
 
-      // Also try sending via SMS to mobile as backup
-      const smsSent = await smsService.sendOTP(mobile, otp);
-      if (smsSent) {
-        console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
+      // Also try sending via WhatsApp to mobile (default preference), then SMS as backup
+      const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
+      if (whatsappSent) {
+        console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
       } else {
-        console.log(`⚠️ SMS delivery failed for ${mobile}, trying WhatsApp...`);
-        // Try WhatsApp as fallback
-        const whatsappSent = await whatsappService.sendLoginOTP(mobile, otp);
-        if (whatsappSent) {
-          console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
+        console.log(`⚠️ WhatsApp delivery failed for ${mobile}, trying SMS...`);
+        // Try SMS as fallback
+        const smsSent = await smsService.sendOTP(mobile, otp);
+        if (smsSent) {
+          console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
         } else {
           console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
         }
@@ -564,15 +564,15 @@ export function setupAuth(app: Express) {
         console.log(`✅ Resend OTP sent to email: ${metadata.email}`);
       }
 
-      // Also try sending via SMS
-      const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
-      if (smsSent) {
-        console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
+      // Also try sending via WhatsApp (default preference), then SMS as fallback
+      const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
+      if (whatsappSent) {
+        console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
       } else {
-        console.log(`⚠️ SMS delivery failed for ${metadata.mobile}, trying WhatsApp...`);
-        const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
-        if (whatsappSent) {
-          console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
+        console.log(`⚠️ WhatsApp delivery failed for ${metadata.mobile}, trying SMS...`);
+        const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
+        if (smsSent) {
+          console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
         }
       }
 
@@ -698,19 +698,20 @@ export function setupAuth(app: Express) {
             console.log(`⚠️ Email delivery failed for ${otpDestination}`);
           }
         } else {
-          // For mobile, try SMS first, then WhatsApp as fallback
-          const smsSent = await smsService.sendOTP(otpDestination, otp);
-          if (smsSent) {
-            console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
+          // For mobile, try WhatsApp first (default preference), then SMS as fallback
+          const whatsappSent = await whatsappService.sendLoginOTP(otpDestination, otp);
+          if (whatsappSent) {
+            console.log(`✅ Login OTP sent via WhatsApp to: ${otpDestination}`);
             otpDelivered = true;
-            deliveryChannel = "SMS";
+            deliveryChannel = "WhatsApp";
           } else {
-            // Try WhatsApp as fallback
-            const whatsappSent = await whatsappService.sendLoginOTP(otpDestination, otp);
-            if (whatsappSent) {
-              console.log(`✅ Login OTP sent via WhatsApp to: ${otpDestination}`);
+            // Try SMS as fallback
+            console.log(`⚠️ WhatsApp delivery failed for ${otpDestination}, trying SMS...`);
+            const smsSent = await smsService.sendOTP(otpDestination, otp);
+            if (smsSent) {
+              console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
               otpDelivered = true;
-              deliveryChannel = "WhatsApp";
+              deliveryChannel = "SMS";
             } else {
               console.log(`❌ All OTP delivery channels failed for ${otpDestination}`);
             }
@@ -1696,16 +1697,16 @@ export function setupAuth(app: Express) {
         }
       }
 
-      // Also try SMS
+      // Also try WhatsApp (default preference), then SMS as fallback
       if (user.mobile) {
-        const smsSent = await smsService.sendOTP(user.mobile, otp);
-        if (smsSent) {
-          console.log(`✅ Password reset OTP sent via SMS to: ${user.mobile}`);
+        const whatsappSent = await whatsappService.sendLoginOTP(user.mobile, otp);
+        if (whatsappSent) {
+          console.log(`✅ Password reset OTP sent via WhatsApp to: ${user.mobile}`);
         } else {
-          console.log(`⚠️ SMS delivery failed for ${user.mobile}, trying WhatsApp...`);
-          const whatsappSent = await whatsappService.sendLoginOTP(user.mobile, otp);
-          if (whatsappSent) {
-            console.log(`✅ Password reset OTP sent via WhatsApp to: ${user.mobile}`);
+          console.log(`⚠️ WhatsApp delivery failed for ${user.mobile}, trying SMS...`);
+          const smsSent = await smsService.sendOTP(user.mobile, otp);
+          if (smsSent) {
+            console.log(`✅ Password reset OTP sent via SMS to: ${user.mobile}`);
           }
         }
       }

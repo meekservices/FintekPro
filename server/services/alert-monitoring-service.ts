@@ -1,7 +1,9 @@
 import { db } from "../db";
-import { userAlerts, alertHistory, users, userExpenses, portfolioHoldings, portfolios } from "@shared/schema";
+import { userAlerts, alertHistory, users, userExpenses, portfolioHoldings, portfolios, notificationPreferences } from "@shared/schema";
 import { eq, and, lte, gte, isNull, or, sql, sum } from "drizzle-orm";
 import { emailService } from "../email-service";
+import { twilioWhatsAppService } from "./twilio-whatsapp-service";
+import { smsService } from "./sms-service";
 import yahooFinance from 'yahoo-finance2';
 
 interface MarketQuote {
@@ -278,8 +280,25 @@ export class AlertMonitoringService {
 
     if (!user) return;
 
-    // Send email notification
-    if (channels.includes('email')) {
+    // Get user notification preferences (email and whatsapp enabled by default)
+    let emailEnabled = true;
+    let whatsappEnabled = true;
+    let smsEnabled = false;
+    try {
+      const prefs = await db.query.notificationPreferences.findFirst({
+        where: eq(notificationPreferences.userId, alert.userId),
+      });
+      if (prefs) {
+        emailEnabled = prefs.emailEnabled ?? true;
+        whatsappEnabled = prefs.whatsappEnabled ?? true;
+        smsEnabled = prefs.smsEnabled ?? false;
+      }
+    } catch (prefsError) {
+      console.warn('Could not fetch notification preferences, using defaults:', prefsError);
+    }
+
+    // Send email notification (default: enabled)
+    if (channels.includes('email') && emailEnabled) {
       try {
         await emailService.sendEmail({
           to: user.email || '',
@@ -301,16 +320,37 @@ export class AlertMonitoringService {
             </div>
           `,
         });
+        console.log(`✅ Alert email sent to ${user.email}`);
       } catch (error) {
         console.error("Error sending email notification:", error);
       }
     }
 
-    // Additional notification channels can be implemented here
-    // - SMS via Twilio
-    // - Push notifications
-    // - WhatsApp
-    // - In-app notifications (stored in database)
+    // Send WhatsApp notification (default: enabled)
+    if (channels.includes('whatsapp') && whatsappEnabled && user.mobile) {
+      try {
+        const message = `🔔 *FintekPro Alert*\n\n*${alert.alertName}*\n\n📊 Priority: ${alert.priority?.toUpperCase()}\n⚡ Trigger: ${triggerReason}\n\nView details at fintekpro.com/alerts`;
+        const sent = await twilioWhatsAppService.sendMessage(user.mobile, message);
+        if (sent) {
+          console.log(`✅ Alert WhatsApp sent to ${user.mobile}`);
+        }
+      } catch (error) {
+        console.error("Error sending WhatsApp notification:", error);
+      }
+    }
+
+    // Send SMS notification (default: disabled, fallback only)
+    if (channels.includes('sms') && smsEnabled && user.mobile) {
+      try {
+        const message = `FintekPro Alert: ${alert.alertName} - ${triggerReason}. View details at fintekpro.com/alerts`;
+        const sent = await smsService.sendCustomMessage(user.mobile, message);
+        if (sent) {
+          console.log(`✅ Alert SMS sent to ${user.mobile}`);
+        }
+      } catch (error) {
+        console.error("Error sending SMS notification:", error);
+      }
+    }
   }
 
   // Helper: Fetch market data using Yahoo Finance API
