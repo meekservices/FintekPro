@@ -80,6 +80,7 @@ const agentNavCategories: NavCategory[] = [
       { title: "Tasks", href: "/agent/tasks", icon: CheckSquare, description: "Tasks and reminders" },
       { title: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Appointments & scheduling" },
       { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Bell, description: "SMS, Email, WhatsApp" },
+      { title: "My Payouts", href: "/agent/payouts", icon: DollarSign, description: "Earnings & payouts" },
     ]
   },
   {

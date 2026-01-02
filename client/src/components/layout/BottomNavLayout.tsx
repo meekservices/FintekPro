@@ -16,7 +16,9 @@ import {
   HelpCircle,
   ChevronRight,
   Sun,
-  Moon
+  Moon,
+  Sparkles,
+  FileText
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/theme-context";
@@ -38,6 +40,8 @@ const bottomNavItems = [
 ];
 
 const moreMenuItems = [
+  { name: "Discover", href: "/discover", icon: Sparkles },
+  { name: "Smart Proposals", href: "/smart-proposals", icon: FileText },
   { name: "Profile", href: "/profile", icon: UserIcon },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Notifications", href: "/notification-preferences", icon: Bell },

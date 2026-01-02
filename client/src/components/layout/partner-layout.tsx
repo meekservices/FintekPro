@@ -11,7 +11,10 @@ import {
   Settings,
   Users,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  BarChart3,
+  UserCheck,
+  Wallet
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -40,6 +43,24 @@ const partnerNavItems = [
     href: "/agents",
     icon: Users,
     description: "Manage your agents"
+  },
+  {
+    title: "Agent Dashboard",
+    href: "/partner/agents",
+    icon: BarChart3,
+    description: "Agent P&L and performance"
+  },
+  {
+    title: "CA Management",
+    href: "/partner/ca-management",
+    icon: UserCheck,
+    description: "Onboard CAs and assign cases"
+  },
+  {
+    title: "Payouts",
+    href: "/agent/payouts",
+    icon: Wallet,
+    description: "View and request payouts"
   },
   {
     title: "CA Support",

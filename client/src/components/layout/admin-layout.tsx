@@ -119,6 +119,7 @@ const navCategories: NavCategory[] = [
       { title: "Task Oversight", href: "/admin/task-oversight", icon: ClipboardList, description: "Monitor agents' tasks" },
       { title: "CA Partners", href: "/admin/ca-management", icon: Award, description: "CA partner management" },
       { title: "Commission Master", href: "/admin/commission-master", icon: TrendingUp, description: "Commission configuration" },
+      { title: "Payout Management", href: "/admin/payouts", icon: DollarSign, description: "Approve agent payouts" },
     ]
   },
   {
