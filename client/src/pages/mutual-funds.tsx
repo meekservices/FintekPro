@@ -20,7 +20,8 @@ import { KYCWarningBanner } from "@/components/KYCWarningBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Sparkles, ThumbsUp, ThumbsDown, Edit2, Bot, UserCheck, Trash2, CreditCard, AlertOctagon } from "lucide-react";
+import { Sparkles, ThumbsUp, ThumbsDown, Edit2, Bot, UserCheck, Trash2, CreditCard, AlertOctagon, Database } from "lucide-react";
+import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
 
 // Proposals Tab Component
 function ProposalsTab({ onApprove }: { onApprove: () => void }) {
@@ -1688,6 +1689,14 @@ export default function MutualFunds() {
               <Award className="w-4 h-4" />
               Tools
             </TabsTrigger>
+            <TabsTrigger 
+              value="history" 
+              data-testid="tab-history"
+              className="flex items-center gap-2 h-12 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-finance-blue transition-all duration-300"
+            >
+              <Database className="w-4 h-4" />
+              History
+            </TabsTrigger>
           </ScrollableTabsList>
 
           {/* Store Tab - Published Funds from Database */}
@@ -3015,6 +3024,10 @@ export default function MutualFunds() {
               </Card>
 
             </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-6" data-testid="mf-history">
+            <ClientTransactionHistory category="mutual_fund" />
           </TabsContent>
         </Tabs>
 

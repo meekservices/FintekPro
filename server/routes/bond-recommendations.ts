@@ -1,10 +1,45 @@
 import { Router, Request, Response } from "express";
 import { aiBondRecommendationService, BondRecommendationParams } from "../services/ai-bond-recommendation-service";
+import { db } from "../db";
+import { storeCategories } from "@shared/schema";
+import { eq, or } from "drizzle-orm";
 
 const router = Router();
 
+// Helper to check if Bonds category is enabled for recommendations
+async function isBondsCategoryEnabled(): Promise<boolean> {
+  try {
+    const categories = await db.select()
+      .from(storeCategories)
+      .where(
+        or(
+          eq(storeCategories.slug, 'bonds'),
+          eq(storeCategories.name, 'Bonds')
+        )
+      )
+      .limit(1);
+    
+    if (categories.length === 0) return true;
+    return categories[0].isEnabled !== false;
+  } catch (e) {
+    console.warn('[AI Bond] Error checking category status:', e);
+    return true;
+  }
+}
+
 router.post("/generate", async (req: Request, res: Response) => {
   try {
+    // Check if Bonds category is enabled
+    const categoryEnabled = await isBondsCategoryEnabled();
+    if (!categoryEnabled) {
+      return res.json({
+        success: true,
+        data: { bonds: [], allocation: [], summary: 'Bonds category is currently not available' },
+        categoryStatus: 'disabled',
+        generatedAt: new Date().toISOString()
+      });
+    }
+
     const params: BondRecommendationParams = {
       investmentAmount: req.body.investmentAmount || 500000,
       investmentHorizon: req.body.investmentHorizon || 'medium',

@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, AlertCircle, CheckCircle2, Clock, ChevronRight } from "lucide-react";
+import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, AlertCircle, CheckCircle2, Clock, ChevronRight, Database } from "lucide-react";
+import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -2650,6 +2651,10 @@ export default function Bonds() {
             <TabsTrigger value="calculator" data-testid="tab-calculator" className="flex-shrink-0">Bond Calculator</TabsTrigger>
             <TabsTrigger value="portfolio" data-testid="tab-portfolio" className="flex-shrink-0">My Bonds</TabsTrigger>
             <TabsTrigger value="education" data-testid="tab-education" className="flex-shrink-0">Learn</TabsTrigger>
+            <TabsTrigger value="history" data-testid="tab-history" className="flex-shrink-0">
+              <Database className="h-4 w-4 mr-2" />
+              History
+            </TabsTrigger>
           </ScrollableTabsList>
 
           <TabsContent value="explore" className="space-y-6" data-testid="explore-bonds">
@@ -3100,6 +3105,10 @@ export default function Bonds() {
               </Card>
 
             </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-6" data-testid="bonds-history">
+            <ClientTransactionHistory category="bond" />
           </TabsContent>
         </Tabs>
 

@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock, Store, ShoppingCart, Search, Sparkles, AlertTriangle, CheckCircle, Target, ArrowUpRight } from "lucide-react";
+import { Gem, TrendingUp, Calendar, IndianRupee, Building2, Calculator, Star, Eye, Lock, Store, ShoppingCart, Search, Sparkles, AlertTriangle, CheckCircle, Target, ArrowUpRight, Database } from "lucide-react";
+import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
@@ -533,6 +534,10 @@ export default function Unlisted() {
             <TabsTrigger value="portfolio" data-testid="tab-portfolio">My Investments</TabsTrigger>
             <TabsTrigger value="watchlist" data-testid="tab-watchlist">Watchlist</TabsTrigger>
             <TabsTrigger value="education" data-testid="tab-education">Learn</TabsTrigger>
+            <TabsTrigger value="history" data-testid="tab-history">
+              <Database className="h-4 w-4 mr-2" />
+              History
+            </TabsTrigger>
           </ScrollableTabsList>
 
           <TabsContent value="marketplace" className="space-y-6" data-testid="marketplace-unlisted">
@@ -707,6 +712,10 @@ export default function Unlisted() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-6" data-testid="unlisted-history">
+            <ClientTransactionHistory category="unlisted" />
           </TabsContent>
         </Tabs>
       </div>

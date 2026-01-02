@@ -1,6 +1,30 @@
 import { Express, Request, Response } from "express";
 import { aiStockRecommendationService, StockRecommendationFilters } from "../services/ai-stock-recommendation-service";
 import { z } from "zod";
+import { db } from "../db";
+import { storeCategories } from "@shared/schema";
+import { eq, or } from "drizzle-orm";
+
+// Helper to check if Stocks category is enabled for recommendations
+async function isStocksCategoryEnabled(): Promise<boolean> {
+  try {
+    const categories = await db.select()
+      .from(storeCategories)
+      .where(
+        or(
+          eq(storeCategories.slug, 'stocks'),
+          eq(storeCategories.name, 'Stocks')
+        )
+      )
+      .limit(1);
+    
+    if (categories.length === 0) return true;
+    return categories[0].isEnabled !== false;
+  } catch (e) {
+    console.warn('[AI Stock] Error checking category status:', e);
+    return true;
+  }
+}
 
 const filtersSchema = z.object({
   sectors: z.array(z.string()).optional(),
@@ -17,6 +41,19 @@ const filtersSchema = z.object({
 export function registerAIStockRecommendationRoutes(app: Express): void {
   app.post("/api/ai-stock-recommendations/generate", async (req: Request, res: Response) => {
     try {
+      // Check if Stocks category is enabled
+      const categoryEnabled = await isStocksCategoryEnabled();
+      if (!categoryEnabled) {
+        return res.json({
+          success: true,
+          count: 0,
+          recommendations: [],
+          categoryStatus: 'disabled',
+          message: 'Stocks category is currently not available',
+          generatedAt: new Date().toISOString()
+        });
+      }
+
       const filters = filtersSchema.parse(req.body);
       const recommendations = await aiStockRecommendationService.getSmartRecommendations(filters);
       

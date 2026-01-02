@@ -96,6 +96,7 @@ const ZohoConnectionsPage = lazy(() => import("@/pages/admin/zoho-connections"))
 const ZohoLogsPage = lazy(() => import("@/pages/admin/zoho-logs"));
 const ZohoBooksPage = lazy(() => import("@/pages/admin/zoho-books"));
 const StoreManagement = lazy(() => import("@/pages/admin/store-management"));
+const StoreInquiriesAdmin = lazy(() => import("@/pages/admin/store-inquiries"));
 const BondSeedAdmin = lazy(() => import("@/pages/admin/bond-seed"));
 const MldSeedAdmin = lazy(() => import("@/pages/admin/mld-seed"));
 const AifSeedAdmin = lazy(() => import("@/pages/admin/aif-seed"));
@@ -795,6 +796,15 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AdminStoreManager />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store-inquiries">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <StoreInquiriesAdmin />
+            </Suspense>
           </AdminLayout>
         )}
       </Route>

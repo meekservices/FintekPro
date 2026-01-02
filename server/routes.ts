@@ -24819,10 +24819,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subcategoryName: product.subcategoryId ? (subcategoryMap[product.subcategoryId] || product.subcategoryId) : null,
       }));
 
+      // Merge AIF and PMS products from master tables
+      let mergedProducts = [...productsWithNames];
+      
+      // Add AIF products if AIF category is requested or all products
+      if (!category || category === 'aif' || category === 'AIF') {
+        try {
+          const aifProducts = await db.select().from(schema.aifMaster).where(eq(schema.aifMaster.isActive, true));
+          const aifMerged = aifProducts.map(aif => ({
+            id: `aif-${aif.id}`,
+            name: aif.name,
+            shortDescription: aif.strategy || aif.description || '',
+            description: aif.description,
+            categoryId: 'aif',
+            categoryName: 'AIF',
+            subcategoryId: aif.aifCategory?.toLowerCase() || 'category-iii',
+            subcategoryName: aif.aifCategory || 'Category III',
+            productType: 'aif',
+            planType: 'regular',
+            provider: aif.fundManager || aif.amcName || '',
+            minimumInvestment: aif.minimumInvestment || 10000000,
+            expectedReturns: aif.targetReturns || 0,
+            riskLevel: aif.riskLevel || 'high',
+            features: aif.features || [],
+            isActive: true,
+            isFeatured: aif.isFeatured || false,
+            isPremium: true,
+            kycProductCode: 'ACCREDITED_AIF',
+            sourceTable: 'aif_master',
+            sourceId: aif.id,
+          }));
+          mergedProducts = [...mergedProducts, ...aifMerged];
+        } catch (e) {
+          console.warn('[Store Products] Error fetching AIF products:', e);
+        }
+      }
+      
+      // Add PMS products if PMS category is requested or all products
+      if (!category || category === 'pms' || category === 'PMS') {
+        try {
+          const pmsProducts = await db.select().from(schema.pmsMaster).where(eq(schema.pmsMaster.isActive, true));
+          const pmsMerged = pmsProducts.map(pms => ({
+            id: `pms-${pms.id}`,
+            name: pms.name,
+            shortDescription: pms.strategy || pms.description || '',
+            description: pms.description,
+            categoryId: 'pms',
+            categoryName: 'PMS',
+            subcategoryId: pms.pmsCategory?.toLowerCase() || 'discretionary',
+            subcategoryName: pms.pmsCategory || 'Discretionary',
+            productType: 'pms',
+            planType: 'regular',
+            provider: pms.portfolioManager || pms.amcName || '',
+            minimumInvestment: pms.minimumInvestment || 5000000,
+            expectedReturns: pms.targetReturns || 0,
+            riskLevel: pms.riskLevel || 'high',
+            features: pms.features || [],
+            isActive: true,
+            isFeatured: pms.isFeatured || false,
+            isPremium: true,
+            kycProductCode: 'ENHANCED_PMS',
+            sourceTable: 'pms_master',
+            sourceId: pms.id,
+          }));
+          mergedProducts = [...mergedProducts, ...pmsMerged];
+        } catch (e) {
+          console.warn('[Store Products] Error fetching PMS products:', e);
+        }
+      }
+
       res.json({ 
         success: true,
-        products: productsWithNames,
-        count: productsWithNames.length
+        products: mergedProducts,
+        count: mergedProducts.length
       });
     } catch (error) {
       console.error('Error fetching public store products:', error);
@@ -25513,7 +25582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update inquiry status (admin)
+  // Update inquiry status (admin) - PUT method
   app.put('/api/admin/store/inquiries/:id', requireAdmin, async (req: any, res) => {
     try {
       const { status, adminNotes } = req.body;
@@ -25533,6 +25602,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating inquiry:', error);
       res.status(500).json({ message: 'Failed to update inquiry' });
+    }
+  });
+
+  // Update inquiry status (admin) - PATCH method (for partial updates)
+  app.patch('/api/admin/store/inquiries/:id/status', requireAdmin, async (req: any, res) => {
+    try {
+      const { status, adminNotes } = req.body;
+      
+      const updated = await storage.updateStoreProductInquiry(req.params.id, {
+        status,
+        adminNotes,
+        respondedBy: req.user?.id,
+        respondedAt: new Date(),
+      });
+
+      if (!updated) {
+        return res.status(404).json({ message: 'Inquiry not found' });
+      }
+
+      res.json({ success: true, inquiry: updated });
+    } catch (error) {
+      console.error('Error updating inquiry status:', error);
+      res.status(500).json({ message: 'Failed to update inquiry status' });
     }
   });
 

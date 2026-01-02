@@ -1,11 +1,51 @@
 import { Router } from "express";
 import { aiMFRecommendationService } from "../services/ai-mf-recommendation-service";
 import { liveMFDataService } from "../services/live-mf-data-service";
+import { db } from "../db";
+import { storeCategories } from "@shared/schema";
+import { eq, or } from "drizzle-orm";
 
 const router = Router();
 
+// Helper to check if Mutual Funds category is enabled for recommendations
+async function isMFCategoryEnabled(): Promise<boolean> {
+  try {
+    const categories = await db.select()
+      .from(storeCategories)
+      .where(
+        or(
+          eq(storeCategories.slug, 'mutual-funds'),
+          eq(storeCategories.name, 'Mutual Funds')
+        )
+      )
+      .limit(1);
+    
+    // If no category found or isEnabled is true, allow recommendations
+    if (categories.length === 0) return true;
+    return categories[0].isEnabled !== false;
+  } catch (e) {
+    console.warn('[AI MF] Error checking category status:', e);
+    return true; // Default to enabled on error
+  }
+}
+
 router.get("/api/ai-mf/recommendations", async (req, res) => {
   try {
+    // Check if MF category is enabled in store management
+    const categoryEnabled = await isMFCategoryEnabled();
+    if (!categoryEnabled) {
+      return res.json({
+        success: true,
+        count: 0,
+        recommendations: [],
+        metadata: {
+          categoryStatus: 'disabled',
+          message: 'Mutual Funds category is currently not available',
+          generatedAt: new Date().toISOString()
+        }
+      });
+    }
+
     const { 
       category, 
       riskLevel, 
