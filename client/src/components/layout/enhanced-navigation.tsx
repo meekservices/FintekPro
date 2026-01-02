@@ -366,12 +366,6 @@ export function EnhancedNavigation() {
           href: "/calculators",
           icon: Calculator,
           description: "SIP, EMI, Tax calculators"
-        },
-        {
-          name: "Settings",
-          href: "/settings",
-          icon: Settings2,
-          description: "Account settings"
         }
       ]
     }
