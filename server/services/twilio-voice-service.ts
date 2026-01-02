@@ -1,4 +1,4 @@
-import twilio from 'twilio';
+import { getTwilioClient, isTwilioConfigured } from './twilio-client';
 
 interface VoiceCallResult {
   success: boolean;
@@ -14,33 +14,28 @@ interface VoiceOTPResult {
 }
 
 class TwilioVoiceService {
-  private client: any;
   private fromNumber: string = '';
-  private isConfigured: boolean;
   private baseUrl: string;
 
   constructor() {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
-
+    const voiceNumber = process.env.TWILIO_VOICE_NUMBER;
+    
     this.baseUrl = process.env.REPLIT_DEV_DOMAIN 
       ? `https://${process.env.REPLIT_DEV_DOMAIN}`
       : 'http://localhost:5000';
 
-    if (accountSid && authToken && phoneNumber) {
-      this.client = twilio(accountSid, authToken);
-      this.fromNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-      this.isConfigured = true;
-      console.log('✅ Twilio Voice service initialized');
+    if (voiceNumber) {
+      this.fromNumber = voiceNumber.startsWith('+') ? voiceNumber : `+${voiceNumber}`;
+      console.log('📞 Voice service initialized (using Replit Twilio connector)');
+      console.log(`   Voice number: ${this.fromNumber}`);
     } else {
-      this.isConfigured = false;
-      console.log('⚠️ Twilio Voice service not configured - missing credentials');
+      console.log('⚠️ Twilio Voice service: TWILIO_VOICE_NUMBER not set');
     }
   }
 
-  isAvailable(): boolean {
-    return this.isConfigured;
+  async isAvailable(): Promise<boolean> {
+    const configured = await isTwilioConfigured();
+    return configured && !!this.fromNumber;
   }
 
   private formatPhoneNumber(mobile: string): string {
@@ -69,16 +64,18 @@ class TwilioVoiceService {
   }
 
   async sendOTPCall(to: string, otp: string): Promise<VoiceOTPResult> {
-    if (!this.isConfigured) {
+    const isAvailable = await this.isAvailable();
+    if (!isAvailable) {
       console.log(`📞 Voice OTP to ${to.substring(0, 6)}****: ${otp} (not configured)`);
       return { success: false, error: 'Voice service not configured' };
     }
 
     try {
+      const client = await getTwilioClient();
       const toNumber = this.formatPhoneNumber(to);
       const twiml = this.generateOTPTwiML(otp);
 
-      const call = await this.client.calls.create({
+      const call = await client.calls.create({
         twiml,
         to: toNumber,
         from: this.fromNumber,
@@ -97,15 +94,17 @@ class TwilioVoiceService {
   }
 
   async makeCall(to: string, twiml: string): Promise<VoiceCallResult> {
-    if (!this.isConfigured) {
+    const isAvailable = await this.isAvailable();
+    if (!isAvailable) {
       console.log(`📞 Voice call to ${to.substring(0, 6)}**** (not configured)`);
       return { success: false, error: 'Voice service not configured' };
     }
 
     try {
+      const client = await getTwilioClient();
       const toNumber = this.formatPhoneNumber(to);
 
-      const call = await this.client.calls.create({
+      const call = await client.calls.create({
         twiml,
         to: toNumber,
         from: this.fromNumber
@@ -125,12 +124,14 @@ class TwilioVoiceService {
   }
 
   async sendPasswordResetOTP(to: string, otp: string): Promise<VoiceOTPResult> {
-    if (!this.isConfigured) {
+    const isAvailable = await this.isAvailable();
+    if (!isAvailable) {
       console.log(`📞 Password reset voice OTP to ${to.substring(0, 6)}****: ${otp} (not configured)`);
       return { success: false, error: 'Voice service not configured' };
     }
 
     try {
+      const client = await getTwilioClient();
       const toNumber = this.formatPhoneNumber(to);
       const digits = otp.split('').join(', ');
       
@@ -145,7 +146,7 @@ class TwilioVoiceService {
   </Say>
 </Response>`;
 
-      const call = await this.client.calls.create({
+      const call = await client.calls.create({
         twiml,
         to: toNumber,
         from: this.fromNumber,
@@ -167,11 +168,13 @@ class TwilioVoiceService {
     symbol?: string;
     orderId: string;
   }): Promise<VoiceCallResult> {
-    if (!this.isConfigured) {
+    const isAvailable = await this.isAvailable();
+    if (!isAvailable) {
       return { success: false, error: 'Voice service not configured' };
     }
 
     try {
+      const client = await getTwilioClient();
       const toNumber = this.formatPhoneNumber(to);
       
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -186,7 +189,7 @@ class TwilioVoiceService {
   </Say>
 </Response>`;
 
-      const call = await this.client.calls.create({
+      const call = await client.calls.create({
         twiml,
         to: toNumber,
         from: this.fromNumber,
@@ -203,12 +206,14 @@ class TwilioVoiceService {
   }
 
   async getCallStatus(callSid: string): Promise<{ status?: string; duration?: number; error?: string }> {
-    if (!this.isConfigured) {
+    const isConfigured = await isTwilioConfigured();
+    if (!isConfigured) {
       return { error: 'Voice service not configured' };
     }
 
     try {
-      const call = await this.client.calls(callSid).fetch();
+      const client = await getTwilioClient();
+      const call = await client.calls(callSid).fetch();
       return {
         status: call.status,
         duration: call.duration ? parseInt(call.duration) : undefined
