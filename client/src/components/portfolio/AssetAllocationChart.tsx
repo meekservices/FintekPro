@@ -160,6 +160,7 @@ export function AssetAllocationChart({
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
 
   const chartData = useMemo(() => {
+    if (!assets || assets.length === 0) return [];
     return assets.map((asset, index) => ({
       ...asset,
       color: asset.color || COLORS[index % COLORS.length],
