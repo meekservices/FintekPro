@@ -125,7 +125,15 @@ export default function AdminStoreManager() {
 
   const createManagerMutation = useMutation({
     mutationFn: async (data: typeof newManager) => {
-      return await apiRequest("/api/store/fund-managers", { method: "POST", body: JSON.stringify(data) });
+      const payload = {
+        ...data,
+        experienceYears: data.experienceYears ? parseInt(data.experienceYears) : null,
+        fundsManaged: data.fundsManaged ? parseInt(data.fundsManaged) : null,
+        totalAumManaged: data.totalAumManaged || null,
+        avgAlpha: data.avgAlpha || null,
+        consistencyScore: data.consistencyScore || null,
+      };
+      return await apiRequest("/api/store/fund-managers", { method: "POST", body: JSON.stringify(payload) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/store/fund-managers"] });
@@ -137,8 +145,21 @@ export default function AdminStoreManager() {
   });
 
   const updateManagerMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string } & Partial<typeof newManager>) => {
-      return await apiRequest(`/api/store/fund-managers/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<FundManager>) => {
+      const payload = {
+        name: data.name,
+        designation: data.designation || null,
+        bio: data.bio || null,
+        experienceYears: typeof data.experienceYears === 'number' ? data.experienceYears : (data.experienceYears ? parseInt(String(data.experienceYears)) : null),
+        fundsManaged: typeof data.fundsManaged === 'number' ? data.fundsManaged : (data.fundsManaged ? parseInt(String(data.fundsManaged)) : null),
+        totalAumManaged: data.totalAumManaged || null,
+        avgAlpha: data.avgAlpha || null,
+        consistencyScore: data.consistencyScore || null,
+        qualifications: data.qualifications || null,
+        photoUrl: data.photoUrl || null,
+        linkedinUrl: data.linkedinUrl || null,
+      };
+      return await apiRequest(`/api/store/fund-managers/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/store/fund-managers"] });

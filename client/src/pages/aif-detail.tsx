@@ -65,7 +65,7 @@ interface AifScheme {
     consistencyScore: string | null;
     avgAlpha: string | null;
     fundsManaged: number | null;
-    aumManaged: string | null;
+    totalAumManaged: string | null;
   } | null;
 }
 
@@ -588,7 +588,7 @@ export default function AIFDetail() {
                         </div>
                         <div className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-500">Total AUM</p>
-                          <p className="font-semibold">{formatCurrency(scheme.manager.aumManaged)}</p>
+                          <p className="font-semibold">{formatCurrency(scheme.manager.totalAumManaged)}</p>
                         </div>
                         <div className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-500">Avg Alpha Generated</p>

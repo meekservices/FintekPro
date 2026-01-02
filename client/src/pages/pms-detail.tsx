@@ -57,7 +57,7 @@ interface PmsScheme {
     experienceYears: number | null;
     bio: string | null;
     fundsManaged: number | null;
-    aumManaged: string | null;
+    totalAumManaged: string | null;
     avgAlpha: string | null;
   } | null;
 }
@@ -555,7 +555,7 @@ export default function PMSDetail() {
                         </div>
                         <div className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-500">Total AUM</p>
-                          <p className="font-semibold">{formatCurrency(scheme.manager.aumManaged)}</p>
+                          <p className="font-semibold">{formatCurrency(scheme.manager.totalAumManaged)}</p>
                         </div>
                         <div className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-500">Avg Alpha</p>
