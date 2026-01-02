@@ -696,6 +696,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test email server connectivity endpoint
+  app.post("/api/admin/test-email", requireAdmin, async (req, res) => {
+    try {
+      const { emailService } = await import('./email-service');
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email address is required" });
+      }
+
+      // Check if email service is configured
+      const hasEmailConfig = process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS;
+      
+      if (!hasEmailConfig) {
+        return res.json({
+          success: false,
+          configured: false,
+          message: "Email service not configured. Missing EMAIL_HOST, EMAIL_USER, or EMAIL_PASS environment variables."
+        });
+      }
+
+      // Send a test email
+      const testOtp = "123456";
+      const sent = await emailService.sendLoginOTP(email, testOtp);
+
+      if (sent) {
+        res.json({
+          success: true,
+          configured: true,
+          message: `Test email sent successfully to ${email}. Check your inbox for the test OTP (123456).`
+        });
+      } else {
+        res.json({
+          success: false,
+          configured: true,
+          message: "Email service is configured but failed to send. Check server logs for details."
+        });
+      }
+    } catch (error: any) {
+      console.error("Error testing email:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to test email", 
+        details: error?.message || "Unknown error"
+      });
+    }
+  });
+
   
   // User Profile API endpoints
   app.get("/api/profile", requireClientOrHigher, async (req, res) => {
