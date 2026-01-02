@@ -358,12 +358,17 @@ export default function PMS() {
                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Strategy" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Strategies</SelectItem>
-                  <SelectItem value="multicap">Multicap</SelectItem>
                   <SelectItem value="largecap">Large Cap</SelectItem>
                   <SelectItem value="midcap">Mid Cap</SelectItem>
                   <SelectItem value="smallcap">Small Cap</SelectItem>
+                  <SelectItem value="multicap">Multi-Cap</SelectItem>
+                  <SelectItem value="flexicap">Flexi Cap</SelectItem>
                   <SelectItem value="value">Value</SelectItem>
                   <SelectItem value="growth">Growth</SelectItem>
+                  <SelectItem value="thematic">Thematic</SelectItem>
+                  <SelectItem value="quality">Quality</SelectItem>
+                  <SelectItem value="momentum">Momentum</SelectItem>
+                  <SelectItem value="esg">ESG</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={selectedStyle} onValueChange={setSelectedStyle}>

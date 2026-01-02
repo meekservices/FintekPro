@@ -506,9 +506,25 @@ export default function AIF() {
                 <SelectTrigger className="w-[180px]" data-testid="filter-category"><SelectValue placeholder="Category" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="category_i">Category I</SelectItem>
-                  <SelectItem value="category_ii">Category II</SelectItem>
-                  <SelectItem value="category_iii">Category III</SelectItem>
+                  <SelectItem value="Category I">Category I</SelectItem>
+                  <SelectItem value="Category II">Category II</SelectItem>
+                  <SelectItem value="Category III">Category III</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+                <SelectTrigger className="w-[180px]" data-testid="filter-subcategory"><SelectValue placeholder="Subcategory" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subcategories</SelectItem>
+                  <SelectItem value="venture_capital">Venture Capital (Cat I)</SelectItem>
+                  <SelectItem value="sme_fund">SME Fund (Cat I)</SelectItem>
+                  <SelectItem value="social_venture">Social Venture (Cat I)</SelectItem>
+                  <SelectItem value="infrastructure">Infrastructure (Cat I)</SelectItem>
+                  <SelectItem value="private_equity">Private Equity (Cat II)</SelectItem>
+                  <SelectItem value="debt_fund">Debt Fund (Cat II)</SelectItem>
+                  <SelectItem value="fund_of_funds">Fund of Funds (Cat II)</SelectItem>
+                  <SelectItem value="hedge_fund">Hedge Fund (Cat III)</SelectItem>
+                  <SelectItem value="pipe_fund">PIPE Fund (Cat III)</SelectItem>
+                  <SelectItem value="long_short">Long-Short (Cat III)</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
