@@ -605,7 +605,7 @@ export function EnhancedNavigation() {
                             </Button>
                           </CollapsibleTrigger>
                           {!isCollapsed && (
-                            <CollapsibleContent className="space-y-1 ml-2 pl-2 border-l-2 border-muted dark:border-gray-700 bg-muted/20 dark:bg-gray-800/40 rounded-r-md py-1">
+                            <CollapsibleContent className="space-y-1 ml-2 pl-2 bg-muted/20 dark:bg-gray-800/40 rounded-md py-1">
                               {item.subItems?.map((subItem) => (
                                 <div key={subItem.name}>
                                   {subItem.href ? (
@@ -643,7 +643,7 @@ export function EnhancedNavigation() {
                                           }
                                         </Button>
                                       </CollapsibleTrigger>
-                                      <CollapsibleContent className="space-y-1 ml-2 pl-2 border-l-2 border-muted dark:border-gray-600 bg-muted/30 dark:bg-gray-800/60 rounded-r-md py-1">
+                                      <CollapsibleContent className="space-y-1 ml-2 pl-2 bg-muted/30 dark:bg-gray-800/60 rounded-md py-1">
                                         {subItem.subItems?.map((nestedItem) => (
                                           <Link key={nestedItem.name} href={nestedItem.href}>
                                             <Button
