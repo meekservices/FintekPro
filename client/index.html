@@ -1,6 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script>
+      // Force unregister old service workers and clear caches for development
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister().then(function() {
+              console.log('[SW Cleanup] Unregistered service worker');
+            });
+          }
+        });
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            for (let name of names) {
+              caches.delete(name);
+              console.log('[SW Cleanup] Deleted cache:', name);
+            }
+          });
+        }
+      }
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <meta name="theme-color" content="#1e40af" />
