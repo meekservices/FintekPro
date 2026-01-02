@@ -127,6 +127,7 @@ export default function AdminDLMPage() {
     mutationFn: async (data: CreateDocumentFormData) => {
       return apiRequest("/api/dlm/documents", {
         method: "POST",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
     },
@@ -147,6 +148,7 @@ export default function AdminDLMPage() {
     mutationFn: async ({ documentId, action, reason }: { documentId: string; action: string; reason?: string }) => {
       return apiRequest(`/api/dlm/documents/${documentId}/transition`, {
         method: "POST",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, reason }),
       });
     },

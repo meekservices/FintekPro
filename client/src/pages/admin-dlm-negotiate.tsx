@@ -378,6 +378,7 @@ export default function AdminDLMNegotiatePage() {
     mutationFn: async ({ changeId, resolution, note }: { changeId: string; resolution: "accepted" | "rejected"; note?: string }) => {
       return apiRequest(`/api/dlm/changes/${changeId}`, {
         method: "PATCH",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolution, resolutionNote: note }),
       });
     },
@@ -395,6 +396,7 @@ export default function AdminDLMNegotiatePage() {
     mutationFn: async (content: string) => {
       return apiRequest(`/api/dlm/documents/${documentId}/comments`, {
         method: "POST",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           content, 
           commentType: "general",
