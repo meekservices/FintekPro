@@ -1,6 +1,6 @@
-const CACHE_NAME = 'fintekpro-v1';
-const STATIC_CACHE_NAME = 'fintekpro-static-v1';
-const DYNAMIC_CACHE_NAME = 'fintekpro-dynamic-v1';
+const CACHE_NAME = 'fintekpro-v2';
+const STATIC_CACHE_NAME = 'fintekpro-static-v2';
+const DYNAMIC_CACHE_NAME = 'fintekpro-dynamic-v2';
 
 const STATIC_ASSETS = [
   '/',
@@ -82,10 +82,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (request.destination === 'document' || 
-      request.destination === 'script' || 
+  if (request.destination === 'script' || url.pathname.match(/\.(js)$/)) {
+    event.respondWith(networkFirstWithCache(request, STATIC_CACHE_NAME, 5000));
+  } else if (request.destination === 'document' || 
       request.destination === 'style' ||
-      url.pathname.match(/\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico)$/)) {
+      url.pathname.match(/\.(css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico)$/)) {
     event.respondWith(cacheFirstWithNetwork(request));
   }
 });
