@@ -1,10 +1,10 @@
-const CACHE_NAME = 'fintekpro-v2';
-const STATIC_CACHE_NAME = 'fintekpro-static-v2';
-const DYNAMIC_CACHE_NAME = 'fintekpro-dynamic-v2';
+const CACHE_VERSION = 'v3';
+const CACHE_NAME = 'fintekpro-' + CACHE_VERSION;
+const STATIC_CACHE_NAME = 'fintekpro-static-' + CACHE_VERSION;
+const DYNAMIC_CACHE_NAME = 'fintekpro-dynamic-' + CACHE_VERSION;
 
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
   '/manifest.json',
 ];
 
@@ -28,35 +28,64 @@ const NEVER_CACHE_ROUTES = [
   '/api/transactions',
 ];
 
+const NEVER_CACHE_EXTENSIONS = [
+  '.tsx',
+  '.ts',
+  '.jsx',
+  '.vue',
+  '.svelte',
+];
+
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Installing...');
+  console.log('[ServiceWorker] Installing ' + CACHE_VERSION + '...');
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME)
       .then((cache) => {
         console.log('[ServiceWorker] Caching static assets');
         return cache.addAll(STATIC_ASSETS);
       })
-      .then(() => self.skipWaiting())
+      .then(() => {
+        console.log('[ServiceWorker] Skip waiting to activate immediately');
+        return self.skipWaiting();
+      })
   );
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activating...');
+  console.log('[ServiceWorker] Activating ' + CACHE_VERSION + '...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name.startsWith('fintekpro-') && 
-                          name !== STATIC_CACHE_NAME && 
-                          name !== DYNAMIC_CACHE_NAME)
-          .map((name) => caches.delete(name))
+          .filter((name) => {
+            if (name === STATIC_CACHE_NAME || name === DYNAMIC_CACHE_NAME) {
+              return false;
+            }
+            return true;
+          })
+          .map((name) => {
+            console.log('[ServiceWorker] Deleting old cache:', name);
+            return caches.delete(name);
+          })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => {
+      console.log('[ServiceWorker] Claiming all clients');
+      return self.clients.claim();
+    })
   );
 });
 
 function shouldNeverCache(url) {
-  return NEVER_CACHE_ROUTES.some(route => url.includes(route));
+  if (NEVER_CACHE_ROUTES.some(route => url.includes(route))) {
+    return true;
+  }
+  if (NEVER_CACHE_EXTENSIONS.some(ext => url.endsWith(ext))) {
+    return true;
+  }
+  if (url.includes('/src/') || url.includes('/@') || url.includes('node_modules')) {
+    return true;
+  }
+  return false;
 }
 
 function shouldCacheApi(url) {
@@ -71,7 +100,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (shouldNeverCache(url.pathname)) {
+  if (shouldNeverCache(url.pathname) || shouldNeverCache(url.href)) {
     return;
   }
 
@@ -82,11 +111,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (request.destination === 'script' || url.pathname.match(/\.(js)$/)) {
+  if (url.pathname.match(/\.(js|mjs)$/) && !url.pathname.includes('/src/')) {
     event.respondWith(networkFirstWithCache(request, STATIC_CACHE_NAME, 5000));
-  } else if (request.destination === 'document' || 
-      request.destination === 'style' ||
-      url.pathname.match(/\.(css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico)$/)) {
+  } else if (url.pathname.match(/\.(css|woff2?|ttf|eot|png|jpg|jpeg|gif|ico|webp)$/)) {
     event.respondWith(cacheFirstWithNetwork(request));
   }
 });
@@ -108,7 +135,7 @@ async function networkFirstWithCache(request, cacheName, timeout = 30000) {
   } catch (error) {
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
-      console.log('[ServiceWorker] Serving from cache:', request.url);
+      console.log('[ServiceWorker] Network failed, serving from cache:', request.url);
       return cachedResponse;
     }
     throw error;
@@ -123,143 +150,24 @@ async function cacheFirstWithNetwork(request) {
   
   try {
     const networkResponse = await fetch(request);
-    
     if (networkResponse.ok) {
       const cache = await caches.open(STATIC_CACHE_NAME);
       cache.put(request, networkResponse.clone());
     }
-    
     return networkResponse;
   } catch (error) {
-    console.error('[ServiceWorker] Network request failed:', request.url);
-    
-    if (request.destination === 'document') {
-      const cachedIndex = await caches.match('/');
-      if (cachedIndex) {
-        return cachedIndex;
-      }
-    }
-    
+    console.log('[ServiceWorker] Failed to fetch:', request.url);
     throw error;
   }
 }
 
-self.addEventListener('sync', (event) => {
-  console.log('[ServiceWorker] Background sync event:', event.tag);
-  
-  if (event.tag === 'sync-drafts') {
-    event.waitUntil(syncDrafts());
-  } else if (event.tag === 'sync-actions') {
-    event.waitUntil(syncActions());
-  }
-});
-
-async function syncDrafts() {
-  console.log('[ServiceWorker] Syncing drafts...');
-  const clients = await self.clients.matchAll();
-  clients.forEach(client => {
-    client.postMessage({ type: 'SYNC_DRAFTS' });
-  });
-}
-
-async function syncActions() {
-  console.log('[ServiceWorker] Syncing actions...');
-  const clients = await self.clients.matchAll();
-  clients.forEach(client => {
-    client.postMessage({ type: 'SYNC_ACTIONS' });
-  });
-}
-
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data === 'skipWaiting') {
     self.skipWaiting();
   }
-  
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
-    event.waitUntil(
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((name) => caches.delete(name))
-        );
-      })
-    );
+  if (event.data === 'clearCache') {
+    caches.keys().then((names) => {
+      names.forEach((name) => caches.delete(name));
+    });
   }
-});
-
-self.addEventListener('push', (event) => {
-  console.log('[ServiceWorker] Push received');
-  
-  let data = {
-    title: 'FintekPro',
-    body: 'You have a new notification',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: 'fintekpro-notification',
-    data: { url: '/' }
-  };
-  
-  if (event.data) {
-    try {
-      const payload = event.data.json();
-      data = {
-        title: payload.title || 'FintekPro',
-        body: payload.body || payload.message || 'You have a new notification',
-        icon: payload.icon || '/favicon.ico',
-        badge: payload.badge || '/favicon.ico',
-        tag: payload.tag || 'fintekpro-notification',
-        data: {
-          url: payload.url || payload.link || '/',
-          notificationId: payload.id,
-          type: payload.type
-        }
-      };
-    } catch (e) {
-      data.body = event.data.text();
-    }
-  }
-  
-  const options = {
-    body: data.body,
-    icon: data.icon,
-    badge: data.badge,
-    tag: data.tag,
-    data: data.data,
-    vibrate: [100, 50, 100],
-    requireInteraction: false,
-    actions: [
-      { action: 'open', title: 'View' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
-  };
-  
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
-});
-
-self.addEventListener('notificationclick', (event) => {
-  console.log('[ServiceWorker] Notification clicked:', event.action);
-  
-  event.notification.close();
-  
-  if (event.action === 'dismiss') {
-    return;
-  }
-  
-  const url = event.notification.data?.url || '/';
-  
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        for (const client of clientList) {
-          if (client.url.includes(self.location.origin) && 'focus' in client) {
-            client.navigate(url);
-            return client.focus();
-          }
-        }
-        if (clients.openWindow) {
-          return clients.openWindow(url);
-        }
-      })
-  );
 });
