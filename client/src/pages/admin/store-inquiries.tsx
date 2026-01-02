@@ -85,6 +85,7 @@ export default function AdminStoreInquiriesPage() {
     mutationFn: async ({ id, status, adminNotes }: { id: string; status: string; adminNotes?: string }) => {
       return apiRequest(`/api/admin/store/inquiries/${id}/status`, {
         method: "PATCH",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, adminNotes })
       });
     },

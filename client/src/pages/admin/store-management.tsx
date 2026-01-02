@@ -163,6 +163,7 @@ function PortfolioApprovalsTab() {
     mutationFn: ({ type, id, action }: { type: 'aif' | 'pms' | 'mld'; id: number | string; action: 'approve' | 'reject' }) =>
       apiRequest(`/api/store/portfolio/admin/approve/${type}/${id}`, {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action })
       }),
     onSuccess: (_, variables) => {
@@ -600,6 +601,7 @@ export default function StoreManagement() {
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       apiRequest(`/api/admin/store/categories/${id}/toggle`, { 
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive })
       }),
     onSuccess: (data: any) => {
@@ -626,6 +628,7 @@ export default function StoreManagement() {
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       apiRequest(`/api/admin/store/subcategories/${id}/toggle`, { 
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive })
       }),
     onSuccess: (data: any) => {
@@ -652,6 +655,7 @@ export default function StoreManagement() {
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       apiRequest(`/api/admin/store/products/${id}/toggle`, { 
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive })
       }),
     onSuccess: () => {

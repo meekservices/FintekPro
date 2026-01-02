@@ -117,7 +117,7 @@ export default function RiskQuestionnaireBuilder() {
       const url = category.id 
         ? `/api/sebi-risk-profiling/admin/categories/${category.id}`
         : "/api/sebi-risk-profiling/admin/categories";
-      return apiRequest(url, { method, body: JSON.stringify(category) });
+      return apiRequest(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(category) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sebi-risk-profiling/admin/categories"] });
@@ -130,6 +130,7 @@ export default function RiskQuestionnaireBuilder() {
     mutationFn: async (weights: Record<string, number>) => {
       return apiRequest("/api/sebi-risk-profiling/admin/category-weights", {
         method: "PUT",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ weights }),
       });
     },
@@ -145,7 +146,7 @@ export default function RiskQuestionnaireBuilder() {
       const url = product.id
         ? `/api/sebi-risk-profiling/admin/product-matrix/${product.id}`
         : "/api/sebi-risk-profiling/admin/product-matrix";
-      return apiRequest(url, { method, body: JSON.stringify(product) });
+      return apiRequest(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(product) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sebi-risk-profiling/admin/product-matrix"] });
