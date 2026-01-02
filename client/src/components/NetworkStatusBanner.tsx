@@ -1,7 +1,7 @@
 import { useNetworkState, NetworkStatus } from '@/hooks/use-network-state';
 import { Wifi, WifiOff, AlertTriangle, X, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface NetworkStatusBannerProps {
@@ -159,8 +159,8 @@ export function OfflineGuard({
   fallback,
   action = 'execute'
 }: { 
-  children: React.ReactNode; 
-  fallback?: React.ReactNode;
+  children: ReactNode; 
+  fallback?: ReactNode;
   action?: 'execute' | 'submit' | 'trade' | 'payment';
 }) {
   const { isOffline } = useNetworkState();

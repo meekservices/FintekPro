@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2127,7 +2127,7 @@ function CreateProposalDialog({ open, onOpenChange, clients, onSubmit, isLoading
     ]
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     
     const totalAmount = formData.items.reduce((sum, item) => sum + parseFloat(item.recommendedAmount || "0"), 0);
@@ -2592,7 +2592,7 @@ function NotificationDialog({ open, onOpenChange, selectedClient, onSubmit, isLo
     triggerredBy: "care_agent"
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!selectedClient) return;
 
@@ -2607,7 +2607,7 @@ function NotificationDialog({ open, onOpenChange, selectedClient, onSubmit, isLo
   };
 
   // Reset form when client changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedClient) {
       setFormData(prev => ({
         ...prev,
