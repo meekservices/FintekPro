@@ -26,14 +26,16 @@ async function getCredentials() {
     }
   ).then(res => res.json()).then(data => data.items?.[0]);
 
-  if (!connectionSettings || (!connectionSettings.settings.account_sid || !connectionSettings.settings.api_key || !connectionSettings.settings.api_key_secret)) {
+  if (!connectionSettings || !connectionSettings.settings.account_sid) {
     throw new Error('Twilio not connected');
   }
+  
+  const settings = connectionSettings.settings;
   return {
-    accountSid: connectionSettings.settings.account_sid,
-    apiKey: connectionSettings.settings.api_key,
-    apiKeySecret: connectionSettings.settings.api_key_secret,
-    phoneNumber: connectionSettings.settings.phone_number
+    accountSid: settings.account_sid,
+    apiKey: settings.api_key,
+    apiKeySecret: settings.api_key_secret,
+    phoneNumber: settings.phone_number
   };
 }
 
@@ -42,9 +44,19 @@ export async function getTwilioClient() {
     return cachedClient;
   }
   const { accountSid, apiKey, apiKeySecret } = await getCredentials();
-  cachedClient = twilio(apiKey, apiKeySecret, {
-    accountSid: accountSid
-  });
+  
+  // Handle different authentication modes:
+  // 1. API Key auth (apiKey != accountSid): use apiKey + apiKeySecret
+  // 2. Account SID auth (apiKey == accountSid): use accountSid + apiKeySecret as auth token
+  if (apiKey && apiKey !== accountSid && apiKeySecret) {
+    cachedClient = twilio(apiKey, apiKeySecret, {
+      accountSid: accountSid
+    });
+  } else {
+    // Direct account credentials
+    cachedClient = twilio(accountSid, apiKeySecret);
+  }
+  
   console.log('✅ Twilio client initialized via Replit connector');
   return cachedClient;
 }
