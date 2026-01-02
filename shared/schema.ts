@@ -14065,6 +14065,94 @@ export type StoreProductInquiry = typeof storeProductInquiries.$inferSelect;
 export type InsertStoreProductInquiry = typeof storeProductInquiries.$inferInsert;
 export const insertStoreProductInquirySchema = createInsertSchema(storeProductInquiries).omit({ id: true, createdAt: true });
 
+// Store Transaction Log - SEBI/RBI Regulatory Compliance
+// Immutable audit trail for all store transactions (7-year retention)
+export const storeTransactionLogs = pgTable("store_transaction_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Transaction Identity
+  transactionId: varchar("transaction_id").notNull().unique(), // Unique transaction reference
+  transactionType: varchar("transaction_type").notNull(), // 'purchase', 'cart_add', 'cart_remove', 'inquiry', 'proposal_accept', 'proposal_reject', 'checkout', 'payment'
+  
+  // User Context
+  userId: varchar("user_id").references(() => users.id),
+  userEmail: varchar("user_email"),
+  userName: varchar("user_name"),
+  userPan: varchar("user_pan"), // Masked PAN for compliance
+  
+  // Product Details
+  productCategory: varchar("product_category").notNull(), // 'mutual_fund', 'bond', 'mld', 'unlisted', 'aif', 'pms', 'ipo', 'insurance', 'loan'
+  categoryId: varchar("category_id").references(() => storeCategories.id),
+  productId: varchar("product_id"),
+  productName: varchar("product_name"),
+  productIsin: varchar("product_isin"),
+  
+  // Transaction Values
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  quantity: integer("quantity"),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 2 }),
+  currency: varchar("currency").default("INR"),
+  
+  // Source Tracking
+  source: varchar("source").notNull(), // 'client_direct', 'ai_recommendation', 'agent_proposal', 'self_requested'
+  sourceProposalId: varchar("source_proposal_id"),
+  sourceAgentId: varchar("source_agent_id").references(() => users.id),
+  sourcePartnerId: varchar("source_partner_id").references(() => users.id),
+  
+  // Status
+  status: varchar("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed', 'cancelled', 'reversed'
+  statusReason: text("status_reason"),
+  
+  // Commission Tracking
+  commissionAmount: decimal("commission_amount", { precision: 15, scale: 2 }),
+  commissionType: varchar("commission_type"), // 'trail', 'upfront', 'brokerage', 'advisory'
+  commissionAgentId: varchar("commission_agent_id").references(() => users.id),
+  commissionPartnerId: varchar("commission_partner_id").references(() => users.id),
+  
+  // Zoho Books Integration
+  zohoInvoiceId: varchar("zoho_invoice_id"),
+  zohoBillId: varchar("zoho_bill_id"),
+  zohoSyncStatus: varchar("zoho_sync_status").default("pending"), // 'pending', 'synced', 'failed', 'not_applicable'
+  zohoSyncedAt: timestamp("zoho_synced_at"),
+  zohoSyncError: text("zoho_sync_error"),
+  
+  // Regulatory Compliance
+  regulatoryType: varchar("regulatory_type"), // 'SEBI', 'RBI', 'IRDAI', 'PFRDA'
+  consentTimestamp: timestamp("consent_timestamp"), // When user consented
+  consentIpAddress: varchar("consent_ip_address"),
+  consentChecksum: varchar("consent_checksum"), // SHA-256 hash of consent data
+  
+  // Device/Session Info
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  deviceFingerprint: varchar("device_fingerprint"),
+  sessionId: varchar("session_id"),
+  
+  // Immutability Controls
+  checksum: varchar("checksum"), // SHA-256 hash of record for integrity
+  previousChecksum: varchar("previous_checksum"), // Chain link to previous record
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  
+  // Metadata
+  metadata: jsonb("metadata"),
+}, (table) => [
+  index("idx_store_txn_user").on(table.userId),
+  index("idx_store_txn_category").on(table.productCategory),
+  index("idx_store_txn_type").on(table.transactionType),
+  index("idx_store_txn_status").on(table.status),
+  index("idx_store_txn_date").on(table.createdAt),
+  index("idx_store_txn_zoho").on(table.zohoSyncStatus),
+  index("idx_store_txn_source").on(table.source),
+]);
+
+export type StoreTransactionLog = typeof storeTransactionLogs.$inferSelect;
+export type InsertStoreTransactionLog = typeof storeTransactionLogs.$inferInsert;
+export const insertStoreTransactionLogSchema = createInsertSchema(storeTransactionLogs).omit({ id: true, createdAt: true, updatedAt: true });
+
 // ===================================================================
 // MONEYCONTROL RECONCILIATION TYPES
 // ===================================================================

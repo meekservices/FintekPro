@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { ProductInquiryForm } from "@/components/store/ProductInquiryForm";
 import { AIRecommendations } from "@/components/store/AIRecommendations";
+import { ComingSoonCategory } from "@/components/store/ComingSoonCategory";
+import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
 
 interface Product {
   id: string;
@@ -92,15 +94,20 @@ export default function StorePage() {
     enabled: isAuthenticated,
   });
   
-  // Fetch categories from Store Management API
+  // Fetch categories from Store Management API (includes isEnabled for Coming Soon)
   const { data: categoriesData, isLoading: isLoadingCategories } = useQuery<{
     success: boolean;
     categories: Array<{
       id: string;
       name: string;
+      slug?: string;
       description?: string;
       icon?: string;
       displayOrder?: number;
+      isActive?: boolean;
+      isEnabled?: boolean;
+      comingSoonMessage?: string;
+      comingSoonExpectedDate?: string;
       subcategories: Array<{
         id: string;
         name: string;
@@ -193,6 +200,16 @@ export default function StorePage() {
   const categories = storeCategories.length > 0
     ? ["all", ...storeCategories.map(c => c.name)]
     : ["all", ...Array.from(new Set(products.map(p => p.category)))];
+  
+  // Helper to get category info including Coming Soon status
+  const getCategoryInfo = (categoryName: string) => {
+    return storeCategories.find(c => c.name === categoryName);
+  };
+  
+  const isCategoryDisabled = (categoryName: string): boolean => {
+    const catInfo = getCategoryInfo(categoryName);
+    return catInfo ? catInfo.isEnabled === false : false;
+  };
 
   const isProductLocked = (product: Product): boolean => {
     if (!isAuthenticated) return false;
@@ -756,42 +773,52 @@ export default function StorePage() {
             </ScrollableTabsList>
             
             <TabsContent value={selectedCategory} className="mt-6">
-              <div className="space-y-4">
-                {/* Pre-Approved Loan Offers for Banking Products */}
-                {selectedCategory === "Banking Products" && (
-                  <div className="mb-6">
-                    <LoanOffersCard />
+              {/* Show Coming Soon for disabled categories */}
+              {selectedCategory !== "all" && isCategoryDisabled(selectedCategory) ? (
+                <ComingSoonCategory
+                  categoryId={getCategoryInfo(selectedCategory)?.id || selectedCategory}
+                  categoryName={selectedCategory}
+                  message={getCategoryInfo(selectedCategory)?.comingSoonMessage}
+                  expectedDate={getCategoryInfo(selectedCategory)?.comingSoonExpectedDate}
+                />
+              ) : (
+                <div className="space-y-4">
+                  {/* Pre-Approved Loan Offers for Banking Products */}
+                  {selectedCategory === "Banking Products" && (
+                    <div className="mb-6">
+                      <LoanOffersCard />
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className="text-purple-600 border-purple-600">
+                      {getFilteredProducts(
+                        selectedCategory === "all" 
+                          ? products 
+                          : products.filter(p => p.category === selectedCategory)
+                      ).length} Products
+                    </Badge>
                   </div>
-                )}
-                
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-purple-600 border-purple-600">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {getFilteredProducts(
                       selectedCategory === "all" 
                         ? products 
                         : products.filter(p => p.category === selectedCategory)
-                    ).length} Products
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ).map(renderProductCard)}
+                  </div>
                   {getFilteredProducts(
                     selectedCategory === "all" 
                       ? products 
                       : products.filter(p => p.category === selectedCategory)
-                  ).map(renderProductCard)}
+                  ).length === 0 && !isCategoryDisabled(selectedCategory) && (
+                    <div className="text-center py-12">
+                      <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                      <p className="text-gray-500 mb-2 font-medium">No products found</p>
+                      <p className="text-sm text-gray-400">Try adjusting your filters or search term</p>
+                    </div>
+                  )}
                 </div>
-                {getFilteredProducts(
-                  selectedCategory === "all" 
-                    ? products 
-                    : products.filter(p => p.category === selectedCategory)
-                ).length === 0 && (
-                  <div className="text-center py-12">
-                    <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-gray-500 mb-2 font-medium">No products found</p>
-                    <p className="text-sm text-gray-400">Try adjusting your filters or search term</p>
-                  </div>
-                )}
-              </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>

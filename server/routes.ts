@@ -30,7 +30,7 @@ import { sql, eq, and, or, like, desc, asc, count, inArray } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, mutualFunds, mutualFundAmcs, prospectClients, proposalInteractions, proposalApprovals, insertProspectClientSchema, insertProposalInteractionSchema, insertProposalApprovalSchema, prospectProposals } from "@shared/schema";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, storeProductInquiries, storeTransactionLogs, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, mutualFunds, mutualFundAmcs, prospectClients, proposalInteractions, proposalApprovals, insertProspectClientSchema, insertProposalInteractionSchema, insertProposalApprovalSchema, prospectProposals } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
 import { whatsappService } from "./whatsapp";
@@ -24676,22 +24676,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PUBLIC STORE ROUTES (Client-facing - No Auth Required)
   // ===================================================================
 
-  // Get active store categories for client store page
+  // Get active store categories for client store page (includes PMS/AIF)
   app.get('/api/store/categories', async (req, res) => {
     try {
       const allCategories = await storage.getAllStoreCategories();
       const allSubcategories = await storage.getAllStoreSubcategories();
       
-      // Filter to only active categories
-      const activeCategories = allCategories.filter(cat => cat.isActive);
+      // Add virtual PMS and AIF categories if not already in store categories
+      const categoryNames = new Set(allCategories.map(c => c.name.toLowerCase()));
+      const virtualCategories: any[] = [];
       
-      // Group active subcategories by category
-      const categoriesWithSubs = activeCategories.map(cat => ({
+      if (!categoryNames.has('pms') && !categoryNames.has('portfolio management services')) {
+        virtualCategories.push({
+          id: 'virtual-pms',
+          name: 'Portfolio Management Services (PMS)',
+          slug: 'pms',
+          description: 'SEBI-registered discretionary portfolio management',
+          icon: 'Briefcase',
+          displayOrder: 100,
+          isActive: true,
+          isEnabled: true,
+          comingSoonMessage: null,
+          subcategories: []
+        });
+      }
+      
+      if (!categoryNames.has('aif') && !categoryNames.has('alternative investment funds')) {
+        virtualCategories.push({
+          id: 'virtual-aif',
+          name: 'Alternative Investment Funds (AIF)',
+          slug: 'aif',
+          description: 'SEBI-regulated alternative investment vehicles',
+          icon: 'Crown',
+          displayOrder: 101,
+          isActive: true,
+          isEnabled: true,
+          comingSoonMessage: null,
+          subcategories: []
+        });
+      }
+      
+      // Combine real and virtual categories
+      const combinedCategories = [...allCategories, ...virtualCategories];
+      
+      // Build response with Coming Soon info for disabled categories
+      const categoriesWithSubs = combinedCategories.map(cat => ({
         id: cat.id,
         name: cat.name,
+        slug: cat.slug,
         description: cat.description,
         icon: cat.icon,
         displayOrder: cat.displayOrder,
+        isActive: cat.isActive,
+        isEnabled: cat.isEnabled !== false, // Default to enabled
+        comingSoonMessage: cat.comingSoonMessage,
+        comingSoonExpectedDate: cat.comingSoonExpectedDate,
         subcategories: allSubcategories
           .filter(sub => sub.categoryId === cat.id && sub.isActive)
           .map(sub => ({
@@ -24828,6 +24867,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching featured products:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch featured products' });
+    }
+  });
+
+  // Submit product/category inquiry (for Coming Soon or disabled products)
+  app.post('/api/store/inquiries', async (req: any, res) => {
+    try {
+      const { categoryId, productId, name, email, phone, message, inquiryType } = req.body;
+      
+      if (!email || (!categoryId && !productId)) {
+        return res.status(400).json({ success: false, message: 'Email and category/product are required' });
+      }
+
+      const inquiry = await db.insert(storeProductInquiries).values({
+        categoryId,
+        productId,
+        userId: req.user?.id,
+        name: name || req.user?.fullName,
+        email: email || req.user?.email,
+        phone: phone || req.user?.phone,
+        message,
+        inquiryType: inquiryType || 'callback',
+        status: 'pending',
+      }).returning();
+
+      // Log transaction for compliance
+      const { storeTransactionService } = await import('./services/store-transaction-service');
+      await storeTransactionService.logTransaction({
+        transactionType: 'inquiry',
+        userId: req.user?.id,
+        userEmail: email,
+        userName: name,
+        productCategory: categoryId ? 'category_inquiry' : 'product_inquiry',
+        categoryId,
+        productId,
+        source: 'client_direct',
+        status: 'completed',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        metadata: { message, inquiryType }
+      });
+
+      res.json({ success: true, inquiry: inquiry[0] });
+    } catch (error) {
+      console.error('Error submitting inquiry:', error);
+      res.status(500).json({ success: false, message: 'Failed to submit inquiry' });
+    }
+  });
+
+  // Get client transaction history (requires auth)
+  app.get('/api/client/transactions', requireAuth, async (req: any, res) => {
+    try {
+      const { category, startDate, endDate, limit, offset } = req.query;
+      
+      const { storeTransactionService } = await import('./services/store-transaction-service');
+      const result = await storeTransactionService.getTransactionsByUser(req.user.id, {
+        category: category as string,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        limit: limit ? parseInt(limit as string) : 50,
+        offset: offset ? parseInt(offset as string) : 0,
+      });
+
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch transactions' });
+    }
+  });
+
+  // Get client transaction summary by category
+  app.get('/api/client/transactions/summary', requireAuth, async (req: any, res) => {
+    try {
+      const { storeTransactionService } = await import('./services/store-transaction-service');
+      const summary = await storeTransactionService.getTransactionSummary(req.user.id);
+      res.json({ success: true, summary });
+    } catch (error) {
+      console.error('Error fetching transaction summary:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch summary' });
+    }
+  });
+
+  // Admin: Get all inquiries for follow-up
+  app.get('/api/admin/store/inquiries', requireAdmin, async (req: any, res) => {
+    try {
+      const { status, category, limit, offset } = req.query;
+      
+      const conditions: any[] = [];
+      if (status) conditions.push(eq(storeProductInquiries.status, status as string));
+      if (category) conditions.push(eq(storeProductInquiries.categoryId, category as string));
+      
+      const inquiries = await db.select()
+        .from(storeProductInquiries)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(storeProductInquiries.createdAt))
+        .limit(parseInt(limit as string) || 50)
+        .offset(parseInt(offset as string) || 0);
+
+      const countResult = await db.select({ count: sql<number>`count(*)` })
+        .from(storeProductInquiries)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      res.json({ 
+        success: true, 
+        inquiries,
+        total: countResult[0]?.count || 0
+      });
+    } catch (error) {
+      console.error('Error fetching inquiries:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch inquiries' });
+    }
+  });
+
+  // Admin: Update inquiry status
+  app.put('/api/admin/store/inquiries/:id', requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, notes, assignedTo } = req.body;
+      
+      const updated = await db.update(storeProductInquiries)
+        .set({ 
+          status, 
+          notes, 
+          assignedTo,
+          resolvedAt: status === 'resolved' || status === 'closed' ? new Date() : undefined
+        })
+        .where(eq(storeProductInquiries.id, id))
+        .returning();
+
+      res.json({ success: true, inquiry: updated[0] });
+    } catch (error) {
+      console.error('Error updating inquiry:', error);
+      res.status(500).json({ success: false, message: 'Failed to update inquiry' });
+    }
+  });
+
+  // Admin: Get transaction audit logs
+  app.get('/api/admin/store/transactions', requireAdmin, async (req: any, res) => {
+    try {
+      const { userId, category, status, startDate, endDate, limit, offset } = req.query;
+      
+      const conditions: any[] = [];
+      if (userId) conditions.push(eq(storeTransactionLogs.userId, userId as string));
+      if (category) conditions.push(eq(storeTransactionLogs.productCategory, category as string));
+      if (status) conditions.push(eq(storeTransactionLogs.status, status as string));
+      if (startDate) conditions.push(gte(storeTransactionLogs.createdAt, new Date(startDate as string)));
+      if (endDate) conditions.push(lte(storeTransactionLogs.createdAt, new Date(endDate as string)));
+
+      const transactions = await db.select()
+        .from(storeTransactionLogs)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(storeTransactionLogs.createdAt))
+        .limit(parseInt(limit as string) || 100)
+        .offset(parseInt(offset as string) || 0);
+
+      const countResult = await db.select({ count: sql<number>`count(*)` })
+        .from(storeTransactionLogs)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      res.json({ 
+        success: true, 
+        transactions,
+        total: countResult[0]?.count || 0
+      });
+    } catch (error) {
+      console.error('Error fetching transaction logs:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch transaction logs' });
+    }
+  });
+
+  // Admin: Get pending Zoho sync transactions
+  app.get('/api/admin/store/transactions/pending-sync', requireAdmin, async (req: any, res) => {
+    try {
+      const { storeTransactionService } = await import('./services/store-transaction-service');
+      const pendingTransactions = await storeTransactionService.getPendingZohoSync(100);
+      res.json({ success: true, transactions: pendingTransactions });
+    } catch (error) {
+      console.error('Error fetching pending sync:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch pending sync' });
     }
   });
 

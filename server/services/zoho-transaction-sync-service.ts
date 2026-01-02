@@ -793,6 +793,190 @@ class ZohoTransactionSyncService {
       }
     };
   }
+
+  /**
+   * Sync store transaction logs with Zoho Books
+   * Creates invoice entries for completed purchases and tracks commissions
+   */
+  async syncStoreTransaction(transactionId: string): Promise<{
+    success: boolean;
+    zohoInvoiceId?: string;
+    zohoBillId?: string;
+    error?: string;
+  }> {
+    const zohoService = await getZohoBooksService();
+    if (!zohoService) {
+      return { success: false, error: 'Zoho Books not configured' };
+    }
+
+    try {
+      // Fetch transaction from store_transaction_logs
+      const [transaction] = await db.execute(sql`
+        SELECT * FROM store_transaction_logs 
+        WHERE id = ${transactionId}
+      `);
+
+      if (!transaction) {
+        return { success: false, error: 'Transaction not found' };
+      }
+
+      const txn = transaction as any;
+
+      // Only sync completed purchases
+      if (txn.action !== 'purchase' || txn.status !== 'completed') {
+        return { success: false, error: 'Transaction not eligible for sync' };
+      }
+
+      // Get user info for Zoho contact
+      const userResult = await db.execute(sql`
+        SELECT id, email, full_name FROM users WHERE id = ${txn.user_id}
+      `);
+      const userRows = (userResult as any)?.rows || userResult;
+      const user = Array.isArray(userRows) ? userRows[0] : null;
+      if (!user) {
+        // Continue without user info - create invoice without contact
+        console.warn('[ZohoSync] User not found for transaction:', txn.user_id);
+      }
+
+      // Create or get Zoho contact
+      let contactId: string | undefined;
+      if (user) {
+        try {
+          const contact = await zohoService.createOrUpdateContact({
+            contact_name: user.full_name || user.email,
+            email: user.email,
+            company_name: 'Individual Client',
+            contact_type: 'customer'
+          });
+          contactId = contact.contact_id;
+        } catch (err) {
+          console.warn('[ZohoSync] Contact creation failed, continuing without:', err);
+        }
+      }
+
+      // Parse transaction metadata
+      const metadata = typeof txn.metadata === 'string' 
+        ? JSON.parse(txn.metadata) 
+        : txn.metadata || {};
+
+      // Create Zoho invoice for the purchase
+      const invoiceData = {
+        customer_id: contactId,
+        date: new Date(txn.created_at).toISOString().split('T')[0],
+        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        line_items: [{
+          name: metadata.productName || `Store Product: ${txn.product_id || 'Unknown'}`,
+          description: `${txn.category || 'Store'} - ${txn.source || 'Direct Purchase'}`,
+          rate: parseFloat(txn.amount) || 0,
+          quantity: metadata.quantity || 1
+        }],
+        notes: `Transaction ID: ${txn.transaction_id}\nPAN: ${txn.masked_pan || 'N/A'}\nCategory: ${txn.category}`,
+        reference_number: txn.transaction_id
+      };
+
+      const invoice = await zohoService.createInvoice(invoiceData);
+      const zohoInvoiceId = invoice?.invoice?.invoice_id;
+
+      // Update transaction with Zoho sync info
+      await db.execute(sql`
+        UPDATE store_transaction_logs 
+        SET zoho_invoice_id = ${zohoInvoiceId},
+            zoho_synced_at = NOW()
+        WHERE id = ${transactionId}
+      `);
+
+      // Create bill for commissions if applicable
+      let zohoBillId: string | undefined;
+      if (metadata.agentId || metadata.partnerId) {
+        const commissionRate = metadata.commissionRate || 0.02; // 2% default
+        const commissionAmount = parseFloat(txn.amount) * commissionRate;
+
+        const billData = {
+          vendor_id: metadata.agentId || metadata.partnerId,
+          date: new Date().toISOString().split('T')[0],
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          line_items: [{
+            name: 'Sales Commission',
+            description: `Commission for ${metadata.productName || txn.product_id}`,
+            rate: commissionAmount,
+            quantity: 1
+          }],
+          notes: `Transaction ID: ${txn.transaction_id}\nOriginal Sale: ₹${txn.amount}`,
+          reference_number: `COMM-${txn.transaction_id}`
+        };
+
+        try {
+          const bill = await zohoService.createBill(billData);
+          zohoBillId = bill?.bill?.bill_id;
+
+          await db.execute(sql`
+            UPDATE store_transaction_logs 
+            SET zoho_bill_id = ${zohoBillId}
+            WHERE id = ${transactionId}
+          `);
+        } catch (err) {
+          console.warn('[ZohoSync] Commission bill creation failed:', err);
+        }
+      }
+
+      return {
+        success: true,
+        zohoInvoiceId,
+        zohoBillId
+      };
+
+    } catch (error: any) {
+      console.error('[ZohoSync] Store transaction sync error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Bulk sync pending store transactions with Zoho Books
+   */
+  async syncPendingStoreTransactions(limit: number = 50): Promise<{
+    total: number;
+    synced: number;
+    failed: number;
+    errors: string[];
+  }> {
+    const results = {
+      total: 0,
+      synced: 0,
+      failed: 0,
+      errors: [] as string[]
+    };
+
+    try {
+      // Get pending transactions (completed purchases not yet synced)
+      const pending = await db.execute(sql`
+        SELECT id FROM store_transaction_logs 
+        WHERE action = 'purchase' 
+          AND status = 'completed' 
+          AND zoho_invoice_id IS NULL
+        ORDER BY created_at ASC
+        LIMIT ${limit}
+      `);
+
+      const transactions = pending as any[];
+      results.total = transactions.length;
+
+      for (const txn of transactions) {
+        const result = await this.syncStoreTransaction(txn.id);
+        if (result.success) {
+          results.synced++;
+        } else {
+          results.failed++;
+          results.errors.push(`${txn.id}: ${result.error}`);
+        }
+      }
+
+    } catch (error: any) {
+      results.errors.push(`Batch sync error: ${error.message}`);
+    }
+
+    return results;
+  }
 }
 
 export const zohoTransactionSyncService = new ZohoTransactionSyncService();

@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
+import { ClientTransactionHistory } from '@/components/store/ClientTransactionHistory';
 import {
   FileText,
   Download,
@@ -389,6 +390,26 @@ export default function ReportsHub() {
                 </Button>
               </Link>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Store Transaction History - SEBI/RBI Compliant */}
+        <Card className="border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                <Database className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Store Purchase History</CardTitle>
+                <CardDescription>
+                  Complete audit trail of all store transactions - maintained for 7 years per SEBI/RBI regulations
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ClientTransactionHistory showFilters={true} />
           </CardContent>
         </Card>
 

@@ -468,6 +468,33 @@ export function registerZohoBooksRoutes(app: Express) {
     }
   });
 
+  // Store transaction sync endpoints
+  app.post('/api/admin/zoho-books/sync/store/:transactionId', async (req, res) => {
+    try {
+      const result = await zohoTransactionSyncService.syncStoreTransaction(req.params.transactionId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/zoho-books/sync/store-batch', async (req, res) => {
+    try {
+      const { limit } = req.body;
+      const result = await zohoTransactionSyncService.syncPendingStoreTransactions(
+        limit ? parseInt(limit) : 50
+      );
+      res.json({
+        success: true,
+        message: `Synced ${result.synced} of ${result.total} store transactions`,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Error syncing store transactions:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   console.log('✅ Zoho Books API routes registered');
   console.log('   📊 Transaction sync endpoints: /api/admin/zoho-books/sync/*');
 }
