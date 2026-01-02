@@ -1,4 +1,4 @@
-import twilio from 'twilio';
+import { getTwilioClient, getTwilioFromPhoneNumber, isTwilioConfigured } from './twilio-client';
 import { db } from '../db';
 import { whatsappContacts } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -29,41 +29,28 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
 };
 
 class TwilioWhatsAppService {
-  private client: any;
-  private fromNumber: string = '';
   private messagingServiceSid: string = '';
-  private isConfigured: boolean;
+  private whatsappNumber: string = '';
 
   constructor() {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || process.env.TWILIO_PHONE_NUMBER;
-    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-
-    if (accountSid && authToken && (whatsappNumber || messagingServiceSid)) {
-      this.client = twilio(accountSid, authToken);
-      this.messagingServiceSid = messagingServiceSid || '';
-      if (whatsappNumber) {
-        this.fromNumber = whatsappNumber.startsWith('whatsapp:') 
-          ? whatsappNumber 
-          : `whatsapp:${whatsappNumber}`;
-      }
-      this.isConfigured = true;
-      console.log('✅ Twilio WhatsApp service initialized');
-      if (this.messagingServiceSid) {
-        console.log(`   Using Messaging Service: ${this.messagingServiceSid.substring(0, 10)}...`);
-      }
-      if (this.fromNumber) {
-        console.log(`   From number: ${this.fromNumber}`);
-      }
-    } else {
-      this.isConfigured = false;
-      console.log('⚠️ Twilio WhatsApp service not configured - missing credentials');
+    this.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID || '';
+    const whatsappNum = process.env.TWILIO_WHATSAPP_NUMBER;
+    if (whatsappNum) {
+      this.whatsappNumber = whatsappNum.startsWith('whatsapp:') 
+        ? whatsappNum 
+        : `whatsapp:${whatsappNum}`;
+    }
+    console.log('📱 WhatsApp service initialized (using Replit Twilio connector)');
+    if (this.messagingServiceSid) {
+      console.log(`   Messaging Service SID: ${this.messagingServiceSid.substring(0, 10)}...`);
+    }
+    if (this.whatsappNumber) {
+      console.log(`   WhatsApp number: ${this.whatsappNumber}`);
     }
   }
 
-  isAvailable(): boolean {
-    return this.isConfigured;
+  async isAvailable(): Promise<boolean> {
+    return await isTwilioConfigured();
   }
 
   private formatWhatsAppNumber(mobile: string): string {
@@ -104,7 +91,8 @@ class TwilioWhatsAppService {
   }
 
   async sendMessage(to: string, body: string, mediaUrl?: string, templateType?: string): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
-    if (!this.isConfigured) {
+    const isConfigured = await isTwilioConfigured();
+    if (!isConfigured) {
       console.log(`📱 WhatsApp message to ${to.substring(0, 6)}****: ${body.substring(0, 50)}... (not configured)`);
       return { success: false, error: 'WhatsApp service not configured' };
     }
@@ -136,13 +124,16 @@ class TwilioWhatsAppService {
 
   private async sendFreeformMessage(toNumber: string, body: string, mediaUrl?: string): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
     try {
+      const client = await getTwilioClient();
+      const fromNumber = this.whatsappNumber || (await getTwilioFromPhoneNumber());
+      
       const messageOptions: any = {
         body,
         to: toNumber,
       };
 
-      if (this.fromNumber) {
-        messageOptions.from = this.fromNumber;
+      if (fromNumber) {
+        messageOptions.from = fromNumber.startsWith('whatsapp:') ? fromNumber : `whatsapp:${fromNumber}`;
       }
 
       if (mediaUrl) {
@@ -151,7 +142,7 @@ class TwilioWhatsAppService {
 
       console.log(`📱 Sending freeform WhatsApp message to ${toNumber.substring(0, 15)}***`);
 
-      const message = await this.client.messages.create(messageOptions);
+      const message = await client.messages.create(messageOptions);
       console.log(`✅ WhatsApp freeform message sent - SID: ${message.sid}`);
       
       return { success: true, messageSid: message.sid, usedTemplate: false };
@@ -163,13 +154,16 @@ class TwilioWhatsAppService {
 
   async sendTemplateMessage(toNumber: string, contentSid: string, variables?: Record<string, string>): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
     try {
+      const client = await getTwilioClient();
+      const fromNumber = this.whatsappNumber || (await getTwilioFromPhoneNumber());
+      
       const messageOptions: any = {
         to: toNumber,
         contentSid: contentSid,
       };
 
-      if (this.fromNumber) {
-        messageOptions.from = this.fromNumber;
+      if (fromNumber) {
+        messageOptions.from = fromNumber.startsWith('whatsapp:') ? fromNumber : `whatsapp:${fromNumber}`;
       }
 
       if (variables && Object.keys(variables).length > 0) {
@@ -178,7 +172,7 @@ class TwilioWhatsAppService {
 
       console.log(`📱 Sending template WhatsApp message to ${toNumber.substring(0, 15)}*** (template: ${contentSid})`);
 
-      const message = await this.client.messages.create(messageOptions);
+      const message = await client.messages.create(messageOptions);
       console.log(`✅ WhatsApp template message sent - SID: ${message.sid}`);
       
       return { success: true, messageSid: message.sid, usedTemplate: true };
@@ -189,7 +183,8 @@ class TwilioWhatsAppService {
   }
 
   async sendMessageForced(to: string, body: string, useTemplate: boolean = false, templateSid?: string, templateVars?: Record<string, string>): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
-    if (!this.isConfigured) {
+    const isConfigured = await isTwilioConfigured();
+    if (!isConfigured) {
       return { success: false, error: 'WhatsApp service not configured' };
     }
 

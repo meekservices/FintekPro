@@ -1,40 +1,26 @@
-import twilio from 'twilio';
+import { getTwilioClient, getTwilioFromPhoneNumber, isTwilioConfigured } from './twilio-client';
 
 class SMSService {
-  private client: any;
-  private fromNumber: string = '';
   private messagingServiceSid: string = '';
-  private isConfigured: boolean;
 
   constructor() {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-
-    if (accountSid && authToken && (messagingServiceSid || fromNumber)) {
-      this.client = twilio(accountSid, authToken);
-      this.fromNumber = fromNumber || '';
-      this.messagingServiceSid = messagingServiceSid || '';
-      this.isConfigured = true;
-      console.log('✅ Twilio SMS service initialized');
-      if (this.messagingServiceSid) {
-        console.log(`   Using Messaging Service: ${this.messagingServiceSid.substring(0, 10)}...`);
-      }
-    } else {
-      this.isConfigured = false;
-      console.log('⚠️  Twilio SMS service not configured - missing credentials');
+    this.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID || '';
+    console.log('📱 SMS service initialized (using Replit Twilio connector)');
+    if (this.messagingServiceSid) {
+      console.log(`   Messaging Service SID: ${this.messagingServiceSid.substring(0, 10)}...`);
     }
   }
 
   async sendOTP(mobile: string, otp: string): Promise<boolean> {
-    if (!this.isConfigured) {
-      console.log(`📱 SMS OTP for ${mobile}: ${otp} (Twilio not configured)`);
-      return false;
-    }
-
     try {
-      // Ensure mobile number is in E.164 format
+      const isConfigured = await isTwilioConfigured();
+      if (!isConfigured) {
+        console.log(`📱 SMS OTP for ${mobile}: ${otp} (Twilio not configured)`);
+        return false;
+      }
+
+      const client = await getTwilioClient();
+      const fromNumber = await getTwilioFromPhoneNumber();
       const formattedMobile = mobile.startsWith('+') ? mobile : `+91${mobile}`;
 
       const messageOptions: any = {
@@ -42,14 +28,13 @@ class SMSService {
         to: formattedMobile,
       };
 
-      // Prefer Messaging Service SID for better delivery
       if (this.messagingServiceSid) {
         messageOptions.messagingServiceSid = this.messagingServiceSid;
-      } else {
-        messageOptions.from = this.fromNumber;
+      } else if (fromNumber) {
+        messageOptions.from = fromNumber;
       }
 
-      const message = await this.client.messages.create(messageOptions);
+      const message = await client.messages.create(messageOptions);
 
       console.log(`✅ SMS OTP sent to ${formattedMobile} - SID: ${message.sid}`);
       return true;
@@ -60,12 +45,15 @@ class SMSService {
   }
 
   async sendPasswordResetOTP(mobile: string, otp: string): Promise<boolean> {
-    if (!this.isConfigured) {
-      console.log(`📱 Password Reset OTP for ${mobile}: ${otp} (Twilio not configured)`);
-      return false;
-    }
-
     try {
+      const isConfigured = await isTwilioConfigured();
+      if (!isConfigured) {
+        console.log(`📱 Password Reset OTP for ${mobile}: ${otp} (Twilio not configured)`);
+        return false;
+      }
+
+      const client = await getTwilioClient();
+      const fromNumber = await getTwilioFromPhoneNumber();
       const formattedMobile = mobile.startsWith('+') ? mobile : `+91${mobile}`;
 
       const messageOptions: any = {
@@ -73,14 +61,13 @@ class SMSService {
         to: formattedMobile,
       };
 
-      // Prefer Messaging Service SID for better delivery
       if (this.messagingServiceSid) {
         messageOptions.messagingServiceSid = this.messagingServiceSid;
-      } else {
-        messageOptions.from = this.fromNumber;
+      } else if (fromNumber) {
+        messageOptions.from = fromNumber;
       }
 
-      const message = await this.client.messages.create(messageOptions);
+      const message = await client.messages.create(messageOptions);
 
       console.log(`✅ Password reset SMS sent to ${formattedMobile} - SID: ${message.sid}`);
       return true;
@@ -90,8 +77,8 @@ class SMSService {
     }
   }
 
-  isAvailable(): boolean {
-    return this.isConfigured;
+  async isAvailable(): Promise<boolean> {
+    return await isTwilioConfigured();
   }
 }
 
