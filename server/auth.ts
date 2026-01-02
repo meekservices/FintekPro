@@ -685,25 +685,42 @@ export function setupAuth(app: Express) {
         });
 
         // Send OTP via appropriate channels (email/SMS/WhatsApp)
+        let otpDelivered = false;
+        let deliveryChannel = "";
+        
         if (otpType === "email") {
           const emailSent = await emailService.sendLoginOTP(otpDestination, otp);
           if (emailSent) {
             console.log(`✅ Login OTP sent to email: ${otpDestination}`);
+            otpDelivered = true;
+            deliveryChannel = "email";
           } else {
-            console.log(`⚠️ Email failed, Login OTP for ${otpDestination}: ${otp}`);
+            console.log(`⚠️ Email delivery failed for ${otpDestination}`);
           }
         } else {
           // For mobile, try SMS first, then WhatsApp as fallback
           const smsSent = await smsService.sendOTP(otpDestination, otp);
           if (smsSent) {
             console.log(`✅ Login OTP sent via SMS to: ${otpDestination}`);
+            otpDelivered = true;
+            deliveryChannel = "SMS";
           } else {
             // Try WhatsApp as fallback
             const whatsappSent = await whatsappService.sendLoginOTP(otpDestination, otp);
-            if (!whatsappSent) {
-              console.log(`📱 Login OTP for ${otpDestination}: ${otp} (SMS and WhatsApp unavailable)`);
+            if (whatsappSent) {
+              console.log(`✅ Login OTP sent via WhatsApp to: ${otpDestination}`);
+              otpDelivered = true;
+              deliveryChannel = "WhatsApp";
+            } else {
+              console.log(`❌ All OTP delivery channels failed for ${otpDestination}`);
             }
           }
+        }
+
+        // Check if OTP was actually delivered
+        if (!otpDelivered) {
+          console.error(`❌ OTP delivery failed for ${otpDestination} - no delivery channel available`);
+          return apiResponse.serverError(res, "Unable to send OTP. Please check your contact details or try again later.");
         }
 
         // Return success with OTP destination info (don't complete login yet)
@@ -711,8 +728,9 @@ export function setupAuth(app: Express) {
           requiresOtp: true,
           otpSentTo: otpType === "email" ? "email" : "mobile",
           identifier: otpDestination,
-          userId: user.userId
-        }, `OTP sent to your ${otpType}`);
+          userId: user.userId,
+          deliveryChannel
+        }, `OTP sent to your ${otpType} via ${deliveryChannel}`);
       })(modifiedReq, res, next);
     } catch (error) {
       console.error("Unified login error:", error);
