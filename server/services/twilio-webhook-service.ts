@@ -406,6 +406,67 @@ export const twilioWebhookService = new TwilioWebhookService();
 export function createTwilioWebhookRouter(): Router {
   const router = Router();
 
+  const CALL_FORWARD_NUMBER = process.env.TWILIO_CALL_FORWARD_NUMBER || '+919686854321';
+
+  router.post('/voice/webhook', async (req: Request, res: Response) => {
+    try {
+      console.log(`📞 Incoming voice call from ${req.body.From} to ${req.body.To}`);
+      
+      const callerNumber = req.body.From || 'Unknown';
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="alice" language="en-IN">
+    Welcome to FintekPro. Please hold while we connect your call.
+  </Say>
+  <Dial callerId="${req.body.To}" timeout="30" action="/api/twilio/voice/status">
+    <Number>${CALL_FORWARD_NUMBER}</Number>
+  </Dial>
+  <Say voice="alice" language="en-IN">
+    We're sorry, we couldn't connect your call. Please try again later or contact us through our website at fintek pro dot com.
+  </Say>
+</Response>`;
+
+      console.log(`📞 Forwarding call to ${CALL_FORWARD_NUMBER}`);
+      res.type('text/xml').send(twiml);
+    } catch (error) {
+      console.error('Error handling voice webhook:', error);
+      res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>We're experiencing technical difficulties. Please try again later.</Say>
+</Response>`);
+    }
+  });
+
+  router.post('/voice/status', async (req: Request, res: Response) => {
+    console.log(`📞 Call status update: ${req.body.CallStatus} for ${req.body.CallSid}`);
+    
+    if (req.body.DialCallStatus === 'no-answer' || req.body.DialCallStatus === 'busy') {
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="alice" language="en-IN">
+    We're sorry, no one is available to take your call right now. 
+    Please leave a message after the beep, or call back later.
+  </Say>
+  <Record maxLength="120" action="/api/twilio/voice/recording" transcribe="true" />
+</Response>`;
+      res.type('text/xml').send(twiml);
+    } else {
+      res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
+    }
+  });
+
+  router.post('/voice/recording', async (req: Request, res: Response) => {
+    console.log(`📞 Voicemail recorded: ${req.body.RecordingUrl}`);
+    console.log(`   Duration: ${req.body.RecordingDuration}s, From: ${req.body.From}`);
+    
+    res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="alice" language="en-IN">
+    Thank you for your message. We will get back to you shortly.
+  </Say>
+</Response>`);
+  });
+
   router.post('/sms/webhook', async (req: Request, res: Response) => {
     try {
       if (process.env.NODE_ENV === 'production' && !twilioWebhookService.validateRequest(req)) {
