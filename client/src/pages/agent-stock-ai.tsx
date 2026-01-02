@@ -176,6 +176,7 @@ export default function AgentStockAI() {
     mutationFn: async (requestParams: RecommendationParams) => {
       return await apiRequest('/api/stock-ai/generate', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestParams)
       });
     },

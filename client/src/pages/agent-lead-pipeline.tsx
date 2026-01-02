@@ -104,7 +104,7 @@ export default function AgentLeadPipeline() {
   });
 
   const createLeadMutation = useMutation({
-    mutationFn: (data: typeof newLead) => apiRequest('/api/agent/leads', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: (data: typeof newLead) => apiRequest('/api/agent/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/agent/leads'] });
       queryClient.invalidateQueries({ queryKey: ['/api/agent/leads/stats'] });
@@ -116,7 +116,7 @@ export default function AgentLeadPipeline() {
 
   const updateLeadStageMutation = useMutation({
     mutationFn: ({ id, stage }: { id: string; stage: string }) => 
-      apiRequest(`/api/agent/leads/${id}/stage`, { method: 'PATCH', body: JSON.stringify({ stage }) }),
+      apiRequest(`/api/agent/leads/${id}/stage`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage }) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/agent/leads'] });
       queryClient.invalidateQueries({ queryKey: ['/api/agent/leads/stats'] });

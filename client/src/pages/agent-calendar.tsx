@@ -173,7 +173,7 @@ export default function AgentCalendar() {
   const clients = clientsData?.clients || [];
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/agent/appointments', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: (data: any) => apiRequest('/api/agent/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/agent/appointments'] });
       setShowAddDialog(false);
@@ -186,7 +186,7 @@ export default function AgentCalendar() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest(`/api/agent/appointments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest(`/api/agent/appointments/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/agent/appointments'] });
       setShowDetailDialog(false);
@@ -211,7 +211,7 @@ export default function AgentCalendar() {
   });
 
   const sendReminderMutation = useMutation({
-    mutationFn: ({ id, method }: { id: string; method: string }) => apiRequest(`/api/agent/appointments/${id}/send-reminder`, { method: 'POST', body: JSON.stringify({ method }) }),
+    mutationFn: ({ id, method }: { id: string; method: string }) => apiRequest(`/api/agent/appointments/${id}/send-reminder`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method }) }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/agent/appointments'] });
       toast({ title: `Reminder sent via ${variables.method}` });

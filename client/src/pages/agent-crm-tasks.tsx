@@ -91,7 +91,7 @@ export default function AgentCrmTasks() {
   });
 
   const createTaskMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/crm/tasks", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => apiRequest("/api/crm/tasks", { method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/tasks"] });
       setNewTaskOpen(false);
@@ -102,7 +102,7 @@ export default function AgentCrmTasks() {
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: string; status?: string }) => 
-      apiRequest(`/api/crm/tasks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      apiRequest(`/api/crm/tasks/${id}`, { method: "PATCH", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/tasks"] });
       toast({ title: "Task updated" });

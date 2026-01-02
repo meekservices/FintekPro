@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Users, ArrowRight, Target } from "lucide-react";
+import { Search, Users, ArrowRight, Target, Shield, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Client {
   id: string;
@@ -25,9 +26,70 @@ export default function AgentRecommendationControlPage() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: clients, isLoading } = useQuery<Client[]>({
+  const { data: clients, isLoading, isError, error } = useQuery<Client[]>({
     queryKey: ["/api/agent/clients", searchQuery],
+    retry: false,
   });
+
+  // Handle authentication errors - redirect to login
+  if (isError) {
+    const errorStatus = (error as any)?.status || (error as any)?.response?.status;
+    const isAuthError = errorStatus === 401;
+    
+    if (isAuthError) {
+      return (
+        <AgentLayout>
+          <div className="p-6 flex items-center justify-center min-h-[60vh]">
+            <Card className="w-full max-w-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  Authentication Required
+                </CardTitle>
+                <CardDescription>
+                  Please log in to access the Recommendation Control Panel
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  You need to be authenticated as an agent to access client recommendations.
+                </p>
+                <Button 
+                  className="w-full" 
+                  onClick={() => navigate('/login')}
+                  data-testid="button-login-redirect"
+                >
+                  Go to Login
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </AgentLayout>
+      );
+    }
+
+    // Show generic error for other errors
+    const errorMessage = (error as any)?.message || 'An unexpected error occurred';
+    return (
+      <AgentLayout>
+        <div className="p-6 space-y-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load clients. Please try again later.
+            </AlertDescription>
+          </Alert>
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.reload()}
+            data-testid="button-retry"
+          >
+            Retry
+          </Button>
+        </div>
+      </AgentLayout>
+    );
+  }
 
   const filteredClients = clients?.filter(
     (client) =>

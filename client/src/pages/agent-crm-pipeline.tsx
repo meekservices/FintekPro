@@ -86,7 +86,7 @@ export default function AgentCrmPipeline() {
   });
 
   const createOpportunityMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/crm/opportunities", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => apiRequest("/api/crm/opportunities", { method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/opportunities/by-stage"] });
       setNewOppDialogOpen(false);
@@ -102,6 +102,7 @@ export default function AgentCrmPipeline() {
     mutationFn: ({ id, stage }: { id: string; stage: string }) => 
       apiRequest(`/api/crm/opportunities/${id}/stage`, { 
         method: "PATCH", 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage, agentId: user?.id }) 
       }),
     onSuccess: () => {

@@ -91,7 +91,7 @@ export default function AgentTrainingPage() {
 
   const submitQuizMutation = useMutation({
     mutationFn: (data: { playbookId: string; answers: Record<string, number> }) =>
-      apiRequest("/api/agent/training/submit-quiz", { method: "POST", body: JSON.stringify(data) }),
+      apiRequest("/api/agent/training/submit-quiz", { method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     onSuccess: (result: any) => {
       setQuizResult({ score: result.score, passed: result.passed });
       setQuizSubmitted(true);

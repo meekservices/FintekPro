@@ -80,7 +80,7 @@ export default function AgentCrmClient360() {
   });
 
   const addInteractionMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/crm/interactions", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => apiRequest("/api/crm/interactions", { method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/clients", clientId, "overview"] });
       setInteractionDialogOpen(false);
