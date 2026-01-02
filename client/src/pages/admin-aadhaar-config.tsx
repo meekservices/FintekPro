@@ -102,6 +102,7 @@ export default function AdminAadhaarConfig() {
     mutationFn: async (provider: string) => {
       return apiRequest("/api/admin/aadhaar/set-provider", {
         method: "POST",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider }),
       });
     },
@@ -125,6 +126,7 @@ export default function AdminAadhaarConfig() {
     mutationFn: async ({ provider, pricePerVerification }: { provider: string; pricePerVerification: number }) => {
       return apiRequest("/api/admin/aadhaar/pricing", {
         method: "PATCH",
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider, pricePerVerification }),
       });
     },

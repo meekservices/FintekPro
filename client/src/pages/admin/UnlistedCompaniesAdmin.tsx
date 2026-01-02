@@ -1338,7 +1338,7 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
   // Create company mutation
   const createCompanyMutation = useMutation({
     mutationFn: async (data: { name: string; cin?: string; probe42CompanyId: string }) => {
-      return apiRequest('/api/unlisted/companies', { method: 'POST', body: JSON.stringify(data) });
+      return apiRequest('/api/unlisted/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     },
     onSuccess: async (result) => {
       const companyId = result.data?.id;
