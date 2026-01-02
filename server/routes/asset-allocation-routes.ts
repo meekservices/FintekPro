@@ -2,6 +2,10 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { assetAllocationOptimizer } from "../services/asset-allocation-optimizer";
 import { rebalancingEngine, RebalanceInput } from "../services/rebalancing-engine";
+import { 
+  getCachedRebalanceSummary, 
+  cacheRebalanceSummary
+} from "../services/investment-cache-service";
 
 const router = Router();
 
@@ -198,6 +202,49 @@ const comprehensiveRebalanceSchema = z.object({
 router.post("/rebalance/analyze", async (req: Request, res: Response) => {
   try {
     const input = comprehensiveRebalanceSchema.parse(req.body);
+    const userId = (req as any).user?.id;
+    const portfolioId = req.body.portfolioId;
+    
+    // Check cache for pre-computed rebalance summary
+    if (userId && portfolioId) {
+      try {
+        const cached = await getCachedRebalanceSummary(userId, portfolioId);
+        if (cached && cached.status === 'pending') {
+          console.log(`📦 Cache HIT for rebalance analysis (user: ${userId}, portfolio: ${portfolioId})`);
+          // Reconstruct analysis from cached data
+          const cachedAnalysis = {
+            needsRebalance: cached.exceedsDriftThreshold || false,
+            urgency: (cached.exceedsDriftThreshold ? 'recommended' : 'none') as 'immediate' | 'recommended' | 'optional' | 'none',
+            driftAnalysis: {
+              maxDrift: parseFloat(cached.totalDrift || '0'),
+              equityDrift: 0,
+              debtDrift: 0,
+              portfolioRiskDrift: 0,
+              averageDrift: parseFloat(cached.totalDrift || '0'),
+              assetDrifts: []
+            },
+            trades: [...(cached.suggestedBuys as any[] || []), ...(cached.suggestedSells as any[] || [])],
+            summary: { totalBuyValue: 0, totalSellValue: 0, netCashFlow: 0, numberOfTrades: 0, estimatedTotalTax: 0, portfolioTurnover: 0 },
+            constraints: { 
+              equityRange: { min: 0, max: 100, current: parseFloat(cached.currentEquity || '0'), target: parseFloat(cached.targetEquity || '0'), inRange: true },
+              debtRange: { min: 0, max: 100, current: parseFloat(cached.currentDebt || '0'), target: parseFloat(cached.targetDebt || '0'), inRange: true },
+              liquidityRange: { min: 0, max: 100, current: 0, target: 0, inRange: true },
+              singleAssetLimit: { max: 30, violations: [] }
+            },
+            recommendations: []
+          };
+          res.json({
+            success: true,
+            data: cachedAnalysis,
+            cached: true,
+            cachedAt: cached.computedAt
+          });
+          return;
+        }
+      } catch (cacheError) {
+        console.warn('Rebalance cache lookup failed:', cacheError);
+      }
+    }
     
     const rebalanceInput: RebalanceInput = {
       ...input,
@@ -210,9 +257,42 @@ router.post("/rebalance/analyze", async (req: Request, res: Response) => {
     
     const analysis = rebalancingEngine.analyzeAndRebalance(rebalanceInput);
     
+    // Cache the result for future use
+    if (userId && portfolioId) {
+      const targetAllocations = analysis.trades.reduce((acc, t) => {
+        acc[t.assetType] = t.targetAllocation;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      cacheRebalanceSummary(
+        {
+          userId,
+          portfolioId,
+          targetEquity: (targetAllocations['equity'] || 0).toString(),
+          targetDebt: (targetAllocations['debt'] || 0).toString(),
+          targetGold: (targetAllocations['gold'] || 0).toString(),
+          targetCash: (targetAllocations['cash'] || 0).toString(),
+          targetAlternatives: (targetAllocations['alternatives'] || 0).toString(),
+          currentEquity: (input.currentAllocations['equity'] || 0).toString(),
+          currentDebt: (input.currentAllocations['debt'] || 0).toString(),
+          currentGold: (input.currentAllocations['gold'] || 0).toString(),
+          currentCash: (input.currentAllocations['cash'] || 0).toString(),
+          currentAlternatives: (input.currentAllocations['alternatives'] || 0).toString(),
+          totalDrift: analysis.driftAnalysis.maxDrift.toString(),
+          driftThreshold: (input.driftThreshold || 5).toString(),
+          exceedsDriftThreshold: analysis.driftAnalysis.maxDrift > (input.driftThreshold || 5),
+          suggestedBuys: analysis.trades.filter(t => t.action === 'buy'),
+          suggestedSells: analysis.trades.filter(t => t.action === 'sell'),
+          status: 'pending'
+        },
+        4 // 4-hour TTL
+      ).catch(err => console.warn('Failed to cache rebalance analysis:', err));
+    }
+    
     res.json({
       success: true,
-      data: analysis
+      data: analysis,
+      cached: false
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

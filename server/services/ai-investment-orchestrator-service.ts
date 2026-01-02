@@ -31,6 +31,13 @@ import {
   normalizeProducts,
   productAdapters 
 } from "./product-adapters";
+import {
+  getCachedRationale,
+  cacheRationale,
+  getCachedMarketDataBatch,
+  cacheMarketData,
+  getCachedFundamentalsBatch
+} from "./investment-cache-service";
 
 interface OrchestratorConfig {
   maxProductsPerType: number;
@@ -621,22 +628,52 @@ class AIInvestmentOrchestratorService {
     // Allow AI rationales if either GPT-5.2 or Gemini is available
     if (!this.genAI && !isGpt52Available()) return;
     
-    const itemsNeedingRationale = basket.products.filter(item => {
-      const cacheKey = this.getRationaleCacheKey(item.product, clientProfile);
-      const cached = this.rationaleCache.get(cacheKey);
-      if (cached) {
-        const ttl = AI_RATIONALE_TTL[item.product.product_type] || 4 * 60 * 60 * 1000;
-        if (Date.now() - cached.timestamp.getTime() < ttl) {
+    const itemsNeedingRationale: BasketItem[] = [];
+    
+    // Check database cache for each item
+    for (const item of basket.products) {
+      const inputParams = {
+        productId: item.product.product_id,
+        productType: item.product.product_type,
+        riskCategory: clientProfile.risk_category,
+        allocation: item.allocation_percent
+      };
+      
+      try {
+        const cached = await getCachedRationale('investment_recommendation', inputParams);
+        if (cached) {
           item.ai_explanation = cached.rationale;
-          item.pros = cached.pros;
-          item.cons = cached.cons;
-          return false;
+          if (cached.keyPoints) {
+            const keyPoints = cached.keyPoints as any[];
+            item.pros = keyPoints.filter(p => p.type === 'pro').map(p => p.text);
+            item.cons = keyPoints.filter(p => p.type === 'con').map(p => p.text);
+          }
+          console.log(`📦 Cache HIT for ${item.product.name} rationale`);
+          continue;
+        }
+      } catch (error) {
+        console.warn('Cache lookup failed:', error);
+      }
+      
+      // Also check in-memory cache as fallback
+      const memCacheKey = this.getRationaleCacheKey(item.product, clientProfile);
+      const memCached = this.rationaleCache.get(memCacheKey);
+      if (memCached) {
+        const ttl = AI_RATIONALE_TTL[item.product.product_type] || 4 * 60 * 60 * 1000;
+        if (Date.now() - memCached.timestamp.getTime() < ttl) {
+          item.ai_explanation = memCached.rationale;
+          item.pros = memCached.pros;
+          item.cons = memCached.cons;
+          continue;
         }
       }
-      return true;
-    });
+      
+      itemsNeedingRationale.push(item);
+    }
     
     if (itemsNeedingRationale.length === 0) return;
+    
+    console.log(`🔄 Generating ${itemsNeedingRationale.length} AI rationales (cache miss)`);
     
     const batchSize = 3;
     for (let i = 0; i < itemsNeedingRationale.length; i += batchSize) {
@@ -653,6 +690,8 @@ class AIInvestmentOrchestratorService {
     // Use GPT-5.2 Thinking for complex financial analysis if available, otherwise Gemini
     const useGpt52 = isGpt52Available();
     if (!this.genAI && !useGpt52) return;
+    
+    const startTime = Date.now();
     
     try {
       const prompt = `Generate a brief investment rationale for:
@@ -671,10 +710,12 @@ Provide:
 Format response as JSON: {"rationale": "...", "pros": ["...", "...", "..."], "cons": ["...", "...", "..."]}`;
 
       let text = '';
+      let modelUsed = '';
       
       if (useGpt52) {
         // Use GPT-5.2 Thinking for enhanced reasoning on complex financial analysis
         const { provider, model } = getComplexAnalysisModel();
+        modelUsed = model;
         const response = await aiService.chat(
           [{ role: 'user', content: prompt }],
           { provider, model, maxTokens: 1024, reasoningEffort: 'high' }
@@ -683,6 +724,7 @@ Format response as JSON: {"rationale": "...", "pros": ["...", "...", "..."], "co
         console.log(`📊 Investment rationale generated using ${model}`);
       } else if (this.genAI) {
         // Fallback to Gemini
+        modelUsed = 'gemini-2.0-flash-001';
         const response = await this.genAI.models.generateContent({
           model: 'gemini-2.0-flash-001',
           contents: prompt,
@@ -697,6 +739,7 @@ Format response as JSON: {"rationale": "...", "pros": ["...", "...", "..."], "co
         if (parsed.pros?.length) item.pros = parsed.pros;
         if (parsed.cons?.length) item.cons = parsed.cons;
         
+        // Store in in-memory cache
         const cacheKey = this.getRationaleCacheKey(item.product, clientProfile);
         this.rationaleCache.set(cacheKey, {
           rationale: parsed.rationale,
@@ -704,6 +747,37 @@ Format response as JSON: {"rationale": "...", "pros": ["...", "...", "..."], "co
           cons: parsed.cons || [],
           timestamp: new Date(),
         });
+        
+        // Store in database cache for cross-session persistence
+        const inputParams = {
+          productId: item.product.product_id,
+          productType: item.product.product_type,
+          riskCategory: clientProfile.risk_category,
+          allocation: item.allocation_percent
+        };
+        
+        const keyPoints = [
+          ...(parsed.pros || []).map((t: string) => ({ type: 'pro', text: t })),
+          ...(parsed.cons || []).map((t: string) => ({ type: 'con', text: t }))
+        ];
+        
+        const ttlHours = (AI_RATIONALE_TTL[item.product.product_type] || 4 * 60 * 60 * 1000) / (60 * 60 * 1000);
+        
+        await cacheRationale(
+          'investment_recommendation',
+          inputParams,
+          parsed.rationale,
+          {
+            summary: parsed.rationale.substring(0, 200),
+            keyPoints,
+            modelUsed,
+            generationTimeMs: Date.now() - startTime,
+            productType: item.product.product_type,
+            productId: item.product.product_id,
+            riskProfile: clientProfile.risk_category
+          },
+          ttlHours
+        ).catch(err => console.warn('Failed to persist rationale cache:', err));
       }
     } catch (error) {
       console.warn(`AI rationale generation failed for ${item.product.name}:`, error);
