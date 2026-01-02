@@ -196,16 +196,12 @@ export function EnhancedNavigation() {
             { name: "AI Rebalancing", href: "/portfolio/rebalancing", description: "Smart portfolio rebalancing", badge: "AI" }
           ]
         },
-        // Proposals visible to all authenticated users
+        // Proposals visible to all authenticated users - single page with tabs
         ...(isAuthenticated ? [{
           name: "My Proposals",
+          href: "/my-proposals",
           icon: ClipboardCheck,
-          description: "Investment recommendations",
-          subItems: [
-            { name: "AI Proposals", href: "/my-proposals?type=ai", description: "AI-generated recommendations", badge: "AI" },
-            { name: "Agent Proposals", href: "/my-proposals?type=agent", description: "Agent-created proposals" },
-            { name: "Proposal History", href: "/my-proposals?tab=history", description: "Accepted & rejected proposals" }
-          ]
+          description: "AI, Agent & Self-requested investment recommendations"
         }] : []),
         {
           name: "Net Worth",

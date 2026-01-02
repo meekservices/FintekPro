@@ -151,6 +151,7 @@ import ManualKYCPage from "@/pages/manual-kyc";
 import NetWorthPage from "@/pages/net-worth";
 import AdminProposalsPage from "@/pages/admin-proposals";
 import ClientProposalsPage from "@/pages/client-proposals";
+import MyProposalsPage from "@/pages/my-proposals";
 import TaxDocuments from "@/pages/tax-documents";
 import ITRPrefilled from "@/pages/itr-prefilled";
 import TaxDataCenter from "@/pages/tax-data-center";
@@ -349,7 +350,7 @@ function UserProtectedRoutes() {
         <Route path="/investsmart" component={InvestSmart} />
         <Route path="/wealth-management" component={InvestSmart} />
         <Route path="/proposals" component={ProposalsPage} />
-        <Route path="/my-proposals" component={ClientProposalsPage} />
+        <Route path="/my-proposals" component={MyProposalsPage} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/capital-gains" component={CapitalGainsReports} />
         <Route path="/reports" component={ReportsHub} />

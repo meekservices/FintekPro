@@ -2541,6 +2541,7 @@ export const investmentProposals = pgTable("investment_proposals", {
   
   // Proposal source identification
   proposalSource: varchar("proposal_source").notNull().default("agent"), // 'ai', 'agent', 'client', or 'hybrid'
+  aiSubType: varchar("ai_sub_type"), // 'rebalancing', 'retirement', 'goals' - for AI proposals
   aiModelVersion: varchar("ai_model_version"), // AI model version used for generation
   aiConfidenceScore: decimal("ai_confidence_score", { precision: 5, scale: 2 }), // AI confidence 0-100
   

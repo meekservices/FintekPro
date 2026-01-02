@@ -155,6 +155,7 @@ import { registerAgentGovernanceRoutes } from "./routes/agent-governance-routes"
 import { registerAppointmentManagementRoutes } from "./routes/appointment-management-routes";
 import unifiedPortfolioRoutes from "./routes/unified-portfolio-routes";
 import aiRebalancingRoutes from "./routes/ai-rebalancing-routes";
+import unifiedProposalsRoutes from "./routes/unified-proposals-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -536,9 +537,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/us-trading", usTradingRoutes);
   app.use(unifiedPortfolioRoutes);
   app.use(aiRebalancingRoutes);
+  app.use("/api/unified-proposals", unifiedProposalsRoutes);
   console.log("✅ US Trading routes registered");
   console.log("✅ Unified Portfolio routes registered");
   console.log("✅ AI Rebalancing routes registered");
+  console.log("✅ Unified Proposals routes registered");
   console.log("✅ Error Tracking routes registered");
   console.log("✅ AI Recommendation Tracking routes registered");
   
