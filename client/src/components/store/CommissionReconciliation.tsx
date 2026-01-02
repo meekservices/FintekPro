@@ -182,17 +182,36 @@ export function CommissionReconciliation() {
   });
 
   const approvePayoutMutation = useMutation({
-    mutationFn: async (payoutId: string) => {
-      return apiRequest(`/api/admin/commission-payouts/${payoutId}/approve`, { method: 'POST' });
+    mutationFn: async ({ payoutId, forceLocalApproval = false }: { payoutId: string; forceLocalApproval?: boolean }) => {
+      const response = await fetch(`/api/admin/commission-payouts/${payoutId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ forceLocalApproval })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Approval failed');
+      }
+      return data;
     },
-    onSuccess: () => {
-      toast({ title: "Payout Approved", description: "Commission payout approved successfully" });
+    onSuccess: (data) => {
+      const description = data.zohoBillId 
+        ? `Commission payout approved with Zoho Bill ${data.zohoBillId}`
+        : data.requiresZohoSync 
+          ? "Approved locally - Zoho sync pending"
+          : "Commission payout approved successfully";
+      toast({ title: "Payout Approved", description });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/commission-payouts'] });
     },
     onError: (error: any) => {
+      const errorMsg = error.message || "Failed to approve payout";
+      const isZohoError = errorMsg.includes('Zoho');
       toast({
-        title: "Approval Failed",
-        description: error.message || "Failed to approve payout",
+        title: isZohoError ? "Zoho Sync Failed" : "Approval Failed",
+        description: isZohoError 
+          ? `${errorMsg}. Click "Force Approve" to approve without Zoho sync.`
+          : errorMsg,
         variant: "destructive",
       });
     },
@@ -568,15 +587,32 @@ export function CommissionReconciliation() {
                         </TableCell>
                         <TableCell>
                           {payout.status === 'pending' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => approvePayoutMutation.mutate(payout.id)}
-                              disabled={approvePayoutMutation.isPending}
-                              data-testid={`button-approve-${payout.id}`}
-                            >
-                              Approve
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => approvePayoutMutation.mutate({ payoutId: payout.id, forceLocalApproval: false })}
+                                disabled={approvePayoutMutation.isPending}
+                                data-testid={`button-approve-${payout.id}`}
+                              >
+                                {approvePayoutMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : null}
+                                Approve
+                              </Button>
+                              {!zohoStatus?.connected && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-xs"
+                                  onClick={() => approvePayoutMutation.mutate({ payoutId: payout.id, forceLocalApproval: true })}
+                                  disabled={approvePayoutMutation.isPending}
+                                  data-testid={`button-force-approve-${payout.id}`}
+                                >
+                                  Force
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>

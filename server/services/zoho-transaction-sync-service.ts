@@ -1106,10 +1106,12 @@ class ZohoTransactionSyncService {
       
       return commissions.map((row) => {
         // Map settlement status to payout status
+        // Agent commissions schema: pending/settled/cancelled
+        // UI expects: pending/approved/paid/rejected
         let status: 'pending' | 'approved' | 'paid' | 'rejected' = 'pending';
-        if (row.agentSettlementStatus === 'settled') status = 'paid';
-        else if (row.agentSettlementStatus === 'approved') status = 'approved';
+        if (row.agentSettlementStatus === 'settled') status = 'paid'; // settled = paid/approved
         else if (row.agentSettlementStatus === 'cancelled') status = 'rejected';
+        // 'pending' stays as 'pending'
         
         return {
           id: row.id,
@@ -1177,15 +1179,24 @@ class ZohoTransactionSyncService {
   }
 
   /**
-   * Approve a commission payout and create Zoho Bill
+   * Approve a commission payout and optionally create Zoho Bill
+   * Status flow: pending → settled (for agent) or pending → approved → paid (for partner)
+   * 
+   * Behavior:
+   * - If Zoho is NOT configured: Approve locally (offline mode)
+   * - If Zoho IS configured: Only approve if Zoho bill creation succeeds
    */
-  async approveCommissionPayout(payoutId: string): Promise<{
+  async approveCommissionPayout(payoutId: string, options?: { 
+    forceLocalApproval?: boolean 
+  }): Promise<{
     success: boolean;
     zohoBillId?: string;
     error?: string;
+    requiresZohoSync?: boolean;
   }> {
     try {
       const zohoService = await getZohoBooksService();
+      const zohoConfigured = zohoService !== null;
       
       // Try agent_commissions first
       let payout: any = null;
@@ -1201,7 +1212,6 @@ class ZohoTransactionSyncService {
           payout = agentPayout;
         }
       } catch (e) {
-        // Table might not exist, try partner_commissions
         console.warn('[ZohoSync] Agent commissions query failed:', e);
       }
       
@@ -1225,42 +1235,72 @@ class ZohoTransactionSyncService {
         return { success: false, error: 'Payout not found' };
       }
       
-      // Create Zoho Bill if connected
+      // Check if already settled/approved
+      const currentStatus = tableName === 'agent_commissions' 
+        ? payout.agentSettlementStatus 
+        : payout.status;
+      
+      if (currentStatus === 'settled' || currentStatus === 'approved' || currentStatus === 'paid') {
+        return { success: true, error: 'Payout already approved' };
+      }
+      
+      // Attempt Zoho Bill creation if Zoho is connected
       let zohoBillId: string | undefined;
-      if (zohoService) {
+      let zohoBillError: string | undefined;
+      
+      if (zohoConfigured && zohoService) {
         try {
           const netAmount = payout.agentNetCommission || payout.netCommission || '0';
+          const vendorRef = `Agent-${(payout.agentId || payout.partnerId || 'Unknown').substring(0, 8)}`;
+          
           const bill = await zohoService.createBill({
-            vendor_name: payout.agentId || payout.partnerId || 'Unknown',
+            vendor_name: vendorRef,
             reference_number: `COMM-${payoutId.substring(0, 8)}`,
             date: new Date().toISOString().split('T')[0],
             line_items: [{
               name: 'Commission Payout',
-              description: `Commission for ${payout.productType || 'transaction'}`,
+              description: `Commission for ${payout.productType || 'transaction'} - Order: ${payout.orderId || payout.transactionId || 'N/A'}`,
               rate: parseFloat(netAmount.toString()),
               quantity: 1
             }],
-            notes: `Transaction: ${payout.orderId || payout.transactionId || ''}`
+            notes: `Payout ID: ${payoutId}\nTransaction: ${payout.orderId || payout.transactionId || ''}`
           });
           zohoBillId = bill?.bill?.bill_id || bill?.bill_id;
-        } catch (err) {
-          console.warn('[ZohoSync] Bill creation failed:', err);
+          
+          if (!zohoBillId) {
+            zohoBillError = 'Zoho bill created but no bill ID returned';
+            console.warn('[ZohoSync] Bill created but no ID returned:', bill);
+          }
+        } catch (err: any) {
+          zohoBillError = err.message || 'Zoho bill creation failed';
+          console.error('[ZohoSync] Bill creation failed:', err);
+          
+          // If Zoho is configured but bill creation fails, don't approve unless forced
+          if (!options?.forceLocalApproval) {
+            return { 
+              success: false, 
+              error: `Zoho bill creation failed: ${zohoBillError}. Use force approval for local-only mode.`,
+              requiresZohoSync: true
+            };
+          }
         }
       }
       
       // Update the payout status using Drizzle ORM
+      // Agent commissions: pending → settled (schema only supports pending/settled/cancelled)
+      // Partner commissions: pending → approved (with zohoBillId if available)
       if (tableName === 'agent_commissions') {
         await db.update(schema.agentCommissions)
           .set({ 
-            agentSettlementStatus: 'approved',
+            agentSettlementStatus: 'settled', // Use 'settled' as the approved/paid state
             agentSettledAt: new Date(),
           })
           .where(eq(schema.agentCommissions.id, payoutId));
         
-        console.log(`[ZohoSync] Agent commission ${payoutId} approved`);
+        console.log(`[ZohoSync] Agent commission ${payoutId} marked as settled${zohoBillId ? ` (Zoho Bill: ${zohoBillId})` : ' (local only)'}`);
       } else {
         // Partner commissions table has zohoBillId field
-        const updateData: any = { 
+        const updateData: Record<string, any> = { 
           status: 'approved',
         };
         if (zohoBillId) {
@@ -1271,10 +1311,20 @@ class ZohoTransactionSyncService {
           .set(updateData)
           .where(eq(schema.partnerCommissions.id, payoutId));
         
-        console.log(`[ZohoSync] Partner commission ${payoutId} approved${zohoBillId ? ` with Zoho Bill ${zohoBillId}` : ''}`);
+        console.log(`[ZohoSync] Partner commission ${payoutId} approved${zohoBillId ? ` with Zoho Bill ${zohoBillId}` : ' (local only)'}`);
       }
       
-      return { success: true, zohoBillId };
+      // Return success with sync status
+      const syncMessage = zohoConfigured 
+        ? (zohoBillId ? undefined : `Approved locally - Zoho sync pending: ${zohoBillError}`)
+        : 'Approved locally (Zoho not configured)';
+        
+      return { 
+        success: true, 
+        zohoBillId,
+        error: syncMessage,
+        requiresZohoSync: zohoConfigured && !zohoBillId
+      };
     } catch (error: any) {
       console.error('[ZohoSync] Error approving payout:', error);
       return { success: false, error: error.message };

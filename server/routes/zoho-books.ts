@@ -555,7 +555,16 @@ export function registerZohoBooksRoutes(app: Express) {
 
   app.post('/api/admin/commission-payouts/:id/approve', requireAdminOrAccounts, async (req, res) => {
     try {
-      const result = await zohoTransactionSyncService.approveCommissionPayout(req.params.id);
+      const { forceLocalApproval } = req.body || {};
+      const result = await zohoTransactionSyncService.approveCommissionPayout(
+        req.params.id, 
+        { forceLocalApproval: !!forceLocalApproval }
+      );
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
       res.json(result);
     } catch (error: any) {
       console.error('Error approving payout:', error);
