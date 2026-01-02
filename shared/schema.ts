@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, integer, date, bigint, numeric, pgEnum, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -22760,3 +22760,443 @@ export const ckycEscalationHistory = pgTable("ckyc_escalation_history", {
 export const insertCkycEscalationHistorySchema = createInsertSchema(ckycEscalationHistory).omit({ id: true, escalatedAt: true });
 export type CkycEscalationHistory = typeof ckycEscalationHistory.$inferSelect;
 export type InsertCkycEscalationHistory = z.infer<typeof insertCkycEscalationHistorySchema>;
+
+// =====================================================
+// MARKET DATA & INVESTMENT CACHE TABLES
+// Reduces API calls for portfolio rebalancing, proposals, and rationale generation
+// =====================================================
+
+// Market Data Snapshots - Daily price cache for all asset types
+export const marketDataSnapshots = pgTable("market_data_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Asset Identification
+  assetType: varchar("asset_type", { length: 50 }).notNull(), // stock, bond, mf, pms, aif, unlisted, ncd, pre_ipo, reit, invit
+  assetId: varchar("asset_id", { length: 100 }).notNull(), // ISIN, symbol, scheme code, etc.
+  assetName: varchar("asset_name", { length: 255 }),
+  exchange: varchar("exchange", { length: 20 }), // NSE, BSE, AMFI, etc.
+  
+  // Pricing Data
+  currentPrice: numeric("current_price", { precision: 18, scale: 4 }),
+  previousClose: numeric("previous_close", { precision: 18, scale: 4 }),
+  dayHigh: numeric("day_high", { precision: 18, scale: 4 }),
+  dayLow: numeric("day_low", { precision: 18, scale: 4 }),
+  weekHigh52: numeric("week_high_52", { precision: 18, scale: 4 }),
+  weekLow52: numeric("week_low_52", { precision: 18, scale: 4 }),
+  nav: numeric("nav", { precision: 18, scale: 4 }), // For MFs
+  
+  // Returns Data (cached to avoid recalculation)
+  return1D: numeric("return_1d", { precision: 8, scale: 4 }),
+  return1W: numeric("return_1w", { precision: 8, scale: 4 }),
+  return1M: numeric("return_1m", { precision: 8, scale: 4 }),
+  return3M: numeric("return_3m", { precision: 8, scale: 4 }),
+  return6M: numeric("return_6m", { precision: 8, scale: 4 }),
+  return1Y: numeric("return_1y", { precision: 8, scale: 4 }),
+  return3Y: numeric("return_3y", { precision: 8, scale: 4 }),
+  return5Y: numeric("return_5y", { precision: 8, scale: 4 }),
+  returnSI: numeric("return_si", { precision: 8, scale: 4 }),
+  
+  // Volume & AUM
+  volume: bigint("volume", { mode: "number" }),
+  aum: numeric("aum", { precision: 18, scale: 2 }),
+  
+  // Yield data (for bonds/NCDs)
+  yieldToMaturity: numeric("yield_to_maturity", { precision: 8, scale: 4 }),
+  couponRate: numeric("coupon_rate", { precision: 8, scale: 4 }),
+  
+  // Cache Metadata
+  dataSource: varchar("data_source", { length: 50 }), // yahoo, nse, bse, amfi, moneycontrol, etc.
+  snapshotDate: date("snapshot_date").notNull(),
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isStale: boolean("is_stale").default(false),
+  
+  // Raw data for debugging
+  rawData: jsonb("raw_data"),
+}, (table) => [
+  index("idx_mds_asset_type").on(table.assetType),
+  index("idx_mds_asset_id").on(table.assetId),
+  index("idx_mds_snapshot_date").on(table.snapshotDate),
+  index("idx_mds_expires").on(table.expiresAt),
+  uniqueIndex("idx_mds_asset_unique").on(table.assetType, table.assetId, table.snapshotDate),
+]);
+
+export const insertMarketDataSnapshotSchema = createInsertSchema(marketDataSnapshots).omit({ id: true, fetchedAt: true });
+export type MarketDataSnapshot = typeof marketDataSnapshots.$inferSelect;
+export type InsertMarketDataSnapshot = z.infer<typeof insertMarketDataSnapshotSchema>;
+
+// Product Fundamentals Cache - Company/fund fundamentals, ratings, and risk metrics
+export const productFundamentalsCache = pgTable("product_fundamentals_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Product Identification
+  productType: varchar("product_type", { length: 50 }).notNull(), // stock, bond, mf, pms, aif, unlisted, ncd
+  productId: varchar("product_id", { length: 100 }).notNull(), // ISIN, symbol, scheme code
+  productName: varchar("product_name", { length: 255 }),
+  
+  // Stock/Company Fundamentals
+  marketCap: numeric("market_cap", { precision: 18, scale: 2 }),
+  peRatio: numeric("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: numeric("pb_ratio", { precision: 10, scale: 2 }),
+  eps: numeric("eps", { precision: 12, scale: 4 }),
+  dividendYield: numeric("dividend_yield", { precision: 8, scale: 4 }),
+  roe: numeric("roe", { precision: 8, scale: 4 }),
+  roce: numeric("roce", { precision: 8, scale: 4 }),
+  debtToEquity: numeric("debt_to_equity", { precision: 10, scale: 4 }),
+  revenueGrowth3Y: numeric("revenue_growth_3y", { precision: 8, scale: 4 }),
+  profitGrowth3Y: numeric("profit_growth_3y", { precision: 8, scale: 4 }),
+  
+  // Fund Fundamentals (MF/PMS/AIF)
+  expenseRatio: numeric("expense_ratio", { precision: 6, scale: 4 }),
+  exitLoad: numeric("exit_load", { precision: 6, scale: 4 }),
+  alpha: numeric("alpha", { precision: 8, scale: 4 }),
+  beta: numeric("beta", { precision: 8, scale: 4 }),
+  sharpeRatio: numeric("sharpe_ratio", { precision: 8, scale: 4 }),
+  sortinoRatio: numeric("sortino_ratio", { precision: 8, scale: 4 }),
+  standardDeviation: numeric("standard_deviation", { precision: 8, scale: 4 }),
+  maxDrawdown: numeric("max_drawdown", { precision: 8, scale: 4 }),
+  
+  // Bond/NCD Fundamentals
+  creditRating: varchar("credit_rating", { length: 20 }),
+  creditRatingAgency: varchar("credit_rating_agency", { length: 50 }),
+  maturityDate: date("maturity_date"),
+  faceValue: numeric("face_value", { precision: 12, scale: 2 }),
+  
+  // Risk Metrics
+  riskScore: integer("risk_score"), // 1-10
+  volatilityScore: integer("volatility_score"), // 1-10
+  liquidityScore: integer("liquidity_score"), // 1-10
+  
+  // Ratings & Scores
+  fintekproRating: numeric("fintekpro_rating", { precision: 4, scale: 2 }), // 0-5
+  morningstarRating: integer("morningstar_rating"), // 1-5 stars
+  valueResearchRating: integer("value_research_rating"), // 1-5 stars
+  
+  // Sector & Category
+  sector: varchar("sector", { length: 100 }),
+  industry: varchar("industry", { length: 100 }),
+  category: varchar("category", { length: 100 }),
+  subcategory: varchar("subcategory", { length: 100 }),
+  
+  // Manager Info (for funds)
+  fundManagerId: varchar("fund_manager_id"),
+  fundManagerName: varchar("fund_manager_name", { length: 255 }),
+  
+  // Cache Metadata
+  dataSource: varchar("data_source", { length: 50 }),
+  cachedAt: timestamp("cached_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  ttlHours: integer("ttl_hours").default(24),
+  
+  // Raw API response for debugging
+  rawData: jsonb("raw_data"),
+}, (table) => [
+  index("idx_pfc_product_type").on(table.productType),
+  index("idx_pfc_product_id").on(table.productId),
+  index("idx_pfc_expires").on(table.expiresAt),
+  uniqueIndex("idx_pfc_product_unique").on(table.productType, table.productId),
+  index("idx_pfc_sector").on(table.sector),
+]);
+
+export const insertProductFundamentalsCacheSchema = createInsertSchema(productFundamentalsCache).omit({ id: true, cachedAt: true });
+export type ProductFundamentalsCache = typeof productFundamentalsCache.$inferSelect;
+export type InsertProductFundamentalsCache = z.infer<typeof insertProductFundamentalsCacheSchema>;
+
+// AI Rationale Cache - Store generated AI explanations with input hash for reuse
+export const aiRationaleCache = pgTable("ai_rationale_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Cache Key (hash of inputs)
+  inputHash: varchar("input_hash", { length: 64 }).notNull(), // SHA-256 of input parameters
+  rationaleType: varchar("rationale_type", { length: 50 }).notNull(), // recommendation, rebalancing, proposal, risk_analysis
+  
+  // Input Context (for debugging and cache validation)
+  productType: varchar("product_type", { length: 50 }),
+  productId: varchar("product_id", { length: 100 }),
+  userId: varchar("user_id").references(() => users.id),
+  riskProfile: varchar("risk_profile", { length: 50 }),
+  investmentHorizon: varchar("investment_horizon", { length: 50 }),
+  
+  // Input Snapshot (key parameters used in generation)
+  inputSnapshot: jsonb("input_snapshot").notNull(), // Full input parameters
+  
+  // Generated Content
+  rationale: text("rationale").notNull(), // Main AI-generated explanation
+  summary: text("summary"), // Short summary
+  keyPoints: jsonb("key_points"), // Array of key points
+  riskWarnings: jsonb("risk_warnings"), // Array of risk warnings
+  confidenceScore: numeric("confidence_score", { precision: 5, scale: 4 }), // 0-1
+  
+  // Generation Metadata
+  modelUsed: varchar("model_used", { length: 50 }), // gemini-pro, gpt-4, etc.
+  tokensUsed: integer("tokens_used"),
+  generationTimeMs: integer("generation_time_ms"),
+  
+  // Cache Metadata
+  hitCount: integer("hit_count").default(0),
+  lastHitAt: timestamp("last_hit_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isInvalidated: boolean("is_invalidated").default(false),
+}, (table) => [
+  index("idx_arc_input_hash").on(table.inputHash),
+  index("idx_arc_rationale_type").on(table.rationaleType),
+  index("idx_arc_product").on(table.productType, table.productId),
+  index("idx_arc_expires").on(table.expiresAt),
+  uniqueIndex("idx_arc_hash_type_unique").on(table.inputHash, table.rationaleType),
+]);
+
+export const insertAiRationaleCacheSchema = createInsertSchema(aiRationaleCache).omit({ id: true, createdAt: true, hitCount: true });
+export type AiRationaleCache = typeof aiRationaleCache.$inferSelect;
+export type InsertAiRationaleCache = z.infer<typeof insertAiRationaleCacheSchema>;
+
+// Portfolio Metrics Daily - Pre-computed daily portfolio analytics
+export const portfolioMetricsDaily = pgTable("portfolio_metrics_daily", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Portfolio Reference
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Snapshot Date
+  metricsDate: date("metrics_date").notNull(),
+  
+  // Portfolio Value
+  totalValue: numeric("total_value", { precision: 18, scale: 2 }),
+  totalCost: numeric("total_cost", { precision: 18, scale: 2 }),
+  unrealizedGainLoss: numeric("unrealized_gain_loss", { precision: 18, scale: 2 }),
+  dayChange: numeric("day_change", { precision: 18, scale: 2 }),
+  dayChangePercent: numeric("day_change_percent", { precision: 8, scale: 4 }),
+  
+  // Returns (XIRR/CAGR pre-calculated)
+  return1D: numeric("return_1d", { precision: 8, scale: 4 }),
+  return1W: numeric("return_1w", { precision: 8, scale: 4 }),
+  return1M: numeric("return_1m", { precision: 8, scale: 4 }),
+  return3M: numeric("return_3m", { precision: 8, scale: 4 }),
+  return6M: numeric("return_6m", { precision: 8, scale: 4 }),
+  return1Y: numeric("return_1y", { precision: 8, scale: 4 }),
+  returnSI: numeric("return_si", { precision: 8, scale: 4 }),
+  xirr: numeric("xirr", { precision: 8, scale: 4 }),
+  cagr: numeric("cagr", { precision: 8, scale: 4 }),
+  
+  // Asset Allocation (pre-computed)
+  allocationEquity: numeric("allocation_equity", { precision: 6, scale: 4 }),
+  allocationDebt: numeric("allocation_debt", { precision: 6, scale: 4 }),
+  allocationGold: numeric("allocation_gold", { precision: 6, scale: 4 }),
+  allocationCash: numeric("allocation_cash", { precision: 6, scale: 4 }),
+  allocationAlternatives: numeric("allocation_alternatives", { precision: 6, scale: 4 }),
+  allocationInternational: numeric("allocation_international", { precision: 6, scale: 4 }),
+  
+  // Risk Metrics (pre-computed)
+  portfolioVolatility: numeric("portfolio_volatility", { precision: 8, scale: 4 }),
+  portfolioBeta: numeric("portfolio_beta", { precision: 8, scale: 4 }),
+  portfolioSharpe: numeric("portfolio_sharpe", { precision: 8, scale: 4 }),
+  maxDrawdown: numeric("max_drawdown", { precision: 8, scale: 4 }),
+  riskScore: integer("risk_score"), // 1-10
+  
+  // Concentration Metrics
+  top5Concentration: numeric("top_5_concentration", { precision: 6, scale: 4 }),
+  sectorConcentration: jsonb("sector_concentration"), // { sector: percentage }
+  
+  // Drift from Target
+  driftFromTarget: numeric("drift_from_target", { precision: 6, scale: 4 }),
+  needsRebalancing: boolean("needs_rebalancing").default(false),
+  
+  // Holdings Count
+  totalHoldings: integer("total_holdings"),
+  equityHoldings: integer("equity_holdings"),
+  debtHoldings: integer("debt_holdings"),
+  mfHoldings: integer("mf_holdings"),
+  
+  // Computation Metadata
+  computedAt: timestamp("computed_at").defaultNow().notNull(),
+  computationTimeMs: integer("computation_time_ms"),
+}, (table) => [
+  index("idx_pmd_user").on(table.userId),
+  index("idx_pmd_portfolio").on(table.portfolioId),
+  index("idx_pmd_date").on(table.metricsDate),
+  uniqueIndex("idx_pmd_user_portfolio_date_unique").on(table.userId, table.portfolioId, table.metricsDate),
+  index("idx_pmd_needs_rebal").on(table.needsRebalancing),
+]);
+
+export const insertPortfolioMetricsDailySchema = createInsertSchema(portfolioMetricsDaily).omit({ id: true, computedAt: true });
+export type PortfolioMetricsDaily = typeof portfolioMetricsDaily.$inferSelect;
+export type InsertPortfolioMetricsDaily = z.infer<typeof insertPortfolioMetricsDailySchema>;
+
+// Rebalance Summaries - Pre-computed rebalancing suggestions
+export const rebalanceSummaries = pgTable("rebalance_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Portfolio Reference
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
+  
+  // Target Allocation
+  targetEquity: numeric("target_equity", { precision: 6, scale: 4 }),
+  targetDebt: numeric("target_debt", { precision: 6, scale: 4 }),
+  targetGold: numeric("target_gold", { precision: 6, scale: 4 }),
+  targetCash: numeric("target_cash", { precision: 6, scale: 4 }),
+  targetAlternatives: numeric("target_alternatives", { precision: 6, scale: 4 }),
+  
+  // Current Allocation
+  currentEquity: numeric("current_equity", { precision: 6, scale: 4 }),
+  currentDebt: numeric("current_debt", { precision: 6, scale: 4 }),
+  currentGold: numeric("current_gold", { precision: 6, scale: 4 }),
+  currentCash: numeric("current_cash", { precision: 6, scale: 4 }),
+  currentAlternatives: numeric("current_alternatives", { precision: 6, scale: 4 }),
+  
+  // Drift Analysis
+  totalDrift: numeric("total_drift", { precision: 6, scale: 4 }),
+  driftThreshold: numeric("drift_threshold", { precision: 6, scale: 4 }).default("5.0"),
+  exceedsDriftThreshold: boolean("exceeds_drift_threshold").default(false),
+  
+  // Suggested Trades (pre-computed)
+  suggestedBuys: jsonb("suggested_buys").default([]), // [{productId, productType, amount, reason}]
+  suggestedSells: jsonb("suggested_sells").default([]), // [{productId, productType, amount, reason}]
+  suggestedSwitches: jsonb("suggested_switches").default([]), // [{fromId, toId, amount, reason}]
+  
+  // Tax Implications (pre-computed)
+  estimatedSTCG: numeric("estimated_stcg", { precision: 18, scale: 2 }),
+  estimatedLTCG: numeric("estimated_ltcg", { precision: 18, scale: 2 }),
+  taxEfficiencyScore: integer("tax_efficiency_score"), // 1-10
+  
+  // Transaction Cost Estimate
+  estimatedBrokerage: numeric("estimated_brokerage", { precision: 12, scale: 2 }),
+  estimatedExitLoads: numeric("estimated_exit_loads", { precision: 12, scale: 2 }),
+  
+  // Rebalancing Rationale (cached AI explanation)
+  rationaleHashKey: varchar("rationale_hash_key", { length: 64 }),
+  rationale: text("rationale"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("pending"), // pending, approved, executed, expired
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  executedAt: timestamp("executed_at"),
+  
+  // Computation Metadata
+  computedAt: timestamp("computed_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  computationTimeMs: integer("computation_time_ms"),
+}, (table) => [
+  index("idx_rs_user").on(table.userId),
+  index("idx_rs_portfolio").on(table.portfolioId),
+  index("idx_rs_status").on(table.status),
+  index("idx_rs_expires").on(table.expiresAt),
+  index("idx_rs_exceeds_drift").on(table.exceedsDriftThreshold),
+]);
+
+export const insertRebalanceSummarySchema = createInsertSchema(rebalanceSummaries).omit({ id: true, computedAt: true });
+export type RebalanceSummary = typeof rebalanceSummaries.$inferSelect;
+export type InsertRebalanceSummary = z.infer<typeof insertRebalanceSummarySchema>;
+
+// Proposal Materializations - Cached investment proposal baskets
+export const proposalMaterializations = pgTable("proposal_materializations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Proposal Context
+  userId: varchar("user_id").references(() => users.id),
+  clientId: varchar("client_id").references(() => users.id), // For agent->client proposals
+  agentId: varchar("agent_id").references(() => users.id), // Agent who created it
+  proposalType: varchar("proposal_type", { length: 50 }).notNull(), // ai_recommendation, manual, rebalancing, lumpsum, sip
+  
+  // Input Parameters (for cache validation)
+  inputHash: varchar("input_hash", { length: 64 }).notNull(), // SHA-256 of input parameters
+  investmentAmount: numeric("investment_amount", { precision: 18, scale: 2 }),
+  riskProfile: varchar("risk_profile", { length: 50 }),
+  investmentHorizon: varchar("investment_horizon", { length: 50 }),
+  goalType: varchar("goal_type", { length: 50 }),
+  
+  // Basket Composition (cached)
+  basketItems: jsonb("basket_items").notNull(), // [{productId, productType, name, allocation, amount, price, rationale}]
+  assetAllocation: jsonb("asset_allocation").notNull(), // {equity: 60, debt: 30, gold: 10}
+  
+  // Pricing Snapshot (at time of materialization)
+  pricingSnapshot: jsonb("pricing_snapshot").notNull(), // {productId: {price, timestamp}}
+  totalProposalValue: numeric("total_proposal_value", { precision: 18, scale: 2 }),
+  
+  // Expected Outcomes (pre-computed)
+  expectedReturn1Y: numeric("expected_return_1y", { precision: 8, scale: 4 }),
+  expectedReturn3Y: numeric("expected_return_3y", { precision: 8, scale: 4 }),
+  expectedReturn5Y: numeric("expected_return_5y", { precision: 8, scale: 4 }),
+  portfolioRiskScore: integer("portfolio_risk_score"), // 1-10
+  
+  // AI Rationale (cached)
+  overallRationale: text("overall_rationale"),
+  productRationales: jsonb("product_rationales"), // {productId: rationale}
+  riskDisclosures: jsonb("risk_disclosures"),
+  
+  // Regulatory Compliance
+  sebiCompliant: boolean("sebi_compliant").default(true),
+  suitabilityScore: numeric("suitability_score", { precision: 5, scale: 4 }),
+  complianceNotes: jsonb("compliance_notes"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("draft"), // draft, shared, accepted, executed, expired
+  sharedAt: timestamp("shared_at"),
+  acceptedAt: timestamp("accepted_at"),
+  executedAt: timestamp("executed_at"),
+  
+  // Cache Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  priceValidUntil: timestamp("price_valid_until"), // Prices may expire before proposal
+  hitCount: integer("hit_count").default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+}, (table) => [
+  index("idx_pm_user").on(table.userId),
+  index("idx_pm_client").on(table.clientId),
+  index("idx_pm_agent").on(table.agentId),
+  index("idx_pm_input_hash").on(table.inputHash),
+  index("idx_pm_status").on(table.status),
+  index("idx_pm_expires").on(table.expiresAt),
+  index("idx_pm_type").on(table.proposalType),
+]);
+
+export const insertProposalMaterializationSchema = createInsertSchema(proposalMaterializations).omit({ id: true, createdAt: true, hitCount: true });
+export type ProposalMaterialization = typeof proposalMaterializations.$inferSelect;
+export type InsertProposalMaterialization = z.infer<typeof insertProposalMaterializationSchema>;
+
+// Cache Refresh Jobs - Track background cache refresh operations
+export const cacheRefreshJobs = pgTable("cache_refresh_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Job Type
+  jobType: varchar("job_type", { length: 50 }).notNull(), // market_data, fundamentals, portfolio_metrics, rebalance, proposal
+  cacheTable: varchar("cache_table", { length: 100 }).notNull(),
+  
+  // Job Scope
+  assetType: varchar("asset_type", { length: 50 }), // For market_data/fundamentals jobs
+  userId: varchar("user_id").references(() => users.id), // For portfolio-specific jobs
+  
+  // Job Status
+  status: varchar("status", { length: 20 }).default("pending"), // pending, running, completed, failed
+  priority: integer("priority").default(5), // 1=highest, 10=lowest
+  
+  // Execution Details
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  itemsProcessed: integer("items_processed").default(0),
+  itemsFailed: integer("items_failed").default(0),
+  
+  // Error Tracking
+  lastError: text("last_error"),
+  retryCount: integer("retry_count").default(0),
+  maxRetries: integer("max_retries").default(3),
+  
+  // Scheduling
+  scheduledAt: timestamp("scheduled_at").defaultNow().notNull(),
+  nextRunAt: timestamp("next_run_at"),
+  cronExpression: varchar("cron_expression", { length: 50 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_crj_status").on(table.status),
+  index("idx_crj_job_type").on(table.jobType),
+  index("idx_crj_scheduled").on(table.scheduledAt),
+  index("idx_crj_next_run").on(table.nextRunAt),
+]);
+
+export const insertCacheRefreshJobSchema = createInsertSchema(cacheRefreshJobs).omit({ id: true, createdAt: true });
+export type CacheRefreshJob = typeof cacheRefreshJobs.$inferSelect;
+export type InsertCacheRefreshJob = z.infer<typeof insertCacheRefreshJobSchema>;
