@@ -5,6 +5,7 @@ import { storage } from '../../storage';
 import { adminService } from '../../admin-service';
 import ckycDeferredRoutes from './ckyc-deferred-routes';
 import { auditIntegrityChecker } from '../../services/audit-integrity-checker';
+import { platformStatsCache } from '../../services/platform-stats-cache';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
@@ -705,6 +706,7 @@ export function registerAdminPanelRoutes(app: Express): void {
         ipAddress: req.ip
       });
       
+      platformStatsCache.invalidate();
       res.status(201).json(newUser);
     } catch (error) {
       console.error("Error creating user:", error);
@@ -769,6 +771,7 @@ export function registerAdminPanelRoutes(app: Express): void {
         ipAddress: req.ip
       });
       
+      platformStatsCache.invalidate();
       res.json({ success: true, message: "User deleted successfully" });
     } catch (error) {
       console.error("Error deleting user:", error);
@@ -801,6 +804,7 @@ export function registerAdminPanelRoutes(app: Express): void {
         ipAddress: req.ip
       });
       
+      platformStatsCache.invalidate();
       res.status(201).json(newAgent);
     } catch (error) {
       console.error("Error creating agent:", error);
@@ -859,6 +863,7 @@ export function registerAdminPanelRoutes(app: Express): void {
         ipAddress: req.ip
       });
       
+      platformStatsCache.invalidate();
       res.json({ success: true, message: "Agent deleted successfully" });
     } catch (error) {
       console.error("Error deleting agent:", error);
@@ -2436,6 +2441,7 @@ System Security Data:`;
   app.post("/api/admin/agents", requireAdmin, async (req, res) => {
     try {
       const agent = await storage.createCustomerCareAgent(req.body);
+      platformStatsCache.invalidate();
       res.status(201).json(agent);
     } catch (error) {
       console.error("Error creating customer care agent:", error);
@@ -2474,6 +2480,7 @@ System Security Data:`;
       const mappings = await storage.getAgentPartnerMappings(agentId);
       await Promise.all(mappings.map(m => storage.deleteAgentPartnerMapping(m.id)));
       
+      platformStatsCache.invalidate();
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting customer care agent:", error);
