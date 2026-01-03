@@ -448,6 +448,83 @@ class ClientFeeModeService {
       clientId
     };
   }
+
+  async generateZohoInvoiceLineItems(
+    orderValueInr: number,
+    clientId: string,
+    orderDetails: {
+      orderId: string;
+      symbol: string;
+      quantity: number;
+      assetClass: string;
+    }
+  ): Promise<{
+    lineItems: Array<{
+      name: string;
+      description: string;
+      rate: number;
+      quantity: number;
+      hsn_or_sac?: string;
+    }>;
+    notes: string;
+    feeMode: FeeMode;
+    totalFees: number;
+  }> {
+    const feeBreakdown = await this.calculateFees(orderValueInr, clientId);
+    if (!feeBreakdown) {
+      throw new Error("Client fee mode not selected");
+    }
+
+    const lineItems: Array<{
+      name: string;
+      description: string;
+      rate: number;
+      quantity: number;
+      hsn_or_sac?: string;
+    }> = [];
+
+    const isAdvisory = feeBreakdown.feeMode === 'ADVISORY_PLATFORM';
+    const orderDate = new Date().toISOString().split('T')[0];
+
+    if (isAdvisory && feeBreakdown.advisoryFeeAmount > 0) {
+      lineItems.push({
+        name: "Advisory Fee - Global Investments",
+        description: `Investment advisory service fee for ${orderDetails.symbol} (${orderDetails.assetClass}). ` +
+          `Order ID: ${orderDetails.orderId}, Qty: ${orderDetails.quantity}, ` +
+          `Order Value: ₹${orderValueInr.toLocaleString('en-IN')}. ` +
+          `Rate: ${feeBreakdown.advisoryFeeBps} bps (${(feeBreakdown.advisoryFeeBps / 100).toFixed(2)}%)`,
+        rate: feeBreakdown.advisoryFeeAmount,
+        quantity: 1,
+        hsn_or_sac: "997159"
+      });
+    }
+
+    lineItems.push({
+      name: "Platform Fee - Global Investments",
+      description: `Execution platform service fee for ${orderDetails.symbol} (${orderDetails.assetClass}). ` +
+        `Order ID: ${orderDetails.orderId}, Qty: ${orderDetails.quantity}, ` +
+        `Order Value: ₹${orderValueInr.toLocaleString('en-IN')}. ` +
+        `Rate: ${feeBreakdown.platformFeeBps} bps (${(feeBreakdown.platformFeeBps / 100).toFixed(2)}%)`,
+      rate: feeBreakdown.platformFeeAmount,
+      quantity: 1,
+      hsn_or_sac: "997159"
+    });
+
+    const notes = isAdvisory
+      ? `Global Investments Order - Advisory + Platform Mode. ` +
+        `This invoice includes investment advisory fees for personalized AI-powered recommendations ` +
+        `and platform execution fees. Client has opted for full advisory services.`
+      : `Global Investments Order - Platform-Only (Execution-Only) Mode. ` +
+        `This invoice includes only platform execution fees. Client has opted for self-directed trading ` +
+        `without investment advisory services. No personalized recommendations were provided for this transaction.`;
+
+    return {
+      lineItems,
+      notes,
+      feeMode: feeBreakdown.feeMode,
+      totalFees: feeBreakdown.totalFeeAmount
+    };
+  }
 }
 
 export const clientFeeModeService = new ClientFeeModeService();
