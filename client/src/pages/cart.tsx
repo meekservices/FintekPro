@@ -42,7 +42,7 @@ import {
 import { Link, useLocation } from "wouter";
 import type { UnifiedCartItem, ProductCategory } from "@shared/schema";
 import { FeeBreakdownCard } from "@/components/FeeBreakdownCard";
-import { useFeeBreakdown } from "@/hooks/use-fee-breakdown";
+import { useFeeBreakdown, useAggregatedFeeBreakdown, type CartItem as FeeCartItem } from "@/hooks/use-fee-breakdown";
 
 interface InvestmentProposal {
   id: string;
@@ -133,19 +133,43 @@ export default function Cart() {
   // Determine if fee calculation is ready for checkout
   const feesReady = !cartFeesLoading && cartFeeBreakdown?.summary !== undefined;
 
-  // Fetch fee breakdown for unified investments
+  // Fetch fee breakdown for unified investments using aggregated calculation
   const unifiedTotalValue = unifiedCartItems.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0);
   
-  // Determine product type for fee calculation
-  // Use 'all' for mixed baskets, otherwise use the single category
-  const unifiedCategories = [...new Set(unifiedCartItems.map(item => item.productCategory))];
-  const unifiedProductType = unifiedCategories.length === 1 ? (unifiedCategories[0] || 'all') : 'all';
+  // Map product categories to fee calculator product types
+  const categoryToProductType: Record<string, string> = {
+    'mutual_funds': 'mutual_fund',
+    'stocks': 'equity',
+    'bonds': 'bond',
+    'unlisted': 'unlisted',
+    'ipo': 'ipo',
+    'pms': 'pms',
+    'aif': 'aif',
+    'derivatives': 'derivatives',
+    'loans': 'loan',
+    'tax_services': 'tax_services',
+  };
   
-  const { feeBreakdown: investmentFeeBreakdown, isLoading: investmentFeesLoading, error: investmentFeesError, refetch: refetchInvestmentFees } = useFeeBreakdown({
-    transactionAmount: unifiedTotalValue,
-    productType: unifiedProductType,
+  // Build aggregated fee items from cart items with per-category amounts
+  const aggregatedFeeItems: FeeCartItem[] = unifiedCartItems.reduce((acc, item) => {
+    const productType = categoryToProductType[item.productCategory] || item.productCategory;
+    const amount = Number(item.amount || 0) * (item.quantity || 1);
+    
+    // Find existing item with same product type
+    const existing = acc.find(i => i.productType === productType);
+    if (existing) {
+      existing.amount += amount;
+    } else {
+      acc.push({ productType, amount });
+    }
+    return acc;
+  }, [] as FeeCartItem[]);
+  
+  // Use aggregated fee breakdown for mixed-category baskets
+  const { feeBreakdown: investmentFeeBreakdown, isLoading: investmentFeesLoading, error: investmentFeesError, refetch: refetchInvestmentFees } = useAggregatedFeeBreakdown({
+    items: aggregatedFeeItems,
     investorTier: 'retail',
-    enabled: unifiedTotalValue > 0
+    enabled: unifiedTotalValue > 0 && aggregatedFeeItems.length > 0
   });
   
   // Determine if investment fees are ready for checkout

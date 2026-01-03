@@ -281,6 +281,148 @@ class FeeCalculatorService {
     this.feeCache = [];
     this.lastCacheTime = 0;
   }
+
+  /**
+   * Calculate aggregated fees for mixed-category baskets.
+   * Calculates fees per product type and merges results, avoiding duplicate platform-wide fees.
+   */
+  async calculateAggregatedFees(input: {
+    items: Array<{ productType: string; amount: number }>;
+    investorTier?: 'retail' | 'sHNI' | 'bHNI' | 'qib';
+    includeGst?: boolean;
+    applyWaivers?: boolean;
+    waiverPercent?: number;
+  }): Promise<FeeBreakdown> {
+    const {
+      items,
+      investorTier = 'retail',
+      includeGst = true,
+      applyWaivers = false,
+      waiverPercent = 0,
+    } = input;
+
+    // Get all applicable fees from cache
+    if (Date.now() - this.lastCacheTime > this.cacheTTL || this.feeCache.length === 0) {
+      this.feeCache = await db.select()
+        .from(platformFeeConfig)
+        .where(eq(platformFeeConfig.isActive, true));
+      this.lastCacheTime = Date.now();
+    }
+
+    // Calculate total amount for platform-wide fees
+    const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+    
+    // Get unique product types
+    const productTypes = [...new Set(items.map(i => i.productType))];
+    
+    // Track which fees have been applied (to avoid duplicates for 'all' fees)
+    const appliedFeeCodes = new Set<string>();
+    const calculatedFees: CalculatedFee[] = [];
+
+    // First, calculate category-specific fees for each product type
+    for (const productType of productTypes) {
+      const itemsOfType = items.filter(i => i.productType === productType);
+      const typeAmount = itemsOfType.reduce((sum, i) => sum + i.amount, 0);
+      
+      // Get category-specific fees (not 'all')
+      const categoryFees = this.feeCache.filter(fee => fee.applicableTo === productType);
+      
+      for (const fee of categoryFees) {
+        if (appliedFeeCodes.has(fee.feeCode)) continue;
+        
+        const calculated = this.calculateSingleFee(
+          fee,
+          typeAmount,
+          investorTier,
+          applyWaivers,
+          waiverPercent
+        );
+
+        if (calculated.baseAmount > 0 || calculated.isRegulatory) {
+          if (!includeGst) {
+            calculated.gstAmount = 0;
+            calculated.totalAmount = calculated.baseAmount;
+          }
+          // Add source product type for display
+          (calculated as any).sourceProductType = productType;
+          calculatedFees.push(calculated);
+          appliedFeeCodes.add(fee.feeCode);
+        }
+      }
+    }
+
+    // Then, calculate platform-wide fees ('all') on total amount
+    const platformWideFees = this.feeCache.filter(fee => fee.applicableTo === 'all');
+    
+    for (const fee of platformWideFees) {
+      if (appliedFeeCodes.has(fee.feeCode)) continue;
+      
+      const calculated = this.calculateSingleFee(
+        fee,
+        totalAmount,
+        investorTier,
+        applyWaivers,
+        waiverPercent
+      );
+
+      if (calculated.baseAmount > 0 || calculated.isRegulatory) {
+        if (!includeGst) {
+          calculated.gstAmount = 0;
+          calculated.totalAmount = calculated.baseAmount;
+        }
+        (calculated as any).sourceProductType = 'all';
+        calculatedFees.push(calculated);
+        appliedFeeCodes.add(fee.feeCode);
+      }
+    }
+
+    // Sort by category order
+    calculatedFees.sort((a, b) => {
+      const categoryOrder = ['regulatory', 'platform', 'advisory', 'document', 'convenience', 'value_added'];
+      return categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category);
+    });
+
+    // Calculate totals
+    const breakdown = {
+      regulatory: 0,
+      platform: 0,
+      advisory: 0,
+      document: 0,
+      convenience: 0,
+      valueAdded: 0,
+    };
+
+    let totalFees = 0;
+    let totalGst = 0;
+    let totalWaivers = 0;
+
+    for (const fee of calculatedFees) {
+      totalFees += fee.baseAmount;
+      totalGst += fee.gstAmount;
+      totalWaivers += fee.waiverAmount;
+
+      switch (fee.category) {
+        case 'regulatory': breakdown.regulatory += fee.totalAmount; break;
+        case 'platform': breakdown.platform += fee.totalAmount; break;
+        case 'advisory': breakdown.advisory += fee.totalAmount; break;
+        case 'document': breakdown.document += fee.totalAmount; break;
+        case 'convenience': breakdown.convenience += fee.totalAmount; break;
+        case 'value_added': breakdown.valueAdded += fee.totalAmount; break;
+      }
+    }
+
+    return {
+      transactionAmount: totalAmount,
+      productType: productTypes.length === 1 ? productTypes[0] : 'mixed',
+      investorTier,
+      fees: calculatedFees,
+      totalFees: Math.round(totalFees * 100) / 100,
+      totalGst: Math.round(totalGst * 100) / 100,
+      totalWaivers: Math.round(totalWaivers * 100) / 100,
+      grandTotal: Math.round((totalFees + totalGst) * 100) / 100,
+      breakdown,
+    };
+  }
 }
 
 export const feeCalculatorService = new FeeCalculatorService();

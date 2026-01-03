@@ -605,5 +605,53 @@ router.post("/clear-cache", requireAdmin, async (req, res) => {
   }
 });
 
+// Aggregated fee calculation for mixed-category baskets
+router.post("/calculate-aggregated", async (req, res) => {
+  try {
+    const { items, investorTier, includeGst, applyWaivers, waiverPercent } = req.body;
+    
+    // Validate items array
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "items array is required with at least one item containing productType and amount" 
+      });
+    }
+    
+    const validProductTypes = ['equity', 'mutual_fund', 'bond', 'unlisted', 'ipo', 'derivatives', 'loan', 'tax_services', 'advisory', 'pms', 'aif'];
+    
+    // Validate and normalize each item
+    const normalizedItems = items.map((item: any, index: number) => {
+      const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount);
+      if (isNaN(amount) || amount < 0) {
+        throw new Error(`Invalid amount at index ${index}: must be a positive number`);
+      }
+      if (!item.productType || !validProductTypes.includes(item.productType)) {
+        throw new Error(`Invalid productType at index ${index}: must be one of ${validProductTypes.join(', ')}`);
+      }
+      return { productType: item.productType, amount };
+    });
+    
+    const validTiers = ['retail', 'sHNI', 'bHNI', 'qib'];
+    const tier = investorTier && validTiers.includes(investorTier) ? investorTier : 'retail';
+    
+    const gstIncluded = includeGst === true || includeGst === 'true' || includeGst === undefined;
+    const applyWaiver = applyWaivers === true || applyWaivers === 'true';
+    const waiver = typeof waiverPercent === 'number' ? waiverPercent : parseFloat(waiverPercent) || 0;
+    
+    const breakdown = await feeCalculatorService.calculateAggregatedFees({
+      items: normalizedItems,
+      investorTier: tier as 'retail' | 'sHNI' | 'bHNI' | 'qib',
+      includeGst: gstIncluded,
+      applyWaivers: applyWaiver,
+      waiverPercent: Math.min(Math.max(waiver, 0), 100),
+    });
+    
+    res.json({ success: true, data: breakdown });
+  } catch (error: any) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 export default router;
 console.log("✅ Platform Fee Configuration routes registered");
