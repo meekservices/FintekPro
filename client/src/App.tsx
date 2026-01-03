@@ -206,6 +206,10 @@ import ExpensesBudgets from "@/pages/expenses-budgets";
 import AutoPopulationDashboard from "@/pages/auto-population-dashboard";
 import GovernmentSchemes from "@/pages/government-schemes";
 import ReferralProgram from "@/pages/referral-program";
+import ScheduledReports from "@/pages/scheduled-reports";
+import CompoundAlerts from "@/pages/compound-alerts";
+import DashboardCustomize from "@/pages/dashboard-customize";
+import ThemeSettings from "@/pages/theme-settings";
 import MarketingDashboard from "@/pages/admin/marketing-dashboard";
 import EmailCampaigns from "@/pages/admin/email-campaigns";
 import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
@@ -473,6 +477,10 @@ function UserProtectedRoutes() {
         <Route path="/ai-stock-picks" component={AIStockPicks} />
         <Route path="/goals" component={GoalsPage} />
         <Route path="/referral-program" component={ReferralProgram} />
+        <Route path="/scheduled-reports" component={ScheduledReports} />
+        <Route path="/compound-alerts" component={CompoundAlerts} />
+        <Route path="/dashboard-customize" component={DashboardCustomize} />
+        <Route path="/theme-settings" component={ThemeSettings} />
         <Route path="/investable-surplus" component={InvestableSurplusPage} />
         <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
         {/* Admin seed pages accessible from main site for development */}

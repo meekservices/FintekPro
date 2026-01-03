@@ -367,6 +367,24 @@ export function EnhancedNavigation() {
           href: "/calculators",
           icon: Calculator,
           description: "SIP, EMI, Tax calculators"
+        },
+        {
+          name: "Alerts & Reports",
+          icon: Bell,
+          description: "Notifications & automation",
+          subItems: [
+            { name: "Compound Alerts", href: "/compound-alerts", description: "Multi-condition alerts" },
+            { name: "Scheduled Reports", href: "/scheduled-reports", description: "Automated reports" }
+          ]
+        },
+        {
+          name: "Customize",
+          icon: Settings,
+          description: "Personalization",
+          subItems: [
+            { name: "Dashboard Layout", href: "/dashboard-customize", description: "Arrange widgets" },
+            { name: "Theme Settings", href: "/theme-settings", description: "Appearance & accessibility" }
+          ]
         }
       ]
     }
