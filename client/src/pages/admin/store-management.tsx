@@ -210,7 +210,7 @@ function PortfolioApprovalsTab() {
   return (
     <Card className="bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-white flex items-center justify-between">
+        <CardTitle className="text-foreground flex items-center justify-between">
           <span>Portfolio Approvals</span>
           <div className="flex items-center gap-2">
             {pendingAIFCount > 0 && (
@@ -297,7 +297,7 @@ function PortfolioApprovalsTab() {
               variant={statusFilter === "all" ? "default" : "outline"}
               size="sm"
               onClick={() => setStatusFilter("all")}
-              className={statusFilter === "all" ? "bg-gray-600 hover:bg-gray-700" : "border-border"}
+              className={statusFilter === "all" ? "bg-muted hover:bg-muted" : "border-border"}
               data-testid="button-filter-all"
             >
               All
@@ -788,7 +788,7 @@ export default function StoreManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white" data-testid="heading-store-management">Store Management</h1>
+          <h1 className="text-3xl font-bold text-foreground" data-testid="heading-store-management">Store Management</h1>
           <p className="text-muted-foreground mt-1">Control product and category visibility across all portals</p>
         </div>
         <Button
@@ -826,7 +826,7 @@ export default function StoreManagement() {
         <TabsContent value="hierarchy">
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white flex items-center justify-between">
+              <CardTitle className="text-foreground flex items-center justify-between">
                 <span>Category Hierarchy</span>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-blue-400 border-blue-400">
@@ -878,7 +878,7 @@ export default function StoreManagement() {
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => toggleExpanded('category', category.id)}
-                              className="p-1 hover:bg-gray-700 rounded"
+                              className="p-1 hover:bg-muted rounded"
                               data-testid={`expand-category-${category.id}`}
                             >
                               {expandedCategories.has(category.id) ? (
@@ -1006,7 +1006,7 @@ export default function StoreManagement() {
                                   <div className="flex items-center gap-3">
                                     <button
                                       onClick={() => toggleExpanded('subcategory', subcategory.id)}
-                                      className="p-1 hover:bg-gray-700 rounded"
+                                      className="p-1 hover:bg-muted rounded"
                                       data-testid={`expand-subcategory-${subcategory.id}`}
                                     >
                                       {expandedSubcategories.has(subcategory.id) ? (
@@ -1177,7 +1177,7 @@ export default function StoreManagement() {
         <TabsContent value="products">
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white flex items-center justify-between">
+              <CardTitle className="text-foreground flex items-center justify-between">
                 <span>All Products</span>
                 <Badge variant="outline" className="text-green-400 border-green-400">
                   {products.filter(p => p.isActive).length} / {products.length} Active
@@ -1223,7 +1223,7 @@ export default function StoreManagement() {
                             className="border-border"
                             data-testid={`row-product-${product.id}`}
                           >
-                            <TableCell className="font-medium text-white">
+                            <TableCell className="font-medium text-foreground">
                               <div className="flex items-center gap-2">
                                 <Package className={`w-4 h-4 ${product.isActive ? 'text-green-400' : 'text-muted-foreground'}`} />
                                 {product.name}
@@ -1318,7 +1318,7 @@ export default function StoreManagement() {
         <TabsContent value="audit">
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-white flex items-center justify-between">
+              <CardTitle className="text-foreground flex items-center justify-between">
                 <span>Audit Log</span>
                 <Badge variant="outline" className="text-amber-400 border-amber-400">
                   {auditLogs.length} Records
@@ -1381,7 +1381,7 @@ export default function StoreManagement() {
                           <TableCell>
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-white">
+                                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                                   <FileText className="w-4 h-4 mr-1" />
                                   View
                                 </Button>
