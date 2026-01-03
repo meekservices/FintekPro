@@ -25,14 +25,23 @@ interface CacheMetrics {
   misses: number;
   refreshes: number;
   errors: number;
+  rateLimitErrors: number;
   lastRefreshTime: number;
   lastRefreshDuration: number;
   yahooLatency: number;
+  backoffUntil: number;
 }
 
-const CACHE_TTL_MS = 2 * 60 * 1000;
-const STALE_TTL_MS = 10 * 60 * 1000;
-const CRUMB_TTL_MS = 60 * 60 * 1000;
+// Increased TTLs to reduce API calls and prevent rate limiting
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes (was 2 minutes)
+const STALE_TTL_MS = 30 * 60 * 1000; // 30 minutes (was 10 minutes)
+const CRUMB_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (was 1 hour)
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (was 30 seconds)
+
+// Exponential backoff settings for rate limiting
+const INITIAL_BACKOFF_MS = 60 * 1000; // Start with 1 minute
+const MAX_BACKOFF_MS = 30 * 60 * 1000; // Max 30 minutes
+const BACKOFF_MULTIPLIER = 2;
 
 const INDIAN_STOCKS = [
   { symbol: "RELIANCE.NS", name: "Reliance Industries" },
@@ -76,14 +85,17 @@ class MarketMoversCache {
     misses: 0,
     refreshes: 0,
     errors: 0,
+    rateLimitErrors: 0,
     lastRefreshTime: 0,
     lastRefreshDuration: 0,
     yahooLatency: 0,
+    backoffUntil: 0,
   };
   private refreshLock = false;
   private crumbInitialized = false;
   private crumbInitTime = 0;
   private isInitialized = false;
+  private currentBackoff = INITIAL_BACKOFF_MS;
 
   async initialize(): Promise<void> {
     console.log('📈 [MarketMoversCache] Starting background initialization...');
@@ -102,8 +114,37 @@ class MarketMoversCache {
     console.log('✅ [MarketMoversCache] Background initialization completed');
   }
 
+  private isRateLimited(): boolean {
+    return Date.now() < this.metrics.backoffUntil;
+  }
+
+  private applyBackoff(): void {
+    this.metrics.backoffUntil = Date.now() + this.currentBackoff;
+    console.log(`⏸️ [MarketMoversCache] Rate limited, backing off for ${Math.round(this.currentBackoff / 1000)}s`);
+    // Increase backoff for next time (exponential)
+    this.currentBackoff = Math.min(this.currentBackoff * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
+  }
+
+  private resetBackoff(): void {
+    this.currentBackoff = INITIAL_BACKOFF_MS;
+    this.metrics.backoffUntil = 0;
+  }
+
+  private isRateLimitError(error: any): boolean {
+    const errorString = String(error);
+    return errorString.includes('Too Many Requests') || 
+           errorString.includes('429') ||
+           errorString.includes('rate limit');
+  }
+
   private async initializeYahooCrumb(): Promise<void> {
     if (this.crumbInitialized && (Date.now() - this.crumbInitTime) < CRUMB_TTL_MS) {
+      return;
+    }
+
+    // Skip if rate limited
+    if (this.isRateLimited()) {
+      console.log('⏸️ [MarketMoversCache] Skipping crumb init - rate limited');
       return;
     }
 
@@ -117,14 +158,26 @@ class MarketMoversCache {
       
       this.crumbInitialized = true;
       this.crumbInitTime = Date.now();
+      this.resetBackoff(); // Success - reset backoff
       console.log(`✅ [MarketMoversCache] Yahoo crumb initialized in ${Date.now() - startTime}ms`);
     } catch (error) {
+      if (this.isRateLimitError(error)) {
+        this.metrics.rateLimitErrors++;
+        this.applyBackoff();
+      }
       console.warn('⚠️ [MarketMoversCache] Failed to initialize Yahoo crumb:', error);
     }
   }
 
   private startBackgroundRefresh(): void {
     setInterval(async () => {
+      // Skip if rate limited
+      if (this.isRateLimited()) {
+        const remainingMs = this.metrics.backoffUntil - Date.now();
+        console.log(`⏸️ [MarketMoversCache] Skipping refresh - rate limited for ${Math.round(remainingMs / 1000)}s more`);
+        return;
+      }
+
       const now = Date.now();
       const cacheAge = this.cache ? now - this.cache.timestamp : Infinity;
       
@@ -136,12 +189,18 @@ class MarketMoversCache {
       if ((now - this.crumbInitTime) >= CRUMB_TTL_MS) {
         await this.initializeYahooCrumb();
       }
-    }, 30000);
+    }, REFRESH_INTERVAL_MS);
   }
 
   private async refreshCache(): Promise<void> {
     if (this.refreshLock) {
       console.log('⏳ [MarketMoversCache] Refresh already in progress, skipping');
+      return;
+    }
+
+    // Skip if rate limited
+    if (this.isRateLimited()) {
+      console.log('⏸️ [MarketMoversCache] Skipping refresh - rate limited');
       return;
     }
 
@@ -151,26 +210,35 @@ class MarketMoversCache {
     try {
       console.log('📊 [MarketMoversCache] Fetching fresh market data...');
       
-      const stockPromises = INDIAN_STOCKS.map(async (stock) => {
+      // Fetch stocks sequentially with delay to avoid rate limiting
+      const stockQuotes: Stock[] = [];
+      
+      for (const stock of INDIAN_STOCKS) {
         try {
           const yahooStart = Date.now();
           const quote = await yahooFinance.quote(stock.symbol);
           this.metrics.yahooLatency = Date.now() - yahooStart;
           
-          return {
+          stockQuotes.push({
             symbol: stock.symbol.replace('.NS', ''),
             name: stock.name,
             price: quote.regularMarketPrice || 0,
             change: quote.regularMarketChange || 0,
             changePercent: quote.regularMarketChangePercent || 0,
             previousClose: quote.regularMarketPreviousClose || 0,
-          };
+          });
+          
+          // Small delay between requests to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
-          return null;
+          if (this.isRateLimitError(error)) {
+            this.metrics.rateLimitErrors++;
+            this.applyBackoff();
+            throw error; // Stop fetching more stocks
+          }
+          // Continue with other stocks for non-rate-limit errors
         }
-      });
-
-      const stockQuotes = (await Promise.all(stockPromises)).filter((s): s is Stock => s !== null);
+      }
 
       if (stockQuotes.length === 0) {
         throw new Error('No stock data fetched');
@@ -195,11 +263,17 @@ class MarketMoversCache {
       this.metrics.refreshes++;
       this.metrics.lastRefreshTime = Date.now();
       this.metrics.lastRefreshDuration = Date.now() - startTime;
+      this.resetBackoff(); // Success - reset backoff
 
-      console.log(`✅ [MarketMoversCache] Cache refreshed in ${this.metrics.lastRefreshDuration}ms`);
+      console.log(`✅ [MarketMoversCache] Cache refreshed in ${this.metrics.lastRefreshDuration}ms (${stockQuotes.length} stocks)`);
     } catch (error) {
       this.metrics.errors++;
-      console.error('❌ [MarketMoversCache] Refresh failed:', error);
+      
+      if (this.isRateLimitError(error)) {
+        console.warn('⚠️ [MarketMoversCache] Rate limited by Yahoo Finance');
+      } else {
+        console.error('❌ [MarketMoversCache] Refresh failed:', error);
+      }
       
       if (!this.cache) {
         this.cache = {
@@ -222,15 +296,15 @@ class MarketMoversCache {
       
       if (cacheAge < CACHE_TTL_MS) {
         this.metrics.hits++;
-        console.log(`📦 [MarketMoversCache] Cache HIT (age: ${Math.round(cacheAge / 1000)}s)`);
         return { data: this.cache.data, cached: true, cacheAge };
       }
 
       if (cacheAge < STALE_TTL_MS) {
         this.metrics.hits++;
-        console.log(`📦 [MarketMoversCache] Serving stale cache (age: ${Math.round(cacheAge / 1000)}s), triggering background refresh`);
+        console.log(`📦 [MarketMoversCache] Serving stale cache (age: ${Math.round(cacheAge / 1000)}s)`);
         
-        if (!this.refreshLock) {
+        // Only trigger background refresh if not rate limited
+        if (!this.refreshLock && !this.isRateLimited()) {
           this.refreshCache().catch(console.error);
         }
         
@@ -240,15 +314,13 @@ class MarketMoversCache {
 
     this.metrics.misses++;
     
-    // Non-blocking: Return fallback data immediately if not initialized
-    // This prevents blocking the first request while Yahoo Finance initializes
-    if (!this.isInitialized) {
-      console.log('📌 [MarketMoversCache] Not initialized yet, returning fallback data immediately');
-      // Trigger background refresh if not already in progress
-      if (!this.refreshLock) {
+    // Non-blocking: Return fallback data immediately if not initialized or rate limited
+    if (!this.isInitialized || this.isRateLimited()) {
+      console.log('📌 [MarketMoversCache] Returning fallback data (not initialized or rate limited)');
+      if (!this.refreshLock && !this.isRateLimited()) {
         this.refreshCache().catch(console.error);
       }
-      return { data: FALLBACK_DATA, cached: false, cacheAge: 0 };
+      return { data: this.cache?.data || FALLBACK_DATA, cached: false, cacheAge: 0 };
     }
 
     console.log('🔍 [MarketMoversCache] Cache MISS, fetching fresh data...');
@@ -268,15 +340,18 @@ class MarketMoversCache {
     return { data: FALLBACK_DATA, cached: false, cacheAge: 0 };
   }
 
-  getMetrics(): CacheMetrics & { cacheAge: number | null; hitRate: string } {
+  getMetrics(): CacheMetrics & { cacheAge: number | null; hitRate: string; isRateLimited: boolean; backoffRemaining: number } {
     const cacheAge = this.cache ? Date.now() - this.cache.timestamp : null;
     const total = this.metrics.hits + this.metrics.misses;
     const hitRate = total > 0 ? `${((this.metrics.hits / total) * 100).toFixed(1)}%` : 'N/A';
+    const backoffRemaining = Math.max(0, this.metrics.backoffUntil - Date.now());
     
     return {
       ...this.metrics,
       cacheAge,
       hitRate,
+      isRateLimited: this.isRateLimited(),
+      backoffRemaining,
     };
   }
 }
