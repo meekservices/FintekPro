@@ -158,6 +158,7 @@ import { registerAppointmentManagementRoutes } from "./routes/appointment-manage
 import unifiedPortfolioRoutes from "./routes/unified-portfolio-routes";
 import aiRebalancingRoutes from "./routes/ai-rebalancing-routes";
 import unifiedProposalsRoutes from "./routes/unified-proposals-routes";
+import globalAdvisoryRoutes from "./routes/global-advisory";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -553,6 +554,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CKYC Provider Configuration Routes
   app.use("/api/admin/ckyc", requireAdmin, ckycProviderRoutes);
   console.log("✅ CKYC Provider Configuration routes registered");
+
+  // Global Advisory Routes (EPIC 1 & 2)
+  app.use("/api/global-advisory", globalAdvisoryRoutes);
+  console.log("✅ Global Advisory routes registered");
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {

@@ -23380,3 +23380,249 @@ export const cacheRefreshJobs = pgTable("cache_refresh_jobs", {
 export const insertCacheRefreshJobSchema = createInsertSchema(cacheRefreshJobs).omit({ id: true, createdAt: true });
 export type CacheRefreshJob = typeof cacheRefreshJobs.$inferSelect;
 export type InsertCacheRefreshJob = z.infer<typeof insertCacheRefreshJobSchema>;
+
+// ============================================================================
+// GLOBAL ADVISORY SYSTEM - EPIC 1 & 2
+// Multi-country advisory without execution, SEBI-safe positioning
+// ============================================================================
+
+// Markets Master - Define supported markets/geographies
+export const marketsMaster = pgTable("markets_master", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Market Identification
+  marketCode: varchar("market_code", { length: 10 }).notNull().unique(), // IN, UK, EU, SG, JP, HK, ME, EM
+  marketName: varchar("market_name", { length: 100 }).notNull(),
+  region: varchar("region", { length: 50 }).notNull(), // Asia, Europe, Middle East, Americas
+  
+  // Advisory Level Configuration
+  advisoryLevel: varchar("advisory_level", { length: 20 }).notNull().default("ANALYTICS_ONLY"), // FULL, ANALYTICS_ONLY
+  executionAllowed: boolean("execution_allowed").default(false), // Only true for India
+  
+  // Currency & Timezone
+  baseCurrency: varchar("base_currency", { length: 3 }).notNull(), // INR, USD, EUR, GBP, SGD, JPY, HKD, AED
+  timezone: varchar("timezone", { length: 50 }).notNull(),
+  
+  // Regulatory Information
+  regulatoryBody: varchar("regulatory_body", { length: 100 }), // SEBI, FCA, MAS, FSA, SFC, etc.
+  regulatoryNotes: text("regulatory_notes"),
+  
+  // Status & Rollout
+  isEnabled: boolean("is_enabled").default(false),
+  rolloutPhase: integer("rollout_phase").default(1), // 1, 2, 3 for phased rollout
+  enabledEnvironments: text("enabled_environments").array().default(sql`ARRAY['development']`), // development, staging, production
+  
+  // Display Order
+  displayOrder: integer("display_order").default(100),
+  flagEmoji: varchar("flag_emoji", { length: 10 }),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_markets_code").on(table.marketCode),
+  index("idx_markets_enabled").on(table.isEnabled),
+  index("idx_markets_phase").on(table.rolloutPhase),
+]);
+
+export const insertMarketsMasterSchema = createInsertSchema(marketsMaster).omit({ id: true, createdAt: true, updatedAt: true });
+export type MarketMaster = typeof marketsMaster.$inferSelect;
+export type InsertMarketMaster = z.infer<typeof insertMarketsMasterSchema>;
+
+// Market Product Matrix - Define product availability per market
+export const marketProductMatrix = pgTable("market_product_matrix", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Foreign Keys
+  marketCode: varchar("market_code", { length: 10 }).notNull().references(() => marketsMaster.marketCode),
+  
+  // Product Configuration
+  productCategory: varchar("product_category", { length: 50 }).notNull(), // equity, etf, mutual_fund, bond, reit, sukuk_etf
+  productSubCategory: varchar("product_sub_category", { length: 50 }), // large_cap, mid_cap, government, corporate, etc.
+  
+  // Availability Rules
+  isEnabled: boolean("is_enabled").default(false),
+  advisoryLevel: varchar("advisory_level", { length: 20 }).notNull().default("ANALYTICS_ONLY"), // FULL, ANALYTICS_ONLY
+  
+  // Restrictions
+  requiresAccreditedInvestor: boolean("requires_accredited_investor").default(false),
+  minimumInvestment: numeric("minimum_investment", { precision: 18, scale: 2 }),
+  minimumInvestmentCurrency: varchar("minimum_investment_currency", { length: 3 }),
+  
+  // Risk & Compliance
+  riskCategory: varchar("risk_category", { length: 20 }), // low, moderate, high, very_high
+  requiredClientSegments: text("required_client_segments").array(), // resident_indian, nri, hni, uhni, family_office
+  excludedClientSegments: text("excluded_client_segments").array(),
+  
+  // Additional Rules
+  etfOnlyRestriction: boolean("etf_only_restriction").default(false), // For EM markets
+  complianceNotes: text("compliance_notes"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_mpm_market").on(table.marketCode),
+  index("idx_mpm_product").on(table.productCategory),
+  index("idx_mpm_enabled").on(table.isEnabled),
+]);
+
+export const insertMarketProductMatrixSchema = createInsertSchema(marketProductMatrix).omit({ id: true, createdAt: true, updatedAt: true });
+export type MarketProductMatrix = typeof marketProductMatrix.$inferSelect;
+export type InsertMarketProductMatrix = z.infer<typeof insertMarketProductMatrixSchema>;
+
+// Global Advisory Acknowledgments - Track user acceptance of disclaimers
+export const globalAdvisoryAcknowledgments = pgTable("global_advisory_acknowledgments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User Reference
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  // Acknowledgment Details
+  marketCode: varchar("market_code", { length: 10 }).notNull().references(() => marketsMaster.marketCode),
+  acknowledgmentType: varchar("acknowledgment_type", { length: 50 }).notNull(), // global_advisory_disclaimer, analytics_only_notice, execution_restriction
+  
+  // Acknowledgment Content
+  disclaimerVersion: varchar("disclaimer_version", { length: 20 }).notNull(), // v1.0, v1.1, etc.
+  disclaimerText: text("disclaimer_text").notNull(), // Full text at time of acknowledgment
+  
+  // Context
+  acknowledgedAt: timestamp("acknowledged_at").defaultNow().notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id", { length: 100 }),
+  
+  // Validity
+  expiresAt: timestamp("expires_at"), // For time-limited acknowledgments
+  isRevoked: boolean("is_revoked").default(false),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: text("revoked_reason"),
+}, (table) => [
+  index("idx_gaa_user").on(table.userId),
+  index("idx_gaa_market").on(table.marketCode),
+  index("idx_gaa_type").on(table.acknowledgmentType),
+  index("idx_gaa_acknowledged").on(table.acknowledgedAt),
+]);
+
+export const insertGlobalAdvisoryAcknowledgmentSchema = createInsertSchema(globalAdvisoryAcknowledgments).omit({ id: true, acknowledgedAt: true });
+export type GlobalAdvisoryAcknowledgment = typeof globalAdvisoryAcknowledgments.$inferSelect;
+export type InsertGlobalAdvisoryAcknowledgment = z.infer<typeof insertGlobalAdvisoryAcknowledgmentSchema>;
+
+// Global Advisory Audit Log - Immutable audit trail for compliance
+export const globalAdvisoryAuditLog = pgTable("global_advisory_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User & Session
+  userId: varchar("user_id").references(() => users.id),
+  sessionId: varchar("session_id", { length: 100 }),
+  
+  // Event Details
+  eventType: varchar("event_type", { length: 50 }).notNull(), // view, acknowledgment, analytics_access, recommendation_view, signal_view
+  eventSubType: varchar("event_sub_type", { length: 50 }), // product_list, allocation_view, model_portfolio, etc.
+  
+  // Market Context
+  marketCode: varchar("market_code", { length: 10 }),
+  productCategory: varchar("product_category", { length: 50 }),
+  
+  // Event Data
+  eventData: jsonb("event_data"), // Additional context like product IDs viewed
+  aiRationale: text("ai_rationale"), // If AI was involved
+  
+  // Request Context
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  requestPath: varchar("request_path", { length: 500 }),
+  
+  // Compliance Markers
+  advisoryClassification: varchar("advisory_classification", { length: 20 }), // FULL, ANALYTICS_ONLY
+  disclaimerShown: boolean("disclaimer_shown").default(false),
+  
+  // Immutability
+  eventTimestamp: timestamp("event_timestamp").defaultNow().notNull(),
+  checksumHash: varchar("checksum_hash", { length: 64 }), // SHA-256 for immutability verification
+}, (table) => [
+  index("idx_gaal_user").on(table.userId),
+  index("idx_gaal_event").on(table.eventType),
+  index("idx_gaal_market").on(table.marketCode),
+  index("idx_gaal_timestamp").on(table.eventTimestamp),
+]);
+
+export const insertGlobalAdvisoryAuditLogSchema = createInsertSchema(globalAdvisoryAuditLog).omit({ id: true, eventTimestamp: true });
+export type GlobalAdvisoryAuditLog = typeof globalAdvisoryAuditLog.$inferSelect;
+export type InsertGlobalAdvisoryAuditLog = z.infer<typeof insertGlobalAdvisoryAuditLogSchema>;
+
+// Feature Flags - Platform-wide feature configuration
+export const platformFeatureFlags = pgTable("platform_feature_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Flag Identification
+  flagKey: varchar("flag_key", { length: 100 }).notNull().unique(), // GLOBAL_ADVISORY_MODE, AI_RECOMMENDATIONS, etc.
+  flagName: varchar("flag_name", { length: 200 }).notNull(),
+  description: text("description"),
+  
+  // Flag Value
+  isEnabled: boolean("is_enabled").default(false),
+  defaultValue: jsonb("default_value"), // Can be boolean, string, number, or object
+  
+  // Environment Control
+  enabledEnvironments: text("enabled_environments").array().default(sql`ARRAY['development']`),
+  
+  // Targeting Rules (optional)
+  targetingRules: jsonb("targeting_rules"), // {userSegments: [], markets: [], percentRollout: 100}
+  
+  // Kill Switch
+  isKillSwitch: boolean("is_kill_switch").default(false), // For emergency disabling
+  killSwitchActivatedAt: timestamp("kill_switch_activated_at"),
+  killSwitchReason: text("kill_switch_reason"),
+  
+  // Category
+  category: varchar("category", { length: 50 }), // global_advisory, ai, compliance, experimental
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_pff_key").on(table.flagKey),
+  index("idx_pff_enabled").on(table.isEnabled),
+  index("idx_pff_category").on(table.category),
+]);
+
+export const insertPlatformFeatureFlagSchema = createInsertSchema(platformFeatureFlags).omit({ id: true, createdAt: true, updatedAt: true });
+export type PlatformFeatureFlag = typeof platformFeatureFlags.$inferSelect;
+export type InsertPlatformFeatureFlag = z.infer<typeof insertPlatformFeatureFlagSchema>;
+
+// User Market Preferences - Track user's selected market context
+export const userMarketPreferences = pgTable("user_market_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
+  
+  // Current Selection
+  selectedMarket: varchar("selected_market", { length: 10 }).default("IN").references(() => marketsMaster.marketCode),
+  displayCurrency: varchar("display_currency", { length: 3 }).default("INR"),
+  
+  // Preferences
+  showGlobalMarkets: boolean("show_global_markets").default(false),
+  preferredMarkets: text("preferred_markets").array(), // Quick access markets
+  
+  // Last Global Advisory Access
+  lastGlobalAdvisoryAccess: timestamp("last_global_advisory_access"),
+  globalAdvisorySessionCount: integer("global_advisory_session_count").default(0),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ump_user").on(table.userId),
+  index("idx_ump_market").on(table.selectedMarket),
+]);
+
+export const insertUserMarketPreferencesSchema = createInsertSchema(userMarketPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type UserMarketPreferences = typeof userMarketPreferences.$inferSelect;
+export type InsertUserMarketPreferences = z.infer<typeof insertUserMarketPreferencesSchema>;

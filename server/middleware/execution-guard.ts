@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import * as globalAdvisoryService from "../services/global-advisory-service";
 
 const processedIdempotencyKeys = new Map<string, { timestamp: number; result: any }>();
 
@@ -188,4 +189,99 @@ export function requireIdempotencyKey(req: Request, res: Response, next: NextFun
   }
   
   next();
+}
+
+// ============================================================================
+// GLOBAL ADVISORY EXECUTION GUARDS
+// Prevent execution of orders/trades outside of India (SEBI compliance)
+// ============================================================================
+
+export async function requireExecutionAllowedForMarket(req: Request, res: Response, next: NextFunction) {
+  try {
+    const marketCode = req.body?.marketCode || req.query?.marketCode || req.params?.marketCode || "IN";
+    
+    const result = await globalAdvisoryService.canExecuteInMarket(marketCode);
+    
+    if (!result.canExecute) {
+      await globalAdvisoryService.logAuditEvent(
+        (req as any).user?.id || null,
+        "execution_blocked",
+        "guardrail_triggered",
+        { 
+          marketCode, 
+          reason: result.reason,
+          endpoint: req.path,
+          method: req.method
+        },
+        {
+          marketCode,
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent"),
+          requestPath: req.path,
+          advisoryClassification: "ANALYTICS_ONLY"
+        }
+      );
+      
+      return res.status(403).json({
+        success: false,
+        error: "EXECUTION_NOT_ALLOWED",
+        message: result.reason || "Execution is not permitted for this market",
+        marketCode,
+        advisoryLevel: "ANALYTICS_ONLY",
+        recommendation: "Please execute trades through your licensed broker for this market"
+      });
+    }
+    
+    next();
+  } catch (error: any) {
+    console.error("[ExecutionGuard:Market] Error:", error.message);
+    return res.status(500).json({
+      success: false,
+      error: "EXECUTION_CHECK_FAILED",
+      message: "Failed to verify execution permissions"
+    });
+  }
+}
+
+export function blockNonIndiaExecution(req: Request, res: Response, next: NextFunction) {
+  const marketCode = req.body?.marketCode || req.query?.marketCode || req.params?.marketCode;
+  
+  if (marketCode && marketCode !== "IN") {
+    console.warn(`[ExecutionGuard] BLOCKED non-India execution attempt: ${req.path}`, {
+      marketCode,
+      userId: (req as any).user?.id,
+      ip: req.ip
+    });
+    
+    return res.status(403).json({
+      success: false,
+      error: "EXECUTION_NOT_ALLOWED",
+      message: "Order execution is only available for Indian markets. For international markets, please execute trades through your licensed broker.",
+      marketCode,
+      advisoryLevel: "ANALYTICS_ONLY"
+    });
+  }
+  
+  next();
+}
+
+export async function setGlobalAdvisoryHeaders(req: Request, res: Response, next: NextFunction) {
+  try {
+    const marketCode = req.body?.marketCode || req.query?.marketCode || req.params?.marketCode || "IN";
+    
+    if (marketCode !== "IN") {
+      const market = await globalAdvisoryService.getMarketByCode(marketCode);
+      
+      if (market) {
+        res.setHeader("X-Advisory-Level", market.advisoryLevel);
+        res.setHeader("X-Execution-Allowed", market.executionAllowed.toString());
+        res.setHeader("X-Market-Code", marketCode);
+        res.setHeader("X-Market-Name", market.marketName);
+      }
+    }
+    
+    next();
+  } catch (error) {
+    next();
+  }
 }

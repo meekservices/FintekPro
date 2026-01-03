@@ -220,6 +220,7 @@ import UnlistedCompaniesAdmin from "@/pages/admin/UnlistedCompaniesAdmin";
 import UnlistedNegotiations from "@/pages/admin/UnlistedNegotiations";
 import UnlistedDashboard from "@/pages/admin/unlisted-dashboard";
 import BondMarketplaceDashboard from "@/pages/admin/bond-marketplace-dashboard";
+import GlobalAdvisoryManagement from "@/pages/admin/global-advisory-management";
 import UnlistedOrders from "@/pages/admin/unlisted-orders";
 import OrderAuditDashboard from "@/pages/admin/order-audit";
 import UnlistedAuditLog from "@/pages/admin/unlisted-audit-log";
@@ -684,6 +685,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <DemoProposalsTracking />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/global-advisory">
+        {() => (
+          <AdminLayout>
+            <GlobalAdvisoryManagement />
           </AdminLayout>
         )}
       </Route>
