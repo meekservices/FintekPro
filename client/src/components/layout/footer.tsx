@@ -84,7 +84,13 @@ export function Footer() {
     { name: "Settings", href: "/settings" },
     { name: "Support", href: "/support" },
     { name: "Contact Us", href: "/contact" },
-    { name: "Terms & Privacy", href: "/terms" },
+  ];
+
+  const legalLinks = [
+    { name: "Terms of Service", href: "/terms" },
+    { name: "Privacy Policy", href: "/privacy" },
+    { name: "Refund Policy", href: "/refund-policy" },
+    { name: "Risk Disclaimer", href: "/disclaimer" },
   ];
 
   return (
@@ -276,10 +282,29 @@ export function Footer() {
           </div>
         )}
 
-        <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-300 text-sm">
-          <p data-testid="footer-copyright">
-            &copy; 2025 FintekPro. All rights reserved. | Registered Distributor of Financial & Investment Products.
-          </p>
+        <div className="border-t border-gray-600 mt-8 pt-6">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+            <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4 md:mb-0">
+              {legalLinks.map((link, index) => (
+                <span key={link.name} className="flex items-center">
+                  <Link href={link.href}>
+                    <span className="text-gray-300 hover:text-blue-400 transition-colors cursor-pointer text-sm" data-testid={`footer-legal-${link.name.toLowerCase().replace(/\s+/g, "-")}`}>
+                      {link.name}
+                    </span>
+                  </Link>
+                  {index < legalLinks.length - 1 && <span className="text-gray-600 ml-4">|</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="text-center text-gray-300 text-sm">
+            <p data-testid="footer-copyright">
+              &copy; 2026 FintekPro Financial Services Pvt. Ltd. All rights reserved. | SEBI Registered Investment Advisor | AMFI Registered Mutual Fund Distributor
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Investments are subject to market risks. Read all related documents carefully before investing.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

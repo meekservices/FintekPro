@@ -52,6 +52,8 @@ import HDFCLoans from "@/pages/hdfc-loans";
 import ClientAutoPopulate from "@/pages/client-auto-populate";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
+import RefundPolicy from "@/pages/refund-policy";
+import InvestmentDisclaimer from "@/pages/disclaimer";
 import AIF from "@/pages/aif";
 import AIFDetail from "@/pages/aif-detail";
 import PMS from "@/pages/pms";
@@ -1477,6 +1479,8 @@ function Router() {
         <Route path="/net-worth" component={NetWorthPage} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
+        <Route path="/refund-policy" component={RefundPolicy} />
+        <Route path="/disclaimer" component={InvestmentDisclaimer} />
         
         {/* Agent/Admin routes - bypass profile completion but require authentication */}
         <Route path="/admin" component={AdminPanel} />
