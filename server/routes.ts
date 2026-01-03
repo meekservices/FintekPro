@@ -161,6 +161,7 @@ import unifiedPortfolioRoutes from "./routes/unified-portfolio-routes";
 import aiRebalancingRoutes from "./routes/ai-rebalancing-routes";
 import unifiedProposalsRoutes from "./routes/unified-proposals-routes";
 import globalAdvisoryRoutes from "./routes/global-advisory";
+import feeModeRoutes from "./routes/fee-mode";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -529,6 +530,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Global Advisory Routes (EPIC 1 & 2)
   app.use("/api/global-advisory", globalAdvisoryRoutes);
   console.log("✅ Global Advisory routes registered");
+
+  // Client Fee Mode Routes (Advisory + Platform vs Platform-Only)
+  app.use("/api/fee-mode", feeModeRoutes);
+  console.log("✅ Client Fee Mode routes registered");
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
