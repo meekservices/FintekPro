@@ -42,6 +42,7 @@ interface CacheMetrics {
   providers: {
     yahoo: ProviderMetrics;
     finnhub: ProviderMetrics;
+    nse: ProviderMetrics;
   };
   lastSuccessfulProvider: string | null;
 }
@@ -154,10 +155,11 @@ class FinnhubProvider {
 
     for (const stock of stocks) {
       try {
-        const quote = await this.getQuote(stock.symbol);
+        const nseSymbol = stock.symbol.replace('.NS', '');
+        const quote = await this.getQuote(nseSymbol);
         if (quote && quote.price > 0) {
           stockQuotes.push({
-            symbol: stock.symbol.replace('.NS', ''),
+            symbol: nseSymbol,
             name: stock.name,
             price: quote.price,
             change: quote.change,
@@ -180,6 +182,93 @@ class FinnhubProvider {
     }
 
     return stockQuotes;
+  }
+}
+
+class NseIndiaProvider {
+  private readonly baseUrl = 'https://www.nseindia.com/api';
+  private cookies: string = '';
+  private cookiesExpiry: number = 0;
+  private isAvailable: boolean = true;
+
+  constructor() {
+    console.log('✅ [NseIndiaProvider] Initialized (NSE India API fallback)');
+  }
+
+  isEnabled(): boolean {
+    return this.isAvailable;
+  }
+
+  private async refreshCookies(): Promise<void> {
+    if (Date.now() < this.cookiesExpiry) {
+      return;
+    }
+
+    try {
+      const response = await fetch('https://www.nseindia.com', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+        },
+      });
+
+      const setCookieHeaders = response.headers.get('set-cookie');
+      if (setCookieHeaders) {
+        this.cookies = setCookieHeaders.split(',').map(c => c.split(';')[0]).join('; ');
+        this.cookiesExpiry = Date.now() + 5 * 60 * 1000;
+      }
+    } catch (error) {
+      console.warn('⚠️ [NseIndiaProvider] Failed to refresh cookies:', error);
+    }
+  }
+
+  async fetchMarketMovers(): Promise<Stock[]> {
+    try {
+      await this.refreshCookies();
+
+      const response = await fetch(`${this.baseUrl}/live-analysis-variations?index=gainers`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Cookie': this.cookies,
+          'Referer': 'https://www.nseindia.com/market-data/live-market-indices',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('NSE rate limit exceeded');
+        }
+        throw new Error(`NSE API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const stockQuotes: Stock[] = [];
+
+      if (data?.NIFTY?.data) {
+        for (const item of data.NIFTY.data.slice(0, 15)) {
+          stockQuotes.push({
+            symbol: item.symbol || '',
+            name: item.symbol || '',
+            price: parseFloat(item.ltp) || 0,
+            change: parseFloat(item.netPrice) || 0,
+            changePercent: parseFloat(item.perChange) || 0,
+            previousClose: parseFloat(item.previousClose) || (parseFloat(item.ltp) - parseFloat(item.netPrice)) || 0,
+          });
+        }
+      }
+
+      if (stockQuotes.length === 0) {
+        throw new Error('No stock data from NSE API');
+      }
+
+      return stockQuotes;
+    } catch (error) {
+      console.warn('⚠️ [NseIndiaProvider] Fetch error:', error);
+      throw error;
+    }
   }
 }
 
@@ -212,6 +301,14 @@ class MarketMoversCache {
         lastLatency: 0,
         rateLimitErrors: 0,
       },
+      nse: {
+        successCount: 0,
+        failureCount: 0,
+        lastSuccess: 0,
+        lastFailure: 0,
+        lastLatency: 0,
+        rateLimitErrors: 0,
+      },
     },
     lastSuccessfulProvider: null,
   };
@@ -221,10 +318,12 @@ class MarketMoversCache {
   private isInitialized = false;
   private currentBackoff = INITIAL_BACKOFF_MS;
   private finnhubProvider: FinnhubProvider;
+  private nseProvider: NseIndiaProvider;
   private yahooRateLimited = false;
 
   constructor() {
     this.finnhubProvider = new FinnhubProvider();
+    this.nseProvider = new NseIndiaProvider();
   }
 
   async initialize(): Promise<void> {
@@ -301,7 +400,8 @@ class MarketMoversCache {
 
   private startBackgroundRefresh(): void {
     setInterval(async () => {
-      if (this.isRateLimited() && !this.finnhubProvider.isEnabled()) {
+      const hasFallback = this.finnhubProvider.isEnabled() || this.nseProvider.isEnabled();
+      if (this.isRateLimited() && !hasFallback) {
         const remainingMs = this.metrics.backoffUntil - Date.now();
         console.log(`⏸️ [MarketMoversCache] Skipping refresh - rate limited for ${Math.round(remainingMs / 1000)}s more`);
         return;
@@ -377,6 +477,21 @@ class MarketMoversCache {
     return stockQuotes;
   }
 
+  private async fetchFromNse(): Promise<Stock[]> {
+    if (!this.nseProvider.isEnabled()) {
+      throw new Error('NSE provider not available');
+    }
+
+    const startTime = Date.now();
+    const stockQuotes = await this.nseProvider.fetchMarketMovers();
+    
+    this.metrics.providers.nse.lastLatency = Date.now() - startTime;
+    this.metrics.providers.nse.successCount++;
+    this.metrics.providers.nse.lastSuccess = Date.now();
+    
+    return stockQuotes;
+  }
+
   private async refreshCache(): Promise<void> {
     if (this.refreshLock) {
       console.log('⏳ [MarketMoversCache] Refresh already in progress, skipping');
@@ -423,6 +538,19 @@ class MarketMoversCache {
           console.warn('⚠️ [MarketMoversCache] Finnhub fallback failed:', finnhubError);
           this.metrics.providers.finnhub.failureCount++;
           this.metrics.providers.finnhub.lastFailure = Date.now();
+        }
+      }
+
+      if (stockQuotes.length === 0 && this.nseProvider.isEnabled()) {
+        try {
+          console.log('🔄 [MarketMoversCache] Trying NSE India fallback...');
+          stockQuotes = await this.fetchFromNse();
+          successProvider = 'nse';
+          console.log(`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`);
+        } catch (nseError) {
+          console.warn('⚠️ [MarketMoversCache] NSE India fallback failed:', nseError);
+          this.metrics.providers.nse.failureCount++;
+          this.metrics.providers.nse.lastFailure = Date.now();
         }
       }
 
@@ -501,8 +629,9 @@ class MarketMoversCache {
         
         const canRefreshYahoo = !this.refreshLock && !this.isRateLimited();
         const canRefreshFinnhub = !this.refreshLock && this.finnhubProvider.isEnabled();
+        const canRefreshNse = !this.refreshLock && this.nseProvider.isEnabled();
         
-        if (canRefreshYahoo || canRefreshFinnhub) {
+        if (canRefreshYahoo || canRefreshFinnhub || canRefreshNse) {
           this.refreshCache().catch(console.error);
         }
         
@@ -517,7 +646,8 @@ class MarketMoversCache {
 
     this.metrics.misses++;
     
-    const cannotFetch = (!this.isInitialized || this.isRateLimited()) && !this.finnhubProvider.isEnabled();
+    const hasFallback = this.finnhubProvider.isEnabled() || this.nseProvider.isEnabled();
+    const cannotFetch = (!this.isInitialized || this.isRateLimited()) && !hasFallback;
     if (cannotFetch) {
       console.log('📌 [MarketMoversCache] Returning fallback data (not initialized or all providers unavailable)');
       if (!this.refreshLock) {
@@ -564,6 +694,7 @@ class MarketMoversCache {
     isRateLimited: boolean; 
     backoffRemaining: number;
     finnhubEnabled: boolean;
+    nseEnabled: boolean;
     yahooRateLimited: boolean;
   } {
     const cacheAge = this.cache ? Date.now() - this.cache.timestamp : null;
@@ -578,6 +709,7 @@ class MarketMoversCache {
       isRateLimited: this.isRateLimited(),
       backoffRemaining,
       finnhubEnabled: this.finnhubProvider.isEnabled(),
+      nseEnabled: this.nseProvider.isEnabled(),
       yahooRateLimited: this.yahooRateLimited,
     };
   }
