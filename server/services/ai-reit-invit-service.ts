@@ -1,7 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "" });
-
 export interface ReitInvitAsset {
   type: 'reit' | 'invit';
   symbol: string;
@@ -41,12 +39,14 @@ export interface AIRecommendation {
 }
 
 class AIReitInvitService {
+  private genAI: GoogleGenAI | null = null;
   private isInitialized: boolean = false;
 
   constructor() {
-    const hasApiKey = !!(process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY);
-    this.isInitialized = hasApiKey;
-    if (this.isInitialized) {
+    const apiKey = process.env.AI_INTEGRATIONS_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (apiKey) {
+      this.genAI = new GoogleGenAI({ apiKey });
+      this.isInitialized = true;
       console.log('✅ AI REIT/InvIT Recommendation Service initialized with Gemini');
     } else {
       console.warn('⚠️ AI REIT/InvIT Recommendation Service: No Gemini API key configured. Using fallback recommendations.');
@@ -90,7 +90,7 @@ Consider:
 
 Return JSON array sorted by suitabilityScore (highest first).`;
 
-      const response = await ai.models.generateContent({
+      const response = await this.genAI!.models.generateContent({
         model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
@@ -207,7 +207,7 @@ Provide:
 
 Return as JSON object.`;
 
-      const response = await ai.models.generateContent({
+      const response = await this.genAI!.models.generateContent({
         model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
