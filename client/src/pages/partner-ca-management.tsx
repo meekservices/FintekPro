@@ -81,86 +81,6 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const mockCAs: CAProfile[] = [
-  {
-    id: '1',
-    name: 'CA Rajesh Gupta',
-    email: 'rajesh.gupta@cagfirm.com',
-    mobile: '+91 98765 43210',
-    firmName: 'Gupta & Associates',
-    caNumber: 'CA-123456',
-    specializations: ['ITR Filing', 'GST', 'Audit'],
-    status: 'active',
-    joinDate: '2024-01-15',
-    revenueShare: 70,
-    casesAssigned: 45,
-    casesCompleted: 42,
-    totalRevenue: 525000,
-    rating: 4.8,
-    reviewCount: 38,
-    lastActiveDate: '2026-01-02'
-  },
-  {
-    id: '2',
-    name: 'CA Priya Sharma',
-    email: 'priya.sharma@taxexperts.in',
-    mobile: '+91 87654 32109',
-    firmName: 'Tax Experts India',
-    caNumber: 'CA-234567',
-    specializations: ['ITR Filing', 'Tax Planning', 'NRI Taxation'],
-    status: 'active',
-    joinDate: '2024-03-20',
-    revenueShare: 65,
-    casesAssigned: 32,
-    casesCompleted: 28,
-    totalRevenue: 380000,
-    rating: 4.6,
-    reviewCount: 25,
-    lastActiveDate: '2026-01-01'
-  },
-  {
-    id: '3',
-    name: 'CA Amit Patel',
-    email: 'amit.patel@capatel.com',
-    mobile: '+91 76543 21098',
-    caNumber: 'CA-345678',
-    specializations: ['GST', 'Company Matters'],
-    status: 'active',
-    joinDate: '2024-06-10',
-    revenueShare: 60,
-    casesAssigned: 18,
-    casesCompleted: 15,
-    totalRevenue: 195000,
-    rating: 4.3,
-    reviewCount: 12,
-    lastActiveDate: '2025-12-30'
-  },
-  {
-    id: '4',
-    name: 'CA Sunita Reddy',
-    email: 'sunita.reddy@email.com',
-    mobile: '+91 65432 10987',
-    caNumber: 'CA-456789',
-    specializations: ['ITR Filing'],
-    status: 'pending',
-    joinDate: '2025-12-28',
-    revenueShare: 60,
-    casesAssigned: 0,
-    casesCompleted: 0,
-    totalRevenue: 0,
-    rating: 0,
-    reviewCount: 0,
-    lastActiveDate: '2025-12-28'
-  }
-];
-
-const mockCases: TaxCase[] = [
-  { id: '1', clientName: 'Vikram Industries', caseType: 'ITR-3 Filing', assignedCAId: null, assignedCAName: null, status: 'unassigned', priority: 'high', dueDate: '2026-01-15', amount: 15000, createdAt: '2026-01-02' },
-  { id: '2', clientName: 'Priya Mehta', caseType: 'ITR-2 Filing', assignedCAId: '1', assignedCAName: 'CA Rajesh Gupta', status: 'in_progress', priority: 'medium', dueDate: '2026-01-20', amount: 8000, createdAt: '2025-12-28' },
-  { id: '3', clientName: 'Tech Solutions Pvt Ltd', caseType: 'GST Returns', assignedCAId: '2', assignedCAName: 'CA Priya Sharma', status: 'assigned', priority: 'high', dueDate: '2026-01-10', amount: 25000, createdAt: '2025-12-25' },
-  { id: '4', clientName: 'Amit Shah', caseType: 'ITR-1 Filing', assignedCAId: '1', assignedCAName: 'CA Rajesh Gupta', status: 'completed', priority: 'low', dueDate: '2025-12-31', amount: 5000, createdAt: '2025-12-15' },
-  { id: '5', clientName: 'Global Exports Ltd', caseType: 'Tax Notice Response', assignedCAId: null, assignedCAName: null, status: 'unassigned', priority: 'high', dueDate: '2026-01-08', amount: 35000, createdAt: '2026-01-01' }
-];
 
 export default function PartnerCAManagement() {
   const { toast } = useToast();
@@ -182,8 +102,17 @@ export default function PartnerCAManagement() {
     specializations: [] as string[]
   });
 
-  const cas = mockCAs;
-  const cases = mockCases;
+  const { data: casData, isLoading: isLoadingCAs } = useQuery<CAProfile[]>({
+    queryKey: ['/api/partner/cas'],
+  });
+
+  const { data: casesData, isLoading: isLoadingCases } = useQuery<TaxCase[]>({
+    queryKey: ['/api/partner/tax-cases'],
+  });
+
+  const cas = casData || [];
+  const cases = casesData || [];
+  const isLoading = isLoadingCAs || isLoadingCases;
 
   const aggregateMetrics = useMemo(() => {
     const activeCAs = cas.filter(ca => ca.status === 'active').length;

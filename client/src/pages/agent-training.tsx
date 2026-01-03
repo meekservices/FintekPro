@@ -40,38 +40,6 @@ interface QuizQuestion {
   correctAnswer: number;
 }
 
-const mockQuizQuestions: QuizQuestion[] = [
-  {
-    id: "q1",
-    question: "What is the minimum suitability score threshold for Growth-Optimized recommendations?",
-    options: ["40", "50", "60", "70"],
-    correctAnswer: 2,
-  },
-  {
-    id: "q2",
-    question: "What percentage weight does Suitability Score have in Growth-Optimized mode?",
-    options: ["85%", "70%", "55%", "45%"],
-    correctAnswer: 2,
-  },
-  {
-    id: "q3",
-    question: "When must an agent provide a reason for an override?",
-    options: ["Never", "Only for mode changes", "Only for allocation changes", "Always for any override"],
-    correctAnswer: 3,
-  },
-  {
-    id: "q4",
-    question: "What disclosure must always be shown to clients in Growth-Optimized mode?",
-    options: ["None required", "Risk warning banner", "Guaranteed returns notice", "Agent commission details"],
-    correctAnswer: 1,
-  },
-  {
-    id: "q5",
-    question: "What happens if an agent is not certified for Growth-Optimized mode?",
-    options: ["They can still use it with a warning", "Mode is locked and unavailable", "They can request temporary access", "Nothing, certification is optional"],
-    correctAnswer: 1,
-  },
-];
 
 export default function AgentTrainingPage() {
   const { toast } = useToast();
@@ -88,6 +56,13 @@ export default function AgentTrainingPage() {
   const { data: certifications } = useQuery({
     queryKey: ["/api/agent/certification/growth_optimized"],
   });
+
+  const { data: quizQuestions } = useQuery<QuizQuestion[]>({
+    queryKey: ['/api/agent/training/quiz-questions', selectedPlaybook?.id],
+    enabled: showQuiz && !!selectedPlaybook,
+  });
+
+  const questions = quizQuestions || [];
 
   const submitQuizMutation = useMutation({
     mutationFn: (data: { playbookId: string; answers: Record<string, number> }) =>
@@ -141,7 +116,7 @@ export default function AgentTrainingPage() {
     }
   };
 
-  const allQuestionsAnswered = Object.keys(quizAnswers).length === mockQuizQuestions.length;
+  const allQuestionsAnswered = questions.length > 0 && Object.keys(quizAnswers).length === questions.length;
 
   return (
     <AgentLayout>
@@ -323,7 +298,7 @@ export default function AgentTrainingPage() {
               </div>
             ) : (
               <div className="space-y-6 py-4">
-                {mockQuizQuestions.map((q, index) => (
+                {questions.map((q, index) => (
                   <div key={q.id} className="space-y-3">
                     <Label className="text-base font-medium">
                       {index + 1}. {q.question}

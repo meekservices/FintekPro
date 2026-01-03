@@ -78,19 +78,6 @@ const formatCompact = (amount: number) => {
   return amount.toString();
 };
 
-const mockEarnings: EarningEntry[] = [
-  { id: '1', date: '2026-01-02', clientName: 'Vikram Shah', productType: 'Mutual Fund', transactionType: 'SIP Registration', transactionValue: 50000, commissionRate: 1.5, grossCommission: 750, platformFee: 75, netCommission: 675, status: 'pending' },
-  { id: '2', date: '2025-12-28', clientName: 'Priya Mehta', productType: 'Stocks', transactionType: 'Buy Order', transactionValue: 250000, commissionRate: 0.5, grossCommission: 1250, platformFee: 125, netCommission: 1125, status: 'approved' },
-  { id: '3', date: '2025-12-25', clientName: 'Rajesh Kumar', productType: 'Bond', transactionType: 'Purchase', transactionValue: 500000, commissionRate: 0.75, grossCommission: 3750, platformFee: 375, netCommission: 3375, status: 'paid' },
-  { id: '4', date: '2025-12-20', clientName: 'Anil Gupta', productType: 'Insurance', transactionType: 'New Policy', transactionValue: 100000, commissionRate: 15, grossCommission: 15000, platformFee: 1500, netCommission: 13500, status: 'paid' },
-  { id: '5', date: '2025-12-15', clientName: 'Sunita Patel', productType: 'Mutual Fund', transactionType: 'Lumpsum', transactionValue: 200000, commissionRate: 1.0, grossCommission: 2000, platformFee: 200, netCommission: 1800, status: 'paid' }
-];
-
-const mockPayoutRequests: PayoutRequest[] = [
-  { id: '1', requestDate: '2026-01-01', amount: 25000, status: 'pending', bankDetails: 'HDFC Bank ***1234' },
-  { id: '2', requestDate: '2025-12-15', amount: 18500, status: 'completed', bankDetails: 'HDFC Bank ***1234', processedDate: '2025-12-18', referenceNumber: 'PAY-2025-12345' },
-  { id: '3', requestDate: '2025-11-30', amount: 32000, status: 'completed', bankDetails: 'HDFC Bank ***1234', processedDate: '2025-12-02', referenceNumber: 'PAY-2025-11234' }
-];
 
 export default function AgentPayoutDashboard() {
   const { toast } = useToast();
@@ -100,8 +87,16 @@ export default function AgentPayoutDashboard() {
   const [payoutAmount, setPayoutAmount] = useState("");
   const [dateRange, setDateRange] = useState("this_month");
 
-  const earnings = mockEarnings;
-  const payoutRequests = mockPayoutRequests;
+  const { data: earningsData, isLoading: isLoadingEarnings } = useQuery<EarningEntry[]>({
+    queryKey: [`/api/agent/earnings?period=${dateRange}`],
+  });
+
+  const { data: payoutRequestsData, isLoading: isLoadingPayouts } = useQuery<PayoutRequest[]>({
+    queryKey: ['/api/agent/payout-requests'],
+  });
+
+  const earnings = earningsData || [];
+  const payoutRequests = payoutRequestsData || [];
 
   const metrics = useMemo(() => {
     const totalEarnings = earnings.reduce((sum, e) => sum + e.netCommission, 0);

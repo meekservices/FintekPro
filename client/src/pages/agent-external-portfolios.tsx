@@ -101,13 +101,7 @@ export default function AgentExternalPortfolios() {
     }
   };
 
-  const mockHoldings: ExternalHolding[] = [
-    { id: '1', clientName: 'Rahul Sharma', clientPan: 'ABCDE1234F', symbol: 'RELIANCE', quantity: 100, currentBroker: 'Zerodha', status: 'pending' },
-    { id: '2', clientName: 'Priya Patel', clientPan: 'FGHIJ5678K', symbol: 'TCS', quantity: 50, currentBroker: 'Groww', status: 'in_progress' },
-    { id: '3', clientName: 'Amit Kumar', clientPan: 'KLMNO9012P', symbol: 'INFY', quantity: 200, currentBroker: 'Upstox', status: 'completed' },
-  ];
-
-  const holdings = externalHoldings || mockHoldings;
+  const holdings = externalHoldings || [];
   const filteredHoldings = holdings.filter(h => 
     h.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     h.clientPan.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -88,91 +88,6 @@ const formatCompact = (amount: number) => {
   return amount.toString();
 };
 
-const mockAgents: AgentMetrics[] = [
-  {
-    id: '1',
-    name: 'Rahul Sharma',
-    email: 'rahul.sharma@email.com',
-    mobile: '+91 98765 43210',
-    status: 'active',
-    joinDate: '2024-01-15',
-    totalRevenue: 1250000,
-    totalExpenses: 185000,
-    netPL: 1065000,
-    clientsAcquired: 28,
-    dealsConverted: 45,
-    commissionEarned: 375000,
-    commissionPaid: 300000,
-    pendingPayout: 75000,
-    performanceScore: 92,
-    targetAchievement: 115,
-    lastActivityDate: '2026-01-02'
-  },
-  {
-    id: '2',
-    name: 'Priya Patel',
-    email: 'priya.patel@email.com',
-    mobile: '+91 87654 32109',
-    status: 'active',
-    joinDate: '2024-03-20',
-    totalRevenue: 890000,
-    totalExpenses: 125000,
-    netPL: 765000,
-    clientsAcquired: 19,
-    dealsConverted: 32,
-    commissionEarned: 267000,
-    commissionPaid: 200000,
-    pendingPayout: 67000,
-    performanceScore: 85,
-    targetAchievement: 95,
-    lastActivityDate: '2026-01-01'
-  },
-  {
-    id: '3',
-    name: 'Amit Kumar',
-    email: 'amit.kumar@email.com',
-    mobile: '+91 76543 21098',
-    status: 'active',
-    joinDate: '2024-06-10',
-    totalRevenue: 520000,
-    totalExpenses: 95000,
-    netPL: 425000,
-    clientsAcquired: 12,
-    dealsConverted: 18,
-    commissionEarned: 156000,
-    commissionPaid: 120000,
-    pendingPayout: 36000,
-    performanceScore: 72,
-    targetAchievement: 78,
-    lastActivityDate: '2025-12-30'
-  },
-  {
-    id: '4',
-    name: 'Sneha Reddy',
-    email: 'sneha.reddy@email.com',
-    mobile: '+91 65432 10987',
-    status: 'inactive',
-    joinDate: '2024-08-05',
-    totalRevenue: 180000,
-    totalExpenses: 45000,
-    netPL: 135000,
-    clientsAcquired: 5,
-    dealsConverted: 8,
-    commissionEarned: 54000,
-    commissionPaid: 54000,
-    pendingPayout: 0,
-    performanceScore: 45,
-    targetAchievement: 42,
-    lastActivityDate: '2025-11-15'
-  }
-];
-
-const mockExpenses: ExpenseItem[] = [
-  { id: '1', agentId: '1', agentName: 'Rahul Sharma', category: 'Travel', description: 'Client meeting travel', amount: 5500, status: 'pending', date: '2026-01-02' },
-  { id: '2', agentId: '2', agentName: 'Priya Patel', category: 'Marketing', description: 'Lead generation campaign', amount: 15000, status: 'approved', date: '2025-12-28' },
-  { id: '3', agentId: '1', agentName: 'Rahul Sharma', category: 'Entertainment', description: 'Client dinner meeting', amount: 3200, status: 'pending', date: '2025-12-30' },
-  { id: '4', agentId: '3', agentName: 'Amit Kumar', category: 'Office', description: 'Printer ink and supplies', amount: 2800, status: 'rejected', date: '2025-12-20' }
-];
 
 export default function PartnerAgentDashboard() {
   const { toast } = useToast();
@@ -183,8 +98,17 @@ export default function PartnerAgentDashboard() {
   const [showAgentDetail, setShowAgentDetail] = useState(false);
   const [dateRange, setDateRange] = useState("this_month");
 
-  const agents = mockAgents;
-  const expenses = mockExpenses;
+  const { data: agentsData, isLoading: isLoadingAgents } = useQuery<AgentMetrics[]>({
+    queryKey: [`/api/partner/agents?period=${dateRange}`],
+  });
+
+  const { data: expensesData, isLoading: isLoadingExpenses } = useQuery<ExpenseItem[]>({
+    queryKey: ['/api/partner/expenses'],
+  });
+
+  const agents = agentsData || [];
+  const expenses = expensesData || [];
+  const isLoading = isLoadingAgents || isLoadingExpenses;
 
   const aggregateMetrics = useMemo(() => {
     const totalRevenue = agents.reduce((sum, a) => sum + a.totalRevenue, 0);

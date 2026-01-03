@@ -62,14 +62,6 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const mockPayouts: PayoutRequest[] = [
-  { id: '1', userId: 'A001', userName: 'Rahul Sharma', userType: 'agent', email: 'rahul@email.com', amount: 75000, requestDate: '2026-01-02', status: 'pending', bankName: 'HDFC Bank', accountEnding: '1234', ifsc: 'HDFC0001234' },
-  { id: '2', userId: 'A002', userName: 'Priya Patel', userType: 'agent', email: 'priya@email.com', amount: 67000, requestDate: '2026-01-01', status: 'pending', bankName: 'ICICI Bank', accountEnding: '5678', ifsc: 'ICIC0001234' },
-  { id: '3', userId: 'P001', userName: 'Partner Alpha', userType: 'partner', email: 'alpha@partner.com', amount: 250000, requestDate: '2025-12-30', status: 'approved', bankName: 'SBI', accountEnding: '9012', ifsc: 'SBIN0001234' },
-  { id: '4', userId: 'CA001', userName: 'CA Rajesh Gupta', userType: 'ca', email: 'rajesh@ca.com', amount: 45000, requestDate: '2025-12-28', status: 'processing', bankName: 'Axis Bank', accountEnding: '3456', ifsc: 'UTIB0001234' },
-  { id: '5', userId: 'A003', userName: 'Amit Kumar', userType: 'agent', email: 'amit@email.com', amount: 36000, requestDate: '2025-12-25', status: 'completed', bankName: 'HDFC Bank', accountEnding: '7890', ifsc: 'HDFC0005678', processedDate: '2025-12-28', referenceNumber: 'PAY-2025-001234' },
-  { id: '6', userId: 'A004', userName: 'Sneha Reddy', userType: 'agent', email: 'sneha@email.com', amount: 12000, requestDate: '2025-12-20', status: 'rejected', bankName: 'Kotak Bank', accountEnding: '1122', ifsc: 'KKBK0001234', rejectionReason: 'Bank account verification failed' }
-];
 
 export default function AdminPayoutManagement() {
   const { toast } = useToast();
@@ -81,7 +73,18 @@ export default function AdminPayoutManagement() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [payouts, setPayouts] = useState(mockPayouts);
+
+  const { data: payoutsData, isLoading } = useQuery<PayoutRequest[]>({
+    queryKey: ['/api/admin/payouts'],
+  });
+
+  const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
+  
+  useMemo(() => {
+    if (payoutsData) {
+      setPayouts(payoutsData);
+    }
+  }, [payoutsData]);
 
   const metrics = useMemo(() => {
     const pendingCount = payouts.filter(p => p.status === 'pending').length;

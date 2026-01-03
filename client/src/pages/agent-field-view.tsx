@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Users, 
   Phone, 
@@ -36,25 +38,32 @@ interface ClientVisit {
   priority: 'high' | 'medium' | 'low';
 }
 
-const mockVisits: ClientVisit[] = [
-  { id: '1', clientName: 'Rajesh Kumar', clientPhone: '+91 98765 43210', address: '42 Park Street, Kolkata', purpose: 'kyc', status: 'scheduled', scheduledTime: '10:00 AM', priority: 'high' },
-  { id: '2', clientName: 'Priya Sharma', clientPhone: '+91 87654 32109', address: '15 MG Road, Bangalore', purpose: 'review', status: 'scheduled', scheduledTime: '11:30 AM', priority: 'medium' },
-  { id: '3', clientName: 'Amit Patel', clientPhone: '+91 76543 21098', address: '88 Ring Road, Ahmedabad', purpose: 'onboarding', status: 'in_progress', scheduledTime: '2:00 PM', priority: 'high' },
-  { id: '4', clientName: 'Sunita Reddy', clientPhone: '+91 65432 10987', address: '23 Jubilee Hills, Hyderabad', purpose: 'follow_up', status: 'completed', scheduledTime: '4:00 PM', priority: 'low' },
-];
-
-const mockStats = {
-  todayVisits: 4,
-  completedToday: 1,
-  pendingKYC: 8,
-  monthlyTarget: 25,
-  achieved: 18
-};
+interface FieldStats {
+  todayVisits: number;
+  completedToday: number;
+  pendingKYC: number;
+  monthlyTarget: number;
+  achieved: number;
+}
 
 export default function AgentFieldView() {
   const { user, isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTab, setSelectedTab] = useState('today');
+
+  const { data: visitsData, isLoading: isLoadingVisits } = useQuery<ClientVisit[]>({
+    queryKey: ['/api/agent/field-visits'],
+    enabled: isAuthenticated,
+  });
+
+  const { data: statsData, isLoading: isLoadingStats } = useQuery<FieldStats>({
+    queryKey: ['/api/agent/field-stats'],
+    enabled: isAuthenticated,
+  });
+
+  const visits = visitsData || [];
+  const stats = statsData || { todayVisits: 0, completedToday: 0, pendingKYC: 0, monthlyTarget: 0, achieved: 0 };
+  const isLoading = isLoadingVisits || isLoadingStats;
 
   const getPurposeColor = (purpose: string) => {
     switch (purpose) {
@@ -109,7 +118,7 @@ export default function AgentFieldView() {
             <p className="text-sm text-muted-foreground">Today's Schedule</p>
           </div>
           <Badge variant="outline" className="text-lg px-3 py-1">
-            {mockStats.completedToday}/{mockStats.todayVisits}
+            {stats.completedToday}/{stats.todayVisits}
           </Badge>
         </div>
         
@@ -132,7 +141,7 @@ export default function AgentFieldView() {
               <Target className="h-5 w-5 text-blue-600" />
               <div>
                 <p className="text-xs text-muted-foreground">Monthly Target</p>
-                <p className="text-lg font-bold">{mockStats.achieved}/{mockStats.monthlyTarget}</p>
+                <p className="text-lg font-bold">{stats.achieved}/{stats.monthlyTarget}</p>
               </div>
             </div>
           </CardContent>
@@ -143,7 +152,7 @@ export default function AgentFieldView() {
               <FileText className="h-5 w-5 text-orange-600" />
               <div>
                 <p className="text-xs text-muted-foreground">Pending KYC</p>
-                <p className="text-lg font-bold">{mockStats.pendingKYC}</p>
+                <p className="text-lg font-bold">{stats.pendingKYC}</p>
               </div>
             </div>
           </CardContent>
@@ -158,7 +167,7 @@ export default function AgentFieldView() {
         </TabsList>
 
         <TabsContent value="today" className="mt-4 space-y-3">
-          {mockVisits.filter(v => v.status !== 'completed').map((visit) => (
+          {visits.filter(v => v.status !== 'completed').map((visit) => (
             <Card 
               key={visit.id} 
               className="touch-manipulation active:scale-[0.98] transition-transform"
@@ -236,7 +245,7 @@ export default function AgentFieldView() {
         </TabsContent>
 
         <TabsContent value="completed" className="mt-4 space-y-3">
-          {mockVisits.filter(v => v.status === 'completed').map((visit) => (
+          {visits.filter(v => v.status === 'completed').map((visit) => (
             <Card key={visit.id} className="opacity-75" data-testid={`completed-visit-${visit.id}`}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
