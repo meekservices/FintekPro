@@ -88,7 +88,8 @@ export default function AgentPayoutDashboard() {
   const [dateRange, setDateRange] = useState("this_month");
 
   const { data: earningsData, isLoading: isLoadingEarnings } = useQuery<EarningEntry[]>({
-    queryKey: [`/api/agent/earnings?period=${dateRange}`],
+    queryKey: ['/api/agent/earnings', { period: dateRange }],
+    queryFn: () => fetch(`/api/agent/earnings?period=${dateRange}`).then(res => res.json()),
   });
 
   const { data: payoutRequestsData, isLoading: isLoadingPayouts } = useQuery<PayoutRequest[]>({
@@ -114,7 +115,7 @@ export default function AgentPayoutDashboard() {
       withdrawable,
       pendingPayouts,
       totalTransactions: earnings.length,
-      avgCommission: totalEarnings / earnings.length
+      avgCommission: earnings.length > 0 ? totalEarnings / earnings.length : 0
     };
   }, [earnings, payoutRequests]);
 

@@ -119,7 +119,8 @@ export default function PartnerCAManagement() {
     const totalRevenue = cas.reduce((sum, ca) => sum + ca.totalRevenue, 0);
     const casesCompleted = cas.reduce((sum, ca) => sum + ca.casesCompleted, 0);
     const pendingCases = cases.filter(c => c.status === 'unassigned').length;
-    const avgRating = cas.filter(ca => ca.rating > 0).reduce((sum, ca) => sum + ca.rating, 0) / cas.filter(ca => ca.rating > 0).length || 0;
+    const ratedCAs = cas.filter(ca => ca.rating > 0);
+    const avgRating = ratedCAs.length > 0 ? ratedCAs.reduce((sum, ca) => sum + ca.rating, 0) / ratedCAs.length : 0;
     
     return {
       activeCAs,

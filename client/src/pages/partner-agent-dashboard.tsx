@@ -99,7 +99,8 @@ export default function PartnerAgentDashboard() {
   const [dateRange, setDateRange] = useState("this_month");
 
   const { data: agentsData, isLoading: isLoadingAgents } = useQuery<AgentMetrics[]>({
-    queryKey: [`/api/partner/agents?period=${dateRange}`],
+    queryKey: ['/api/partner/agents', { period: dateRange }],
+    queryFn: () => fetch(`/api/partner/agents?period=${dateRange}`).then(res => res.json()),
   });
 
   const { data: expensesData, isLoading: isLoadingExpenses } = useQuery<ExpenseItem[]>({
@@ -127,7 +128,7 @@ export default function PartnerAgentDashboard() {
       activeAgents,
       totalAgents: agents.length,
       totalClients,
-      avgPerformance: Math.round(agents.reduce((sum, a) => sum + a.performanceScore, 0) / agents.length)
+      avgPerformance: agents.length > 0 ? Math.round(agents.reduce((sum, a) => sum + a.performanceScore, 0) / agents.length) : 0
     };
   }, [agents]);
 

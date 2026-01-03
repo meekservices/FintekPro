@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,7 @@ export default function AdminPayoutManagement() {
 
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
   
-  useMemo(() => {
+  useEffect(() => {
     if (payoutsData) {
       setPayouts(payoutsData);
     }
