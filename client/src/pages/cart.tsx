@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type { UnifiedCartItem, ProductCategory } from "@shared/schema";
+import { FeeBreakdownCard } from "@/components/FeeBreakdownCard";
+import { useFeeBreakdown } from "@/hooks/use-fee-breakdown";
 
 interface InvestmentProposal {
   id: string;
@@ -119,6 +121,35 @@ export default function Cart() {
     expectedReturns: '',
     priority: 'medium'
   });
+
+  // Fetch fee breakdown for cart summary
+  const { feeBreakdown: cartFeeBreakdown, isLoading: cartFeesLoading, error: cartFeesError, refetch: refetchCartFees } = useFeeBreakdown({
+    transactionAmount: cart?.totalValue || 0,
+    productType: 'all',
+    investorTier: 'retail',
+    enabled: (cart?.totalValue || 0) > 0
+  });
+  
+  // Determine if fee calculation is ready for checkout
+  const feesReady = !cartFeesLoading && cartFeeBreakdown?.summary !== undefined;
+
+  // Fetch fee breakdown for unified investments
+  const unifiedTotalValue = unifiedCartItems.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0);
+  
+  // Determine product type for fee calculation
+  // Use 'all' for mixed baskets, otherwise use the single category
+  const unifiedCategories = [...new Set(unifiedCartItems.map(item => item.productCategory))];
+  const unifiedProductType = unifiedCategories.length === 1 ? (unifiedCategories[0] || 'all') : 'all';
+  
+  const { feeBreakdown: investmentFeeBreakdown, isLoading: investmentFeesLoading, error: investmentFeesError, refetch: refetchInvestmentFees } = useFeeBreakdown({
+    transactionAmount: unifiedTotalValue,
+    productType: unifiedProductType,
+    investorTier: 'retail',
+    enabled: unifiedTotalValue > 0
+  });
+  
+  // Determine if investment fees are ready for checkout
+  const investmentFeesReady = !investmentFeesLoading && investmentFeeBreakdown?.summary !== undefined;
 
   // Parse URL to determine active tab and sync with URL changes
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -227,13 +258,32 @@ export default function Cart() {
     });
   };
 
+  // Calculate total payable including fees
+  const cartPayableTotal = (cart?.totalValue || 0) + (cartFeeBreakdown?.summary.grandTotal || 0);
+
   const checkoutMutation = useMutation({
     mutationFn: async (method: "cashfree" | "phonepe") => {
+      const payableAmount = cartPayableTotal;
+      const feeBreakdownData = cartFeeBreakdown ? {
+        subtotal: cartFeeBreakdown.summary.subtotal,
+        gst: cartFeeBreakdown.summary.totalGst,
+        waivers: cartFeeBreakdown.summary.totalWaivers,
+        grandTotal: cartFeeBreakdown.summary.grandTotal,
+        fees: cartFeeBreakdown.fees.map(f => ({
+          code: f.feeCode,
+          name: f.feeName,
+          amount: f.netAmount
+        }))
+      } : null;
+
       if (method === "cashfree") {
         const response: any = await apiRequest("/api/payments/cashfree/create-order", {
           method: "POST",
           body: JSON.stringify({
-            amount: cart?.totalValue || 0,
+            amount: payableAmount,
+            baseAmount: cart?.totalValue || 0,
+            feesAmount: cartFeeBreakdown?.summary.grandTotal || 0,
+            feeBreakdown: feeBreakdownData
           })
         });
         return { ...response, method: "cashfree" };
@@ -241,7 +291,10 @@ export default function Cart() {
         const response: any = await apiRequest("/api/payments/phonepe/create-order", {
           method: "POST",
           body: JSON.stringify({
-            amount: cart?.totalValue || 0,
+            amount: payableAmount,
+            baseAmount: cart?.totalValue || 0,
+            feesAmount: cartFeeBreakdown?.summary.grandTotal || 0,
+            feeBreakdown: feeBreakdownData,
             cartId: cart?.cart?.id,
           })
         });
@@ -279,6 +332,17 @@ export default function Cart() {
       });
       return;
     }
+    
+    if (!feesReady) {
+      toast({
+        title: "Fee Calculation Pending",
+        description: "Please wait while we calculate applicable fees",
+        variant: "destructive",
+      });
+      refetchCartFees();
+      return;
+    }
+    
     checkoutMutation.mutate(paymentMethod);
   };
 
@@ -843,11 +907,38 @@ export default function Cart() {
                         <span>Total Investment:</span>
                         <span className="font-medium">₹{cart.totalValue.toLocaleString()}</span>
                       </div>
-                      <div className="border-t pt-3">
-                        <div className="flex justify-between text-lg font-semibold">
-                          <span>Total:</span>
+                      
+                      {/* Fee Breakdown */}
+                      {cart.totalValue > 0 && (
+                        <div className="border-t pt-3">
+                          <FeeBreakdownCard
+                            feeBreakdown={cartFeeBreakdown}
+                            isLoading={cartFeesLoading}
+                            showDetails={true}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="border-t pt-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Investment Value:</span>
                           <span>₹{cart.totalValue.toLocaleString()}</span>
                         </div>
+                        {cartFeeBreakdown && cartFeeBreakdown.summary.grandTotal > 0 && (
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>Fees & Charges:</span>
+                            <span>+₹{cartFeeBreakdown.summary.grandTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-lg font-semibold pt-2 border-t">
+                          <span>Total Payable:</span>
+                          <span data-testid="text-cart-total-payable">
+                            ₹{(cart.totalValue + (cartFeeBreakdown?.summary.grandTotal || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Fees calculated based on your investor profile
+                        </p>
                       </div>
                     </div>
 
@@ -883,12 +974,28 @@ export default function Cart() {
                         className="w-full bg-finance-blue hover:bg-finance-blue/90"
                         size="lg"
                         onClick={handleCheckout}
-                        disabled={checkoutMutation.isPending}
+                        disabled={checkoutMutation.isPending || !feesReady}
                         data-testid="button-proceed-to-checkout"
                       >
                         <CreditCard className="h-5 w-5 mr-2" />
-                        {checkoutMutation.isPending ? "Processing..." : "Proceed to Checkout"}
+                        {cartFeesLoading ? "Calculating fees..." : checkoutMutation.isPending ? "Processing..." : "Proceed to Checkout"}
                       </Button>
+                      {cartFeesLoading && (
+                        <p className="text-xs text-center text-muted-foreground">
+                          Please wait while we calculate applicable fees...
+                        </p>
+                      )}
+                      {cartFeesError && (
+                        <div className="text-xs text-center text-red-500">
+                          <span>Fee calculation failed. </span>
+                          <button 
+                            onClick={() => refetchCartFees()}
+                            className="underline hover:text-red-700"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      )}
                       <Link href="/store">
                         <Button variant="outline" className="w-full" data-testid="button-continue-shopping">
                           Continue Shopping
@@ -1114,12 +1221,40 @@ export default function Cart() {
                         </span>
                       </div>
                       <div className="border-t pt-3">
-                        <div className="flex justify-between text-lg font-semibold">
-                          <span>Total Value:</span>
-                          <span data-testid="text-summary-total-value">₹{unifiedCartItems.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0).toLocaleString()}</span>
+                        <div className="flex justify-between text-sm">
+                          <span>Investment Value:</span>
+                          <span data-testid="text-summary-total-value">₹{unifiedTotalValue.toLocaleString()}</span>
                         </div>
                       </div>
-                      <div className="pt-4">
+                      
+                      {/* Fee Breakdown for Investments */}
+                      {unifiedCartItems.length > 0 && (
+                        <div className="border-t pt-3">
+                          <FeeBreakdownCard
+                            feeBreakdown={investmentFeeBreakdown}
+                            isLoading={investmentFeesLoading}
+                            showDetails={true}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Total Payable */}
+                      <div className="border-t pt-3 space-y-2">
+                        {investmentFeeBreakdown && investmentFeeBreakdown.summary.grandTotal > 0 && (
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>Fees & Charges:</span>
+                            <span>+₹{investmentFeeBreakdown.summary.grandTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-lg font-semibold">
+                          <span>Total Payable:</span>
+                          <span data-testid="text-investment-total-payable">
+                            ₹{(unifiedTotalValue + (investmentFeeBreakdown?.summary.grandTotal || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-4 space-y-2">
                         <Button
                           className="w-full bg-finance-blue hover:bg-finance-blue/90"
                           size="lg"
@@ -1131,6 +1266,15 @@ export default function Cart() {
                                 description: "Add or approve items before checkout",
                                 variant: "destructive"
                               });
+                              return;
+                            }
+                            if (!investmentFeesReady) {
+                              toast({
+                                title: "Fee Calculation Pending",
+                                description: "Please wait while we calculate applicable fees",
+                                variant: "destructive"
+                              });
+                              refetchInvestmentFees();
                               return;
                             }
                             try {
@@ -1148,12 +1292,28 @@ export default function Cart() {
                               });
                             }
                           }}
-                          disabled={isCheckingOutUnified || unifiedCartItems.filter(i => i.status === 'active').length === 0}
+                          disabled={isCheckingOutUnified || unifiedCartItems.filter(i => i.status === 'active').length === 0 || !investmentFeesReady}
                           data-testid="button-checkout-investments"
                         >
                           <CreditCard className="h-5 w-5 mr-2" />
-                          {isCheckingOutUnified ? "Processing..." : `Checkout ${unifiedCartItems.filter(i => i.status === 'active').length} Investment(s)`}
+                          {investmentFeesLoading ? "Calculating fees..." : isCheckingOutUnified ? "Processing..." : `Checkout ${unifiedCartItems.filter(i => i.status === 'active').length} Investment(s)`}
                         </Button>
+                        {investmentFeesLoading && (
+                          <p className="text-xs text-center text-muted-foreground">
+                            Please wait while we calculate applicable fees...
+                          </p>
+                        )}
+                        {investmentFeesError && (
+                          <div className="text-xs text-center text-red-500">
+                            <span>Fee calculation failed. </span>
+                            <button 
+                              onClick={() => refetchInvestmentFees()}
+                              className="underline hover:text-red-700"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
