@@ -151,13 +151,13 @@ export default function AdminDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white" data-testid="text-dashboard-title">Admin Dashboard</h1>
-          <p className="text-gray-400 mt-1">Real-time platform overview and key metrics</p>
+          <p className="text-muted-foreground mt-1">Real-time platform overview and key metrics</p>
         </div>
         <Button 
           variant="outline" 
           size="sm" 
           onClick={() => refetchDashboard()}
-          className="border-gray-700 text-gray-300 hover:bg-gray-800"
+          className="border-border text-muted-foreground hover:bg-muted"
           data-testid="btn-refresh-dashboard"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
@@ -167,14 +167,14 @@ export default function AdminDashboard() {
 
       {/* Primary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total Users</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
             <Users className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
             {dashboardLoading ? (
-              <Skeleton className="h-8 w-24 bg-gray-800" />
+              <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
               <>
                 <div className="text-2xl font-bold text-white" data-testid="text-total-users">
@@ -187,7 +187,7 @@ export default function AdminDashboard() {
                       <span className="text-xs text-green-400">+{dashboardData?.clientGrowthPercent}% this month</span>
                     </>
                   ) : (
-                    <span className="text-xs text-gray-400">No change this month</span>
+                    <span className="text-xs text-muted-foreground">No change this month</span>
                   )}
                 </div>
               </>
@@ -195,20 +195,20 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Active Users</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Users</CardTitle>
             <Activity className="h-4 w-4 text-green-400" />
           </CardHeader>
           <CardContent>
             {dashboardLoading ? (
-              <Skeleton className="h-8 w-24 bg-gray-800" />
+              <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
               <>
                 <div className="text-2xl font-bold text-white" data-testid="text-active-users">
                   {formatNumber(dashboardData?.activeClients)}
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {dashboardData?.loginsToday || 0} logins today
                 </p>
               </>
@@ -216,14 +216,14 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Business Clients</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Business Clients</CardTitle>
             <Building2 className="h-4 w-4 text-purple-400" />
           </CardHeader>
           <CardContent>
             {dashboardLoading ? (
-              <Skeleton className="h-8 w-24 bg-gray-800" />
+              <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
               <>
                 <div className="text-2xl font-bold text-white" data-testid="text-business-clients">
@@ -235,14 +235,14 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Platform Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Platform Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-yellow-400" />
           </CardHeader>
           <CardContent>
             {dashboardLoading ? (
-              <Skeleton className="h-8 w-24 bg-gray-800" />
+              <Skeleton className="h-8 w-24 bg-muted" />
             ) : (
               <>
                 <div className="text-2xl font-bold text-white" data-testid="text-revenue">
@@ -262,14 +262,14 @@ export default function AdminDashboard() {
             <Clock className="w-5 h-5" />
             Quick Actions
           </CardTitle>
-          <CardDescription className="text-gray-300">
+          <CardDescription className="text-muted-foreground">
             Items requiring immediate attention
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Link href="/admin/kyc-compliance">
-              <div className="bg-gray-900/80 rounded-lg p-4 hover:bg-gray-800/80 transition-colors cursor-pointer border border-gray-700" data-testid="link-pending-kyc">
+              <div className="bg-card/80 rounded-lg p-4 hover:bg-muted/80 transition-colors cursor-pointer border border-border" data-testid="link-pending-kyc">
                 <div className="flex items-center justify-between mb-2">
                   <FileCheck className="w-8 h-8 text-orange-400" />
                   {kycLoading ? (
@@ -278,7 +278,7 @@ export default function AdminDashboard() {
                     <span className="text-2xl font-bold text-orange-400">{kycStats?.pendingKyc || 0}</span>
                   )}
                 </div>
-                <p className="text-sm text-gray-300">Pending KYC Reviews</p>
+                <p className="text-sm text-muted-foreground">Pending KYC Reviews</p>
                 <div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
                   Review Now <ArrowRight className="w-3 h-3" />
                 </div>
@@ -286,7 +286,7 @@ export default function AdminDashboard() {
             </Link>
 
             <Link href="/admin/duplicates">
-              <div className="bg-gray-900/80 rounded-lg p-4 hover:bg-gray-800/80 transition-colors cursor-pointer border border-gray-700" data-testid="link-compliance-alerts">
+              <div className="bg-card/80 rounded-lg p-4 hover:bg-muted/80 transition-colors cursor-pointer border border-border" data-testid="link-compliance-alerts">
                 <div className="flex items-center justify-between mb-2">
                   <AlertTriangle className="w-8 h-8 text-red-400" />
                   {kycLoading ? (
@@ -295,7 +295,7 @@ export default function AdminDashboard() {
                     <span className="text-2xl font-bold text-red-400">{kycStats?.activeAlerts || 0}</span>
                   )}
                 </div>
-                <p className="text-sm text-gray-300">Active Alerts</p>
+                <p className="text-sm text-muted-foreground">Active Alerts</p>
                 <div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
                   View Alerts <ArrowRight className="w-3 h-3" />
                 </div>
@@ -303,7 +303,7 @@ export default function AdminDashboard() {
             </Link>
 
             <Link href="/admin/stakeholders">
-              <div className="bg-gray-900/80 rounded-lg p-4 hover:bg-gray-800/80 transition-colors cursor-pointer border border-gray-700" data-testid="link-new-registrations">
+              <div className="bg-card/80 rounded-lg p-4 hover:bg-muted/80 transition-colors cursor-pointer border border-border" data-testid="link-new-registrations">
                 <div className="flex items-center justify-between mb-2">
                   <UserPlus className="w-8 h-8 text-green-400" />
                   {dashboardLoading ? (
@@ -312,7 +312,7 @@ export default function AdminDashboard() {
                     <span className="text-2xl font-bold text-green-400">{dashboardData?.newClientsToday || 0}</span>
                   )}
                 </div>
-                <p className="text-sm text-gray-300">New Registrations Today</p>
+                <p className="text-sm text-muted-foreground">New Registrations Today</p>
                 <div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
                   View Users <ArrowRight className="w-3 h-3" />
                 </div>
@@ -320,7 +320,7 @@ export default function AdminDashboard() {
             </Link>
 
             <Link href="/admin/unlisted/orders">
-              <div className="bg-gray-900/80 rounded-lg p-4 hover:bg-gray-800/80 transition-colors cursor-pointer border border-gray-700" data-testid="link-pending-orders">
+              <div className="bg-card/80 rounded-lg p-4 hover:bg-muted/80 transition-colors cursor-pointer border border-border" data-testid="link-pending-orders">
                 <div className="flex items-center justify-between mb-2">
                   <Briefcase className="w-8 h-8 text-blue-400" />
                   {ordersLoading ? (
@@ -329,7 +329,7 @@ export default function AdminDashboard() {
                     <span className="text-2xl font-bold text-blue-400">{pendingOrdersData?.total || 0}</span>
                   )}
                 </div>
-                <p className="text-sm text-gray-300">Pending Orders</p>
+                <p className="text-sm text-muted-foreground">Pending Orders</p>
                 <div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
                   Manage Orders <ArrowRight className="w-3 h-3" />
                 </div>
@@ -342,10 +342,10 @@ export default function AdminDashboard() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* User Growth Chart */}
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">User Growth (Last 7 Days)</CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardTitle className="text-foreground">User Growth (Last 7 Days)</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Daily new user registrations
             </CardDescription>
           </CardHeader>
@@ -380,10 +380,10 @@ export default function AdminDashboard() {
         </Card>
 
         {/* KYC Distribution */}
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">KYC Tier Distribution</CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardTitle className="text-foreground">KYC Tier Distribution</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Users by verification level
             </CardDescription>
           </CardHeader>
@@ -391,7 +391,7 @@ export default function AdminDashboard() {
             <div className="h-[250px] flex items-center">
               {kycLoading ? (
                 <div className="flex-1 flex items-center justify-center">
-                  <Skeleton className="h-40 w-40 rounded-full bg-gray-800" />
+                  <Skeleton className="h-40 w-40 rounded-full bg-muted" />
                 </div>
               ) : kycDistribution.some(d => d.value > 0) ? (
                 <div className="flex items-center w-full">
@@ -422,7 +422,7 @@ export default function AdminDashboard() {
                       <div key={index} className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                         <div className="flex-1">
-                          <p className="text-sm text-gray-300">{item.name}</p>
+                          <p className="text-sm text-muted-foreground">{item.name}</p>
                           <p className="text-lg font-bold text-white">{item.value}</p>
                         </div>
                       </div>
@@ -430,7 +430,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-400">
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
                   No KYC data available
                 </div>
               )}
@@ -440,17 +440,17 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stakeholder Overview */}
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white">Stakeholder Overview</CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardTitle className="text-foreground">Stakeholder Overview</CardTitle>
+              <CardDescription className="text-muted-foreground">
                 Partners, agents, and suppliers status
               </CardDescription>
             </div>
             <Link href="/admin/stakeholders">
-              <Button variant="outline" size="sm" className="border-gray-700 text-gray-300" data-testid="btn-view-stakeholders">
+              <Button variant="outline" size="sm" className="border-border text-muted-foreground" data-testid="btn-view-stakeholders">
                 View All <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -458,13 +458,13 @@ export default function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-muted/50 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
                   <Building2 className="w-5 h-5 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Partners</p>
+                  <p className="text-muted-foreground text-sm">Partners</p>
                   {stakeholderLoading ? (
                     <Skeleton className="h-6 w-16 bg-gray-700" />
                   ) : (
@@ -480,13 +480,13 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-muted/50 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
                   <Users className="w-5 h-5 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Agents</p>
+                  <p className="text-muted-foreground text-sm">Agents</p>
                   {stakeholderLoading ? (
                     <Skeleton className="h-6 w-16 bg-gray-700" />
                   ) : (
@@ -502,13 +502,13 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-muted/50 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
                   <Briefcase className="w-5 h-5 text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Suppliers</p>
+                  <p className="text-muted-foreground text-sm">Suppliers</p>
                   {stakeholderLoading ? (
                     <Skeleton className="h-6 w-16 bg-gray-700" />
                   ) : (
@@ -528,13 +528,13 @@ export default function AdminDashboard() {
       </Card>
 
       {/* System Status */}
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-green-400" />
             System Status
           </CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardDescription className="text-muted-foreground">
             All systems operational
           </CardDescription>
         </CardHeader>
@@ -546,16 +546,16 @@ export default function AdminDashboard() {
               { name: 'Payment Gateway', status: 'operational', uptime: '99.95%', icon: DollarSign },
               { name: 'Email Service', status: 'operational', uptime: '99.98%', icon: TrendingUp },
             ].map((service) => (
-              <div key={service.name} className="bg-gray-800/50 rounded-lg p-4">
+              <div key={service.name} className="bg-muted/50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <service.icon className="w-5 h-5 text-gray-400" />
+                  <service.icon className="w-5 h-5 text-muted-foreground" />
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                     <span className="text-xs text-green-400 capitalize">{service.status}</span>
                   </div>
                 </div>
                 <p className="font-medium text-white">{service.name}</p>
-                <p className="text-sm text-gray-400">Uptime: {service.uptime}</p>
+                <p className="text-sm text-muted-foreground">Uptime: {service.uptime}</p>
               </div>
             ))}
           </div>
@@ -563,10 +563,10 @@ export default function AdminDashboard() {
       </Card>
 
       {/* KYC Activity Today */}
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">KYC Activity Today</CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardTitle className="text-foreground">KYC Activity Today</CardTitle>
+          <CardDescription className="text-muted-foreground">
             Approvals and rejections
           </CardDescription>
         </CardHeader>
@@ -577,7 +577,7 @@ export default function AdminDashboard() {
                 <CheckCircle className="w-6 h-6 text-green-400" />
               </div>
               <div>
-                <p className="text-gray-400 text-sm">Approved Today</p>
+                <p className="text-muted-foreground text-sm">Approved Today</p>
                 {kycLoading ? (
                   <Skeleton className="h-8 w-16 bg-gray-700" />
                 ) : (
@@ -591,7 +591,7 @@ export default function AdminDashboard() {
                 <XCircle className="w-6 h-6 text-red-400" />
               </div>
               <div>
-                <p className="text-gray-400 text-sm">Rejected Today</p>
+                <p className="text-muted-foreground text-sm">Rejected Today</p>
                 {kycLoading ? (
                   <Skeleton className="h-8 w-16 bg-gray-700" />
                 ) : (
@@ -605,7 +605,7 @@ export default function AdminDashboard() {
                 <Clock className="w-6 h-6 text-orange-400" />
               </div>
               <div>
-                <p className="text-gray-400 text-sm">Pending Documents</p>
+                <p className="text-muted-foreground text-sm">Pending Documents</p>
                 {kycLoading ? (
                   <Skeleton className="h-8 w-16 bg-gray-700" />
                 ) : (

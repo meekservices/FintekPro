@@ -190,14 +190,14 @@ const SEVERITY_CONFIG = {
   critical: { label: 'Critical', color: 'bg-red-600 text-white', pulse: true },
   high: { label: 'High', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
   medium: { label: 'Medium', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-  low: { label: 'Low', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' }
+  low: { label: 'Low', color: 'bg-gray-500/20 text-muted-foreground border-gray-500/30' }
 };
 
 const PRIORITY_CONFIG = {
   critical: { label: 'Critical', color: 'bg-red-600 text-white' },
   high: { label: 'High', color: 'bg-orange-500/20 text-orange-400' },
   medium: { label: 'Medium', color: 'bg-blue-500/20 text-blue-400' },
-  low: { label: 'Low', color: 'bg-gray-500/20 text-gray-400' }
+  low: { label: 'Low', color: 'bg-gray-500/20 text-muted-foreground' }
 };
 
 export default function AdminAIInsights() {
@@ -236,10 +236,10 @@ export default function AdminAIInsights() {
             </div>
             AI Platform Insights
           </h1>
-          <p className="text-gray-400 mt-1">AI-powered platform trends, risk alerts, and actionable recommendations</p>
+          <p className="text-muted-foreground mt-1">AI-powered platform trends, risk alerts, and actionable recommendations</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800" data-testid="button-refresh">
+          <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted" data-testid="button-refresh">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -251,9 +251,9 @@ export default function AdminAIInsights() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gray-900 border-gray-800 border-l-4 border-l-red-500">
+        <Card className="bg-card border-border border-l-4 border-l-red-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Active Alerts</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Alerts</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-400" />
           </CardHeader>
           <CardContent>
@@ -265,9 +265,9 @@ export default function AdminAIInsights() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800 border-l-4 border-l-orange-500">
+        <Card className="bg-card border-border border-l-4 border-l-orange-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Risk Score</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Risk Score</CardTitle>
             <Shield className="h-4 w-4 text-orange-400" />
           </CardHeader>
           <CardContent>
@@ -279,9 +279,9 @@ export default function AdminAIInsights() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800 border-l-4 border-l-blue-500">
+        <Card className="bg-card border-border border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Trend Signals</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Trend Signals</CardTitle>
             <TrendingUp className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
@@ -293,9 +293,9 @@ export default function AdminAIInsights() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800 border-l-4 border-l-purple-500">
+        <Card className="bg-card border-border border-l-4 border-l-purple-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Anomalies Detected</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Anomalies Detected</CardTitle>
             <Activity className="h-4 w-4 text-purple-400" />
           </CardHeader>
           <CardContent>
@@ -310,20 +310,20 @@ export default function AdminAIInsights() {
 
       <div className="flex flex-wrap gap-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search insights..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-gray-800 border-gray-700 text-white w-64"
+            className="pl-10 bg-muted border-border text-white w-64"
             data-testid="input-search"
           />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white" data-testid="select-category">
+          <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-category">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700">
+          <SelectContent className="bg-muted border-border">
             <SelectItem value="all">All Categories</SelectItem>
             <SelectItem value="market_trends">Market Trends</SelectItem>
             <SelectItem value="risk_alerts">Risk Alerts</SelectItem>
@@ -332,10 +332,10 @@ export default function AdminAIInsights() {
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-36 bg-gray-800 border-gray-700 text-white" data-testid="select-priority">
+          <SelectTrigger className="w-36 bg-muted border-border text-white" data-testid="select-priority">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700">
+          <SelectContent className="bg-muted border-border">
             <SelectItem value="all">All Priorities</SelectItem>
             <SelectItem value="critical">Critical</SelectItem>
             <SelectItem value="high">High</SelectItem>
@@ -344,10 +344,10 @@ export default function AdminAIInsights() {
           </SelectContent>
         </Select>
         <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-36 bg-gray-800 border-gray-700 text-white" data-testid="select-time-range">
+          <SelectTrigger className="w-36 bg-muted border-border text-white" data-testid="select-time-range">
             <SelectValue placeholder="Time Range" />
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700">
+          <SelectContent className="bg-muted border-border">
             <SelectItem value="1h">Last Hour</SelectItem>
             <SelectItem value="24h">Last 24 Hours</SelectItem>
             <SelectItem value="7d">Last 7 Days</SelectItem>
@@ -356,13 +356,13 @@ export default function AdminAIInsights() {
         </Select>
       </div>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <LineChartIcon className="h-5 w-5 text-emerald-400" />
             AI Insights Trend
           </CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardDescription className="text-muted-foreground">
             Platform-wide metrics and signal trends over time
           </CardDescription>
         </CardHeader>
@@ -412,26 +412,26 @@ export default function AdminAIInsights() {
           const Icon = config.icon;
           
           return (
-            <Card key={category} className="bg-gray-900 border-gray-800">
+            <Card key={category} className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <div className={`p-2 rounded-lg ${config.color}`}>
                     <Icon className="h-4 w-4" />
                   </div>
                   {config.label}
-                  <Badge className="ml-auto bg-gray-700 text-gray-300">{categoryInsights.length}</Badge>
+                  <Badge className="ml-auto bg-gray-700 text-muted-foreground">{categoryInsights.length}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {categoryInsights.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No insights in this category</p>
+                  <p className="text-muted-foreground text-center py-4">No insights in this category</p>
                 ) : (
                   categoryInsights.slice(0, 3).map((insight) => {
                     const severityConfig = SEVERITY_CONFIG[insight.severity];
                     return (
                       <div
                         key={insight.id}
-                        className={`p-4 bg-gray-800/50 rounded-lg border ${insight.severity === 'critical' ? 'border-red-500/50' : 'border-gray-700'} hover:border-emerald-500/30 transition-colors`}
+                        className={`p-4 bg-muted/50 rounded-lg border ${insight.severity === 'critical' ? 'border-red-500/50' : 'border-border'} hover:border-emerald-500/30 transition-colors`}
                         data-testid={`insight-${insight.id}`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -440,18 +440,18 @@ export default function AdminAIInsights() {
                               <h4 className="text-white font-medium text-sm">{insight.title}</h4>
                               <Badge className={severityConfig.color}>{severityConfig.label}</Badge>
                             </div>
-                            <p className="text-gray-400 text-xs mt-1">{insight.description}</p>
+                            <p className="text-muted-foreground text-xs mt-1">{insight.description}</p>
                             <div className="flex items-center gap-3 mt-2 text-xs">
-                              <span className="text-gray-500 flex items-center gap-1">
+                              <span className="text-muted-foreground flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {insight.timestamp}
                               </span>
                               <span className="text-emerald-400">{insight.affectedCount} affected</span>
                             </div>
-                            <div className="mt-2 p-2 bg-gray-900/50 rounded-md">
+                            <div className="mt-2 p-2 bg-card/50 rounded-md">
                               <div className="flex items-start gap-2">
                                 <Sparkles className="h-3 w-3 text-emerald-400 mt-0.5 flex-shrink-0" />
-                                <p className="text-gray-400 text-xs">{insight.reasoning}</p>
+                                <p className="text-muted-foreground text-xs">{insight.reasoning}</p>
                               </div>
                             </div>
                           </div>
@@ -461,7 +461,7 @@ export default function AdminAIInsights() {
                             <Eye className="h-3 w-3 mr-1" />
                             Review
                           </Button>
-                          <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 h-7 text-xs">
+                          <Button size="sm" variant="outline" className="border-border text-muted-foreground h-7 text-xs">
                             <Zap className="h-3 w-3 mr-1" />
                             Take Action
                           </Button>
@@ -476,7 +476,7 @@ export default function AdminAIInsights() {
         })}
       </div>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -484,23 +484,23 @@ export default function AdminAIInsights() {
                 <BarChart3 className="h-5 w-5 text-emerald-400" />
                 Agent-Specific AI Recommendations
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-muted-foreground">
                 Personalized next-best-actions for each agent based on their client portfolio
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-gray-700 overflow-hidden">
+          <div className="rounded-md border border-border overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-700 bg-gray-800/50">
-                  <TableHead className="text-gray-300">Agent Name</TableHead>
-                  <TableHead className="text-gray-300">Recommended Action</TableHead>
-                  <TableHead className="text-gray-300 text-center">Priority</TableHead>
-                  <TableHead className="text-gray-300 text-center">Impact Score</TableHead>
-                  <TableHead className="text-gray-300">Category</TableHead>
-                  <TableHead className="text-gray-300">Deadline</TableHead>
+                <TableRow className="border-border bg-muted/50">
+                  <TableHead className="text-muted-foreground">Agent Name</TableHead>
+                  <TableHead className="text-muted-foreground">Recommended Action</TableHead>
+                  <TableHead className="text-muted-foreground text-center">Priority</TableHead>
+                  <TableHead className="text-muted-foreground text-center">Impact Score</TableHead>
+                  <TableHead className="text-muted-foreground">Category</TableHead>
+                  <TableHead className="text-muted-foreground">Deadline</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -509,11 +509,11 @@ export default function AdminAIInsights() {
                   return (
                     <TableRow
                       key={rec.id}
-                      className="border-gray-700 hover:bg-gray-800/50"
+                      className="border-border hover:bg-muted/50"
                       data-testid={`row-recommendation-${rec.id}`}
                     >
                       <TableCell className="font-medium text-white">{rec.agentName}</TableCell>
-                      <TableCell className="text-gray-300 max-w-xs">
+                      <TableCell className="text-muted-foreground max-w-xs">
                         <p className="truncate">{rec.recommendedAction}</p>
                       </TableCell>
                       <TableCell className="text-center">
@@ -522,20 +522,20 @@ export default function AdminAIInsights() {
                       <TableCell className="text-center">
                         <span className={`font-bold ${
                           rec.impactScore >= 80 ? "text-green-400" :
-                          rec.impactScore >= 60 ? "text-yellow-400" : "text-gray-400"
+                          rec.impactScore >= 60 ? "text-yellow-400" : "text-muted-foreground"
                         }`}>
                           {rec.impactScore}
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="border-gray-600 text-gray-300">
+                        <Badge variant="outline" className="border-border text-muted-foreground">
                           {rec.category}
                         </Badge>
                       </TableCell>
                       <TableCell className={`${
                         rec.deadline === 'Immediate' || rec.deadline === 'Today' 
                           ? 'text-red-400' 
-                          : 'text-gray-400'
+                          : 'text-muted-foreground'
                       }`}>
                         {rec.deadline || '-'}
                       </TableCell>
@@ -546,7 +546,7 @@ export default function AdminAIInsights() {
             </Table>
           </div>
           {filteredRecommendations.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No recommendations found matching the current filters.
             </div>
           )}

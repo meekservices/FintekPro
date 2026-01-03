@@ -54,8 +54,8 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-muted rounded w-1/2"></div>
               </div>
             ))}
           </div>
@@ -101,7 +101,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
       case 'sell':
         return <TrendingDown className="h-4 w-4 text-red-600" />;
       default:
-        return <CheckCircle className="h-4 w-4 text-gray-600" />;
+        return <CheckCircle className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -121,7 +121,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
             )}
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-600">Portfolio Value</p>
+            <p className="text-sm text-muted-foreground">Portfolio Value</p>
             <p className="text-xl font-bold">
               ₹{suggestions?.summary?.totalValue?.toLocaleString() || '0'}
             </p>
@@ -166,7 +166,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
                       <Badge variant={getPriorityColor(suggestion.priority) as any}>
                         {suggestion.priority.toUpperCase()} PRIORITY
                       </Badge>
-                      <span className="text-sm text-gray-600 capitalize">
+                      <span className="text-sm text-muted-foreground capitalize">
                         {suggestion.action} Action
                       </span>
                     </div>
@@ -176,7 +176,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
                   <p className="text-lg font-bold">
                     {suggestion.difference > 0 ? '+' : ''}₹{Math.abs(suggestion.difference).toLocaleString()}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     {suggestion.differencePercent > 0 ? '+' : ''}{suggestion.differencePercent}%
                   </p>
                 </div>
@@ -196,7 +196,7 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
               </div>
 
               {/* Recommendation */}
-              <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
+              <p className="text-sm text-muted-foreground bg-muted p-3 rounded">
                 {suggestion.recommendation}
               </p>
 
@@ -220,14 +220,14 @@ export function RebalancingSuggestions({ portfolioId }: RebalancingSuggestionsPr
           <div className="text-center py-6">
             <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Portfolio Well Balanced</h3>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Your current asset allocation aligns with recommended targets.
             </p>
           </div>
         )}
 
         {/* Last Updated */}
-        <p className="text-xs text-gray-500 text-center pt-4 border-t">
+        <p className="text-xs text-muted-foreground text-center pt-4 border-t">
           Last updated: {suggestions?.summary?.lastUpdated ? new Date(suggestions.summary.lastUpdated).toLocaleTimeString() : 'Never'}
         </p>
       </CardContent>

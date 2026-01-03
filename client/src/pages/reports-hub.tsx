@@ -355,7 +355,7 @@ export default function ReportsHub() {
   const colors = currentCategory ? colorClasses[currentCategory.color] : colorClasses.blue;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-gray-900">Reports Hub</h1>
@@ -426,14 +426,14 @@ export default function ReportsHub() {
                 className={`p-4 rounded-lg border-2 transition-all ${
                   isActive 
                     ? `${catColors.border} ${catColors.bg} ring-2 ring-offset-2 ring-${category.color}-300`
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    : 'border-border bg-white hover:border-border'
                 }`}
                 data-testid={`category-${category.id}`}
               >
                 <div className={`w-10 h-10 mx-auto rounded-full ${catColors.iconBg} flex items-center justify-center mb-2`}>
                   <Icon className={`w-5 h-5 ${catColors.text}`} />
                 </div>
-                <p className={`text-sm font-medium ${isActive ? catColors.text : 'text-gray-700'}`}>
+                <p className={`text-sm font-medium ${isActive ? catColors.text : 'text-muted-foreground'}`}>
                   {category.title.split(' ')[0]}
                 </p>
               </button>
@@ -464,18 +464,18 @@ export default function ReportsHub() {
                     return (
                       <div
                         key={report.id}
-                        className={`p-4 rounded-lg border ${isLocked ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200 hover:border-gray-300'} transition-all`}
+                        className={`p-4 rounded-lg border ${isLocked ? 'bg-muted border-border' : 'bg-white border-border hover:border-border'} transition-all`}
                         data-testid={`report-${report.id}`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               {isLocked ? (
-                                <Lock className="w-4 h-4 text-gray-400" />
+                                <Lock className="w-4 h-4 text-muted-foreground" />
                               ) : (
                                 <FileText className={`w-4 h-4 ${colors.text}`} />
                               )}
-                              <h4 className={`font-semibold ${isLocked ? 'text-gray-400' : 'text-gray-900'}`}>
+                              <h4 className={`font-semibold ${isLocked ? 'text-muted-foreground' : 'text-gray-900'}`}>
                                 {report.name}
                               </h4>
                               {isLocked && (
@@ -484,7 +484,7 @@ export default function ReportsHub() {
                                 </Badge>
                               )}
                             </div>
-                            <p className={`text-sm ${isLocked ? 'text-gray-400' : 'text-muted-foreground'} mb-2`}>
+                            <p className={`text-sm ${isLocked ? 'text-muted-foreground' : 'text-muted-foreground'} mb-2`}>
                               {report.description}
                             </p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -553,7 +553,7 @@ export default function ReportsHub() {
                       ) : (mfOrders as any)?.orders?.length > 0 ? (
                         <div className="space-y-3">
                           {((mfOrders as any)?.orders || []).slice(0, 10).map((order: any) => (
-                            <div key={order.id} className="p-4 rounded-lg border bg-white hover:bg-gray-50 transition-colors" data-testid={`order-${order.id}`}>
+                            <div key={order.id} className="p-4 rounded-lg border bg-white hover:bg-muted transition-colors" data-testid={`order-${order.id}`}>
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
@@ -568,7 +568,7 @@ export default function ReportsHub() {
                                       order.status === 'executed' || order.status === 'settled' ? 'border-green-300 text-green-700' :
                                       order.status === 'failed' || order.status === 'rejected' ? 'border-red-300 text-red-700' :
                                       order.status === 'processing' || order.status === 'placed' ? 'border-blue-300 text-blue-700' :
-                                      'border-gray-300 text-gray-700'
+                                      'border-border text-muted-foreground'
                                     }>
                                       {order.status}
                                     </Badge>
@@ -596,7 +596,7 @@ export default function ReportsHub() {
                         </div>
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">
-                          <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                          <Receipt className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
                           <p>No transactions found</p>
                           <p className="text-sm mt-1">Your mutual fund orders will appear here</p>
                         </div>
@@ -625,14 +625,14 @@ export default function ReportsHub() {
                       href={source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted transition-colors"
                       data-testid={`external-${source.name.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       <div>
                         <p className="font-medium text-gray-900">{source.name}</p>
                         <p className="text-xs text-muted-foreground">{source.description}</p>
                       </div>
-                      <ExternalLink className="w-4 h-4 text-gray-400" />
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
                     </a>
                   ))}
                 </CardContent>

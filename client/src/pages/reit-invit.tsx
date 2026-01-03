@@ -147,7 +147,7 @@ function getSignalColor(signal: string) {
     case 'buy': return 'bg-green-500/10 text-green-600 border-green-500/20';
     case 'hold': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
     case 'sell': return 'bg-red-500/10 text-red-600 border-red-500/20';
-    default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
+    default: return 'bg-gray-500/10 text-muted-foreground border-gray-500/20';
   }
 }
 
@@ -156,7 +156,7 @@ function getRiskColor(risk: string) {
     case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
     case 'moderate': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
     case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+    default: return 'bg-muted text-foreground dark:bg-card/30 dark:text-muted-foreground';
   }
 }
 

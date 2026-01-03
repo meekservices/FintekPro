@@ -142,7 +142,7 @@ export default function TaxCADeskPage() {
             <Users className="h-8 w-8 text-purple-500" />
             CA Desk
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">Get expert assistance from qualified Chartered Accountants</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Get expert assistance from qualified Chartered Accountants</p>
         </div>
         <Button variant="outline" className="gap-2" data-testid="button-contact-support">
           <Phone className="h-4 w-4" /> Contact Support
@@ -211,7 +211,7 @@ export default function TaxCADeskPage() {
                 <CardContent className="space-y-3">
                   <ul className="space-y-1">
                     {service.features.slice(0, 3).map((feature, idx) => (
-                      <li key={idx} className="text-xs flex items-center gap-1 text-gray-500">
+                      <li key={idx} className="text-xs flex items-center gap-1 text-muted-foreground">
                         <CheckCircle className="h-3 w-3 text-green-500" /> {feature}
                       </li>
                     ))}
@@ -219,7 +219,7 @@ export default function TaxCADeskPage() {
                   <div className="flex items-center justify-between pt-2 border-t">
                     <div>
                       <p className="text-lg font-bold text-purple-600">{service.price}</p>
-                      <p className="text-xs text-gray-500">{service.duration}</p>
+                      <p className="text-xs text-muted-foreground">{service.duration}</p>
                     </div>
                     <Button size="sm" onClick={() => navigate(service.route)} data-testid={`button-get-${service.id}`}>
                       Get Started
@@ -249,11 +249,11 @@ export default function TaxCADeskPage() {
                   <Users className="h-8 w-8 text-purple-600" />
                 </div>
                 <h4 className="font-semibold">{ca.name}</h4>
-                <p className="text-sm text-gray-500">{ca.specialization}</p>
+                <p className="text-sm text-muted-foreground">{ca.specialization}</p>
                 <div className="flex items-center justify-center gap-1 mt-2">
                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                   <span className="font-medium">{ca.rating}</span>
-                  <span className="text-xs text-gray-400">({ca.reviews} reviews)</span>
+                  <span className="text-xs text-muted-foreground">({ca.reviews} reviews)</span>
                 </div>
                 <Badge variant="secondary" className="mt-2">{ca.experience}</Badge>
               </div>
@@ -284,9 +284,9 @@ export default function TaxCADeskPage() {
                   </div>
                   <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-purple-600">Step {item.step}</Badge>
                   <h4 className="font-semibold mt-4">{item.title}</h4>
-                  <p className="text-sm text-gray-500">{item.description}</p>
+                  <p className="text-sm text-muted-foreground">{item.description}</p>
                   {item.step < 4 && (
-                    <ChevronRight className="hidden md:block h-6 w-6 absolute top-8 -right-3 text-gray-300" />
+                    <ChevronRight className="hidden md:block h-6 w-6 absolute top-8 -right-3 text-muted-foreground" />
                   )}
                 </div>
               );
@@ -305,7 +305,7 @@ export default function TaxCADeskPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-lg">Need Custom Help?</h3>
-                <p className="text-gray-600">Speak to our tax experts for personalized guidance</p>
+                <p className="text-muted-foreground">Speak to our tax experts for personalized guidance</p>
               </div>
             </div>
             <div className="flex gap-3">

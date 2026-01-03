@@ -152,12 +152,12 @@ export default function UnlistedComplianceAlerts() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-white">Compliance Alert Center</h1>
-          <p className="text-gray-400 mt-1">Monitor blocked trades, KYC failures, and high-risk activities</p>
+          <p className="text-muted-foreground mt-1">Monitor blocked trades, KYC failures, and high-risk activities</p>
         </div>
         <Button
           onClick={handleRefresh}
           variant="outline"
-          className="border-gray-700"
+          className="border-border"
           data-testid="button-refresh-alerts"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
@@ -166,9 +166,9 @@ export default function UnlistedComplianceAlerts() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-        <Card className="bg-gray-900 border-gray-800" data-testid="card-total-alerts">
+        <Card className="bg-card border-border" data-testid="card-total-alerts">
           <CardHeader className="pb-2">
-            <CardDescription className="text-gray-400">Total Alerts</CardDescription>
+            <CardDescription className="text-muted-foreground">Total Alerts</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
@@ -190,9 +190,9 @@ export default function UnlistedComplianceAlerts() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800" data-testid="card-blocked-trades">
+        <Card className="bg-card border-border" data-testid="card-blocked-trades">
           <CardHeader className="pb-2">
-            <CardDescription className="text-gray-400">Blocked Trades</CardDescription>
+            <CardDescription className="text-muted-foreground">Blocked Trades</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
@@ -202,9 +202,9 @@ export default function UnlistedComplianceAlerts() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800" data-testid="card-kyc-failures">
+        <Card className="bg-card border-border" data-testid="card-kyc-failures">
           <CardHeader className="pb-2">
-            <CardDescription className="text-gray-400">KYC Failures</CardDescription>
+            <CardDescription className="text-muted-foreground">KYC Failures</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
@@ -214,9 +214,9 @@ export default function UnlistedComplianceAlerts() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800" data-testid="card-high-risk">
+        <Card className="bg-card border-border" data-testid="card-high-risk">
           <CardHeader className="pb-2">
-            <CardDescription className="text-gray-400">High Risk Companies</CardDescription>
+            <CardDescription className="text-muted-foreground">High Risk Companies</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
@@ -239,28 +239,28 @@ export default function UnlistedComplianceAlerts() {
         </Card>
       </div>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-white">Compliance Alerts</CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardTitle className="text-foreground">Compliance Alerts</CardTitle>
+              <CardDescription className="text-muted-foreground">
                 Real-time monitoring of compliance events
               </CardDescription>
             </div>
             <div className="flex gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search alerts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-gray-800 border-gray-700 text-white w-64"
+                  className="pl-9 bg-muted border-border text-white w-64"
                   data-testid="input-search-alerts"
                 />
               </div>
               <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white" data-testid="select-severity-filter">
+                <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-severity-filter">
                   <SelectValue placeholder="Severity" />
                 </SelectTrigger>
                 <SelectContent>
@@ -276,7 +276,7 @@ export default function UnlistedComplianceAlerts() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="bg-gray-800 border-gray-700">
+            <TabsList className="bg-muted border-border">
               <TabsTrigger value="all" className="data-[state=active]:bg-blue-600">
                 All Alerts
               </TabsTrigger>
@@ -302,32 +302,32 @@ export default function UnlistedComplianceAlerts() {
                   description="All systems are operating normally. No compliance issues detected."
                 />
               ) : (
-                <div className="rounded-md border border-gray-800">
+                <div className="rounded-md border border-border">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-gray-800 hover:bg-gray-800/50">
-                        <TableHead className="text-gray-400">Timestamp</TableHead>
-                        <TableHead className="text-gray-400">Type</TableHead>
-                        <TableHead className="text-gray-400">Severity</TableHead>
-                        <TableHead className="text-gray-400">Details</TableHead>
-                        <TableHead className="text-gray-400">Company</TableHead>
-                        <TableHead className="text-gray-400">User</TableHead>
-                        <TableHead className="text-gray-400">Status</TableHead>
-                        <TableHead className="text-right text-gray-400">Actions</TableHead>
+                      <TableRow className="border-border hover:bg-muted/50">
+                        <TableHead className="text-muted-foreground">Timestamp</TableHead>
+                        <TableHead className="text-muted-foreground">Type</TableHead>
+                        <TableHead className="text-muted-foreground">Severity</TableHead>
+                        <TableHead className="text-muted-foreground">Details</TableHead>
+                        <TableHead className="text-muted-foreground">Company</TableHead>
+                        <TableHead className="text-muted-foreground">User</TableHead>
+                        <TableHead className="text-muted-foreground">Status</TableHead>
+                        <TableHead className="text-right text-muted-foreground">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredAlerts.map((alert) => (
                         <TableRow
                           key={alert.id}
-                          className={`border-gray-800 hover:bg-gray-800/50 ${
+                          className={`border-border hover:bg-muted/50 ${
                             alert.severity === 'critical' ? 'bg-red-950/30' : ''
                           }`}
                           data-testid={`row-alert-${alert.id}`}
                         >
-                          <TableCell className="text-gray-300 text-sm">
+                          <TableCell className="text-muted-foreground text-sm">
                             <div className="flex items-center gap-2">
-                              <Clock className="w-4 h-4 text-gray-500" />
+                              <Clock className="w-4 h-4 text-muted-foreground" />
                               {format(new Date(alert.timestamp), 'MMM dd, HH:mm')}
                             </div>
                           </TableCell>
@@ -335,7 +335,7 @@ export default function UnlistedComplianceAlerts() {
                           <TableCell>{getSeverityBadge(alert.severity)}</TableCell>
                           <TableCell className="max-w-xs">
                             <div className="text-white font-medium truncate">{alert.title}</div>
-                            <div className="text-gray-400 text-sm truncate">{alert.description}</div>
+                            <div className="text-muted-foreground text-sm truncate">{alert.description}</div>
                           </TableCell>
                           <TableCell>
                             {alert.companyName ? (
@@ -344,7 +344,7 @@ export default function UnlistedComplianceAlerts() {
                                 <span className="text-white text-sm">{alert.companyName}</span>
                               </div>
                             ) : (
-                              <span className="text-gray-500">-</span>
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -354,7 +354,7 @@ export default function UnlistedComplianceAlerts() {
                                 <span className="text-white text-sm">{alert.userName}</span>
                               </div>
                             ) : (
-                              <span className="text-gray-500">-</span>
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell>{getStatusBadge(alert.status)}</TableCell>
@@ -362,7 +362,7 @@ export default function UnlistedComplianceAlerts() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-gray-400 hover:text-white"
+                              className="text-muted-foreground hover:text-white"
                               data-testid={`button-view-alert-${alert.id}`}
                             >
                               <Eye className="w-4 h-4" />

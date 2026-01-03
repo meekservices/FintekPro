@@ -238,7 +238,7 @@ export default function CkycManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">CKYC Management</h1>
-          <p className="text-gray-600">Manage CKYC records, monitor progress, and trigger notifications</p>
+          <p className="text-muted-foreground">Manage CKYC records, monitor progress, and trigger notifications</p>
         </div>
         <div className="flex items-center gap-2">
           <Button 
@@ -303,18 +303,18 @@ export default function CkycManagement() {
               {recordsLoading ? (
                 <div className="text-center py-8">Loading CKYC records...</div>
               ) : filteredRecords.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No CKYC records found</div>
+                <div className="text-center py-8 text-muted-foreground">No CKYC records found</div>
               ) : (
                 <div className="space-y-4">
                   {filteredRecords.map((record) => (
-                    <div key={record.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div key={record.id} className="border rounded-lg p-4 hover:bg-muted dark:bg-muted">
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold">{record.firstName} {record.lastName}</h3>
                             {getStatusBadge(record.verificationStatus)}
                           </div>
-                          <div className="text-sm text-gray-600 space-y-1">
+                          <div className="text-sm text-muted-foreground space-y-1">
                             <div>Email: {record.emailAddress}</div>
                             <div>Mobile: {record.mobileNumber}</div>
                             <div>PAN: {record.panNumber}</div>
@@ -429,18 +429,18 @@ export default function CkycManagement() {
             </CardHeader>
             <CardContent>
               {notificationTriggers?.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No notification triggers found</div>
+                <div className="text-center py-8 text-muted-foreground">No notification triggers found</div>
               ) : (
                 <div className="space-y-4">
                   {notificationTriggers?.map((trigger) => (
-                    <div key={trigger.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div key={trigger.id} className="border rounded-lg p-4 hover:bg-muted dark:bg-muted">
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium">{trigger.subject}</h4>
                             {getNotificationStatusBadge(trigger.status)}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-muted-foreground">
                             <div>Type: {trigger.triggerType.replace("_", " ")}</div>
                             <div>Method: {trigger.notificationMethod}</div>
                             <div>Recipient: {trigger.recipientEmail || trigger.recipientMobile}</div>
@@ -482,7 +482,7 @@ export default function CkycManagement() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 Select a CKYC record to view progress steps
               </div>
             </CardContent>
@@ -497,7 +497,7 @@ export default function CkycManagement() {
             </CardHeader>
             <CardContent>
               {actionLogs?.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No action logs found</div>
+                <div className="text-center py-8 text-muted-foreground">No action logs found</div>
               ) : (
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                   {actionLogs?.map((log) => (
@@ -505,7 +505,7 @@ export default function CkycManagement() {
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <div className="font-medium">{log.actionDetails}</div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-muted-foreground">
                             <div>Action: {log.actionType.replace("_", " ")}</div>
                             <div>By: {log.actionBy} ({log.actionByType})</div>
                             <div>Time: {new Date(log.actionAt).toLocaleString()}</div>

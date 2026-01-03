@@ -312,8 +312,8 @@ export default function Loans() {
       <div className="space-y-6">
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold text-gray-900">Loan Marketplace</h1>
-          <p className="text-xl text-gray-600">Compare loan offers from multiple banks and NBFCs</p>
-          <div className="flex justify-center gap-6 text-sm text-gray-500">
+          <p className="text-xl text-muted-foreground">Compare loan offers from multiple banks and NBFCs</p>
+          <div className="flex justify-center gap-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               <span>Secure & Transparent</span>
@@ -351,7 +351,7 @@ export default function Loans() {
                       <p className="text-2xl font-bold text-gray-900">
                         {loanProviders?.data?.length || 0}
                       </p>
-                      <p className="text-sm text-gray-600">Partner Lenders</p>
+                      <p className="text-sm text-muted-foreground">Partner Lenders</p>
                     </div>
                   </div>
                 </CardContent>
@@ -364,7 +364,7 @@ export default function Loans() {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">8.5%</p>
-                      <p className="text-sm text-gray-600">Starting Interest Rate</p>
+                      <p className="text-sm text-muted-foreground">Starting Interest Rate</p>
                     </div>
                   </div>
                 </CardContent>
@@ -377,7 +377,7 @@ export default function Loans() {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">24h</p>
-                      <p className="text-sm text-gray-600">Quick Approval</p>
+                      <p className="text-sm text-muted-foreground">Quick Approval</p>
                     </div>
                   </div>
                 </CardContent>
@@ -405,9 +405,9 @@ export default function Loans() {
                             <IconComponent className="h-6 w-6 text-blue-600" />
                           </div>
                           <h3 className="text-lg font-bold text-gray-900 mb-1">{product.productName || product.name || 'Loan Product'}</h3>
-                          <p className="text-gray-500 text-sm mb-4 line-clamp-2">{product.description}</p>
+                          <p className="text-muted-foreground text-sm mb-4 line-clamp-2">{product.description}</p>
                           
-                          <div className="space-y-2 text-xs text-gray-600 mb-4">
+                          <div className="space-y-2 text-xs text-muted-foreground mb-4">
                             <div className="flex justify-between">
                               <span>Rate Range:</span>
                               <span className="font-semibold text-green-600">
@@ -455,13 +455,13 @@ export default function Loans() {
                 {loanProviders?.data?.slice(0, 8).map((provider: any) => (
                   <Card key={provider.id} className="p-4">
                     <div className="text-center">
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg mx-auto mb-2 flex items-center justify-center">
-                        <Building2 className="h-6 w-6 text-gray-600" />
+                      <div className="w-12 h-12 bg-muted rounded-lg mx-auto mb-2 flex items-center justify-center">
+                        <Building2 className="h-6 w-6 text-muted-foreground" />
                       </div>
                       <p className="font-semibold text-sm">{provider.name}</p>
                       <div className="flex items-center justify-center gap-1 mt-1">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs text-gray-600">{provider.rating || "4.5"}</span>
+                        <span className="text-xs text-muted-foreground">{provider.rating || "4.5"}</span>
                       </div>
                     </div>
                   </Card>
@@ -477,7 +477,7 @@ export default function Loans() {
                   <Search className="h-5 w-5" />
                   Tell us what you need
                 </CardTitle>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Fill in your requirements and we'll find the best loan offers for you
                 </p>
               </CardHeader>
@@ -664,11 +664,11 @@ export default function Loans() {
 
           <TabsContent value="compare" className="space-y-6" data-testid="compare-content">
             {offers.length === 0 ? (
-              <Card className="border-dashed border-2 border-gray-300">
+              <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <GitCompare className="h-12 w-12 text-gray-400 mb-4" />
+                  <GitCompare className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Offers Yet</h3>
-                  <p className="text-gray-500 text-center mb-4">
+                  <p className="text-muted-foreground text-center mb-4">
                     Submit a loan request to see personalized offers from multiple lenders
                   </p>
                   <Button 
@@ -685,7 +685,7 @@ export default function Loans() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">Compare Loan Offers</h2>
-                    <p className="text-gray-600">Found {offers.length} offers matching your requirements</p>
+                    <p className="text-muted-foreground">Found {offers.length} offers matching your requirements</p>
                   </div>
                   <div className="flex gap-2">
                     {selectedOffers.length > 0 && (
@@ -709,7 +709,7 @@ export default function Loans() {
                         <div className="flex justify-between items-start">
                           <div>
                             <CardTitle className="text-lg">{offer.providerName}</CardTitle>
-                            <p className="text-sm text-gray-600">{offer.productName}</p>
+                            <p className="text-sm text-muted-foreground">{offer.productName}</p>
                           </div>
                           <div className="text-right">
                             <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getRiskColor(offer.approvalProbability)}`}>
@@ -721,32 +721,32 @@ export default function Loans() {
                       <CardContent>
                         <div className="space-y-4">
                           <div className="text-center p-4 bg-blue-50 rounded-lg">
-                            <p className="text-sm text-gray-600">Interest Rate</p>
+                            <p className="text-sm text-muted-foreground">Interest Rate</p>
                             <p className="text-2xl font-bold text-blue-600">{offer.interestRate}%</p>
-                            <p className="text-xs text-gray-500">per annum</p>
+                            <p className="text-xs text-muted-foreground">per annum</p>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
-                              <p className="text-gray-600">Monthly EMI</p>
+                              <p className="text-muted-foreground">Monthly EMI</p>
                               <p className="font-semibold">{formatCurrency(offer.monthlyEmi)}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600">Processing Fee</p>
+                              <p className="text-muted-foreground">Processing Fee</p>
                               <p className="font-semibold">{offer.processingFee}%</p>
                             </div>
                             <div>
-                              <p className="text-gray-600">Total Interest</p>
+                              <p className="text-muted-foreground">Total Interest</p>
                               <p className="font-semibold text-red-600">{formatCurrency(offer.totalInterest)}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600">Response Time</p>
+                              <p className="text-muted-foreground">Response Time</p>
                               <p className="font-semibold">{offer.responseTime}</p>
                             </div>
                           </div>
 
                           <div>
-                            <p className="text-sm text-gray-600 mb-2">Key Features</p>
+                            <p className="text-sm text-muted-foreground mb-2">Key Features</p>
                             <div className="space-y-1">
                               {offer.features.slice(0, 3).map((feature, index) => (
                                 <div key={index} className="flex items-center gap-2 text-xs">
@@ -791,7 +791,7 @@ export default function Loans() {
                       <div className="flex justify-between items-center">
                         <div>
                           <CardTitle className="text-xl">Side-by-Side Comparison</CardTitle>
-                          <p className="text-gray-600">Compare selected offers in detail</p>
+                          <p className="text-muted-foreground">Compare selected offers in detail</p>
                         </div>
                         <div className="flex gap-2">
                           <Button
@@ -829,7 +829,7 @@ export default function Loans() {
                                   <th key={offerId} className="text-center py-3 px-4 min-w-[200px]" data-testid={`comparison-header-${offerId}`}>
                                     <div className="space-y-1">
                                       <div className="font-semibold text-gray-900">{offer.providerName}</div>
-                                      <div className="text-xs text-gray-600">{offer.productName}</div>
+                                      <div className="text-xs text-muted-foreground">{offer.productName}</div>
                                       <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getRiskColor(offer.approvalProbability)}`}>
                                         {offer.approvalProbability}% Match
                                       </div>
@@ -841,7 +841,7 @@ export default function Loans() {
                           </thead>
                           <tbody>
                             {/* Interest Rate Row */}
-                            <tr className="border-b hover:bg-gray-50">
+                            <tr className="border-b hover:bg-muted">
                               <td className="py-4 px-2 font-medium text-gray-900">Interest Rate</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
@@ -854,14 +854,14 @@ export default function Loans() {
                                       {offer.interestRate}%
                                     </div>
                                     {isBest && <div className="text-xs text-green-600 font-medium">LOWEST</div>}
-                                    <div className="text-xs text-gray-500">per annum</div>
+                                    <div className="text-xs text-muted-foreground">per annum</div>
                                   </td>
                                 );
                               })}
                             </tr>
 
                             {/* Monthly EMI Row */}
-                            <tr className="border-b hover:bg-gray-50">
+                            <tr className="border-b hover:bg-muted">
                               <td className="py-4 px-2 font-medium text-gray-900">Monthly EMI</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
@@ -880,7 +880,7 @@ export default function Loans() {
                             </tr>
 
                             {/* Processing Fee Row */}
-                            <tr className="border-b hover:bg-gray-50">
+                            <tr className="border-b hover:bg-muted">
                               <td className="py-4 px-2 font-medium text-gray-900">Processing Fee</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
@@ -899,7 +899,7 @@ export default function Loans() {
                             </tr>
 
                             {/* Total Interest Row */}
-                            <tr className="border-b hover:bg-gray-50">
+                            <tr className="border-b hover:bg-muted">
                               <td className="py-4 px-2 font-medium text-gray-900">Total Interest</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
@@ -918,7 +918,7 @@ export default function Loans() {
                             </tr>
 
                             {/* Response Time Row */}
-                            <tr className="border-b hover:bg-gray-50">
+                            <tr className="border-b hover:bg-muted">
                               <td className="py-4 px-2 font-medium text-gray-900">Response Time</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
@@ -934,14 +934,14 @@ export default function Loans() {
                             </tr>
 
                             {/* Tenure Options Row */}
-                            <tr className="border-b hover:bg-gray-50">
+                            <tr className="border-b hover:bg-muted">
                               <td className="py-4 px-2 font-medium text-gray-900">Tenure Options</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
                                 if (!offer) return null;
                                 return (
                                   <td key={offerId} className="py-4 px-4 text-center" data-testid={`tenure-${offerId}`}>
-                                    <div className="text-sm text-gray-600">
+                                    <div className="text-sm text-muted-foreground">
                                       {offer.minTenure} - {offer.maxTenure} years
                                     </div>
                                   </td>
@@ -950,7 +950,7 @@ export default function Loans() {
                             </tr>
 
                             {/* Key Features Row */}
-                            <tr className="border-b hover:bg-gray-50">
+                            <tr className="border-b hover:bg-muted">
                               <td className="py-4 px-2 font-medium text-gray-900">Key Features</td>
                               {selectedOffers.map((offerId) => {
                                 const offer = offers.find(o => o.id === offerId);
@@ -1055,11 +1055,11 @@ export default function Loans() {
               <h2 className="text-2xl font-bold text-gray-900 mb-6">My Applications</h2>
               
               {!applications?.data || applications.data.length === 0 ? (
-                <Card className="border-dashed border-2 border-gray-300">
+                <Card className="border-dashed border-2 border-border">
                   <CardContent className="flex flex-col items-center justify-center py-12">
-                    <CheckCircle className="h-12 w-12 text-gray-400 mb-4" />
+                    <CheckCircle className="h-12 w-12 text-muted-foreground mb-4" />
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">No Applications Yet</h3>
-                    <p className="text-gray-500 text-center mb-4">
+                    <p className="text-muted-foreground text-center mb-4">
                       Your loan applications will appear here
                     </p>
                     <Button 
@@ -1081,7 +1081,7 @@ export default function Loans() {
                             <h3 className="font-semibold text-lg">
                               {application.providerId} - {application.amount && formatCurrency(application.amount)}
                             </h3>
-                            <p className="text-gray-600">
+                            <p className="text-muted-foreground">
                               Applied on {new Date(application.submittedAt).toLocaleDateString()}
                             </p>
                           </div>
@@ -1098,19 +1098,19 @@ export default function Loans() {
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <p className="text-gray-600">Interest Rate</p>
+                            <p className="text-muted-foreground">Interest Rate</p>
                             <p className="font-semibold">{application.interestRate}%</p>
                           </div>
                           <div>
-                            <p className="text-gray-600">Tenure</p>
+                            <p className="text-muted-foreground">Tenure</p>
                             <p className="font-semibold">{application.tenure} years</p>
                           </div>
                           <div>
-                            <p className="text-gray-600">Monthly EMI</p>
+                            <p className="text-muted-foreground">Monthly EMI</p>
                             <p className="font-semibold">{formatCurrency(application.monthlyEmi)}</p>
                           </div>
                           <div>
-                            <p className="text-gray-600">Application ID</p>
+                            <p className="text-muted-foreground">Application ID</p>
                             <p className="font-mono text-xs">{application.id.slice(0, 8)}...</p>
                           </div>
                         </div>
@@ -1129,7 +1129,7 @@ export default function Loans() {
                   <Calculator className="h-5 w-5" />
                   EMI Calculator
                 </CardTitle>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Calculate your monthly EMI for any loan amount with full amortization schedule
                 </p>
               </CardHeader>
@@ -1137,7 +1137,7 @@ export default function Loans() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div className="space-y-6">
                     <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Loan Amount (₹)
                       </label>
                       <Input 
@@ -1162,7 +1162,7 @@ export default function Loans() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Interest Rate (% per annum)
                       </label>
                       <Input 
@@ -1188,7 +1188,7 @@ export default function Loans() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Loan Tenure (Years)
                       </label>
                       <Input 
@@ -1234,7 +1234,7 @@ export default function Loans() {
 
                   <div className="space-y-6">
                     <div className="text-center p-6 bg-blue-50 rounded-lg">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2">Monthly EMI</h3>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Monthly EMI</h3>
                       <p className="text-3xl font-bold text-blue-600" data-testid="calc-emi">
                         {emiResult ? formatCurrency(emiResult.emi) : '₹0'}
                       </p>
@@ -1242,19 +1242,19 @@ export default function Loans() {
                     
                     <div className="grid grid-cols-1 gap-4">
                       <div className="p-4 bg-green-50 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-700">Principal Amount</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground">Principal Amount</h4>
                         <p className="text-lg font-bold text-green-600" data-testid="calc-principal">
                           {emiResult ? formatCurrency(emiResult.principal) : '₹0'}
                         </p>
                       </div>
                       <div className="p-4 bg-red-50 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-700">Total Interest</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground">Total Interest</h4>
                         <p className="text-lg font-bold text-red-600" data-testid="calc-interest">
                           {emiResult ? formatCurrency(emiResult.totalInterest) : '₹0'}
                         </p>
                       </div>
                       <div className="p-4 bg-purple-50 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-700">Total Amount Payable</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground">Total Amount Payable</h4>
                         <p className="text-lg font-bold text-purple-600" data-testid="calc-total">
                           {emiResult ? formatCurrency(emiResult.totalPayment) : '₹0'}
                         </p>
@@ -1276,12 +1276,12 @@ export default function Loans() {
 
                 {showSchedule && emiResult && emiResult.schedule.length > 0 && (
                   <div className="mt-8 border rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-3 border-b">
+                    <div className="bg-muted px-4 py-3 border-b">
                       <h4 className="font-semibold">Amortization Schedule ({emiResult.schedule.length} months)</h4>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
                       <table className="w-full text-sm">
-                        <thead className="bg-gray-100 sticky top-0">
+                        <thead className="bg-muted sticky top-0">
                           <tr>
                             <th className="text-left py-2 px-4 font-medium">Month</th>
                             <th className="text-right py-2 px-4 font-medium">EMI</th>
@@ -1292,7 +1292,7 @@ export default function Loans() {
                         </thead>
                         <tbody>
                           {emiResult.schedule.map((row) => (
-                            <tr key={row.month} className="border-t hover:bg-gray-50">
+                            <tr key={row.month} className="border-t hover:bg-muted">
                               <td className="py-2 px-4">{row.month}</td>
                               <td className="py-2 px-4 text-right">{formatCurrency(row.emi)}</td>
                               <td className="py-2 px-4 text-right text-green-600">{formatCurrency(row.principal)}</td>

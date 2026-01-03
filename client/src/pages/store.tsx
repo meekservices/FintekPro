@@ -451,7 +451,7 @@ export default function StorePage() {
       case "low": return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400";
       case "medium": return "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400";
       case "high": return "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400";
-      default: return "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300";
+      default: return "bg-muted text-muted-foreground border-border dark:bg-muted dark:text-muted-foreground";
     }
   };
 
@@ -476,7 +476,7 @@ export default function StorePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-finance-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         {isLocked && (
           <div className="absolute top-4 right-4 z-10">
-            <div className="bg-gray-900/90 text-white px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-medium">
+            <div className="bg-card/90 text-white px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-medium">
               <Lock className="h-3 w-3" />
               Locked
             </div>
@@ -516,28 +516,28 @@ export default function StorePage() {
               className="opacity-0 group-hover:opacity-100 transition-opacity"
               data-testid={`wishlist-${product.id}`}
             >
-              <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+              <Heart className={`h-4 w-4 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
             </Button>
           </div>
           <CardTitle className="text-lg group-hover:text-finance-blue transition-colors">
             {product.name}
           </CardTitle>
-          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground line-clamp-2">
             {product.shortDescription}
           </p>
           <div className="flex items-center gap-2 mt-2">
-            <Building2 className="h-3 w-3 text-gray-400" />
-            <span className="text-xs text-gray-500">{product.provider || 'FintekPro'}</span>
+            <Building2 className="h-3 w-3 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">{product.provider || 'FintekPro'}</span>
           </div>
         </CardHeader>
         <CardContent className="relative space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-gray-500 block">Expected Returns</span>
+              <span className="text-muted-foreground block">Expected Returns</span>
               <span className="font-semibold text-green-600">{product.expectedReturns || 0}%</span>
             </div>
             <div>
-              <span className="text-gray-500 block">Min Investment</span>
+              <span className="text-muted-foreground block">Min Investment</span>
               <span className="font-semibold">₹{(product.minimumInvestment || 0).toLocaleString()}</span>
             </div>
           </div>
@@ -592,7 +592,7 @@ export default function StorePage() {
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
               FintekPro Marketplace
             </h1>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-lg text-muted-foreground dark:text-muted-foreground">
               Curated financial products • Expert recommendations • Trusted providers
             </p>
           </div>
@@ -615,7 +615,7 @@ export default function StorePage() {
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   placeholder="Search products, providers, categories..."
                   value={searchTerm}
@@ -685,7 +685,7 @@ export default function StorePage() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Featured Products</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Handpicked by our experts</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Handpicked by our experts</p>
               </div>
             </div>
             <Badge variant="outline" className="text-finance-blue border-finance-blue">
@@ -708,7 +708,7 @@ export default function StorePage() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Top Performing</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Highest returns in the market</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Highest returns in the market</p>
               </div>
             </div>
             <Badge variant="outline" className="text-green-600 border-green-600">
@@ -733,7 +733,7 @@ export default function StorePage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Hot Deals & New Launches</h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Limited time offers and latest products</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Limited time offers and latest products</p>
                   </div>
                 </div>
                 <Badge variant="outline" className="text-red-600 border-red-600">
@@ -756,7 +756,7 @@ export default function StorePage() {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Browse by Category</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Explore our complete product range</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Explore our complete product range</p>
             </div>
           </div>
           
@@ -812,9 +812,9 @@ export default function StorePage() {
                       : products.filter(p => p.category === selectedCategory)
                   ).length === 0 && !isCategoryDisabled(selectedCategory) && (
                     <div className="text-center py-12">
-                      <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                      <p className="text-gray-500 mb-2 font-medium">No products found</p>
-                      <p className="text-sm text-gray-400">Try adjusting your filters or search term</p>
+                      <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground mb-2 font-medium">No products found</p>
+                      <p className="text-sm text-muted-foreground">Try adjusting your filters or search term</p>
                     </div>
                   )}
                 </div>
@@ -834,14 +834,14 @@ export default function StorePage() {
 
       {/* KYC Upgrade Modal */}
       <Dialog open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-900">
+        <DialogContent className="sm:max-w-[500px] bg-white dark:bg-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
               <Shield className="h-5 w-5 text-amber-500" />
               KYC Upgrade Required
             </DialogTitle>
             <DialogDescription asChild>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="text-sm text-muted-foreground dark:text-muted-foreground">
                 {selectedLockedProduct && (
                   <p className="mt-1">
                     <strong className="text-gray-900 dark:text-white">{selectedLockedProduct.name}</strong> requires{" "}
@@ -882,8 +882,8 @@ export default function StorePage() {
               </p>
               <ul className="space-y-2">
                 {getKycRequirementsForTier(requiredTier).requirements.map((req, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <CheckCircle className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                     {req}
                   </li>
                 ))}
@@ -895,7 +895,7 @@ export default function StorePage() {
             <Button
               variant="outline"
               onClick={() => setUpgradeModalOpen(false)}
-              className="dark:border-gray-700"
+              className="dark:border-border"
             >
               Cancel
             </Button>

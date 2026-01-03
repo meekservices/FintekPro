@@ -236,25 +236,25 @@ export default function TaxITRPreviewPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Gross Total Income</p>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Gross Total Income</p>
             <p className="text-2xl font-bold text-primary">{formatCurrency(draft?.grossTotalIncome)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Total Deductions</p>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Deductions</p>
             <p className="text-2xl font-bold text-green-600">{formatCurrency(draft?.totalDeductions)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Taxable Income</p>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Taxable Income</p>
             <p className="text-2xl font-bold dark:text-white">{formatCurrency(draft?.taxableIncome)}</p>
           </CardContent>
         </Card>
         <Card className={draft?.refundDue && draft.refundDue > 0 ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"}>
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">
               {draft?.refundDue && draft.refundDue > 0 ? "Refund Due" : "Tax Payable"}
             </p>
             <p className={`text-2xl font-bold ${draft?.refundDue && draft.refundDue > 0 ? "text-green-600" : "text-red-600"}`}>
@@ -273,57 +273,57 @@ export default function TaxITRPreviewPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="flex justify-between py-2 border-b dark:border-gray-700">
-              <span className="text-gray-600 dark:text-gray-400">Income from Salary</span>
+            <div className="flex justify-between py-2 border-b dark:border-border">
+              <span className="text-muted-foreground dark:text-muted-foreground">Income from Salary</span>
               <span className="font-medium dark:text-white">
                 {formatCurrency((draft?.salaryDetails?.grossSalary || 0) - (draft?.salaryDetails?.standardDeduction || 0) - (draft?.salaryDetails?.professionalTax || 0))}
               </span>
             </div>
             {draft?.housePropertyDetails && (
-              <div className="flex justify-between py-2 border-b dark:border-gray-700">
-                <span className="text-gray-600 dark:text-gray-400">Income from House Property</span>
+              <div className="flex justify-between py-2 border-b dark:border-border">
+                <span className="text-muted-foreground dark:text-muted-foreground">Income from House Property</span>
                 <span className="font-medium dark:text-white">
                   {formatCurrency((draft.housePropertyDetails.rentalIncome || 0) - (draft.housePropertyDetails.municipalTaxes || 0) - (draft.housePropertyDetails.interestOnLoan || 0))}
                 </span>
               </div>
             )}
             {draft?.capitalGainsDetails && (
-              <div className="flex justify-between py-2 border-b dark:border-gray-700">
-                <span className="text-gray-600 dark:text-gray-400">Capital Gains</span>
+              <div className="flex justify-between py-2 border-b dark:border-border">
+                <span className="text-muted-foreground dark:text-muted-foreground">Capital Gains</span>
                 <span className="font-medium dark:text-white">
                   {formatCurrency((draft.capitalGainsDetails.shortTermGains || 0) + (draft.capitalGainsDetails.longTermGains || 0) - (draft.capitalGainsDetails.exemptionsApplied || 0))}
                 </span>
               </div>
             )}
             {draft?.otherIncomeDetails && (
-              <div className="flex justify-between py-2 border-b dark:border-gray-700">
-                <span className="text-gray-600 dark:text-gray-400">Income from Other Sources</span>
+              <div className="flex justify-between py-2 border-b dark:border-border">
+                <span className="text-muted-foreground dark:text-muted-foreground">Income from Other Sources</span>
                 <span className="font-medium dark:text-white">
                   {formatCurrency((draft.otherIncomeDetails.interestIncome || 0) + (draft.otherIncomeDetails.dividendIncome || 0) + (draft.otherIncomeDetails.otherSources || 0))}
                 </span>
               </div>
             )}
-            <div className="flex justify-between py-2 border-b dark:border-gray-700 font-medium">
+            <div className="flex justify-between py-2 border-b dark:border-border font-medium">
               <span className="dark:text-white">Gross Total Income</span>
               <span className="text-primary">{formatCurrency(draft?.grossTotalIncome)}</span>
             </div>
-            <div className="flex justify-between py-2 border-b dark:border-gray-700">
-              <span className="text-gray-600 dark:text-gray-400">Less: Deductions under Chapter VI-A</span>
+            <div className="flex justify-between py-2 border-b dark:border-border">
+              <span className="text-muted-foreground dark:text-muted-foreground">Less: Deductions under Chapter VI-A</span>
               <span className="font-medium text-green-600">-{formatCurrency(draft?.totalDeductions)}</span>
             </div>
-            <div className="flex justify-between py-2 border-b dark:border-gray-700 font-medium">
+            <div className="flex justify-between py-2 border-b dark:border-border font-medium">
               <span className="dark:text-white">Total Taxable Income</span>
               <span className="dark:text-white">{formatCurrency(draft?.taxableIncome)}</span>
             </div>
-            <div className="flex justify-between py-2 border-b dark:border-gray-700">
-              <span className="text-gray-600 dark:text-gray-400">Tax on Total Income</span>
+            <div className="flex justify-between py-2 border-b dark:border-border">
+              <span className="text-muted-foreground dark:text-muted-foreground">Tax on Total Income</span>
               <span className="font-medium dark:text-white">{formatCurrency(draft?.taxPayable)}</span>
             </div>
-            <div className="flex justify-between py-2 border-b dark:border-gray-700">
-              <span className="text-gray-600 dark:text-gray-400">Less: TDS Credits</span>
+            <div className="flex justify-between py-2 border-b dark:border-border">
+              <span className="text-muted-foreground dark:text-muted-foreground">Less: TDS Credits</span>
               <span className="font-medium text-green-600">-{formatCurrency(draft?.tdsCredits)}</span>
             </div>
-            <div className="flex justify-between py-3 bg-gray-50 dark:bg-gray-800 px-3 rounded-lg font-bold">
+            <div className="flex justify-between py-3 bg-muted dark:bg-muted px-3 rounded-lg font-bold">
               <span className="dark:text-white">{draft?.refundDue && draft.refundDue > 0 ? "Refund Due" : "Tax Payable"}</span>
               <span className={draft?.refundDue && draft.refundDue > 0 ? "text-green-600" : "text-red-600"}>
                 {formatCurrency(draft?.refundDue && draft.refundDue > 0 ? draft.refundDue : (draft?.taxPayable || 0) - (draft?.tdsCredits || 0))}
@@ -345,19 +345,19 @@ export default function TaxITRPreviewPage() {
           <CardContent>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Gross Salary</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Gross Salary</span>
                 <span className="dark:text-white">{formatCurrency(draft.salaryDetails.grossSalary)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Allowances</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Allowances</span>
                 <span className="dark:text-white">{formatCurrency(draft.salaryDetails.allowances)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Standard Deduction</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Standard Deduction</span>
                 <span className="text-green-600">-{formatCurrency(draft.salaryDetails.standardDeduction)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Professional Tax</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Professional Tax</span>
                 <span className="text-green-600">-{formatCurrency(draft.salaryDetails.professionalTax)}</span>
               </div>
             </div>
@@ -373,11 +373,11 @@ export default function TaxITRPreviewPage() {
           <CardContent>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Interest Income</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Interest Income</span>
                 <span className="dark:text-white">{formatCurrency(draft.otherIncomeDetails.interestIncome)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Dividend Income</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Dividend Income</span>
                 <span className="dark:text-white">{formatCurrency(draft.otherIncomeDetails.dividendIncome)}</span>
               </div>
             </div>
@@ -398,8 +398,8 @@ export default function TaxITRPreviewPage() {
             if (!value || value === 0) return null;
             const label = key.replace("section", "Section ").replace(/([A-Z])/g, " $1");
             return (
-              <div key={key} className="flex justify-between py-2 border-b dark:border-gray-700">
-                <span className="text-gray-600 dark:text-gray-400">{label}</span>
+              <div key={key} className="flex justify-between py-2 border-b dark:border-border">
+                <span className="text-muted-foreground dark:text-muted-foreground">{label}</span>
                 <span className="font-medium text-green-600">{formatCurrency(value)}</span>
               </div>
             );
@@ -460,7 +460,7 @@ export default function TaxITRPreviewPage() {
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Clock className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Loading preview...</p>
+          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading preview...</p>
         </div>
       </div>
     );
@@ -475,7 +475,7 @@ export default function TaxITRPreviewPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold dark:text-white">ITR Preview</h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               {draft?.itrForm} | AY {draft?.assessmentYear} | PAN: {draft?.pan}
             </p>
           </div>
@@ -545,7 +545,7 @@ export default function TaxITRPreviewPage() {
               onCheckedChange={(checked) => setDisclaimerAccepted(checked as boolean)}
               data-testid="checkbox-disclaimer"
             />
-            <Label htmlFor="disclaimer" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+            <Label htmlFor="disclaimer" className="text-sm text-muted-foreground dark:text-muted-foreground cursor-pointer">
               I have reviewed all the details in this return and confirm that the information provided is true, correct, and complete to the best of my knowledge. I understand that filing incorrect information may attract penalties under the Income Tax Act.
             </Label>
           </div>

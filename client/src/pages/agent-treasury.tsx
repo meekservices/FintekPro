@@ -68,7 +68,7 @@ interface TreasuryProposal {
 }
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-800",
+  draft: "bg-muted text-foreground",
   pending_approval: "bg-yellow-100 text-yellow-800",
   pending_maker: "bg-yellow-100 text-yellow-800",
   pending_checker: "bg-orange-100 text-orange-800",
@@ -477,7 +477,7 @@ export default function AgentTreasuryPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-medium">{proposal.proposalNumber}</h3>
-                        <Badge className={statusColors[proposal.status] || "bg-gray-100"}>
+                        <Badge className={statusColors[proposal.status] || "bg-muted"}>
                           {proposal.status.replace(/_/g, ' ').toUpperCase()}
                         </Badge>
                       </div>
@@ -711,8 +711,8 @@ export default function AgentTreasuryPage() {
         <Card className={pendingApprovals.length > 0 ? "border-orange-500" : ""}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-lg ${pendingApprovals.length > 0 ? "bg-orange-100" : "bg-gray-100"} flex items-center justify-center`}>
-                <AlertTriangle className={`h-5 w-5 ${pendingApprovals.length > 0 ? "text-orange-600" : "text-gray-600"}`} />
+              <div className={`h-10 w-10 rounded-lg ${pendingApprovals.length > 0 ? "bg-orange-100" : "bg-muted"} flex items-center justify-center`}>
+                <AlertTriangle className={`h-5 w-5 ${pendingApprovals.length > 0 ? "text-orange-600" : "text-muted-foreground"}`} />
               </div>
               <div>
                 <p className="text-2xl font-bold">{pendingApprovals.length}</p>

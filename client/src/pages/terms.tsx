@@ -30,10 +30,10 @@ export default function TermsOfService() {
             <FileText className="w-12 h-12 text-blue-600 mr-3" />
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Terms of Service</h1>
           </div>
-          <p className="text-lg text-gray-600 dark:text-gray-300">
+          <p className="text-lg text-muted-foreground dark:text-muted-foreground">
             Legal terms governing your use of FintekPro's financial services platform.
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-2">
             Last updated: August 31, 2025
           </p>
         </div>
@@ -47,11 +47,11 @@ export default function TermsOfService() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                 By accessing and using FintekPro's services, you acknowledge that you have read, understood, 
                 and agree to be bound by these Terms of Service and our Privacy Policy.
               </p>
-              <p className="text-gray-600 dark:text-gray-300">
+              <p className="text-muted-foreground dark:text-muted-foreground">
                 If you do not agree to these terms, please do not use our services.
               </p>
             </CardContent>
@@ -67,7 +67,7 @@ export default function TermsOfService() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-semibold mb-2">Eligibility Requirements</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Must be 18 years or older</li>
                   <li>Must be a legal resident of India or eligible NRI</li>
                   <li>Must have valid KYC documentation (PAN, Aadhar, etc.)</li>
@@ -76,7 +76,7 @@ export default function TermsOfService() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Account Responsibilities</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Provide accurate and complete information</li>
                   <li>Maintain the security of your login credentials</li>
                   <li>Notify us immediately of any unauthorized access</li>
@@ -96,7 +96,7 @@ export default function TermsOfService() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-semibold mb-2">Investment Services</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Portfolio management and investment advisory</li>
                   <li>Mutual funds, stocks, bonds, and alternative investments</li>
                   <li>Risk assessment and asset allocation</li>
@@ -105,7 +105,7 @@ export default function TermsOfService() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Banking Integration</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Account aggregation and transaction monitoring</li>
                   <li>Payment processing and fund transfers</li>
                   <li>Balance and statement reconciliation</li>
@@ -114,7 +114,7 @@ export default function TermsOfService() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Compliance Services</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>KYC verification and ongoing monitoring</li>
                   <li>FATCA reporting and tax compliance</li>
                   <li>AML screening and risk assessment</li>
@@ -143,7 +143,7 @@ export default function TermsOfService() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Investment Risks</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Market volatility and potential loss of principal</li>
                   <li>Liquidity risks in certain investment products</li>
                   <li>Credit risk from bond and debt investments</li>
@@ -153,7 +153,7 @@ export default function TermsOfService() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">No Guaranteed Returns</h4>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   We do not guarantee any specific returns on investments. All investment recommendations 
                   are based on our analysis and should be considered as advisory in nature.
                 </p>
@@ -169,10 +169,10 @@ export default function TermsOfService() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                 Your privacy and data security are paramount to us. By using our services, you consent to:
               </p>
-              <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+              <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                 <li>Collection and processing of your financial data as described in our Privacy Policy</li>
                 <li>Sharing of information with regulatory authorities as required by law</li>
                 <li>Use of your data for risk assessment and compliance monitoring</li>
@@ -188,7 +188,7 @@ export default function TermsOfService() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-semibold mb-2">Service Fees</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Management fees as disclosed in investment documents</li>
                   <li>Transaction charges for trades and fund transfers</li>
                   <li>Platform usage fees for premium features</li>
@@ -197,7 +197,7 @@ export default function TermsOfService() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Fee Transparency</h4>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   All fees will be clearly disclosed before you commit to any investment or service. 
                   We maintain complete transparency in our fee structure.
                 </p>
@@ -212,10 +212,10 @@ export default function TermsOfService() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-semibold mb-2">Regulatory Oversight</h4>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   FintekPro operates under the regulatory framework of:
                 </p>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1 mt-2">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1 mt-2">
                   <li>Securities and Exchange Board of India (SEBI)</li>
                   <li>Reserve Bank of India (RBI)</li>
                   <li>Association of Mutual Funds in India (AMFI)</li>
@@ -224,7 +224,7 @@ export default function TermsOfService() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Compliance Obligations</h4>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   You agree to comply with all applicable laws and regulations, including providing 
                   accurate information for KYC verification and tax reporting purposes.
                 </p>
@@ -237,10 +237,10 @@ export default function TermsOfService() {
               <CardTitle>Limitation of Liability</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                 To the maximum extent permitted by law, FintekPro shall not be liable for:
               </p>
-              <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+              <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                 <li>Investment losses due to market conditions</li>
                 <li>Technical issues or system downtime</li>
                 <li>Third-party service provider failures</li>
@@ -254,10 +254,10 @@ export default function TermsOfService() {
               <CardTitle>Termination</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                 Either party may terminate this agreement with 30 days written notice. Upon termination:
               </p>
-              <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+              <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                 <li>You retain ownership of your investments</li>
                 <li>We will assist in transferring your portfolio</li>
                 <li>Outstanding fees must be settled</li>
@@ -271,7 +271,7 @@ export default function TermsOfService() {
               <CardTitle>Contact Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                 For questions about these terms or our services:
               </p>
               <div className="space-y-2">
@@ -285,7 +285,7 @@ export default function TermsOfService() {
         </div>
 
         <div className="mt-12 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground">
             These terms are effective as of August 31, 2025. We reserve the right to update these terms 
             with 30 days notice to users.
           </p>

@@ -627,7 +627,7 @@ export default function AuthPage() {
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
                 Welcome to <span className="text-blue-600">FintekPro</span>
               </h1>
-              <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
+              <p className="text-xl text-muted-foreground dark:text-muted-foreground mb-8">
                 Your intelligent financial services platform with AI-powered tax filing, 
                 portfolio management, and comprehensive investment tools.
               </p>
@@ -636,28 +636,28 @@ export default function AuthPage() {
                   <Shield className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">Secure Authentication</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Multiple sign-in options for your convenience</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Multiple sign-in options for your convenience</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <TrendingUp className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">ITR & Tax Services</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">AI-powered tax filing with expert assistance</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">AI-powered tax filing with expert assistance</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <BarChart3 className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">Portfolio Management</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Track and manage your investments</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Track and manage your investments</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <MessageSquare className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">Real-time Insights</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Live market data and AI recommendations</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Live market data and AI recommendations</p>
                   </div>
                 </div>
               </div>
@@ -693,11 +693,11 @@ export default function AuthPage() {
                                 <CheckCircle2 className="h-4 w-4" />
                                 Credentials
                               </span>
-                              <span className={`flex items-center gap-1 ${loginStep === "otp" ? "text-blue-600 font-medium" : loginStep === "complete" ? "text-green-600" : "text-gray-400"}`}>
+                              <span className={`flex items-center gap-1 ${loginStep === "otp" ? "text-blue-600 font-medium" : loginStep === "complete" ? "text-green-600" : "text-muted-foreground"}`}>
                                 {loginStep === "complete" ? <CheckCircle2 className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
                                 OTP Verification
                               </span>
-                              <span className={`flex items-center gap-1 ${loginStep === "complete" ? "text-green-600 font-medium" : "text-gray-400"}`}>
+                              <span className={`flex items-center gap-1 ${loginStep === "complete" ? "text-green-600 font-medium" : "text-muted-foreground"}`}>
                                 <CheckCircle2 className="h-4 w-4" />
                                 Success
                               </span>
@@ -710,7 +710,7 @@ export default function AuthPage() {
                           <div>
                             <Label htmlFor="login-identifier" className="flex items-center gap-2">
                               Email, Mobile, or User ID
-                              <Info className="h-3 w-3 text-gray-400" />
+                              <Info className="h-3 w-3 text-muted-foreground" />
                             </Label>
                             <Input
                               id="login-identifier"
@@ -1231,13 +1231,13 @@ export default function AuthPage() {
 
           <div className="space-y-4">
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border-2 border-blue-300 dark:border-blue-700">
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 text-center">Your unique User ID:</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2 text-center">Your unique User ID:</p>
               <div className="flex items-center justify-center gap-2">
                 <Badge className="text-lg px-4 py-2 bg-blue-600 hover:bg-blue-700">
                   {registeredUserId}
                 </Badge>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-2 text-center">
                 Save this ID - you can use it to login along with email or mobile
               </p>
             </div>
@@ -1280,7 +1280,7 @@ export default function AuthPage() {
 
           <div className="space-y-4">
             {/* List of duplicate matches */}
-            <div className="border rounded-lg divide-y dark:border-gray-700">
+            <div className="border rounded-lg divide-y dark:border-border">
               {duplicateWarnings.map((duplicate, index) => (
                 <div key={index} className="p-3 space-y-1">
                   <div className="flex items-center justify-between">
@@ -1303,7 +1303,7 @@ export default function AuthPage() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                     {duplicate.message}
                   </p>
                 </div>

@@ -1047,7 +1047,7 @@ export default function ManualKYCPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
               {getKYCTypeTitle()} - Manual Upload
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               {getKYCTypeDescription()}
             </p>
           </div>
@@ -1084,7 +1084,7 @@ export default function ManualKYCPage() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="entityType" className="text-base font-semibold">Entity Type *</Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                     Select the type of non-individual entity
                   </p>
                 </div>
@@ -1121,7 +1121,7 @@ export default function ManualKYCPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">Upload Progress</span>
-                <span className="text-gray-500">
+                <span className="text-muted-foreground">
                   {uploadedCount} of {requiredCount} required documents uploaded
                 </span>
               </div>
@@ -1133,7 +1133,7 @@ export default function ManualKYCPage() {
 
       {/* Step Navigation */}
       <div className="flex justify-center mb-8">
-        <div className="inline-flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+        <div className="inline-flex gap-2 bg-muted dark:bg-muted p-1 rounded-lg">
           <Button
             variant={currentStep === 'details' ? 'default' : 'ghost'}
             size="sm"
@@ -1677,7 +1677,7 @@ export default function ManualKYCPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <File className="h-5 w-5 text-gray-500" />
+                    <File className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <CardTitle className="text-lg">{doc.name}</CardTitle>
                       <CardDescription>{doc.description}</CardDescription>
@@ -1698,7 +1698,7 @@ export default function ManualKYCPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="text-sm text-muted-foreground dark:text-muted-foreground">
                     <p><strong>Accepted Formats:</strong> {doc.acceptedFormats.join(', ')}</p>
                     <p><strong>Max Size:</strong> {Math.round(doc.maxSize / 1024 / 1024)}MB</p>
                   </div>
@@ -1708,7 +1708,7 @@ export default function ManualKYCPage() {
                       <CheckCircle2 className="h-5 w-5 text-green-600" />
                       <div className="flex-1">
                         <p className="font-medium text-sm">{uploadedDocs[doc.id].name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           Uploaded on {new Date(uploadedDocs[doc.id].uploadedAt).toLocaleString()}
                         </p>
                       </div>
@@ -1801,21 +1801,21 @@ export default function ManualKYCPage() {
                 <h3 className="font-semibold text-lg mb-3">Applicant Information</h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-gray-500">KYC Type</p>
+                    <p className="text-muted-foreground">KYC Type</p>
                     <p className="font-medium">{getKYCTypeTitle()}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">PAN</p>
+                    <p className="text-muted-foreground">PAN</p>
                     <p className="font-medium">{formData.pan || 'N/A'}</p>
                   </div>
                   {kycType === 'individual' && (
                     <>
                       <div>
-                        <p className="text-gray-500">Name</p>
+                        <p className="text-muted-foreground">Name</p>
                         <p className="font-medium">{`${formData.firstName || ''} ${formData.middleName || ''} ${formData.lastName || ''}`}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Date of Birth</p>
+                        <p className="text-muted-foreground">Date of Birth</p>
                         <p className="font-medium">{formData.dateOfBirth || 'N/A'}</p>
                       </div>
                     </>
@@ -1823,15 +1823,15 @@ export default function ManualKYCPage() {
                   {kycType === 'corporate' && (
                     <>
                       <div className="col-span-2">
-                        <p className="text-gray-500">Company Name</p>
+                        <p className="text-muted-foreground">Company Name</p>
                         <p className="font-medium">{formData.companyName || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Registration Number</p>
+                        <p className="text-muted-foreground">Registration Number</p>
                         <p className="font-medium">{formData.registrationNumber || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Authorized Signatory</p>
+                        <p className="text-muted-foreground">Authorized Signatory</p>
                         <p className="font-medium">{formData.authorizedSignatoryName || 'N/A'}</p>
                       </div>
                     </>
@@ -1839,25 +1839,25 @@ export default function ManualKYCPage() {
                   {kycType === 'nri' && (
                     <>
                       <div>
-                        <p className="text-gray-500">Name</p>
+                        <p className="text-muted-foreground">Name</p>
                         <p className="font-medium">{`${formData.firstName || ''} ${formData.lastName || ''}`}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Passport Number</p>
+                        <p className="text-muted-foreground">Passport Number</p>
                         <p className="font-medium">{formData.passportNumber || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Country of Residence</p>
+                        <p className="text-muted-foreground">Country of Residence</p>
                         <p className="font-medium">{formData.countryOfResidence || 'N/A'}</p>
                       </div>
                     </>
                   )}
                   <div>
-                    <p className="text-gray-500">Email</p>
+                    <p className="text-muted-foreground">Email</p>
                     <p className="font-medium">{formData.email || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Mobile</p>
+                    <p className="text-muted-foreground">Mobile</p>
                     <p className="font-medium">{formData.mobile || 'N/A'}</p>
                   </div>
                 </div>

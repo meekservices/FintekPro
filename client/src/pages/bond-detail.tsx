@@ -156,7 +156,7 @@ export default function BondDetailPage() {
   const fees = calculateFees();
 
   const getRatingColor = (rating: string) => {
-    if (!rating) return "bg-gray-100 text-gray-700";
+    if (!rating) return "bg-muted text-muted-foreground";
     if (rating.includes("AAA") || rating === "SOV") return "bg-green-100 text-green-700";
     if (rating.includes("AA")) return "bg-blue-100 text-blue-700";
     if (rating.includes("A")) return "bg-yellow-100 text-yellow-700";
@@ -230,7 +230,7 @@ export default function BondDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+      <div className="min-h-screen bg-muted dark:bg-card p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <Skeleton className="h-48 w-full rounded-xl" />
           <div className="grid md:grid-cols-2 gap-6">
@@ -244,12 +244,12 @@ export default function BondDetailPage() {
 
   if (error || !bond) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+      <div className="min-h-screen bg-muted dark:bg-card p-8">
         <Card>
           <CardContent className="p-8 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Bond Not Found</h2>
-            <p className="text-gray-500 mb-4">The bond with ISIN {isin} could not be found.</p>
+            <p className="text-muted-foreground mb-4">The bond with ISIN {isin} could not be found.</p>
             <Button onClick={() => navigate("/bonds")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Bonds
@@ -265,7 +265,7 @@ export default function BondDetailPage() {
   const yieldValue = bond.yieldToMaturity || bond.ytm || bond.currentYield || bond.indicativeYield || "N/A";
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-muted dark:bg-card">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -322,7 +322,7 @@ export default function BondDetailPage() {
                 <OneClickBondInvest 
                   bond={bond} 
                   size="lg" 
-                  className="w-full bg-white text-green-600 hover:bg-gray-100" 
+                  className="w-full bg-white text-green-600 hover:bg-muted" 
                 />
                 <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
                   <DialogTrigger asChild>
@@ -342,15 +342,15 @@ export default function BondDetailPage() {
                   <div className="space-y-4 py-4">
                     <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                       <div className="flex justify-between mb-2">
-                        <span className="text-gray-600 dark:text-gray-300">Bond</span>
+                        <span className="text-muted-foreground dark:text-muted-foreground">Bond</span>
                         <span className="font-medium">{bondName}</span>
                       </div>
                       <div className="flex justify-between mb-2">
-                        <span className="text-gray-600 dark:text-gray-300">ISIN</span>
+                        <span className="text-muted-foreground dark:text-muted-foreground">ISIN</span>
                         <span className="font-medium">{bond.isin}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-300">Face Value</span>
+                        <span className="text-muted-foreground dark:text-muted-foreground">Face Value</span>
                         <span className="font-medium">₹{(bond.faceValue || 1000).toLocaleString()}</span>
                       </div>
                     </div>
@@ -398,19 +398,19 @@ export default function BondDetailPage() {
                     {fees && (
                       <div className="border-t pt-4 space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Order Amount</span>
+                          <span className="text-muted-foreground">Order Amount</span>
                           <span>₹{fees.orderAmount.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Brokerage (1%)</span>
+                          <span className="text-muted-foreground">Brokerage (1%)</span>
                           <span>₹{fees.brokerage.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Platform Fee (1%)</span>
+                          <span className="text-muted-foreground">Platform Fee (1%)</span>
                           <span>₹{fees.platformFee.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500 flex items-center gap-1">
+                          <span className="text-muted-foreground flex items-center gap-1">
                             Stamp Duty (0.01%)
                             {fees.stampDutyExempt && (
                               <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-100 text-green-700">Exempt</Badge>
@@ -428,7 +428,7 @@ export default function BondDetailPage() {
                           </div>
                         )}
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">GST (18%)</span>
+                          <span className="text-muted-foreground">GST (18%)</span>
                           <span>₹{fees.gst.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between font-semibold pt-2 border-t">
@@ -491,33 +491,33 @@ export default function BondDetailPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-500">Face Value</p>
+                      <p className="text-sm text-muted-foreground">Face Value</p>
                       <p className="font-semibold">₹{(bond.faceValue || 1000).toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Current Price</p>
+                      <p className="text-sm text-muted-foreground">Current Price</p>
                       <p className="font-semibold">₹{currentPrice.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Issue Date</p>
+                      <p className="text-sm text-muted-foreground">Issue Date</p>
                       <p className="font-semibold">
                         {bond.issueDate ? new Date(bond.issueDate).toLocaleDateString() : "N/A"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Maturity Date</p>
+                      <p className="text-sm text-muted-foreground">Maturity Date</p>
                       <p className="font-semibold">
                         {bond.maturityDate ? new Date(bond.maturityDate).toLocaleDateString() : "N/A"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Credit Rating</p>
+                      <p className="text-sm text-muted-foreground">Credit Rating</p>
                       <Badge className={getRatingColor(bond.rating || bond.creditRating)}>
                         {bond.rating || bond.creditRating || "NR"}
                       </Badge>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Rating Agency</p>
+                      <p className="text-sm text-muted-foreground">Rating Agency</p>
                       <p className="font-semibold">{bond.ratingAgency || "N/A"}</p>
                     </div>
                   </div>
@@ -535,21 +535,21 @@ export default function BondDetailPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-500">Coupon Rate</p>
+                      <p className="text-sm text-muted-foreground">Coupon Rate</p>
                       <p className="font-semibold text-green-600">
                         {bond.couponRate && parseFloat(bond.couponRate) > 0 ? `${bond.couponRate}%` : "Zero Coupon"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Coupon Type</p>
+                      <p className="text-sm text-muted-foreground">Coupon Type</p>
                       <p className="font-semibold">{bond.couponType || "Fixed"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Payment Frequency</p>
+                      <p className="text-sm text-muted-foreground">Payment Frequency</p>
                       <p className="font-semibold">{bond.couponFrequency || "Semi-Annual"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Next Coupon Date</p>
+                      <p className="text-sm text-muted-foreground">Next Coupon Date</p>
                       <p className="font-semibold">
                         {bond.nextCouponDate ? new Date(bond.nextCouponDate).toLocaleDateString() : "N/A"}
                       </p>
@@ -569,19 +569,19 @@ export default function BondDetailPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-500">Yield to Maturity</p>
+                      <p className="text-sm text-muted-foreground">Yield to Maturity</p>
                       <p className="font-semibold text-green-600">{yieldValue}%</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Current Yield</p>
+                      <p className="text-sm text-muted-foreground">Current Yield</p>
                       <p className="font-semibold">{bond.currentYield || yieldValue}%</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Duration</p>
+                      <p className="text-sm text-muted-foreground">Duration</p>
                       <p className="font-semibold">{bond.duration || "N/A"} years</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Modified Duration</p>
+                      <p className="text-sm text-muted-foreground">Modified Duration</p>
                       <p className="font-semibold">{bond.modifiedDuration || "N/A"}</p>
                     </div>
                   </div>
@@ -599,18 +599,18 @@ export default function BondDetailPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div>
-                      <p className="text-sm text-gray-500">Issuer Name</p>
+                      <p className="text-sm text-muted-foreground">Issuer Name</p>
                       <p className="font-semibold">{bond.issuer || bondName}</p>
                     </div>
                     {bond.segment && (
                       <div>
-                        <p className="text-sm text-gray-500">Sector/Segment</p>
+                        <p className="text-sm text-muted-foreground">Sector/Segment</p>
                         <p className="font-semibold">{bond.segment}</p>
                       </div>
                     )}
                     {bond.securityCode && (
                       <div>
-                        <p className="text-sm text-gray-500">Security Code</p>
+                        <p className="text-sm text-muted-foreground">Security Code</p>
                         <p className="font-semibold">{bond.securityCode}</p>
                       </div>
                     )}
@@ -637,15 +637,15 @@ export default function BondDetailPage() {
                     <h4 className="font-semibold border-b pb-2">Valuation</h4>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Face Value</span>
+                        <span className="text-muted-foreground">Face Value</span>
                         <span className="font-medium">₹{(bond.faceValue || 1000).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Current Price</span>
+                        <span className="text-muted-foreground">Current Price</span>
                         <span className="font-medium">₹{currentPrice.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Premium/Discount</span>
+                        <span className="text-muted-foreground">Premium/Discount</span>
                         <span className={`font-medium ${currentPrice > (bond.faceValue || 1000) ? "text-green-600" : "text-red-600"}`}>
                           {((currentPrice / (bond.faceValue || 1000) - 1) * 100).toFixed(2)}%
                         </span>
@@ -657,15 +657,15 @@ export default function BondDetailPage() {
                     <h4 className="font-semibold border-b pb-2">Returns</h4>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-gray-500">YTM</span>
+                        <span className="text-muted-foreground">YTM</span>
                         <span className="font-medium text-green-600">{yieldValue}%</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Current Yield</span>
+                        <span className="text-muted-foreground">Current Yield</span>
                         <span className="font-medium">{bond.currentYield || yieldValue}%</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Coupon Rate</span>
+                        <span className="text-muted-foreground">Coupon Rate</span>
                         <span className="font-medium">
                           {bond.couponRate && parseFloat(bond.couponRate) > 0 ? `${bond.couponRate}%` : "Zero Coupon"}
                         </span>
@@ -677,17 +677,17 @@ export default function BondDetailPage() {
                     <h4 className="font-semibold border-b pb-2">Risk Metrics</h4>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Duration</span>
+                        <span className="text-muted-foreground">Duration</span>
                         <span className="font-medium">{bond.duration || "N/A"}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Credit Rating</span>
+                        <span className="text-muted-foreground">Credit Rating</span>
                         <Badge className={getRatingColor(bond.rating || bond.creditRating)}>
                           {bond.rating || bond.creditRating || "NR"}
                         </Badge>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Time to Maturity</span>
+                        <span className="text-muted-foreground">Time to Maturity</span>
                         <span className="font-medium">
                           {bond.maturityDate 
                             ? `${Math.ceil((new Date(bond.maturityDate).getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000))} years`
@@ -718,18 +718,18 @@ export default function BondDetailPage() {
                     <h4 className="font-semibold border-b pb-2">Market Data</h4>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Last Traded Price</span>
+                        <span className="text-muted-foreground">Last Traded Price</span>
                         <span className="font-medium">₹{currentPrice.toLocaleString()}</span>
                       </div>
                       {bond.prevClose && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Previous Close</span>
+                          <span className="text-muted-foreground">Previous Close</span>
                           <span className="font-medium">₹{parseFloat(bond.prevClose).toLocaleString()}</span>
                         </div>
                       )}
                       {bond.change !== undefined && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Change</span>
+                          <span className="text-muted-foreground">Change</span>
                           <span className={`font-medium ${parseFloat(bond.change) >= 0 ? "text-green-600" : "text-red-600"}`}>
                             {parseFloat(bond.change) >= 0 ? "+" : ""}₹{parseFloat(bond.change).toFixed(2)} 
                             ({parseFloat(bond.changePercent || 0).toFixed(2)}%)
@@ -738,7 +738,7 @@ export default function BondDetailPage() {
                       )}
                       {bond.volume && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Volume</span>
+                          <span className="text-muted-foreground">Volume</span>
                           <span className="font-medium">{bond.volume}</span>
                         </div>
                       )}
@@ -750,25 +750,25 @@ export default function BondDetailPage() {
                     <div className="space-y-3">
                       {bond.bidPrice && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Best Bid</span>
+                          <span className="text-muted-foreground">Best Bid</span>
                           <span className="font-medium text-green-600">₹{parseFloat(bond.bidPrice).toLocaleString()}</span>
                         </div>
                       )}
                       {bond.askPrice && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Best Ask</span>
+                          <span className="text-muted-foreground">Best Ask</span>
                           <span className="font-medium text-red-600">₹{parseFloat(bond.askPrice).toLocaleString()}</span>
                         </div>
                       )}
                       {bond.minimumLotSize && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Minimum Lot Size</span>
+                          <span className="text-muted-foreground">Minimum Lot Size</span>
                           <span className="font-medium">{bond.minimumLotSize}</span>
                         </div>
                       )}
                       {bond.exchange && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Exchange</span>
+                          <span className="text-muted-foreground">Exchange</span>
                           <Badge variant="outline">{bond.exchange}</Badge>
                         </div>
                       )}
@@ -794,12 +794,12 @@ export default function BondDetailPage() {
                 {documentsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                    <span className="ml-2 text-gray-500">Loading documents...</span>
+                    <span className="ml-2 text-muted-foreground">Loading documents...</span>
                   </div>
                 ) : documents.length === 0 ? (
                   <div className="text-center py-8">
-                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No documents available for this bond</p>
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No documents available for this bond</p>
                   </div>
                 ) : (
                   <>
@@ -816,7 +816,7 @@ export default function BondDetailPage() {
                             case 'notification': return 'text-blue-600';
                             case 'results': return 'text-green-600';
                             case 'factsheet': return 'text-indigo-600';
-                            default: return 'text-gray-600';
+                            default: return 'text-muted-foreground';
                           }
                         };
                         
@@ -827,14 +827,14 @@ export default function BondDetailPage() {
                             case 'Product': return 'bg-purple-100 text-purple-700';
                             case 'Regulatory': return 'bg-orange-100 text-orange-700';
                             case 'Issuer': return 'bg-red-100 text-red-700';
-                            default: return 'bg-gray-100 text-gray-700';
+                            default: return 'bg-muted text-muted-foreground';
                           }
                         };
                         
                         return (
                           <div 
                             key={doc.id} 
-                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted dark:hover:bg-muted transition-colors"
                             data-testid={`document-${doc.id}`}
                           >
                             <div className="flex items-center gap-3 flex-1">
@@ -846,8 +846,8 @@ export default function BondDetailPage() {
                                     {doc.category}
                                   </Badge>
                                 </div>
-                                <p className="text-sm text-gray-500 truncate">{doc.description}</p>
-                                <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                                <p className="text-sm text-muted-foreground truncate">{doc.description}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                   <span>{doc.fileType?.toUpperCase()}</span>
                                   <span>•</span>
                                   <span>{doc.fileSize}</span>
@@ -870,7 +870,7 @@ export default function BondDetailPage() {
                         );
                       })}
                     </div>
-                    <p className="text-xs text-gray-400 mt-4 text-center">
+                    <p className="text-xs text-muted-foreground mt-4 text-center">
                       Documents are sourced from official exchanges and rating agencies. Click to view on source website.
                     </p>
                   </>

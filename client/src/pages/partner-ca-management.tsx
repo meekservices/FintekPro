@@ -239,7 +239,7 @@ export default function PartnerCAManagement() {
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-      inactive: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+      inactive: 'bg-muted text-muted-foreground dark:bg-gray-700 dark:text-muted-foreground',
       pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
       unassigned: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
       assigned: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
@@ -260,7 +260,7 @@ export default function PartnerCAManagement() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CA Management</h1>
-              <p className="text-gray-500 dark:text-gray-400">Onboard CAs, assign cases, and manage revenue sharing</p>
+              <p className="text-muted-foreground dark:text-muted-foreground">Onboard CAs, assign cases, and manage revenue sharing</p>
             </div>
           </div>
           <Button onClick={() => setShowOnboardDialog(true)} className="bg-gradient-to-r from-emerald-600 to-teal-600" data-testid="button-onboard-ca">
@@ -274,7 +274,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Active CAs</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Active CAs</p>
                 <p className="text-xl font-bold">{aggregateMetrics.activeCAs}/{aggregateMetrics.totalCAs}</p>
               </div>
               <Users className="w-8 h-8 text-emerald-400" />
@@ -286,7 +286,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Total Revenue</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Revenue</p>
                 <p className="text-xl font-bold text-green-600">{formatCurrency(aggregateMetrics.totalRevenue)}</p>
               </div>
               <IndianRupee className="w-8 h-8 text-green-400" />
@@ -298,7 +298,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Cases Completed</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Cases Completed</p>
                 <p className="text-xl font-bold">{aggregateMetrics.casesCompleted}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-blue-400" />
@@ -310,7 +310,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Pending Assignment</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Pending Assignment</p>
                 <p className="text-xl font-bold text-amber-600">{aggregateMetrics.pendingCases}</p>
               </div>
               <Clock className="w-8 h-8 text-amber-400" />
@@ -322,7 +322,7 @@ export default function PartnerCAManagement() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Avg Rating</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Avg Rating</p>
                 <p className="text-xl font-bold flex items-center gap-1">
                   {aggregateMetrics.avgRating} <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                 </p>
@@ -362,7 +362,7 @@ export default function PartnerCAManagement() {
                 </div>
                 <div className="flex gap-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input 
                       placeholder="Search CAs..."
                       value={searchQuery}
@@ -406,7 +406,7 @@ export default function PartnerCAManagement() {
                       <TableCell>
                         <div>
                           <p className="font-medium">{ca.name}</p>
-                          <p className="text-xs text-gray-500">{ca.firmName || ca.caNumber}</p>
+                          <p className="text-xs text-muted-foreground">{ca.firmName || ca.caNumber}</p>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -433,10 +433,10 @@ export default function PartnerCAManagement() {
                           <div className="flex items-center justify-end gap-1">
                             <span className="font-medium">{ca.rating}</span>
                             <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                            <span className="text-xs text-gray-500">({ca.reviewCount})</span>
+                            <span className="text-xs text-muted-foreground">({ca.reviewCount})</span>
                           </div>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-medium text-blue-600">
@@ -496,7 +496,7 @@ export default function PartnerCAManagement() {
                         <Badge className={
                           taxCase.priority === 'high' ? 'bg-red-100 text-red-700' :
                           taxCase.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
+                          'bg-muted text-muted-foreground'
                         }>
                           {taxCase.priority}
                         </Badge>
@@ -556,28 +556,28 @@ export default function PartnerCAManagement() {
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
                             index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                            index === 1 ? 'bg-gray-200 text-gray-700' :
+                            index === 1 ? 'bg-muted text-muted-foreground' :
                             index === 2 ? 'bg-orange-100 text-orange-700' :
-                            'bg-gray-100 text-gray-600'
+                            'bg-muted text-muted-foreground'
                           }`}>
                             {index + 1}
                           </div>
                           <div>
                             <p className="font-medium">{ca.name}</p>
-                            <p className="text-sm text-gray-500">{ca.firmName || ca.caNumber}</p>
+                            <p className="text-sm text-muted-foreground">{ca.firmName || ca.caNumber}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-6">
                           <div className="text-center">
-                            <p className="text-sm text-gray-500">Revenue</p>
+                            <p className="text-sm text-muted-foreground">Revenue</p>
                             <p className="font-bold text-green-600">{formatCurrency(ca.totalRevenue)}</p>
                           </div>
                           <div className="text-center">
-                            <p className="text-sm text-gray-500">Completion Rate</p>
+                            <p className="text-sm text-muted-foreground">Completion Rate</p>
                             <p className="font-bold">{ca.casesAssigned > 0 ? Math.round((ca.casesCompleted / ca.casesAssigned) * 100) : 0}%</p>
                           </div>
                           <div className="text-center">
-                            <p className="text-sm text-gray-500">Rating</p>
+                            <p className="text-sm text-muted-foreground">Rating</p>
                             <p className="font-bold flex items-center gap-1">
                               {ca.rating || '-'} <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                             </p>
@@ -586,7 +586,7 @@ export default function PartnerCAManagement() {
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Cases Progress</p>
+                          <p className="text-xs text-muted-foreground mb-1">Cases Progress</p>
                           <Progress value={ca.casesAssigned > 0 ? (ca.casesCompleted / ca.casesAssigned) * 100 : 0} className="h-2" />
                         </div>
                         <div className="flex gap-1 flex-wrap">
@@ -595,7 +595,7 @@ export default function PartnerCAManagement() {
                           ))}
                         </div>
                         <div className="text-right">
-                          <span className="text-xs text-gray-500">Last active: {format(new Date(ca.lastActiveDate), 'dd MMM')}</span>
+                          <span className="text-xs text-muted-foreground">Last active: {format(new Date(ca.lastActiveDate), 'dd MMM')}</span>
                         </div>
                       </div>
                     </div>
@@ -625,20 +625,20 @@ export default function PartnerCAManagement() {
                       </div>
                       <div>
                         <p className="font-medium">{ca.name}</p>
-                        <p className="text-sm text-gray-500">{ca.casesCompleted} cases completed</p>
+                        <p className="text-sm text-muted-foreground">{ca.casesCompleted} cases completed</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-8">
                       <div className="text-center">
-                        <p className="text-sm text-gray-500">CA Gets</p>
+                        <p className="text-sm text-muted-foreground">CA Gets</p>
                         <p className="text-xl font-bold text-blue-600">{ca.revenueShare}%</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-gray-500">You Get</p>
+                        <p className="text-sm text-muted-foreground">You Get</p>
                         <p className="text-xl font-bold text-green-600">{100 - ca.revenueShare}%</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-gray-500">Your Earnings</p>
+                        <p className="text-sm text-muted-foreground">Your Earnings</p>
                         <p className="font-bold">{formatCurrency(ca.totalRevenue * (100 - ca.revenueShare) / 100)}</p>
                       </div>
                       <Button
@@ -731,7 +731,7 @@ export default function PartnerCAManagement() {
                 />
                 <span className="font-bold text-blue-600 w-16">{revenueShare}%</span>
               </div>
-              <p className="text-xs text-gray-500">CA will receive {revenueShare}% of case value, you get {100 - revenueShare}%</p>
+              <p className="text-xs text-muted-foreground">CA will receive {revenueShare}% of case value, you get {100 - revenueShare}%</p>
             </div>
           </div>
           <DialogFooter>
@@ -749,16 +749,16 @@ export default function PartnerCAManagement() {
           </DialogHeader>
           {selectedCase && (
             <div className="py-4">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-4">
+              <div className="p-4 bg-muted dark:bg-muted rounded-lg mb-4">
                 <p className="font-medium">{selectedCase.clientName}</p>
-                <p className="text-sm text-gray-500">{selectedCase.caseType} - {formatCurrency(selectedCase.amount)}</p>
-                <p className="text-sm text-gray-500">Due: {format(new Date(selectedCase.dueDate), 'dd MMM yyyy')}</p>
+                <p className="text-sm text-muted-foreground">{selectedCase.caseType} - {formatCurrency(selectedCase.amount)}</p>
+                <p className="text-sm text-muted-foreground">Due: {format(new Date(selectedCase.dueDate), 'dd MMM yyyy')}</p>
               </div>
               <div className="space-y-2">
                 {cas.filter(ca => ca.status === 'active').map((ca) => (
                   <div 
                     key={ca.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted cursor-pointer"
                     onClick={() => handleAssignCase(ca.id)}
                     data-testid={`assign-option-${ca.id}`}
                   >
@@ -768,7 +768,7 @@ export default function PartnerCAManagement() {
                       </div>
                       <div>
                         <p className="font-medium">{ca.name}</p>
-                        <p className="text-xs text-gray-500">{ca.casesAssigned - ca.casesCompleted} active cases</p>
+                        <p className="text-xs text-muted-foreground">{ca.casesAssigned - ca.casesCompleted} active cases</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -796,10 +796,10 @@ export default function PartnerCAManagement() {
           </DialogHeader>
           {selectedCA && (
             <div className="py-4 space-y-6">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="p-4 bg-muted dark:bg-muted rounded-lg">
                 <p className="font-medium">{selectedCA.name}</p>
-                <p className="text-sm text-gray-500">{selectedCA.firmName || selectedCA.caNumber}</p>
-                <p className="text-sm text-gray-500">Total Revenue: {formatCurrency(selectedCA.totalRevenue)}</p>
+                <p className="text-sm text-muted-foreground">{selectedCA.firmName || selectedCA.caNumber}</p>
+                <p className="text-sm text-muted-foreground">Total Revenue: {formatCurrency(selectedCA.totalRevenue)}</p>
               </div>
               
               <div className="space-y-4">
@@ -820,14 +820,14 @@ export default function PartnerCAManagement() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">CA Receives</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">CA Receives</p>
                   <p className="text-2xl font-bold text-blue-600">{revenueShare}%</p>
-                  <p className="text-sm text-gray-500">{formatCurrency(selectedCA.totalRevenue * revenueShare / 100)}</p>
+                  <p className="text-sm text-muted-foreground">{formatCurrency(selectedCA.totalRevenue * revenueShare / 100)}</p>
                 </div>
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">You Receive</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">You Receive</p>
                   <p className="text-2xl font-bold text-green-600">{100 - revenueShare}%</p>
-                  <p className="text-sm text-gray-500">{formatCurrency(selectedCA.totalRevenue * (100 - revenueShare) / 100)}</p>
+                  <p className="text-sm text-muted-foreground">{formatCurrency(selectedCA.totalRevenue * (100 - revenueShare) / 100)}</p>
                 </div>
               </div>
             </div>

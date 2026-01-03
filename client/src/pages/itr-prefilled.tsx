@@ -205,7 +205,7 @@ export default function ITRPrefilledPage() {
       case 'error':
         return <Badge className="bg-red-100 text-red-800"><AlertCircle className="h-3 w-3 mr-1" />Error</Badge>;
       default:
-        return <Badge className="bg-gray-100 text-gray-800">Disconnected</Badge>;
+        return <Badge className="bg-muted text-foreground">Disconnected</Badge>;
     }
   };
 
@@ -578,9 +578,9 @@ export default function ITRPrefilledPage() {
           ) : (
             <Card>
               <CardContent className="text-center py-12">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">No ITR Data Available</h3>
-                <p className="text-gray-500 mb-4">Click "Auto-Populate ITR" to start intelligent data collection.</p>
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-muted-foreground mb-2">No ITR Data Available</h3>
+                <p className="text-muted-foreground mb-4">Click "Auto-Populate ITR" to start intelligent data collection.</p>
                 <Button onClick={handleAutoPopulate} disabled={autoPopulateMutation.isPending}>
                   <Zap className="mr-2 h-4 w-4" />
                   Auto-Populate ITR
@@ -634,8 +634,8 @@ export default function ITRPrefilledPage() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No ITR data to validate. Generate your ITR first.</p>
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No ITR data to validate. Generate your ITR first.</p>
                 </div>
               )}
             </CardContent>

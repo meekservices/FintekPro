@@ -222,7 +222,7 @@ export default function TaxLossHarvesting() {
                 {mockLossPositions.map((position) => (
                   <div 
                     key={position.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg hover:bg-muted dark:hover:bg-gray-700 transition-colors"
                     data-testid={`loss-position-${position.id}`}
                   >
                     <div className="flex items-center gap-4">
@@ -336,7 +336,7 @@ export default function TaxLossHarvesting() {
                         </Button>
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                    <p className="text-sm text-muted-foreground mt-4 p-3 bg-muted dark:bg-muted rounded">
                       <Info className="h-4 w-4 inline mr-2" />
                       {suggestion.reason}
                     </p>

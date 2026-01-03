@@ -221,7 +221,7 @@ export default function CARegistrationPage() {
             <Shield className="h-8 w-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">CA Partner Registration</h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground dark:text-muted-foreground">
             Join FintekPro as a Chartered Accountant partner and grow your practice
           </p>
         </div>
@@ -236,7 +236,7 @@ export default function CARegistrationPage() {
                     ? 'text-blue-600'
                     : step.id < currentStep
                     ? 'text-green-600'
-                    : 'text-gray-400'
+                    : 'text-muted-foreground'
                 }`}
               >
                 <div
@@ -245,7 +245,7 @@ export default function CARegistrationPage() {
                       ? 'border-blue-600 bg-blue-50'
                       : step.id < currentStep
                       ? 'border-green-600 bg-green-50'
-                      : 'border-gray-300 bg-white'
+                      : 'border-border bg-white'
                   }`}
                 >
                   {step.id < currentStep ? (
@@ -488,7 +488,7 @@ export default function CARegistrationPage() {
                                 control={form.control}
                                 name="specializations"
                                 render={({ field }) => (
-                                  <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                                  <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted">
                                     <FormControl>
                                       <Checkbox
                                         checked={field.value?.includes(spec.value)}
@@ -605,7 +605,7 @@ export default function CARegistrationPage() {
                     
                     <div>
                       <h4 className="font-medium mb-4">Fee Structure (Your Base Fees)</h4>
-                      <p className="text-sm text-gray-500 mb-4">
+                      <p className="text-sm text-muted-foreground mb-4">
                         Set your base fees for different ITR types. FintekPro adds a platform fee on top.
                       </p>
                       
@@ -741,39 +741,39 @@ export default function CARegistrationPage() {
                 
                 {currentStep === 6 && (
                   <div className="space-y-6">
-                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-4">
+                    <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-4">
                       <h4 className="font-medium flex items-center gap-2">
                         <User className="h-4 w-4" />
                         Personal Details
                       </h4>
                       <div className="grid grid-cols-2 gap-2 text-sm">
-                        <span className="text-gray-500">Name:</span>
+                        <span className="text-muted-foreground">Name:</span>
                         <span>{form.watch('fullName')}</span>
-                        <span className="text-gray-500">Email:</span>
+                        <span className="text-muted-foreground">Email:</span>
                         <span>{form.watch('email')}</span>
-                        <span className="text-gray-500">Mobile:</span>
+                        <span className="text-muted-foreground">Mobile:</span>
                         <span>{form.watch('mobile')}</span>
                       </div>
                     </div>
                     
-                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-4">
+                    <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-4">
                       <h4 className="font-medium flex items-center gap-2">
                         <Award className="h-4 w-4" />
                         Professional Details
                       </h4>
                       <div className="grid grid-cols-2 gap-2 text-sm">
-                        <span className="text-gray-500">ICAI Number:</span>
+                        <span className="text-muted-foreground">ICAI Number:</span>
                         <span>{form.watch('icaiMembershipNumber')}</span>
-                        <span className="text-gray-500">Membership:</span>
+                        <span className="text-muted-foreground">Membership:</span>
                         <span>{form.watch('membershipType')}</span>
-                        <span className="text-gray-500">Experience:</span>
+                        <span className="text-muted-foreground">Experience:</span>
                         <span>{form.watch('experienceYears')} years</span>
-                        <span className="text-gray-500">Location:</span>
+                        <span className="text-muted-foreground">Location:</span>
                         <span>{form.watch('city')}, {form.watch('state')}</span>
                       </div>
                     </div>
                     
-                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-4">
+                    <div className="bg-muted dark:bg-muted p-4 rounded-lg space-y-4">
                       <h4 className="font-medium flex items-center gap-2">
                         <Briefcase className="h-4 w-4" />
                         Specializations
@@ -863,7 +863,7 @@ export default function CARegistrationPage() {
           </CardContent>
         </Card>
         
-        <div className="mt-6 text-center text-sm text-gray-500">
+        <div className="mt-6 text-center text-sm text-muted-foreground">
           Already registered?{' '}
           <a href="/auth" className="text-blue-600 hover:underline">
             Sign in to your CA Portal

@@ -62,7 +62,7 @@ export default function AgentFieldView() {
       case 'review': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'onboarding': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'follow_up': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+      default: return 'bg-muted text-foreground dark:bg-muted dark:text-foreground';
     }
   };
 
@@ -70,7 +70,7 @@ export default function AgentFieldView() {
     switch (priority) {
       case 'high': return 'text-red-600 dark:text-red-400';
       case 'medium': return 'text-yellow-600 dark:text-yellow-400';
-      default: return 'text-gray-600 dark:text-gray-400';
+      default: return 'text-muted-foreground dark:text-muted-foreground';
     }
   };
 
@@ -79,7 +79,7 @@ export default function AgentFieldView() {
       case 'completed': return <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />;
       case 'in_progress': return <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-pulse" />;
       case 'cancelled': return <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />;
-      default: return <Calendar className="h-5 w-5 text-gray-600 dark:text-gray-400" />;
+      default: return <Calendar className="h-5 w-5 text-muted-foreground dark:text-muted-foreground" />;
     }
   };
 
@@ -101,8 +101,8 @@ export default function AgentFieldView() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20" data-testid="agent-field-view-page">
-      <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b p-4">
+    <div className="min-h-screen bg-muted dark:bg-card pb-20" data-testid="agent-field-view-page">
+      <div className="sticky top-0 z-10 bg-white dark:bg-muted border-b p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-xl font-bold">Field Agent</h1>
@@ -257,7 +257,7 @@ export default function AgentFieldView() {
         </TabsContent>
       </Tabs>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t p-3 flex justify-around">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-muted border-t p-3 flex justify-around">
         <Button variant="ghost" size="sm" className="flex-col h-auto py-2" data-testid="nav-schedule">
           <Calendar className="h-5 w-5 mb-1" />
           <span className="text-xs">Schedule</span>

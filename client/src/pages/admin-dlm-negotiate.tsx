@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-800",
+  draft: "bg-muted text-foreground",
   negotiation: "bg-yellow-100 text-yellow-800",
   review: "bg-blue-100 text-blue-800",
   approved: "bg-green-100 text-green-800",
@@ -38,7 +38,7 @@ const STATUS_COLORS: Record<string, string> = {
   legacy: "bg-purple-100 text-purple-800",
   expired: "bg-red-100 text-red-800",
   rejected: "bg-red-100 text-red-800",
-  archived: "bg-gray-200 text-gray-600",
+  archived: "bg-muted text-muted-foreground",
 };
 
 const CHANGE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -254,7 +254,7 @@ function ThreadedComment({
     <div style={{ marginLeft: `${indentPx}px` }}>
       <div 
         className={`p-3 rounded-lg border mb-2 ${
-          comment.isResolved ? "bg-gray-50 opacity-60" : "bg-card"
+          comment.isResolved ? "bg-muted opacity-60" : "bg-card"
         } ${depth > 0 ? "border-l-2 border-l-primary/30" : ""}`}
         data-testid={`comment-${comment.id}`}
       >

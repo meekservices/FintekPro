@@ -264,17 +264,17 @@ export default function APIConfiguration() {
     return (
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-9 w-64 bg-gray-800" />
-          <Skeleton className="h-5 w-96 mt-2 bg-gray-800" />
+          <Skeleton className="h-9 w-64 bg-muted" />
+          <Skeleton className="h-5 w-96 mt-2 bg-muted" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-24 bg-gray-800" />
+            <Skeleton key={i} className="h-24 bg-muted" />
           ))}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <Skeleton key={i} className="h-64 bg-gray-800" />
+            <Skeleton key={i} className="h-64 bg-muted" />
           ))}
         </div>
       </div>
@@ -284,7 +284,7 @@ export default function APIConfiguration() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Card className="bg-gray-900 border-gray-800 p-6">
+        <Card className="bg-card border-border p-6">
           <div className="flex items-center gap-3 text-red-500">
             <AlertCircle className="h-6 w-6" />
             <span>Failed to load API configuration</span>
@@ -304,8 +304,8 @@ export default function APIConfiguration() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">API Configuration</h1>
-          <p className="text-gray-400 mt-1">
+          <h1 className="text-3xl font-bold text-foreground">API Configuration</h1>
+          <p className="text-muted-foreground mt-1">
             Manage API keys and service environments • Last updated: {
               configData?.data?.lastChecked 
                 ? new Date(configData.data.lastChecked).toLocaleTimeString()
@@ -316,7 +316,7 @@ export default function APIConfiguration() {
         <Button 
           variant="outline" 
           onClick={() => refetch()}
-          className="border-gray-700 text-gray-300 hover:bg-gray-800"
+          className="border-border text-muted-foreground hover:bg-muted"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
@@ -325,21 +325,21 @@ export default function APIConfiguration() {
 
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-500/20 rounded-lg">
                   <Cloud className="h-5 w-5 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">{summary.total}</p>
-                  <p className="text-xs text-gray-400">Total Services</p>
+                  <p className="text-2xl font-bold text-foreground">{summary.total}</p>
+                  <p className="text-xs text-muted-foreground">Total Services</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-500/20 rounded-lg">
@@ -347,13 +347,13 @@ export default function APIConfiguration() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-green-400">{summary.configured}</p>
-                  <p className="text-xs text-gray-400">Configured</p>
+                  <p className="text-xs text-muted-foreground">Configured</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-red-500/20 rounded-lg">
@@ -361,13 +361,13 @@ export default function APIConfiguration() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-red-400">{summary.missing}</p>
-                  <p className="text-xs text-gray-400">Missing</p>
+                  <p className="text-xs text-muted-foreground">Missing</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -375,13 +375,13 @@ export default function APIConfiguration() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-blue-400">{summary.sandbox}</p>
-                  <p className="text-xs text-gray-400">Sandbox</p>
+                  <p className="text-xs text-muted-foreground">Sandbox</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-500/20 rounded-lg">
@@ -389,7 +389,7 @@ export default function APIConfiguration() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-purple-400">{summary.production}</p>
-                  <p className="text-xs text-gray-400">Production</p>
+                  <p className="text-xs text-muted-foreground">Production</p>
                 </div>
               </div>
             </CardContent>
@@ -399,47 +399,47 @@ export default function APIConfiguration() {
 
       {summary && (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400">Health:</span>
+          <span className="text-sm text-muted-foreground">Health:</span>
           <Progress 
             value={(summary.configured / summary.total) * 100} 
             className="flex-1 h-2"
           />
-          <span className="text-sm text-gray-400">
+          <span className="text-sm text-muted-foreground">
             {Math.round((summary.configured / summary.total) * 100)}%
           </span>
         </div>
       )}
 
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-        <ScrollableTabsList className="bg-gray-900 border-gray-800">
-          <TabsTrigger value="all" className="data-[state=active]:bg-gray-800">
+        <ScrollableTabsList className="bg-card border-border">
+          <TabsTrigger value="all" className="data-[state=active]:bg-muted">
             All Services
           </TabsTrigger>
-          <TabsTrigger value="payments" className="data-[state=active]:bg-gray-800">
+          <TabsTrigger value="payments" className="data-[state=active]:bg-muted">
             <CreditCard className="h-4 w-4 mr-2" />
             Payments
           </TabsTrigger>
-          <TabsTrigger value="verification" className="data-[state=active]:bg-gray-800">
+          <TabsTrigger value="verification" className="data-[state=active]:bg-muted">
             <Shield className="h-4 w-4 mr-2" />
             Verification
           </TabsTrigger>
-          <TabsTrigger value="ai" className="data-[state=active]:bg-gray-800">
+          <TabsTrigger value="ai" className="data-[state=active]:bg-muted">
             <Bot className="h-4 w-4 mr-2" />
             AI
           </TabsTrigger>
-          <TabsTrigger value="communication" className="data-[state=active]:bg-gray-800">
+          <TabsTrigger value="communication" className="data-[state=active]:bg-muted">
             <MessageSquare className="h-4 w-4 mr-2" />
             Communication
           </TabsTrigger>
-          <TabsTrigger value="marketing" className="data-[state=active]:bg-gray-800">
+          <TabsTrigger value="marketing" className="data-[state=active]:bg-muted">
             <Mail className="h-4 w-4 mr-2" />
             Marketing
           </TabsTrigger>
-          <TabsTrigger value="market-data" className="data-[state=active]:bg-gray-800">
+          <TabsTrigger value="market-data" className="data-[state=active]:bg-muted">
             <BarChart className="h-4 w-4 mr-2" />
             Market Data
           </TabsTrigger>
-          <TabsTrigger value="data" className="data-[state=active]:bg-gray-800">
+          <TabsTrigger value="data" className="data-[state=active]:bg-muted">
             <Database className="h-4 w-4 mr-2" />
             Data
           </TabsTrigger>
@@ -448,7 +448,7 @@ export default function APIConfiguration() {
         <TabsContent value={selectedCategory} className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredServices.map((service) => (
-              <Card key={service.id} className="bg-gray-900 border-gray-800">
+              <Card key={service.id} className="bg-card border-border">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -460,7 +460,7 @@ export default function APIConfiguration() {
                         {getCategoryIcon(service.category)}
                       </div>
                       <div>
-                        <CardTitle className="text-white flex items-center gap-2">
+                        <CardTitle className="text-foreground flex items-center gap-2">
                           {service.name}
                           {testResults[service.id] && (
                             testResults[service.id].success 
@@ -468,7 +468,7 @@ export default function APIConfiguration() {
                               : <AlertCircle className="h-4 w-4 text-yellow-500" />
                           )}
                         </CardTitle>
-                        <CardDescription className="text-gray-400">
+                        <CardDescription className="text-muted-foreground">
                           {service.description}
                         </CardDescription>
                       </div>
@@ -478,21 +478,21 @@ export default function APIConfiguration() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-400">Environment</span>
+                    <span className="text-sm text-muted-foreground">Environment</span>
                     {getEnvironmentBadge(service.environment)}
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-400">Status</span>
+                    <span className="text-sm text-muted-foreground">Status</span>
                     {getStatusBadge(service.status)}
                   </div>
 
                   {testResults[service.id] && (
-                    <div className="p-3 rounded-lg bg-gray-800 border border-gray-700">
+                    <div className="p-3 rounded-lg bg-muted border border-border">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Last Test</span>
+                        <span className="text-xs text-muted-foreground">Last Test</span>
                         {testResults[service.id].latency && (
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-muted-foreground">
                             {testResults[service.id].latency}ms
                           </span>
                         )}
@@ -506,13 +506,13 @@ export default function APIConfiguration() {
                   )}
 
                   <div className="space-y-2">
-                    <span className="text-sm text-gray-400">Required Keys</span>
+                    <span className="text-sm text-muted-foreground">Required Keys</span>
                     <div className="flex flex-wrap gap-1">
                       {(service.envVars || []).map((envVar) => (
                         <Badge 
                           key={envVar} 
                           variant="outline" 
-                          className="text-xs font-mono bg-gray-800 text-gray-400 border-gray-700"
+                          className="text-xs font-mono bg-muted text-muted-foreground border-border"
                         >
                           {envVar}
                         </Badge>
@@ -524,7 +524,7 @@ export default function APIConfiguration() {
                     <Button 
                       size="sm" 
                       variant="outline"
-                      className="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800"
+                      className="flex-1 border-border text-muted-foreground hover:bg-muted"
                       onClick={() => handleTestConnection(service.id)}
                       disabled={testingService === service.id || service.status === 'missing'}
                     >
@@ -559,7 +559,7 @@ export default function APIConfiguration() {
                     <Button 
                         size="sm" 
                         variant="ghost"
-                        className="text-gray-400 hover:text-white"
+                        className="text-muted-foreground hover:text-foreground"
                         onClick={() => handleViewDetails(service)}
                         data-testid={`button-details-${service.id}`}
                       >
@@ -570,7 +570,7 @@ export default function APIConfiguration() {
                       <Button 
                         size="sm" 
                         variant="ghost"
-                        className="text-gray-400 hover:text-white"
+                        className="text-muted-foreground hover:text-foreground"
                         onClick={() => window.open(service.docs!, '_blank')}
                       >
                         <ExternalLink className="h-4 w-4" />
@@ -583,11 +583,11 @@ export default function APIConfiguration() {
           </div>
 
           {filteredServices.length === 0 && (
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-card border-border">
               <CardContent className="p-12 text-center">
-                <Cloud className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-400">No services in this category</h3>
-                <p className="text-gray-500 mt-1">Select a different category to view services</p>
+                <Cloud className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-muted-foreground">No services in this category</h3>
+                <p className="text-muted-foreground mt-1">Select a different category to view services</p>
               </CardContent>
             </Card>
           )}
@@ -595,12 +595,12 @@ export default function APIConfiguration() {
       </Tabs>
 
       <Dialog open={showEnvDialog} onOpenChange={setShowEnvDialog}>
-        <DialogContent className="bg-gray-900 border-gray-800">
+        <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-foreground">
               Switch to {envDialogService?.environment === 'sandbox' ? 'Production' : 'Sandbox'}?
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogDescription className="text-muted-foreground">
               {envDialogService?.environment === 'sandbox' ? (
                 <>
                   <strong className="text-yellow-500">Warning:</strong> Switching to production mode will 
@@ -616,16 +616,16 @@ export default function APIConfiguration() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-              <span className="text-gray-400">Service</span>
-              <span className="text-white font-medium">{envDialogService?.name}</span>
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <span className="text-muted-foreground">Service</span>
+              <span className="text-foreground font-medium">{envDialogService?.name}</span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg mt-2">
-              <span className="text-gray-400">Current Environment</span>
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg mt-2">
+              <span className="text-muted-foreground">Current Environment</span>
               {envDialogService && getEnvironmentBadge(envDialogService.environment)}
             </div>
-            <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg mt-2">
-              <span className="text-gray-400">New Environment</span>
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg mt-2">
+              <span className="text-muted-foreground">New Environment</span>
               {getEnvironmentBadge(envDialogService?.environment === 'sandbox' ? 'production' : 'sandbox')}
             </div>
           </div>
@@ -633,7 +633,7 @@ export default function APIConfiguration() {
             <Button 
               variant="outline" 
               onClick={() => setShowEnvDialog(false)}
-              className="border-gray-700"
+              className="border-border"
             >
               Cancel
             </Button>
@@ -656,7 +656,7 @@ export default function APIConfiguration() {
 
       {/* Service Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className={`p-3 rounded-lg ${
@@ -667,7 +667,7 @@ export default function APIConfiguration() {
                 {selectedService && getCategoryIcon(selectedService.category)}
               </div>
               <div>
-                <DialogTitle className="text-white text-xl flex items-center gap-2">
+                <DialogTitle className="text-foreground text-xl flex items-center gap-2">
                   {selectedService?.name}
                   {selectedService?.status === 'configured' ? (
                     <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -675,7 +675,7 @@ export default function APIConfiguration() {
                     <XCircle className="h-5 w-5 text-red-500" />
                   )}
                 </DialogTitle>
-                <DialogDescription className="text-gray-400">
+                <DialogDescription className="text-muted-foreground">
                   {selectedService?.description}
                 </DialogDescription>
               </div>
@@ -686,8 +686,8 @@ export default function APIConfiguration() {
             <div className="space-y-6 py-4">
               {/* Status Overview */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                     <Activity className="h-4 w-4" />
                     Status
                   </div>
@@ -695,8 +695,8 @@ export default function APIConfiguration() {
                     {getStatusBadge(selectedService.status)}
                   </div>
                 </div>
-                <div className="p-4 bg-gray-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                     <Cloud className="h-4 w-4" />
                     Environment
                   </div>
@@ -708,9 +708,9 @@ export default function APIConfiguration() {
 
               {/* Test Results */}
               {testResults[selectedService.id] && (
-                <div className="p-4 bg-gray-800 rounded-lg">
+                <div className="p-4 bg-muted rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-gray-400 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
                       <Clock className="h-4 w-4" />
                       Last Connection Test
                     </div>
@@ -737,13 +737,13 @@ export default function APIConfiguration() {
 
               {/* Required Environment Variables */}
               <div>
-                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                  <Key className="h-4 w-4 text-gray-400" />
+                <h4 className="text-foreground font-medium mb-3 flex items-center gap-2">
+                  <Key className="h-4 w-4 text-muted-foreground" />
                   Required Environment Variables
                 </h4>
                 <div className="space-y-2">
                   {(selectedService.envVars || []).map((envVar) => (
-                    <div key={envVar} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                    <div key={envVar} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <code className="text-sm font-mono text-blue-400">{envVar}</code>
                       <Badge 
                         variant="outline" 
@@ -763,8 +763,8 @@ export default function APIConfiguration() {
 
               {/* Features */}
               <div>
-                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-gray-400" />
+                <h4 className="text-foreground font-medium mb-3 flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-muted-foreground" />
                   Available Features
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -772,7 +772,7 @@ export default function APIConfiguration() {
                     <Badge 
                       key={idx} 
                       variant="secondary" 
-                      className="bg-gray-800 text-gray-300 border-gray-700"
+                      className="bg-muted text-muted-foreground border-border"
                     >
                       {feature}
                     </Badge>
@@ -784,13 +784,13 @@ export default function APIConfiguration() {
 
               {/* Use Cases */}
               <div>
-                <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-gray-400" />
+                <h4 className="text-foreground font-medium mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
                   Use Cases in FintekPro
                 </h4>
                 <ul className="space-y-2">
                   {getServiceUseCases(selectedService.id).map((useCase, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-gray-300 text-sm">
+                    <li key={idx} className="flex items-start gap-2 text-muted-foreground text-sm">
                       <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                       {useCase}
                     </li>
@@ -802,15 +802,15 @@ export default function APIConfiguration() {
               {selectedService.docs && (
                 <>
                   <Separator className="bg-gray-700" />
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-2 text-gray-400">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Link2 className="h-4 w-4" />
                       <span>Official Documentation</span>
                     </div>
                     <Button 
                       size="sm" 
                       variant="outline"
-                      className="border-gray-600"
+                      className="border-border"
                       onClick={() => window.open(selectedService.docs!, '_blank')}
                     >
                       <ExternalLink className="h-4 w-4 mr-2" />
@@ -826,7 +826,7 @@ export default function APIConfiguration() {
             <Button 
               variant="outline" 
               onClick={() => setShowDetailsDialog(false)}
-              className="border-gray-700"
+              className="border-border"
             >
               Close
             </Button>

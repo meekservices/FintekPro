@@ -286,7 +286,7 @@ export default function ClientSmartProposals() {
       case 'SELL': return <TrendingDown className="w-4 h-4 text-red-600" />;
       case 'SWITCH': return <ArrowRightLeft className="w-4 h-4 text-blue-600" />;
       case 'REBALANCE': return <Scale className="w-4 h-4 text-purple-600" />;
-      default: return <Target className="w-4 h-4 text-gray-600" />;
+      default: return <Target className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -296,7 +296,7 @@ export default function ClientSmartProposals() {
       'SELL': 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
       'SWITCH': 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
       'REBALANCE': 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-      'HOLD': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+      'HOLD': 'bg-muted text-muted-foreground dark:bg-gray-700 dark:text-muted-foreground'
     };
     return colors[type] || colors['HOLD'];
   };
@@ -310,7 +310,7 @@ export default function ClientSmartProposals() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Smart Investment Proposals</h1>
-            <p className="text-gray-500 dark:text-gray-400">Get AI-powered recommendations for your portfolio</p>
+            <p className="text-muted-foreground dark:text-muted-foreground">Get AI-powered recommendations for your portfolio</p>
           </div>
         </div>
       </div>
@@ -320,7 +320,7 @@ export default function ClientSmartProposals() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Portfolio Value</p>
                 <p className="text-2xl font-bold">{formatCurrency(totalPortfolioValue)}</p>
               </div>
               <Wallet className="w-8 h-8 text-blue-500" />
@@ -331,7 +331,7 @@ export default function ClientSmartProposals() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Holdings</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Holdings</p>
                 <p className="text-2xl font-bold">{holdings.length}</p>
               </div>
               <PieChart className="w-8 h-8 text-green-500" />
@@ -342,7 +342,7 @@ export default function ClientSmartProposals() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Recommendations</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Recommendations</p>
                 <p className="text-2xl font-bold">{recommendations.length}</p>
               </div>
               <Sparkles className="w-8 h-8 text-purple-500" />
@@ -353,7 +353,7 @@ export default function ClientSmartProposals() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Selected</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Selected</p>
                 <p className="text-2xl font-bold">{selectedRecommendations.length}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-emerald-500" />
@@ -415,9 +415,9 @@ export default function ClientSmartProposals() {
             <CardContent>
               {holdings.length === 0 ? (
                 <div className="text-center py-12">
-                  <Upload className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                  <Upload className="w-16 h-16 mx-auto text-muted-foreground dark:text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No holdings added yet</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                     Add your current investments to receive AI-powered recommendations
                   </p>
                   <Button onClick={() => setShowAddDialog(true)} data-testid="button-add-first-holding">
@@ -429,11 +429,11 @@ export default function ClientSmartProposals() {
                   {holdings.map((holding) => (
                     <div 
                       key={holding.id}
-                      className="flex items-center justify-between p-4 border rounded-lg bg-gray-50 dark:bg-gray-800"
+                      className="flex items-center justify-between p-4 border rounded-lg bg-muted dark:bg-muted"
                     >
                       <div className="flex-1">
                         <p className="font-medium text-gray-900 dark:text-white">{holding.productName}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                           {PRODUCT_TYPES.find(t => t.value === holding.productType)?.label} • Qty: {holding.quantity}
                         </p>
                       </div>
@@ -493,9 +493,9 @@ export default function ClientSmartProposals() {
             <CardContent>
               {recommendations.length === 0 ? (
                 <div className="text-center py-12">
-                  <Brain className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                  <Brain className="w-16 h-16 mx-auto text-muted-foreground dark:text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No recommendations yet</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                     Add your portfolio holdings and click "Get AI Recommendations"
                   </p>
                   <Button onClick={() => setActiveTab("portfolio")} variant="outline">
@@ -510,14 +510,14 @@ export default function ClientSmartProposals() {
                       className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                         rec.selected 
                           ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' 
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                          : 'border-border dark:border-border hover:border-border'
                       }`}
                       onClick={() => toggleRecommendation(rec.id)}
                       data-testid={`recommendation-${rec.id}`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-lg ${rec.selected ? 'bg-purple-100 dark:bg-purple-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                          <div className={`p-2 rounded-lg ${rec.selected ? 'bg-purple-100 dark:bg-purple-800' : 'bg-muted dark:bg-gray-700'}`}>
                             {getTypeIcon(rec.type)}
                           </div>
                           <div>
@@ -529,7 +529,7 @@ export default function ClientSmartProposals() {
                               <Badge variant="outline">{rec.confidence}% confidence</Badge>
                             </div>
                             <h4 className="font-medium text-gray-900 dark:text-white">{rec.productName}</h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{rec.rationale}</p>
+                            <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{rec.rationale}</p>
                             {rec.expectedReturn && (
                               <p className="text-sm text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
                                 <TrendingUp className="w-3 h-3" /> Expected: {rec.expectedReturn}
@@ -552,7 +552,7 @@ export default function ClientSmartProposals() {
             {recommendations.length > 0 && (
               <CardFooter className="border-t pt-4 flex justify-between items-center">
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                     {selectedRecommendations.length} of {recommendations.length} selected
                   </p>
                   <p className="font-semibold">Total: {formatCurrency(totalSelectedAmount)}</p>
@@ -582,9 +582,9 @@ export default function ClientSmartProposals() {
             <CardContent>
               {selectedRecommendations.length === 0 ? (
                 <div className="text-center py-12">
-                  <ShoppingCart className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                  <ShoppingCart className="w-16 h-16 mx-auto text-muted-foreground dark:text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No actions selected</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                     Go back and select recommendations to proceed
                   </p>
                   <Button onClick={() => setActiveTab("recommendations")} variant="outline">
@@ -604,7 +604,7 @@ export default function ClientSmartProposals() {
                             <Badge className={getTypeBadge(rec.type)}>{rec.type}</Badge>
                             <span className="font-medium">{rec.productName}</span>
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{rec.rationale.substring(0, 80)}...</p>
+                          <p className="text-sm text-muted-foreground dark:text-muted-foreground">{rec.rationale.substring(0, 80)}...</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -625,7 +625,7 @@ export default function ClientSmartProposals() {
                   
                   <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg">
                     <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Total Investment</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Investment</p>
                       <p className="text-2xl font-bold">{formatCurrency(totalSelectedAmount)}</p>
                     </div>
                     <Button 

@@ -148,11 +148,11 @@ export default function UnlistedOrders() {
   
   if (!user || !user.roles?.includes('admin')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950">
-        <Card className="bg-gray-900 border-gray-800 max-w-md">
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="bg-card border-border max-w-md">
           <CardHeader>
             <CardTitle className="text-white text-center">Access Denied</CardTitle>
-            <CardDescription className="text-gray-400 text-center">
+            <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
           </CardHeader>
@@ -222,13 +222,13 @@ export default function UnlistedOrders() {
           </Link>
           <div>
             <h1 className="text-3xl font-bold text-white">Order Management</h1>
-            <p className="text-gray-400 mt-1">Manage sell listings and buy requests</p>
+            <p className="text-muted-foreground mt-1">Manage sell listings and buy requests</p>
           </div>
         </div>
         <Button 
           variant="outline" 
           onClick={() => { refetchListings(); refetchBuyRequests(); }}
-          className="border-gray-700"
+          className="border-border"
           data-testid="button-refresh-orders"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -237,68 +237,68 @@ export default function UnlistedOrders() {
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gray-800/50 border-gray-700">
+        <Card className="bg-muted/50 border-border">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <Package className="h-8 w-8 text-green-400" />
               <div>
                 <p className="text-2xl font-bold text-white">{activeListingsCount}</p>
-                <p className="text-xs text-gray-400">Active Listings</p>
+                <p className="text-xs text-muted-foreground">Active Listings</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700">
+        <Card className="bg-muted/50 border-border">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-yellow-400" />
               <div>
                 <p className="text-2xl font-bold text-white">{pendingListingsCount}</p>
-                <p className="text-xs text-gray-400">Pending Listings</p>
+                <p className="text-xs text-muted-foreground">Pending Listings</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700">
+        <Card className="bg-muted/50 border-border">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <ShoppingCart className="h-8 w-8 text-blue-400" />
               <div>
                 <p className="text-2xl font-bold text-white">{activeBuyCount}</p>
-                <p className="text-xs text-gray-400">Active Buy Requests</p>
+                <p className="text-xs text-muted-foreground">Active Buy Requests</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700">
+        <Card className="bg-muted/50 border-border">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-orange-400" />
               <div>
                 <p className="text-2xl font-bold text-white">{pendingBuyCount}</p>
-                <p className="text-xs text-gray-400">Pending Requests</p>
+                <p className="text-xs text-muted-foreground">Pending Requests</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
       
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex flex-col md:flex-row gap-4 justify-between">
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by company or ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-gray-800 border-gray-700"
+                  className="pl-9 bg-muted border-border"
                   data-testid="input-search-orders"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px] bg-gray-800 border-gray-700" data-testid="select-status-filter">
+                <SelectTrigger className="w-[140px] bg-muted border-border" data-testid="select-status-filter">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -315,7 +315,7 @@ export default function UnlistedOrders() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 bg-gray-800">
+            <TabsList className="grid w-full grid-cols-2 bg-muted">
               <TabsTrigger value="listings" className="data-[state=active]:bg-gray-700" data-testid="tab-listings">
                 <Package className="h-4 w-4 mr-2" />
                 Sell Listings ({filteredListings.length})
@@ -329,10 +329,10 @@ export default function UnlistedOrders() {
             <TabsContent value="listings" className="mt-4">
               {listingsLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredListings.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
+                <div className="text-center py-8 text-muted-foreground">
                   <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>No sell listings found</p>
                 </div>
@@ -340,27 +340,27 @@ export default function UnlistedOrders() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-gray-700">
-                        <TableHead className="text-gray-400">Company</TableHead>
-                        <TableHead className="text-gray-400">Seller</TableHead>
-                        <TableHead className="text-gray-400 text-right">Quantity</TableHead>
-                        <TableHead className="text-gray-400 text-right">Ask Price</TableHead>
-                        <TableHead className="text-gray-400 text-right">Floor Price</TableHead>
-                        <TableHead className="text-gray-400">Status</TableHead>
-                        <TableHead className="text-gray-400">Created</TableHead>
-                        <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                      <TableRow className="border-border">
+                        <TableHead className="text-muted-foreground">Company</TableHead>
+                        <TableHead className="text-muted-foreground">Seller</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Quantity</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Ask Price</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Floor Price</TableHead>
+                        <TableHead className="text-muted-foreground">Status</TableHead>
+                        <TableHead className="text-muted-foreground">Created</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredListings.map(listing => (
-                        <TableRow key={listing.id} className="border-gray-700" data-testid={`row-listing-${listing.id}`}>
+                        <TableRow key={listing.id} className="border-border" data-testid={`row-listing-${listing.id}`}>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-gray-500" />
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
                               <span className="text-white font-medium">{listing.companyName || 'Unknown'}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-gray-400 text-sm">
+                          <TableCell className="text-muted-foreground text-sm">
                             {listing.sellerUserId.substring(0, 8)}...
                           </TableCell>
                           <TableCell className="text-right text-white">
@@ -369,13 +369,13 @@ export default function UnlistedOrders() {
                           <TableCell className="text-right text-green-400 font-medium">
                             {formatCurrency(listing.askPrice)}
                           </TableCell>
-                          <TableCell className="text-right text-gray-400">
+                          <TableCell className="text-right text-muted-foreground">
                             {formatCurrency(listing.floorPrice)}
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={listing.status} />
                           </TableCell>
-                          <TableCell className="text-gray-400 text-sm">
+                          <TableCell className="text-muted-foreground text-sm">
                             {format(new Date(listing.createdAt), 'MMM d, yyyy')}
                           </TableCell>
                           <TableCell className="text-right">
@@ -420,10 +420,10 @@ export default function UnlistedOrders() {
             <TabsContent value="requests" className="mt-4">
               {buyRequestsLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredBuyRequests.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
+                <div className="text-center py-8 text-muted-foreground">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>No buy requests found</p>
                 </div>
@@ -431,27 +431,27 @@ export default function UnlistedOrders() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-gray-700">
-                        <TableHead className="text-gray-400">Company</TableHead>
-                        <TableHead className="text-gray-400">Buyer</TableHead>
-                        <TableHead className="text-gray-400 text-right">Quantity</TableHead>
-                        <TableHead className="text-gray-400 text-right">Max Price</TableHead>
-                        <TableHead className="text-gray-400 text-right">Target Price</TableHead>
-                        <TableHead className="text-gray-400">Status</TableHead>
-                        <TableHead className="text-gray-400">Created</TableHead>
-                        <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                      <TableRow className="border-border">
+                        <TableHead className="text-muted-foreground">Company</TableHead>
+                        <TableHead className="text-muted-foreground">Buyer</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Quantity</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Max Price</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Target Price</TableHead>
+                        <TableHead className="text-muted-foreground">Status</TableHead>
+                        <TableHead className="text-muted-foreground">Created</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredBuyRequests.map(request => (
-                        <TableRow key={request.id} className="border-gray-700" data-testid={`row-request-${request.id}`}>
+                        <TableRow key={request.id} className="border-border" data-testid={`row-request-${request.id}`}>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-gray-500" />
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
                               <span className="text-white font-medium">{request.companyName || 'Unknown'}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-gray-400 text-sm">
+                          <TableCell className="text-muted-foreground text-sm">
                             {request.buyerUserId.substring(0, 8)}...
                           </TableCell>
                           <TableCell className="text-right text-white">
@@ -460,13 +460,13 @@ export default function UnlistedOrders() {
                           <TableCell className="text-right text-blue-400 font-medium">
                             {formatCurrency(request.maxPrice)}
                           </TableCell>
-                          <TableCell className="text-right text-gray-400">
+                          <TableCell className="text-right text-muted-foreground">
                             {formatCurrency(request.targetPrice)}
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={request.status} />
                           </TableCell>
-                          <TableCell className="text-gray-400 text-sm">
+                          <TableCell className="text-muted-foreground text-sm">
                             {format(new Date(request.createdAt), 'MMM d, yyyy')}
                           </TableCell>
                           <TableCell className="text-right">
@@ -512,9 +512,9 @@ export default function UnlistedOrders() {
       </Card>
       
       <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
-        <DialogContent className="bg-gray-900 border-gray-800">
+        <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-foreground">
               {actionType === 'approve' ? 'Approve' : actionType === 'reject' ? 'Reject' : 'Match'} Order
             </DialogTitle>
             <DialogDescription>
@@ -525,15 +525,15 @@ export default function UnlistedOrders() {
           <div className="py-4">
             {(selectedListing || selectedBuyRequest) && (
               <div className="space-y-2 text-sm">
-                <p className="text-gray-400">
+                <p className="text-muted-foreground">
                   <span className="text-white font-medium">Company:</span>{' '}
                   {selectedListing?.companyName || selectedBuyRequest?.companyName || 'Unknown'}
                 </p>
-                <p className="text-gray-400">
+                <p className="text-muted-foreground">
                   <span className="text-white font-medium">Quantity:</span>{' '}
                   {selectedListing?.quantity || selectedBuyRequest?.quantity}
                 </p>
-                <p className="text-gray-400">
+                <p className="text-muted-foreground">
                   <span className="text-white font-medium">Price:</span>{' '}
                   {formatCurrency(selectedListing?.askPrice || selectedBuyRequest?.maxPrice)}
                 </p>

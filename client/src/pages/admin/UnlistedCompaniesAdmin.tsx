@@ -50,11 +50,11 @@ export default function UnlistedCompaniesAdmin() {
 
   if (!user || !user.roles?.includes('admin')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950">
-        <Card className="bg-gray-900 border-gray-800 max-w-md">
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="bg-card border-border max-w-md">
           <CardHeader>
             <CardTitle className="text-white text-center">Access Denied</CardTitle>
-            <CardDescription className="text-gray-400 text-center">
+            <CardDescription className="text-muted-foreground text-center">
               You do not have permission to access this page. Admin privileges required.
             </CardDescription>
           </CardHeader>
@@ -72,7 +72,7 @@ export default function UnlistedCompaniesAdmin() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-white">Unlisted Marketplace Management</h1>
-          <p className="text-gray-400 mt-1">Manage companies, listings, and buy requests</p>
+          <p className="text-muted-foreground mt-1">Manage companies, listings, and buy requests</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={isNSDLDialogOpen} onOpenChange={setIsNSDLDialogOpen}>
@@ -82,7 +82,7 @@ export default function UnlistedCompaniesAdmin() {
                 Find ISIN
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-800">
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-card border-border">
               <NSDLISINSearchDialog onClose={() => setIsNSDLDialogOpen(false)} />
             </DialogContent>
           </Dialog>
@@ -93,7 +93,7 @@ export default function UnlistedCompaniesAdmin() {
                 Import Prices
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-800">
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-card border-border">
               <MoneyControlImportDialog onClose={() => setIsMoneyControlDialogOpen(false)} />
             </DialogContent>
           </Dialog>
@@ -104,7 +104,7 @@ export default function UnlistedCompaniesAdmin() {
                 Delete Company
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl bg-gray-900 border-gray-800">
+            <DialogContent className="max-w-2xl bg-card border-border">
               <DeleteCompanyDialog onClose={() => setIsDeleteDialogOpen(false)} />
             </DialogContent>
           </Dialog>
@@ -115,7 +115,7 @@ export default function UnlistedCompaniesAdmin() {
                 Add Company
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl bg-gray-900 border-gray-800">
+            <DialogContent className="max-w-3xl bg-card border-border">
               <Probe42SearchDialog onClose={() => setIsProbe42DialogOpen(false)} />
             </DialogContent>
           </Dialog>
@@ -123,7 +123,7 @@ export default function UnlistedCompaniesAdmin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-gray-800 border-gray-700">
+        <TabsList className="bg-muted border-border">
           <TabsTrigger value="companies" className="data-[state=active]:bg-blue-600">
             <Building2 className="w-4 h-4 mr-2" />
             Companies
@@ -444,26 +444,26 @@ function CompanyListView({
   return (
     <>
       {/* Filters */}
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Search & Filter</CardTitle>
+          <CardTitle className="text-foreground">Search & Filter</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by company name or CIN..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-gray-800 border-gray-700 text-white"
+                  className="pl-9 bg-muted border-border text-white"
                   data-testid="input-search"
                 />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white" data-testid="select-status-filter">
+              <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-status-filter">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -474,7 +474,7 @@ function CompanyListView({
               </SelectContent>
             </Select>
             <Select value={sectorFilter} onValueChange={setSectorFilter}>
-              <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white" data-testid="select-sector-filter">
+              <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-sector-filter">
                 <SelectValue placeholder="Sector" />
               </SelectTrigger>
               <SelectContent>
@@ -532,10 +532,10 @@ function CompanyListView({
                       Batch Price Update
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="bg-gray-900 border-gray-800">
+                  <DialogContent className="bg-card border-border">
                     <DialogHeader>
-                      <DialogTitle className="text-white">Batch Price Update</DialogTitle>
-                      <DialogDescription className="text-gray-400">
+                      <DialogTitle className="text-foreground">Batch Price Update</DialogTitle>
+                      <DialogDescription className="text-muted-foreground">
                         Update prices for {selectedCompanyIds.size} selected companies
                       </DialogDescription>
                     </DialogHeader>
@@ -560,25 +560,25 @@ function CompanyListView({
                       </div>
                       {bulkPriceMode === 'percentage' ? (
                         <div>
-                          <Label className="text-gray-300">Percentage Change (%)</Label>
+                          <Label className="text-muted-foreground">Percentage Change (%)</Label>
                           <Input
                             type="number"
                             placeholder="e.g. 5 for +5%, -10 for -10%"
                             value={bulkPricePercentage}
                             onChange={(e) => setBulkPricePercentage(e.target.value)}
-                            className="bg-gray-800 border-gray-700 text-white"
+                            className="bg-muted border-border text-white"
                           />
-                          <p className="text-xs text-gray-400 mt-1">Use positive values for increase, negative for decrease</p>
+                          <p className="text-xs text-muted-foreground mt-1">Use positive values for increase, negative for decrease</p>
                         </div>
                       ) : (
                         <div>
-                          <Label className="text-gray-300">New Fixed Price (₹)</Label>
+                          <Label className="text-muted-foreground">New Fixed Price (₹)</Label>
                           <Input
                             type="number"
                             placeholder="Enter new price"
                             value={bulkPriceValue}
                             onChange={(e) => setBulkPriceValue(e.target.value)}
-                            className="bg-gray-800 border-gray-700 text-white"
+                            className="bg-muted border-border text-white"
                           />
                         </div>
                       )}
@@ -597,7 +597,7 @@ function CompanyListView({
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedCompanyIds(new Set())}
-                  className="text-gray-400 hover:text-white"
+                  className="text-muted-foreground hover:text-white"
                 >
                   Clear Selection
                 </Button>
@@ -608,11 +608,11 @@ function CompanyListView({
       )}
 
       {/* Companies Table */}
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-white">Companies ({filteredCompanies.length})</CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardTitle className="text-foreground">Companies ({filteredCompanies.length})</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Select companies for bulk actions or click to view details
             </CardDescription>
           </div>
@@ -622,7 +622,7 @@ function CompanyListView({
               size="sm"
               onClick={() => bulkSyncMutation.mutate({ onlyUnsynced: true })}
               disabled={isBulkSyncing}
-              className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+              className="bg-muted border-border text-white hover:bg-gray-700"
               data-testid="button-sync-unsynced"
             >
               {isBulkSyncing ? (
@@ -650,31 +650,31 @@ function CompanyListView({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-gray-800">
+          <div className="rounded-md border border-border">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-800 hover:bg-gray-800/50">
+                <TableRow className="border-border hover:bg-muted/50">
                   <TableHead className="w-12">
                     <Checkbox
                       checked={filteredCompanies.length > 0 && selectedCompanyIds.size === filteredCompanies.length}
                       onCheckedChange={toggleSelectAll}
-                      className="border-gray-600"
+                      className="border-border"
                       data-testid="checkbox-select-all"
                     />
                   </TableHead>
-                  <TableHead className="text-gray-400">Company Name</TableHead>
-                  <TableHead className="text-gray-400">CIN</TableHead>
-                  <TableHead className="text-gray-400">Sector</TableHead>
-                  <TableHead className="text-gray-400">Stage</TableHead>
-                  <TableHead className="text-gray-400">Status</TableHead>
-                  <TableHead className="text-gray-400">Last Synced</TableHead>
-                  <TableHead className="text-right text-gray-400">Actions</TableHead>
+                  <TableHead className="text-muted-foreground">Company Name</TableHead>
+                  <TableHead className="text-muted-foreground">CIN</TableHead>
+                  <TableHead className="text-muted-foreground">Sector</TableHead>
+                  <TableHead className="text-muted-foreground">Stage</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">Last Synced</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCompanies.length === 0 ? (
-                  <TableRow className="border-gray-800">
-                    <TableCell colSpan={8} className="text-center text-gray-400 py-8">
+                  <TableRow className="border-border">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No companies found matching your criteria
                     </TableCell>
                   </TableRow>
@@ -682,7 +682,7 @@ function CompanyListView({
                   filteredCompanies.map((company) => (
                     <TableRow
                       key={company.id}
-                      className={`border-gray-800 hover:bg-gray-800/50 cursor-pointer ${selectedCompanyIds.has(company.id) ? 'bg-blue-950/30' : ''}`}
+                      className={`border-border hover:bg-muted/50 cursor-pointer ${selectedCompanyIds.has(company.id) ? 'bg-blue-950/30' : ''}`}
                       onClick={() => onSelectCompany(company.id)}
                       data-testid={`row-company-${company.id}`}
                     >
@@ -698,7 +698,7 @@ function CompanyListView({
                             }
                             setSelectedCompanyIds(newSelection);
                           }}
-                          className="border-gray-600"
+                          className="border-border"
                           data-testid={`checkbox-company-${company.id}`}
                         />
                       </TableCell>
@@ -708,10 +708,10 @@ function CompanyListView({
                           {company.name}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm text-gray-300" data-testid={`text-cin-${company.id}`}>
+                      <TableCell className="font-mono text-sm text-muted-foreground" data-testid={`text-cin-${company.id}`}>
                         {company.cin || 'N/A'}
                       </TableCell>
-                      <TableCell className="text-gray-300" data-testid={`text-sector-${company.id}`}>
+                      <TableCell className="text-muted-foreground" data-testid={`text-sector-${company.id}`}>
                         {company.sector || 'N/A'}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -728,7 +728,7 @@ function CompanyListView({
                               company.listingStage === 'pre_ipo' ? 'bg-blue-600/20 text-blue-400' :
                               company.listingStage === 'growth' ? 'bg-purple-600/20 text-purple-400' :
                               company.listingStage === 'mature' ? 'bg-cyan-600/20 text-cyan-400' :
-                              'bg-gray-600/20 text-gray-400'
+                              'bg-gray-600/20 text-muted-foreground'
                             }`}
                             data-testid={`select-stage-${company.id}`}
                           >
@@ -738,8 +738,8 @@ function CompanyListView({
                               <SelectValue />
                             )}
                           </SelectTrigger>
-                          <SelectContent className="bg-gray-900 border-gray-700">
-                            <SelectItem value="unlisted" className="text-gray-400">Unlisted</SelectItem>
+                          <SelectContent className="bg-card border-border">
+                            <SelectItem value="unlisted" className="text-muted-foreground">Unlisted</SelectItem>
                             <SelectItem value="pre_ipo" className="text-blue-400">Pre-IPO</SelectItem>
                             <SelectItem value="growth" className="text-purple-400">Growth</SelectItem>
                             <SelectItem value="mature" className="text-cyan-400">Mature</SelectItem>
@@ -760,7 +760,7 @@ function CompanyListView({
                               company.status === 'active' ? 'bg-green-600/20 text-green-400' :
                               company.status === 'inactive' ? 'bg-yellow-600/20 text-yellow-400' :
                               company.status === 'delisted' ? 'bg-red-600/20 text-red-400' :
-                              'bg-gray-600/20 text-gray-400'
+                              'bg-gray-600/20 text-muted-foreground'
                             }`}
                             data-testid={`select-status-${company.id}`}
                           >
@@ -770,14 +770,14 @@ function CompanyListView({
                               <SelectValue />
                             )}
                           </SelectTrigger>
-                          <SelectContent className="bg-gray-900 border-gray-700">
+                          <SelectContent className="bg-card border-border">
                             <SelectItem value="active" className="text-green-400">Active</SelectItem>
                             <SelectItem value="inactive" className="text-yellow-400">Inactive</SelectItem>
                             <SelectItem value="delisted" className="text-red-400">Delisted</SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-sm text-gray-400" data-testid={`text-lastSynced-${company.id}`}>
+                      <TableCell className="text-sm text-muted-foreground" data-testid={`text-lastSynced-${company.id}`}>
                         {company.lastSyncedAt ? format(new Date(company.lastSyncedAt), 'MMM dd, yyyy') : 'Never'}
                       </TableCell>
                       <TableCell className="text-right">
@@ -798,7 +798,7 @@ function CompanyListView({
                               syncMutation.mutate(company.id);
                             }}
                             disabled={syncingCompanyId === company.id}
-                            className={company.probe42CompanyId ? 'text-blue-400 hover:text-blue-300' : 'text-gray-500'}
+                            className={company.probe42CompanyId ? 'text-blue-400 hover:text-blue-300' : 'text-muted-foreground'}
                             title={company.probe42CompanyId ? 'Sync from Probe42' : 'No Probe42 ID available'}
                             data-testid={`button-sync-${company.id}`}
                           >
@@ -825,17 +825,17 @@ function CompanyListView({
                                 )}
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent className="bg-gray-900 border-gray-800" onClick={(e) => e.stopPropagation()}>
+                            <AlertDialogContent className="bg-card border-border" onClick={(e) => e.stopPropagation()}>
                               <AlertDialogHeader>
-                                <AlertDialogTitle className="text-white">Delete Company</AlertDialogTitle>
-                                <AlertDialogDescription className="text-gray-400">
+                                <AlertDialogTitle className="text-foreground">Delete Company</AlertDialogTitle>
+                                <AlertDialogDescription className="text-muted-foreground">
                                   Are you sure you want to delete <span className="font-semibold text-white">{company.name}</span>? 
                                   This will also delete all related financials, price history, listings, and buy requests. 
                                   This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel className="bg-gray-800 text-white border-gray-700 hover:bg-gray-700">
+                                <AlertDialogCancel className="bg-muted text-white border-border hover:bg-gray-700">
                                   Cancel
                                 </AlertDialogCancel>
                                 <AlertDialogAction
@@ -918,15 +918,15 @@ function AllListingsView() {
   if (isLoading) return <LoadingState variant="table" />;
 
   return (
-    <Card className="bg-gray-900 border-gray-800">
+    <Card className="bg-card border-border">
       <CardHeader>
         <div className="flex justify-between items-center">
           <div>
-            <CardTitle className="text-white">Sell Listings ({listings.length})</CardTitle>
-            <CardDescription className="text-gray-400">Manage all sell listings across companies</CardDescription>
+            <CardTitle className="text-foreground">Sell Listings ({listings.length})</CardTitle>
+            <CardDescription className="text-muted-foreground">Manage all sell listings across companies</CardDescription>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white">
+            <SelectTrigger className="w-40 bg-muted border-border text-white">
               <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
@@ -940,49 +940,49 @@ function AllListingsView() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border border-gray-800">
+        <div className="rounded-md border border-border">
           <Table>
             <TableHeader>
-              <TableRow className="border-gray-800">
-                <TableHead className="text-gray-400">Company</TableHead>
-                <TableHead className="text-gray-400">Seller</TableHead>
-                <TableHead className="text-gray-400">Quantity</TableHead>
-                <TableHead className="text-gray-400">Ask Price</TableHead>
-                <TableHead className="text-gray-400">Landing Price</TableHead>
-                <TableHead className="text-gray-400">Status</TableHead>
-                <TableHead className="text-gray-400">Created</TableHead>
-                <TableHead className="text-right text-gray-400">Actions</TableHead>
+              <TableRow className="border-border">
+                <TableHead className="text-muted-foreground">Company</TableHead>
+                <TableHead className="text-muted-foreground">Seller</TableHead>
+                <TableHead className="text-muted-foreground">Quantity</TableHead>
+                <TableHead className="text-muted-foreground">Ask Price</TableHead>
+                <TableHead className="text-muted-foreground">Landing Price</TableHead>
+                <TableHead className="text-muted-foreground">Status</TableHead>
+                <TableHead className="text-muted-foreground">Created</TableHead>
+                <TableHead className="text-right text-muted-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {listings.length === 0 ? (
-                <TableRow className="border-gray-800">
-                  <TableCell colSpan={8} className="text-center text-gray-400 py-8">
+                <TableRow className="border-border">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No sell listings found
                   </TableCell>
                 </TableRow>
               ) : (
                 listings.map((listing: any) => (
-                  <TableRow key={listing.id} className="border-gray-800 hover:bg-gray-800/50">
+                  <TableRow key={listing.id} className="border-border hover:bg-muted/50">
                     <TableCell className="font-medium text-white">
                       <div>
                         <p>{listing.companyName}</p>
-                        <p className="text-xs text-gray-400">{listing.companySector}</p>
+                        <p className="text-xs text-muted-foreground">{listing.companySector}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-300">
+                    <TableCell className="text-muted-foreground">
                       <div>
                         <p>{listing.sellerName}</p>
-                        <p className="text-xs text-gray-400">{listing.sellerEmail}</p>
+                        <p className="text-xs text-muted-foreground">{listing.sellerEmail}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-300">{listing.quantity?.toLocaleString()}</TableCell>
-                    <TableCell className="text-gray-300">{formatCurrency(listing.askPrice)}</TableCell>
-                    <TableCell className="text-gray-300">{formatCurrency(listing.landingPrice)}</TableCell>
+                    <TableCell className="text-muted-foreground">{listing.quantity?.toLocaleString()}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatCurrency(listing.askPrice)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatCurrency(listing.landingPrice)}</TableCell>
                     <TableCell>
                       <Badge className={getStatusBadge(listing.status)}>{listing.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-400">
+                    <TableCell className="text-sm text-muted-foreground">
                       {listing.createdAt ? format(new Date(listing.createdAt), 'MMM dd, yyyy') : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
@@ -990,7 +990,7 @@ function AllListingsView() {
                         value={listing.status}
                         onValueChange={(value) => updateStatusMutation.mutate({ id: listing.id, status: value })}
                       >
-                        <SelectTrigger className="w-28 h-8 bg-gray-800 border-gray-700 text-xs">
+                        <SelectTrigger className="w-28 h-8 bg-muted border-border text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1067,15 +1067,15 @@ function AllBuyRequestsView() {
   if (isLoading) return <LoadingState variant="table" />;
 
   return (
-    <Card className="bg-gray-900 border-gray-800">
+    <Card className="bg-card border-border">
       <CardHeader>
         <div className="flex justify-between items-center">
           <div>
-            <CardTitle className="text-white">Buy Requests ({buyRequests.length})</CardTitle>
-            <CardDescription className="text-gray-400">Manage all buy requests across companies</CardDescription>
+            <CardTitle className="text-foreground">Buy Requests ({buyRequests.length})</CardTitle>
+            <CardDescription className="text-muted-foreground">Manage all buy requests across companies</CardDescription>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white">
+            <SelectTrigger className="w-40 bg-muted border-border text-white">
               <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
@@ -1089,49 +1089,49 @@ function AllBuyRequestsView() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border border-gray-800">
+        <div className="rounded-md border border-border">
           <Table>
             <TableHeader>
-              <TableRow className="border-gray-800">
-                <TableHead className="text-gray-400">Company</TableHead>
-                <TableHead className="text-gray-400">Buyer</TableHead>
-                <TableHead className="text-gray-400">Quantity</TableHead>
-                <TableHead className="text-gray-400">Max Price</TableHead>
-                <TableHead className="text-gray-400">Target Price</TableHead>
-                <TableHead className="text-gray-400">Status</TableHead>
-                <TableHead className="text-gray-400">Created</TableHead>
-                <TableHead className="text-right text-gray-400">Actions</TableHead>
+              <TableRow className="border-border">
+                <TableHead className="text-muted-foreground">Company</TableHead>
+                <TableHead className="text-muted-foreground">Buyer</TableHead>
+                <TableHead className="text-muted-foreground">Quantity</TableHead>
+                <TableHead className="text-muted-foreground">Max Price</TableHead>
+                <TableHead className="text-muted-foreground">Target Price</TableHead>
+                <TableHead className="text-muted-foreground">Status</TableHead>
+                <TableHead className="text-muted-foreground">Created</TableHead>
+                <TableHead className="text-right text-muted-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {buyRequests.length === 0 ? (
-                <TableRow className="border-gray-800">
-                  <TableCell colSpan={8} className="text-center text-gray-400 py-8">
+                <TableRow className="border-border">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No buy requests found
                   </TableCell>
                 </TableRow>
               ) : (
                 buyRequests.map((request: any) => (
-                  <TableRow key={request.id} className="border-gray-800 hover:bg-gray-800/50">
+                  <TableRow key={request.id} className="border-border hover:bg-muted/50">
                     <TableCell className="font-medium text-white">
                       <div>
                         <p>{request.companyName}</p>
-                        <p className="text-xs text-gray-400">{request.companySector}</p>
+                        <p className="text-xs text-muted-foreground">{request.companySector}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-300">
+                    <TableCell className="text-muted-foreground">
                       <div>
                         <p>{request.buyerName}</p>
-                        <p className="text-xs text-gray-400">{request.buyerEmail}</p>
+                        <p className="text-xs text-muted-foreground">{request.buyerEmail}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-300">{request.quantity?.toLocaleString()}</TableCell>
-                    <TableCell className="text-gray-300">{formatCurrency(request.maxPrice)}</TableCell>
-                    <TableCell className="text-gray-300">{request.targetPrice ? formatCurrency(request.targetPrice) : 'N/A'}</TableCell>
+                    <TableCell className="text-muted-foreground">{request.quantity?.toLocaleString()}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatCurrency(request.maxPrice)}</TableCell>
+                    <TableCell className="text-muted-foreground">{request.targetPrice ? formatCurrency(request.targetPrice) : 'N/A'}</TableCell>
                     <TableCell>
                       <Badge className={getStatusBadge(request.status)}>{request.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-400">
+                    <TableCell className="text-sm text-muted-foreground">
                       {request.createdAt ? format(new Date(request.createdAt), 'MMM dd, yyyy') : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
@@ -1139,7 +1139,7 @@ function AllBuyRequestsView() {
                         value={request.status}
                         onValueChange={(value) => updateStatusMutation.mutate({ id: request.id, status: value })}
                       >
-                        <SelectTrigger className="w-28 h-8 bg-gray-800 border-gray-700 text-xs">
+                        <SelectTrigger className="w-28 h-8 bg-muted border-border text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1225,15 +1225,15 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
       case 'debt': return 'bg-blue-600/20 text-blue-400 border-blue-600';
       case 'preference': return 'bg-purple-600/20 text-purple-400 border-purple-600';
       case 'warrant': return 'bg-yellow-600/20 text-yellow-400 border-yellow-600';
-      default: return 'bg-gray-600/20 text-gray-400 border-gray-600';
+      default: return 'bg-gray-600/20 text-muted-foreground border-border';
     }
   };
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-white">Search ISIN from NSDL</DialogTitle>
-        <DialogDescription className="text-gray-400">
+        <DialogTitle className="text-foreground">Search ISIN from NSDL</DialogTitle>
+        <DialogDescription className="text-muted-foreground">
           Enter the full company name to find the ISIN code from NSDL database
         </DialogDescription>
       </DialogHeader>
@@ -1245,11 +1245,11 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="bg-gray-800 border-gray-700 text-white"
+            className="bg-muted border-border text-white"
             data-testid="input-nsdl-search"
           />
           <Select value={securityType} onValueChange={setSecurityType}>
-            <SelectTrigger className="w-32 bg-gray-800 border-gray-700 text-white">
+            <SelectTrigger className="w-32 bg-muted border-border text-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1269,20 +1269,20 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         {searchResults.length > 0 && (
-          <div className="rounded-md border border-gray-800">
+          <div className="rounded-md border border-border">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-800">
-                  <TableHead className="text-gray-400">ISIN</TableHead>
-                  <TableHead className="text-gray-400">Company Name</TableHead>
-                  <TableHead className="text-gray-400">Type</TableHead>
-                  <TableHead className="text-gray-400">Match</TableHead>
-                  <TableHead className="text-right text-gray-400">Action</TableHead>
+                <TableRow className="border-border">
+                  <TableHead className="text-muted-foreground">ISIN</TableHead>
+                  <TableHead className="text-muted-foreground">Company Name</TableHead>
+                  <TableHead className="text-muted-foreground">Type</TableHead>
+                  <TableHead className="text-muted-foreground">Match</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {searchResults.map((result, index) => (
-                  <TableRow key={`${result.isin}-${index}`} className="border-gray-800" data-testid={`row-isin-${result.isin}`}>
+                  <TableRow key={`${result.isin}-${index}`} className="border-border" data-testid={`row-isin-${result.isin}`}>
                     <TableCell className="font-mono text-sm text-blue-400">{result.isin}</TableCell>
                     <TableCell className="font-medium text-white max-w-xs truncate" title={result.issuerName}>
                       {result.issuerName}
@@ -1292,7 +1292,7 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
                         {result.securityType}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-gray-300">
+                    <TableCell className="text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <div className="w-16 bg-gray-700 rounded-full h-2">
                           <div 
@@ -1300,7 +1300,7 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
                             style={{ width: `${result.matchScore}%` }}
                           />
                         </div>
-                        <span className="text-xs text-gray-400">{result.matchScore}%</span>
+                        <span className="text-xs text-muted-foreground">{result.matchScore}%</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -1321,7 +1321,7 @@ function NSDLISINSearchDialog({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Data source: NSDL (National Securities Depository Limited) daily updated ISIN registry
         </p>
       </div>
@@ -1426,8 +1426,8 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-white">Search Probe42 Companies</DialogTitle>
-        <DialogDescription className="text-gray-400">
+        <DialogTitle className="text-foreground">Search Probe42 Companies</DialogTitle>
+        <DialogDescription className="text-muted-foreground">
           Search for companies by name or CIN to link and sync data
         </DialogDescription>
       </DialogHeader>
@@ -1439,7 +1439,7 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="bg-gray-800 border-gray-700 text-white"
+            className="bg-muted border-border text-white"
             data-testid="input-probe42-search"
           />
           <Button onClick={handleSearch} disabled={isSearching} data-testid="button-search">
@@ -1452,24 +1452,24 @@ function Probe42SearchDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         {searchResults.length > 0 && (
-          <div className="rounded-md border border-gray-800">
+          <div className="rounded-md border border-border">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-800">
-                  <TableHead className="text-gray-400">Name</TableHead>
-                  <TableHead className="text-gray-400">CIN</TableHead>
-                  <TableHead className="text-gray-400">ROC State</TableHead>
-                  <TableHead className="text-gray-400">Incorporation Date</TableHead>
-                  <TableHead className="text-right text-gray-400">Action</TableHead>
+                <TableRow className="border-border">
+                  <TableHead className="text-muted-foreground">Name</TableHead>
+                  <TableHead className="text-muted-foreground">CIN</TableHead>
+                  <TableHead className="text-muted-foreground">ROC State</TableHead>
+                  <TableHead className="text-muted-foreground">Incorporation Date</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {searchResults.map((result) => (
-                  <TableRow key={result.company_id} className="border-gray-800" data-testid={`row-result-${result.company_id}`}>
+                  <TableRow key={result.company_id} className="border-border" data-testid={`row-result-${result.company_id}`}>
                     <TableCell className="font-medium text-white">{result.name}</TableCell>
-                    <TableCell className="font-mono text-sm text-gray-300">{result.cin}</TableCell>
-                    <TableCell className="text-gray-300">{result.roc_state || 'N/A'}</TableCell>
-                    <TableCell className="text-gray-300">
+                    <TableCell className="font-mono text-sm text-muted-foreground">{result.cin}</TableCell>
+                    <TableCell className="text-muted-foreground">{result.roc_state || 'N/A'}</TableCell>
+                    <TableCell className="text-muted-foreground">
                       {result.incorporation_date ? format(new Date(result.incorporation_date), 'MMM dd, yyyy') : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
@@ -1543,9 +1543,9 @@ function CompanyDetailsView({ companyId, onBack }: { companyId: string; onBack: 
 
   if (!company) {
     return (
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardContent className="text-center py-8">
-          <p className="text-gray-400">Company not found</p>
+          <p className="text-muted-foreground">Company not found</p>
         </CardContent>
       </Card>
     );
@@ -1560,12 +1560,12 @@ function CompanyDetailsView({ companyId, onBack }: { companyId: string; onBack: 
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-white">{company.name}</h1>
-          <p className="text-gray-400 mt-1">{company.cin}</p>
+          <p className="text-muted-foreground mt-1">{company.cin}</p>
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="bg-gray-800 border-gray-700">
+        <TabsList className="bg-muted border-border">
           <TabsTrigger value="overview" className="data-[state=active]:bg-gray-700" data-testid="tab-overview">
             <Building2 className="w-4 h-4 mr-2" />
             Overview
@@ -1615,35 +1615,35 @@ function CompanyDetailsView({ companyId, onBack }: { companyId: string; onBack: 
 function OverviewTab({ company }: { company: UnlistedCompany }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Basic Information</CardTitle>
+          <CardTitle className="text-foreground">Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <Label className="text-gray-400">Company Name</Label>
+            <Label className="text-muted-foreground">Company Name</Label>
             <p className="text-white font-medium">{company.name}</p>
           </div>
           <div>
-            <Label className="text-gray-400">CIN</Label>
+            <Label className="text-muted-foreground">CIN</Label>
             <p className="text-white font-mono">{company.cin || 'N/A'}</p>
           </div>
           <div>
-            <Label className="text-gray-400">ISIN</Label>
+            <Label className="text-muted-foreground">ISIN</Label>
             <p className="text-white font-mono">{company.isin || 'N/A'}</p>
           </div>
           <div>
-            <Label className="text-gray-400">ROC State</Label>
-            <p className="text-white">{company.rocState || 'N/A'}</p>
+            <Label className="text-muted-foreground">ROC State</Label>
+            <p className="text-foreground">{company.rocState || 'N/A'}</p>
           </div>
           <div>
-            <Label className="text-gray-400">Incorporation Date</Label>
-            <p className="text-white">
+            <Label className="text-muted-foreground">Incorporation Date</Label>
+            <p className="text-foreground">
               {company.incorporationDate ? format(new Date(company.incorporationDate), 'MMM dd, yyyy') : 'N/A'}
             </p>
           </div>
           <div>
-            <Label className="text-gray-400">Website</Label>
+            <Label className="text-muted-foreground">Website</Label>
             <p className="text-blue-400">
               {company.website ? (
                 <a href={company.website} target="_blank" rel="noopener noreferrer">{company.website}</a>
@@ -1653,53 +1653,53 @@ function OverviewTab({ company }: { company: UnlistedCompany }) {
         </CardContent>
       </Card>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Capital Structure</CardTitle>
+          <CardTitle className="text-foreground">Capital Structure</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <Label className="text-gray-400">Paid-Up Capital</Label>
+            <Label className="text-muted-foreground">Paid-Up Capital</Label>
             <p className="text-white font-medium">
               ₹{company.paidUpCapital ? Number(company.paidUpCapital).toLocaleString('en-IN') : 'N/A'}
             </p>
           </div>
           <div>
-            <Label className="text-gray-400">Authorized Capital</Label>
+            <Label className="text-muted-foreground">Authorized Capital</Label>
             <p className="text-white font-medium">
               ₹{company.authorizedCapital ? Number(company.authorizedCapital).toLocaleString('en-IN') : 'N/A'}
             </p>
           </div>
           <div>
-            <Label className="text-gray-400">Face Value</Label>
-            <p className="text-white">
+            <Label className="text-muted-foreground">Face Value</Label>
+            <p className="text-foreground">
               ₹{company.faceValue ? Number(company.faceValue).toFixed(2) : 'N/A'}
             </p>
           </div>
           <div>
-            <Label className="text-gray-400">Total Shares</Label>
-            <p className="text-white">
+            <Label className="text-muted-foreground">Total Shares</Label>
+            <p className="text-foreground">
               {company.totalShares ? Number(company.totalShares).toLocaleString('en-IN') : 'N/A'}
             </p>
           </div>
           <div>
-            <Label className="text-gray-400">Sector</Label>
-            <p className="text-white">{company.sector || 'N/A'}</p>
+            <Label className="text-muted-foreground">Sector</Label>
+            <p className="text-foreground">{company.sector || 'N/A'}</p>
           </div>
           <div>
-            <Label className="text-gray-400">Industry</Label>
-            <p className="text-white">{company.industry || 'N/A'}</p>
+            <Label className="text-muted-foreground">Industry</Label>
+            <p className="text-foreground">{company.industry || 'N/A'}</p>
           </div>
         </CardContent>
       </Card>
 
       {company.description && (
-        <Card className="bg-gray-900 border-gray-800 md:col-span-2">
+        <Card className="bg-card border-border md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-white">Description</CardTitle>
+            <CardTitle className="text-foreground">Description</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-300">{company.description}</p>
+            <p className="text-muted-foreground">{company.description}</p>
           </CardContent>
         </Card>
       )}
@@ -1710,9 +1710,9 @@ function OverviewTab({ company }: { company: UnlistedCompany }) {
 function FinancialsTab({ financials }: { financials: CompanyFinancials[] }) {
   if (financials.length === 0) {
     return (
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardContent className="text-center py-8">
-          <p className="text-gray-400">No financial data available</p>
+          <p className="text-muted-foreground">No financial data available</p>
         </CardContent>
       </Card>
     );
@@ -1734,10 +1734,10 @@ function FinancialsTab({ financials }: { financials: CompanyFinancials[] }) {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Financial Trends</CardTitle>
-          <CardDescription className="text-gray-400">Revenue, EBITDA, PAT, and Networth (₹ Crores)</CardDescription>
+          <CardTitle className="text-foreground">Financial Trends</CardTitle>
+          <CardDescription className="text-muted-foreground">Revenue, EBITDA, PAT, and Networth (₹ Crores)</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -1759,44 +1759,44 @@ function FinancialsTab({ financials }: { financials: CompanyFinancials[] }) {
         </CardContent>
       </Card>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Financial Data</CardTitle>
+          <CardTitle className="text-foreground">Financial Data</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-gray-800 overflow-x-auto">
+          <div className="rounded-md border border-border overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-800">
-                  <TableHead className="text-gray-400">FY</TableHead>
-                  <TableHead className="text-gray-400 text-right">Revenue</TableHead>
-                  <TableHead className="text-gray-400 text-right">EBITDA</TableHead>
-                  <TableHead className="text-gray-400 text-right">PAT</TableHead>
-                  <TableHead className="text-gray-400 text-right">Networth</TableHead>
-                  <TableHead className="text-gray-400 text-right">Total Assets</TableHead>
-                  <TableHead className="text-gray-400 text-right">Total Debt</TableHead>
+                <TableRow className="border-border">
+                  <TableHead className="text-muted-foreground">FY</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Revenue</TableHead>
+                  <TableHead className="text-muted-foreground text-right">EBITDA</TableHead>
+                  <TableHead className="text-muted-foreground text-right">PAT</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Networth</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Total Assets</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Total Debt</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedFinancials.map((fin) => (
-                  <TableRow key={fin.id} className="border-gray-800">
+                  <TableRow key={fin.id} className="border-border">
                     <TableCell className="font-medium text-white">{fin.financialYear}</TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       ₹{fin.revenue ? (Number(fin.revenue) / 10000000).toFixed(2) : 'N/A'} Cr
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       ₹{fin.ebitda ? (Number(fin.ebitda) / 10000000).toFixed(2) : 'N/A'} Cr
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       ₹{fin.pat ? (Number(fin.pat) / 10000000).toFixed(2) : 'N/A'} Cr
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       ₹{fin.networth ? (Number(fin.networth) / 10000000).toFixed(2) : 'N/A'} Cr
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       ₹{fin.totalAssets ? (Number(fin.totalAssets) / 10000000).toFixed(2) : 'N/A'} Cr
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       ₹{fin.totalDebt ? (Number(fin.totalDebt) / 10000000).toFixed(2) : 'N/A'} Cr
                     </TableCell>
                   </TableRow>
@@ -1813,9 +1813,9 @@ function FinancialsTab({ financials }: { financials: CompanyFinancials[] }) {
 function RatiosTab({ ratios }: { ratios: CompanyRatios[] }) {
   if (ratios.length === 0) {
     return (
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardContent className="text-center py-8">
-          <p className="text-gray-400">No ratio data available</p>
+          <p className="text-muted-foreground">No ratio data available</p>
         </CardContent>
       </Card>
     );
@@ -1837,10 +1837,10 @@ function RatiosTab({ ratios }: { ratios: CompanyRatios[] }) {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Profitability Trends</CardTitle>
-          <CardDescription className="text-gray-400">ROE, ROCE, ROA, and EBITDA Margin (%)</CardDescription>
+          <CardTitle className="text-foreground">Profitability Trends</CardTitle>
+          <CardDescription className="text-muted-foreground">ROE, ROCE, ROA, and EBITDA Margin (%)</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -1862,44 +1862,44 @@ function RatiosTab({ ratios }: { ratios: CompanyRatios[] }) {
         </CardContent>
       </Card>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Financial Ratios</CardTitle>
+          <CardTitle className="text-foreground">Financial Ratios</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-gray-800 overflow-x-auto">
+          <div className="rounded-md border border-border overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-800">
-                  <TableHead className="text-gray-400">FY</TableHead>
-                  <TableHead className="text-gray-400 text-right">P/E</TableHead>
-                  <TableHead className="text-gray-400 text-right">P/B</TableHead>
-                  <TableHead className="text-gray-400 text-right">ROE %</TableHead>
-                  <TableHead className="text-gray-400 text-right">ROCE %</TableHead>
-                  <TableHead className="text-gray-400 text-right">D/E</TableHead>
-                  <TableHead className="text-gray-400 text-right">Current Ratio</TableHead>
+                <TableRow className="border-border">
+                  <TableHead className="text-muted-foreground">FY</TableHead>
+                  <TableHead className="text-muted-foreground text-right">P/E</TableHead>
+                  <TableHead className="text-muted-foreground text-right">P/B</TableHead>
+                  <TableHead className="text-muted-foreground text-right">ROE %</TableHead>
+                  <TableHead className="text-muted-foreground text-right">ROCE %</TableHead>
+                  <TableHead className="text-muted-foreground text-right">D/E</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Current Ratio</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedRatios.map((ratio) => (
-                  <TableRow key={ratio.id} className="border-gray-800">
+                  <TableRow key={ratio.id} className="border-border">
                     <TableCell className="font-medium text-white">{ratio.financialYear}</TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       {ratio.peRatio ? Number(ratio.peRatio).toFixed(2) : 'N/A'}
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       {ratio.pbRatio ? Number(ratio.pbRatio).toFixed(2) : 'N/A'}
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       {ratio.roe ? (Number(ratio.roe) * 100).toFixed(2) : 'N/A'}%
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       {ratio.roce ? (Number(ratio.roce) * 100).toFixed(2) : 'N/A'}%
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       {ratio.debtEquity ? Number(ratio.debtEquity).toFixed(2) : 'N/A'}
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       {ratio.currentRatio ? Number(ratio.currentRatio).toFixed(2) : 'N/A'}
                     </TableCell>
                   </TableRow>
@@ -1916,9 +1916,9 @@ function RatiosTab({ ratios }: { ratios: CompanyRatios[] }) {
 function PriceHistoryTab({ priceHistory }: { priceHistory: UnlistedPriceHistory[] }) {
   if (priceHistory.length === 0) {
     return (
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardContent className="text-center py-8">
-          <p className="text-gray-400">No price history available</p>
+          <p className="text-muted-foreground">No price history available</p>
         </CardContent>
       </Card>
     );
@@ -1938,10 +1938,10 @@ function PriceHistoryTab({ priceHistory }: { priceHistory: UnlistedPriceHistory[
 
   return (
     <div className="space-y-6">
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Price Chart</CardTitle>
-          <CardDescription className="text-gray-400">Historical price movements</CardDescription>
+          <CardTitle className="text-foreground">Price Chart</CardTitle>
+          <CardDescription className="text-muted-foreground">Historical price movements</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -1960,35 +1960,35 @@ function PriceHistoryTab({ priceHistory }: { priceHistory: UnlistedPriceHistory[
         </CardContent>
       </Card>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Price History</CardTitle>
+          <CardTitle className="text-foreground">Price History</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-gray-800">
+          <div className="rounded-md border border-border">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-800">
-                  <TableHead className="text-gray-400">Date</TableHead>
-                  <TableHead className="text-gray-400 text-right">Price</TableHead>
-                  <TableHead className="text-gray-400 text-right">Volume</TableHead>
-                  <TableHead className="text-gray-400">Source</TableHead>
+                <TableRow className="border-border">
+                  <TableHead className="text-muted-foreground">Date</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Price</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Volume</TableHead>
+                  <TableHead className="text-muted-foreground">Source</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedHistory.map((price) => (
-                  <TableRow key={price.id} className="border-gray-800">
-                    <TableCell className="text-white">
+                  <TableRow key={price.id} className="border-border">
+                    <TableCell className="text-foreground">
                       {format(new Date(price.date), 'MMM dd, yyyy')}
                     </TableCell>
-                    <TableCell className="text-right text-gray-300 font-medium">
+                    <TableCell className="text-right text-muted-foreground font-medium">
                       ₹{Number(price.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell className="text-right text-gray-300">
+                    <TableCell className="text-right text-muted-foreground">
                       {price.volume ? Number(price.volume).toLocaleString('en-IN') : 'N/A'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-gray-300 border-gray-700">
+                      <Badge variant="outline" className="text-muted-foreground border-border">
                         {price.sourceType}
                       </Badge>
                     </TableCell>
@@ -2005,24 +2005,24 @@ function PriceHistoryTab({ priceHistory }: { priceHistory: UnlistedPriceHistory[
 
 function SyncStatusTab({ company }: { company: UnlistedCompany }) {
   return (
-    <Card className="bg-gray-900 border-gray-800">
+    <Card className="bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-white">Probe42 Sync Status</CardTitle>
+        <CardTitle className="text-foreground">Probe42 Sync Status</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Label className="text-gray-400">Probe42 Company ID</Label>
+            <Label className="text-muted-foreground">Probe42 Company ID</Label>
             <p className="text-white font-mono">{company.probe42CompanyId || 'Not linked'}</p>
           </div>
           <div>
-            <Label className="text-gray-400">Last Synced</Label>
-            <p className="text-white">
+            <Label className="text-muted-foreground">Last Synced</Label>
+            <p className="text-foreground">
               {company.lastSyncedAt ? format(new Date(company.lastSyncedAt), 'MMM dd, yyyy HH:mm') : 'Never'}
             </p>
           </div>
           <div>
-            <Label className="text-gray-400">Integration Status</Label>
+            <Label className="text-muted-foreground">Integration Status</Label>
             <Badge
               variant={company.probe42CompanyId ? 'default' : 'secondary'}
               className={company.probe42CompanyId ? 'bg-green-500' : 'bg-gray-500'}
@@ -2031,8 +2031,8 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
             </Badge>
           </div>
           <div>
-            <Label className="text-gray-400">Data Source</Label>
-            <p className="text-white">Probe42</p>
+            <Label className="text-muted-foreground">Data Source</Label>
+            <p className="text-foreground">Probe42</p>
           </div>
         </div>
 
@@ -2200,7 +2200,7 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
           <Download className="w-5 h-5 text-green-400" />
           Import Prices from MoneyControl
         </DialogTitle>
-        <DialogDescription className="text-gray-400">
+        <DialogDescription className="text-muted-foreground">
           Fetch the latest unlisted share prices from MoneyControl and import them into your marketplace.
           Companies are matched by ISIN code or name.
         </DialogDescription>
@@ -2226,41 +2226,41 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
         {previewMutation.isPending && (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-400 mb-4" />
-            <p className="text-gray-400">Fetching data from MoneyControl...</p>
+            <p className="text-muted-foreground">Fetching data from MoneyControl...</p>
           </div>
         )}
 
         {previewData && (
           <>
             <div className="grid grid-cols-4 gap-4">
-              <Card className="bg-gray-800 border-gray-700">
+              <Card className="bg-muted border-border">
                 <CardContent className="pt-4">
                   <div className="text-2xl font-bold text-white">{previewData.total}</div>
-                  <div className="text-sm text-gray-400">Total Found</div>
+                  <div className="text-sm text-muted-foreground">Total Found</div>
                 </CardContent>
               </Card>
-              <Card className="bg-gray-800 border-gray-700">
+              <Card className="bg-muted border-border">
                 <CardContent className="pt-4">
                   <div className="text-2xl font-bold text-green-400">{previewData.matched}</div>
-                  <div className="text-sm text-gray-400">Matched</div>
+                  <div className="text-sm text-muted-foreground">Matched</div>
                 </CardContent>
               </Card>
-              <Card className="bg-gray-800 border-gray-700">
+              <Card className="bg-muted border-border">
                 <CardContent className="pt-4">
                   <div className="text-2xl font-bold text-yellow-400">{previewData.unmatchedCompanies.length}</div>
-                  <div className="text-sm text-gray-400">Unmatched</div>
+                  <div className="text-sm text-muted-foreground">Unmatched</div>
                 </CardContent>
               </Card>
-              <Card className="bg-gray-800 border-gray-700">
+              <Card className="bg-muted border-border">
                 <CardContent className="pt-4">
                   <div className="text-2xl font-bold text-blue-400">{previewData.imported}</div>
-                  <div className="text-sm text-gray-400">To Import</div>
+                  <div className="text-sm text-muted-foreground">To Import</div>
                 </CardContent>
               </Card>
             </div>
 
             {previewData.matchedCompanies.length > 0 && (
-              <Card className="bg-gray-800 border-gray-700">
+              <Card className="bg-muted border-border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-white text-sm flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-400" />
@@ -2271,18 +2271,18 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
                   <div className="max-h-48 overflow-y-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="border-gray-700">
-                          <TableHead className="text-gray-400 text-xs">MoneyControl Name</TableHead>
-                          <TableHead className="text-gray-400 text-xs">Matched To</TableHead>
-                          <TableHead className="text-gray-400 text-xs">Match Type</TableHead>
-                          <TableHead className="text-gray-400 text-xs text-right">Price</TableHead>
+                        <TableRow className="border-border">
+                          <TableHead className="text-muted-foreground text-xs">MoneyControl Name</TableHead>
+                          <TableHead className="text-muted-foreground text-xs">Matched To</TableHead>
+                          <TableHead className="text-muted-foreground text-xs">Match Type</TableHead>
+                          <TableHead className="text-muted-foreground text-xs text-right">Price</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {previewData.matchedCompanies.map((match, idx) => (
-                          <TableRow key={idx} className="border-gray-700">
+                          <TableRow key={idx} className="border-border">
                             <TableCell className="text-white text-sm py-2">{match.moneyControlName}</TableCell>
-                            <TableCell className="text-gray-300 text-sm py-2">{match.matchedTo}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm py-2">{match.matchedTo}</TableCell>
                             <TableCell className="py-2">
                               <Badge variant="outline" className={match.matchType === 'isin' ? 'border-green-500 text-green-400' : 'border-yellow-500 text-yellow-400'}>
                                 {match.matchType === 'isin' ? 'ISIN' : 'Name'}
@@ -2301,13 +2301,13 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
             )}
 
             {previewData.unmatchedCompanies.length > 0 && (
-              <Card className="bg-gray-800 border-gray-700">
+              <Card className="bg-muted border-border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-white text-sm flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-yellow-400" />
                     Unmatched Companies ({previewData.unmatchedCompanies.length})
                   </CardTitle>
-                  <CardDescription className="text-gray-500 text-xs">
+                  <CardDescription className="text-muted-foreground text-xs">
                     These companies from MoneyControl don't match any in your database. Click "Add" to create them with Probe42 data.
                   </CardDescription>
                 </CardHeader>
@@ -2315,19 +2315,19 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
                   <div className="max-h-48 overflow-y-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="border-gray-700">
-                          <TableHead className="text-gray-400 text-xs">Company Name</TableHead>
-                          <TableHead className="text-gray-400 text-xs">ISIN</TableHead>
-                          <TableHead className="text-gray-400 text-xs text-right">Price</TableHead>
-                          <TableHead className="text-gray-400 text-xs text-center w-24">Action</TableHead>
+                        <TableRow className="border-border">
+                          <TableHead className="text-muted-foreground text-xs">Company Name</TableHead>
+                          <TableHead className="text-muted-foreground text-xs">ISIN</TableHead>
+                          <TableHead className="text-muted-foreground text-xs text-right">Price</TableHead>
+                          <TableHead className="text-muted-foreground text-xs text-center w-24">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {previewData.unmatchedCompanies.map((company, idx) => (
-                          <TableRow key={idx} className="border-gray-700">
-                            <TableCell className="text-gray-300 text-sm py-2">{company.name}</TableCell>
-                            <TableCell className="text-gray-400 font-mono text-xs py-2">{company.isin}</TableCell>
-                            <TableCell className="text-right text-gray-300 text-sm py-2">
+                          <TableRow key={idx} className="border-border">
+                            <TableCell className="text-muted-foreground text-sm py-2">{company.name}</TableCell>
+                            <TableCell className="text-muted-foreground font-mono text-xs py-2">{company.isin}</TableCell>
+                            <TableCell className="text-right text-muted-foreground text-sm py-2">
                               ₹{company.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell className="text-center py-2">
@@ -2358,8 +2358,8 @@ function MoneyControlImportDialog({ onClose }: { onClose: () => void }) {
               </Card>
             )}
 
-            <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
-              <Button variant="outline" onClick={onClose} className="border-gray-600 text-gray-300">
+            <div className="flex justify-end gap-2 pt-4 border-t border-border">
+              <Button variant="outline" onClick={onClose} className="border-border text-muted-foreground">
                 Cancel
               </Button>
               <Button
@@ -2432,22 +2432,22 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
           <Trash2 className="w-5 h-5 text-red-400" />
           Delete Company
         </DialogTitle>
-        <DialogDescription className="text-gray-400">
+        <DialogDescription className="text-muted-foreground">
           Select a company to delete. This action will permanently remove the company and all associated data including financials, price history, listings, and buy requests.
         </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-4 py-4">
         <div className="space-y-2">
-          <Label className="text-gray-300">Select Company</Label>
+          <Label className="text-muted-foreground">Select Company</Label>
           {isLoading ? (
-            <div className="flex items-center gap-2 text-gray-400">
+            <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
               Loading companies...
             </div>
           ) : (
             <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-              <SelectTrigger className="bg-gray-800 border-gray-700 text-white" data-testid="select-delete-company">
+              <SelectTrigger className="bg-muted border-border text-white" data-testid="select-delete-company">
                 <SelectValue placeholder="Choose a company to delete..." />
               </SelectTrigger>
               <SelectContent>
@@ -2467,16 +2467,16 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
               <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
               <div>
                 <p className="text-red-400 font-medium">Warning: This action cannot be undone</p>
-                <p className="text-gray-400 text-sm mt-1">
+                <p className="text-muted-foreground text-sm mt-1">
                   You are about to delete <span className="text-white font-semibold">{selectedCompany.name}</span> and all its associated data.
                 </p>
                 <div className="mt-3">
-                  <Label className="text-gray-300 text-sm">Type "DELETE" to confirm</Label>
+                  <Label className="text-muted-foreground text-sm">Type "DELETE" to confirm</Label>
                   <Input
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
                     placeholder="Type DELETE"
-                    className="mt-1 bg-gray-800 border-gray-700 text-white"
+                    className="mt-1 bg-muted border-border text-white"
                     data-testid="input-confirm-delete"
                   />
                 </div>
@@ -2486,8 +2486,8 @@ function DeleteCompanyDialog({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
-        <Button variant="outline" onClick={onClose} className="border-gray-600 text-gray-300">
+      <div className="flex justify-end gap-2 pt-4 border-t border-border">
+        <Button variant="outline" onClick={onClose} className="border-border text-muted-foreground">
           Cancel
         </Button>
         <Button

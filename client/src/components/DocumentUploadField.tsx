@@ -211,7 +211,7 @@ export function DocumentUploadField({
       </label>
       
       {/* Upload Zone */}
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors relative">
+      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-gray-400 transition-colors relative">
         {isUploading && (
           <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
             <div className="flex items-center gap-2">
@@ -221,8 +221,8 @@ export function DocumentUploadField({
           </div>
         )}
         
-        <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-        <p className="text-sm text-gray-600 mb-3">
+        <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+        <p className="text-sm text-muted-foreground mb-3">
           Click to upload {label.toLowerCase()}
         </p>
         
@@ -250,17 +250,17 @@ export function DocumentUploadField({
       {/* Uploaded Documents List */}
       {existingDocuments.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700">Uploaded Documents:</h4>
+          <h4 className="text-sm font-medium text-muted-foreground">Uploaded Documents:</h4>
           {existingDocuments.map((doc) => (
             <div
               key={doc.id}
-              className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+              className="flex items-center justify-between p-2 bg-muted rounded-lg"
             >
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gray-500" />
+                <FileText className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">{doc.fileName}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>

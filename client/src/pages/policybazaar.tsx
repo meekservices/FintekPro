@@ -113,7 +113,7 @@ function EnhancedInsuranceMarketplace({ selectedInsurance, age, coverage, city }
                 <ShieldCheck className="h-5 w-5 text-finance-blue" />
                 Insurance Marketplace
               </CardTitle>
-              <p className="text-sm text-gray-600 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Compare plans from 15+ leading insurers and find the perfect coverage for you
               </p>
             </div>
@@ -136,7 +136,7 @@ function EnhancedInsuranceMarketplace({ selectedInsurance, age, coverage, city }
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
             {/* Search */}
             <div className="relative">
-              <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
+              <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
               <Input
                 placeholder="Search insurers or plans..."
                 value={searchTerm}
@@ -167,7 +167,7 @@ function EnhancedInsuranceMarketplace({ selectedInsurance, age, coverage, city }
                 step={1000}
                 className="w-full"
               />
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>₹{premiumRange[0].toLocaleString()}</span>
                 <span>₹{premiumRange[1].toLocaleString()}</span>
               </div>
@@ -222,9 +222,9 @@ function EnhancedInsuranceMarketplace({ selectedInsurance, age, coverage, city }
       ) : (
         <Card>
           <CardContent className="text-center py-12">
-            <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Compare Insurance Plans?</h3>
-            <p className="text-gray-500 mb-4">
+            <p className="text-muted-foreground mb-4">
               Get quotes from 15+ top insurers and find the best coverage for your needs
             </p>
             <Button onClick={handleGetQuotes} className="bg-finance-blue hover:bg-blue-700">
@@ -257,7 +257,7 @@ function MarketplaceGrid({ quotes, selectedQuotes, onQuoteSelection }: any) {
 function MarketplaceCard({ quote, isSelected, onSelection }: any) {
   return (
     <Card className={`relative overflow-hidden transition-all duration-200 hover:shadow-lg border-2 ${
-      isSelected ? 'border-finance-blue bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+      isSelected ? 'border-finance-blue bg-blue-50' : 'border-border hover:border-border'
     }`}>
       {/* Provider Header */}
       <CardContent className="p-0">
@@ -269,7 +269,7 @@ function MarketplaceCard({ quote, isSelected, onSelection }: any) {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">{quote.insurerName}</h3>
-                <p className="text-sm text-gray-600">{quote.planName}</p>
+                <p className="text-sm text-muted-foreground">{quote.planName}</p>
               </div>
             </div>
             <Checkbox
@@ -286,21 +286,21 @@ function MarketplaceCard({ quote, isSelected, onSelection }: any) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold text-finance-blue">₹{quote.premium?.toLocaleString()}</p>
-              <p className="text-sm text-gray-500">Annual Premium</p>
+              <p className="text-sm text-muted-foreground">Annual Premium</p>
             </div>
             <div className="text-right">
               <div className="flex items-center gap-1 mb-1">
                 <Star className="h-4 w-4 text-yellow-500 fill-current" />
                 <span className="font-medium">{quote.rating}</span>
               </div>
-              <p className="text-xs text-gray-500">Customer Rating</p>
+              <p className="text-xs text-muted-foreground">Customer Rating</p>
             </div>
           </div>
 
           {/* Coverage Amount */}
           <div className="bg-green-50 p-3 rounded-lg">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">Sum Insured</span>
+              <span className="text-sm text-muted-foreground">Sum Insured</span>
               <span className="font-semibold text-green-700">₹{quote.sumInsured?.toLocaleString()}</span>
             </div>
           </div>
@@ -309,22 +309,22 @@ function MarketplaceCard({ quote, isSelected, onSelection }: any) {
           <div className="grid grid-cols-2 gap-4 text-center">
             <div>
               <p className="text-lg font-bold text-green-600">{quote.claimSettlementRatio}%</p>
-              <p className="text-xs text-gray-500">Claim Settlement</p>
+              <p className="text-xs text-muted-foreground">Claim Settlement</p>
             </div>
             <div>
               <p className="text-lg font-bold text-blue-600">{quote.policyTerm}yr</p>
-              <p className="text-xs text-gray-500">Policy Term</p>
+              <p className="text-xs text-muted-foreground">Policy Term</p>
             </div>
           </div>
 
           {/* Key Features */}
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Key Features</h4>
+            <h4 className="text-sm font-medium text-muted-foreground mb-2">Key Features</h4>
             <div className="space-y-1">
               {quote.features?.slice(0, 3).map((feature: string, idx: number) => (
                 <div key={idx} className="flex items-center gap-2 text-xs">
                   <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
-                  <span className="text-gray-600">{feature}</span>
+                  <span className="text-muted-foreground">{feature}</span>
                 </div>
               ))}
             </div>
@@ -381,7 +381,7 @@ function ComparisonTable({ quotes, onQuoteSelection }: any) {
             </thead>
             <tbody>
               {quotes.map((quote: any, index: number) => (
-                <tr key={quote.insurerId} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                <tr key={quote.insurerId} className={index % 2 === 0 ? 'bg-muted' : 'bg-white'}>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-finance-blue rounded-full flex items-center justify-center text-white text-sm font-bold">
@@ -389,7 +389,7 @@ function ComparisonTable({ quotes, onQuoteSelection }: any) {
                       </div>
                       <div>
                         <p className="font-medium">{quote.insurerName}</p>
-                        <p className="text-sm text-gray-600">{quote.planName}</p>
+                        <p className="text-sm text-muted-foreground">{quote.planName}</p>
                       </div>
                     </div>
                   </td>
@@ -479,7 +479,7 @@ function ComparisonMatrix({ data }: any) {
                 <h4 className="font-medium text-gray-900 mb-3">{criterion.criterion}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {criterion.values.map((value: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded">
                       <span className="text-sm font-medium">
                         {comparisons.find((c: any) => c.insurerId === value.providerId)?.insurerName}
                       </span>
@@ -707,7 +707,7 @@ export default function PolicyBazaar() {
                   
                   {/* Common fields */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Age
                     </label>
                     <Input 
@@ -720,7 +720,7 @@ export default function PolicyBazaar() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       City
                     </label>
                     <Select value={city} onValueChange={setCity}>
@@ -744,7 +744,7 @@ export default function PolicyBazaar() {
                   {selectedInsurance === "health insurance" && (
                     <>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Family Members
                         </label>
                         <Input 
@@ -756,7 +756,7 @@ export default function PolicyBazaar() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Coverage Amount (₹)
                         </label>
                         <Select value={coverage} onValueChange={setCoverage}>
@@ -779,7 +779,7 @@ export default function PolicyBazaar() {
                   {selectedInsurance === "life insurance" && (
                     <>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Monthly Income (₹)
                         </label>
                         <Input 
@@ -791,7 +791,7 @@ export default function PolicyBazaar() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Number of Dependents
                         </label>
                         <Input 
@@ -803,7 +803,7 @@ export default function PolicyBazaar() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Smoking Status
                         </label>
                         <Select value={smokingStatus} onValueChange={setSmokingStatus}>
@@ -823,7 +823,7 @@ export default function PolicyBazaar() {
                   {selectedInsurance === "motor insurance" && (
                     <>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Vehicle Type
                         </label>
                         <Select value={vehicleType} onValueChange={setVehicleType}>
@@ -838,7 +838,7 @@ export default function PolicyBazaar() {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Vehicle Age (Years)
                         </label>
                         <Input 
@@ -850,7 +850,7 @@ export default function PolicyBazaar() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           IDV - Insured Declared Value (₹)
                         </label>
                         <Input 
@@ -862,7 +862,7 @@ export default function PolicyBazaar() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           No Claim Bonus (Years)
                         </label>
                         <Select value={ncb} onValueChange={setNcb}>
@@ -886,7 +886,7 @@ export default function PolicyBazaar() {
                   {selectedInsurance === "travel insurance" && (
                     <>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Destination
                         </label>
                         <Select value={destination} onValueChange={setDestination}>
@@ -904,7 +904,7 @@ export default function PolicyBazaar() {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Trip Duration (Days)
                         </label>
                         <Input 
@@ -916,7 +916,7 @@ export default function PolicyBazaar() {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Trip Type
                         </label>
                         <Select value={tripType} onValueChange={setTripType}>
@@ -931,7 +931,7 @@ export default function PolicyBazaar() {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">
                           Coverage Amount (₹)
                         </label>
                         <Select value={coverage} onValueChange={setCoverage}>
@@ -968,14 +968,14 @@ export default function PolicyBazaar() {
                   {currentCalculation?.success ? (
                     <div className="space-y-6">
                       <div className="text-center p-6 bg-blue-50 rounded-lg">
-                        <h3 className="text-sm font-medium text-gray-700 mb-2">Estimated Premium</h3>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Estimated Premium</h3>
                         <p className="text-3xl font-bold text-finance-blue" data-testid="estimated-premium">
                           ₹{currentCalculation.data.estimatedPremium?.toLocaleString() || 
                             currentCalculation.data.monthlyPremium?.toLocaleString() || 
                             'N/A'}
                         </p>
                         {currentCalculation.data.monthlyPremium && (
-                          <p className="text-sm text-gray-600 mt-1">per month</p>
+                          <p className="text-sm text-muted-foreground mt-1">per month</p>
                         )}
                       </div>
                       
@@ -991,10 +991,10 @@ export default function PolicyBazaar() {
                                   ₹{plan.premium?.toLocaleString() || plan.monthlyPremium?.toLocaleString()}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-600 mb-2">
+                              <p className="text-sm text-muted-foreground mb-2">
                                 Coverage: ₹{plan.coverage?.toLocaleString()}
                               </p>
-                              <ul className="text-xs text-gray-500 space-y-1">
+                              <ul className="text-xs text-muted-foreground space-y-1">
                                 {plan.features?.map((feature: string, idx: number) => (
                                   <li key={idx}>• {feature}</li>
                                 ))}
@@ -1016,10 +1016,10 @@ export default function PolicyBazaar() {
                                   ₹{plan.premium?.toLocaleString()}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-600 mb-2">
+                              <p className="text-sm text-muted-foreground mb-2">
                                 Coverage: ₹{plan.coverage?.toLocaleString()}
                               </p>
-                              <ul className="text-xs text-gray-500 space-y-1">
+                              <ul className="text-xs text-muted-foreground space-y-1">
                                 {plan.features?.map((feature: string, idx: number) => (
                                   <li key={idx}>• {feature}</li>
                                 ))}
@@ -1031,8 +1031,8 @@ export default function PolicyBazaar() {
                     </div>
                   ) : (
                     <div className="text-center py-12">
-                      <Calculator className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">
+                      <Calculator className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">
                         Fill in the details and click "Calculate Premium" to see results
                       </p>
                     </div>
@@ -1053,11 +1053,11 @@ export default function PolicyBazaar() {
           </TabsContent>
 
           <TabsContent value="policies" className="space-y-6" data-testid="policies-tab">
-            <Card className="border-dashed border-2 border-gray-300">
+            <Card className="border-dashed border-2 border-border">
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Shield className="h-12 w-12 text-gray-400 mb-4" />
+                <Shield className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No Policies Found</h3>
-                <p className="text-gray-500 text-center mb-4">
+                <p className="text-muted-foreground text-center mb-4">
                   Your purchased insurance policies will appear here
                 </p>
                 <Button variant="outline">Buy Your First Policy</Button>

@@ -101,8 +101,8 @@ export default function SandboxITRFiling() {
       case 'filed': return 'bg-green-100 text-green-800';
       case 'generated': return 'bg-blue-100 text-blue-800';
       case 'validated': return 'bg-yellow-100 text-yellow-800';
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'draft': return 'bg-muted text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -110,7 +110,7 @@ export default function SandboxITRFiling() {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">Sandbox ITR Filing</h1>
-        <p className="text-gray-600">File your Income Tax Return directly through our platform</p>
+        <p className="text-muted-foreground">File your Income Tax Return directly through our platform</p>
       </div>
 
       {/* PAN Input */}
@@ -160,7 +160,7 @@ export default function SandboxITRFiling() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-medium">{itrData.formType} for AY {itrData.assessmentYear}</h3>
-                      <p className="text-sm text-gray-600">Last updated: {new Date(itrData.lastUpdated).toLocaleDateString()}</p>
+                      <p className="text-sm text-muted-foreground">Last updated: {new Date(itrData.lastUpdated).toLocaleDateString()}</p>
                     </div>
                     <Badge className={getStatusColor(itrData.status)}>
                       {(itrData.status || 'pending').charAt(0).toUpperCase() + (itrData.status || 'pending').slice(1)}
@@ -170,23 +170,23 @@ export default function SandboxITRFiling() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-green-50 rounded-lg">
                       <div className="text-2xl font-bold text-green-600">₹{itrData.totalIncome.toLocaleString()}</div>
-                      <div className="text-sm text-gray-600">Total Income</div>
+                      <div className="text-sm text-muted-foreground">Total Income</div>
                     </div>
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
                       <div className="text-2xl font-bold text-blue-600">₹{itrData.taxLiability.toLocaleString()}</div>
-                      <div className="text-sm text-gray-600">Tax Liability</div>
+                      <div className="text-sm text-muted-foreground">Tax Liability</div>
                     </div>
                     <div className="text-center p-4 bg-purple-50 rounded-lg">
                       <div className="text-2xl font-bold text-purple-600">₹{itrData.refundAmount.toLocaleString()}</div>
-                      <div className="text-sm text-gray-600">Refund Due</div>
+                      <div className="text-sm text-muted-foreground">Refund Due</div>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2">No ITR Found</h3>
-                  <p className="text-gray-600 mb-4">Start by auto-populating data from your tax sources</p>
+                  <p className="text-muted-foreground mb-4">Start by auto-populating data from your tax sources</p>
                   <Button 
                     onClick={() => autoPopulateMutation.mutate()}
                     disabled={autoPopulateMutation.isPending}
@@ -463,7 +463,7 @@ export default function SandboxITRFiling() {
                           </Alert>
 
                           <div className="space-y-3">
-                            <div className="p-4 bg-gray-50 rounded-lg">
+                            <div className="p-4 bg-muted rounded-lg">
                               <h4 className="font-medium mb-2">Pre-filing Checklist:</h4>
                               <div className="space-y-1 text-sm">
                                 <div className="flex items-center gap-2">

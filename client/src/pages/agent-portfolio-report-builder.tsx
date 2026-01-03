@@ -372,7 +372,7 @@ export default function AgentPortfolioReportBuilder() {
   const templates = (templatesData as any)?.templates || [];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900" data-testid="portfolio-report-builder">
+    <div className="min-h-screen bg-muted dark:bg-card" data-testid="portfolio-report-builder">
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -380,7 +380,7 @@ export default function AgentPortfolioReportBuilder() {
               <FileText className="h-8 w-8 text-blue-600" />
               Portfolio Report Builder
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-muted-foreground dark:text-muted-foreground mt-1">
               Create professional, SEBI-compliant portfolio analysis reports
             </p>
           </div>
@@ -404,18 +404,18 @@ export default function AgentPortfolioReportBuilder() {
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                   isCompleted ? 'bg-green-500 text-white' :
                   isActive ? 'bg-blue-600 text-white' :
-                  'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                  'bg-muted dark:bg-gray-700 text-muted-foreground'
                 }`}>
                   {isCompleted ? <Check className="h-5 w-5" /> : <StepIcon className="h-5 w-5" />}
                 </div>
                 <div className="hidden lg:block">
-                  <p className={`text-sm font-medium ${isActive ? 'text-blue-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                  <p className={`text-sm font-medium ${isActive ? 'text-blue-600' : 'text-muted-foreground dark:text-muted-foreground'}`}>
                     {step.title}
                   </p>
-                  <p className="text-xs text-gray-400">{step.description}</p>
+                  <p className="text-xs text-muted-foreground">{step.description}</p>
                 </div>
                 {index < WIZARD_STEPS.length - 1 && (
-                  <div className={`w-8 h-0.5 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
+                  <div className={`w-8 h-0.5 ${isCompleted ? 'bg-green-500' : 'bg-muted'}`} />
                 )}
               </div>
             );
@@ -455,7 +455,7 @@ export default function AgentPortfolioReportBuilder() {
                                 <div className="flex items-center gap-2">
                                   <User className="h-4 w-4" />
                                   <span>{client.fullName}</span>
-                                  <span className="text-gray-400 text-sm">({client.email})</span>
+                                  <span className="text-muted-foreground text-sm">({client.email})</span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -514,7 +514,7 @@ export default function AgentPortfolioReportBuilder() {
                         >
                           <CardContent className="p-4">
                             <h4 className="font-medium">{template.name}</h4>
-                            <p className="text-sm text-gray-500">{template.description}</p>
+                            <p className="text-sm text-muted-foreground">{template.description}</p>
                             {template.isDefault && (
                               <Badge variant="outline" className="mt-2">Default</Badge>
                             )}
@@ -530,7 +530,7 @@ export default function AgentPortfolioReportBuilder() {
             {currentStep === 2 && (
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold">Select Report Sections</h2>
-                <p className="text-gray-500">Choose which analytics modules to include in the report</p>
+                <p className="text-muted-foreground">Choose which analytics modules to include in the report</p>
                 
                 <div className="grid md:grid-cols-2 gap-4">
                   {REPORT_SECTIONS.map((section) => {
@@ -552,13 +552,13 @@ export default function AgentPortfolioReportBuilder() {
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-3">
                               <div className={`p-2 rounded-lg ${
-                                isEnabled ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800'
+                                isEnabled ? 'bg-blue-600 text-white' : 'bg-muted dark:bg-muted'
                               }`}>
                                 <SectionIcon className="h-5 w-5" />
                               </div>
                               <div className="flex-1">
                                 <h4 className="font-medium">{section.name}</h4>
-                                <p className="text-sm text-gray-500">{section.description}</p>
+                                <p className="text-sm text-muted-foreground">{section.description}</p>
                                 <Badge variant="outline" className="mt-2 text-xs">
                                   {section.category}
                                 </Badge>
@@ -671,7 +671,7 @@ export default function AgentPortfolioReportBuilder() {
                     <div className="flex items-center justify-between">
                       <div>
                         <Label>Include Branding</Label>
-                        <p className="text-sm text-gray-500">Add FintekPro logo and styling</p>
+                        <p className="text-sm text-muted-foreground">Add FintekPro logo and styling</p>
                       </div>
                       <Switch
                         checked={config.settings?.branding}
@@ -685,7 +685,7 @@ export default function AgentPortfolioReportBuilder() {
                     <div className="flex items-center justify-between">
                       <div>
                         <Label>Add Watermark</Label>
-                        <p className="text-sm text-gray-500">Light "CONFIDENTIAL" watermark</p>
+                        <p className="text-sm text-muted-foreground">Light "CONFIDENTIAL" watermark</p>
                       </div>
                       <Switch
                         checked={config.settings?.watermark}
@@ -846,15 +846,15 @@ export default function AgentPortfolioReportBuilder() {
                       </CardHeader>
                       <CardContent className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Client:</span>
+                          <span className="text-muted-foreground">Client:</span>
                           <span className="font-medium">{selectedClient?.fullName}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Portfolio:</span>
+                          <span className="text-muted-foreground">Portfolio:</span>
                           <span className="font-medium">{selectedPortfolio?.name}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Sections:</span>
+                          <span className="text-muted-foreground">Sections:</span>
                           <span className="font-medium">
                             {Object.values(config.sections).filter(v => 
                               typeof v === 'boolean' ? v : (v as any)?.enabled
@@ -862,7 +862,7 @@ export default function AgentPortfolioReportBuilder() {
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Cover Page:</span>
+                          <span className="text-muted-foreground">Cover Page:</span>
                           <span className="font-medium">{config.coverPage?.enabled ? 'Yes' : 'No'}</span>
                         </div>
                       </CardContent>
@@ -891,7 +891,7 @@ export default function AgentPortfolioReportBuilder() {
                     <div className="flex flex-col items-center justify-center py-12 space-y-4">
                       <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
                       <p className="text-lg">Generating your report...</p>
-                      <p className="text-sm text-gray-500">This may take a moment</p>
+                      <p className="text-sm text-muted-foreground">This may take a moment</p>
                     </div>
                   ) : generatedReportUrl ? (
                     <Card className="border-green-500 bg-green-50 dark:bg-green-900/10">
@@ -924,9 +924,9 @@ export default function AgentPortfolioReportBuilder() {
                   ) : (
                     <Card>
                       <CardContent className="py-8 text-center">
-                        <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                        <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                         <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
-                        <p className="text-gray-500 mb-6">
+                        <p className="text-muted-foreground mb-6">
                           Click the button below to create your PDF report
                         </p>
                         <Button 

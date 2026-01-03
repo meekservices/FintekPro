@@ -252,7 +252,7 @@ export default function PortfolioRebalancing() {
       case 'NSDL':
         return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">NSDL</Badge>;
       case 'UPLOADED':
-        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 text-xs">Uploaded</Badge>;
+        return <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-xs">Uploaded</Badge>;
       default:
         return <Badge variant="outline" className="text-xs">{source}</Badge>;
     }
@@ -265,7 +265,7 @@ export default function PortfolioRebalancing() {
       case 'transfer_suggested':
         return <Badge className="bg-blue-100 text-blue-700 text-xs"><ArrowRightLeft className="w-3 h-3 mr-1" />Transfer First</Badge>;
       case 'advisory_only':
-        return <Badge className="bg-gray-100 text-gray-700 text-xs"><Info className="w-3 h-3 mr-1" />Advisory</Badge>;
+        return <Badge className="bg-muted text-muted-foreground text-xs"><Info className="w-3 h-3 mr-1" />Advisory</Badge>;
       default:
         return null;
     }
@@ -406,7 +406,7 @@ export default function PortfolioRebalancing() {
                       <span className="text-xs text-amber-700">- Transfer to FintekPro before selling</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      <Badge className="bg-gray-100 text-gray-700 text-xs"><Info className="w-3 h-3 mr-1" />Advisory</Badge>
+                      <Badge className="bg-muted text-muted-foreground text-xs"><Info className="w-3 h-3 mr-1" />Advisory</Badge>
                       <span className="text-xs text-amber-700">- Information only, execute at your broker</span>
                     </div>
                   </div>

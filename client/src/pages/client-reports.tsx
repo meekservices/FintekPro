@@ -235,7 +235,7 @@ export default function ClientReports() {
       case 'ready': return { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Ready', icon: CheckCircle };
       case 'generating': return { color: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Generating', icon: Loader2 };
       case 'scheduled': return { color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Scheduled', icon: Clock };
-      default: return { color: 'bg-gray-100 text-gray-700 border-gray-200', label: status, icon: FileText };
+      default: return { color: 'bg-muted text-muted-foreground border-border', label: status, icon: FileText };
     }
   };
 
@@ -273,7 +273,7 @@ export default function ClientReports() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6" data-testid="client-reports-page">
+    <div className="min-h-screen bg-muted p-6" data-testid="client-reports-page">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -281,12 +281,12 @@ export default function ClientReports() {
               <FileText className="h-7 w-7 text-blue-600" />
               Your Reports
             </h1>
-            <p className="text-gray-600 mt-1">Download and manage your financial reports</p>
+            <p className="text-muted-foreground mt-1">Download and manage your financial reports</p>
           </div>
           <div className="flex items-center gap-3">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100" data-testid="button-date-range">
+                <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted" data-testid="button-date-range">
                   <CalendarIcon className="h-4 w-4 mr-2" />
                   {dateRange.from ? (
                     dateRange.to ? (
@@ -315,42 +315,42 @@ export default function ClientReports() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-total-reports">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-total-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100">
                   <FileText className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Total Reports</p>
+                  <p className="text-muted-foreground text-sm">Total Reports</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-total-count">{totalReports}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-ready-reports">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-ready-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-100">
                   <CheckCircle className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Ready to Download</p>
+                  <p className="text-muted-foreground text-sm">Ready to Download</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-ready-count">{readyReports}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-generating-reports">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-generating-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100">
                   <Loader2 className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Generating</p>
+                  <p className="text-muted-foreground text-sm">Generating</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-generating-count">
                     {REPORT_CATEGORIES.reduce((acc, cat) => acc + cat.reports.filter(r => r.status === 'generating').length, 0) + generatingReports.size}
                   </p>
@@ -359,14 +359,14 @@ export default function ClientReports() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-scheduled-reports">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-scheduled-reports">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-100">
                   <Clock className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Scheduled</p>
+                  <p className="text-muted-foreground text-sm">Scheduled</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-scheduled-count">
                     {REPORT_CATEGORIES.reduce((acc, cat) => acc + cat.reports.filter(r => r.status === 'scheduled').length, 0)}
                   </p>
@@ -377,7 +377,7 @@ export default function ClientReports() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-white border border-gray-200 shadow-sm w-full md:w-auto">
+          <TabsList className="bg-white border border-border shadow-sm w-full md:w-auto">
             {REPORT_CATEGORIES.map((category) => {
               const Icon = category.icon;
               return (
@@ -406,7 +406,7 @@ export default function ClientReports() {
                   return (
                     <Card
                       key={report.id}
-                      className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                      className="bg-white border-border shadow-sm hover:shadow-md transition-shadow"
                       data-testid={`report-card-${report.id}`}
                     >
                       <CardHeader className="pb-3">
@@ -422,18 +422,18 @@ export default function ClientReports() {
                         <CardTitle className="text-gray-900 text-lg mt-3" data-testid={`report-name-${report.id}`}>
                           {report.name}
                         </CardTitle>
-                        <CardDescription className="text-gray-600" data-testid={`report-description-${report.id}`}>
+                        <CardDescription className="text-muted-foreground" data-testid={`report-description-${report.id}`}>
                           {report.description}
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                        <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
                           <div className="flex items-center gap-1" data-testid={`report-date-${report.id}`}>
                             <CalendarIcon className="h-4 w-4" />
                             <span>Last generated: {formatDate(report.lastGenerated)}</span>
                           </div>
                           {report.size && (
-                            <span className="text-gray-400" data-testid={`report-size-${report.id}`}>{report.size}</span>
+                            <span className="text-muted-foreground" data-testid={`report-size-${report.id}`}>{report.size}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -458,7 +458,7 @@ export default function ClientReports() {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="border-gray-300 text-gray-600 hover:bg-gray-100"
+                            className="border-border text-muted-foreground hover:bg-muted"
                             onClick={() => handleRefresh(report)}
                             disabled={isGenerating}
                             data-testid={`button-refresh-${report.id}`}
@@ -480,7 +480,7 @@ export default function ClientReports() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">Need a Custom Report?</h3>
-                <p className="text-gray-600 text-sm">Contact your advisor to request specialized reports tailored to your needs.</p>
+                <p className="text-muted-foreground text-sm">Contact your advisor to request specialized reports tailored to your needs.</p>
               </div>
               <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-request-report">
                 Request Custom Report

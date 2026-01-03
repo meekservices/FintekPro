@@ -794,7 +794,7 @@ export default function TaxSmartFiling() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="text-main-title">
             Tax Smart Filing
           </h1>
-          <p className="text-gray-600 dark:text-gray-300" data-testid="text-subtitle">
+          <p className="text-muted-foreground dark:text-muted-foreground" data-testid="text-subtitle">
             AI-powered intelligent tax return filing with step-by-step guidance
           </p>
         </div>

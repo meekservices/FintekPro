@@ -160,7 +160,7 @@ interface ProposalStats {
 }
 
 const PROPOSAL_STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  draft: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
   shared: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   viewed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   converted: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
@@ -775,7 +775,7 @@ const RECOMMENDATION_CATEGORIES = [
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Portfolio Demo Proposals</h1>
-          <p className="text-gray-500 dark:text-gray-400">Create and share investment proposals to acquire new clients</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Create and share investment proposals to acquire new clients</p>
         </div>
         <div className="flex gap-2">
           <Link href="/demo-proposal-builder">
@@ -800,10 +800,10 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total</p>
                 <p className="text-2xl font-bold">{stats.total}</p>
               </div>
-              <FileText className="w-8 h-8 text-gray-400" />
+              <FileText className="w-8 h-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -811,10 +811,10 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Draft</p>
-                <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Draft</p>
+                <p className="text-2xl font-bold text-muted-foreground">{stats.draft}</p>
               </div>
-              <Clock className="w-8 h-8 text-gray-400" />
+              <Clock className="w-8 h-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -822,7 +822,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Shared</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Shared</p>
                 <p className="text-2xl font-bold text-blue-600">{stats.shared}</p>
               </div>
               <Send className="w-8 h-8 text-blue-400" />
@@ -833,7 +833,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Viewed</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Viewed</p>
                 <p className="text-2xl font-bold text-green-600">{stats.viewed}</p>
               </div>
               <Eye className="w-8 h-8 text-green-400" />
@@ -844,7 +844,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Converted</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Converted</p>
                 <p className="text-2xl font-bold text-purple-600">{stats.converted}</p>
               </div>
               <CheckCircle2 className="w-8 h-8 text-purple-400" />
@@ -855,7 +855,7 @@ const RECOMMENDATION_CATEGORIES = [
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Total Views</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Views</p>
                 <p className="text-2xl font-bold text-indigo-600">{stats.totalViews}</p>
               </div>
               <BarChart3 className="w-8 h-8 text-indigo-400" />
@@ -896,9 +896,9 @@ const RECOMMENDATION_CATEGORIES = [
             <div className="text-center py-8">Loading proposals...</div>
           ) : filteredProposals.length === 0 ? (
             <div className="text-center py-12">
-              <FileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+              <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No proposals yet</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">Create your first proposal to start acquiring new clients</p>
+              <p className="text-muted-foreground dark:text-muted-foreground mb-4">Create your first proposal to start acquiring new clients</p>
               <Button onClick={() => setShowCreateDialog(true)} className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Create First Proposal
@@ -923,7 +923,7 @@ const RECOMMENDATION_CATEGORIES = [
                     <TableCell>
                       <div>
                         <p className="font-medium">{proposal.prospectName}</p>
-                        <p className="text-xs text-gray-500">{proposal.prospectEmail || proposal.prospectMobile || '-'}</p>
+                        <p className="text-xs text-muted-foreground">{proposal.prospectEmail || proposal.prospectMobile || '-'}</p>
                       </div>
                     </TableCell>
                     <TableCell className="max-w-48 truncate" title={proposal.proposalTitle}>
@@ -941,11 +941,11 @@ const RECOMMENDATION_CATEGORIES = [
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Eye className="w-3 h-3 text-gray-400" />
+                        <Eye className="w-3 h-3 text-muted-foreground" />
                         <span>{proposal.viewCount || 0}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">
+                    <TableCell className="text-sm text-muted-foreground">
                       {new Date(proposal.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
@@ -977,7 +977,7 @@ const RECOMMENDATION_CATEGORIES = [
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+                          className="text-muted-foreground hover:text-foreground hover:bg-muted dark:text-muted-foreground dark:hover:bg-muted"
                           onClick={() => copyToClipboard(`${baseUrl}/proposal/${proposal.shareToken}`, "Proposal link")}
                           data-testid={`btn-copy-${proposal.id}`}
                         >
@@ -1115,7 +1115,7 @@ const RECOMMENDATION_CATEGORIES = [
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
-                        <Info className="w-4 h-4 text-gray-400" />
+                        <Info className="w-4 h-4 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
                         <p>Select which product categories the AI should consider when generating recommendations. HNI/Ultra HNI clients automatically unlock PMS and AIF options.</p>
@@ -1133,8 +1133,8 @@ const RECOMMENDATION_CATEGORIES = [
                         className={`flex items-start gap-2 p-2 rounded-lg border transition-colors ${
                           selectedCategories.includes(cat.value) 
                             ? "border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950" 
-                            : "border-gray-200 dark:border-gray-700"
-                        } ${isDisabled ? "opacity-50" : "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"}`}
+                            : "border-border dark:border-border"
+                        } ${isDisabled ? "opacity-50" : "cursor-pointer hover:bg-muted dark:hover:bg-muted"}`}
                         onClick={() => {
                           if (isDisabled) return;
                           if (selectedCategories.includes(cat.value)) {
@@ -1160,7 +1160,7 @@ const RECOMMENDATION_CATEGORIES = [
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium">{cat.label}</p>
-                          <p className="text-xs text-gray-500 truncate">{cat.description}</p>
+                          <p className="text-xs text-muted-foreground truncate">{cat.description}</p>
                           {isDisabled && (
                             <p className="text-xs text-amber-600 mt-0.5">HNI/Ultra HNI only</p>
                           )}
@@ -1169,7 +1169,7 @@ const RECOMMENDATION_CATEGORIES = [
                     );
                   })}
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Selected: {selectedCategories.length} categories
                 </p>
               </div>
@@ -1257,7 +1257,7 @@ const RECOMMENDATION_CATEGORIES = [
 
               <TabsContent value="sample_portfolio" className="space-y-4 mt-0">
                 {/* Mode Toggle */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-muted dark:bg-card rounded-lg">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="advanced-toggle" className="text-sm">
                       {useAdvancedEditor ? "Advanced ISIN-based Entry" : "Quick Product Entry"}
@@ -1335,8 +1335,8 @@ const RECOMMENDATION_CATEGORIES = [
                       </div>
 
                       {quickHoldings.length === 0 ? (
-                        <div className="border-2 border-dashed rounded-lg p-6 text-center text-gray-500">
-                          <Wallet className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <div className="border-2 border-dashed rounded-lg p-6 text-center text-muted-foreground">
+                          <Wallet className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                           <p className="text-sm">No holdings added yet</p>
                           <p className="text-xs mt-1">Upload a holding report PDF or add holdings manually</p>
                         </div>
@@ -1345,7 +1345,7 @@ const RECOMMENDATION_CATEGORIES = [
                           {quickHoldings.map((holding, idx) => (
                             <div 
                               key={holding.id} 
-                              className="border rounded-lg p-3 bg-white dark:bg-gray-800 space-y-2"
+                              className="border rounded-lg p-3 bg-white dark:bg-muted space-y-2"
                             >
                               <div className="flex items-start gap-2">
                                 {/* Product Type */}
@@ -1423,7 +1423,7 @@ const RECOMMENDATION_CATEGORIES = [
                                           data-testid={`input-product-name-${idx}`}
                                         />
                                         {isSearching && activeHoldingId === holding.id && (
-                                          <Loader2 className="w-4 h-4 absolute right-2 top-2.5 animate-spin text-gray-400" />
+                                          <Loader2 className="w-4 h-4 absolute right-2 top-2.5 animate-spin text-muted-foreground" />
                                         )}
                                         {holding.productName && !isSearching && !(activeHoldingId === holding.id && searchOpen) && (
                                           <Check className="w-4 h-4 absolute right-2 top-2.5 text-green-500" />
@@ -1436,12 +1436,12 @@ const RECOMMENDATION_CATEGORIES = [
                                           {productSearchResults.map((product) => (
                                             <div
                                               key={product.id}
-                                              className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer border-b last:border-b-0"
+                                              className="px-3 py-2 hover:bg-muted dark:hover:bg-muted cursor-pointer border-b last:border-b-0"
                                               onClick={() => selectProduct(holding.id, product)}
                                             >
                                               <p className="text-sm font-medium truncate">{product.name}</p>
                                               <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="text-xs text-gray-500">{product.issuer}</span>
+                                                <span className="text-xs text-muted-foreground">{product.issuer}</span>
                                                 {product.currentPrice && (
                                                   <span className="text-xs text-blue-600">NAV: ₹{product.currentPrice.toFixed(2)}</span>
                                                 )}
@@ -1455,11 +1455,11 @@ const RECOMMENDATION_CATEGORIES = [
                                           ))}
                                         </div>
                                       ) : productSearchQuery.length >= 2 ? (
-                                        <div className="p-4 text-center text-gray-500 text-sm">
+                                        <div className="p-4 text-center text-muted-foreground text-sm">
                                           {isSearching ? "Searching..." : "No products found"}
                                         </div>
                                       ) : (
-                                        <div className="p-4 text-center text-gray-500 text-sm">
+                                        <div className="p-4 text-center text-muted-foreground text-sm">
                                           Type at least 2 characters to search
                                         </div>
                                       )}
@@ -1510,7 +1510,7 @@ const RECOMMENDATION_CATEGORIES = [
                                 <div className="flex items-center justify-between text-xs px-1 pt-1 border-t">
                                   <div className="flex items-center gap-3">
                                     {holding.currentPrice && (
-                                      <span className="text-gray-600">
+                                      <span className="text-muted-foreground">
                                         NAV: <span className="font-medium">₹{holding.currentPrice.toFixed(2)}</span>
                                       </span>
                                     )}
@@ -1544,13 +1544,13 @@ const RECOMMENDATION_CATEGORIES = [
                               )}
                               {/* AI Rationale Row */}
                               {holding.aiRationale && (
-                                <div className="text-xs px-1 py-1.5 bg-gray-50 dark:bg-gray-900 rounded mt-1">
-                                  <p className="text-gray-600 dark:text-gray-400 font-medium mb-1">AI Analysis:</p>
-                                  <p className="text-gray-700 dark:text-gray-300">{holding.aiRationale}</p>
+                                <div className="text-xs px-1 py-1.5 bg-muted dark:bg-card rounded mt-1">
+                                  <p className="text-muted-foreground dark:text-muted-foreground font-medium mb-1">AI Analysis:</p>
+                                  <p className="text-muted-foreground dark:text-muted-foreground">{holding.aiRationale}</p>
                                   {holding.aiMetrics && (
                                     <div className="flex flex-wrap gap-2 mt-1.5">
                                       {holding.aiMetrics.sharpeRatio !== undefined && (
-                                        <span className="text-gray-500">Sharpe: {holding.aiMetrics.sharpeRatio.toFixed(2)}</span>
+                                        <span className="text-muted-foreground">Sharpe: {holding.aiMetrics.sharpeRatio.toFixed(2)}</span>
                                       )}
                                       {holding.aiMetrics.alpha !== undefined && (
                                         <span className={holding.aiMetrics.alpha >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -1558,7 +1558,7 @@ const RECOMMENDATION_CATEGORIES = [
                                         </span>
                                       )}
                                       {holding.aiMetrics.categoryRank && (
-                                        <span className="text-gray-500">Rank: {holding.aiMetrics.categoryRank}</span>
+                                        <span className="text-muted-foreground">Rank: {holding.aiMetrics.categoryRank}</span>
                                       )}
                                       {holding.aiMetrics.exitLoadApplicable && (
                                         <span className="text-amber-600">Exit Load: {holding.aiMetrics.exitLoadPercent}%</span>
@@ -1587,17 +1587,17 @@ const RECOMMENDATION_CATEGORIES = [
                         </h4>
                         <div className="grid grid-cols-3 gap-4">
                           <div>
-                            <p className="text-xs text-gray-500">Total Value</p>
+                            <p className="text-xs text-muted-foreground">Total Value</p>
                             <p className="text-lg font-bold text-blue-700">
                               ₹{portfolioSummary.totalValue.toLocaleString('en-IN')}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Holdings</p>
-                            <p className="text-lg font-bold text-gray-700">{portfolioSummary.totalHoldings}</p>
+                            <p className="text-xs text-muted-foreground">Holdings</p>
+                            <p className="text-lg font-bold text-muted-foreground">{portfolioSummary.totalHoldings}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Wtd. Avg. 1Y Return</p>
+                            <p className="text-xs text-muted-foreground">Wtd. Avg. 1Y Return</p>
                             <p className={`text-lg font-bold ${portfolioSummary.weightedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {portfolioSummary.weightedReturn.toFixed(1)}%
                             </p>
@@ -1605,7 +1605,7 @@ const RECOMMENDATION_CATEGORIES = [
                         </div>
                         {Object.keys(portfolioSummary.assetAllocation).length > 0 && (
                           <div>
-                            <p className="text-xs text-gray-500 mb-2">Asset Allocation</p>
+                            <p className="text-xs text-muted-foreground mb-2">Asset Allocation</p>
                             <div className="flex flex-wrap gap-2">
                               {Object.entries(portfolioSummary.assetAllocation).map(([type, value]) => (
                                 <Badge key={type} variant="secondary" className="text-xs">
@@ -1631,10 +1631,10 @@ const RECOMMENDATION_CATEGORIES = [
                       <Briefcase className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                      <label htmlFor="include-existing" className="font-medium text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
+                      <label htmlFor="include-existing" className="font-medium text-sm text-foreground dark:text-foreground cursor-pointer">
                         Include Existing Portfolio Analysis
                       </label>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                         Analyze client's current holdings with AI recommendations (BUY/HOLD/SELL/SWITCH)
                       </p>
                     </div>
@@ -1680,23 +1680,23 @@ const RECOMMENDATION_CATEGORIES = [
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">Executive Summary</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{generatedProposal.executiveSummary}</p>
+                      <h4 className="font-medium text-sm text-muted-foreground dark:text-muted-foreground">Executive Summary</h4>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">{generatedProposal.executiveSummary}</p>
                     </div>
                     
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Total Investment</p>
+                      <div className="bg-white dark:bg-muted rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground">Total Investment</p>
                         <p className="text-lg font-bold text-indigo-600">
                           ₹{(generatedProposal.totalInvestmentAmount || 0).toLocaleString('en-IN')}
                         </p>
                       </div>
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Expected Returns</p>
+                      <div className="bg-white dark:bg-muted rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground">Expected Returns</p>
                         <p className="text-lg font-bold text-green-600">{generatedProposal.projectedReturns}% p.a.</p>
                       </div>
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Projected Value (5Y)</p>
+                      <div className="bg-white dark:bg-muted rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground">Projected Value (5Y)</p>
                         <p className="text-lg font-bold text-purple-600">
                           ₹{(generatedProposal.projectedValue || 0).toLocaleString('en-IN')}
                         </p>
@@ -1704,10 +1704,10 @@ const RECOMMENDATION_CATEGORIES = [
                     </div>
 
                     <div>
-                      <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Recommended Products ({generatedProposal.recommendations?.length || 0})</h4>
+                      <h4 className="font-medium text-sm text-muted-foreground dark:text-muted-foreground mb-2">Recommended Products ({generatedProposal.recommendations?.length || 0})</h4>
                       <div className="space-y-3 max-h-64 overflow-y-auto">
                         {generatedProposal.recommendations?.map((rec: any, idx: number) => (
-                          <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-3 space-y-2">
+                          <div key={idx} className="bg-white dark:bg-muted rounded-lg p-3 space-y-2">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
@@ -1725,21 +1725,21 @@ const RECOMMENDATION_CATEGORIES = [
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-xs text-gray-500">{rec.category} • {rec.riskRating}</p>
+                                <p className="text-xs text-muted-foreground">{rec.category} • {rec.riskRating}</p>
                               </div>
                               <div className="text-right">
                                 <p className="font-bold text-sm">₹{(rec.recommendedAmount || 0).toLocaleString('en-IN')}</p>
-                                <p className="text-xs text-gray-500">{rec.allocationPercentage}%</p>
+                                <p className="text-xs text-muted-foreground">{rec.allocationPercentage}%</p>
                               </div>
                             </div>
                             {/* AI Rationale with Metrics */}
                             {rec.rationale && (
-                              <div className="text-xs bg-gray-50 dark:bg-gray-900 rounded p-2 space-y-2">
-                                <p className="text-gray-700 dark:text-gray-300">{rec.rationale}</p>
+                              <div className="text-xs bg-muted dark:bg-card rounded p-2 space-y-2">
+                                <p className="text-muted-foreground dark:text-muted-foreground">{rec.rationale}</p>
                                 {rec.metrics && (
                                   <>
                                     {/* Valuation Metrics Row */}
-                                    <div className="flex flex-wrap gap-3 pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                                    <div className="flex flex-wrap gap-3 pt-1.5 border-t border-border dark:border-border">
                                       {rec.metrics.pe > 0 && (
                                         <span className="bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded text-blue-700 dark:text-blue-400">
                                           P/E: {rec.metrics.pe}x {rec.metrics.peVsCat !== 0 && <span className={rec.metrics.peVsCat < 0 ? 'text-green-600' : 'text-amber-600'}>({rec.metrics.peVsCat > 0 ? '+' : ''}{rec.metrics.peVsCat}%)</span>}
@@ -1751,12 +1751,12 @@ const RECOMMENDATION_CATEGORIES = [
                                         </span>
                                       )}
                                       {rec.metrics.roe > 0 && (
-                                        <span className={`px-1.5 py-0.5 rounded ${rec.metrics.roe >= 15 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600'}`}>
+                                        <span className={`px-1.5 py-0.5 rounded ${rec.metrics.roe >= 15 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-muted dark:bg-muted text-muted-foreground'}`}>
                                           ROE: {rec.metrics.roe}%
                                         </span>
                                       )}
                                       {rec.metrics.epsGrowth3Y && rec.metrics.epsGrowth3Y !== 0 && (
-                                        <span className={`px-1.5 py-0.5 rounded ${rec.metrics.epsGrowth3Y > 12 ? 'bg-green-50 dark:bg-green-900/30 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                        <span className={`px-1.5 py-0.5 rounded ${rec.metrics.epsGrowth3Y > 12 ? 'bg-green-50 dark:bg-green-900/30 text-green-700' : 'bg-muted text-muted-foreground'}`}>
                                           EPS 3Y: {rec.metrics.epsGrowth3Y}%
                                         </span>
                                       )}
@@ -1769,7 +1769,7 @@ const RECOMMENDATION_CATEGORIES = [
                                     {/* Risk & Performance Metrics Row */}
                                     <div className="flex flex-wrap gap-3">
                                       {rec.metrics.sharpeRatio !== undefined && (
-                                        <span className={`text-gray-600 dark:text-gray-400 ${rec.metrics.sharpeRatio > 0.5 ? 'font-medium' : ''}`}>
+                                        <span className={`text-muted-foreground dark:text-muted-foreground ${rec.metrics.sharpeRatio > 0.5 ? 'font-medium' : ''}`}>
                                           Sharpe: {rec.metrics.sharpeRatio}
                                         </span>
                                       )}
@@ -1779,7 +1779,7 @@ const RECOMMENDATION_CATEGORIES = [
                                         </span>
                                       )}
                                       {rec.metrics.downsideCapture && (
-                                        <span className={`${rec.metrics.downsideCapture < 90 ? 'text-green-600' : rec.metrics.downsideCapture > 110 ? 'text-red-600' : 'text-gray-500'}`}>
+                                        <span className={`${rec.metrics.downsideCapture < 90 ? 'text-green-600' : rec.metrics.downsideCapture > 110 ? 'text-red-600' : 'text-muted-foreground'}`}>
                                           Downside: {rec.metrics.downsideCapture}%
                                         </span>
                                       )}
@@ -1789,17 +1789,17 @@ const RECOMMENDATION_CATEGORIES = [
                                         </span>
                                       )}
                                       {rec.metrics.categoryRank && (
-                                        <span className="text-gray-500">{rec.metrics.categoryRank}</span>
+                                        <span className="text-muted-foreground">{rec.metrics.categoryRank}</span>
                                       )}
                                       {rec.metrics.expenseRatio !== undefined && rec.metrics.expenseRatio > 0 && (
-                                        <span className={`${rec.metrics.expenseRatio < 1 ? 'text-green-600' : 'text-gray-500'}`}>
+                                        <span className={`${rec.metrics.expenseRatio < 1 ? 'text-green-600' : 'text-muted-foreground'}`}>
                                           TER: {rec.metrics.expenseRatio.toFixed(2)}%
                                         </span>
                                       )}
                                     </div>
                                     {/* Additional Info Row */}
                                     {(rec.exitLoadApplicable || rec.taxImplication || rec.metrics.aum) && (
-                                      <div className="flex flex-wrap gap-3 text-gray-500">
+                                      <div className="flex flex-wrap gap-3 text-muted-foreground">
                                         {rec.metrics.aum && (
                                           <span>AUM: {rec.metrics.aum}</span>
                                         )}
@@ -1825,7 +1825,7 @@ const RECOMMENDATION_CATEGORIES = [
                       <div className="border-t pt-4">
                         <div className="flex items-center gap-2 mb-3">
                           <Briefcase className="w-5 h-5 text-amber-600" />
-                          <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">
+                          <h4 className="font-medium text-sm text-muted-foreground dark:text-muted-foreground">
                             Existing Portfolio Analysis
                           </h4>
                         </div>
@@ -1836,8 +1836,8 @@ const RECOMMENDATION_CATEGORIES = [
 
                         {/* Summary Stats */}
                         <div className="grid grid-cols-5 gap-2 mb-3">
-                          <div className="bg-gray-50 dark:bg-gray-800 rounded p-2 text-center">
-                            <p className="text-xs text-gray-500">Total Value</p>
+                          <div className="bg-muted dark:bg-muted rounded p-2 text-center">
+                            <p className="text-xs text-muted-foreground">Total Value</p>
                             <p className="font-bold text-sm">
                               ₹{(generatedProposal.existingPortfolioAnalysis.summary?.totalValue || 0).toLocaleString('en-IN')}
                             </p>
@@ -1863,7 +1863,7 @@ const RECOMMENDATION_CATEGORIES = [
                         {/* Existing Holdings List */}
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                           {generatedProposal.existingPortfolioAnalysis.holdings?.map((holding: any, idx: number) => (
-                            <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700">
+                            <div key={idx} className="bg-white dark:bg-muted rounded-lg p-2.5 border border-border dark:border-border">
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
@@ -1882,7 +1882,7 @@ const RECOMMENDATION_CATEGORIES = [
                                       {holding.recommendationType}
                                     </Badge>
                                   </div>
-                                  <p className="text-[10px] text-gray-500">{holding.category || holding.type}</p>
+                                  <p className="text-[10px] text-muted-foreground">{holding.category || holding.type}</p>
                                 </div>
                                 <div className="text-right">
                                   <p className="font-bold text-xs">₹{(holding.currentValue || 0).toLocaleString('en-IN')}</p>
@@ -1893,9 +1893,9 @@ const RECOMMENDATION_CATEGORIES = [
                               </div>
                               {/* Rationale and Metrics */}
                               {(holding.rationale || holding.metrics) && (
-                                <div className="mt-1.5 bg-gray-50 dark:bg-gray-900 rounded p-1.5 space-y-1">
+                                <div className="mt-1.5 bg-muted dark:bg-card rounded p-1.5 space-y-1">
                                   {holding.rationale && (
-                                    <p className="text-[10px] text-gray-600 dark:text-gray-400">
+                                    <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
                                       {holding.rationale}
                                     </p>
                                   )}
@@ -1912,12 +1912,12 @@ const RECOMMENDATION_CATEGORIES = [
                                         </span>
                                       )}
                                       {holding.metrics.roe > 0 && (
-                                        <span className={`px-1 py-0.5 rounded ${holding.metrics.roe >= 15 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                                        <span className={`px-1 py-0.5 rounded ${holding.metrics.roe >= 15 ? 'bg-green-50 text-green-600' : 'bg-muted text-muted-foreground'}`}>
                                           ROE: {holding.metrics.roe}%
                                         </span>
                                       )}
                                       {holding.metrics.sharpeRatio !== undefined && (
-                                        <span className="text-gray-500">Sharpe: {holding.metrics.sharpeRatio}</span>
+                                        <span className="text-muted-foreground">Sharpe: {holding.metrics.sharpeRatio}</span>
                                       )}
                                       {holding.metrics.alpha !== undefined && (
                                         <span className={holding.metrics.alpha >= 0 ? 'text-green-600' : 'text-red-500'}>
@@ -1943,7 +1943,7 @@ const RECOMMENDATION_CATEGORIES = [
             <Button 
               variant="outline" 
               onClick={() => { resetForm(); setShowCreateDialog(false); }}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="border-border text-muted-foreground hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted"
             >
               Cancel
             </Button>
@@ -1971,7 +1971,7 @@ const RECOMMENDATION_CATEGORIES = [
 
           {selectedProposal && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Eye className="w-4 h-4" /> {selectedProposal.viewCount} views
                 </span>
@@ -1985,26 +1985,26 @@ const RECOMMENDATION_CATEGORIES = [
               {selectedProposal.executiveSummary && (
                 <div>
                   <h4 className="font-medium mb-1">Executive Summary</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{selectedProposal.executiveSummary}</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{selectedProposal.executiveSummary}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-gray-500">Total Investment</p>
+                    <p className="text-xs text-muted-foreground">Total Investment</p>
                     <p className="text-lg font-bold">₹{parseFloat(selectedProposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-gray-500">Expected Returns</p>
+                    <p className="text-xs text-muted-foreground">Expected Returns</p>
                     <p className="text-lg font-bold text-green-600">{selectedProposal.projectedReturns}% p.a.</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-gray-500">Projected Value</p>
+                    <p className="text-xs text-muted-foreground">Projected Value</p>
                     <p className="text-lg font-bold text-purple-600">₹{parseFloat(selectedProposal.projectedValue || '0').toLocaleString('en-IN')}</p>
                   </CardContent>
                 </Card>
@@ -2045,10 +2045,10 @@ const RECOMMENDATION_CATEGORIES = [
                             <TableCell>{rec.allocationPercentage}%</TableCell>
                           </TableRow>
                           {rec.rationale && (
-                            <TableRow key={`${idx}-rationale`} className="bg-gray-50 dark:bg-gray-900">
+                            <TableRow key={`${idx}-rationale`} className="bg-muted dark:bg-card">
                               <TableCell colSpan={5} className="text-xs py-2">
                                 <div className="space-y-1">
-                                  <p className="text-gray-700 dark:text-gray-300">{rec.rationale}</p>
+                                  <p className="text-muted-foreground dark:text-muted-foreground">{rec.rationale}</p>
                                   {(rec.exitLoadApplicable || rec.taxImplication) && (
                                     <div className="flex gap-3">
                                       {rec.exitLoadApplicable && (

@@ -188,7 +188,7 @@ export default function TaxITRPaymentPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold dark:text-white">Payment</h1>
-          <p className="text-gray-600 dark:text-gray-400">Complete payment to proceed with filing</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Complete payment to proceed with filing</p>
         </div>
       </div>
 
@@ -211,17 +211,17 @@ export default function TaxITRPaymentPage() {
                 {PAYMENT_METHODS.map(method => (
                   <Card 
                     key={method.id}
-                    className={`cursor-pointer transition-all ${selectedPaymentMethod === method.id ? "border-primary ring-2 ring-primary/20" : "hover:border-gray-300 dark:hover:border-gray-600"}`}
+                    className={`cursor-pointer transition-all ${selectedPaymentMethod === method.id ? "border-primary ring-2 ring-primary/20" : "hover:border-border dark:hover:border-border"}`}
                     onClick={() => setSelectedPaymentMethod(method.id)}
                   >
                     <CardContent className="p-4 flex items-center gap-3">
                       <RadioGroupItem value={method.id} id={method.id} />
-                      <div className={`p-2 rounded-lg ${selectedPaymentMethod === method.id ? "bg-primary/10" : "bg-gray-100 dark:bg-gray-800"}`}>
-                        <method.icon className={`h-5 w-5 ${selectedPaymentMethod === method.id ? "text-primary" : "text-gray-500"}`} />
+                      <div className={`p-2 rounded-lg ${selectedPaymentMethod === method.id ? "bg-primary/10" : "bg-muted dark:bg-muted"}`}>
+                        <method.icon className={`h-5 w-5 ${selectedPaymentMethod === method.id ? "text-primary" : "text-muted-foreground"}`} />
                       </div>
                       <div>
                         <Label htmlFor={method.id} className="font-medium cursor-pointer dark:text-white">{method.label}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{method.desc}</p>
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{method.desc}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -235,7 +235,7 @@ export default function TaxITRPaymentPage() {
                     <div>
                       <Label htmlFor="upiId">Enter UPI ID</Label>
                       <div className="relative mt-1">
-                        <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
                           id="upiId"
                           className="pl-9"
@@ -245,14 +245,14 @@ export default function TaxITRPaymentPage() {
                           data-testid="input-upi-id"
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">e.g., 9876543210@paytm, yourname@okaxis</p>
+                      <p className="text-xs text-muted-foreground mt-1">e.g., 9876543210@paytm, yourname@okaxis</p>
                     </div>
                     <div className="flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center mb-2">
-                          <QrCode className="h-20 w-20 text-gray-400" />
+                        <div className="w-32 h-32 bg-muted dark:bg-muted rounded-lg flex items-center justify-center mb-2">
+                          <QrCode className="h-20 w-20 text-muted-foreground" />
                         </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Or scan QR code</p>
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Or scan QR code</p>
                       </div>
                     </div>
                   </div>
@@ -302,11 +302,11 @@ export default function TaxITRPaymentPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="flex items-center gap-3 p-3 bg-muted dark:bg-muted rounded-lg">
                 <FileText className="h-10 w-10 text-primary" />
                 <div>
                   <p className="font-medium dark:text-white">{itrForm} Self-Filing</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">AY 2025-26</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">AY 2025-26</p>
                 </div>
               </div>
 
@@ -314,11 +314,11 @@ export default function TaxITRPaymentPage() {
 
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Filing Fee</span>
+                  <span className="text-muted-foreground dark:text-muted-foreground">Filing Fee</span>
                   <span className="dark:text-white">₹{basePrice}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">GST (18%)</span>
+                  <span className="text-muted-foreground dark:text-muted-foreground">GST (18%)</span>
                   <span className="dark:text-white">₹{gst}</span>
                 </div>
                 {discount > 0 && (
@@ -354,7 +354,7 @@ export default function TaxITRPaymentPage() {
                 )}
               </Button>
 
-              <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 <Shield className="h-3 w-3" />
                 <span>Secured by 256-bit SSL encryption</span>
               </div>

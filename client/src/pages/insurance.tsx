@@ -56,7 +56,7 @@ export default function Insurance() {
       <div className="space-y-6">
         <div className="mb-8" data-testid="insurance-header">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Insurance Hub</h1>
-          <p className="text-gray-600 text-lg">
+          <p className="text-muted-foreground text-lg">
             Comprehensive insurance solutions for life, health, motor, and more
           </p>
         </div>
@@ -76,9 +76,9 @@ export default function Insurance() {
                     <IconComponent className={`h-6 w-6 text-finance-${type.color}`} />
                   </div>
                   <h3 className="font-bold text-gray-900 mb-2">{type.name}</h3>
-                  <p className="text-gray-600 text-sm mb-4">{type.description}</p>
+                  <p className="text-muted-foreground text-sm mb-4">{type.description}</p>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Available Plans:</span>
+                    <span className="text-muted-foreground">Available Plans:</span>
                     <span className="font-semibold text-finance-blue">{type.count}</span>
                   </div>
                 </CardContent>
@@ -108,32 +108,32 @@ export default function Insurance() {
                         <div className="flex justify-between items-start">
                           <div>
                             <CardTitle className="text-lg">{product.name}</CardTitle>
-                            <p className="text-sm text-gray-600 mt-1">{product.issuer || product.provider}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{product.issuer || product.provider}</p>
                           </div>
                           {product.badge && <Badge variant="secondary">{product.badge}</Badge>}
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <p className="text-sm text-gray-600">{product.description}</p>
+                        <p className="text-sm text-muted-foreground">{product.description}</p>
                         
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Coverage:</span>
+                            <span className="text-muted-foreground">Coverage:</span>
                             <span className="font-semibold">₹{product.maxCoverage?.toLocaleString() || '50,00,000'}</span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Premium (Annual):</span>
+                            <span className="text-muted-foreground">Premium (Annual):</span>
                             <span className="font-semibold text-finance-green">
                               ₹{product.annualPremium?.toLocaleString() || '12,000'}
                             </span>
                           </div>
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Claim Settlement:</span>
+                            <span className="text-muted-foreground">Claim Settlement:</span>
                             <span className="font-semibold">{product.claimSettlementRatio || '95%'}</span>
                           </div>
                           {product.taxBenefit && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Tax Benefit:</span>
+                              <span className="text-muted-foreground">Tax Benefit:</span>
                               <Badge variant="outline" className="text-xs">Section 80C/80D</Badge>
                             </div>
                           )}
@@ -152,9 +152,9 @@ export default function Insurance() {
                   ))
                 ) : (
                   <div className="col-span-full text-center py-12">
-                    <Shield className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No insurance plans available in this category.</p>
-                    <p className="text-gray-400 text-sm mt-2">Please check other categories or try again later.</p>
+                    <Shield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No insurance plans available in this category.</p>
+                    <p className="text-muted-foreground text-sm mt-2">Please check other categories or try again later.</p>
                   </div>
                 )}
               </div>
@@ -171,7 +171,7 @@ export default function Insurance() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Calculate your insurance premium based on age, coverage, and policy type
               </p>
               <Button className="w-full" variant="outline" size="sm" data-testid="button-calculator">
@@ -188,7 +188,7 @@ export default function Insurance() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Side-by-side comparison of features, premiums, and benefits
               </p>
               <Button className="w-full" variant="outline" size="sm" data-testid="button-compare">
@@ -205,7 +205,7 @@ export default function Insurance() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Get personalized insurance recommendations from certified advisors
               </p>
               <Button className="w-full" variant="outline" size="sm" data-testid="button-advisor">
@@ -223,25 +223,25 @@ export default function Insurance() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h3 className="font-semibold mb-2">✓ Comprehensive Comparison</h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Compare plans from 20+ leading insurers in one place
                 </p>
               </div>
               <div>
                 <h3 className="font-semibold mb-2">✓ Best Price Guarantee</h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Get the same or lower premium than buying directly
                 </p>
               </div>
               <div>
                 <h3 className="font-semibold mb-2">✓ Claim Assistance</h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Dedicated support team to help with claim settlement
                 </p>
               </div>
               <div>
                 <h3 className="font-semibold mb-2">✓ Instant Policy Issuance</h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Digital policy delivered within minutes of payment
                 </p>
               </div>

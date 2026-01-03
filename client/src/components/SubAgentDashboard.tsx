@@ -317,7 +317,7 @@ export function SubAgentDashboard({ agentId }: SubAgentDashboardProps) {
                                 id={product.value}
                                 checked={selectedProducts.includes(product.value)}
                                 onChange={() => handleProductToggle(product.value)}
-                                className="rounded border-gray-300"
+                                className="rounded border-border"
                                 data-testid={`checkbox-${product.value}`}
                               />
                               <label

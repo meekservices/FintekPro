@@ -54,12 +54,12 @@ interface Proposal {
 }
 
 const statusColors = {
-  draft: "bg-gray-100 text-gray-800",
+  draft: "bg-muted text-foreground",
   sent: "bg-blue-100 text-blue-800", 
   viewed: "bg-yellow-100 text-yellow-800",
   accepted: "bg-green-100 text-green-800",
   rejected: "bg-red-100 text-red-800",
-  expired: "bg-gray-100 text-gray-600"
+  expired: "bg-muted text-muted-foreground"
 };
 
 const statusIcons = {
@@ -677,7 +677,7 @@ export default function ClientProposalsPage() {
           </DialogHeader>
           {selectedProposal && (
             <div className="space-y-4">
-              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+              <div className="bg-muted dark:bg-muted p-4 rounded-lg">
                 <h4 className="font-medium mb-2">{selectedProposal.title}</h4>
                 <p className="text-sm text-muted-foreground mb-2">
                   Total Investment: <span className="font-semibold">{formatCurrency(selectedProposal.totalAmount)}</span>

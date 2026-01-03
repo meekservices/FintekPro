@@ -162,7 +162,7 @@ export default function BondCategoryPage() {
     });
 
   const getRatingColor = (rating: string) => {
-    if (!rating) return "bg-gray-100 text-gray-700";
+    if (!rating) return "bg-muted text-muted-foreground";
     if (rating.includes("AAA") || rating === "SOV") return "bg-green-100 text-green-700";
     if (rating.includes("AA")) return "bg-blue-100 text-blue-700";
     if (rating.includes("A")) return "bg-yellow-100 text-yellow-700";
@@ -170,7 +170,7 @@ export default function BondCategoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-muted dark:bg-card">
       {/* Header */}
       <div className={`${config.headerClass} text-white`}>
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -210,10 +210,10 @@ export default function BondCategoryPage() {
 
       {/* Filters */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex flex-wrap gap-4 items-center bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+        <div className="flex flex-wrap gap-4 items-center bg-white dark:bg-muted p-4 rounded-lg shadow-sm">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name or ISIN..."
                 value={searchTerm}
@@ -293,9 +293,9 @@ export default function BondCategoryPage() {
         ) : filteredBonds.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">
-              <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No bonds found</h3>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 {searchTerm ? "Try adjusting your search or filters" : "No bonds available in this category"}
               </p>
             </CardContent>
@@ -324,37 +324,37 @@ export default function BondCategoryPage() {
                         )}
                       </div>
                       
-                      <p className="text-sm text-gray-500 mb-4">
+                      <p className="text-sm text-muted-foreground mb-4">
                         ISIN: {bond.isin} {bond.issuer && `• Issuer: ${bond.issuer}`}
                       </p>
                       
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div>
-                          <p className="text-xs text-gray-500">Yield</p>
+                          <p className="text-xs text-muted-foreground">Yield</p>
                           <p className="font-semibold text-green-600">
                             {bond.yieldToMaturity || bond.ytm || bond.currentYield || bond.indicativeYield || "N/A"}%
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Coupon</p>
+                          <p className="text-xs text-muted-foreground">Coupon</p>
                           <p className="font-semibold">
                             {bond.couponRate && parseFloat(bond.couponRate) > 0 ? `${bond.couponRate}%` : "Zero Coupon"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Maturity</p>
+                          <p className="text-xs text-muted-foreground">Maturity</p>
                           <p className="font-semibold">
                             {bond.maturityDate ? new Date(bond.maturityDate).toLocaleDateString() : "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Face Value</p>
+                          <p className="text-xs text-muted-foreground">Face Value</p>
                           <p className="font-semibold">
                             ₹{(bond.faceValue || 1000).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Last Price</p>
+                          <p className="text-xs text-muted-foreground">Last Price</p>
                           <p className="font-semibold">
                             ₹{(bond.currentPrice || bond.lastPrice || bond.lastTradedPrice || 0).toLocaleString()}
                           </p>

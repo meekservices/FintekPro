@@ -22,7 +22,7 @@ export default function AgriculturalInsightsPage() {
     return () => window.removeEventListener('navigation-state-changed', handleNavChange as EventListener);
   }, []);
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AgriculturalInsights />
       </main>

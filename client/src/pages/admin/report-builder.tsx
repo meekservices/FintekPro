@@ -116,7 +116,7 @@ export default function ReportBuilder() {
       case 'generating': return 'bg-blue-100 text-blue-800';
       case 'pending': return 'bg-amber-100 text-amber-800';
       case 'failed': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted dark:bg-muted text-foreground';
     }
   };
 
@@ -222,7 +222,7 @@ export default function ReportBuilder() {
                   return (
                     <div 
                       key={template.id} 
-                      className="p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                      className="p-4 border rounded-lg hover:bg-muted dark:bg-muted dark:hover:bg-muted"
                       data-testid={`template-${template.id}`}
                     >
                       <div className="flex items-start justify-between">

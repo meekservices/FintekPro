@@ -64,7 +64,7 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
     return (
       <div className="flex items-center justify-center py-12">
         <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Loading proposals...</span>
+        <span className="ml-2 text-muted-foreground">Loading proposals...</span>
       </div>
     );
   }
@@ -75,7 +75,7 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Bot className="w-16 h-16 text-blue-400 mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Pending AIF Proposals</h3>
-          <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-4">
+          <p className="text-muted-foreground dark:text-muted-foreground text-center max-w-md mb-4">
             AI-generated and agent recommendations for Alternative Investment Funds will appear here based on your risk profile.
           </p>
           <Button variant="outline" onClick={() => refetch()} className="border-blue-300 text-blue-600 hover:bg-blue-50">
@@ -106,14 +106,14 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                       <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">AIF</Badge>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{proposal.title}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{proposal.description}</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{proposal.description}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-gray-900 dark:text-white flex items-center justify-end">
                       <IndianRupee className="w-5 h-5" />
                       {parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}
                     </p>
-                    <p className="text-sm text-gray-500">Min Investment</p>
+                    <p className="text-sm text-muted-foreground">Min Investment</p>
                   </div>
                 </div>
 
@@ -129,17 +129,17 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-muted dark:bg-muted rounded-lg">
                   <div className="text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Expected Return</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Expected Return</p>
                     <p className="text-lg font-bold text-emerald-600">{proposal.expectedReturns ? `${proposal.expectedReturns}%` : 'N/A'}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Lock-in Period</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Lock-in Period</p>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">{proposal.lockIn || '3 Years'}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Risk Level</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">Risk Level</p>
                     <p className="text-lg font-bold text-amber-600">{proposal.riskProfile || 'High'}</p>
                   </div>
                 </div>
@@ -225,7 +225,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
         <CardContent className="flex flex-col items-center justify-center py-16">
           <ShoppingCart className="w-16 h-16 text-blue-400 mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Your AIF Cart is Empty</h3>
-          <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-4">
+          <p className="text-muted-foreground dark:text-muted-foreground text-center max-w-md mb-4">
             Approve investment proposals to add them to your cart for checkout.
           </p>
         </CardContent>
@@ -269,8 +269,8 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Total Items</span><span className="font-medium">{cartItems.length}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="font-medium flex items-center"><IndianRupee className="w-3 h-3" />{totalValue.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Total Items</span><span className="font-medium">{cartItems.length}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span className="font-medium flex items-center"><IndianRupee className="w-3 h-3" />{totalValue.toLocaleString('en-IN')}</span></div>
             </div>
             <div className="border-t pt-4">
               <div className="flex justify-between text-lg font-bold">
@@ -309,11 +309,11 @@ function OrdersTab({ productType }: { productType: string }) {
 
   if (!orders || orders.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-gray-200">
+      <Card className="border-dashed border-2 border-border">
         <CardContent className="flex flex-col items-center justify-center py-16">
-          <FileText className="w-16 h-16 text-gray-400 mb-4" />
+          <FileText className="w-16 h-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No AIF Orders Yet</h3>
-          <p className="text-gray-500">Your AIF investment orders will appear here once placed.</p>
+          <p className="text-muted-foreground">Your AIF investment orders will appear here once placed.</p>
         </CardContent>
       </Card>
     );
@@ -327,17 +327,17 @@ function OrdersTab({ productType }: { productType: string }) {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h4 className="font-semibold text-lg">{order.schemeName || order.productName}</h4>
-                <p className="text-sm text-gray-500">Order #{order.id?.slice(-8)}</p>
+                <p className="text-sm text-muted-foreground">Order #{order.id?.slice(-8)}</p>
               </div>
-              <Badge className={order.status === 'completed' ? 'bg-green-100 text-green-700' : order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}>
+              <Badge className={order.status === 'completed' ? 'bg-green-100 text-green-700' : order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-muted text-muted-foreground'}>
                 {order.status}
               </Badge>
             </div>
             <div className="grid grid-cols-4 gap-4 text-sm">
-              <div><span className="text-gray-500">Amount</span><p className="font-semibold">₹{parseFloat(order.amount || '0').toLocaleString('en-IN')}</p></div>
-              <div><span className="text-gray-500">Order Date</span><p className="font-semibold">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A'}</p></div>
-              <div><span className="text-gray-500">Type</span><p className="font-semibold">{order.orderType || 'Lumpsum'}</p></div>
-              <div><span className="text-gray-500">Payment</span><p className="font-semibold">{order.paymentStatus || 'Pending'}</p></div>
+              <div><span className="text-muted-foreground">Amount</span><p className="font-semibold">₹{parseFloat(order.amount || '0').toLocaleString('en-IN')}</p></div>
+              <div><span className="text-muted-foreground">Order Date</span><p className="font-semibold">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A'}</p></div>
+              <div><span className="text-muted-foreground">Type</span><p className="font-semibold">{order.orderType || 'Lumpsum'}</p></div>
+              <div><span className="text-muted-foreground">Payment</span><p className="font-semibold">{order.paymentStatus || 'Pending'}</p></div>
             </div>
           </CardContent>
         </Card>
@@ -357,11 +357,11 @@ function PortfolioTab({ productType }: { productType: string }) {
 
   if (!holdings || holdings.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-gray-200">
+      <Card className="border-dashed border-2 border-border">
         <CardContent className="flex flex-col items-center justify-center py-16">
-          <Wallet className="w-16 h-16 text-gray-400 mb-4" />
+          <Wallet className="w-16 h-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No AIF Holdings</h3>
-          <p className="text-gray-500">Your AIF investments will appear here once purchased.</p>
+          <p className="text-muted-foreground">Your AIF investments will appear here once purchased.</p>
         </CardContent>
       </Card>
     );
@@ -375,7 +375,7 @@ function PortfolioTab({ productType }: { productType: string }) {
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="font-semibold">{holding.schemeName}</h4>
-                <p className="text-sm text-gray-500">{holding.fundHouse}</p>
+                <p className="text-sm text-muted-foreground">{holding.fundHouse}</p>
               </div>
               <div className="text-right">
                 <p className="text-xl font-bold">₹{parseFloat(holding.currentValue || '0').toLocaleString('en-IN')}</p>
@@ -438,7 +438,7 @@ export default function AIF() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Alternative Investment Funds (AIF)</h1>
-          <p className="text-gray-600 text-lg max-w-3xl">
+          <p className="text-muted-foreground text-lg max-w-3xl">
             Explore sophisticated investment opportunities with professionally managed AIF portfolios across Category I, II, and III funds.
           </p>
         </div>
@@ -446,25 +446,25 @@ export default function AIF() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card><CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm font-medium text-gray-600">Total AIF Funds</p><p className="text-3xl font-bold text-finance-blue">{statistics.totalFunds}</p></div>
+              <div><p className="text-sm font-medium text-muted-foreground">Total AIF Funds</p><p className="text-3xl font-bold text-finance-blue">{statistics.totalFunds}</p></div>
               <Building2 className="w-10 h-10 text-finance-blue" />
             </div>
           </CardContent></Card>
           <Card><CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm font-medium text-gray-600">Total AUM</p><p className="text-3xl font-bold text-green-600">₹{(statistics.totalAUM / 10000000000).toFixed(0)} Cr</p></div>
+              <div><p className="text-sm font-medium text-muted-foreground">Total AUM</p><p className="text-3xl font-bold text-green-600">₹{(statistics.totalAUM / 10000000000).toFixed(0)} Cr</p></div>
               <IndianRupee className="w-10 h-10 text-green-600" />
             </div>
           </CardContent></Card>
           <Card><CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm font-medium text-gray-600">Avg. 1Y Returns</p><p className="text-3xl font-bold text-purple-600">+{statistics.averageReturns.toFixed(1)}%</p></div>
+              <div><p className="text-sm font-medium text-muted-foreground">Avg. 1Y Returns</p><p className="text-3xl font-bold text-purple-600">+{statistics.averageReturns.toFixed(1)}%</p></div>
               <BarChart3 className="w-10 h-10 text-purple-600" />
             </div>
           </CardContent></Card>
           <Card><CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm font-medium text-gray-600">Active AMCs</p><p className="text-3xl font-bold text-amber-600">{statistics.activeAMCs}</p></div>
+              <div><p className="text-sm font-medium text-muted-foreground">Active AMCs</p><p className="text-3xl font-bold text-amber-600">{statistics.activeAMCs}</p></div>
               <Award className="w-10 h-10 text-amber-600" />
             </div>
           </CardContent></Card>
@@ -498,7 +498,7 @@ export default function AIF() {
             <div className="flex flex-wrap gap-4 mb-6">
               <div className="flex-1 min-w-[200px]">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input placeholder="Search AIF schemes..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="search-aif" />
                 </div>
               </div>
@@ -550,17 +550,17 @@ export default function AIF() {
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Min Investment</span>
+                        <span className="text-muted-foreground">Min Investment</span>
                         <span className="font-semibold">₹{(parseFloat(scheme.minInvestment || '10000000') / 10000000).toFixed(0)} Cr</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">1Y Returns</span>
+                        <span className="text-muted-foreground">1Y Returns</span>
                         <span className={`font-semibold ${parseFloat(scheme.return1Y || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {parseFloat(scheme.return1Y || '0') >= 0 ? '+' : ''}{scheme.return1Y || 'N/A'}%
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">AUM</span>
+                        <span className="text-muted-foreground">AUM</span>
                         <span className="font-semibold">₹{(parseFloat(scheme.aum || '0') / 10000000).toFixed(0)} Cr</span>
                       </div>
                       <ExpressInterestButton productId={scheme.id} productType="aif" productName={scheme.name} />
@@ -593,21 +593,21 @@ export default function AIF() {
                 <CardContent className="p-6 text-center">
                   <Calculator className="w-12 h-12 text-blue-600 mx-auto mb-4" />
                   <h3 className="font-semibold text-lg mb-2">Investment Calculator</h3>
-                  <p className="text-sm text-gray-500">Calculate returns on AIF investments</p>
+                  <p className="text-sm text-muted-foreground">Calculate returns on AIF investments</p>
                 </CardContent>
               </Card>
               <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardContent className="p-6 text-center">
                   <PieChart className="w-12 h-12 text-green-600 mx-auto mb-4" />
                   <h3 className="font-semibold text-lg mb-2">Risk Assessment</h3>
-                  <p className="text-sm text-gray-500">Evaluate your risk tolerance</p>
+                  <p className="text-sm text-muted-foreground">Evaluate your risk tolerance</p>
                 </CardContent>
               </Card>
               <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardContent className="p-6 text-center">
                   <Target className="w-12 h-12 text-purple-600 mx-auto mb-4" />
                   <h3 className="font-semibold text-lg mb-2">Goal Planning</h3>
-                  <p className="text-sm text-gray-500">Plan your investment goals</p>
+                  <p className="text-sm text-muted-foreground">Plan your investment goals</p>
                 </CardContent>
               </Card>
             </div>

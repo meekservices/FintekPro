@@ -163,7 +163,7 @@ export default function Markets() {
             </h2>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Display in:</span>
+                <span className="text-sm text-muted-foreground">Display in:</span>
                 <CurrencySelector
                   value={selectedCurrency}
                   onChange={setSelectedCurrency}
@@ -207,7 +207,7 @@ export default function Markets() {
                               : addToWatchlist(index.symbol);
                           }}
                         >
-                          <Bookmark className={`h-4 w-4 ${isInWatchlist ? 'fill-current text-blue-600' : 'text-gray-400'}`} />
+                          <Bookmark className={`h-4 w-4 ${isInWatchlist ? 'fill-current text-blue-600' : 'text-muted-foreground'}`} />
                         </Button>
                         {isPositive ? (
                           <TrendingUp className="h-5 w-5 text-green-600" />
@@ -231,7 +231,7 @@ export default function Markets() {
                             />
                           </p>
                           {selectedCurrency !== "INR" && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               ≈ ₹{indexData.price.toLocaleString(undefined, { 
                                 minimumFractionDigits: 2, 
                                 maximumFractionDigits: 2 
@@ -259,7 +259,7 @@ export default function Markets() {
                           )}
                         </p>
                         
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {indexData ? (
                             <>
                               {isPositive ? '+' : ''}{indexData.change?.toFixed(2)}
@@ -293,7 +293,7 @@ export default function Markets() {
           {/* Enhanced Market Chart */}
           <div className="lg:col-span-2">
             <Card className="shadow-xl border-0">
-              <CardHeader className="border-b border-gray-200">
+              <CardHeader className="border-b border-border">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
                     <BarChart3 className="h-6 w-6 mr-3 text-blue-600" />
@@ -323,7 +323,7 @@ export default function Markets() {
             
             {/* Enhanced Stock Quote Details */}
             <Card className="shadow-xl border-0">
-              <CardHeader className="border-b border-gray-200">
+              <CardHeader className="border-b border-border">
                 <CardTitle className="flex items-center gap-2">
                   <Target className="h-5 w-5 text-blue-600" />
                   Stock Details
@@ -332,7 +332,7 @@ export default function Markets() {
               <CardContent className="p-6">
                 {searchSymbol && symbolQuote ? (
                   <div className="space-y-6" data-testid="stock-quote-details">
-                    <div className="text-center pb-4 border-b border-gray-200">
+                    <div className="text-center pb-4 border-b border-border">
                       <h3 className="font-bold text-2xl text-gray-900 mb-2">
                         {searchSymbol.toUpperCase()}
                       </h3>
@@ -354,8 +354,8 @@ export default function Markets() {
                         { label: "Open", value: `₹${symbolQuote.o?.toFixed(2)}`, color: "text-gray-900" },
                         { label: "Prev Close", value: `₹${symbolQuote.pc?.toFixed(2)}`, color: "text-gray-900" }
                       ].map((item, index) => (
-                        <div key={index} className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-gray-600 mb-1">{item.label}</p>
+                        <div key={index} className="bg-muted rounded-lg p-3">
+                          <p className="text-muted-foreground mb-1">{item.label}</p>
                           <p className={`font-bold text-lg ${item.color}`}>{item.value}</p>
                         </div>
                       ))}
@@ -371,9 +371,9 @@ export default function Markets() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <Search className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-gray-500 mb-2 font-medium">No Stock Selected</p>
-                    <p className="text-sm text-gray-400">
+                    <Search className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-2 font-medium">No Stock Selected</p>
+                    <p className="text-sm text-muted-foreground">
                       Search for a stock symbol above to view detailed quote information
                     </p>
                   </div>
@@ -408,7 +408,7 @@ export default function Markets() {
               {/* Indian Stock Exchanges */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <Card className="shadow-xl border-0">
-                  <CardHeader className="border-b border-gray-200">
+                  <CardHeader className="border-b border-border">
                     <CardTitle className="text-xl font-semibold text-gray-900">
                       NSE (National Stock Exchange)
                     </CardTitle>
@@ -419,7 +419,7 @@ export default function Markets() {
                 </Card>
                 
                 <Card className="shadow-xl border-0">
-                  <CardHeader className="border-b border-gray-200">
+                  <CardHeader className="border-b border-border">
                     <CardTitle className="text-xl font-semibold text-gray-900">
                       BSE (Bombay Stock Exchange)
                     </CardTitle>
@@ -433,7 +433,7 @@ export default function Markets() {
               {/* Commodities Exchanges */}
               <div className="space-y-8">
                 <Card className="shadow-xl border-0">
-                  <CardHeader className="border-b border-gray-200">
+                  <CardHeader className="border-b border-border">
                     <CardTitle className="text-xl font-semibold text-gray-900">
                       <AgriculturalTooltip searchTerm="commodity">
                         MCX Commodities Live Data
@@ -446,7 +446,7 @@ export default function Markets() {
                 </Card>
 
                 <Card className="shadow-xl border-0">
-                  <CardHeader className="border-b border-gray-200">
+                  <CardHeader className="border-b border-border">
                     <CardTitle className="text-xl font-semibold text-gray-900">
                       <AgriculturalTooltip searchTerm="agricultural commodity">
                         NCDEX Agricultural Commodities
@@ -459,7 +459,7 @@ export default function Markets() {
                 </Card>
 
                 <Card className="shadow-xl border-0">
-                  <CardHeader className="border-b border-gray-200">
+                  <CardHeader className="border-b border-border">
                     <CardTitle className="text-xl font-semibold text-gray-900">
                       MSEI Metropolitan Stock Exchange
                     </CardTitle>
@@ -475,7 +475,7 @@ export default function Markets() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <MarketMovers />
                 <Card className="shadow-xl border-0">
-                  <CardHeader className="border-b border-gray-200">
+                  <CardHeader className="border-b border-border">
                     <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
                       <PieChart className="h-5 w-5 mr-2 text-blue-600" />
                       Sector Performance
@@ -490,7 +490,7 @@ export default function Markets() {
                         { sector: "Automobiles", change: "+0.9%", color: "text-green-600 bg-green-50" },
                         { sector: "Real Estate", change: "-1.3%", color: "text-red-600 bg-red-50" }
                       ].map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                           <span className="font-medium text-gray-900">{item.sector}</span>
                           <span className={`px-2 py-1 rounded text-sm font-semibold ${item.color}`}>
                             {item.change}

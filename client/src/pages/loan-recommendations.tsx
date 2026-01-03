@@ -86,7 +86,7 @@ function getPriorityColor(priority: string) {
     case 'high': return 'bg-red-100 text-red-800 border-red-300';
     case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
     case 'low': return 'bg-green-100 text-green-800 border-green-300';
-    default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    default: return 'bg-muted text-foreground border-border';
   }
 }
 
@@ -95,7 +95,7 @@ function getUrgencyColor(urgency: string) {
     case 'immediate': return 'bg-red-50 border-red-200 text-red-700';
     case 'within_month': return 'bg-orange-50 border-orange-200 text-orange-700';
     case 'future_consideration': return 'bg-blue-50 border-blue-200 text-blue-700';
-    default: return 'bg-gray-50 border-gray-200 text-gray-700';
+    default: return 'bg-muted border-border text-muted-foreground';
   }
 }
 
@@ -118,7 +118,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
               <CardTitle className="text-xl font-bold text-gray-900 capitalize">
                 {recommendation.loanType.replace('_', ' ')} Loan
               </CardTitle>
-              <CardDescription className="text-gray-600 font-medium">
+              <CardDescription className="text-muted-foreground font-medium">
                 {recommendation.lenderName}
               </CardDescription>
             </div>
@@ -129,7 +129,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
             </Badge>
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 text-yellow-500 fill-current" />
-              <span className="text-sm font-bold text-gray-700">
+              <span className="text-sm font-bold text-muted-foreground">
                 {recommendation.eligibilityScore}/100
               </span>
             </div>
@@ -144,25 +144,25 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
             <div className="text-2xl font-bold text-blue-600">
               {formatCurrency(recommendation.recommendedAmount)}
             </div>
-            <div className="text-xs text-gray-500 font-medium">Loan Amount</div>
+            <div className="text-xs text-muted-foreground font-medium">Loan Amount</div>
           </div>
           <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
             <div className="text-2xl font-bold text-green-600">
               {recommendation.interestRate.toFixed(2)}%
             </div>
-            <div className="text-xs text-gray-500 font-medium">Interest Rate</div>
+            <div className="text-xs text-muted-foreground font-medium">Interest Rate</div>
           </div>
           <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
             <div className="text-2xl font-bold text-purple-600">
               {formatCurrency(recommendation.emi)}
             </div>
-            <div className="text-xs text-gray-500 font-medium">Monthly EMI</div>
+            <div className="text-xs text-muted-foreground font-medium">Monthly EMI</div>
           </div>
           <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
             <div className="text-2xl font-bold text-orange-600">
               {recommendation.tenure} months
             </div>
-            <div className="text-xs text-gray-500 font-medium">Tenure</div>
+            <div className="text-xs text-muted-foreground font-medium">Tenure</div>
           </div>
         </div>
 
@@ -183,7 +183,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {recommendation.keyBenefits.map((benefit, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm text-gray-700">
+              <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0" />
                 {benefit}
               </div>
@@ -226,7 +226,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
           </Button>
           <Button 
             variant="outline" 
-            className="flex-1 hover:bg-gray-50"
+            className="flex-1 hover:bg-muted"
             data-testid={`details-${recommendation.loanType}`}
           >
             <Calculator className="w-4 h-4 mr-2" />
@@ -235,7 +235,7 @@ function LoanRecommendationCard({ recommendation, onApplyClick }: {
         </div>
         
         {/* Processing Info */}
-        <div className="text-xs text-gray-500 text-center pt-2 border-t border-gray-100">
+        <div className="text-xs text-muted-foreground text-center pt-2 border-t border-gray-100">
           Expected approval time: {recommendation.expectedApprovalTime} • 
           Processing fee: {formatCurrency(recommendation.processingFee)}
         </div>
@@ -263,14 +263,14 @@ function FinancialProfileOverview() {
             <div className="space-y-3">
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">CIBIL Score</span>
+                  <span className="text-sm text-muted-foreground">CIBIL Score</span>
                   <span className="text-sm font-bold text-green-600">750</span>
                 </div>
                 <Progress value={75} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">Credit Utilization</span>
+                  <span className="text-sm text-muted-foreground">Credit Utilization</span>
                   <span className="text-sm font-bold text-blue-600">35%</span>
                 </div>
                 <Progress value={35} className="h-2" />
@@ -282,15 +282,15 @@ function FinancialProfileOverview() {
             <h4 className="font-semibold text-gray-900">Income & EMIs</h4>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Monthly Income</span>
+                <span className="text-sm text-muted-foreground">Monthly Income</span>
                 <span className="text-sm font-bold">₹1,00,000</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Existing EMIs</span>
+                <span className="text-sm text-muted-foreground">Existing EMIs</span>
                 <span className="text-sm font-bold">₹25,000</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Available for EMI</span>
+                <span className="text-sm text-muted-foreground">Available for EMI</span>
                 <span className="text-sm font-bold text-green-600">₹45,000</span>
               </div>
             </div>
@@ -300,15 +300,15 @@ function FinancialProfileOverview() {
             <h4 className="font-semibold text-gray-900">Assets & Liabilities</h4>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Net Worth</span>
+                <span className="text-sm text-muted-foreground">Net Worth</span>
                 <span className="text-sm font-bold">₹20,00,000</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Total Assets</span>
+                <span className="text-sm text-muted-foreground">Total Assets</span>
                 <span className="text-sm font-bold">₹15,00,000</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Total Liabilities</span>
+                <span className="text-sm text-muted-foreground">Total Liabilities</span>
                 <span className="text-sm font-bold">₹5,00,000</span>
               </div>
             </div>
@@ -389,13 +389,13 @@ export default function LoanRecommendationsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-muted p-6">
         <div className="max-w-7xl mx-auto">
           <div className="space-y-6">
             {[...Array(3)].map((_, i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-6">
-                  <div className="h-48 bg-gray-200 rounded" />
+                  <div className="h-48 bg-muted rounded" />
                 </CardContent>
               </Card>
             ))}
@@ -407,7 +407,7 @@ export default function LoanRecommendationsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-muted p-6">
         <div className="max-w-7xl mx-auto">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -426,7 +426,7 @@ export default function LoanRecommendationsPage() {
     : recommendations.filter(r => r.priority === selectedTab);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -435,7 +435,7 @@ export default function LoanRecommendationsPage() {
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
                 Personalized Loan Recommendations
               </h1>
-              <p className="text-xl text-gray-600">
+              <p className="text-xl text-muted-foreground">
                 AI-powered loan suggestions tailored to your financial profile
               </p>
             </div>
@@ -539,13 +539,13 @@ export default function LoanRecommendationsPage() {
         ) : (
           <Card className="text-center py-12">
             <CardContent>
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-8 h-8 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 No recommendations found
               </h3>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 {selectedTab === "all" 
                   ? "Complete your financial profile to get personalized loan recommendations."
                   : `No ${selectedTab} priority recommendations available.`

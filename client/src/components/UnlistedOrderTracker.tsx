@@ -89,7 +89,7 @@ export function UnlistedOrderTracker({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Order Status</span>
+          <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Order Status</span>
           {getStatusBadge()}
         </div>
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -108,12 +108,12 @@ export function UnlistedOrderTracker({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Order Progress</span>
+        <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Order Progress</span>
         {getStatusBadge()}
       </div>
 
       <div className="relative">
-        <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 rounded-full" />
+        <div className="absolute top-5 left-0 right-0 h-1 bg-muted dark:bg-gray-700 rounded-full" />
         <div 
           className="absolute top-5 left-0 h-1 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-500"
           style={{ width: `${(currentIndex / (stages.length - 1)) * 100}%` }}
@@ -133,19 +133,19 @@ export function UnlistedOrderTracker({
                       ? 'bg-emerald-500 text-white'
                       : isCurrent
                       ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 border-2 border-blue-500 animate-pulse'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-400 border border-gray-300 dark:border-gray-600'
+                      : 'bg-muted dark:bg-muted text-muted-foreground border border-border dark:border-border'
                   }`}
                 >
                   <StageIcon className="w-5 h-5" />
                 </div>
                 <span className={`text-xs mt-2 text-center max-w-[70px] ${
                   isCurrent ? 'font-medium text-blue-600 dark:text-blue-400' : 
-                  isComplete ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500'
+                  isComplete ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
                 }`}>
                   {stage.label}
                 </span>
                 {stage.date && (
-                  <span className="text-[10px] text-gray-400 mt-1">
+                  <span className="text-[10px] text-muted-foreground mt-1">
                     {new Date(stage.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                   </span>
                 )}
@@ -156,7 +156,7 @@ export function UnlistedOrderTracker({
       </div>
 
       {expectedSettlement && currentIndex < 4 && (
-        <div className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div className="text-sm text-muted-foreground dark:text-muted-foreground text-center mt-4 p-2 bg-muted dark:bg-muted rounded-lg">
           <Clock className="w-4 h-4 inline mr-1" />
           Expected settlement: {new Date(expectedSettlement).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}
         </div>

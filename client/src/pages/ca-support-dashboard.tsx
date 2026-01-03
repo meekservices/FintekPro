@@ -161,8 +161,8 @@ export default function CASupportDashboard() {
       case 'in_progress': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       case 'resolved': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'pending': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-      case 'closed': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'closed': return 'bg-muted text-foreground dark:bg-card dark:text-muted-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -170,9 +170,9 @@ export default function CASupportDashboard() {
     switch (status) {
       case 'completed': return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'in_progress': return <Play className="h-5 w-5 text-yellow-500" />;
-      case 'pending': return <Clock className="h-5 w-5 text-gray-400" />;
-      case 'skipped': return <RotateCcw className="h-5 w-5 text-gray-400" />;
-      default: return <Clock className="h-5 w-5 text-gray-400" />;
+      case 'pending': return <Clock className="h-5 w-5 text-muted-foreground" />;
+      case 'skipped': return <RotateCcw className="h-5 w-5 text-muted-foreground" />;
+      default: return <Clock className="h-5 w-5 text-muted-foreground" />;
     }
   };
 
@@ -194,7 +194,7 @@ export default function CASupportDashboard() {
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
               CA Support Dashboard
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-muted-foreground dark:text-muted-foreground mt-1">
               Manage client support requests with step-by-step workflows
             </p>
           </div>
@@ -209,70 +209,70 @@ export default function CASupportDashboard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card className="bg-white dark:bg-gray-800" data-testid="stat-total">
+          <Card className="bg-white dark:bg-muted" data-testid="stat-total">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
                   <Clipboard className="h-5 w-5 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white dark:bg-gray-800" data-testid="stat-open">
+          <Card className="bg-white dark:bg-muted" data-testid="stat-open">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
                   <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Open</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Open</p>
                   <p className="text-2xl font-bold text-blue-600">{stats.open}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white dark:bg-gray-800" data-testid="stat-in-progress">
+          <Card className="bg-white dark:bg-muted" data-testid="stat-in-progress">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900">
                   <Play className="h-5 w-5 text-yellow-600 dark:text-yellow-300" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">In Progress</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">In Progress</p>
                   <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white dark:bg-gray-800" data-testid="stat-pending">
+          <Card className="bg-white dark:bg-muted" data-testid="stat-pending">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900">
                   <Clock className="h-5 w-5 text-orange-600 dark:text-orange-300" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Pending</p>
                   <p className="text-2xl font-bold text-orange-600">{stats.pending}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white dark:bg-gray-800" data-testid="stat-resolved">
+          <Card className="bg-white dark:bg-muted" data-testid="stat-resolved">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900">
                   <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-300" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Resolved</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Resolved</p>
                   <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
                 </div>
               </div>
@@ -282,7 +282,7 @@ export default function CASupportDashboard() {
 
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search tickets by subject, client name, or ticket number..."
               value={searchQuery}
@@ -324,13 +324,13 @@ export default function CASupportDashboard() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : filteredTickets.length === 0 ? (
-              <Card className="bg-white dark:bg-gray-800">
+              <Card className="bg-white dark:bg-muted">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Clipboard className="h-12 w-12 text-gray-400 mb-4" />
+                  <Clipboard className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                     No tickets found
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-center">
+                  <p className="text-muted-foreground dark:text-muted-foreground text-center">
                     {searchQuery || statusFilter !== 'all' 
                       ? 'Try adjusting your search or filter criteria'
                       : 'No support tickets assigned to you yet'}
@@ -342,7 +342,7 @@ export default function CASupportDashboard() {
                 {filteredTickets.map((ticket) => (
                   <Card 
                     key={ticket.id} 
-                    className="bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow cursor-pointer"
+                    className="bg-white dark:bg-muted hover:shadow-lg transition-shadow cursor-pointer"
                     onClick={() => setSelectedTicket(ticket)}
                     data-testid={`ticket-card-${ticket.id}`}
                   >
@@ -359,7 +359,7 @@ export default function CASupportDashboard() {
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                             {ticket.subject}
                           </h3>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground dark:text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <User className="h-4 w-4" />
                               {ticket.clientName}
@@ -378,11 +378,11 @@ export default function CASupportDashboard() {
                           {ticket.stepProgress && ticket.stepProgress.total > 0 && (
                             <div className="w-full md:w-48">
                               <div className="flex items-center justify-between text-sm mb-1">
-                                <span className="text-gray-600 dark:text-gray-400">Progress</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground">Progress</span>
                                 <span className="font-medium">{ticket.stepProgress.percentage}%</span>
                               </div>
                               <Progress value={ticket.stepProgress.percentage} className="h-2" />
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className="text-xs text-muted-foreground mt-1">
                                 {ticket.stepProgress.completed}/{ticket.stepProgress.total} steps
                               </p>
                             </div>
@@ -408,13 +408,13 @@ export default function CASupportDashboard() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : templates.length === 0 ? (
-              <Card className="bg-white dark:bg-gray-800">
+              <Card className="bg-white dark:bg-muted">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <LayoutTemplate className="h-12 w-12 text-gray-400 mb-4" />
+                  <LayoutTemplate className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                     No templates available
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+                  <p className="text-muted-foreground dark:text-muted-foreground text-center mb-4">
                     Service templates help you manage client requests efficiently
                   </p>
                   <Button
@@ -439,7 +439,7 @@ export default function CASupportDashboard() {
                 {templates.map((template) => (
                   <Card 
                     key={template.id} 
-                    className="bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow"
+                    className="bg-white dark:bg-muted hover:shadow-lg transition-shadow"
                     data-testid={`template-card-${template.id}`}
                   >
                     <CardHeader className="pb-2">
@@ -458,7 +458,7 @@ export default function CASupportDashboard() {
                     <CardContent>
                       <div className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Estimated Time</span>
+                          <span className="text-muted-foreground dark:text-muted-foreground">Estimated Time</span>
                           <span className="font-medium flex items-center gap-1">
                             <Clock className="h-4 w-4" />
                             {template.estimatedTime}
@@ -468,7 +468,7 @@ export default function CASupportDashboard() {
                           {template.category.replace('_', ' ')}
                         </Badge>
                         {template.requiredDocuments && template.requiredDocuments.length > 0 && (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             Required: {template.requiredDocuments.slice(0, 3).join(', ')}
                             {template.requiredDocuments.length > 3 && ` +${template.requiredDocuments.length - 3} more`}
                           </div>
@@ -499,26 +499,26 @@ export default function CASupportDashboard() {
                     <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-2">
                       {selectedTicket.subject}
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-muted-foreground dark:text-muted-foreground">
                       {selectedTicket.description}
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted dark:bg-muted rounded-lg">
                     <div>
-                      <p className="text-sm text-gray-500">Client</p>
+                      <p className="text-sm text-muted-foreground">Client</p>
                       <p className="font-medium">{selectedTicket.clientName}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="text-sm text-muted-foreground">Email</p>
                       <p className="font-medium">{selectedTicket.clientEmail}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Category</p>
+                      <p className="text-sm text-muted-foreground">Category</p>
                       <p className="font-medium capitalize">{selectedTicket.category.replace('_', ' ')}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Created</p>
+                      <p className="text-sm text-muted-foreground">Created</p>
                       <p className="font-medium">{new Date(selectedTicket.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
@@ -527,7 +527,7 @@ export default function CASupportDashboard() {
                     <div>
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-semibold">Workflow Progress</h4>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {selectedTicket.stepProgress.completed}/{selectedTicket.stepProgress.total} steps completed
                         </span>
                       </div>
@@ -542,12 +542,12 @@ export default function CASupportDashboard() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="p-6 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center">
-                      <LayoutTemplate className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                    <div className="p-6 border-2 border-dashed border-border dark:border-border rounded-lg text-center">
+                      <LayoutTemplate className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                       <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                         No workflow assigned
                       </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-4">
                         Apply a service template to create a step-by-step workflow for this ticket
                       </p>
                       <Select 
@@ -617,7 +617,7 @@ export default function CASupportDashboard() {
                         <Badge variant="outline" className="capitalize">
                           {template.category.replace('_', ' ')}
                         </Badge>
-                        <span className="text-gray-500 flex items-center gap-1">
+                        <span className="text-muted-foreground flex items-center gap-1">
                           <Clock className="h-4 w-4" />
                           {template.estimatedTime}
                         </span>

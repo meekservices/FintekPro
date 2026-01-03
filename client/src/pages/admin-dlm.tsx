@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-800",
+  draft: "bg-muted text-foreground",
   negotiation: "bg-yellow-100 text-yellow-800",
   review: "bg-blue-100 text-blue-800",
   approved: "bg-green-100 text-green-800",
@@ -47,7 +47,7 @@ const STATUS_COLORS: Record<string, string> = {
   legacy: "bg-purple-100 text-purple-800",
   expired: "bg-red-100 text-red-800",
   rejected: "bg-red-100 text-red-800",
-  archived: "bg-gray-200 text-gray-600",
+  archived: "bg-muted text-muted-foreground",
 };
 
 const STATUS_ICONS: Record<string, any> = {
@@ -397,7 +397,7 @@ export default function AdminDLMPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <Clock className="w-8 h-8 text-gray-500" />
+              <Clock className="w-8 h-8 text-muted-foreground" />
               <div>
                 <p className="text-2xl font-bold">{stats?.statusCounts?.draft || 0}</p>
                 <p className="text-xs text-muted-foreground">Drafts</p>

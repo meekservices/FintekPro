@@ -3,7 +3,7 @@ export default function AchievementsPage() {
   const userId = 'mock-user-id';
 
   return (
-    <div className="min-h-screen bg-gray-50" data-testid="achievements-page">
+    <div className="min-h-screen bg-muted" data-testid="achievements-page">
       <div className="container mx-auto px-4 py-8">
         {/* Page Header */}
         <div className="mb-8">
@@ -11,7 +11,7 @@ export default function AchievementsPage() {
             <Trophy className="h-8 w-8 text-yellow-500 mr-3" />
             <h1 className="text-3xl font-bold text-gray-900">Investment Learning Achievements</h1>
           </div>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-muted-foreground">
             Track your progress, unlock achievements, and compete with other investors on your learning journey.
           </p>
         </div>

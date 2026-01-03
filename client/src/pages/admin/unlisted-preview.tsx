@@ -554,7 +554,7 @@ export default function UnlistedPreviewPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-        <span className="ml-3 text-gray-400">Loading company preview...</span>
+        <span className="ml-3 text-muted-foreground">Loading company preview...</span>
       </div>
     );
   }
@@ -564,7 +564,7 @@ export default function UnlistedPreviewPage() {
       <div className="p-8 text-center">
         <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
         <h2 className="text-xl font-bold text-white mb-2">Company Not Found</h2>
-        <p className="text-gray-400 mb-4">The company you're looking for doesn't exist.</p>
+        <p className="text-muted-foreground mb-4">The company you're looking for doesn't exist.</p>
         <Button onClick={handleBack} variant="outline" data-testid="button-back-not-found">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Pricing
@@ -584,14 +584,14 @@ export default function UnlistedPreviewPage() {
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800 -mx-6 px-6 py-4">
+      <div className="sticky top-0 z-10 bg-background border-b border-border -mx-6 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={handleBack}
-              className="text-gray-400 hover:text-white"
+              className="text-muted-foreground hover:text-white"
               data-testid="button-back"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -601,7 +601,7 @@ export default function UnlistedPreviewPage() {
               <h1 className="text-xl font-bold text-white flex items-center gap-2">
                 Preview: {company.name}
               </h1>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Review how this company will appear to clients before publishing
               </p>
             </div>
@@ -609,7 +609,7 @@ export default function UnlistedPreviewPage() {
           
           <div className="flex items-center gap-3">
             <div className="text-right mr-4">
-              <div className="text-sm text-gray-400">Set Prices</div>
+              <div className="text-sm text-muted-foreground">Set Prices</div>
               <div className="flex items-center gap-3">
                 <span className="text-green-400 font-medium">Buy: ₹{buyPrice}</span>
                 <span className="text-red-400 font-medium">Sell: ₹{sellPrice}</span>
@@ -675,7 +675,7 @@ export default function UnlistedPreviewPage() {
               {enrichmentResult.enrichedFields.map((field: { field: string; oldValue: string | null; newValue: string; source: string }, i: number) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className="font-medium capitalize">{String(field.field)}:</span>
-                  <span className="text-gray-500 line-through">{String(field.oldValue || 'Empty')}</span>
+                  <span className="text-muted-foreground line-through">{String(field.oldValue || 'Empty')}</span>
                   <ArrowUpRight className="w-3 h-3" />
                   <span className="text-emerald-700 dark:text-emerald-300 font-medium">{String(field.newValue)}</span>
                   <Badge variant="outline" className="text-xs">{String(field.source)}</Badge>
@@ -688,7 +688,7 @@ export default function UnlistedPreviewPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -696,8 +696,8 @@ export default function UnlistedPreviewPage() {
                     <Building2 className="w-6 h-6 text-blue-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-white">{company.name}</CardTitle>
-                    <CardDescription className="text-gray-400">
+                    <CardTitle className="text-foreground">{company.name}</CardTitle>
+                    <CardDescription className="text-muted-foreground">
                       {company.sector || 'Unknown Sector'} • {company.industry || 'Unknown Industry'}
                     </CardDescription>
                   </div>
@@ -708,7 +708,7 @@ export default function UnlistedPreviewPage() {
                       ? 'bg-blue-600/20 text-blue-400' 
                       : company.listingStage === 'growth'
                       ? 'bg-purple-600/20 text-purple-400'
-                      : 'bg-gray-600/20 text-gray-400'
+                      : 'bg-gray-600/20 text-muted-foreground'
                   }`}
                 >
                   {company.listingStage === 'pre_ipo' ? 'Pre-IPO' : 
@@ -720,18 +720,18 @@ export default function UnlistedPreviewPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 {company.cin ? (
                   <div>
-                    <span className="text-gray-500">CIN</span>
+                    <span className="text-muted-foreground">CIN</span>
                     <p className="text-white font-mono text-xs">{company.cin}</p>
                   </div>
                 ) : (
                   <div className="col-span-2">
-                    <Label className="text-gray-500 text-xs mb-1 block">CIN (Required for MCA data)</Label>
+                    <Label className="text-muted-foreground text-xs mb-1 block">CIN (Required for MCA data)</Label>
                     <div className="flex gap-2">
                       <Input
                         value={manualCIN}
                         onChange={(e) => setManualCIN(e.target.value.toUpperCase())}
                         placeholder="U12345AB1234ABC123456"
-                        className="bg-gray-800 border-gray-700 text-white font-mono text-xs h-8"
+                        className="bg-muted border-border text-white font-mono text-xs h-8"
                         maxLength={21}
                         data-testid="input-manual-cin"
                       />
@@ -749,34 +749,34 @@ export default function UnlistedPreviewPage() {
                         )}
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Find CIN at <a href="https://www.mca.gov.in/content/mca/global/en/mca/fo-llp-services/findCinFinalSingleCom.html" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">mca.gov.in</a>
                     </p>
                   </div>
                 )}
                 {company.isin && (
                   <div>
-                    <span className="text-gray-500">ISIN</span>
+                    <span className="text-muted-foreground">ISIN</span>
                     <p className="text-white font-mono">{company.isin}</p>
                   </div>
                 )}
                 {company.faceValue && (
                   <div>
-                    <span className="text-gray-500">Face Value</span>
-                    <p className="text-white">₹{company.faceValue}</p>
+                    <span className="text-muted-foreground">Face Value</span>
+                    <p className="text-foreground">₹{company.faceValue}</p>
                   </div>
                 )}
                 {company.totalShares && (
                   <div>
-                    <span className="text-gray-500">Total Shares</span>
-                    <p className="text-white">{Number(company.totalShares).toLocaleString('en-IN')}</p>
+                    <span className="text-muted-foreground">Total Shares</span>
+                    <p className="text-foreground">{Number(company.totalShares).toLocaleString('en-IN')}</p>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-green-400" />
@@ -789,7 +789,7 @@ export default function UnlistedPreviewPage() {
             <CardContent>
               {isLoadingFinancials ? (
                 <div className="h-48 flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : financialChartData.length > 0 ? (
                 <div className="h-64">
@@ -810,7 +810,7 @@ export default function UnlistedPreviewPage() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-48 flex items-center justify-center text-gray-500">
+                <div className="h-48 flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
                     <p className="mb-3">No financial data available</p>
@@ -836,7 +836,7 @@ export default function UnlistedPreviewPage() {
           </Card>
 
           {latestFinancials && (
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <IndianRupee className="w-5 h-5 text-amber-400" />
@@ -845,20 +845,20 @@ export default function UnlistedPreviewPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">Revenue</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs text-muted-foreground">Revenue</div>
                     <div className="text-lg font-bold text-white">
                       {formatCurrency(latestFinancials.revenue)}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">EBITDA</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs text-muted-foreground">EBITDA</div>
                     <div className="text-lg font-bold text-blue-400">
                       {formatCurrency(latestFinancials.ebitda)}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">Net Profit (PAT)</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs text-muted-foreground">Net Profit (PAT)</div>
                     <div className={`text-lg font-bold ${
                       (parseFloat(latestFinancials.netProfit?.toString() || latestFinancials.pat?.toString() || '0') >= 0) 
                         ? 'text-green-400' 
@@ -867,8 +867,8 @@ export default function UnlistedPreviewPage() {
                       {formatCurrency(latestFinancials.netProfit || latestFinancials.pat)}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">Net Worth</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs text-muted-foreground">Net Worth</div>
                     <div className={`text-lg font-bold ${
                       (parseFloat(latestFinancials.networth?.toString() || '0') >= 0) 
                         ? 'text-green-400' 
@@ -879,14 +879,14 @@ export default function UnlistedPreviewPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">Total Assets</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs text-muted-foreground">Total Assets</div>
                     <div className="text-lg font-bold text-white">
                       {formatCurrency(latestFinancials.totalAssets)}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">Total Debt</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs text-muted-foreground">Total Debt</div>
                     <div className={`text-lg font-bold ${
                       (parseFloat(latestFinancials.totalDebt?.toString() || '0') > parseFloat(latestFinancials.networth?.toString() || '1')) 
                         ? 'text-red-400' 
@@ -895,8 +895,8 @@ export default function UnlistedPreviewPage() {
                       {formatCurrency(latestFinancials.totalDebt)}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">EBITDA Margin</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs text-muted-foreground">EBITDA Margin</div>
                     <div className={`text-lg font-bold ${
                       latestRatios && parseFloat(latestRatios.marginEbitda?.toString() || '0') >= 0.15 
                         ? 'text-green-400' 
@@ -905,8 +905,8 @@ export default function UnlistedPreviewPage() {
                       {latestRatios?.marginEbitda ? `${(parseFloat(latestRatios.marginEbitda.toString()) * 100).toFixed(1)}%` : '—'}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-800 rounded-lg">
-                    <div className="text-xs text-gray-400">PAT Margin</div>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-xs text-muted-foreground">PAT Margin</div>
                     <div className={`text-lg font-bold ${
                       latestRatios && parseFloat(latestRatios.marginPat?.toString() || '0') >= 0.08 
                         ? 'text-green-400' 
@@ -922,7 +922,7 @@ export default function UnlistedPreviewPage() {
           
           {/* Growth Metrics Card - YoY Changes Only */}
           {latestRatios && (latestRatios.revenueGrowth || latestRatios.profitGrowth) && (
-            <Card className="bg-gray-900 border-gray-800">
+            <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-purple-400" />
@@ -931,8 +931,8 @@ export default function UnlistedPreviewPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-gray-900/50 rounded-lg">
-                    <div className="text-xs text-gray-400">Revenue Growth</div>
+                  <div className="p-3 bg-card/50 rounded-lg">
+                    <div className="text-xs text-muted-foreground">Revenue Growth</div>
                     <div className={`text-lg font-bold ${
                       parseFloat(latestRatios.revenueGrowth?.toString() || '0') >= 0 
                         ? 'text-green-400' 
@@ -943,8 +943,8 @@ export default function UnlistedPreviewPage() {
                         : '—'}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-900/50 rounded-lg">
-                    <div className="text-xs text-gray-400">Profit Growth</div>
+                  <div className="p-3 bg-card/50 rounded-lg">
+                    <div className="text-xs text-muted-foreground">Profit Growth</div>
                     <div className={`text-lg font-bold ${
                       parseFloat(latestRatios.profitGrowth?.toString() || '0') >= 0 
                         ? 'text-green-400' 
@@ -962,34 +962,34 @@ export default function UnlistedPreviewPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-400" />
                 Store Pricing
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-muted-foreground">
                 Prices that will be visible to clients
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-gray-900/50 rounded-lg">
+              <div className="p-4 bg-card/50 rounded-lg">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-400">Buy Price</span>
+                  <span className="text-muted-foreground">Buy Price</span>
                   <span className="text-2xl font-bold text-green-400">₹{buyPrice}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Sell Price</span>
+                  <span className="text-muted-foreground">Sell Price</span>
                   <span className="text-2xl font-bold text-red-400">₹{sellPrice}</span>
                 </div>
               </div>
-              <div className="text-xs text-gray-500 text-center">
+              <div className="text-xs text-muted-foreground text-center">
                 Spread: ₹{(parseFloat(sellPrice) - parseFloat(buyPrice)).toFixed(2)} ({((parseFloat(sellPrice) - parseFloat(buyPrice)) / parseFloat(buyPrice) * 100).toFixed(2)}%)
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Activity className="w-5 h-5 text-purple-400" />
@@ -1002,8 +1002,8 @@ export default function UnlistedPreviewPage() {
             <CardContent className="space-y-3">
               {latestRatios ? (
                 <>
-                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                    <span className="text-gray-400 text-sm">ROE</span>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-muted-foreground text-sm">ROE</span>
                     <span className={`font-medium ${
                       (parseFloat(latestRatios.roe?.toString() || '0') >= 0.15) 
                         ? 'text-green-400' 
@@ -1012,8 +1012,8 @@ export default function UnlistedPreviewPage() {
                       {latestRatios.roe ? `${(parseFloat(latestRatios.roe.toString()) * 100).toFixed(1)}%` : '—'}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                    <span className="text-gray-400 text-sm">ROCE</span>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-muted-foreground text-sm">ROCE</span>
                     <span className={`font-medium ${
                       (parseFloat(latestRatios.roce?.toString() || '0') >= 0.15) 
                         ? 'text-green-400' 
@@ -1022,8 +1022,8 @@ export default function UnlistedPreviewPage() {
                       {latestRatios.roce ? `${(parseFloat(latestRatios.roce.toString()) * 100).toFixed(1)}%` : '—'}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                    <span className="text-gray-400 text-sm">Debt/Equity</span>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-muted-foreground text-sm">Debt/Equity</span>
                     <span className={`font-medium ${
                       (parseFloat(latestRatios.debtEquity?.toString() || '0') > 1) 
                         ? 'text-red-400' 
@@ -1032,8 +1032,8 @@ export default function UnlistedPreviewPage() {
                       {latestRatios.debtEquity?.toString() || '—'}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                    <span className="text-gray-400 text-sm">Current Ratio</span>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded">
+                    <span className="text-muted-foreground text-sm">Current Ratio</span>
                     <span className={`font-medium ${
                       (parseFloat(latestRatios.currentRatio?.toString() || '0') >= 1.5) 
                         ? 'text-green-400' 
@@ -1046,7 +1046,7 @@ export default function UnlistedPreviewPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-center text-gray-500 py-4">
+                <div className="text-center text-muted-foreground py-4">
                   <Activity className="w-6 h-6 mx-auto mb-2 opacity-50" />
                   <p className="text-sm mb-3">No ratio data available</p>
                   <Button
@@ -1069,7 +1069,7 @@ export default function UnlistedPreviewPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Zap className="w-5 h-5 text-yellow-400" />
@@ -1078,25 +1078,25 @@ export default function UnlistedPreviewPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {latestRatios?.peRatio && (
-                <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                  <span className="text-gray-400 text-sm">P/E Ratio</span>
+                <div className="flex justify-between items-center p-2 bg-muted rounded">
+                  <span className="text-muted-foreground text-sm">P/E Ratio</span>
                   <span className="text-white font-medium">{latestRatios.peRatio}</span>
                 </div>
               )}
               {latestRatios?.pbRatio && (
-                <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                  <span className="text-gray-400 text-sm">P/B Ratio</span>
+                <div className="flex justify-between items-center p-2 bg-muted rounded">
+                  <span className="text-muted-foreground text-sm">P/B Ratio</span>
                   <span className="text-white font-medium">{latestRatios.pbRatio}</span>
                 </div>
               )}
               {latestRatios?.evEbitda && (
-                <div className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                  <span className="text-gray-400 text-sm">EV/EBITDA</span>
+                <div className="flex justify-between items-center p-2 bg-muted rounded">
+                  <span className="text-muted-foreground text-sm">EV/EBITDA</span>
                   <span className="text-white font-medium">{latestRatios.evEbitda}</span>
                 </div>
               )}
               {!latestRatios?.peRatio && !latestRatios?.pbRatio && !latestRatios?.evEbitda && (
-                <div className="text-center text-gray-500 py-4">
+                <div className="text-center text-muted-foreground py-4">
                   <Zap className="w-6 h-6 mx-auto mb-2 opacity-50" />
                   <p className="text-sm mb-3">Valuation data not available</p>
                   <Button
@@ -1123,7 +1123,7 @@ export default function UnlistedPreviewPage() {
 
       {/* Directors Section */}
       {company?.directors && Array.isArray(company.directors) && (company.directors as Array<{name?: string; din?: string; designation?: string}>).length > 0 && (
-        <Card className="bg-gray-900 border-gray-800 mb-6">
+        <Card className="bg-card border-border mb-6">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Users className="w-5 h-5 text-cyan-400" />
@@ -1133,11 +1133,11 @@ export default function UnlistedPreviewPage() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {(company.directors as Array<{name?: string; din?: string; designation?: string}>).map((director, index) => (
-                <div key={index} className="p-4 bg-gray-800 rounded-lg">
+                <div key={index} className="p-4 bg-muted rounded-lg">
                   <div className="text-white font-medium">{director.name || 'Unknown'}</div>
-                  <div className="text-sm text-gray-400">{director.designation || 'Director'}</div>
+                  <div className="text-sm text-muted-foreground">{director.designation || 'Director'}</div>
                   {director.din && (
-                    <div className="text-xs text-gray-500 mt-1">DIN: {director.din}</div>
+                    <div className="text-xs text-muted-foreground mt-1">DIN: {director.din}</div>
                   )}
                 </div>
               ))}
@@ -1160,13 +1160,13 @@ export default function UnlistedPreviewPage() {
         debtEquity?: number;
         revenueGrowth?: number;
       }>).length > 0 && latestRatios && (
-        <Card className="bg-gray-900 border-gray-800 mb-6">
+        <Card className="bg-card border-border mb-6">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Scale className="w-5 h-5 text-blue-400" />
               Comparison with Listed Peers
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Side-by-side comparison with similar publicly traded companies
             </CardDescription>
           </CardHeader>
@@ -1174,14 +1174,14 @@ export default function UnlistedPreviewPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-700">
-                    <TableHead className="text-gray-400 font-medium">Metric</TableHead>
+                  <TableRow className="border-border">
+                    <TableHead className="text-muted-foreground font-medium">Metric</TableHead>
                     <TableHead className="text-amber-400 font-medium">
                       {company.name}
                       <Badge className="ml-2 bg-amber-500/20 text-amber-400 text-xs">Unlisted</Badge>
                     </TableHead>
                     {(company.listedPeers as Array<{name?: string; ticker?: string; exchange?: string}>).map((peer, index) => (
-                      <TableHead key={index} className="text-gray-300 font-medium">
+                      <TableHead key={index} className="text-muted-foreground font-medium">
                         <div className="flex items-center justify-between gap-2">
                           <div>
                             {peer.name}
@@ -1192,7 +1192,7 @@ export default function UnlistedPreviewPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditPeer(index)}
-                              className="h-6 w-6 p-0 text-gray-400 hover:text-blue-400"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-400"
                               data-testid={`button-edit-peer-${index}`}
                             >
                               <Pencil className="w-3 h-3" />
@@ -1201,7 +1201,7 @@ export default function UnlistedPreviewPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeletePeer(index)}
-                              className="h-6 w-6 p-0 text-gray-400 hover:text-red-400"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-red-400"
                               data-testid={`button-delete-peer-${index}`}
                             >
                               <Trash2 className="w-3 h-3" />
@@ -1214,8 +1214,8 @@ export default function UnlistedPreviewPage() {
                 </TableHeader>
                 <TableBody>
                   {/* P/E Ratio */}
-                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
-                    <TableCell className="text-gray-400">P/E Ratio</TableCell>
+                  <TableRow className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">P/E Ratio</TableCell>
                     <TableCell className="text-white font-medium">
                       {latestRatios.peRatio ? parseFloat(latestRatios.peRatio.toString()).toFixed(1) : 'N/A'}
                     </TableCell>
@@ -1224,11 +1224,11 @@ export default function UnlistedPreviewPage() {
                       const peerPE = peer.peRatio;
                       const diff = companyPE && peerPE ? ((companyPE - peerPE) / peerPE) * 100 : null;
                       return (
-                        <TableCell key={index} className="text-gray-300">
+                        <TableCell key={index} className="text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <span>{peerPE?.toFixed(1) || 'N/A'}</span>
                             {diff !== null && (
-                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-gray-500'}`}>
+                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-muted-foreground'}`}>
                                 {diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                 {Math.abs(diff).toFixed(0)}%
                               </span>
@@ -1239,8 +1239,8 @@ export default function UnlistedPreviewPage() {
                     })}
                   </TableRow>
                   {/* P/B Ratio */}
-                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
-                    <TableCell className="text-gray-400">P/B Ratio</TableCell>
+                  <TableRow className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">P/B Ratio</TableCell>
                     <TableCell className="text-white font-medium">
                       {latestRatios.pbRatio ? parseFloat(latestRatios.pbRatio.toString()).toFixed(2) : 'N/A'}
                     </TableCell>
@@ -1249,11 +1249,11 @@ export default function UnlistedPreviewPage() {
                       const peerPB = peer.pbRatio;
                       const diff = companyPB && peerPB ? ((companyPB - peerPB) / peerPB) * 100 : null;
                       return (
-                        <TableCell key={index} className="text-gray-300">
+                        <TableCell key={index} className="text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <span>{peerPB?.toFixed(2) || 'N/A'}</span>
                             {diff !== null && (
-                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-gray-500'}`}>
+                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-muted-foreground'}`}>
                                 {diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                 {Math.abs(diff).toFixed(0)}%
                               </span>
@@ -1264,8 +1264,8 @@ export default function UnlistedPreviewPage() {
                     })}
                   </TableRow>
                   {/* EV/EBITDA */}
-                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
-                    <TableCell className="text-gray-400">EV/EBITDA</TableCell>
+                  <TableRow className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">EV/EBITDA</TableCell>
                     <TableCell className="text-white font-medium">
                       {latestRatios.evEbitda ? parseFloat(latestRatios.evEbitda.toString()).toFixed(1) : 'N/A'}
                     </TableCell>
@@ -1274,11 +1274,11 @@ export default function UnlistedPreviewPage() {
                       const peerEV = peer.evEbitda;
                       const diff = companyEV && peerEV ? ((companyEV - peerEV) / peerEV) * 100 : null;
                       return (
-                        <TableCell key={index} className="text-gray-300">
+                        <TableCell key={index} className="text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <span>{peerEV?.toFixed(1) || 'N/A'}</span>
                             {diff !== null && (
-                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-gray-500'}`}>
+                              <span className={`text-xs flex items-center ${diff < -10 ? 'text-green-400' : diff > 10 ? 'text-red-400' : 'text-muted-foreground'}`}>
                                 {diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                 {Math.abs(diff).toFixed(0)}%
                               </span>
@@ -1289,8 +1289,8 @@ export default function UnlistedPreviewPage() {
                     })}
                   </TableRow>
                   {/* ROE */}
-                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
-                    <TableCell className="text-gray-400">ROE (%)</TableCell>
+                  <TableRow className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">ROE (%)</TableCell>
                     <TableCell className="text-white font-medium">
                       {latestRatios.roe ? (parseFloat(latestRatios.roe.toString()) * 100).toFixed(1) : 'N/A'}
                     </TableCell>
@@ -1299,11 +1299,11 @@ export default function UnlistedPreviewPage() {
                       const peerROE = peer.roe;
                       const diff = companyROE !== null && peerROE ? companyROE - peerROE : null;
                       return (
-                        <TableCell key={index} className="text-gray-300">
+                        <TableCell key={index} className="text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <span>{peerROE?.toFixed(1) || 'N/A'}</span>
                             {diff !== null && (
-                              <span className={`text-xs flex items-center ${diff > 2 ? 'text-green-400' : diff < -2 ? 'text-red-400' : 'text-gray-500'}`}>
+                              <span className={`text-xs flex items-center ${diff > 2 ? 'text-green-400' : diff < -2 ? 'text-red-400' : 'text-muted-foreground'}`}>
                                 {diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                 {diff > 0 ? '+' : ''}{diff.toFixed(1)}pp
                               </span>
@@ -1314,8 +1314,8 @@ export default function UnlistedPreviewPage() {
                     })}
                   </TableRow>
                   {/* ROCE */}
-                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
-                    <TableCell className="text-gray-400">ROCE (%)</TableCell>
+                  <TableRow className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">ROCE (%)</TableCell>
                     <TableCell className="text-white font-medium">
                       {latestRatios.roce ? (parseFloat(latestRatios.roce.toString()) * 100).toFixed(1) : 'N/A'}
                     </TableCell>
@@ -1324,11 +1324,11 @@ export default function UnlistedPreviewPage() {
                       const peerROCE = peer.roce;
                       const diff = companyROCE !== null && peerROCE ? companyROCE - peerROCE : null;
                       return (
-                        <TableCell key={index} className="text-gray-300">
+                        <TableCell key={index} className="text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <span>{peerROCE?.toFixed(1) || 'N/A'}</span>
                             {diff !== null && (
-                              <span className={`text-xs flex items-center ${diff > 2 ? 'text-green-400' : diff < -2 ? 'text-red-400' : 'text-gray-500'}`}>
+                              <span className={`text-xs flex items-center ${diff > 2 ? 'text-green-400' : diff < -2 ? 'text-red-400' : 'text-muted-foreground'}`}>
                                 {diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                 {diff > 0 ? '+' : ''}{diff.toFixed(1)}pp
                               </span>
@@ -1339,8 +1339,8 @@ export default function UnlistedPreviewPage() {
                     })}
                   </TableRow>
                   {/* Debt/Equity */}
-                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
-                    <TableCell className="text-gray-400">Debt/Equity</TableCell>
+                  <TableRow className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">Debt/Equity</TableCell>
                     <TableCell className="text-white font-medium">
                       {latestRatios.debtEquity || 'N/A'}
                     </TableCell>
@@ -1349,11 +1349,11 @@ export default function UnlistedPreviewPage() {
                       const peerDE = peer.debtEquity;
                       const diff = companyDE !== null && peerDE !== undefined ? companyDE - peerDE : null;
                       return (
-                        <TableCell key={index} className="text-gray-300">
+                        <TableCell key={index} className="text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <span>{peerDE?.toFixed(2) || 'N/A'}</span>
                             {diff !== null && (
-                              <span className={`text-xs flex items-center ${diff < -0.2 ? 'text-green-400' : diff > 0.2 ? 'text-red-400' : 'text-gray-500'}`}>
+                              <span className={`text-xs flex items-center ${diff < -0.2 ? 'text-green-400' : diff > 0.2 ? 'text-red-400' : 'text-muted-foreground'}`}>
                                 {diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                 {diff > 0 ? '+' : ''}{diff.toFixed(2)}
                               </span>
@@ -1364,8 +1364,8 @@ export default function UnlistedPreviewPage() {
                     })}
                   </TableRow>
                   {/* Revenue Growth */}
-                  <TableRow className="border-gray-700 hover:bg-gray-800/50">
-                    <TableCell className="text-gray-400">Revenue Growth (%)</TableCell>
+                  <TableRow className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">Revenue Growth (%)</TableCell>
                     <TableCell className="text-white font-medium">
                       {latestRatios.revenueGrowth ? (parseFloat(latestRatios.revenueGrowth.toString()) * 100).toFixed(1) : 'N/A'}
                     </TableCell>
@@ -1374,11 +1374,11 @@ export default function UnlistedPreviewPage() {
                       const peerGrowth = peer.revenueGrowth;
                       const diff = companyGrowth !== null && peerGrowth !== undefined ? companyGrowth - peerGrowth : null;
                       return (
-                        <TableCell key={index} className="text-gray-300">
+                        <TableCell key={index} className="text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <span>{peerGrowth?.toFixed(1) || 'N/A'}</span>
                             {diff !== null && (
-                              <span className={`text-xs flex items-center ${diff > 5 ? 'text-green-400' : diff < -5 ? 'text-red-400' : 'text-gray-500'}`}>
+                              <span className={`text-xs flex items-center ${diff > 5 ? 'text-green-400' : diff < -5 ? 'text-red-400' : 'text-muted-foreground'}`}>
                                 {diff > 0 ? <ArrowUpRight className="w-3 h-3" /> : diff < 0 ? <ArrowDownRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                                 {diff > 0 ? '+' : ''}{diff.toFixed(1)}pp
                               </span>
@@ -1391,13 +1391,13 @@ export default function UnlistedPreviewPage() {
                 </TableBody>
               </Table>
             </div>
-            <div className="mt-4 p-3 bg-gray-800 rounded-lg flex items-start justify-between">
+            <div className="mt-4 p-3 bg-muted rounded-lg flex items-start justify-between">
               <div className="flex items-start gap-2">
                 <Scale className="w-4 h-4 text-blue-400 mt-0.5" />
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-muted-foreground">
                   <span className="text-green-400">Green</span> indicates the unlisted company is trading at a discount or outperforming peers. 
                   <span className="text-red-400 ml-1">Red</span> indicates premium valuation or underperformance. 
-                  <span className="text-gray-500 ml-1">pp = percentage points</span>
+                  <span className="text-muted-foreground ml-1">pp = percentage points</span>
                 </div>
               </div>
               <Button
@@ -1417,21 +1417,21 @@ export default function UnlistedPreviewPage() {
 
       {/* Add Peers Section (when no peers exist) */}
       {latestRatios && (!company?.listedPeers || !Array.isArray(company.listedPeers) || (company.listedPeers as ListedPeer[]).length === 0) && (
-        <Card className="bg-gray-900 border-gray-800 mb-6">
+        <Card className="bg-card border-border mb-6">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Scale className="w-5 h-5 text-blue-400" />
               Comparison with Listed Peers
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Add comparable listed companies to help investors assess valuation
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-8">
-              <Scale className="w-12 h-12 mx-auto mb-4 text-gray-600" />
-              <p className="text-gray-400 mb-4">No listed peers added yet</p>
-              <p className="text-sm text-gray-500 mb-6">Add comparable publicly-traded companies to show relative valuation metrics</p>
+              <Scale className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground mb-4">No listed peers added yet</p>
+              <p className="text-sm text-muted-foreground mb-6">Add comparable publicly-traded companies to show relative valuation metrics</p>
               <Button
                 variant="outline"
                 onClick={handleAddPeer}
@@ -1448,13 +1448,13 @@ export default function UnlistedPreviewPage() {
 
       {/* Investment Thesis Section */}
       {latestFinancials && latestRatios && (
-        <Card className="bg-gray-900 border-gray-800 mb-6">
+        <Card className="bg-card border-border mb-6">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-yellow-400" />
               Investment Thesis
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Key investment highlights and risk factors
             </CardDescription>
           </CardHeader>
@@ -1468,37 +1468,37 @@ export default function UnlistedPreviewPage() {
                 </div>
                 <ul className="space-y-2">
                   {latestRatios.roe && parseFloat(latestRatios.roe.toString()) >= 0.15 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Strong ROE of {(parseFloat(latestRatios.roe.toString()) * 100).toFixed(1)}% indicates efficient capital utilization</span>
                     </li>
                   )}
                   {latestRatios.roce && parseFloat(latestRatios.roce.toString()) >= 0.15 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Healthy ROCE of {(parseFloat(latestRatios.roce.toString()) * 100).toFixed(1)}% shows good return on capital employed</span>
                     </li>
                   )}
                   {latestRatios.debtEquity && parseFloat(latestRatios.debtEquity.toString()) < 0.5 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Conservative leverage with debt-to-equity of {latestRatios.debtEquity}</span>
                     </li>
                   )}
                   {latestRatios.revenueGrowth && parseFloat(latestRatios.revenueGrowth.toString()) > 0.2 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Strong revenue growth of {(parseFloat(latestRatios.revenueGrowth.toString()) * 100).toFixed(1)}% YoY</span>
                     </li>
                   )}
                   {latestFinancials.networth && parseFloat(latestFinancials.networth.toString()) > 0 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Positive net worth of {formatCurrency(latestFinancials.networth)}</span>
                     </li>
                   )}
                   {latestRatios.currentRatio && parseFloat(latestRatios.currentRatio.toString()) >= 1.5 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Healthy liquidity with current ratio of {latestRatios.currentRatio}</span>
                     </li>
@@ -1513,29 +1513,29 @@ export default function UnlistedPreviewPage() {
                   Risk Factors
                 </div>
                 <ul className="space-y-2">
-                  <li className="flex items-start gap-2 text-sm text-gray-300">
+                  <li className="flex items-start gap-2 text-sm text-muted-foreground">
                     <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
                     <span>Unlisted shares have limited liquidity compared to publicly traded stocks</span>
                   </li>
                   {latestRatios.debtEquity && parseFloat(latestRatios.debtEquity.toString()) > 1 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
                       <span>High leverage with debt-to-equity of {latestRatios.debtEquity}</span>
                     </li>
                   )}
                   {latestRatios.profitGrowth && parseFloat(latestRatios.profitGrowth.toString()) < 0 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <TrendingDown className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
                       <span>Profit decline of {(Math.abs(parseFloat(latestRatios.profitGrowth.toString())) * 100).toFixed(1)}% YoY</span>
                     </li>
                   )}
                   {latestFinancials.networth && parseFloat(latestFinancials.networth.toString()) < 0 && (
-                    <li className="flex items-start gap-2 text-sm text-gray-300">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
                       <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
                       <span>Negative net worth indicates accumulated losses</span>
                     </li>
                   )}
-                  <li className="flex items-start gap-2 text-sm text-gray-300">
+                  <li className="flex items-start gap-2 text-sm text-muted-foreground">
                     <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
                     <span>Share price depends on company performance and market conditions</span>
                   </li>
@@ -1546,11 +1546,11 @@ export default function UnlistedPreviewPage() {
         </Card>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 p-4">
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <CheckCircle className="w-5 h-5 text-emerald-400" />
-            <span className="text-gray-300">
+            <span className="text-muted-foreground">
               Ready to publish <span className="font-medium text-white">{company.name}</span> at 
               <span className="text-green-400 ml-1">₹{buyPrice}</span> / 
               <span className="text-red-400 ml-1">₹{sellPrice}</span>
@@ -1586,13 +1586,13 @@ export default function UnlistedPreviewPage() {
 
       {/* Peer Management Dialog */}
       <Dialog open={isPeerDialogOpen} onOpenChange={setIsPeerDialogOpen}>
-        <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-2xl">
+        <DialogContent className="bg-card border-border text-white max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Scale className="w-5 h-5 text-blue-400" />
               {editingPeerIndex !== null ? 'Edit Listed Peer' : 'Add Listed Peer'}
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogDescription className="text-muted-foreground">
               Enter the financial metrics of a comparable publicly-traded company
             </DialogDescription>
           </DialogHeader>
@@ -1600,24 +1600,24 @@ export default function UnlistedPreviewPage() {
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="peer-name" className="text-gray-300">Company Name *</Label>
+                <Label htmlFor="peer-name" className="text-muted-foreground">Company Name *</Label>
                 <Input
                   id="peer-name"
                   value={currentPeer.name}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, name: e.target.value })}
                   placeholder="e.g., HDFC Bank"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-name"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="peer-ticker" className="text-gray-300">Ticker Symbol *</Label>
+                <Label htmlFor="peer-ticker" className="text-muted-foreground">Ticker Symbol *</Label>
                 <Input
                   id="peer-ticker"
                   value={currentPeer.ticker}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, ticker: e.target.value.toUpperCase() })}
                   placeholder="e.g., HDFCBANK"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-ticker"
                 />
               </div>
@@ -1625,22 +1625,22 @@ export default function UnlistedPreviewPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="peer-exchange" className="text-gray-300">Exchange</Label>
+                <Label htmlFor="peer-exchange" className="text-muted-foreground">Exchange</Label>
                 <Select
                   value={currentPeer.exchange}
                   onValueChange={(value) => setCurrentPeer({ ...currentPeer, exchange: value })}
                 >
-                  <SelectTrigger className="bg-gray-800 border-gray-700 text-white" data-testid="select-peer-exchange">
+                  <SelectTrigger className="bg-muted border-border text-white" data-testid="select-peer-exchange">
                     <SelectValue placeholder="Select exchange" />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700">
+                  <SelectContent className="bg-muted border-border">
                     <SelectItem value="NSE">NSE</SelectItem>
                     <SelectItem value="BSE">BSE</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="peer-pe" className="text-gray-300">P/E Ratio</Label>
+                <Label htmlFor="peer-pe" className="text-muted-foreground">P/E Ratio</Label>
                 <Input
                   id="peer-pe"
                   type="number"
@@ -1648,7 +1648,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.peRatio || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, peRatio: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 25.5"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-pe"
                 />
               </div>
@@ -1656,7 +1656,7 @@ export default function UnlistedPreviewPage() {
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="peer-pb" className="text-gray-300">P/B Ratio</Label>
+                <Label htmlFor="peer-pb" className="text-muted-foreground">P/B Ratio</Label>
                 <Input
                   id="peer-pb"
                   type="number"
@@ -1664,12 +1664,12 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.pbRatio || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, pbRatio: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 3.2"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-pb"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="peer-ev" className="text-gray-300">EV/EBITDA</Label>
+                <Label htmlFor="peer-ev" className="text-muted-foreground">EV/EBITDA</Label>
                 <Input
                   id="peer-ev"
                   type="number"
@@ -1677,12 +1677,12 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.evEbitda || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, evEbitda: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 15.8"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-ev"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="peer-de" className="text-gray-300">Debt/Equity</Label>
+                <Label htmlFor="peer-de" className="text-muted-foreground">Debt/Equity</Label>
                 <Input
                   id="peer-de"
                   type="number"
@@ -1690,7 +1690,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.debtEquity || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, debtEquity: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 0.5"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-de"
                 />
               </div>
@@ -1698,7 +1698,7 @@ export default function UnlistedPreviewPage() {
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="peer-roe" className="text-gray-300">ROE (%)</Label>
+                <Label htmlFor="peer-roe" className="text-muted-foreground">ROE (%)</Label>
                 <Input
                   id="peer-roe"
                   type="number"
@@ -1706,12 +1706,12 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.roe || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, roe: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 18.5"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-roe"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="peer-roce" className="text-gray-300">ROCE (%)</Label>
+                <Label htmlFor="peer-roce" className="text-muted-foreground">ROCE (%)</Label>
                 <Input
                   id="peer-roce"
                   type="number"
@@ -1719,12 +1719,12 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.roce || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, roce: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 22.3"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-roce"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="peer-growth" className="text-gray-300">Revenue Growth (%)</Label>
+                <Label htmlFor="peer-growth" className="text-muted-foreground">Revenue Growth (%)</Label>
                 <Input
                   id="peer-growth"
                   type="number"
@@ -1732,7 +1732,7 @@ export default function UnlistedPreviewPage() {
                   value={currentPeer.revenueGrowth || ''}
                   onChange={(e) => setCurrentPeer({ ...currentPeer, revenueGrowth: e.target.value ? parseFloat(e.target.value) : undefined })}
                   placeholder="e.g., 15.2"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-muted border-border text-white"
                   data-testid="input-peer-growth"
                 />
               </div>
@@ -1743,7 +1743,7 @@ export default function UnlistedPreviewPage() {
             <Button
               variant="outline"
               onClick={() => setIsPeerDialogOpen(false)}
-              className="border-gray-700 text-gray-300"
+              className="border-border text-muted-foreground"
               data-testid="button-cancel-peer"
             >
               Cancel

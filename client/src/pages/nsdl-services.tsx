@@ -230,7 +230,7 @@ export default function NSDLServices() {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">NSDL Securities Services</h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-muted-foreground mt-2">
             Complete depository services including demat accounts, electronic trading, margin pledges, and loan facilities
           </p>
         </div>
@@ -242,7 +242,7 @@ export default function NSDLServices() {
               <div className="flex items-center">
                 <CreditCard className="h-8 w-8 text-finance-blue" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Active Accounts</p>
+                  <p className="text-sm font-medium text-muted-foreground">Active Accounts</p>
                   <p className="text-2xl font-bold">410M+</p>
                 </div>
               </div>
@@ -254,7 +254,7 @@ export default function NSDLServices() {
               <div className="flex items-center">
                 <TrendingUp className="h-8 w-8 text-finance-green" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Custody Value</p>
+                  <p className="text-sm font-medium text-muted-foreground">Custody Value</p>
                   <p className="text-2xl font-bold">₹503L Cr</p>
                 </div>
               </div>
@@ -266,7 +266,7 @@ export default function NSDLServices() {
               <div className="flex items-center">
                 <Shield className="h-8 w-8 text-finance-purple" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Service Centers</p>
+                  <p className="text-sm font-medium text-muted-foreground">Service Centers</p>
                   <p className="text-2xl font-bold">55,702</p>
                 </div>
               </div>
@@ -278,7 +278,7 @@ export default function NSDLServices() {
               <div className="flex items-center">
                 <Clock className="h-8 w-8 text-finance-orange" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Processing</p>
+                  <p className="text-sm font-medium text-muted-foreground">Processing</p>
                   <p className="text-2xl font-bold">Instant</p>
                 </div>
               </div>
@@ -324,7 +324,7 @@ export default function NSDLServices() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                       <Card>
                         <CardContent className="p-4">
-                          <p className="text-sm text-gray-600">Total Market Value</p>
+                          <p className="text-sm text-muted-foreground">Total Market Value</p>
                           <p className="text-2xl font-bold text-finance-green">
                             ₹{parseFloat(holdings.totalMarketValue).toLocaleString()}
                           </p>
@@ -332,13 +332,13 @@ export default function NSDLServices() {
                       </Card>
                       <Card>
                         <CardContent className="p-4">
-                          <p className="text-sm text-gray-600">Total Securities</p>
+                          <p className="text-sm text-muted-foreground">Total Securities</p>
                           <p className="text-2xl font-bold">{holdings.holdings?.length || 0}</p>
                         </CardContent>
                       </Card>
                       <Card>
                         <CardContent className="p-4">
-                          <p className="text-sm text-gray-600">DP ID</p>
+                          <p className="text-sm text-muted-foreground">DP ID</p>
                           <p className="text-2xl font-bold">{holdings.dpId}</p>
                         </CardContent>
                       </Card>
@@ -351,7 +351,7 @@ export default function NSDLServices() {
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <h3 className="font-semibold text-lg">{holding.securityName}</h3>
-                                <p className="text-sm text-gray-600">ISIN: {holding.isin}</p>
+                                <p className="text-sm text-muted-foreground">ISIN: {holding.isin}</p>
                                 <div className="flex space-x-4 mt-2">
                                   <Badge variant="outline">Qty: {holding.quantity}</Badge>
                                   <Badge variant="outline">Free: {holding.freeQuantity}</Badge>

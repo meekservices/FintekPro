@@ -29,7 +29,7 @@ export default function ApiMonitorDemo() {
       case 'not_configured':
         return 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 hover:from-blue-100 hover:to-cyan-100';
       default:
-        return 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200 hover:from-gray-100 hover:to-slate-100';
+        return 'bg-gradient-to-r from-gray-50 to-slate-50 border-border hover:from-gray-100 hover:to-slate-100';
     }
   };
 
@@ -46,7 +46,7 @@ export default function ApiMonitorDemo() {
       case 'not_configured':
         return <Settings className="w-6 h-6 text-blue-600" />;
       default:
-        return <Monitor className="w-6 h-6 text-gray-600" />;
+        return <Monitor className="w-6 h-6 text-muted-foreground" />;
     }
   };
 
@@ -79,7 +79,7 @@ export default function ApiMonitorDemo() {
       case 'not_configured':
         return 'bg-blue-100 text-blue-700 border-blue-300';
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-300';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -98,7 +98,7 @@ export default function ApiMonitorDemo() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3, 4, 5, 6].map(i => (
                   <div key={i} className="animate-pulse">
-                    <div className="h-32 bg-gray-200 rounded-lg"></div>
+                    <div className="h-32 bg-muted rounded-lg"></div>
                   </div>
                 ))}
               </div>
@@ -139,7 +139,7 @@ export default function ApiMonitorDemo() {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Individual API Status Monitor</h1>
-          <p className="text-gray-600">Real-time monitoring of all integrated financial services</p>
+          <p className="text-muted-foreground">Real-time monitoring of all integrated financial services</p>
         </div>
 
         {/* Overall Status Dashboard */}
@@ -235,19 +235,19 @@ export default function ApiMonitorDemo() {
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="space-y-4">
-                      <p className="text-sm text-gray-600 leading-relaxed">{api.details}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{api.details}</p>
                       
                       {/* Performance Metrics */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white bg-opacity-60 p-3 rounded-lg border">
-                          <div className="text-xs text-gray-500 mb-1 font-medium">Response Time</div>
+                          <div className="text-xs text-muted-foreground mb-1 font-medium">Response Time</div>
                           <div className={`text-sm font-bold ${getResponseTimeColor(api.responseTime)}`}>
                             {api.responseTime || 'N/A'}
                           </div>
                         </div>
                         <div className="bg-white bg-opacity-60 p-3 rounded-lg border">
-                          <div className="text-xs text-gray-500 mb-1 font-medium">Last Check</div>
-                          <div className="text-sm font-medium text-gray-700">
+                          <div className="text-xs text-muted-foreground mb-1 font-medium">Last Check</div>
+                          <div className="text-sm font-medium text-muted-foreground">
                             {api.lastChecked ? new Date(api.lastChecked).toLocaleTimeString([], { 
                               hour: '2-digit', 
                               minute: '2-digit',
@@ -259,9 +259,9 @@ export default function ApiMonitorDemo() {
 
                       {/* Connection Details */}
                       {(api.endpoint || api.url) && (
-                        <div className="bg-gray-50 p-3 rounded-lg border">
-                          <div className="text-xs text-gray-500 mb-1 font-medium">Endpoint</div>
-                          <div className="text-sm text-gray-700 font-mono break-all">
+                        <div className="bg-muted p-3 rounded-lg border">
+                          <div className="text-xs text-muted-foreground mb-1 font-medium">Endpoint</div>
+                          <div className="text-sm text-muted-foreground font-mono break-all">
                             {api.endpoint || api.url}
                           </div>
                         </div>
@@ -324,29 +324,29 @@ export default function ApiMonitorDemo() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
                     {Math.floor(((apiStatus as ApiStatusData).systemHealth?.uptime || 0) / 60)}m
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">Uptime</div>
+                  <div className="text-sm text-muted-foreground mt-1">Uptime</div>
                 </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-green-600">
                     {(((apiStatus as ApiStatusData).systemHealth?.memory?.heapUsed || 0) / 1024 / 1024).toFixed(1)} MB
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">Memory Used</div>
+                  <div className="text-sm text-muted-foreground mt-1">Memory Used</div>
                 </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">
                     {(apiStatus as ApiStatusData).systemHealth?.nodeVersion || 'Unknown'}
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">Node.js</div>
+                  <div className="text-sm text-muted-foreground mt-1">Node.js</div>
                 </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-2xl font-bold text-orange-600">
                     {(apiStatus as ApiStatusData).systemHealth?.totalResponseTime || 'Unknown'}
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">Check Duration</div>
+                  <div className="text-sm text-muted-foreground mt-1">Check Duration</div>
                 </div>
               </div>
             </CardContent>

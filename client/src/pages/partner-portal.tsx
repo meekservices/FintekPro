@@ -94,7 +94,7 @@ interface OnboardingInvitation {
 }
 
 const INVITATION_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-700",
+  pending: "bg-muted text-muted-foreground",
   sent: "bg-blue-100 text-blue-700",
   opened: "bg-yellow-100 text-yellow-700",
   started: "bg-indigo-100 text-indigo-700",
@@ -439,7 +439,7 @@ export default function PartnerPortal() {
 
   const getStatusColor = (status: string) => {
     const colors = {
-      draft: 'bg-gray-100 text-gray-800',
+      draft: 'bg-muted text-foreground',
       active: 'bg-green-100 text-green-800',
       suspended: 'bg-yellow-100 text-yellow-800',
       discontinued: 'bg-red-100 text-red-800'
@@ -453,7 +453,7 @@ export default function PartnerPortal() {
       in_progress: 'bg-yellow-100 text-yellow-800',
       pending: 'bg-orange-100 text-orange-800',
       resolved: 'bg-green-100 text-green-800',
-      closed: 'bg-gray-100 text-gray-800'
+      closed: 'bg-muted text-foreground'
     };
     return colors[status as keyof typeof colors] || colors.open;
   };
@@ -510,7 +510,7 @@ export default function PartnerPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -519,7 +519,7 @@ export default function PartnerPortal() {
               <h1 className="text-2xl font-bold text-gray-900" data-testid="partner-portal-title">
                 Partner Portal
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 {dashboardData?.partner?.companyName} • {dashboardData?.partner?.partnerType}
               </p>
             </div>
@@ -551,7 +551,7 @@ export default function PartnerPortal() {
                     <div className="flex items-center">
                       <Package className="h-8 w-8 text-blue-600" />
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Products</p>
+                        <p className="text-sm font-medium text-muted-foreground">Total Products</p>
                         <p className="text-2xl font-bold text-gray-900">
                           {dashboardData.stats.totalProducts}
                         </p>
@@ -568,7 +568,7 @@ export default function PartnerPortal() {
                     <div className="flex items-center">
                       <MessageCircle className="h-8 w-8 text-orange-600" />
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Support Tickets</p>
+                        <p className="text-sm font-medium text-muted-foreground">Support Tickets</p>
                         <p className="text-2xl font-bold text-gray-900">
                           {dashboardData.stats.totalTickets}
                         </p>
@@ -585,7 +585,7 @@ export default function PartnerPortal() {
                     <div className="flex items-center">
                       <IndianRupee className="h-8 w-8 text-green-600" />
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Revenue</p>
+                        <p className="text-sm font-medium text-muted-foreground">Revenue</p>
                         <p className="text-2xl font-bold text-gray-900">
                           ₹{dashboardData.stats.revenue.toLocaleString()}
                         </p>
@@ -602,7 +602,7 @@ export default function PartnerPortal() {
                     <div className="flex items-center">
                       <Target className="h-8 w-8 text-purple-600" />
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Commission</p>
+                        <p className="text-sm font-medium text-muted-foreground">Commission</p>
                         <p className="text-2xl font-bold text-gray-900">
                           ₹{dashboardData.stats.commission.toLocaleString()}
                         </p>
@@ -626,7 +626,7 @@ export default function PartnerPortal() {
                     <div key={product.id} className="flex items-center justify-between py-2">
                       <div>
                         <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-gray-600">{product.category}</p>
+                        <p className="text-sm text-muted-foreground">{product.category}</p>
                       </div>
                       <Badge className={getStatusColor(product.status)}>
                         {product.status}
@@ -645,7 +645,7 @@ export default function PartnerPortal() {
                     <div key={ticket.id} className="flex items-center justify-between py-2">
                       <div>
                         <p className="font-medium">{ticket.subject}</p>
-                        <p className="text-sm text-gray-600">{ticket.clientName}</p>
+                        <p className="text-sm text-muted-foreground">{ticket.clientName}</p>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Badge className={getPriorityColor(ticket.priority)}>
@@ -880,7 +880,7 @@ export default function PartnerPortal() {
                       <div className="flex items-start justify-between">
                         <div>
                           <CardTitle className="text-lg">{product.name}</CardTitle>
-                          <p className="text-sm text-gray-600">{product.category} • {product.subCategory}</p>
+                          <p className="text-sm text-muted-foreground">{product.category} • {product.subCategory}</p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Badge className={getStatusColor(product.status)}>
@@ -893,7 +893,7 @@ export default function PartnerPortal() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-gray-700 mb-4">{product.description}</p>
+                      <p className="text-muted-foreground mb-4">{product.description}</p>
                       
                       {product.tags && product.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-4">
@@ -906,7 +906,7 @@ export default function PartnerPortal() {
                       )}
 
                       <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-muted-foreground">
                           Priority: {product.priority} | Created: {new Date(product.createdAt).toLocaleDateString()}
                         </div>
                         <div className="flex items-center space-x-2">
@@ -940,7 +940,7 @@ export default function PartnerPortal() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Client Referrals</h2>
-                <p className="text-sm text-gray-600">Invite clients to onboard and track their progress</p>
+                <p className="text-sm text-muted-foreground">Invite clients to onboard and track their progress</p>
               </div>
               <Button 
                 onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}
@@ -956,25 +956,25 @@ export default function PartnerPortal() {
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold">{invitationStats?.stats?.total || 0}</div>
-                  <div className="text-sm text-gray-600">Total Invitations</div>
+                  <div className="text-sm text-muted-foreground">Total Invitations</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-yellow-600">{invitationStats?.stats?.pending || 0}</div>
-                  <div className="text-sm text-gray-600">Pending</div>
+                  <div className="text-sm text-muted-foreground">Pending</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-blue-600">{invitationStats?.stats?.in_progress || 0}</div>
-                  <div className="text-sm text-gray-600">In Progress</div>
+                  <div className="text-sm text-muted-foreground">In Progress</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-green-600">{invitationStats?.stats?.completed || 0}</div>
-                  <div className="text-sm text-gray-600">Completed</div>
+                  <div className="text-sm text-muted-foreground">Completed</div>
                 </CardContent>
               </Card>
             </div>
@@ -982,14 +982,14 @@ export default function PartnerPortal() {
             {/* Invitations Table */}
             {invitationsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : invitations.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <UserPlus className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <UserPlus className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-medium text-gray-900 mb-1">No Invitations Yet</h3>
-                  <p className="text-gray-600 mb-4">Start inviting clients to track their onboarding progress</p>
+                  <p className="text-muted-foreground mb-4">Start inviting clients to track their onboarding progress</p>
                   <Button onClick={() => { resetInviteForm(); setShowInviteDialog(true); }}>
                     Create First Invitation
                   </Button>
@@ -1033,10 +1033,10 @@ export default function PartnerPortal() {
                         <TableCell>
                           <div className="w-24">
                             <Progress value={inv.progressPercentage} className="h-2" />
-                            <span className="text-xs text-gray-600">{inv.progressPercentage}%</span>
+                            <span className="text-xs text-muted-foreground">{inv.progressPercentage}%</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-600">
+                        <TableCell className="text-sm text-muted-foreground">
                           {new Date(inv.createdAt).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
@@ -1079,7 +1079,7 @@ export default function PartnerPortal() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Client Support</h2>
-                <p className="text-sm text-gray-600">Manage client support requests with step-by-step workflows</p>
+                <p className="text-sm text-muted-foreground">Manage client support requests with step-by-step workflows</p>
               </div>
               <a href="/partner/ca-support">
                 <Button className="gap-2" data-testid="button-open-ca-dashboard">
@@ -1099,7 +1099,7 @@ export default function PartnerPortal() {
                       <div className="flex items-start justify-between">
                         <div>
                           <CardTitle className="text-lg">{ticket.subject}</CardTitle>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             {ticket.ticketNumber} • {ticket.clientName} • {ticket.clientEmail}
                           </p>
                         </div>
@@ -1114,10 +1114,10 @@ export default function PartnerPortal() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-gray-700 mb-4">{ticket.description}</p>
+                      <p className="text-muted-foreground mb-4">{ticket.description}</p>
                       
                       <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-muted-foreground">
                           {ticket.category} • Created: {new Date(ticket.createdAt).toLocaleDateString()}
                         </div>
                         <div className="flex items-center space-x-2">
@@ -1165,14 +1165,14 @@ export default function PartnerPortal() {
                       <div key={product.id} className="flex items-center justify-between p-3 border rounded">
                         <div>
                           <p className="font-medium">{product.name}</p>
-                          <p className="text-sm text-gray-600">{product.category}</p>
+                          <p className="text-sm text-muted-foreground">{product.category}</p>
                         </div>
                         <div className="text-right">
                           <div className="flex items-center text-green-600">
                             <TrendingUp className="h-4 w-4 mr-1" />
                             <span className="text-sm">+15%</span>
                           </div>
-                          <p className="text-xs text-gray-500">vs last month</p>
+                          <p className="text-xs text-muted-foreground">vs last month</p>
                         </div>
                       </div>
                     ))}
@@ -1187,19 +1187,19 @@ export default function PartnerPortal() {
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Average Response Time</span>
+                      <span className="text-sm text-muted-foreground">Average Response Time</span>
                       <span className="font-medium">2.3 hours</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Resolution Rate</span>
+                      <span className="text-sm text-muted-foreground">Resolution Rate</span>
                       <span className="font-medium">89%</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Customer Satisfaction</span>
+                      <span className="text-sm text-muted-foreground">Customer Satisfaction</span>
                       <span className="font-medium">4.6/5</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Active Tickets</span>
+                      <span className="text-sm text-muted-foreground">Active Tickets</span>
                       <span className="font-medium">{tickets.filter((t: any) => t.status === 'open' || t.status === 'in_progress').length}</span>
                     </div>
                   </div>

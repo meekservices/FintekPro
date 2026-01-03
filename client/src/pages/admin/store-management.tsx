@@ -208,7 +208,7 @@ function PortfolioApprovalsTab() {
   };
 
   return (
-    <Card className="bg-gray-900 border-gray-800">
+    <Card className="bg-card border-border">
       <CardHeader>
         <CardTitle className="text-white flex items-center justify-between">
           <span>Portfolio Approvals</span>
@@ -230,7 +230,7 @@ function PortfolioApprovalsTab() {
             )}
           </div>
         </CardTitle>
-        <CardDescription className="text-gray-400">
+        <CardDescription className="text-muted-foreground">
           Review and approve client-submitted AIF, PMS, and MLD holdings for portfolio analysis
         </CardDescription>
       </CardHeader>
@@ -241,7 +241,7 @@ function PortfolioApprovalsTab() {
               variant={approvalType === "aif" ? "default" : "outline"}
               size="sm"
               onClick={() => setApprovalType("aif")}
-              className={approvalType === "aif" ? "bg-blue-600 hover:bg-blue-700" : "border-gray-700"}
+              className={approvalType === "aif" ? "bg-blue-600 hover:bg-blue-700" : "border-border"}
               data-testid="button-filter-aif"
             >
               AIF Holdings
@@ -250,7 +250,7 @@ function PortfolioApprovalsTab() {
               variant={approvalType === "pms" ? "default" : "outline"}
               size="sm"
               onClick={() => setApprovalType("pms")}
-              className={approvalType === "pms" ? "bg-purple-600 hover:bg-purple-700" : "border-gray-700"}
+              className={approvalType === "pms" ? "bg-purple-600 hover:bg-purple-700" : "border-border"}
               data-testid="button-filter-pms"
             >
               PMS Holdings
@@ -259,7 +259,7 @@ function PortfolioApprovalsTab() {
               variant={approvalType === "mld" ? "default" : "outline"}
               size="sm"
               onClick={() => setApprovalType("mld")}
-              className={approvalType === "mld" ? "bg-teal-600 hover:bg-teal-700" : "border-gray-700"}
+              className={approvalType === "mld" ? "bg-teal-600 hover:bg-teal-700" : "border-border"}
               data-testid="button-filter-mld"
             >
               MLD Holdings
@@ -270,7 +270,7 @@ function PortfolioApprovalsTab() {
               variant={statusFilter === "pending" ? "default" : "outline"}
               size="sm"
               onClick={() => setStatusFilter("pending")}
-              className={statusFilter === "pending" ? "bg-amber-600 hover:bg-amber-700" : "border-gray-700"}
+              className={statusFilter === "pending" ? "bg-amber-600 hover:bg-amber-700" : "border-border"}
               data-testid="button-filter-pending"
             >
               Pending
@@ -279,7 +279,7 @@ function PortfolioApprovalsTab() {
               variant={statusFilter === "approved" ? "default" : "outline"}
               size="sm"
               onClick={() => setStatusFilter("approved")}
-              className={statusFilter === "approved" ? "bg-green-600 hover:bg-green-700" : "border-gray-700"}
+              className={statusFilter === "approved" ? "bg-green-600 hover:bg-green-700" : "border-border"}
               data-testid="button-filter-approved"
             >
               Approved
@@ -288,7 +288,7 @@ function PortfolioApprovalsTab() {
               variant={statusFilter === "rejected" ? "default" : "outline"}
               size="sm"
               onClick={() => setStatusFilter("rejected")}
-              className={statusFilter === "rejected" ? "bg-red-600 hover:bg-red-700" : "border-gray-700"}
+              className={statusFilter === "rejected" ? "bg-red-600 hover:bg-red-700" : "border-border"}
               data-testid="button-filter-rejected"
             >
               Rejected
@@ -297,7 +297,7 @@ function PortfolioApprovalsTab() {
               variant={statusFilter === "all" ? "default" : "outline"}
               size="sm"
               onClick={() => setStatusFilter("all")}
-              className={statusFilter === "all" ? "bg-gray-600 hover:bg-gray-700" : "border-gray-700"}
+              className={statusFilter === "all" ? "bg-gray-600 hover:bg-gray-700" : "border-border"}
               data-testid="button-filter-all"
             >
               All
@@ -309,10 +309,10 @@ function PortfolioApprovalsTab() {
           isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-              <span className="ml-2 text-gray-400">Loading AIF holdings...</span>
+              <span className="ml-2 text-muted-foreground">Loading AIF holdings...</span>
             </div>
           ) : filteredAIF.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-muted-foreground">
               <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No {statusFilter === 'all' ? '' : statusFilter} AIF entries found</p>
             </div>
@@ -320,31 +320,31 @@ function PortfolioApprovalsTab() {
             <ScrollArea className="h-[500px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-800">
-                    <TableHead className="text-gray-400">Client</TableHead>
-                    <TableHead className="text-gray-400">Scheme</TableHead>
-                    <TableHead className="text-gray-400">AMC</TableHead>
-                    <TableHead className="text-gray-400 text-right">Commitment</TableHead>
-                    <TableHead className="text-gray-400 text-right">Called</TableHead>
-                    <TableHead className="text-gray-400 text-right">Current Value</TableHead>
-                    <TableHead className="text-gray-400">Status</TableHead>
-                    <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                  <TableRow className="border-border">
+                    <TableHead className="text-muted-foreground">Client</TableHead>
+                    <TableHead className="text-muted-foreground">Scheme</TableHead>
+                    <TableHead className="text-muted-foreground">AMC</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Commitment</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Called</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Current Value</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAIF.map((holding) => (
-                    <TableRow key={holding.id} className="border-gray-800" data-testid={`row-aif-${holding.id}`}>
-                      <TableCell className="text-gray-300">
+                    <TableRow key={holding.id} className="border-border" data-testid={`row-aif-${holding.id}`}>
+                      <TableCell className="text-muted-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">{holding.client?.email}</p>
+                          <p className="text-xs text-muted-foreground">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-300">{holding.schemeName}</TableCell>
-                      <TableCell className="text-gray-400">{holding.amcName}</TableCell>
-                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.commitmentAmount)}</TableCell>
-                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.capitalCalled)}</TableCell>
-                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.currentValue)}</TableCell>
+                      <TableCell className="text-muted-foreground">{holding.schemeName}</TableCell>
+                      <TableCell className="text-muted-foreground">{holding.amcName}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.commitmentAmount)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.capitalCalled)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.currentValue)}</TableCell>
                       <TableCell>
                         <Badge className={
                           holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
@@ -390,10 +390,10 @@ function PortfolioApprovalsTab() {
           isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
-              <span className="ml-2 text-gray-400">Loading PMS holdings...</span>
+              <span className="ml-2 text-muted-foreground">Loading PMS holdings...</span>
             </div>
           ) : filteredPMS.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-muted-foreground">
               <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No {statusFilter === 'all' ? '' : statusFilter} PMS entries found</p>
             </div>
@@ -401,30 +401,30 @@ function PortfolioApprovalsTab() {
             <ScrollArea className="h-[500px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-800">
-                    <TableHead className="text-gray-400">Client</TableHead>
-                    <TableHead className="text-gray-400">Scheme</TableHead>
-                    <TableHead className="text-gray-400">AMC</TableHead>
-                    <TableHead className="text-gray-400 text-right">Total Invested</TableHead>
-                    <TableHead className="text-gray-400 text-right">Corpus Value</TableHead>
-                    <TableHead className="text-gray-400 text-right">CAGR</TableHead>
-                    <TableHead className="text-gray-400">Status</TableHead>
-                    <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                  <TableRow className="border-border">
+                    <TableHead className="text-muted-foreground">Client</TableHead>
+                    <TableHead className="text-muted-foreground">Scheme</TableHead>
+                    <TableHead className="text-muted-foreground">AMC</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Total Invested</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Corpus Value</TableHead>
+                    <TableHead className="text-muted-foreground text-right">CAGR</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPMS.map((holding) => (
-                    <TableRow key={holding.id} className="border-gray-800" data-testid={`row-pms-${holding.id}`}>
-                      <TableCell className="text-gray-300">
+                    <TableRow key={holding.id} className="border-border" data-testid={`row-pms-${holding.id}`}>
+                      <TableCell className="text-muted-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">{holding.client?.email}</p>
+                          <p className="text-xs text-muted-foreground">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-300">{holding.schemeName}</TableCell>
-                      <TableCell className="text-gray-400">{holding.amcName}</TableCell>
-                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.totalInvested)}</TableCell>
-                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.corpusValue)}</TableCell>
+                      <TableCell className="text-muted-foreground">{holding.schemeName}</TableCell>
+                      <TableCell className="text-muted-foreground">{holding.amcName}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.totalInvested)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.corpusValue)}</TableCell>
                       <TableCell className="text-right">
                         <span className={parseFloat(holding.cagr || '0') >= 0 ? 'text-green-400' : 'text-red-400'}>
                           {holding.cagr ? `${parseFloat(holding.cagr).toFixed(2)}%` : '-'}
@@ -475,10 +475,10 @@ function PortfolioApprovalsTab() {
           isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-teal-400" />
-              <span className="ml-2 text-gray-400">Loading MLD holdings...</span>
+              <span className="ml-2 text-muted-foreground">Loading MLD holdings...</span>
             </div>
           ) : filteredMLD.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-muted-foreground">
               <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No {statusFilter === 'all' ? '' : statusFilter} MLD entries found</p>
             </div>
@@ -486,35 +486,35 @@ function PortfolioApprovalsTab() {
             <ScrollArea className="h-[500px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-800">
-                    <TableHead className="text-gray-400">Client</TableHead>
-                    <TableHead className="text-gray-400">MLD Name</TableHead>
-                    <TableHead className="text-gray-400">Issuer</TableHead>
-                    <TableHead className="text-gray-400">Payoff Type</TableHead>
-                    <TableHead className="text-gray-400 text-right">Quantity</TableHead>
-                    <TableHead className="text-gray-400 text-right">Total Invested</TableHead>
-                    <TableHead className="text-gray-400">Status</TableHead>
-                    <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                  <TableRow className="border-border">
+                    <TableHead className="text-muted-foreground">Client</TableHead>
+                    <TableHead className="text-muted-foreground">MLD Name</TableHead>
+                    <TableHead className="text-muted-foreground">Issuer</TableHead>
+                    <TableHead className="text-muted-foreground">Payoff Type</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Quantity</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Total Invested</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMLD.map((holding) => (
-                    <TableRow key={holding.id} className="border-gray-800" data-testid={`row-mld-${holding.id}`}>
-                      <TableCell className="text-gray-300">
+                    <TableRow key={holding.id} className="border-border" data-testid={`row-mld-${holding.id}`}>
+                      <TableCell className="text-muted-foreground">
                         <div>
                           <p className="font-medium">{holding.client?.name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">{holding.client?.email}</p>
+                          <p className="text-xs text-muted-foreground">{holding.client?.email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-300">{holding.mldName}</TableCell>
-                      <TableCell className="text-gray-400">{holding.issuer || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground">{holding.mldName}</TableCell>
+                      <TableCell className="text-muted-foreground">{holding.issuer || '-'}</TableCell>
                       <TableCell>
                         <Badge className="bg-teal-500/20 text-teal-400">
                           {holding.payoffType || 'Digital'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right text-gray-300">{holding.quantity}</TableCell>
-                      <TableCell className="text-right text-gray-300">{formatCurrency(holding.totalInvested)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{holding.quantity}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{formatCurrency(holding.totalInvested)}</TableCell>
                       <TableCell>
                         <Badge className={
                           holding.entryStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
@@ -755,7 +755,7 @@ export default function StoreManagement() {
       case 'create': return 'bg-green-500/20 text-green-400 border-green-500/30';
       case 'update': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
       case 'delete': return 'bg-red-500/20 text-red-400 border-red-500/30';
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+      default: return 'bg-gray-500/20 text-muted-foreground border-gray-500/30';
     }
   };
 
@@ -789,12 +789,12 @@ export default function StoreManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white" data-testid="heading-store-management">Store Management</h1>
-          <p className="text-gray-400 mt-1">Control product and category visibility across all portals</p>
+          <p className="text-muted-foreground mt-1">Control product and category visibility across all portals</p>
         </div>
         <Button
           variant="outline"
           onClick={() => refetchCategories()}
-          className="border-gray-700 hover:bg-gray-800"
+          className="border-border hover:bg-muted"
           data-testid="button-refresh"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
@@ -803,7 +803,7 @@ export default function StoreManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-gray-900 border-gray-800">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-card border-border">
           <TabsTrigger value="hierarchy" data-testid="tab-hierarchy">
             <FolderTree className="w-4 h-4 mr-2" />
             Hierarchy
@@ -824,7 +824,7 @@ export default function StoreManagement() {
 
         {/* Hierarchy Tab - Category/Subcategory/Product Tree */}
         <TabsContent value="hierarchy">
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-white flex items-center justify-between">
                 <span>Category Hierarchy</span>
@@ -837,16 +837,16 @@ export default function StoreManagement() {
                   </Badge>
                 </div>
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-muted-foreground">
                 Manage your store hierarchy. Disabling a category will cascade to all subcategories and products.
               </CardDescription>
               <div className="relative mt-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Search categories..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-gray-800 border-gray-700 text-white"
+                  className="pl-10 bg-muted border-border text-white"
                   data-testid="input-search-hierarchy"
                 />
               </div>
@@ -855,10 +855,10 @@ export default function StoreManagement() {
               {isLoadingCategories || isLoadingProducts ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                  <span className="ml-2 text-gray-400">Loading hierarchy...</span>
+                  <span className="ml-2 text-muted-foreground">Loading hierarchy...</span>
                 </div>
               ) : filteredCategories.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
+                <div className="text-center py-12 text-muted-foreground">
                   <FolderTree className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No categories found</p>
                   <p className="text-sm mt-2">Create categories to organize your store products</p>
@@ -867,11 +867,11 @@ export default function StoreManagement() {
                 <ScrollArea className="h-[600px]">
                   <div className="space-y-2">
                     {filteredCategories.map((category) => (
-                      <div key={category.id} className="border border-gray-800 rounded-lg overflow-hidden">
+                      <div key={category.id} className="border border-border rounded-lg overflow-hidden">
                         {/* Category Row */}
                         <div 
                           className={`flex items-center justify-between p-4 ${
-                            category.isActive ? 'bg-gray-800/50' : 'bg-gray-900/80'
+                            category.isActive ? 'bg-muted/50' : 'bg-card/80'
                           }`}
                           data-testid={`row-category-${category.id}`}
                         >
@@ -882,16 +882,16 @@ export default function StoreManagement() {
                               data-testid={`expand-category-${category.id}`}
                             >
                               {expandedCategories.has(category.id) ? (
-                                <ChevronDown className="w-5 h-5 text-gray-400" />
+                                <ChevronDown className="w-5 h-5 text-muted-foreground" />
                               ) : (
-                                <ChevronRight className="w-5 h-5 text-gray-400" />
+                                <ChevronRight className="w-5 h-5 text-muted-foreground" />
                               )}
                             </button>
                             <div className="flex items-center gap-2">
-                              <FolderTree className={`w-5 h-5 ${category.isActive ? 'text-blue-400' : 'text-gray-600'}`} />
+                              <FolderTree className={`w-5 h-5 ${category.isActive ? 'text-blue-400' : 'text-muted-foreground'}`} />
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <p className={`font-medium ${category.isActive ? 'text-white' : 'text-gray-500'}`}>
+                                  <p className={`font-medium ${category.isActive ? 'text-white' : 'text-muted-foreground'}`}>
                                     {category.name}
                                   </p>
                                   {/* SEBI Licensing Badge */}
@@ -913,7 +913,7 @@ export default function StoreManagement() {
                                   })()}
                                 </div>
                                 {category.description && (
-                                  <p className="text-xs text-gray-500 truncate max-w-md">
+                                  <p className="text-xs text-muted-foreground truncate max-w-md">
                                     {category.description}
                                   </p>
                                 )}
@@ -928,7 +928,7 @@ export default function StoreManagement() {
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Badge variant="outline" className="text-xs">
                                 {(category.subcategories || []).length} subcategories
                               </Badge>
@@ -993,13 +993,13 @@ export default function StoreManagement() {
 
                         {/* Expanded Category Content */}
                         {expandedCategories.has(category.id) && (
-                          <div className="border-t border-gray-800 bg-gray-900/30">
+                          <div className="border-t border-border bg-card/30">
                             {/* Subcategories */}
                             {(category.subcategories || []).map((subcategory) => (
                               <div key={subcategory.id}>
                                 <div 
-                                  className={`flex items-center justify-between p-3 pl-12 border-b border-gray-800/50 ${
-                                    subcategory.isActive && category.isActive ? 'bg-gray-800/30' : 'bg-gray-900/50'
+                                  className={`flex items-center justify-between p-3 pl-12 border-b border-border/50 ${
+                                    subcategory.isActive && category.isActive ? 'bg-muted/30' : 'bg-card/50'
                                   }`}
                                   data-testid={`row-subcategory-${subcategory.id}`}
                                 >
@@ -1010,14 +1010,14 @@ export default function StoreManagement() {
                                       data-testid={`expand-subcategory-${subcategory.id}`}
                                     >
                                       {expandedSubcategories.has(subcategory.id) ? (
-                                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
                                       ) : (
-                                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                                       )}
                                     </button>
                                     <div className="flex items-center gap-2">
-                                      <FolderTree className={`w-4 h-4 ${subcategory.isActive && category.isActive ? 'text-purple-400' : 'text-gray-600'}`} />
-                                      <span className={subcategory.isActive && category.isActive ? 'text-gray-200' : 'text-gray-500'}>
+                                      <FolderTree className={`w-4 h-4 ${subcategory.isActive && category.isActive ? 'text-purple-400' : 'text-muted-foreground'}`} />
+                                      <span className={subcategory.isActive && category.isActive ? 'text-foreground' : 'text-muted-foreground'}>
                                         {subcategory.name}
                                       </span>
                                     </div>
@@ -1048,8 +1048,8 @@ export default function StoreManagement() {
                                         key={product.id}
                                         className={`flex items-center justify-between p-2 rounded ${
                                           product.isActive && subcategory.isActive && category.isActive 
-                                            ? 'bg-gray-800/20' 
-                                            : 'bg-gray-900/30'
+                                            ? 'bg-muted/20' 
+                                            : 'bg-card/30'
                                         }`}
                                         data-testid={`row-product-${product.id}`}
                                       >
@@ -1057,12 +1057,12 @@ export default function StoreManagement() {
                                           <Package className={`w-3 h-3 ${
                                             product.isActive && subcategory.isActive && category.isActive 
                                               ? 'text-green-400' 
-                                              : 'text-gray-600'
+                                              : 'text-muted-foreground'
                                           }`} />
                                           <span className={`text-sm ${
                                             product.isActive && subcategory.isActive && category.isActive 
-                                              ? 'text-gray-300' 
-                                              : 'text-gray-500'
+                                              ? 'text-muted-foreground' 
+                                              : 'text-muted-foreground'
                                           }`}>
                                             {product.name}
                                           </span>
@@ -1083,7 +1083,7 @@ export default function StoreManagement() {
                                             </Badge>
                                           )}
                                           {product.expenseRatio && (
-                                            <span className="text-xs text-gray-500">
+                                            <span className="text-xs text-muted-foreground">
                                               TER: {(parseFloat(product.expenseRatio) * 100).toFixed(2)}%
                                             </span>
                                           )}
@@ -1114,7 +1114,7 @@ export default function StoreManagement() {
                                       </div>
                                     ))}
                                     {getProductsForSubcategory(subcategory.id).length === 0 && (
-                                      <p className="text-xs text-gray-500 py-2">No products in this subcategory</p>
+                                      <p className="text-xs text-muted-foreground py-2">No products in this subcategory</p>
                                     )}
                                   </div>
                                 )}
@@ -1123,24 +1123,24 @@ export default function StoreManagement() {
 
                             {/* Direct Products (no subcategory) */}
                             {getProductsForCategoryDirectly(category.id).length > 0 && (
-                              <div className="border-t border-gray-800/50 pl-12 py-2">
-                                <p className="text-xs text-gray-500 mb-2 px-3">Direct Products (no subcategory)</p>
+                              <div className="border-t border-border/50 pl-12 py-2">
+                                <p className="text-xs text-muted-foreground mb-2 px-3">Direct Products (no subcategory)</p>
                                 {getProductsForCategoryDirectly(category.id).map((product) => (
                                   <div 
                                     key={product.id}
                                     className={`flex items-center justify-between p-2 px-3 rounded ${
                                       product.isActive && category.isActive 
-                                        ? 'bg-gray-800/20' 
-                                        : 'bg-gray-900/30'
+                                        ? 'bg-muted/20' 
+                                        : 'bg-card/30'
                                     }`}
                                     data-testid={`row-product-${product.id}`}
                                   >
                                     <div className="flex items-center gap-2">
                                       <Package className={`w-3 h-3 ${
-                                        product.isActive && category.isActive ? 'text-green-400' : 'text-gray-600'
+                                        product.isActive && category.isActive ? 'text-green-400' : 'text-muted-foreground'
                                       }`} />
                                       <span className={`text-sm ${
-                                        product.isActive && category.isActive ? 'text-gray-300' : 'text-gray-500'
+                                        product.isActive && category.isActive ? 'text-muted-foreground' : 'text-muted-foreground'
                                       }`}>
                                         {product.name}
                                       </span>
@@ -1158,7 +1158,7 @@ export default function StoreManagement() {
 
                             {(category.subcategories || []).length === 0 && 
                               getProductsForCategoryDirectly(category.id).length === 0 && (
-                              <p className="text-gray-500 text-center py-4">
+                              <p className="text-muted-foreground text-center py-4">
                                 No subcategories or products in this category
                               </p>
                             )}
@@ -1175,7 +1175,7 @@ export default function StoreManagement() {
 
         {/* Products Tab - Flat List */}
         <TabsContent value="products">
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-white flex items-center justify-between">
                 <span>All Products</span>
@@ -1183,7 +1183,7 @@ export default function StoreManagement() {
                   {products.filter(p => p.isActive).length} / {products.length} Active
                 </Badge>
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-muted-foreground">
                 View and manage all products across all categories
               </CardDescription>
             </CardHeader>
@@ -1191,10 +1191,10 @@ export default function StoreManagement() {
               {isLoadingProducts ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-green-400" />
-                  <span className="ml-2 text-gray-400">Loading products...</span>
+                  <span className="ml-2 text-muted-foreground">Loading products...</span>
                 </div>
               ) : products.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
+                <div className="text-center py-12 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No products found</p>
                 </div>
@@ -1202,13 +1202,13 @@ export default function StoreManagement() {
                 <ScrollArea className="h-[500px]">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-gray-800">
-                        <TableHead className="text-gray-400">Product</TableHead>
-                        <TableHead className="text-gray-400">Type</TableHead>
-                        <TableHead className="text-gray-400">Plan</TableHead>
-                        <TableHead className="text-gray-400">Category</TableHead>
-                        <TableHead className="text-gray-400">Status</TableHead>
-                        <TableHead className="text-gray-400 text-right">Toggle</TableHead>
+                      <TableRow className="border-border">
+                        <TableHead className="text-muted-foreground">Product</TableHead>
+                        <TableHead className="text-muted-foreground">Type</TableHead>
+                        <TableHead className="text-muted-foreground">Plan</TableHead>
+                        <TableHead className="text-muted-foreground">Category</TableHead>
+                        <TableHead className="text-muted-foreground">Status</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Toggle</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1220,12 +1220,12 @@ export default function StoreManagement() {
                         return (
                           <TableRow 
                             key={product.id} 
-                            className="border-gray-800"
+                            className="border-border"
                             data-testid={`row-product-${product.id}`}
                           >
                             <TableCell className="font-medium text-white">
                               <div className="flex items-center gap-2">
-                                <Package className={`w-4 h-4 ${product.isActive ? 'text-green-400' : 'text-gray-600'}`} />
+                                <Package className={`w-4 h-4 ${product.isActive ? 'text-green-400' : 'text-muted-foreground'}`} />
                                 {product.name}
                               </div>
                             </TableCell>
@@ -1247,7 +1247,7 @@ export default function StoreManagement() {
                                     {product.planType === 'direct' ? 'Direct' : 'Regular'}
                                   </Badge>
                                   {product.expenseRatio && (
-                                    <span className="text-xs text-gray-500">
+                                    <span className="text-xs text-muted-foreground">
                                       TER: {(parseFloat(product.expenseRatio) * 100).toFixed(2)}%
                                     </span>
                                   )}
@@ -1263,14 +1263,14 @@ export default function StoreManagement() {
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-xs text-gray-500">-</span>
+                                <span className="text-xs text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-gray-400">
+                            <TableCell className="text-muted-foreground">
                               <div className="flex flex-col">
                                 <span>{category?.name || 'Unknown'}</span>
                                 {subcategory && (
-                                  <span className="text-xs text-gray-500">→ {subcategory.name}</span>
+                                  <span className="text-xs text-muted-foreground">→ {subcategory.name}</span>
                                 )}
                               </div>
                             </TableCell>
@@ -1316,7 +1316,7 @@ export default function StoreManagement() {
 
         {/* Audit Log Tab */}
         <TabsContent value="audit">
-          <Card className="bg-gray-900 border-gray-800">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="text-white flex items-center justify-between">
                 <span>Audit Log</span>
@@ -1324,7 +1324,7 @@ export default function StoreManagement() {
                   {auditLogs.length} Records
                 </Badge>
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-muted-foreground">
                 Track all store management changes for compliance (7-year retention)
               </CardDescription>
             </CardHeader>
@@ -1332,10 +1332,10 @@ export default function StoreManagement() {
               {isLoadingAuditLogs ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
-                  <span className="ml-2 text-gray-400">Loading audit logs...</span>
+                  <span className="ml-2 text-muted-foreground">Loading audit logs...</span>
                 </div>
               ) : auditLogs.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
+                <div className="text-center py-12 text-muted-foreground">
                   <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No audit logs yet</p>
                   <p className="text-sm mt-2">Changes to store items will appear here</p>
@@ -1344,25 +1344,25 @@ export default function StoreManagement() {
                 <ScrollArea className="h-[500px]">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-gray-800">
-                        <TableHead className="text-gray-400">Timestamp</TableHead>
-                        <TableHead className="text-gray-400">Admin</TableHead>
-                        <TableHead className="text-gray-400">Action</TableHead>
-                        <TableHead className="text-gray-400">Target</TableHead>
-                        <TableHead className="text-gray-400">Details</TableHead>
+                      <TableRow className="border-border">
+                        <TableHead className="text-muted-foreground">Timestamp</TableHead>
+                        <TableHead className="text-muted-foreground">Admin</TableHead>
+                        <TableHead className="text-muted-foreground">Action</TableHead>
+                        <TableHead className="text-muted-foreground">Target</TableHead>
+                        <TableHead className="text-muted-foreground">Details</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {auditLogs.map((log) => (
                         <TableRow 
                           key={log.id} 
-                          className="border-gray-800"
+                          className="border-border"
                           data-testid={`row-audit-${log.id}`}
                         >
-                          <TableCell className="text-gray-400 whitespace-nowrap">
+                          <TableCell className="text-muted-foreground whitespace-nowrap">
                             {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm')}
                           </TableCell>
-                          <TableCell className="text-gray-300">
+                          <TableCell className="text-muted-foreground">
                             {log.adminEmail}
                           </TableCell>
                           <TableCell>
@@ -1375,34 +1375,34 @@ export default function StoreManagement() {
                               <Badge variant="outline" className="text-xs">
                                 {log.targetType}
                               </Badge>
-                              <span className="text-gray-300">{log.targetName}</span>
+                              <span className="text-muted-foreground">{log.targetName}</span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-white">
                                   <FileText className="w-4 h-4 mr-1" />
                                   View
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="bg-gray-900 border-gray-800 max-w-lg">
+                              <DialogContent className="bg-card border-border max-w-lg">
                                 <DialogHeader>
-                                  <DialogTitle className="text-white">Audit Log Details</DialogTitle>
-                                  <DialogDescription className="text-gray-400">
+                                  <DialogTitle className="text-foreground">Audit Log Details</DialogTitle>
+                                  <DialogDescription className="text-muted-foreground">
                                     Change details for {log.targetName}
                                   </DialogDescription>
                                 </DialogHeader>
                                 <div className="space-y-4">
                                   <div>
-                                    <p className="text-sm text-gray-400 mb-1">Before</p>
-                                    <pre className="bg-gray-800 p-3 rounded text-xs text-gray-300 overflow-auto max-h-32">
+                                    <p className="text-sm text-muted-foreground mb-1">Before</p>
+                                    <pre className="bg-muted p-3 rounded text-xs text-muted-foreground overflow-auto max-h-32">
                                       {JSON.stringify(log.beforeValue, null, 2) || 'N/A'}
                                     </pre>
                                   </div>
                                   <div>
-                                    <p className="text-sm text-gray-400 mb-1">After</p>
-                                    <pre className="bg-gray-800 p-3 rounded text-xs text-gray-300 overflow-auto max-h-32">
+                                    <p className="text-sm text-muted-foreground mb-1">After</p>
+                                    <pre className="bg-muted p-3 rounded text-xs text-muted-foreground overflow-auto max-h-32">
                                       {JSON.stringify(log.afterValue, null, 2) || 'N/A'}
                                     </pre>
                                   </div>
@@ -1423,17 +1423,17 @@ export default function StoreManagement() {
 
       {/* Confirmation Dialog */}
       <Dialog open={!!confirmDialog?.open} onOpenChange={() => setConfirmDialog(null)}>
-        <DialogContent className="bg-gray-900 border-gray-800">
+        <DialogContent className="bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-yellow-400" />
               Confirm {confirmDialog?.action === 'enable' ? 'Enable' : 'Disable'}
             </DialogTitle>
             <DialogDescription asChild>
-              <div className="text-sm text-gray-400">
+              <div className="text-sm text-muted-foreground">
                 {confirmDialog?.action === 'disable' ? (
                   <>
-                    <p>Disabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will also disable:</p>
+                    <p>Disabling <strong className="text-foreground">{confirmDialog?.item?.name}</strong> will also disable:</p>
                     <ul className="list-disc list-inside mt-2 space-y-1">
                       {confirmDialog?.type === 'category' && (
                         <>
@@ -1449,7 +1449,7 @@ export default function StoreManagement() {
                   </>
                 ) : (
                   <>
-                    <p>Enabling <strong className="text-white">{confirmDialog?.item?.name}</strong> will make it visible to customers.</p>
+                    <p>Enabling <strong className="text-foreground">{confirmDialog?.item?.name}</strong> will make it visible to customers.</p>
                     {confirmDialog?.type === 'category' && (
                       <p className="mt-2">Note: Subcategories and products will need to be enabled individually.</p>
                     )}
@@ -1462,7 +1462,7 @@ export default function StoreManagement() {
             <Button
               variant="outline"
               onClick={() => setConfirmDialog(null)}
-              className="border-gray-700"
+              className="border-border"
             >
               Cancel
             </Button>

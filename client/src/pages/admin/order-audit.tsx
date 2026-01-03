@@ -98,7 +98,7 @@ const getStatusColor = (status: string) => {
     case 'active': return 'bg-green-900/30 text-green-400 border-green-700';
     case 'pending_approval': return 'bg-yellow-900/30 text-yellow-400 border-yellow-700';
     case 'removed': return 'bg-red-900/30 text-red-400 border-red-700';
-    default: return 'bg-gray-900/30 text-gray-400 border-gray-700';
+    default: return 'bg-card/30 text-muted-foreground border-border';
   }
 };
 
@@ -109,8 +109,8 @@ const getCategoryColor = (cat: ProductCategory) => {
     case 'ncd': return 'bg-purple-900/30 text-purple-400 border-purple-700';
     case 'ipo': return 'bg-orange-900/30 text-orange-400 border-orange-700';
     case 'unlisted': return 'bg-amber-900/30 text-amber-400 border-amber-700';
-    case 'store': return 'bg-gray-800/50 text-gray-400 border-gray-600';
-    default: return 'bg-gray-800/50 text-gray-400 border-gray-600';
+    case 'store': return 'bg-muted/50 text-muted-foreground border-border';
+    default: return 'bg-muted/50 text-muted-foreground border-border';
   }
 };
 
@@ -165,11 +165,11 @@ export default function OrderAuditDashboard() {
   
   if (!user || !user.roles?.includes('admin')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950" data-testid="access-denied-container">
-        <Card className="bg-gray-900 border-gray-800 max-w-md">
+      <div className="flex items-center justify-center min-h-screen bg-background" data-testid="access-denied-container">
+        <Card className="bg-card border-border max-w-md">
           <CardHeader>
             <CardTitle className="text-white text-center" data-testid="text-access-denied">Access Denied</CardTitle>
-            <CardDescription className="text-gray-400 text-center">
+            <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
           </CardHeader>
@@ -222,13 +222,13 @@ export default function OrderAuditDashboard() {
               <ClipboardList className="h-8 w-8" />
               Order Audit Dashboard
             </h1>
-            <p className="text-gray-400 mt-1" data-testid="text-page-subtitle">Read-only view of all unified cart orders across users</p>
+            <p className="text-muted-foreground mt-1" data-testid="text-page-subtitle">Read-only view of all unified cart orders across users</p>
           </div>
         </div>
         <Button 
           variant="outline" 
           onClick={() => refetch()}
-          className="border-gray-700"
+          className="border-border"
           data-testid="button-refresh-orders"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -237,96 +237,96 @@ export default function OrderAuditDashboard() {
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <Card className="bg-gray-800/50 border-gray-700" data-testid="card-stat-total">
+        <Card className="bg-muted/50 border-border" data-testid="card-stat-total">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <ShoppingCart className="h-6 w-6 text-primary" />
               <div>
                 <p className="text-2xl font-bold text-white" data-testid="text-stat-total">{stats.total}</p>
-                <p className="text-xs text-gray-400">Total Orders</p>
+                <p className="text-xs text-muted-foreground">Total Orders</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700" data-testid="card-stat-active">
+        <Card className="bg-muted/50 border-border" data-testid="card-stat-active">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <CheckCircle className="h-6 w-6 text-green-400" />
               <div>
                 <p className="text-2xl font-bold text-white" data-testid="text-stat-active">{stats.active}</p>
-                <p className="text-xs text-gray-400">Active</p>
+                <p className="text-xs text-muted-foreground">Active</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700" data-testid="card-stat-pending">
+        <Card className="bg-muted/50 border-border" data-testid="card-stat-pending">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <Clock className="h-6 w-6 text-yellow-400" />
               <div>
                 <p className="text-2xl font-bold text-white" data-testid="text-stat-pending">{stats.pending}</p>
-                <p className="text-xs text-gray-400">Pending</p>
+                <p className="text-xs text-muted-foreground">Pending</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700" data-testid="card-stat-client">
+        <Card className="bg-muted/50 border-border" data-testid="card-stat-client">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <User className="h-6 w-6 text-green-400" />
               <div>
                 <p className="text-2xl font-bold text-white" data-testid="text-stat-client">{stats.clientSource}</p>
-                <p className="text-xs text-gray-400">Client</p>
+                <p className="text-xs text-muted-foreground">Client</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700" data-testid="card-stat-agent">
+        <Card className="bg-muted/50 border-border" data-testid="card-stat-agent">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-blue-400" />
               <div>
                 <p className="text-2xl font-bold text-white" data-testid="text-stat-agent">{stats.agentSource}</p>
-                <p className="text-xs text-gray-400">Agent</p>
+                <p className="text-xs text-muted-foreground">Agent</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700" data-testid="card-stat-ai">
+        <Card className="bg-muted/50 border-border" data-testid="card-stat-ai">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <Bot className="h-6 w-6 text-purple-400" />
               <div>
                 <p className="text-2xl font-bold text-white" data-testid="text-stat-ai">{stats.aiSource}</p>
-                <p className="text-xs text-gray-400">AI</p>
+                <p className="text-xs text-muted-foreground">AI</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gray-800/50 border-gray-700" data-testid="card-stat-value">
+        <Card className="bg-muted/50 border-border" data-testid="card-stat-value">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <TrendingUp className="h-6 w-6 text-emerald-400" />
               <div>
                 <p className="text-lg font-bold text-white" data-testid="text-stat-value">{formatCurrency(stats.totalValue)}</p>
-                <p className="text-xs text-gray-400">Page Value</p>
+                <p className="text-xs text-muted-foreground">Page Value</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
       
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex flex-col md:flex-row gap-4 justify-between">
             <div className="flex gap-2 flex-wrap">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, ID, or user..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-gray-800 border-gray-700 text-white"
+                  className="pl-9 bg-muted border-border text-white"
                   data-testid="input-search-audit"
                 />
               </div>
@@ -337,7 +337,7 @@ export default function OrderAuditDashboard() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[130px] bg-gray-800 border-gray-700" data-testid="select-source-filter">
+                <SelectTrigger className="w-[130px] bg-muted border-border" data-testid="select-source-filter">
                   <SelectValue placeholder="Source" />
                 </SelectTrigger>
                 <SelectContent>
@@ -354,7 +354,7 @@ export default function OrderAuditDashboard() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[150px] bg-gray-800 border-gray-700" data-testid="select-status-filter">
+                <SelectTrigger className="w-[150px] bg-muted border-border" data-testid="select-status-filter">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -393,10 +393,10 @@ export default function OrderAuditDashboard() {
             <TabsContent value={activeCategory} className="mt-4">
               {isLoading ? (
                 <div className="flex justify-center py-8" data-testid="loading-state">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredOrders.length === 0 ? (
-                <div className="text-center py-8 text-gray-400" data-testid="empty-state">
+                <div className="text-center py-8 text-muted-foreground" data-testid="empty-state">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>No orders found</p>
                 </div>
@@ -405,22 +405,22 @@ export default function OrderAuditDashboard() {
                   <div className="overflow-x-auto">
                     <Table data-testid="table-orders">
                       <TableHeader>
-                        <TableRow className="border-gray-700">
-                          <TableHead className="text-gray-400">Order ID</TableHead>
-                          <TableHead className="text-gray-400">Product</TableHead>
-                          <TableHead className="text-gray-400">Category</TableHead>
-                          <TableHead className="text-gray-400">User ID</TableHead>
-                          <TableHead className="text-gray-400">Source</TableHead>
-                          <TableHead className="text-gray-400 text-right">Amount</TableHead>
-                          <TableHead className="text-gray-400 text-right">Qty</TableHead>
-                          <TableHead className="text-gray-400">Status</TableHead>
-                          <TableHead className="text-gray-400">Created</TableHead>
+                        <TableRow className="border-border">
+                          <TableHead className="text-muted-foreground">Order ID</TableHead>
+                          <TableHead className="text-muted-foreground">Product</TableHead>
+                          <TableHead className="text-muted-foreground">Category</TableHead>
+                          <TableHead className="text-muted-foreground">User ID</TableHead>
+                          <TableHead className="text-muted-foreground">Source</TableHead>
+                          <TableHead className="text-muted-foreground text-right">Amount</TableHead>
+                          <TableHead className="text-muted-foreground text-right">Qty</TableHead>
+                          <TableHead className="text-muted-foreground">Status</TableHead>
+                          <TableHead className="text-muted-foreground">Created</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredOrders.map(order => (
-                          <TableRow key={order.id} className="border-gray-700" data-testid={`row-order-${order.id}`}>
-                            <TableCell className="font-mono text-xs text-gray-400" data-testid={`text-order-id-${order.id}`}>
+                          <TableRow key={order.id} className="border-border" data-testid={`row-order-${order.id}`}>
+                            <TableCell className="font-mono text-xs text-muted-foreground" data-testid={`text-order-id-${order.id}`}>
                               {order.id.substring(0, 8)}...
                             </TableCell>
                             <TableCell>
@@ -440,7 +440,7 @@ export default function OrderAuditDashboard() {
                                 {categoryLabels[order.productCategory as ProductCategory] || order.productCategory}
                               </Badge>
                             </TableCell>
-                            <TableCell className="font-mono text-xs text-gray-400" data-testid={`text-user-id-${order.id}`}>
+                            <TableCell className="font-mono text-xs text-muted-foreground" data-testid={`text-user-id-${order.id}`}>
                               {order.userId.substring(0, 8)}...
                             </TableCell>
                             <TableCell>
@@ -468,7 +468,7 @@ export default function OrderAuditDashboard() {
                                 {statusLabels[(order.status || 'active') as CartItemStatus]}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-gray-400 text-sm" data-testid={`text-created-${order.id}`}>
+                            <TableCell className="text-muted-foreground text-sm" data-testid={`text-created-${order.id}`}>
                               {order.createdAt 
                                 ? format(new Date(order.createdAt), 'MMM d, yyyy HH:mm')
                                 : '—'}
@@ -479,8 +479,8 @@ export default function OrderAuditDashboard() {
                     </Table>
                   </div>
                   
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700">
-                    <p className="text-sm text-gray-400" data-testid="text-pagination-info">
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                    <p className="text-sm text-muted-foreground" data-testid="text-pagination-info">
                       Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalOrders)} of {totalOrders} orders
                     </p>
                     <div className="flex items-center gap-2">
@@ -489,13 +489,13 @@ export default function OrderAuditDashboard() {
                         size="sm" 
                         onClick={handlePrevPage}
                         disabled={currentPage <= 1}
-                        className="border-gray-700"
+                        className="border-border"
                         data-testid="button-prev-page"
                       >
                         <ChevronLeft className="h-4 w-4" />
                         Previous
                       </Button>
-                      <span className="text-sm text-gray-400 px-2" data-testid="text-current-page">
+                      <span className="text-sm text-muted-foreground px-2" data-testid="text-current-page">
                         Page {currentPage} of {totalPages}
                       </span>
                       <Button 
@@ -503,7 +503,7 @@ export default function OrderAuditDashboard() {
                         size="sm" 
                         onClick={handleNextPage}
                         disabled={currentPage >= totalPages}
-                        className="border-gray-700"
+                        className="border-border"
                         data-testid="button-next-page"
                       >
                         Next
@@ -518,7 +518,7 @@ export default function OrderAuditDashboard() {
         </CardContent>
       </Card>
       
-      <Card className="bg-gray-900 border-gray-800" data-testid="card-source-legend">
+      <Card className="bg-card border-border" data-testid="card-source-legend">
         <CardHeader>
           <CardTitle className="text-white text-lg">Source Tracking Legend</CardTitle>
         </CardHeader>
@@ -529,21 +529,21 @@ export default function OrderAuditDashboard() {
                 <User className="w-3 h-3" />
                 Client
               </Badge>
-              <span className="text-gray-400 text-sm">Orders added directly by the client</span>
+              <span className="text-muted-foreground text-sm">Orders added directly by the client</span>
             </div>
             <div className="flex items-center gap-2" data-testid="legend-agent">
               <Badge variant="outline" className="flex items-center gap-1 bg-blue-900/30 text-blue-400 border-blue-700">
                 <Users className="w-3 h-3" />
                 Agent
               </Badge>
-              <span className="text-gray-400 text-sm">Orders proposed by agents</span>
+              <span className="text-muted-foreground text-sm">Orders proposed by agents</span>
             </div>
             <div className="flex items-center gap-2" data-testid="legend-ai">
               <Badge variant="outline" className="flex items-center gap-1 bg-purple-900/30 text-purple-400 border-purple-700">
                 <Bot className="w-3 h-3" />
                 AI
               </Badge>
-              <span className="text-gray-400 text-sm">Orders recommended by AI assistant</span>
+              <span className="text-muted-foreground text-sm">Orders recommended by AI assistant</span>
             </div>
           </div>
         </CardContent>

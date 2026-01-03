@@ -42,7 +42,7 @@ export function ComingSoonPage({
           </Link>
         </div>
         
-        <Card className="border-0 shadow-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm" data-testid="card-coming-soon">
+        <Card className="border-0 shadow-xl bg-white/80 dark:bg-muted/80 backdrop-blur-sm" data-testid="card-coming-soon">
           <CardHeader className="text-center pb-4">
             <div className="mx-auto w-20 h-20 bg-gradient-to-br from-finance-blue/20 to-finance-blue/5 rounded-full flex items-center justify-center mb-4">
               <Clock className="h-10 w-10 text-finance-blue animate-pulse" />
@@ -62,7 +62,7 @@ export function ComingSoonPage({
           <CardContent className="space-y-8">
             {expectedLaunchDate && (
               <div className="text-center p-4 bg-finance-blue/5 rounded-xl border border-finance-blue/20">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Expected Launch</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-1">Expected Launch</p>
                 <p className="text-xl font-bold text-finance-blue">{expectedLaunchDate}</p>
               </div>
             )}
@@ -75,14 +75,14 @@ export function ComingSoonPage({
                 {displayFeatures.map((feature, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    className="flex items-center gap-3 p-3 bg-muted dark:bg-muted rounded-lg"
                     data-testid={`feature-item-${index}`}
                   >
                     {index === 0 && <Shield className="h-5 w-5 text-green-600" />}
                     {index === 1 && <TrendingUp className="h-5 w-5 text-blue-600" />}
                     {index === 2 && <Building2 className="h-5 w-5 text-purple-600" />}
                     {index >= 3 && <Sparkles className="h-5 w-5 text-orange-600" />}
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                       {feature}
                     </span>
                   </div>
@@ -100,13 +100,13 @@ export function ComingSoonPage({
                   <Bell className="h-4 w-4 mr-2" />
                   Notify Me When Available
                 </Button>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-2">
                   We'll send you an email when this category is available
                 </p>
               </div>
             )}
             
-            <div className="text-center text-sm text-gray-500 dark:text-gray-400 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="text-center text-sm text-muted-foreground dark:text-muted-foreground pt-4 border-t border-border dark:border-border">
               <p>Have questions? Contact our support team for more information.</p>
             </div>
           </CardContent>

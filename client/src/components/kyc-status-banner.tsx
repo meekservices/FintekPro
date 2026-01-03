@@ -190,7 +190,7 @@ export function KYCStatusBanner() {
                           className={`flex items-center gap-2 text-sm ${
                             benefit.available 
                               ? 'text-green-700 dark:text-green-400' 
-                              : 'text-gray-500 dark:text-gray-400'
+                              : 'text-muted-foreground dark:text-muted-foreground'
                           }`}
                           data-testid={`benefit-${index}`}
                         >
@@ -231,7 +231,7 @@ export function KYCStatusBanner() {
                   </Button>
                 </Link>
 
-                <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center">
+                <div className="text-xs text-muted-foreground dark:text-muted-foreground flex items-center">
                   <Info className="w-3 h-3 mr-1" />
                   Takes only 5-10 minutes
                 </div>

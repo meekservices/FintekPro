@@ -428,7 +428,7 @@ export default function TDSCompliancePage() {
                 <Separator />
 
                 <div className="space-y-4">
-                  <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300">Income Details</h4>
+                  <h4 className="font-semibold text-sm text-muted-foreground dark:text-muted-foreground">Income Details</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="grossSalary">Gross Salary (Annual)</Label>
@@ -481,9 +481,9 @@ export default function TDSCompliancePage() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300">Tax Regime</h4>
+                    <h4 className="font-semibold text-sm text-muted-foreground dark:text-muted-foreground">Tax Regime</h4>
                     <div className="flex items-center gap-4">
-                      <Label className={salaryForm.taxRegime === "old" ? "text-blue-600 font-medium" : "text-gray-500"}>
+                      <Label className={salaryForm.taxRegime === "old" ? "text-blue-600 font-medium" : "text-muted-foreground"}>
                         Old Regime
                       </Label>
                       <Switch
@@ -491,7 +491,7 @@ export default function TDSCompliancePage() {
                         onCheckedChange={(checked) => setSalaryForm((prev) => ({ ...prev, taxRegime: checked ? "new" : "old" }))}
                         data-testid="switch-regime"
                       />
-                      <Label className={salaryForm.taxRegime === "new" ? "text-blue-600 font-medium" : "text-gray-500"}>
+                      <Label className={salaryForm.taxRegime === "new" ? "text-blue-600 font-medium" : "text-muted-foreground"}>
                         New Regime
                       </Label>
                     </div>
@@ -502,7 +502,7 @@ export default function TDSCompliancePage() {
                   <>
                     <Separator />
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300">Deductions (Old Regime Only)</h4>
+                      <h4 className="font-semibold text-sm text-muted-foreground dark:text-muted-foreground">Deductions (Old Regime Only)</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="section80C">Section 80C (Max ₹1.5L)</Label>
@@ -606,25 +606,25 @@ export default function TDSCompliancePage() {
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Gross Income</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Gross Income</div>
                         <div className="text-2xl font-bold text-blue-600">
                           ₹{salaryResult.data.grossIncome.toLocaleString()}
                         </div>
                       </div>
                       <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Deductions</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Total Deductions</div>
                         <div className="text-2xl font-bold text-green-600">
                           ₹{salaryResult.data.totalDeductions.toLocaleString()}
                         </div>
                       </div>
                       <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Taxable Income</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Taxable Income</div>
                         <div className="text-2xl font-bold text-purple-600">
                           ₹{salaryResult.data.taxableIncome.toLocaleString()}
                         </div>
                       </div>
                       <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Tax</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Total Tax</div>
                         <div className="text-2xl font-bold text-orange-600">
                           ₹{salaryResult.data.totalTax.toLocaleString()}
                         </div>
@@ -648,15 +648,15 @@ export default function TDSCompliancePage() {
                       <h4 className="font-semibold text-sm">Tax Breakdown</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Basic Tax</span>
+                          <span className="text-muted-foreground">Basic Tax</span>
                           <span>₹{salaryResult.data.breakdown.basicTax.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Surcharge</span>
+                          <span className="text-muted-foreground">Surcharge</span>
                           <span>₹{salaryResult.data.breakdown.surcharge.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Education Cess (4%)</span>
+                          <span className="text-muted-foreground">Education Cess (4%)</span>
                           <span>₹{Math.round(salaryResult.data.breakdown.cess).toLocaleString()}</span>
                         </div>
                       </div>
@@ -667,7 +667,7 @@ export default function TDSCompliancePage() {
                         <h4 className="font-semibold text-sm">Slab-wise Computation</h4>
                         <div className="space-y-2">
                           {salaryResult.data.slabWise.map((slab, idx) => (
-                            <div key={idx} className="flex justify-between text-sm p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                            <div key={idx} className="flex justify-between text-sm p-2 bg-muted dark:bg-muted rounded">
                               <span>
                                 {slab.slab} @ {slab.rate}%
                               </span>
@@ -679,7 +679,7 @@ export default function TDSCompliancePage() {
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-muted-foreground">
                     <Calculator className="h-12 w-12 mx-auto mb-4 opacity-30" />
                     <p>Enter your salary details and click Calculate to see TDS computation</p>
                   </div>
@@ -833,13 +833,13 @@ export default function TDSCompliancePage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Payment Amount</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Payment Amount</div>
                         <div className="text-xl font-bold text-blue-600">
                           ₹{nonSalaryResult.data.amount.toLocaleString()}
                         </div>
                       </div>
                       <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Net Payable</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Net Payable</div>
                         <div className="text-xl font-bold text-green-600">
                           ₹{nonSalaryResult.data.netPayable.toLocaleString()}
                         </div>
@@ -850,15 +850,15 @@ export default function TDSCompliancePage() {
                       <h4 className="font-semibold text-sm">Breakdown</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">TDS Amount</span>
+                          <span className="text-muted-foreground">TDS Amount</span>
                           <span>₹{nonSalaryResult.data.tdsAmount.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Surcharge</span>
+                          <span className="text-muted-foreground">Surcharge</span>
                           <span>₹{nonSalaryResult.data.surcharge.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Education Cess</span>
+                          <span className="text-muted-foreground">Education Cess</span>
                           <span>₹{nonSalaryResult.data.educationCess.toLocaleString()}</span>
                         </div>
                         <Separator />
@@ -877,7 +877,7 @@ export default function TDSCompliancePage() {
                     </Alert>
                   </div>
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-muted-foreground">
                     <Banknote className="h-12 w-12 mx-auto mb-4 opacity-30" />
                     <p>Enter payment details and click Calculate to see TDS computation</p>
                   </div>
@@ -898,13 +898,13 @@ export default function TDSCompliancePage() {
               {sectionRates?.data && (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(sectionRates.data as Record<string, any>).map(([section, info]) => (
-                    <div key={section} className="p-4 border rounded-lg dark:border-gray-700">
+                    <div key={section} className="p-4 border rounded-lg dark:border-border">
                       <div className="flex items-center justify-between mb-2">
                         <Badge variant="outline" className="font-mono">{section}</Badge>
                         <span className="text-lg font-bold text-blue-600">{info.rate}%</span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{info.description}</p>
-                      <div className="text-xs text-gray-500">
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">{info.description}</p>
+                      <div className="text-xs text-muted-foreground">
                         Threshold: ₹{info.thresholdIndividual.toLocaleString()} (Individual) / 
                         ₹{info.thresholdOther.toLocaleString()} (Others)
                       </div>
@@ -970,7 +970,7 @@ export default function TDSCompliancePage() {
                 </div>
 
                 {form16Data.employees.map((emp, idx) => (
-                  <div key={idx} className="grid md:grid-cols-4 gap-4 p-4 border rounded-lg dark:border-gray-700">
+                  <div key={idx} className="grid md:grid-cols-4 gap-4 p-4 border rounded-lg dark:border-border">
                     <div className="space-y-2">
                       <Label>PAN</Label>
                       <Input
@@ -1072,7 +1072,7 @@ export default function TDSCompliancePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">Applicable For:</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Applicable For:</h4>
                     <div className="flex flex-wrap gap-2">
                       {form.applicableFor.map((item: string, idx: number) => (
                         <Badge key={idx} variant="secondary" className="text-xs">
@@ -1102,18 +1102,18 @@ export default function TDSCompliancePage() {
               {dueDates?.data && (
                 <div className="grid md:grid-cols-4 gap-4">
                   {dueDates.data.map((quarter: any) => (
-                    <div key={quarter.quarter} className="p-4 border rounded-lg dark:border-gray-700">
+                    <div key={quarter.quarter} className="p-4 border rounded-lg dark:border-border">
                       <div className="flex items-center justify-between mb-3">
                         <Badge variant="outline" className="text-lg">{quarter.quarter}</Badge>
-                        <span className="text-sm text-gray-500">{quarter.period}</span>
+                        <span className="text-sm text-muted-foreground">{quarter.period}</span>
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Deposit Due:</span>
+                          <span className="text-muted-foreground">Deposit Due:</span>
                           <span className="font-medium">{quarter.depositDue}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Return Due:</span>
+                          <span className="text-muted-foreground">Return Due:</span>
                           <span className="font-medium text-orange-600">{quarter.returnDue}</span>
                         </div>
                       </div>
@@ -1184,19 +1184,19 @@ export default function TDSCompliancePage() {
                   {/* Summary Cards */}
                   <div className="grid md:grid-cols-3 gap-4">
                     <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Total TDS Deducted</div>
+                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">Total TDS Deducted</div>
                       <div className="text-3xl font-bold text-blue-600">
                         ₹{analytics.data.totalTDSDeducted.toLocaleString()}
                       </div>
                     </div>
                     <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">TDS Deposited</div>
+                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">TDS Deposited</div>
                       <div className="text-3xl font-bold text-green-600">
                         ₹{analytics.data.totalTDSDeposited.toLocaleString()}
                       </div>
                     </div>
                     <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-xl">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Pending Deposit</div>
+                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">Pending Deposit</div>
                       <div className="text-3xl font-bold text-red-600">
                         ₹{analytics.data.pendingDeposit.toLocaleString()}
                       </div>
@@ -1236,7 +1236,7 @@ export default function TDSCompliancePage() {
                           </div>
                         </div>
                       </div>
-                      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="mt-4 p-4 bg-muted dark:bg-muted rounded-lg">
                         <div className="flex justify-between text-sm">
                           <span>Last Filing Date:</span>
                           <span className="font-medium">{analytics.data.compliance.lastFilingDate || "N/A"}</span>

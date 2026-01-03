@@ -87,7 +87,7 @@ export function RiskProfileBadge({
   }
 
   const isExpired = new Date(profile.validUntil) < new Date();
-  const tierColor = RISK_TIER_COLORS[profile.riskTier] || "bg-gray-100 text-gray-800";
+  const tierColor = RISK_TIER_COLORS[profile.riskTier] || "bg-muted text-foreground";
 
   return (
     <TooltipProvider>

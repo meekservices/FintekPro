@@ -113,7 +113,7 @@ interface OnboardingInvitation {
 }
 
 const INVITATION_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  pending: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
   sent: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   opened: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
   started: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
@@ -131,7 +131,7 @@ const ENTITY_TYPE_OPTIONS = [
 ];
 
 const KYC_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  pending: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
   basic: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   enhanced: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   accredited: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
@@ -393,7 +393,7 @@ export default function AgentClientsPage() {
               <Users className="h-8 w-8 text-primary" />
               Client Management
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               Manage your clients, portfolios, and advisory sessions
             </p>
           </div>
@@ -1086,7 +1086,7 @@ export default function AgentClientsPage() {
               <>
                 <Button 
                   variant="outline" 
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                  className="border-border text-muted-foreground hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted"
                   onClick={() => setShowInviteDialog(false)}
                 >
                   Cancel

@@ -263,7 +263,7 @@ export default function Portfolio() {
           <div className="text-center py-16">
             <Shield className="h-16 w-16 text-blue-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Sign In Required</h1>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               Please sign in to view your portfolio holdings and performance
             </p>
             <Button 
@@ -287,7 +287,7 @@ export default function Portfolio() {
           <div className="text-center py-16">
             <Shield className="h-16 w-16 text-orange-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">PAN Card Required</h1>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               Complete your KYC by adding your PAN card to access portfolio data
             </p>
             <Button className="bg-orange-500 text-white hover:bg-orange-600">
@@ -309,7 +309,7 @@ export default function Portfolio() {
           <div className="text-center py-16">
             <TrendingUp className="h-16 w-16 text-blue-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">No Portfolios Found</h1>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               No investment portfolios are linked to your PAN card yet
             </p>
             <Button className="bg-blue-500 text-white hover:bg-blue-600">
@@ -490,7 +490,7 @@ export default function Portfolio() {
                     <div className="flex justify-between items-center">
                       <CardTitle>Portfolio Holdings by Asset Class</CardTitle>
                       {enhancedHoldings && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {enhancedHoldings.length} total holdings
                         </div>
                       )}
@@ -518,11 +518,11 @@ export default function Portfolio() {
                           const assetTypeLabel = assetType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
                           
                           return (
-                            <div key={assetType} className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-4">
-                              <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-200 dark:border-slate-700">
+                            <div key={assetType} className="bg-muted dark:bg-slate-800/50 rounded-lg p-4">
+                              <div className="flex justify-between items-center mb-4 pb-3 border-b border-border dark:border-slate-700">
                                 <div>
                                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">{assetTypeLabel}</h3>
-                                  <p className="text-sm text-gray-600 dark:text-slate-400">{holdings?.length || 0} holding{(holdings?.length || 0) !== 1 ? 's' : ''}</p>
+                                  <p className="text-sm text-muted-foreground dark:text-slate-400">{holdings?.length || 0} holding{(holdings?.length || 0) !== 1 ? 's' : ''}</p>
                                 </div>
                                 <div className="text-right">
                                   <p className="text-lg font-bold text-gray-900 dark:text-white">₹{totalCurrent.toLocaleString()}</p>
@@ -540,7 +540,7 @@ export default function Portfolio() {
                                         <h4 className="font-semibold text-gray-900 dark:text-white">{holding.symbol}</h4>
                                         <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded">{holding.exchange}</span>
                                       </div>
-                                      <p className="text-sm text-gray-600 dark:text-slate-400">Qty: {holding.quantity} @ ₹{holding.avgPrice}</p>
+                                      <p className="text-sm text-muted-foreground dark:text-slate-400">Qty: {holding.quantity} @ ₹{holding.avgPrice}</p>
                                     </div>
                                     <div className="text-right">
                                       <p className="font-bold text-gray-900 dark:text-white">₹{parseFloat(holding.currentValue).toLocaleString()}</p>
@@ -557,7 +557,7 @@ export default function Portfolio() {
                       </div>
                     ) : (
                       <div className="text-center py-8" data-testid="empty-holdings">
-                        <p className="text-gray-500 mb-4">No holdings found</p>
+                        <p className="text-muted-foreground mb-4">No holdings found</p>
                         <Button variant="outline">Add Your First Investment</Button>
                       </div>
                     )}
@@ -764,9 +764,9 @@ export default function Portfolio() {
                   </div>
                 ) : (
                   <div className="text-center py-12" data-testid="empty-orders">
-                    <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No FintekPro Orders Yet</h3>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-muted-foreground mb-4">
                       Start investing through FintekPro to see your transactions here
                     </p>
                     <Button 
@@ -799,7 +799,7 @@ export default function Portfolio() {
                     {enhancedHoldings.slice(0, 10).map((holding: any) => (
                       <div 
                         key={holding.id} 
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted"
                         data-testid={`holding-${holding.id}`}
                       >
                         <div>
@@ -992,9 +992,9 @@ export default function Portfolio() {
                   </div>
                 ) : (
                   <div className="text-center py-12" data-testid="empty-tracker">
-                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Holdings Found</h3>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-muted-foreground mb-4">
                       Your PAN-linked demat holdings will appear here once connected
                     </p>
                     <Button 
@@ -1135,7 +1135,7 @@ export default function Portfolio() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge className="bg-gray-100 text-gray-600 border-gray-200">
+                                <Badge className="bg-muted text-muted-foreground border-border">
                                   View Only
                                 </Badge>
                               </TableCell>
@@ -1162,7 +1162,7 @@ export default function Portfolio() {
                   <div className="text-center py-12" data-testid="empty-external">
                     <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">All Holdings on FintekPro</h3>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-muted-foreground mb-4">
                       Great news! All your demat holdings are managed through FintekPro
                     </p>
                   </div>
@@ -1239,7 +1239,7 @@ export default function Portfolio() {
                             Array.from(new Set(insuranceHoldings.map(p => p.policyType))).map(policyType => {
                               const count = insuranceHoldings.filter(p => p.policyType === policyType).length;
                               return (
-                                <div key={policyType} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                <div key={policyType} className="flex justify-between items-center p-2 bg-muted rounded">
                                   <span className="text-sm">{policyType.charAt(0).toUpperCase() + policyType.slice(1)} Insurance</span>
                                   <span className="font-medium">{count} {count === 1 ? 'policy' : 'policies'}</span>
                                 </div>
@@ -1294,7 +1294,7 @@ export default function Portfolio() {
                                 <p className="text-sm text-muted-foreground">Policy No: {policy.policyNumber}</p>
                                 <p className="text-xs text-muted-foreground">{policy.insuranceCompany}</p>
                               </div>
-                              <Badge className={(policy.policyStatus || '') === 'active' ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                              <Badge className={(policy.policyStatus || '') === 'active' ? "bg-green-100 text-green-800" : "bg-muted text-foreground"}>
                                 {policy.policyStatus ? policy.policyStatus.charAt(0).toUpperCase() + policy.policyStatus.slice(1) : 'Unknown'}
                               </Badge>
                             </div>
@@ -1335,7 +1335,7 @@ export default function Portfolio() {
                         ))
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">
-                          <Shield className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                           <p>No insurance policies found</p>
                           <p className="text-sm">Connect your NSDL/CDSL account to view your insurance holdings</p>
                         </div>
@@ -1363,7 +1363,7 @@ export default function Portfolio() {
                         <div className="text-3xl font-bold text-green-600">85%</div>
                         <p className="text-sm text-muted-foreground">of recommended coverage</p>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-2">
                         <div className="bg-green-600 h-2 rounded-full" style={{ width: '85%' }}></div>
                       </div>
                     </div>
@@ -1414,7 +1414,7 @@ export default function Portfolio() {
                           <div className="text-2xl font-bold text-blue-600">₹3.85L</div>
                           <p className="text-sm text-muted-foreground">ULIP Fund Value</p>
                         </div>
-                        <div className="text-xs text-gray-600 text-center">
+                        <div className="text-xs text-muted-foreground text-center">
                           Part of investment portfolio
                         </div>
                       </div>
@@ -1471,7 +1471,7 @@ export default function Portfolio() {
                               <span className="text-xs text-muted-foreground font-normal">{epf.epfAccountNumber}</span>
                             </div>
                           </CardTitle>
-                          <Badge variant="outline" className={epf.isActive ? "text-green-600 border-green-600" : "text-gray-500 border-gray-400"}>
+                          <Badge variant="outline" className={epf.isActive ? "text-green-600 border-green-600" : "text-muted-foreground border-gray-400"}>
                             {epf.isActive ? 'Active' : 'Previous'}
                           </Badge>
                         </div>
@@ -1549,11 +1549,11 @@ export default function Portfolio() {
                           <div className="space-y-3">
                             <h4 className="font-semibold text-gray-900">Monthly Contribution</h4>
                             <div className="grid grid-cols-2 gap-4">
-                              <div className="p-3 bg-gray-50 rounded-lg">
+                              <div className="p-3 bg-muted rounded-lg">
                                 <p className="text-sm text-muted-foreground">Employee (12%)</p>
                                 <p className="text-lg font-bold text-gray-900">₹7,200</p>
                               </div>
-                              <div className="p-3 bg-gray-50 rounded-lg">
+                              <div className="p-3 bg-muted rounded-lg">
                                 <p className="text-sm text-muted-foreground">Employer (12%)</p>
                                 <p className="text-lg font-bold text-gray-900">₹7,200</p>
                               </div>
@@ -1601,7 +1601,7 @@ export default function Portfolio() {
                     {/* Nominee Details */}
                     <div className="space-y-3">
                       <h4 className="font-semibold text-gray-900">Nominee Details</h4>
-                      <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="p-3 bg-muted rounded-lg">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <p className="text-sm text-muted-foreground">Name</p>
@@ -1635,7 +1635,7 @@ export default function Portfolio() {
                         <div className="text-3xl font-bold text-purple-600">8.9%</div>
                         <p className="text-sm text-muted-foreground">of total wealth</p>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-2">
                         <div className="bg-purple-600 h-2 rounded-full" style={{ width: '8.9%' }}></div>
                       </div>
                     </div>
@@ -1667,7 +1667,7 @@ export default function Portfolio() {
                           <div className="text-2xl font-bold text-blue-600">₹85.2L</div>
                           <p className="text-sm text-muted-foreground">Projected at 60</p>
                         </div>
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-muted-foreground">
                           Based on current contributions and 8.15% annual growth
                         </div>
                       </div>
@@ -1818,7 +1818,7 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-gray-900">FY 2024-25 Contribution</h4>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="p-3 bg-muted rounded-lg">
                           <p className="text-sm text-muted-foreground">Contributed So Far</p>
                           <p className="text-lg font-bold text-gray-900">₹1,20,000</p>
                         </div>
@@ -1827,7 +1827,7 @@ export default function Portfolio() {
                           <p className="text-lg font-bold text-orange-600">₹30,000</p>
                         </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-2">
                         <div className="bg-green-500 h-2 rounded-full" style={{ width: '80%' }}></div>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -1882,7 +1882,7 @@ export default function Portfolio() {
                     {/* Nominee Information */}
                     <div className="space-y-3">
                       <h4 className="font-semibold text-gray-900">Nominee Details</h4>
-                      <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="p-3 bg-muted rounded-lg">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <p className="text-sm text-muted-foreground">Name</p>
@@ -1916,7 +1916,7 @@ export default function Portfolio() {
                         <div className="text-3xl font-bold text-purple-600">14.2%</div>
                         <p className="text-sm text-muted-foreground">of total wealth</p>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-2">
                         <div className="bg-purple-600 h-2 rounded-full" style={{ width: '14.2%' }}></div>
                       </div>
                     </div>
@@ -1967,7 +1967,7 @@ export default function Portfolio() {
                           <div className="text-2xl font-bold text-purple-600">₹42.8L</div>
                           <p className="text-sm text-muted-foreground">At maturity (2030)</p>
                         </div>
-                        <div className="text-xs text-gray-600 text-center">
+                        <div className="text-xs text-muted-foreground text-center">
                           Provides stable, tax-free retirement corpus
                         </div>
                       </div>
@@ -2174,8 +2174,8 @@ export default function Portfolio() {
                     {/* Pension Formula & Calculation */}
                     <div className="space-y-3">
                       <h4 className="font-semibold text-gray-900">Pension Formula (EPS-95)</h4>
-                      <div className="p-4 bg-gray-50 rounded-lg border">
-                        <p className="text-sm font-medium text-center text-gray-700">
+                      <div className="p-4 bg-muted rounded-lg border">
+                        <p className="text-sm font-medium text-center text-muted-foreground">
                           Pension = (Pensionable Salary × Service) ÷ 70
                         </p>
                         <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
@@ -2236,7 +2236,7 @@ export default function Portfolio() {
                     {/* Nominee Information */}
                     <div className="space-y-3">
                       <h4 className="font-semibold text-gray-900">Nominee Details</h4>
-                      <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="p-3 bg-muted rounded-lg">
                         <div className="grid grid-cols-3 gap-2">
                           <div>
                             <p className="text-sm text-muted-foreground">Name</p>
@@ -2341,11 +2341,11 @@ export default function Portfolio() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-gray-900">Contribution Progress</h4>
                       <div className="space-y-3">
-                        <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="p-3 bg-muted rounded-lg">
                           <p className="text-sm text-muted-foreground">Years Contributed</p>
                           <p className="text-lg font-bold text-gray-900">6.3 Years</p>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="w-full bg-muted rounded-full h-3">
                           <div className="bg-green-500 h-3 rounded-full" style={{ width: '25.2%' }}></div>
                         </div>
                         <div className="flex justify-between text-xs">
@@ -2367,7 +2367,7 @@ export default function Portfolio() {
                     <h4 className="font-semibold text-gray-900 mb-4">APY Benefits & Features</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-3">
-                        <h5 className="font-medium text-gray-800">Pension Benefits</h5>
+                        <h5 className="font-medium text-foreground">Pension Benefits</h5>
                         <div className="space-y-2">
                           <div className="p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                             <p className="text-sm font-medium text-green-900">✓ Guaranteed Pension</p>
@@ -2385,7 +2385,7 @@ export default function Portfolio() {
                       </div>
 
                       <div className="space-y-3">
-                        <h5 className="font-medium text-gray-800">Government Support</h5>
+                        <h5 className="font-medium text-foreground">Government Support</h5>
                         <div className="space-y-2">
                           <div className="p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
                             <p className="text-sm font-medium text-yellow-900">✓ Co-contribution</p>
@@ -2403,7 +2403,7 @@ export default function Portfolio() {
                       </div>
 
                       <div className="space-y-3">
-                        <h5 className="font-medium text-gray-800">Account Features</h5>
+                        <h5 className="font-medium text-foreground">Account Features</h5>
                         <div className="space-y-2">
                           <div className="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
                             <p className="text-sm font-medium text-orange-900">✓ Auto-Debit</p>
@@ -2502,7 +2502,7 @@ export default function Portfolio() {
                         <div className="text-3xl font-bold text-blue-600">₹6,857</div>
                         <p className="text-sm text-muted-foreground">at retirement</p>
                       </div>
-                      <div className="text-xs text-gray-600 text-center">
+                      <div className="text-xs text-muted-foreground text-center">
                         Guaranteed lifelong pension
                       </div>
                     </div>
@@ -2534,7 +2534,7 @@ export default function Portfolio() {
                           <span className="text-sm">Completed</span>
                           <span className="text-sm font-medium">9.8 years</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-muted rounded-full h-2">
                           <div className="bg-blue-600 h-2 rounded-full" style={{ width: '30.6%' }}></div>
                         </div>
                         <div className="flex justify-between">
@@ -2552,7 +2552,7 @@ export default function Portfolio() {
                           <div className="text-2xl font-bold text-green-600">₹3,428</div>
                           <p className="text-sm text-muted-foreground">Family pension</p>
                         </div>
-                        <div className="text-xs text-gray-600 text-center">
+                        <div className="text-xs text-muted-foreground text-center">
                           50% pension to spouse
                         </div>
                       </div>
@@ -2566,7 +2566,7 @@ export default function Portfolio() {
                           <div className="text-2xl font-bold text-purple-600">₹17.1L</div>
                           <p className="text-sm text-muted-foreground">@4% withdrawal</p>
                         </div>
-                        <div className="text-xs text-gray-600 text-center">
+                        <div className="text-xs text-muted-foreground text-center">
                           Equivalent corpus needed for same income
                         </div>
                       </div>
@@ -2713,7 +2713,7 @@ export default function Portfolio() {
                           <span className="font-medium">Equity (E)</span>
                           <span className="font-bold text-green-700">50%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div className="bg-green-600 h-2 rounded-full" style={{ width: '50%' }}></div>
                         </div>
                       </div>
@@ -2722,7 +2722,7 @@ export default function Portfolio() {
                           <span className="font-medium">Corporate Bonds (C)</span>
                           <span className="font-bold text-blue-700">30%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div className="bg-blue-600 h-2 rounded-full" style={{ width: '30%' }}></div>
                         </div>
                       </div>
@@ -2731,7 +2731,7 @@ export default function Portfolio() {
                           <span className="font-medium">Government Securities (G)</span>
                           <span className="font-bold text-purple-700">20%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div className="bg-purple-600 h-2 rounded-full" style={{ width: '20%' }}></div>
                         </div>
                       </div>
@@ -2860,11 +2860,11 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-blue-600 mb-2">7.3/10</div>
-                    <p className="text-sm text-gray-600 mb-3">Moderate-High Risk</p>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <p className="text-sm text-muted-foreground mb-3">Moderate-High Risk</p>
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div className="bg-blue-600 h-2 rounded-full" style={{ width: '73%' }}></div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">Based on asset allocation & volatility</p>
+                    <p className="text-xs text-muted-foreground mt-2">Based on asset allocation & volatility</p>
                   </CardContent>
                 </Card>
 
@@ -2877,11 +2877,11 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-green-600 mb-2">85%</div>
-                    <p className="text-sm text-gray-600 mb-3">Well Diversified</p>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <p className="text-sm text-muted-foreground mb-3">Well Diversified</p>
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div className="bg-green-600 h-2 rounded-full" style={{ width: '85%' }}></div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">Across 4 asset classes & sectors</p>
+                    <p className="text-xs text-muted-foreground mt-2">Across 4 asset classes & sectors</p>
                   </CardContent>
                 </Card>
 
@@ -2894,11 +2894,11 @@ export default function Portfolio() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-orange-600 mb-2">Medium</div>
-                    <p className="text-sm text-gray-600 mb-3">Action Recommended</p>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <p className="text-sm text-muted-foreground mb-3">Action Recommended</p>
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div className="bg-orange-600 h-2 rounded-full" style={{ width: '60%' }}></div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">2 allocations need adjustment</p>
+                    <p className="text-xs text-muted-foreground mt-2">2 allocations need adjustment</p>
                   </CardContent>
                 </Card>
               </div>
@@ -2910,7 +2910,7 @@ export default function Portfolio() {
                     <Bot className="h-6 w-6 text-purple-600 mr-3" />
                     AI-Powered Rebalancing Recommendations
                   </CardTitle>
-                  <p className="text-gray-600">Intelligent suggestions based on market conditions, risk profile, and tax efficiency</p>
+                  <p className="text-muted-foreground">Intelligent suggestions based on market conditions, risk profile, and tax efficiency</p>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
@@ -2923,36 +2923,36 @@ export default function Portfolio() {
                           <Badge variant="outline" className="text-orange-600 border-orange-600">Action Needed</Badge>
                         </div>
                         <div className="text-right">
-                          <span className="text-sm text-gray-600">Current: 72% | Target: 65%</span>
+                          <span className="text-sm text-muted-foreground">Current: 72% | Target: 65%</span>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                         <div>
-                          <p className="text-sm text-gray-600">Current Value</p>
+                          <p className="text-sm text-muted-foreground">Current Value</p>
                           <p className="font-bold text-blue-600">₹32,88,880</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Target Value</p>
+                          <p className="text-sm text-muted-foreground">Target Value</p>
                           <p className="font-bold text-green-600">₹29,69,128</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Action Required</p>
+                          <p className="text-sm text-muted-foreground">Action Required</p>
                           <p className="font-bold text-red-600">Sell ₹3,19,752</p>
                         </div>
                       </div>
                       <div className="mb-3">
-                        <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                        <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
                           <span>Current vs Target</span>
                           <span>72% → 65%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-muted rounded-full h-2">
                           <div className="bg-blue-600 h-2 rounded-full relative" style={{ width: '72%' }}>
                             <div className="absolute right-0 top-0 w-1 h-2 bg-green-600"></div>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-700"><strong>AI Recommendation:</strong> Reduce exposure to large-cap stocks, focus on profit booking in overvalued positions</p>
+                        <p className="text-sm text-muted-foreground"><strong>AI Recommendation:</strong> Reduce exposure to large-cap stocks, focus on profit booking in overvalued positions</p>
                         <Button size="sm" variant="outline" className="text-blue-600 border-blue-600">
                           View Details
                         </Button>
@@ -2968,36 +2968,36 @@ export default function Portfolio() {
                           <Badge variant="outline" className="text-blue-600 border-blue-600">Increase</Badge>
                         </div>
                         <div className="text-right">
-                          <span className="text-sm text-gray-600">Current: 18% | Target: 25%</span>
+                          <span className="text-sm text-muted-foreground">Current: 18% | Target: 25%</span>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                         <div>
-                          <p className="text-sm text-gray-600">Current Value</p>
+                          <p className="text-sm text-muted-foreground">Current Value</p>
                           <p className="font-bold text-blue-600">₹8,22,220</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Target Value</p>
+                          <p className="text-sm text-muted-foreground">Target Value</p>
                           <p className="font-bold text-green-600">₹11,41,972</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Action Required</p>
+                          <p className="text-sm text-muted-foreground">Action Required</p>
                           <p className="font-bold text-green-600">Buy ₹3,19,752</p>
                         </div>
                       </div>
                       <div className="mb-3">
-                        <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                        <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
                           <span>Current vs Target</span>
                           <span>18% → 25%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-muted rounded-full h-2">
                           <div className="bg-green-600 h-2 rounded-full relative" style={{ width: '25%' }}>
                             <div className="absolute left-0 top-0 h-2 bg-green-400" style={{ width: '72%' }}></div>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-700"><strong>AI Recommendation:</strong> Invest in high-grade corporate bonds and government securities for stability</p>
+                        <p className="text-sm text-muted-foreground"><strong>AI Recommendation:</strong> Invest in high-grade corporate bonds and government securities for stability</p>
                         <Button size="sm" variant="outline" className="text-green-600 border-green-600">
                           View Options
                         </Button>
@@ -3014,8 +3014,8 @@ export default function Portfolio() {
                             <Badge variant="outline" className="text-green-600 border-green-600 text-xs">Optimal</Badge>
                           </div>
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">Current: 5% | Target: 5%</p>
-                        <p className="text-xs text-gray-700">No action needed. Maintain current allocation.</p>
+                        <p className="text-sm text-muted-foreground mb-1">Current: 5% | Target: 5%</p>
+                        <p className="text-xs text-muted-foreground">No action needed. Maintain current allocation.</p>
                       </div>
 
                       <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
@@ -3026,8 +3026,8 @@ export default function Portfolio() {
                             <Badge variant="outline" className="text-green-600 border-green-600 text-xs">Optimal</Badge>
                           </div>
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">Current: 5% | Target: 5%</p>
-                        <p className="text-xs text-gray-700">REITs and commodities well balanced.</p>
+                        <p className="text-sm text-muted-foreground mb-1">Current: 5% | Target: 5%</p>
+                        <p className="text-xs text-muted-foreground">REITs and commodities well balanced.</p>
                       </div>
                     </div>
                   </div>
@@ -3041,7 +3041,7 @@ export default function Portfolio() {
                     <Calculator className="h-6 w-6 text-indigo-600 mr-3" />
                     Rebalancing Simulator & Scenario Analysis
                   </CardTitle>
-                  <p className="text-gray-600">Test different allocation strategies and see projected outcomes</p>
+                  <p className="text-muted-foreground">Test different allocation strategies and see projected outcomes</p>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -3058,22 +3058,22 @@ export default function Portfolio() {
                             <input type="radio" name="scenario" className="text-blue-600" defaultChecked />
                           </div>
                         </div>
-                        <div className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <div className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted">
                           <div className="flex items-center justify-between">
                             <div>
                               <h5 className="font-medium text-gray-900">Balanced (Risk Score: 7.0)</h5>
-                              <p className="text-sm text-gray-600">Equity: 65% | Debt: 25% | Gold: 5% | Alt: 5%</p>
+                              <p className="text-sm text-muted-foreground">Equity: 65% | Debt: 25% | Gold: 5% | Alt: 5%</p>
                             </div>
-                            <input type="radio" name="scenario" className="text-gray-600" />
+                            <input type="radio" name="scenario" className="text-muted-foreground" />
                           </div>
                         </div>
-                        <div className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <div className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted">
                           <div className="flex items-center justify-between">
                             <div>
                               <h5 className="font-medium text-gray-900">Aggressive (Risk Score: 8.5)</h5>
-                              <p className="text-sm text-gray-600">Equity: 80% | Debt: 15% | Gold: 3% | Alt: 2%</p>
+                              <p className="text-sm text-muted-foreground">Equity: 80% | Debt: 15% | Gold: 3% | Alt: 2%</p>
                             </div>
-                            <input type="radio" name="scenario" className="text-gray-600" />
+                            <input type="radio" name="scenario" className="text-muted-foreground" />
                           </div>
                         </div>
                       </div>
@@ -3121,7 +3121,7 @@ export default function Portfolio() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h5 className="font-semibold text-gray-900">Tax-Efficient Rebalancing Timeline</h5>
-                        <p className="text-sm text-gray-600">Optimal execution to minimize tax impact</p>
+                        <p className="text-sm text-muted-foreground">Optimal execution to minimize tax impact</p>
                       </div>
                       <Button className="bg-indigo-600 text-white hover:bg-indigo-700">
                         Generate Execution Plan
@@ -3138,32 +3138,32 @@ export default function Portfolio() {
                     <TrendingUp className="h-6 w-6 text-green-600 mr-3" />
                     Execute Rebalancing
                   </CardTitle>
-                  <p className="text-gray-600">One-click execution with built-in safeguards</p>
+                  <p className="text-muted-foreground">One-click execution with built-in safeguards</p>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div className="text-center p-4 bg-red-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Total Sell Orders</p>
+                      <p className="text-sm text-muted-foreground mb-1">Total Sell Orders</p>
                       <p className="text-2xl font-bold text-red-600">₹3.19L</p>
-                      <p className="text-xs text-gray-500">2 transactions</p>
+                      <p className="text-xs text-muted-foreground">2 transactions</p>
                     </div>
                     <div className="text-center p-4 bg-green-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Total Buy Orders</p>
+                      <p className="text-sm text-muted-foreground mb-1">Total Buy Orders</p>
                       <p className="text-2xl font-bold text-green-600">₹3.19L</p>
-                      <p className="text-xs text-gray-500">3 transactions</p>
+                      <p className="text-xs text-muted-foreground">3 transactions</p>
                     </div>
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Estimated Fees</p>
+                      <p className="text-sm text-muted-foreground mb-1">Estimated Fees</p>
                       <p className="text-2xl font-bold text-blue-600">₹850</p>
-                      <p className="text-xs text-gray-500">All inclusive</p>
+                      <p className="text-xs text-muted-foreground">All inclusive</p>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t">
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-2">
-                        <input type="checkbox" id="confirm-execution" className="rounded border-gray-300" />
-                        <label htmlFor="confirm-execution" className="text-sm text-gray-700">
+                        <input type="checkbox" id="confirm-execution" className="rounded border-border" />
+                        <label htmlFor="confirm-execution" className="text-sm text-muted-foreground">
                           I understand the tax implications and execution costs
                         </label>
                       </div>

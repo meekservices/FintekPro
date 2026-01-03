@@ -66,8 +66,8 @@ export default function KYCDashboard() {
     return (
       <div className="container mx-auto p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
-          <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+          <div className="h-32 bg-muted dark:bg-muted rounded-lg"></div>
+          <div className="h-64 bg-muted dark:bg-muted rounded-lg"></div>
         </div>
       </div>
     );
@@ -126,7 +126,7 @@ export default function KYCDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold dark:text-white" data-testid="heading-kyc-dashboard">My KYC Dashboard</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage your verification and access</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Manage your verification and access</p>
         </div>
         <Badge className={`${getTierColor(profile?.kycTier || 'basic')} text-white px-4 py-2 text-lg`} data-testid="badge-kyc-tier">
           {getTierIcon(profile?.kycTier || 'basic')}
@@ -147,37 +147,37 @@ export default function KYCDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* User ID */}
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">User ID</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">User ID</p>
               <p className="font-semibold dark:text-white" data-testid="text-user-id">{profile?.userId}</p>
             </div>
 
             {/* Full Name */}
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Full Name</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Full Name</p>
               <p className="font-semibold dark:text-white" data-testid="text-full-name">{profile?.fullName || 'Not provided'}</p>
             </div>
 
             {/* Email */}
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Email</p>
               <p className="font-semibold dark:text-white" data-testid="text-email">{profile?.email}</p>
             </div>
 
             {/* Mobile */}
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Mobile</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Mobile</p>
               <p className="font-semibold dark:text-white" data-testid="text-mobile">{profile?.mobile}</p>
             </div>
 
             {/* PAN Number */}
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">PAN Number</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">PAN Number</p>
               <p className="font-semibold dark:text-white" data-testid="text-pan">{profile?.panNumber || 'Not verified'}</p>
             </div>
 
             {/* KYC Status */}
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">KYC Status</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">KYC Status</p>
               <Badge variant={profile?.kycStatus === 'approved' ? 'default' : 'secondary'} data-testid="badge-kyc-status">
                 {profile?.kycStatus || 'pending'}
               </Badge>
@@ -357,7 +357,7 @@ export default function KYCDashboard() {
             {/* Locked Products */}
             {eligibility?.lockedProducts && eligibility.lockedProducts.length > 0 && (
               <div>
-                <h3 className="font-semibold mb-3 text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                <h3 className="font-semibold mb-3 text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
                   <Lock className="h-5 w-5" />
                   Locked Products ({eligibility?.totalProductsLocked || 0})
                 </h3>
@@ -392,11 +392,11 @@ export default function KYCDashboard() {
 // Verification Badge Component
 function VerificationBadge({ label, verified, testId }: { label: string; verified: boolean; testId: string }) {
   return (
-    <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg" data-testid={testId}>
+    <div className="flex items-center gap-2 p-2 bg-muted dark:bg-muted rounded-lg" data-testid={testId}>
       {verified ? (
         <CheckCircle2 className="h-4 w-4 text-green-500" />
       ) : (
-        <XCircle className="h-4 w-4 text-gray-400" />
+        <XCircle className="h-4 w-4 text-muted-foreground" />
       )}
       <span className="text-sm dark:text-white">{label}</span>
     </div>
@@ -406,8 +406,8 @@ function VerificationBadge({ label, verified, testId }: { label: string; verifie
 // Compliance Item Component
 function ComplianceItem({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
-    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-      <p className="text-xs text-gray-600 dark:text-gray-400">{label}</p>
+    <div className="p-3 bg-muted dark:bg-muted rounded-lg">
+      <p className="text-xs text-muted-foreground dark:text-muted-foreground">{label}</p>
       <p className="font-semibold capitalize dark:text-white" data-testid={testId}>{value}</p>
     </div>
   );
@@ -420,7 +420,7 @@ function ProductCard({ product, isAccessible }: { product: any; isAccessible: bo
       className={`p-3 rounded-lg border ${
         isAccessible 
           ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' 
-          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+          : 'bg-muted dark:bg-muted border-border dark:border-border'
       }`}
       data-testid={`card-product-${product.productCode}`}
     >
@@ -436,7 +436,7 @@ function ProductCard({ product, isAccessible }: { product: any; isAccessible: bo
         {isAccessible ? (
           <Unlock className="h-4 w-4 text-green-500" />
         ) : (
-          <Lock className="h-4 w-4 text-gray-400" />
+          <Lock className="h-4 w-4 text-muted-foreground" />
         )}
       </div>
     </div>

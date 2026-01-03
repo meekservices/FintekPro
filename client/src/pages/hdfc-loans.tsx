@@ -202,7 +202,7 @@ export default function HDFCLoans() {
       'rejected': 'bg-red-100 text-red-800',
       'disbursed': 'bg-purple-100 text-purple-800'
     };
-    return statusColors[status] || 'bg-gray-100 text-gray-800';
+    return statusColors[status] || 'bg-muted text-foreground';
   };
 
   return (
@@ -216,7 +216,7 @@ export default function HDFCLoans() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">HDFC Bank Loans</h1>
-              <p className="text-gray-600 dark:text-gray-300">Trusted banking partner for all loan needs</p>
+              <p className="text-muted-foreground dark:text-muted-foreground">Trusted banking partner for all loan needs</p>
             </div>
           </div>
         </div>
@@ -500,8 +500,8 @@ export default function HDFCLoans() {
               </CardHeader>
               <CardContent>
                 <div className="text-center py-8">
-                  <p className="text-gray-600">Loan application form will be available here</p>
-                  <p className="text-sm text-gray-500 mt-2">This feature is under development</p>
+                  <p className="text-muted-foreground">Loan application form will be available here</p>
+                  <p className="text-sm text-muted-foreground mt-2">This feature is under development</p>
                 </div>
               </CardContent>
             </Card>
@@ -520,8 +520,8 @@ export default function HDFCLoans() {
               </CardHeader>
               <CardContent>
                 <div className="text-center py-8">
-                  <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600">No HDFC loan applications found</p>
+                  <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No HDFC loan applications found</p>
                   <Button
                     className="mt-4 bg-red-600 hover:bg-red-700"
                     onClick={() => setActiveTab("eligibility")}

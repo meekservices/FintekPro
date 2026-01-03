@@ -129,7 +129,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   signed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   expired: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  declined: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+  declined: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
   partial: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
 };
 
@@ -471,7 +471,7 @@ export default function AgentESignPage() {
               <FileSignature className="h-8 w-8 text-emerald-600" />
               Document E-Sign
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               Send documents for electronic signature to your clients
             </p>
           </div>
@@ -724,7 +724,7 @@ export default function AgentESignPage() {
                     {...getRootProps()}
                     className={cn(
                       "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
-                      isDragActive ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30" : "border-gray-300 hover:border-emerald-400"
+                      isDragActive ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30" : "border-border hover:border-emerald-400"
                     )}
                     data-testid="dropzone-upload"
                   >
@@ -749,7 +749,7 @@ export default function AgentESignPage() {
                       </div>
                     ) : (
                       <>
-                        <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                        <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                         <p className="text-lg font-medium mb-1">Drop your PDF here</p>
                         <p className="text-sm text-muted-foreground">or click to browse</p>
                       </>
@@ -1205,7 +1205,7 @@ export default function AgentESignPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 bg-gray-50 dark:bg-gray-900 h-64 flex items-center justify-center">
+                <div className="rounded-lg border p-4 bg-muted dark:bg-card h-64 flex items-center justify-center">
                   <div className="text-center text-muted-foreground">
                     <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
                     <p className="font-medium">Document Preview</p>

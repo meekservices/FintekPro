@@ -283,7 +283,7 @@ export default function FreshInvestmentDiscovery() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Fresh Investment Opportunities</h1>
-              <p className="text-gray-500 dark:text-gray-400">AI-curated investments personalized for your profile</p>
+              <p className="text-muted-foreground dark:text-muted-foreground">AI-curated investments personalized for your profile</p>
             </div>
           </div>
           <Button variant="outline" data-testid="button-refresh">
@@ -297,7 +297,7 @@ export default function FreshInvestmentDiscovery() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">For You</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">For You</p>
                 <p className="text-2xl font-bold">{opportunities.length}</p>
               </div>
               <Sparkles className="w-8 h-8 text-purple-400" />
@@ -310,12 +310,12 @@ export default function FreshInvestmentDiscovery() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Trending</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Trending</p>
                 <p className="text-2xl font-bold">{opportunities.filter(o => o.isTrending).length}</p>
               </div>
               <Flame className="w-8 h-8 text-orange-400" />
             </div>
-            <p className="text-xs text-gray-500 mt-1">Popular this week</p>
+            <p className="text-xs text-muted-foreground mt-1">Popular this week</p>
           </CardContent>
         </Card>
         
@@ -323,12 +323,12 @@ export default function FreshInvestmentDiscovery() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">New Arrivals</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">New Arrivals</p>
                 <p className="text-2xl font-bold">{opportunities.filter(o => o.isNew).length}</p>
               </div>
               <Zap className="w-8 h-8 text-yellow-400" />
             </div>
-            <p className="text-xs text-gray-500 mt-1">Added recently</p>
+            <p className="text-xs text-muted-foreground mt-1">Added recently</p>
           </CardContent>
         </Card>
         
@@ -336,7 +336,7 @@ export default function FreshInvestmentDiscovery() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Closing Soon</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Closing Soon</p>
                 <p className="text-2xl font-bold text-red-600">{opportunities.filter(o => o.closingDate).length}</p>
               </div>
               <Clock className="w-8 h-8 text-red-400" />
@@ -348,7 +348,7 @@ export default function FreshInvestmentDiscovery() {
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder="Search investments..."
             value={searchQuery}
@@ -414,9 +414,9 @@ export default function FreshInvestmentDiscovery() {
           {filteredOpportunities.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <Search className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                <Search className="w-16 h-16 mx-auto text-muted-foreground dark:text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No opportunities found</h3>
-                <p className="text-gray-500 dark:text-gray-400">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   Try adjusting your filters or search criteria
                 </p>
               </CardContent>
@@ -468,7 +468,7 @@ export default function FreshInvestmentDiscovery() {
                           variant="ghost"
                           size="icon"
                           onClick={() => toggleSave(opportunity.id)}
-                          className={isSaved ? 'text-red-500' : 'text-gray-400'}
+                          className={isSaved ? 'text-red-500' : 'text-muted-foreground'}
                           data-testid={`button-save-${opportunity.id}`}
                         >
                           <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
@@ -490,16 +490,16 @@ export default function FreshInvestmentDiscovery() {
                       </div>
                       
                       <div className="grid grid-cols-3 gap-3 mb-3">
-                        <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                          <p className="text-xs text-gray-500">Min. Investment</p>
+                        <div className="text-center p-2 bg-muted dark:bg-muted rounded">
+                          <p className="text-xs text-muted-foreground">Min. Investment</p>
                           <p className="font-semibold">{formatCurrency(opportunity.minInvestment)}</p>
                         </div>
-                        <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                          <p className="text-xs text-gray-500">Expected Return</p>
+                        <div className="text-center p-2 bg-muted dark:bg-muted rounded">
+                          <p className="text-xs text-muted-foreground">Expected Return</p>
                           <p className="font-semibold text-green-600">{opportunity.expectedReturn || 'Varies'}</p>
                         </div>
-                        <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                          <p className="text-xs text-gray-500">Rating</p>
+                        <div className="text-center p-2 bg-muted dark:bg-muted rounded">
+                          <p className="text-xs text-muted-foreground">Rating</p>
                           <p className="font-semibold flex items-center justify-center gap-1">
                             {opportunity.rating} <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                           </p>

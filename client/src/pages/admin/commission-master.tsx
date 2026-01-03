@@ -86,7 +86,7 @@ const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
   active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   frozen: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  archived: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+  archived: 'bg-muted dark:bg-muted text-foreground dark:bg-card dark:text-foreground',
 };
 
 const COMMISSION_ROLES = [
@@ -249,7 +249,7 @@ export default function CommissionMaster() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Commission Master</h1>
-          <p className="text-gray-500 dark:text-gray-400">Configure role-based commission plans by product type</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Configure role-based commission plans by product type</p>
         </div>
         <Button className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md" onClick={() => setShowCreateDialog(true)} data-testid="btn-create-plan">
           <Plus className="w-4 h-4 mr-2" />
@@ -262,10 +262,10 @@ export default function CommissionMaster() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Plans</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Plans</p>
                 <p className="text-2xl font-bold">{plans.length}</p>
               </div>
-              <Settings className="w-8 h-8 text-gray-400" />
+              <Settings className="w-8 h-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -273,7 +273,7 @@ export default function CommissionMaster() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Active Plans</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Active Plans</p>
                 <p className="text-2xl font-bold text-green-600">{activePlansCount}</p>
               </div>
               <Check className="w-8 h-8 text-green-500" />
@@ -284,7 +284,7 @@ export default function CommissionMaster() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Draft Plans</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Draft Plans</p>
                 <p className="text-2xl font-bold text-yellow-600">{draftPlansCount}</p>
               </div>
               <Edit className="w-8 h-8 text-yellow-500" />
@@ -295,7 +295,7 @@ export default function CommissionMaster() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Product Types</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Product Types</p>
                 <p className="text-2xl font-bold">{productTypes?.productTypes.length || 0}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-blue-500" />
@@ -325,7 +325,7 @@ export default function CommissionMaster() {
           {isLoading ? (
             <div className="text-center py-8">Loading plans...</div>
           ) : filteredPlans.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No commission plans found. Create your first plan to get started.
             </div>
           ) : (
@@ -398,7 +398,7 @@ export default function CommissionMaster() {
                         <Button 
                           size="sm" 
                           variant="ghost"
-                          className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+                          className="text-muted-foreground hover:text-foreground hover:bg-muted dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted"
                           onClick={() => openAuditLog(plan)}
                           data-testid={`btn-audit-${plan.id}`}
                         >
@@ -453,9 +453,9 @@ export default function CommissionMaster() {
                   <Input 
                     value={productTypes?.regulatoryCaps[newPlan.product_type as keyof typeof productTypes.regulatoryCaps] || ''} 
                     disabled 
-                    className="bg-gray-100 dark:bg-gray-800"
+                    className="bg-muted dark:bg-muted dark:bg-muted"
                   />
-                  <p className="text-xs text-gray-500">Set by SEBI/AMFI regulations</p>
+                  <p className="text-xs text-muted-foreground">Set by SEBI/AMFI regulations</p>
                 </div>
               </div>
 
@@ -494,7 +494,7 @@ export default function CommissionMaster() {
             <TabsContent value="roles" className="mt-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-500">Configure payout percentage for each role</p>
+                  <p className="text-sm text-muted-foreground">Configure payout percentage for each role</p>
                   <Badge variant={newPlan.roles.reduce((sum, r) => sum + r.percentage, 0) > 100 ? 'destructive' : 'secondary'}>
                     Total: {newPlan.roles.reduce((sum, r) => sum + r.percentage, 0)}%
                   </Badge>
@@ -555,7 +555,7 @@ export default function CommissionMaster() {
 
             <TabsContent value="hierarchy" className="mt-4">
               <div className="space-y-4">
-                <p className="text-sm text-gray-500">Configure hierarchy split percentages for commission distribution</p>
+                <p className="text-sm text-muted-foreground">Configure hierarchy split percentages for commission distribution</p>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -613,7 +613,7 @@ export default function CommissionMaster() {
           </Tabs>
 
           <DialogFooter>
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowCreateDialog(false)}>
+            <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
             <Button 
@@ -638,7 +638,7 @@ export default function CommissionMaster() {
           </DialogHeader>
 
           {auditLogs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No audit entries found</div>
+            <div className="text-center py-8 text-muted-foreground">No audit entries found</div>
           ) : (
             <Table>
               <TableHeader>
@@ -671,7 +671,7 @@ export default function CommissionMaster() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAuditDialog(false)}>
+            <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setShowAuditDialog(false)}>
               Close
             </Button>
           </DialogFooter>

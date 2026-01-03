@@ -83,7 +83,7 @@ interface ProposalItem {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  draft: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
   pending_review: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
   shared: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   client_viewed: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
@@ -217,7 +217,7 @@ export default function AgentProposalsPage() {
               <FileText className="h-8 w-8 text-primary" />
               Investment Proposals
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               Manage AI-generated proposals and client recommendations
             </p>
           </div>
@@ -422,13 +422,13 @@ export default function AgentProposalsPage() {
                               key={step.key}
                               className={`flex-1 h-8 flex items-center justify-center rounded ${
                                 isCompleted ? 'bg-green-100 dark:bg-green-900' :
-                                isCurrent ? 'bg-primary/20' : 'bg-gray-100 dark:bg-gray-800'
+                                isCurrent ? 'bg-primary/20' : 'bg-muted dark:bg-muted'
                               }`}
                               title={step.label}
                             >
                               <StepIcon className={`h-4 w-4 ${
                                 isCompleted ? 'text-green-600' :
-                                isCurrent ? 'text-primary' : 'text-gray-400'
+                                isCurrent ? 'text-primary' : 'text-muted-foreground'
                               }`} />
                             </div>
                           );

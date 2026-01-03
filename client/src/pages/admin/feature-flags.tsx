@@ -96,7 +96,7 @@ export default function FeatureFlags() {
       case 'running': return 'bg-emerald-100 text-emerald-800';
       case 'paused': return 'bg-amber-100 text-amber-800';
       case 'completed': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted dark:bg-muted text-foreground';
     }
   };
 
@@ -207,7 +207,7 @@ export default function FeatureFlags() {
                           />
                           <div>
                             <p className="font-medium">{flag.name}</p>
-                            <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                            <code className="text-xs bg-muted dark:bg-muted dark:bg-muted px-2 py-0.5 rounded">
                               {flag.key}
                             </code>
                           </div>

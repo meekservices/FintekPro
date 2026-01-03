@@ -125,7 +125,7 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
       case 'high': return 'bg-red-100 text-red-800 border-red-200';
       case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      default: return 'bg-muted text-foreground border-border';
     }
   };
 
@@ -134,7 +134,7 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
       case 'high': return 'bg-red-100 text-red-800';
       case 'medium': return 'bg-yellow-100 text-yellow-800';
       case 'low': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -171,19 +171,19 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
                 <div className="text-2xl font-bold text-green-600">
                   ₹{portfolioSummary.totalValue?.toLocaleString('en-IN') || '0'}
                 </div>
-                <div className="text-sm text-gray-600">Total Value</div>
+                <div className="text-sm text-muted-foreground">Total Value</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
                   {portfolioSummary.holdingsCount || 0}
                 </div>
-                <div className="text-sm text-gray-600">Holdings</div>
+                <div className="text-sm text-muted-foreground">Holdings</div>
               </div>
               <div className="text-center">
                 <div className={`text-2xl font-bold ${portfolioSummary.performance?.totalGainLossPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {portfolioSummary.performance?.totalGainLossPercent > 0 ? '+' : ''}{portfolioSummary.performance?.totalGainLossPercent?.toFixed(2) || '0.00'}%
                 </div>
-                <div className="text-sm text-gray-600">Total Return</div>
+                <div className="text-sm text-muted-foreground">Total Return</div>
               </div>
             </div>
           </CardContent>
@@ -233,9 +233,9 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
               {[1, 2, 3].map((i) => (
                 <Card key={i} className="animate-pulse">
                   <CardContent className="p-6">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-2"></div>
+                    <div className="h-3 bg-muted rounded w-2/3"></div>
                   </CardContent>
                 </Card>
               ))}
@@ -255,7 +255,7 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
                           <Badge className={getRiskColor(rec.riskLevel)}>
                             {(rec.riskLevel || 'moderate').toUpperCase()} Risk
                           </Badge>
-                          <Badge variant="outline" className="text-gray-600">
+                          <Badge variant="outline" className="text-muted-foreground">
                             <Clock className="w-3 h-3 mr-1" />
                             {rec.timeframe}
                           </Badge>
@@ -267,17 +267,17 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
                     <div className="space-y-4">
                       <div>
                         <h4 className="font-medium text-blue-700 mb-2">Recommendation</h4>
-                        <p className="text-gray-700 text-sm">{rec.recommendation}</p>
+                        <p className="text-muted-foreground text-sm">{rec.recommendation}</p>
                       </div>
                       
                       <div>
                         <h4 className="font-medium text-green-700 mb-2">Reasoning</h4>
-                        <p className="text-gray-700 text-sm">{rec.reasoning}</p>
+                        <p className="text-muted-foreground text-sm">{rec.reasoning}</p>
                       </div>
                       
                       <div>
                         <h4 className="font-medium text-purple-700 mb-2">Expected Impact</h4>
-                        <p className="text-gray-700 text-sm">{rec.expectedImpact}</p>
+                        <p className="text-muted-foreground text-sm">{rec.expectedImpact}</p>
                       </div>
                       
                       <Separator />
@@ -287,9 +287,9 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
                           <CheckCircle className="w-4 h-4 mr-1" />
                           Action Required
                         </h4>
-                        <p className="text-gray-700 text-sm">{rec.actionRequired}</p>
+                        <p className="text-muted-foreground text-sm">{rec.actionRequired}</p>
                         {rec.estimatedCost && (
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-muted-foreground mt-1">
                             <IndianRupee className="w-3 h-3 inline mr-1" />
                             Estimated Cost: ₹{rec.estimatedCost.toLocaleString('en-IN')}
                           </p>
@@ -303,8 +303,8 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
           ) : (
             <Card>
               <CardContent className="p-8 text-center">
-                <Brain className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600 mb-4">No rebalancing recommendations available</p>
+                <Brain className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-4">No rebalancing recommendations available</p>
                 <Button 
                   onClick={() => refetchRebalancing()}
                   disabled={rebalancingLoading}
@@ -343,7 +343,7 @@ export default function AIPortfolioRecommendations({ portfolioId }: AIPortfolioR
                     onChange={(e) => setAdditionalCapital(Number(e.target.value) || 0)}
                     data-testid="input-additional-capital"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Optional: Specify additional capital you want to invest for personalized recommendations
                   </p>
                 </div>

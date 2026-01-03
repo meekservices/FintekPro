@@ -184,7 +184,7 @@ export default function DemoProposalsTracking() {
       return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Pending</Badge>;
     }
     if (status === 'expired') {
-      return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Expired</Badge>;
+      return <Badge className="bg-gray-500/20 text-muted-foreground border-gray-500/30">Expired</Badge>;
     }
     return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{status}</Badge>;
   };
@@ -213,7 +213,7 @@ export default function DemoProposalsTracking() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white" data-testid="heading-demo-proposals">Demo Proposal Tracking</h1>
-          <p className="text-gray-400 mt-1">Track demo proposals and facilitate conversion to real investments</p>
+          <p className="text-muted-foreground mt-1">Track demo proposals and facilitate conversion to real investments</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh-demos">
@@ -231,33 +231,33 @@ export default function DemoProposalsTracking() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total Demo Proposals</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Demo Proposals</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold text-white" data-testid="text-total-demos">{calculatedStats.totalDemos}</div>
               <FileText className="h-8 w-8 text-blue-500" />
             </div>
-            <p className="text-xs text-gray-500 mt-2">Value: {formatCurrency(calculatedStats.totalDemoValue)}</p>
+            <p className="text-xs text-muted-foreground mt-2">Value: {formatCurrency(calculatedStats.totalDemoValue)}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Converted</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Converted</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold text-green-400" data-testid="text-converted">{calculatedStats.converted}</div>
               <CheckCircle2 className="h-8 w-8 text-green-500" />
             </div>
-            <p className="text-xs text-gray-500 mt-2">Value: {formatCurrency(calculatedStats.convertedValue)}</p>
+            <p className="text-xs text-muted-foreground mt-2">Value: {formatCurrency(calculatedStats.convertedValue)}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Conversion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Conversion Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
@@ -273,14 +273,14 @@ export default function DemoProposalsTracking() {
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Avg. Time to Convert</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Time to Convert</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold text-white" data-testid="text-avg-time">{calculatedStats.avgTimeToConvert.toFixed(1)} days</div>
               <Clock className="h-8 w-8 text-amber-500" />
             </div>
-            <p className="text-xs text-gray-500 mt-2">Pending: {calculatedStats.pending} demos</p>
+            <p className="text-xs text-muted-foreground mt-2">Pending: {calculatedStats.pending} demos</p>
           </CardContent>
         </Card>
       </div>
@@ -362,12 +362,12 @@ export default function DemoProposalsTracking() {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle className="text-white">Demo Proposals</CardTitle>
+              <CardTitle className="text-foreground">Demo Proposals</CardTitle>
               <CardDescription>All demo proposals with conversion status</CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search demos..."
                   value={searchTerm}
@@ -406,15 +406,15 @@ export default function DemoProposalsTracking() {
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700">
-                  <TableHead className="text-gray-300">Proposal</TableHead>
-                  <TableHead className="text-gray-300">Client</TableHead>
-                  <TableHead className="text-gray-300">Agent</TableHead>
-                  <TableHead className="text-gray-300">Source</TableHead>
-                  <TableHead className="text-gray-300 text-right">Amount</TableHead>
-                  <TableHead className="text-gray-300 text-center">Views</TableHead>
-                  <TableHead className="text-gray-300">Status</TableHead>
-                  <TableHead className="text-gray-300">Created</TableHead>
-                  <TableHead className="text-gray-300 text-right">Actions</TableHead>
+                  <TableHead className="text-muted-foreground">Proposal</TableHead>
+                  <TableHead className="text-muted-foreground">Client</TableHead>
+                  <TableHead className="text-muted-foreground">Agent</TableHead>
+                  <TableHead className="text-muted-foreground">Source</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Amount</TableHead>
+                  <TableHead className="text-muted-foreground text-center">Views</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">Created</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -422,12 +422,12 @@ export default function DemoProposalsTracking() {
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" />
-                      <p className="mt-2 text-gray-400">Loading demo proposals...</p>
+                      <p className="mt-2 text-muted-foreground">Loading demo proposals...</p>
                     </TableCell>
                   </TableRow>
                 ) : filteredDemos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-gray-400">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No demo proposals found
                     </TableCell>
                   </TableRow>
@@ -437,28 +437,28 @@ export default function DemoProposalsTracking() {
                       <TableCell>
                         <div>
                           <div className="font-medium text-white">{demo.title}</div>
-                          <div className="text-xs text-gray-400">{demo.id}</div>
+                          <div className="text-xs text-muted-foreground">{demo.id}</div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="text-white">{demo.clientName}</div>
-                          <div className="text-xs text-gray-400">{demo.clientEmail}</div>
+                          <div className="text-foreground">{demo.clientName}</div>
+                          <div className="text-xs text-muted-foreground">{demo.clientEmail}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-300">{demo.agentName}</TableCell>
+                      <TableCell className="text-muted-foreground">{demo.agentName}</TableCell>
                       <TableCell>{getSourceBadge(demo.proposalSource)}</TableCell>
                       <TableCell className="text-right font-mono text-white">
                         {formatCurrency(parseFloat(demo.totalInvestmentAmount || '0'))}
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <Eye className="h-3 w-3 text-gray-400" />
-                          <span className="text-white">{demo.demoViewCount}</span>
+                          <Eye className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-foreground">{demo.demoViewCount}</span>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(demo.status, demo.demoConvertedAt)}</TableCell>
-                      <TableCell className="text-gray-300">{getTimeAgo(demo.createdAt)}</TableCell>
+                      <TableCell className="text-muted-foreground">{getTimeAgo(demo.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         {!demo.demoConvertedAt && demo.status !== 'converted' && demo.status !== 'expired' && (
                           <Button
@@ -490,7 +490,7 @@ export default function DemoProposalsTracking() {
       <Dialog open={convertDialog.open} onOpenChange={(open) => setConvertDialog({ open, proposal: open ? convertDialog.proposal : null })}>
         <DialogContent className="bg-slate-900 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-white">Convert Demo to Investment</DialogTitle>
+            <DialogTitle className="text-foreground">Convert Demo to Investment</DialogTitle>
             <DialogDescription>
               This will convert the demo proposal to a real investment proposal and notify the client.
             </DialogDescription>
@@ -500,19 +500,19 @@ export default function DemoProposalsTracking() {
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-400">Proposal:</span>
+                  <span className="text-muted-foreground">Proposal:</span>
                   <p className="text-white font-medium">{convertDialog.proposal.title}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Client:</span>
+                  <span className="text-muted-foreground">Client:</span>
                   <p className="text-white font-medium">{convertDialog.proposal.clientName}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Investment Amount:</span>
+                  <span className="text-muted-foreground">Investment Amount:</span>
                   <p className="text-white font-medium">{formatCurrency(parseFloat(convertDialog.proposal.totalInvestmentAmount || '0'))}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Demo Views:</span>
+                  <span className="text-muted-foreground">Demo Views:</span>
                   <p className="text-white font-medium">{convertDialog.proposal.demoViewCount}</p>
                 </div>
               </div>

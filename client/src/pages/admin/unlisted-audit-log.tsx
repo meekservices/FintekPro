@@ -72,7 +72,7 @@ const actionConfig: Record<string, { label: string; icon: any; color: string }> 
 };
 
 const getActionConfig = (action: string) => {
-  return actionConfig[action] || { label: action, icon: Activity, color: 'text-gray-400' };
+  return actionConfig[action] || { label: action, icon: Activity, color: 'text-muted-foreground' };
 };
 
 export default function UnlistedAuditLog() {
@@ -92,11 +92,11 @@ export default function UnlistedAuditLog() {
   
   if (!user || !user.roles?.includes('admin')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950">
-        <Card className="bg-gray-900 border-gray-800 max-w-md">
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="bg-card border-border max-w-md">
           <CardHeader>
             <CardTitle className="text-white text-center">Access Denied</CardTitle>
-            <CardDescription className="text-gray-400 text-center">
+            <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
           </CardHeader>
@@ -128,13 +128,13 @@ export default function UnlistedAuditLog() {
           </Link>
           <div>
             <h1 className="text-3xl font-bold text-white">Audit Log</h1>
-            <p className="text-gray-400 mt-1">Track all marketplace activities and changes</p>
+            <p className="text-muted-foreground mt-1">Track all marketplace activities and changes</p>
           </div>
         </div>
         <Button 
           variant="outline" 
           onClick={() => refetch()}
-          className="border-gray-700"
+          className="border-border"
           data-testid="button-refresh-audit"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -142,22 +142,22 @@ export default function UnlistedAuditLog() {
         </Button>
       </div>
       
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex flex-col md:flex-row gap-4 justify-between">
             <div className="flex gap-2 flex-1">
               <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by user, company, or action..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-gray-800 border-gray-700"
+                  className="pl-9 bg-muted border-border"
                   data-testid="input-search-audit"
                 />
               </div>
               <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger className="w-[180px] bg-gray-800 border-gray-700" data-testid="select-action-filter">
+                <SelectTrigger className="w-[180px] bg-muted border-border" data-testid="select-action-filter">
                   <SelectValue placeholder="Action Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -175,7 +175,7 @@ export default function UnlistedAuditLog() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-muted-foreground">
               {data?.pagination.total || 0} total entries
             </div>
           </div>
@@ -183,10 +183,10 @@ export default function UnlistedAuditLog() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : filteredEntries.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No audit entries found</p>
             </div>
@@ -199,7 +199,7 @@ export default function UnlistedAuditLog() {
                 return (
                   <div 
                     key={entry.id} 
-                    className="flex items-start gap-4 p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800 transition-colors"
+                    className="flex items-start gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     data-testid={`audit-entry-${entry.id}`}
                   >
                     <div className={`p-2 rounded-full bg-gray-700/50 ${config.color}`}>
@@ -210,12 +210,12 @@ export default function UnlistedAuditLog() {
                         <span className={`font-medium ${config.color}`}>{config.label}</span>
                         {entry.companyName && (
                           <>
-                            <span className="text-gray-500">•</span>
-                            <span className="text-white">{entry.companyName}</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-foreground">{entry.companyName}</span>
                           </>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-400">
+                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                         {entry.userName && (
                           <span className="flex items-center gap-1">
                             <User className="h-3 w-3" />
@@ -227,15 +227,15 @@ export default function UnlistedAuditLog() {
                           {format(new Date(entry.timestamp), 'MMM d, yyyy HH:mm')}
                         </span>
                         {entry.ipAddress && (
-                          <span className="text-gray-500">{entry.ipAddress}</span>
+                          <span className="text-muted-foreground">{entry.ipAddress}</span>
                         )}
                       </div>
                       {entry.details && Object.keys(entry.details).length > 0 && (
-                        <div className="mt-2 p-2 rounded bg-gray-900 text-xs font-mono text-gray-400">
+                        <div className="mt-2 p-2 rounded bg-card text-xs font-mono text-muted-foreground">
                           {Object.entries(entry.details).map(([key, value]) => (
                             <div key={key}>
-                              <span className="text-gray-500">{key}:</span>{' '}
-                              <span className="text-gray-300">{JSON.stringify(value)}</span>
+                              <span className="text-muted-foreground">{key}:</span>{' '}
+                              <span className="text-muted-foreground">{JSON.stringify(value)}</span>
                             </div>
                           ))}
                         </div>
@@ -261,12 +261,12 @@ export default function UnlistedAuditLog() {
                 size="sm"
                 disabled={page === 1}
                 onClick={() => setPage(p => p - 1)}
-                className="border-gray-700"
+                className="border-border"
                 data-testid="button-prev-page"
               >
                 Previous
               </Button>
-              <span className="flex items-center px-4 text-sm text-gray-400">
+              <span className="flex items-center px-4 text-sm text-muted-foreground">
                 Page {page} of {data.pagination.totalPages}
               </span>
               <Button
@@ -274,7 +274,7 @@ export default function UnlistedAuditLog() {
                 size="sm"
                 disabled={page === data.pagination.totalPages}
                 onClick={() => setPage(p => p + 1)}
-                className="border-gray-700"
+                className="border-border"
                 data-testid="button-next-page"
               >
                 Next

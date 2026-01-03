@@ -148,7 +148,7 @@ interface ProposalStats {
 }
 
 const PROPOSAL_STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  draft: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
   shared: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   viewed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   converted: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
@@ -605,7 +605,7 @@ export default function AgentDemoProposalBuilder() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900" data-testid="proposal-builder">
+    <div className="min-h-screen bg-muted dark:bg-card" data-testid="proposal-builder">
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -613,7 +613,7 @@ export default function AgentDemoProposalBuilder() {
               <Sparkles className="h-8 w-8 text-purple-600" />
               Proposal Builder
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-muted-foreground dark:text-muted-foreground mt-1">
               Create professional investment proposals for prospects and clients
             </p>
           </div>
@@ -646,18 +646,18 @@ export default function AgentDemoProposalBuilder() {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       isCompleted ? 'bg-green-500 text-white' :
                       isActive ? 'bg-purple-600 text-white' :
-                      'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                      'bg-muted dark:bg-gray-700 text-muted-foreground'
                     }`}>
                       {isCompleted ? <Check className="h-5 w-5" /> : <StepIcon className="h-5 w-5" />}
                     </div>
                     <div className="hidden lg:block">
-                      <p className={`text-sm font-medium ${isActive ? 'text-purple-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                      <p className={`text-sm font-medium ${isActive ? 'text-purple-600' : 'text-muted-foreground dark:text-muted-foreground'}`}>
                         {step.title}
                       </p>
-                      <p className="text-xs text-gray-400">{step.description}</p>
+                      <p className="text-xs text-muted-foreground">{step.description}</p>
                     </div>
                     {index < WIZARD_STEPS.length - 1 && (
-                      <div className={`w-8 h-0.5 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
+                      <div className={`w-8 h-0.5 ${isCompleted ? 'bg-green-500' : 'bg-muted'}`} />
                     )}
                   </div>
                 );
@@ -696,7 +696,7 @@ export default function AgentDemoProposalBuilder() {
                                     <div className="flex items-center gap-2">
                                       <User className="h-4 w-4" />
                                       <span>{client.fullName}</span>
-                                      {client.email && <span className="text-gray-400 text-sm">({client.email})</span>}
+                                      {client.email && <span className="text-muted-foreground text-sm">({client.email})</span>}
                                     </div>
                                   </SelectItem>
                                 ))}
@@ -713,7 +713,7 @@ export default function AgentDemoProposalBuilder() {
                                   </div>
                                   <div className="flex-1">
                                     <h4 className="font-semibold text-lg">{selectedClient.fullName}</h4>
-                                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                                       {selectedClient.email && (
                                         <span className="flex items-center gap-1">
                                           <Mail className="h-4 w-4" />
@@ -794,7 +794,7 @@ export default function AgentDemoProposalBuilder() {
                                 <RadioGroupItem value={goal.id} id={goal.id} />
                                 <Label htmlFor={goal.id} className="cursor-pointer">
                                   <span className="font-medium">{goal.name}</span>
-                                  <span className="text-gray-500 text-sm ml-2">- {goal.description}</span>
+                                  <span className="text-muted-foreground text-sm ml-2">- {goal.description}</span>
                                 </Label>
                               </div>
                             ))}
@@ -835,7 +835,7 @@ export default function AgentDemoProposalBuilder() {
                             }))}
                             data-testid="input-target-amount"
                           />
-                          <p className="text-sm text-gray-500 mt-1">{formatCurrency(config.investmentGoals.targetAmount)}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{formatCurrency(config.investmentGoals.targetAmount)}</p>
                         </div>
 
                         <div>
@@ -849,7 +849,7 @@ export default function AgentDemoProposalBuilder() {
                             }))}
                             data-testid="input-monthly-contribution"
                           />
-                          <p className="text-sm text-gray-500 mt-1">{formatCurrency(config.investmentGoals.monthlyContribution)}/month</p>
+                          <p className="text-sm text-muted-foreground mt-1">{formatCurrency(config.investmentGoals.monthlyContribution)}/month</p>
                         </div>
                       </div>
                     </div>
@@ -985,7 +985,7 @@ export default function AgentDemoProposalBuilder() {
                             step={5}
                             className="w-full"
                           />
-                          <div className="flex justify-between text-sm text-gray-500 mt-2">
+                          <div className="flex justify-between text-sm text-muted-foreground mt-2">
                             <span>Conservative</span>
                             <span>Moderate</span>
                             <span>Aggressive</span>
@@ -1002,7 +1002,7 @@ export default function AgentDemoProposalBuilder() {
                             <Scale className="h-6 w-6" />
                             <h3 className="font-semibold text-lg capitalize">{(config.riskProfile?.category || 'moderate').replace('_', ' ')} Investor</h3>
                           </div>
-                          <p className="text-gray-600 dark:text-gray-400">{config.riskProfile.tolerance}</p>
+                          <p className="text-muted-foreground dark:text-muted-foreground">{config.riskProfile.tolerance}</p>
                           <Badge className="mt-2">Score: {config.riskProfile.score}/100</Badge>
                         </Card>
                       </div>
@@ -1060,7 +1060,7 @@ export default function AgentDemoProposalBuilder() {
                           <Card 
                             key={section.id}
                             className={`cursor-pointer transition-all ${
-                              isSelected ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'hover:border-gray-300'
+                              isSelected ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'hover:border-border'
                             }`}
                             onClick={() => setConfig(prev => ({
                               ...prev,
@@ -1077,7 +1077,7 @@ export default function AgentDemoProposalBuilder() {
                                   <SectionIcon className="h-4 w-4" />
                                   <span className="font-medium">{section.name}</span>
                                 </div>
-                                <p className="text-sm text-gray-500 mt-1">{section.description}</p>
+                                <p className="text-sm text-muted-foreground mt-1">{section.description}</p>
                               </div>
                             </CardContent>
                           </Card>
@@ -1092,7 +1092,7 @@ export default function AgentDemoProposalBuilder() {
                       <div className="flex items-center justify-between">
                         <div>
                           <Label>Include Cover Page</Label>
-                          <p className="text-sm text-gray-500">Professional cover with client name and date</p>
+                          <p className="text-sm text-muted-foreground">Professional cover with client name and date</p>
                         </div>
                         <Switch
                           checked={config.coverPage.enabled}
@@ -1138,7 +1138,7 @@ export default function AgentDemoProposalBuilder() {
                       <div className="flex items-center justify-between">
                         <div>
                           <Label>Include Disclaimer</Label>
-                          <p className="text-sm text-gray-500">Standard investment disclaimer</p>
+                          <p className="text-sm text-muted-foreground">Standard investment disclaimer</p>
                         </div>
                         <Switch
                           checked={config.settings.includeDisclaimer}
@@ -1151,7 +1151,7 @@ export default function AgentDemoProposalBuilder() {
                       <div className="flex items-center justify-between">
                         <div>
                           <Label>Include SEBI Disclosures</Label>
-                          <p className="text-sm text-gray-500">Regulatory compliance statements</p>
+                          <p className="text-sm text-muted-foreground">Regulatory compliance statements</p>
                         </div>
                         <Switch
                           checked={config.settings.includeSEBIDisclosure}
@@ -1180,33 +1180,33 @@ export default function AgentDemoProposalBuilder() {
                         />
                       </div>
 
-                      <Card className="bg-gray-50 dark:bg-gray-800">
+                      <Card className="bg-muted dark:bg-muted">
                         <CardHeader>
                           <CardTitle className="text-sm">Proposal Summary</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Client:</span>
+                            <span className="text-muted-foreground">Client:</span>
                             <span className="font-medium">{selectedClient?.fullName}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Investment Goal:</span>
+                            <span className="text-muted-foreground">Investment Goal:</span>
                             <span className="font-medium capitalize">{(config.investmentGoals?.primaryGoal || 'growth').replace('_', ' ')}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Target Corpus:</span>
+                            <span className="text-muted-foreground">Target Corpus:</span>
                             <span className="font-medium">{formatCurrency(config.investmentGoals.targetAmount)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Monthly Contribution:</span>
+                            <span className="text-muted-foreground">Monthly Contribution:</span>
                             <span className="font-medium">{formatCurrency(config.investmentGoals.monthlyContribution)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Risk Profile:</span>
+                            <span className="text-muted-foreground">Risk Profile:</span>
                             <span className="font-medium capitalize">{(config.riskProfile?.category || 'moderate').replace('_', ' ')}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Sections:</span>
+                            <span className="text-muted-foreground">Sections:</span>
                             <span className="font-medium">
                               {Object.values(config.sections).filter(Boolean).length} selected
                             </span>
@@ -1218,7 +1218,7 @@ export default function AgentDemoProposalBuilder() {
                         <div className="flex flex-col items-center justify-center py-12 space-y-4">
                           <Loader2 className="h-12 w-12 animate-spin text-purple-600" />
                           <p className="text-lg">Generating your proposal...</p>
-                          <p className="text-sm text-gray-500">This may take a moment</p>
+                          <p className="text-sm text-muted-foreground">This may take a moment</p>
                         </div>
                       ) : generatedProposalUrl ? (
                         <Card className="border-green-500 bg-green-50 dark:bg-green-900/10">
@@ -1232,8 +1232,8 @@ export default function AgentDemoProposalBuilder() {
                             </p>
 
                             {generatedProposalData?.shareToken && (
-                              <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border">
-                                <Label className="text-sm text-gray-600 dark:text-gray-400 block mb-2">Shareable Link</Label>
+                              <div className="mb-6 p-4 bg-white dark:bg-muted rounded-lg border">
+                                <Label className="text-sm text-muted-foreground dark:text-muted-foreground block mb-2">Shareable Link</Label>
                                 <div className="flex items-center gap-2">
                                   <Input
                                     value={`${baseUrl}/proposal/${generatedProposalData.shareToken}`}
@@ -1295,9 +1295,9 @@ export default function AgentDemoProposalBuilder() {
                       ) : (
                         <Card>
                           <CardContent className="py-8 text-center">
-                            <Sparkles className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                            <Sparkles className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                             <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
-                            <p className="text-gray-500 mb-6">
+                            <p className="text-muted-foreground mb-6">
                               Click the button below to create your proposal PDF
                             </p>
                             <Button 
@@ -1350,10 +1350,10 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total</p>
                       <p className="text-2xl font-bold">{stats.total}</p>
                     </div>
-                    <FileText className="w-8 h-8 text-gray-400" />
+                    <FileText className="w-8 h-8 text-muted-foreground" />
                   </div>
                 </CardContent>
               </Card>
@@ -1361,10 +1361,10 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Draft</p>
-                      <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Draft</p>
+                      <p className="text-2xl font-bold text-muted-foreground">{stats.draft}</p>
                     </div>
-                    <Clock className="w-8 h-8 text-gray-400" />
+                    <Clock className="w-8 h-8 text-muted-foreground" />
                   </div>
                 </CardContent>
               </Card>
@@ -1372,7 +1372,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Shared</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Shared</p>
                       <p className="text-2xl font-bold text-blue-600">{stats.shared}</p>
                     </div>
                     <Send className="w-8 h-8 text-blue-400" />
@@ -1383,7 +1383,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Viewed</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Viewed</p>
                       <p className="text-2xl font-bold text-green-600">{stats.viewed}</p>
                     </div>
                     <Eye className="w-8 h-8 text-green-400" />
@@ -1394,7 +1394,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Converted</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Converted</p>
                       <p className="text-2xl font-bold text-purple-600">{stats.converted}</p>
                     </div>
                     <CheckCircle2 className="w-8 h-8 text-purple-400" />
@@ -1405,7 +1405,7 @@ export default function AgentDemoProposalBuilder() {
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Total Views</p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Views</p>
                       <p className="text-2xl font-bold text-indigo-600">{stats.totalViews}</p>
                     </div>
                     <BarChart3 className="w-8 h-8 text-indigo-400" />
@@ -1445,13 +1445,13 @@ export default function AgentDemoProposalBuilder() {
                 {proposalsLoading ? (
                   <div className="text-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
-                    <p className="mt-2 text-gray-500">Loading proposals...</p>
+                    <p className="mt-2 text-muted-foreground">Loading proposals...</p>
                   </div>
                 ) : filteredProposals.length === 0 ? (
                   <div className="text-center py-12">
-                    <FileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                    <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No proposals yet</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">Create your first proposal to start acquiring new clients</p>
+                    <p className="text-muted-foreground dark:text-muted-foreground mb-4">Create your first proposal to start acquiring new clients</p>
                     <Button 
                       onClick={() => setActiveTab("create")} 
                       className="bg-purple-600 hover:bg-purple-700"
@@ -1479,7 +1479,7 @@ export default function AgentDemoProposalBuilder() {
                           <TableCell>
                             <div>
                               <p className="font-medium">{proposal.prospectName}</p>
-                              <p className="text-xs text-gray-500">{proposal.prospectEmail || proposal.prospectMobile || '-'}</p>
+                              <p className="text-xs text-muted-foreground">{proposal.prospectEmail || proposal.prospectMobile || '-'}</p>
                             </div>
                           </TableCell>
                           <TableCell className="max-w-48 truncate" title={proposal.proposalTitle}>
@@ -1497,11 +1497,11 @@ export default function AgentDemoProposalBuilder() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
-                              <Eye className="w-3 h-3 text-gray-400" />
+                              <Eye className="w-3 h-3 text-muted-foreground" />
                               <span>{proposal.viewCount || 0}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm text-gray-500">
+                          <TableCell className="text-sm text-muted-foreground">
                             {new Date(proposal.createdAt).toLocaleDateString()}
                           </TableCell>
                           <TableCell>
@@ -1533,7 +1533,7 @@ export default function AgentDemoProposalBuilder() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted dark:text-muted-foreground dark:hover:bg-muted"
                                 onClick={() => copyToClipboard(`${baseUrl}/proposal/${proposal.shareToken}`, "Proposal link")}
                                 data-testid={`btn-copy-${proposal.id}`}
                               >
@@ -1677,7 +1677,7 @@ export default function AgentDemoProposalBuilder() {
 
           {selectedProposal && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Eye className="w-4 h-4" /> {selectedProposal.viewCount} views
                 </span>
@@ -1691,26 +1691,26 @@ export default function AgentDemoProposalBuilder() {
               {selectedProposal.executiveSummary && (
                 <div>
                   <h4 className="font-medium mb-1">Executive Summary</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{selectedProposal.executiveSummary}</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{selectedProposal.executiveSummary}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-gray-500">Total Investment</p>
+                    <p className="text-xs text-muted-foreground">Total Investment</p>
                     <p className="text-lg font-bold">₹{parseFloat(selectedProposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-gray-500">Expected Returns</p>
+                    <p className="text-xs text-muted-foreground">Expected Returns</p>
                     <p className="text-lg font-bold text-green-600">{selectedProposal.projectedReturns}% p.a.</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-gray-500">Projected Value</p>
+                    <p className="text-xs text-muted-foreground">Projected Value</p>
                     <p className="text-lg font-bold text-purple-600">₹{parseFloat(selectedProposal.projectedValue || '0').toLocaleString('en-IN')}</p>
                   </CardContent>
                 </Card>

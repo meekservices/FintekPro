@@ -149,7 +149,7 @@ export default function SupplierDashboard() {
       case "high": return "bg-red-100 text-red-800";
       case "medium": return "bg-yellow-100 text-yellow-800";
       case "low": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
+      default: return "bg-muted dark:bg-muted text-foreground";
     }
   };
 
@@ -159,7 +159,7 @@ export default function SupplierDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Supplier Dashboard</h2>
-          <p className="text-gray-600">Optimize product performance and profit margins</p>
+          <p className="text-muted-foreground">Optimize product performance and profit margins</p>
         </div>
         <div className="flex gap-2">
           <Dialog>
@@ -192,7 +192,7 @@ export default function SupplierDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
                 <p className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</p>
               </div>
               <IndianRupee className="h-8 w-8 text-green-600" />
@@ -204,7 +204,7 @@ export default function SupplierDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Avg Profit Margin</p>
+                <p className="text-sm font-medium text-muted-foreground">Avg Profit Margin</p>
                 <p className="text-2xl font-bold text-gray-900">{averageMargin.toFixed(1)}%</p>
               </div>
               <BarChart3 className="h-8 w-8 text-blue-600" />
@@ -216,7 +216,7 @@ export default function SupplierDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">High Margin Products</p>
+                <p className="text-sm font-medium text-muted-foreground">High Margin Products</p>
                 <p className="text-2xl font-bold text-gray-900">{highMarginProducts}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-600" />
@@ -228,7 +228,7 @@ export default function SupplierDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Promoted Products</p>
+                <p className="text-sm font-medium text-muted-foreground">Promoted Products</p>
                 <p className="text-2xl font-bold text-gray-900">{promotedProducts}</p>
               </div>
               <Megaphone className="h-8 w-8 text-purple-600" />
@@ -312,7 +312,7 @@ export default function SupplierDashboard() {
                         <TableCell>
                           <div>
                             <p className="font-medium">{product.productName}</p>
-                            <p className="text-sm text-gray-500">{product.category}</p>
+                            <p className="text-sm text-muted-foreground">{product.category}</p>
                           </div>
                         </TableCell>
                         <TableCell>{product.supplierName}</TableCell>
@@ -389,10 +389,10 @@ export default function SupplierDashboard() {
                             {(suggestion.priority || 'medium').toUpperCase()}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">{suggestion.reason}</p>
+                        <p className="text-sm text-muted-foreground mb-2">{suggestion.reason}</p>
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="text-sm text-gray-500">Current Margin: {suggestion.currentMargin}%</p>
+                            <p className="text-sm text-muted-foreground">Current Margin: {suggestion.currentMargin}%</p>
                             <p className="text-sm text-green-600">Potential Revenue: ₹{suggestion.potentialRevenue.toLocaleString()}</p>
                           </div>
                           <Button
@@ -422,7 +422,7 @@ export default function SupplierDashboard() {
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">High Margin Products (&gt;20%)</span>
+                    <span className="text-sm text-muted-foreground">High Margin Products (&gt;20%)</span>
                     <div className="flex items-center gap-2">
                       <Progress value={(highMarginProducts / (productPerformance?.length || 1)) * 100} className="w-24" />
                       <span className="text-sm font-medium">{highMarginProducts}</span>
@@ -430,7 +430,7 @@ export default function SupplierDashboard() {
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Currently Promoted</span>
+                    <span className="text-sm text-muted-foreground">Currently Promoted</span>
                     <div className="flex items-center gap-2">
                       <Progress value={(promotedProducts / (productPerformance?.length || 1)) * 100} className="w-24" />
                       <span className="text-sm font-medium">{promotedProducts}</span>
@@ -438,7 +438,7 @@ export default function SupplierDashboard() {
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Average Performance</span>
+                    <span className="text-sm text-muted-foreground">Average Performance</span>
                     <div className="flex items-center gap-2">
                       <Progress value={Math.min(averageMargin * 5, 100)} className="w-24" />
                       <span className="text-sm font-medium">{averageMargin.toFixed(1)}%</span>
@@ -536,7 +536,7 @@ export default function SupplierDashboard() {
                       <TableRow key={supplier.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-gray-400" />
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">{supplier.name}</span>
                           </div>
                         </TableCell>

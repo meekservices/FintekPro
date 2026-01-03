@@ -539,14 +539,14 @@ export default function TaxDocuments() {
                   <div>
                     <h3 className="text-lg font-semibold mb-3">TDS Breakdown</h3>
                     <div className="overflow-x-auto">
-                      <table className="w-full border-collapse border border-gray-200">
+                      <table className="w-full border-collapse border border-border">
                         <thead>
-                          <tr className="bg-gray-50">
-                            <th className="border border-gray-200 p-2 text-left">Deductor</th>
-                            <th className="border border-gray-200 p-2 text-left">Income Nature</th>
-                            <th className="border border-gray-200 p-2 text-right">Taxable Amount</th>
-                            <th className="border border-gray-200 p-2 text-right">TDS Deducted</th>
-                            <th className="border border-gray-200 p-2 text-left">Date</th>
+                          <tr className="bg-muted">
+                            <th className="border border-border p-2 text-left">Deductor</th>
+                            <th className="border border-border p-2 text-left">Income Nature</th>
+                            <th className="border border-border p-2 text-right">Taxable Amount</th>
+                            <th className="border border-border p-2 text-right">TDS Deducted</th>
+                            <th className="border border-border p-2 text-left">Date</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -555,19 +555,19 @@ export default function TaxDocuments() {
                             .slice(0, 10)
                             .map((item: StructuredTaxData) => (
                               <tr key={item.id}>
-                                <td className="border border-gray-200 p-2">
+                                <td className="border border-border p-2">
                                   {item.deductorName || item.deductorPan}
                                 </td>
-                                <td className="border border-gray-200 p-2 capitalize">
+                                <td className="border border-border p-2 capitalize">
                                   {item.incomeNature}
                                 </td>
-                                <td className="border border-gray-200 p-2 text-right">
+                                <td className="border border-border p-2 text-right">
                                   {formatCurrency(item.taxableAmount || 0)}
                                 </td>
-                                <td className="border border-gray-200 p-2 text-right">
+                                <td className="border border-border p-2 text-right">
                                   {formatCurrency(item.taxDeducted || 0)}
                                 </td>
-                                <td className="border border-gray-200 p-2">
+                                <td className="border border-border p-2">
                                   {new Date(item.transactionDate).toLocaleDateString()}
                                 </td>
                               </tr>

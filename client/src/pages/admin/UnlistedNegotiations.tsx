@@ -105,11 +105,11 @@ export default function UnlistedNegotiations() {
 
   if (!user || !user.roles?.includes('admin')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950">
-        <Card className="bg-gray-900 border-gray-800 max-w-md">
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="bg-card border-border max-w-md">
           <CardHeader>
-            <CardTitle className="text-white text-center">Access Denied</CardTitle>
-            <CardDescription className="text-gray-400 text-center">
+            <CardTitle className="text-foreground text-center">Access Denied</CardTitle>
+            <CardDescription className="text-muted-foreground text-center">
               You do not have permission to access this page. Admin privileges required.
             </CardDescription>
           </CardHeader>
@@ -133,7 +133,7 @@ export default function UnlistedNegotiations() {
     const colors = {
       high: 'bg-green-500/20 text-green-400 border-green-500/30',
       medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-      low: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+      low: 'bg-gray-500/20 text-muted-foreground border-gray-500/30',
     };
     return colors[confidence as keyof typeof colors] || colors.low;
   };
@@ -157,8 +157,8 @@ export default function UnlistedNegotiations() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-white">Unlisted Negotiations Console</h1>
-          <p className="text-gray-400 mt-1">Loading active negotiations...</p>
+          <h1 className="text-3xl font-bold text-foreground">Unlisted Negotiations Console</h1>
+          <p className="text-muted-foreground mt-1">Loading active negotiations...</p>
         </div>
         <LoadingState variant="table" />
       </div>
@@ -169,10 +169,10 @@ export default function UnlistedNegotiations() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-white">Unlisted Negotiations Console</h1>
-          <p className="text-gray-400 mt-1">Monitor and manage active marketplace negotiations</p>
+          <h1 className="text-3xl font-bold text-foreground">Unlisted Negotiations Console</h1>
+          <p className="text-muted-foreground mt-1">Monitor and manage active marketplace negotiations</p>
         </div>
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardContent className="pt-6">
             <p className="text-red-400">Error loading negotiations: {(error as Error).message}</p>
           </CardContent>
@@ -189,20 +189,20 @@ export default function UnlistedNegotiations() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-white">Unlisted Negotiations Console</h1>
-          <p className="text-gray-400 mt-1">Monitor and manage active marketplace negotiations</p>
+          <h1 className="text-3xl font-bold text-foreground">Unlisted Negotiations Console</h1>
+          <p className="text-muted-foreground mt-1">Monitor and manage active marketplace negotiations</p>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-bold text-white">{pagination?.total || 0}</div>
-          <div className="text-sm text-gray-400">Active Negotiations</div>
+          <div className="text-3xl font-bold text-foreground">{pagination?.total || 0}</div>
+          <div className="text-sm text-muted-foreground">Active Negotiations</div>
         </div>
       </div>
 
       {/* Filters */}
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle className="text-white">Filters</CardTitle>
+            <CardTitle className="text-foreground">Filters</CardTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -217,9 +217,9 @@ export default function UnlistedNegotiations() {
         <CardContent className="space-y-4">
           {/* Company Search */}
           <div>
-            <Label htmlFor="companySearch" className="text-gray-300">Search Company</Label>
+            <Label htmlFor="companySearch" className="text-muted-foreground">Search Company</Label>
             <div className="relative mt-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="companySearch"
                 placeholder="Search by company name or CIN..."
@@ -228,7 +228,7 @@ export default function UnlistedNegotiations() {
                   setCompanySearch(e.target.value);
                   setPage(1);
                 }}
-                className="pl-9 bg-gray-800 border-gray-700 text-white"
+                className="pl-9 bg-muted border-border text-foreground"
                 data-testid="input-company-search"
               />
             </div>
@@ -239,7 +239,7 @@ export default function UnlistedNegotiations() {
             <>
               {/* Match Score Threshold */}
               <div>
-                <Label className="text-gray-300">
+                <Label className="text-muted-foreground">
                   Minimum Match Score: {minMatchScore}%
                 </Label>
                 <Slider
@@ -259,7 +259,7 @@ export default function UnlistedNegotiations() {
               {/* Price Range */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="minPrice" className="text-gray-300">Min Price (₹)</Label>
+                  <Label htmlFor="minPrice" className="text-muted-foreground">Min Price (₹)</Label>
                   <Input
                     id="minPrice"
                     type="number"
@@ -269,12 +269,12 @@ export default function UnlistedNegotiations() {
                       setMinPrice(e.target.value);
                       setPage(1);
                     }}
-                    className="mt-1 bg-gray-800 border-gray-700 text-white"
+                    className="mt-1 bg-muted border-border text-foreground"
                     data-testid="input-min-price"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="maxPrice" className="text-gray-300">Max Price (₹)</Label>
+                  <Label htmlFor="maxPrice" className="text-muted-foreground">Max Price (₹)</Label>
                   <Input
                     id="maxPrice"
                     type="number"
@@ -284,7 +284,7 @@ export default function UnlistedNegotiations() {
                       setMaxPrice(e.target.value);
                       setPage(1);
                     }}
-                    className="mt-1 bg-gray-800 border-gray-700 text-white"
+                    className="mt-1 bg-muted border-border text-foreground"
                     data-testid="input-max-price"
                   />
                 </div>
@@ -312,19 +312,19 @@ export default function UnlistedNegotiations() {
       </Card>
 
       {/* Negotiations Table */}
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Active Negotiations</CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardTitle className="text-foreground">Active Negotiations</CardTitle>
+          <CardDescription className="text-muted-foreground">
             Showing {negotiations.length} of {pagination?.total || 0} negotiations
           </CardDescription>
         </CardHeader>
         <CardContent>
           {negotiations.length === 0 ? (
             <div className="text-center py-12">
-              <TrendingUp className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg">No active negotiations found</p>
-              <p className="text-gray-500 text-sm mt-2">
+              <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground text-lg">No active negotiations found</p>
+              <p className="text-muted-foreground text-sm mt-2">
                 Try adjusting your filters or check back later
               </p>
             </div>
@@ -332,29 +332,29 @@ export default function UnlistedNegotiations() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-800">
-                    <TableHead className="text-gray-300">Company</TableHead>
-                    <TableHead className="text-gray-300 text-right">Seller Landing</TableHead>
-                    <TableHead className="text-gray-300 text-right">Buyer Max</TableHead>
-                    <TableHead className="text-gray-300 text-right">Suggested Mid</TableHead>
-                    <TableHead className="text-gray-300">Ratios</TableHead>
-                    <TableHead className="text-gray-300 text-right">Last Deal</TableHead>
-                    <TableHead className="text-gray-300 text-center">Match</TableHead>
-                    <TableHead className="text-gray-300 text-right">Actions</TableHead>
+                  <TableRow className="border-border">
+                    <TableHead className="text-muted-foreground">Company</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Seller Landing</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Buyer Max</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Suggested Mid</TableHead>
+                    <TableHead className="text-muted-foreground">Ratios</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Last Deal</TableHead>
+                    <TableHead className="text-muted-foreground text-center">Match</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {negotiations.map((negotiation) => (
                     <TableRow 
                       key={negotiation.id} 
-                      className="border-gray-800"
+                      className="border-border"
                       data-testid={`row-negotiation-${negotiation.id}`}
                     >
                       {/* Company */}
                       <TableCell>
                         <div>
-                          <div className="font-medium text-white">{negotiation.company.name}</div>
-                          <div className="text-xs text-gray-400">{negotiation.company.cin}</div>
+                          <div className="font-medium text-foreground">{negotiation.company.name}</div>
+                          <div className="text-xs text-muted-foreground">{negotiation.company.cin}</div>
                           {negotiation.company.sector && (
                             <Badge variant="outline" className="mt-1 text-xs">
                               {negotiation.company.sector}
@@ -365,20 +365,20 @@ export default function UnlistedNegotiations() {
 
                       {/* Seller Landing Price */}
                       <TableCell className="text-right">
-                        <div className="font-semibold text-white">
+                        <div className="font-semibold text-foreground">
                           {formatCurrency(negotiation.sellListing.landingPrice)}
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-muted-foreground">
                           {negotiation.sellListing.quantity.toLocaleString()} shares
                         </div>
                       </TableCell>
 
                       {/* Buyer Max Price */}
                       <TableCell className="text-right">
-                        <div className="font-semibold text-white">
+                        <div className="font-semibold text-foreground">
                           {formatCurrency(negotiation.buyRequest.maxPrice)}
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-muted-foreground">
                           {negotiation.matchingBuyRequestsCount} buyer{negotiation.matchingBuyRequestsCount !== 1 ? 's' : ''}
                         </div>
                       </TableCell>
@@ -397,18 +397,18 @@ export default function UnlistedNegotiations() {
                       <TableCell>
                         {negotiation.ratios ? (
                           <div className="space-y-1 text-xs">
-                            <div className="text-gray-300">
-                              ROE: <span className="text-white">{parseFloat(negotiation.ratios.roe).toFixed(2)}%</span>
+                            <div className="text-muted-foreground">
+                              ROE: <span className="text-foreground">{parseFloat(negotiation.ratios.roe).toFixed(2)}%</span>
                             </div>
-                            <div className="text-gray-300">
-                              ROCE: <span className="text-white">{parseFloat(negotiation.ratios.roce).toFixed(2)}%</span>
+                            <div className="text-muted-foreground">
+                              ROCE: <span className="text-foreground">{parseFloat(negotiation.ratios.roce).toFixed(2)}%</span>
                             </div>
-                            <div className="text-gray-300">
-                              D/E: <span className="text-white">{parseFloat(negotiation.ratios.debtToEquity).toFixed(2)}</span>
+                            <div className="text-muted-foreground">
+                              D/E: <span className="text-foreground">{parseFloat(negotiation.ratios.debtToEquity).toFixed(2)}</span>
                             </div>
                           </div>
                         ) : (
-                          <span className="text-gray-500 text-xs">No data</span>
+                          <span className="text-muted-foreground text-xs">No data</span>
                         )}
                       </TableCell>
 
@@ -416,17 +416,17 @@ export default function UnlistedNegotiations() {
                       <TableCell className="text-right">
                         {negotiation.lastDealPrice ? (
                           <div>
-                            <div className="font-medium text-white">
+                            <div className="font-medium text-foreground">
                               {formatCurrency(negotiation.lastDealPrice)}
                             </div>
                             {negotiation.lastDealDate && (
-                              <div className="text-xs text-gray-400">
+                              <div className="text-xs text-muted-foreground">
                                 {format(new Date(negotiation.lastDealDate), 'MMM d, yyyy')}
                               </div>
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-500 text-xs">No deals</span>
+                          <span className="text-muted-foreground text-xs">No deals</span>
                         )}
                       </TableCell>
 
@@ -472,8 +472,8 @@ export default function UnlistedNegotiations() {
 
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
-              <div className="text-sm text-gray-400">
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+              <div className="text-sm text-muted-foreground">
                 Page {pagination.page} of {pagination.totalPages}
               </div>
               <div className="flex gap-2">

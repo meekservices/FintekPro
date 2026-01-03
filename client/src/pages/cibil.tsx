@@ -184,7 +184,7 @@ export default function Cibil() {
                 <CardContent className="space-y-4">
                   
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Full Name
                     </label>
                     <Input 
@@ -196,7 +196,7 @@ export default function Cibil() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Mobile Number
                     </label>
                     <Input 
@@ -208,7 +208,7 @@ export default function Cibil() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Date of Birth
                     </label>
                     <Input 
@@ -220,7 +220,7 @@ export default function Cibil() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       PAN Number
                     </label>
                     <Input 
@@ -233,7 +233,7 @@ export default function Cibil() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Email Address
                     </label>
                     <Input 
@@ -253,7 +253,7 @@ export default function Cibil() {
                       className="mt-1"
                       data-testid="consent-checkbox"
                     />
-                    <div className="text-sm text-gray-700">
+                    <div className="text-sm text-muted-foreground">
                       <p className="font-medium mb-1">Consent for Credit Score Check</p>
                       <p>I authorize CIBIL to access my credit information and provide credit score and report. This will be recorded as a soft inquiry and will not impact my credit score.</p>
                     </div>
@@ -283,7 +283,7 @@ export default function Cibil() {
                           <span className={`text-6xl font-bold ${getCreditScoreColor(creditData.data.creditScore)}`}>
                             {creditData.data.creditScore}
                           </span>
-                          <div className="text-sm text-gray-500 mt-1">out of 900</div>
+                          <div className="text-sm text-muted-foreground mt-1">out of 900</div>
                         </div>
                         <Progress 
                           value={getCreditScoreProgress(creditData.data.creditScore)} 
@@ -301,19 +301,19 @@ export default function Cibil() {
                         <h4 className="font-semibold text-gray-900">Credit Summary</h4>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <span className="text-gray-600">Total Accounts:</span>
+                            <span className="text-muted-foreground">Total Accounts:</span>
                             <span className="font-medium ml-2">{creditData.data.creditSummary.totalAccounts}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Active Accounts:</span>
+                            <span className="text-muted-foreground">Active Accounts:</span>
                             <span className="font-medium ml-2">{creditData.data.creditSummary.activeAccounts}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Credit Limit:</span>
+                            <span className="text-muted-foreground">Credit Limit:</span>
                             <span className="font-medium ml-2">₹{creditData.data.creditSummary.totalCreditLimit.toLocaleString()}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Current Balance:</span>
+                            <span className="text-muted-foreground">Current Balance:</span>
                             <span className="font-medium ml-2">₹{creditData.data.creditSummary.currentBalance.toLocaleString()}</span>
                           </div>
                         </div>
@@ -321,7 +321,7 @@ export default function Cibil() {
 
                       <div className="space-y-2">
                         <h4 className="font-semibold text-gray-900">Recommendations</h4>
-                        <ul className="text-sm text-gray-600 space-y-1">
+                        <ul className="text-sm text-muted-foreground space-y-1">
                           {creditData.data.recommendations.map((rec: string, idx: number) => (
                             <li key={idx} className="flex items-start gap-2">
                               <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
@@ -354,8 +354,8 @@ export default function Cibil() {
                     </div>
                   ) : (
                     <div className="text-center py-12">
-                      <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">
+                      <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">
                         Fill in your details and check consent to get your credit score
                       </p>
                     </div>
@@ -385,13 +385,13 @@ export default function Cibil() {
                           <div className="flex justify-between items-start mb-2">
                             <div>
                               <h4 className="font-medium text-gray-900">{account.accountType}</h4>
-                              <p className="text-sm text-gray-600">{account.bank}</p>
+                              <p className="text-sm text-muted-foreground">{account.bank}</p>
                             </div>
                             <Badge variant={account.paymentStatus === "Current" ? "default" : "destructive"}>
                               {account.paymentStatus}
                             </Badge>
                           </div>
-                          <div className="text-xs text-gray-500 space-y-1">
+                          <div className="text-xs text-muted-foreground space-y-1">
                             <div>Limit: ₹{account.creditLimit.toLocaleString()}</div>
                             <div>Balance: ₹{account.currentBalance.toLocaleString()}</div>
                             <div>Opened: {new Date(account.openDate).toLocaleDateString()}</div>
@@ -416,17 +416,17 @@ export default function Cibil() {
                         <span className="text-3xl font-bold text-finance-blue">
                           {detailedReport.data.creditUtilization.utilizationRatio}%
                         </span>
-                        <p className="text-sm text-gray-600 mt-1">Current Utilization</p>
+                        <p className="text-sm text-muted-foreground mt-1">Current Utilization</p>
                         <Progress value={detailedReport.data.creditUtilization.utilizationRatio} className="mt-2" />
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-600">Total Limit:</span>
+                          <span className="text-muted-foreground">Total Limit:</span>
                           <div className="font-medium">₹{detailedReport.data.creditUtilization.totalLimit.toLocaleString()}</div>
                         </div>
                         <div>
-                          <span className="text-gray-600">Total Used:</span>
+                          <span className="text-muted-foreground">Total Used:</span>
                           <div className="font-medium">₹{detailedReport.data.creditUtilization.totalUsed.toLocaleString()}</div>
                         </div>
                       </div>
@@ -455,19 +455,19 @@ export default function Cibil() {
                           <div className="text-2xl font-bold text-green-600">
                             {detailedReport.data.paymentHistory.onTimePayments}%
                           </div>
-                          <div className="text-xs text-gray-600">On Time</div>
+                          <div className="text-xs text-muted-foreground">On Time</div>
                         </div>
                         <div>
                           <div className="text-2xl font-bold text-yellow-600">
                             {detailedReport.data.paymentHistory.latePayments}
                           </div>
-                          <div className="text-xs text-gray-600">Late</div>
+                          <div className="text-xs text-muted-foreground">Late</div>
                         </div>
                         <div>
                           <div className="text-2xl font-bold text-red-600">
                             {detailedReport.data.paymentHistory.missedPayments}
                           </div>
-                          <div className="text-xs text-gray-600">Missed</div>
+                          <div className="text-xs text-muted-foreground">Missed</div>
                         </div>
                       </div>
                       
@@ -495,13 +495,13 @@ export default function Cibil() {
                           <div className="flex justify-between items-start">
                             <div>
                               <h4 className="font-medium text-gray-900">{enquiry.enquiryType}</h4>
-                              <p className="text-sm text-gray-600">{enquiry.company}</p>
+                              <p className="text-sm text-muted-foreground">{enquiry.company}</p>
                             </div>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-muted-foreground">
                               {new Date(enquiry.enquiryDate).toLocaleDateString()}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-500 mt-2">
+                          <div className="text-xs text-muted-foreground mt-2">
                             Amount: ₹{enquiry.amount.toLocaleString()}
                           </div>
                         </div>
@@ -512,11 +512,11 @@ export default function Cibil() {
 
               </div>
             ) : (
-              <Card className="border-dashed border-2 border-gray-300">
+              <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <FileText className="h-12 w-12 text-gray-400 mb-4" />
+                  <FileText className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Generate Detailed Report</h3>
-                  <p className="text-gray-500 text-center mb-4">
+                  <p className="text-muted-foreground text-center mb-4">
                     First check your credit score, then get a detailed credit report
                   </p>
                   <Button 
@@ -544,7 +544,7 @@ export default function Cibil() {
                 <CardContent className="space-y-4">
                   
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Monthly Income (₹)
                     </label>
                     <Input 
@@ -557,7 +557,7 @@ export default function Cibil() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Employment Type
                     </label>
                     <Select 
@@ -576,7 +576,7 @@ export default function Cibil() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Existing EMIs (₹)
                     </label>
                     <Input 
@@ -589,7 +589,7 @@ export default function Cibil() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Loan Type
                     </label>
                     <Select 
@@ -609,7 +609,7 @@ export default function Cibil() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Loan Amount (₹)
                     </label>
                     <Input 
@@ -651,26 +651,26 @@ export default function Cibil() {
                         <h3 className="text-lg font-bold text-gray-900 mb-2">
                           {loanEligibility.data.eligible ? "Congratulations! You're Eligible" : "Not Eligible"}
                         </h3>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           Eligibility: {loanEligibility.data.eligibilityPercentage}%
                         </p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-600">Max Loan Amount:</span>
+                          <span className="text-muted-foreground">Max Loan Amount:</span>
                           <div className="font-bold text-finance-blue">₹{loanEligibility.data.maxLoanAmount.toLocaleString()}</div>
                         </div>
                         <div>
-                          <span className="text-gray-600">Estimated EMI:</span>
+                          <span className="text-muted-foreground">Estimated EMI:</span>
                           <div className="font-bold text-finance-blue">₹{loanEligibility.data.estimatedEMI.toLocaleString()}</div>
                         </div>
                         <div>
-                          <span className="text-gray-600">Interest Rate:</span>
+                          <span className="text-muted-foreground">Interest Rate:</span>
                           <div className="font-bold text-finance-blue">{loanEligibility.data.interestRate}%</div>
                         </div>
                         <div>
-                          <span className="text-gray-600">Processing Fee:</span>
+                          <span className="text-muted-foreground">Processing Fee:</span>
                           <div className="font-bold text-finance-blue">₹{loanEligibility.data.processingFee.toLocaleString()}</div>
                         </div>
                       </div>
@@ -685,10 +685,10 @@ export default function Cibil() {
                                 <h5 className="font-medium text-gray-900">{bank.bank}</h5>
                                 <span className="text-sm font-bold text-finance-blue">{bank.interestRate}%</span>
                               </div>
-                              <div className="text-sm text-gray-600 mb-2">
+                              <div className="text-sm text-muted-foreground mb-2">
                                 Max Amount: ₹{bank.maxAmount.toLocaleString()}
                               </div>
-                              <ul className="text-xs text-gray-500 space-y-1">
+                              <ul className="text-xs text-muted-foreground space-y-1">
                                 {bank.features.map((feature: string, fidx: number) => (
                                   <li key={fidx}>• {feature}</li>
                                 ))}
@@ -700,8 +700,8 @@ export default function Cibil() {
                     </div>
                   ) : (
                     <div className="text-center py-12">
-                      <Calculator className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">
+                      <Calculator className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">
                         Fill in loan details to check your eligibility
                       </p>
                     </div>
@@ -724,7 +724,7 @@ export default function Cibil() {
                 <div className="mb-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Existing Credit Cards
                       </label>
                       <Input 
@@ -768,7 +768,7 @@ export default function Cibil() {
                                 <div className="flex justify-between items-start mb-3">
                                   <div>
                                     <h5 className="font-bold text-gray-900">{card.cardName}</h5>
-                                    <p className="text-sm text-gray-600">{card.bank}</p>
+                                    <p className="text-sm text-muted-foreground">{card.bank}</p>
                                   </div>
                                   <Badge variant="secondary">{card.category}</Badge>
                                 </div>
@@ -784,7 +784,7 @@ export default function Cibil() {
                                   </div>
                                 </div>
                                 
-                                <ul className="text-xs text-gray-500 space-y-1 mb-3">
+                                <ul className="text-xs text-muted-foreground space-y-1 mb-3">
                                   {card.features.map((feature: string, fidx: number) => (
                                     <li key={fidx}>• {feature}</li>
                                   ))}
@@ -835,7 +835,7 @@ export default function Cibil() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h4 className="font-medium text-gray-900 mb-2">Alert Types</h4>
-                        <ul className="text-sm text-gray-600 space-y-1">
+                        <ul className="text-sm text-muted-foreground space-y-1">
                           {monitoringSetup.data.alertTypes.map((alert: string, idx: number) => (
                             <li key={idx} className="flex items-center gap-2">
                               <CheckCircle className="h-4 w-4 text-green-500" />
@@ -847,7 +847,7 @@ export default function Cibil() {
                       
                       <div>
                         <h4 className="font-medium text-gray-900 mb-2">Features</h4>
-                        <ul className="text-sm text-gray-600 space-y-1">
+                        <ul className="text-sm text-muted-foreground space-y-1">
                           {monitoringSetup.data.features.map((feature: string, idx: number) => (
                             <li key={idx} className="flex items-center gap-2">
                               <Star className="h-4 w-4 text-yellow-500" />
@@ -861,11 +861,11 @@ export default function Cibil() {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-dashed border-2 border-gray-300">
+              <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Monitor className="h-12 w-12 text-gray-400 mb-4" />
+                  <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Setup Credit Monitoring</h3>
-                  <p className="text-gray-500 text-center mb-4">
+                  <p className="text-muted-foreground text-center mb-4">
                     Get alerts when your credit score changes or suspicious activity is detected
                   </p>
                   <Button 

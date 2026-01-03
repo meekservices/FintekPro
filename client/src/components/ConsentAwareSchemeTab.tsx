@@ -234,7 +234,7 @@ export function ConsentAwareSchemeTab({
             <div className="text-center py-8">
               <Lock className="h-12 w-12 text-orange-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">PAN Number Required</h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-muted-foreground mb-4">
                 To access {SCHEME_NAMES[schemeType]} data, please complete your KYC 
                 by adding your PAN card in your profile.
               </p>
@@ -264,7 +264,7 @@ export function ConsentAwareSchemeTab({
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Data Access Permission Needed
               </h3>
-              <p className="text-gray-600 mb-4 max-w-md mx-auto">
+              <p className="text-muted-foreground mb-4 max-w-md mx-auto">
                 {SCHEME_DESCRIPTIONS[schemeType]} for PAN number {user.panNumber}.
               </p>
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
@@ -368,7 +368,7 @@ export function ConsentAwareSchemeTab({
                 data-testid="input-otp"
               />
               {expiresAt && (
-                <p className="text-xs text-gray-500 text-center">
+                <p className="text-xs text-muted-foreground text-center">
                   OTP expires at {expiresAt.toLocaleTimeString()}
                 </p>
               )}

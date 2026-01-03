@@ -196,7 +196,7 @@ export function ObjectUploader({
       case 'uploading':
         return <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />;
       default:
-        return <File className="h-4 w-4 text-gray-500" />;
+        return <File className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -223,18 +223,18 @@ export function ObjectUploader({
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               isDragging
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                : 'border-border dark:border-border hover:border-gray-400 dark:hover:border-gray-500'
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <div className="space-y-2">
               <p className="text-lg font-medium">
                 Drop files here or click to browse
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Maximum {maxNumberOfFiles} file(s), up to {formatFileSize(maxFileSize)} each
               </p>
               <Input
@@ -273,7 +273,7 @@ export function ObjectUploader({
               {uploadFiles.map((uploadFile) => (
                 <div
                   key={uploadFile.id}
-                  className="flex items-center space-x-3 p-3 border rounded-lg bg-gray-50 dark:bg-gray-800"
+                  className="flex items-center space-x-3 p-3 border rounded-lg bg-muted dark:bg-muted"
                   data-testid={`file-item-${uploadFile.id}`}
                 >
                   <div className="flex-shrink-0">
@@ -284,7 +284,7 @@ export function ObjectUploader({
                     <p className="text-sm font-medium truncate" data-testid={`text-filename-${uploadFile.id}`}>
                       {uploadFile.file.name}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {formatFileSize(uploadFile.file.size)}
                     </p>
                     {uploadFile.status === 'uploading' && (
@@ -314,7 +314,7 @@ export function ObjectUploader({
           {/* Action Buttons */}
           {uploadFiles.length > 0 && (
             <div className="flex justify-between items-center pt-4 border-t">
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 {completedUploads > 0 && (
                   <span className="text-green-600">
                     {completedUploads} of {uploadFiles.length} completed

@@ -228,7 +228,7 @@ export default function ICICIBanking() {
             <Building2 className="h-8 w-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">ICICI Bank Services</h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+          <p className="text-muted-foreground dark:text-muted-foreground max-w-2xl mx-auto">
             Access comprehensive banking services including account management, payments, and transaction history
           </p>
         </div>
@@ -314,8 +314,8 @@ export default function ICICIBanking() {
                         ₹{accountBalance.data?.ledgerBalance?.toLocaleString()}
                       </p>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Last Updated</p>
+                    <div className="text-center p-4 bg-muted dark:bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Last Updated</p>
                       <p className="text-sm font-medium" data-testid="last-updated">
                         {accountBalance.data?.lastUpdated ? format(new Date(accountBalance.data.lastUpdated), 'MMM dd, yyyy HH:mm') : 'N/A'}
                       </p>
@@ -545,7 +545,7 @@ export default function ICICIBanking() {
                           </Table>
                         </div>
                       ) : transactions?.success ? (
-                        <div className="text-center p-8 text-gray-500">
+                        <div className="text-center p-8 text-muted-foreground">
                           <History className="h-8 w-8 mx-auto mb-2" />
                           <p>No transactions found for the selected period</p>
                         </div>

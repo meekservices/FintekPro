@@ -30,10 +30,10 @@ export default function PrivacyPolicy() {
             <Shield className="w-12 h-12 text-blue-600 mr-3" />
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Privacy Policy</h1>
           </div>
-          <p className="text-lg text-gray-600 dark:text-gray-300">
+          <p className="text-lg text-muted-foreground dark:text-muted-foreground">
             Your privacy is our priority. Learn how we protect your financial data.
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-2">
             Last updated: August 31, 2025
           </p>
         </div>
@@ -49,7 +49,7 @@ export default function PrivacyPolicy() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-semibold mb-2">Personal Information</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Name, email address, mobile number</li>
                   <li>PAN number, Aadhar number, passport details</li>
                   <li>Address and residency information</li>
@@ -58,7 +58,7 @@ export default function PrivacyPolicy() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Financial Information</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Bank account details and transaction history</li>
                   <li>Investment portfolio and trading data</li>
                   <li>Income, occupation, and source of wealth</li>
@@ -67,7 +67,7 @@ export default function PrivacyPolicy() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Compliance Information</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>FATCA status and tax residency details</li>
                   <li>PEP (Politically Exposed Person) status</li>
                   <li>KYC documents and verification data</li>
@@ -85,7 +85,7 @@ export default function PrivacyPolicy() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-2">
+              <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-2">
                 <li>Provide financial services and investment management</li>
                 <li>Comply with regulatory requirements (SEBI, RBI, FATCA)</li>
                 <li>Conduct KYC verification and AML monitoring</li>
@@ -107,7 +107,7 @@ export default function PrivacyPolicy() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-semibold mb-2">Encryption & Security</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>End-to-end encryption for sensitive financial data</li>
                   <li>Secure socket layer (SSL) for all communications</li>
                   <li>Regular security audits and vulnerability assessments</li>
@@ -116,7 +116,7 @@ export default function PrivacyPolicy() {
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Access Controls</h4>
-                <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+                <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                   <li>Role-based access to your information</li>
                   <li>Regular access reviews and audit logs</li>
                   <li>Secure data centers with physical protection</li>
@@ -134,7 +134,7 @@ export default function PrivacyPolicy() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-2">
+              <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-2">
                 <li><strong>Right to Access:</strong> Request copies of your personal data</li>
                 <li><strong>Right to Rectification:</strong> Correct inaccurate information</li>
                 <li><strong>Right to Erasure:</strong> Request deletion of your data (subject to regulatory requirements)</li>
@@ -156,21 +156,21 @@ export default function PrivacyPolicy() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-semibold mb-2">Regulatory Compliance</h4>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   We may share your information with regulatory authorities (SEBI, RBI, FATCA reporting) 
                   as required by law and financial regulations.
                 </p>
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Service Providers</h4>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   We work with trusted partners for KYC verification, payment processing, and data analytics. 
                   All partners are bound by strict confidentiality agreements.
                 </p>
               </div>
               <div>
                 <h4 className="font-semibold mb-2">No Sale of Data</h4>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   We never sell your personal information to third parties for marketing purposes.
                 </p>
               </div>
@@ -182,16 +182,16 @@ export default function PrivacyPolicy() {
               <CardTitle>Data Retention</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                 We retain your information only as long as necessary for:
               </p>
-              <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1">
+              <ul className="list-disc list-inside text-muted-foreground dark:text-muted-foreground space-y-1">
                 <li>Providing our services to you</li>
                 <li>Complying with legal and regulatory requirements</li>
                 <li>Resolving disputes and enforcing agreements</li>
                 <li>Preventing fraud and maintaining security</li>
               </ul>
-              <p className="text-gray-600 dark:text-gray-300 mt-4">
+              <p className="text-muted-foreground dark:text-muted-foreground mt-4">
                 Financial records are typically retained for 7 years as required by Indian regulations.
               </p>
             </CardContent>
@@ -202,7 +202,7 @@ export default function PrivacyPolicy() {
               <CardTitle>Contact Us</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-muted-foreground dark:text-muted-foreground mb-4">
                 For any privacy-related questions or to exercise your rights:
               </p>
               <div className="space-y-2">
@@ -215,7 +215,7 @@ export default function PrivacyPolicy() {
         </div>
 
         <div className="mt-12 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground">
             This privacy policy is effective as of August 31, 2025, and will remain in effect except with respect to any changes in its provisions in the future.
           </p>
         </div>

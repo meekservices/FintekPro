@@ -455,7 +455,7 @@ export default function UserManagement() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setIsAddOpen(false)} data-testid="button-cancel">
+                <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setIsAddOpen(false)} data-testid="button-cancel">
                   Cancel
                 </Button>
                 <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={createUserMutation.isPending} data-testid="button-submit">
@@ -531,7 +531,7 @@ export default function UserManagement() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-gray-500" />
+                <Users className="w-4 h-4 text-muted-foreground" />
                 <span className="text-2xl font-bold" data-testid="stat-clients">{stats.clients}</span>
               </div>
             </CardContent>
@@ -690,7 +690,7 @@ export default function UserManagement() {
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setEditingUser(null)} data-testid="button-edit-cancel">
+                <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setEditingUser(null)} data-testid="button-edit-cancel">
                   Cancel
                 </Button>
                 <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={updateUserMutation.isPending} data-testid="button-edit-submit">

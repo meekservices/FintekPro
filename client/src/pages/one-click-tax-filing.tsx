@@ -258,21 +258,21 @@ export default function OneClickTaxFiling() {
                       w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all
                       ${status === 'completed' ? 'bg-green-100 text-green-600' : ''}
                       ${status === 'current' ? 'bg-blue-100 text-blue-600 ring-4 ring-blue-200' : ''}
-                      ${status === 'upcoming' ? 'bg-gray-100 text-gray-400' : ''}
+                      ${status === 'upcoming' ? 'bg-muted text-muted-foreground' : ''}
                     `}>
                       <Icon className="h-6 w-6" />
                     </div>
                     <span className={`text-sm font-medium ${
                       status === 'current' ? 'text-blue-600' : 
                       status === 'completed' ? 'text-green-600' : 
-                      'text-gray-400'
+                      'text-muted-foreground'
                     }`}>
                       {step.label}
                     </span>
                   </div>
                   {index < 5 && (
                     <ArrowRight className={`h-5 w-5 mx-2 ${
-                      status === 'completed' ? 'text-green-400' : 'text-gray-300'
+                      status === 'completed' ? 'text-green-400' : 'text-muted-foreground'
                     }`} />
                   )}
                 </div>
@@ -313,7 +313,7 @@ export default function OneClickTaxFiling() {
                       <p className="text-sm text-muted-foreground">{source.recordsCount} records</p>
                     </div>
                     <Badge className={
-                      source.status === 'connected' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      source.status === 'connected' ? 'bg-green-100 text-green-800' : 'bg-muted text-foreground'
                     }>
                       {source.status}
                     </Badge>

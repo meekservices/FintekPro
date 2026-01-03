@@ -245,7 +245,7 @@ export default function TaxITRExpertPage() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-2 dark:text-white">Select Your Income Sources</h3>
-        <p className="text-gray-600 dark:text-gray-400 text-sm">
+        <p className="text-muted-foreground dark:text-muted-foreground text-sm">
           This helps us determine the right ITR form and assign the appropriate expert.
         </p>
       </div>
@@ -264,17 +264,17 @@ export default function TaxITRExpertPage() {
           return (
             <Card 
               key={source.key}
-              className={`cursor-pointer transition-all ${isChecked ? "border-primary ring-2 ring-primary/20" : "hover:border-gray-300 dark:hover:border-gray-600"}`}
+              className={`cursor-pointer transition-all ${isChecked ? "border-primary ring-2 ring-primary/20" : "hover:border-border dark:hover:border-border"}`}
               onClick={() => setIncomeSources(prev => ({ ...prev, [source.key]: !prev[source.key as keyof IncomeSource] }))}
               data-testid={`card-${source.key}`}
             >
               <CardContent className="p-4 flex items-start gap-3">
-                <div className={`p-2 rounded-lg ${isChecked ? "bg-primary/10" : "bg-gray-100 dark:bg-gray-800"}`}>
-                  <Icon className={`h-5 w-5 ${isChecked ? "text-primary" : "text-gray-500"}`} />
+                <div className={`p-2 rounded-lg ${isChecked ? "bg-primary/10" : "bg-muted dark:bg-muted"}`}>
+                  <Icon className={`h-5 w-5 ${isChecked ? "text-primary" : "text-muted-foreground"}`} />
                 </div>
                 <div className="flex-1">
                   <p className="font-medium dark:text-white">{source.label}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{source.desc}</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{source.desc}</p>
                 </div>
                 <Checkbox checked={isChecked} className="mt-1" />
               </CardContent>
@@ -288,7 +288,7 @@ export default function TaxITRExpertPage() {
           <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           <div>
             <p className="font-medium dark:text-white">Recommended Form: {getRecommendedForm()}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Based on your income sources</p>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Based on your income sources</p>
           </div>
         </CardContent>
       </Card>
@@ -299,7 +299,7 @@ export default function TaxITRExpertPage() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-2 dark:text-white">Case Details</h3>
-        <p className="text-gray-600 dark:text-gray-400 text-sm">
+        <p className="text-muted-foreground dark:text-muted-foreground text-sm">
           Provide additional details to help our experts prepare your return accurately.
         </p>
       </div>
@@ -324,7 +324,7 @@ export default function TaxITRExpertPage() {
         <div>
           <Label htmlFor="estimatedIncome">Estimated Annual Income (Optional)</Label>
           <div className="relative mt-1">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="estimatedIncome"
               className="pl-9"
@@ -352,7 +352,7 @@ export default function TaxITRExpertPage() {
         <div>
           <Label htmlFor="contactPhone">Contact Phone</Label>
           <div className="relative mt-1">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="contactPhone"
               className="pl-9"
@@ -396,7 +396,7 @@ export default function TaxITRExpertPage() {
       <div className="space-y-6">
         <div>
           <h3 className="text-lg font-semibold mb-2 dark:text-white">Upload Documents</h3>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
+          <p className="text-muted-foreground dark:text-muted-foreground text-sm">
             Upload the required documents for your return. You can also upload later.
           </p>
         </div>
@@ -412,21 +412,21 @@ export default function TaxITRExpertPage() {
             return (
               <Card 
                 key={doc.id}
-                className={`cursor-pointer transition-all ${isUploaded ? "border-green-500 bg-green-50 dark:bg-green-950" : "hover:border-gray-300 dark:hover:border-gray-600"}`}
+                className={`cursor-pointer transition-all ${isUploaded ? "border-green-500 bg-green-50 dark:bg-green-950" : "hover:border-border dark:hover:border-border"}`}
                 onClick={() => toggleDocument(doc.id)}
                 data-testid={`doc-${doc.id}`}
               >
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${isUploaded ? "bg-green-100 dark:bg-green-900" : "bg-gray-100 dark:bg-gray-800"}`}>
+                  <div className={`p-2 rounded-lg ${isUploaded ? "bg-green-100 dark:bg-green-900" : "bg-muted dark:bg-muted"}`}>
                     {isUploaded ? (
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                     ) : (
-                      <Upload className="h-5 w-5 text-gray-500" />
+                      <Upload className="h-5 w-5 text-muted-foreground" />
                     )}
                   </div>
                   <div className="flex-1">
                     <p className="font-medium dark:text-white">{doc.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{doc.desc}</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">{doc.desc}</p>
                   </div>
                   <Button 
                     variant={isUploaded ? "outline" : "default"} 
@@ -455,7 +455,7 @@ export default function TaxITRExpertPage() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-2 dark:text-white">Choose Your Expert</h3>
-        <p className="text-gray-600 dark:text-gray-400 text-sm">
+        <p className="text-muted-foreground dark:text-muted-foreground text-sm">
           Select the type of expert and service level that suits your needs.
         </p>
       </div>
@@ -475,15 +475,15 @@ export default function TaxITRExpertPage() {
             ].map(opt => (
               <Card 
                 key={opt.value}
-                className={`cursor-pointer transition-all ${expertPrefs.preferredExpertType === opt.value ? "border-primary ring-2 ring-primary/20" : "hover:border-gray-300 dark:hover:border-gray-600"}`}
+                className={`cursor-pointer transition-all ${expertPrefs.preferredExpertType === opt.value ? "border-primary ring-2 ring-primary/20" : "hover:border-border dark:hover:border-border"}`}
                 onClick={() => setExpertPrefs(prev => ({ ...prev, preferredExpertType: opt.value as any }))}
               >
                 <CardContent className="p-4 text-center">
                   <div className="flex justify-center mb-2">
-                    <opt.icon className={`h-8 w-8 ${expertPrefs.preferredExpertType === opt.value ? "text-primary" : "text-gray-400"}`} />
+                    <opt.icon className={`h-8 w-8 ${expertPrefs.preferredExpertType === opt.value ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
                   <p className="font-medium dark:text-white">{opt.label}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{opt.desc}</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{opt.desc}</p>
                   <Badge variant="secondary" className="mt-2">{opt.badge}</Badge>
                 </CardContent>
               </Card>
@@ -507,13 +507,13 @@ export default function TaxITRExpertPage() {
             ].map(opt => (
               <Card 
                 key={opt.value}
-                className={`cursor-pointer transition-all ${expertPrefs.urgency === opt.value ? "border-primary ring-2 ring-primary/20" : "hover:border-gray-300 dark:hover:border-gray-600"}`}
+                className={`cursor-pointer transition-all ${expertPrefs.urgency === opt.value ? "border-primary ring-2 ring-primary/20" : "hover:border-border dark:hover:border-border"}`}
                 onClick={() => setExpertPrefs(prev => ({ ...prev, urgency: opt.value as any }))}
               >
                 <CardContent className="p-4 text-center">
-                  <Clock className={`h-6 w-6 mx-auto mb-2 ${expertPrefs.urgency === opt.value ? "text-primary" : "text-gray-400"}`} />
+                  <Clock className={`h-6 w-6 mx-auto mb-2 ${expertPrefs.urgency === opt.value ? "text-primary" : "text-muted-foreground"}`} />
                   <p className="font-medium dark:text-white">{opt.label}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{opt.desc}</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{opt.desc}</p>
                   <p className="text-lg font-bold text-primary mt-2">₹{opt.price.toLocaleString()}</p>
                 </CardContent>
               </Card>
@@ -532,7 +532,7 @@ export default function TaxITRExpertPage() {
       <div className="space-y-6">
         <div>
           <h3 className="text-lg font-semibold mb-2 dark:text-white">Review & Submit</h3>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
+          <p className="text-muted-foreground dark:text-muted-foreground text-sm">
             Please review your case details before submitting.
           </p>
         </div>
@@ -544,19 +544,19 @@ export default function TaxITRExpertPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Assessment Year</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Assessment Year</span>
                 <span className="font-medium dark:text-white">{assessmentYear}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">ITR Form</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">ITR Form</span>
                 <span className="font-medium dark:text-white">{getRecommendedForm()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">PAN</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">PAN</span>
                 <span className="font-medium dark:text-white">{panContext?.pan || "N/A"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Documents Uploaded</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Documents Uploaded</span>
                 <span className="font-medium dark:text-white">{uploadedDocs.length}/{requiredDocs.length}</span>
               </div>
             </CardContent>
@@ -568,11 +568,11 @@ export default function TaxITRExpertPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Expert Type</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Expert Type</span>
                 <span className="font-medium dark:text-white capitalize">{expertPrefs.preferredExpertType.replace("_", " ")}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Service Level</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Service Level</span>
                 <span className="font-medium dark:text-white capitalize">{expertPrefs.urgency}</span>
               </div>
               <Separator className="my-2" />
@@ -598,7 +598,7 @@ export default function TaxITRExpertPage() {
                   </Badge>
                 ))}
               {Object.values(incomeSources).every(v => !v) && (
-                <span className="text-gray-500 dark:text-gray-400 text-sm">No income sources selected</span>
+                <span className="text-muted-foreground dark:text-muted-foreground text-sm">No income sources selected</span>
               )}
             </div>
           </CardContent>
@@ -613,7 +613,7 @@ export default function TaxITRExpertPage() {
 
         <div className="flex items-start gap-2">
           <Checkbox id="terms" className="mt-1" data-testid="checkbox-terms" />
-          <Label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
+          <Label htmlFor="terms" className="text-sm text-muted-foreground dark:text-muted-foreground">
             I agree to the Terms of Service and authorize FintekPro to share my documents with the assigned expert for ITR preparation.
           </Label>
         </div>
@@ -648,7 +648,7 @@ export default function TaxITRExpertPage() {
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Clock className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Loading your details...</p>
+          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading your details...</p>
         </div>
       </div>
     );
@@ -662,7 +662,7 @@ export default function TaxITRExpertPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold dark:text-white">Hire Tax Expert</h1>
-          <p className="text-gray-600 dark:text-gray-400">Let our experts prepare and file your ITR</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Let our experts prepare and file your ITR</p>
         </div>
       </div>
 
@@ -685,7 +685,7 @@ export default function TaxITRExpertPage() {
                 <span className="hidden sm:inline">{step.label}</span>
               </Button>
               {idx < STEPS.length - 1 && (
-                <ArrowRight className="h-4 w-4 mx-2 text-gray-300 dark:text-gray-600" />
+                <ArrowRight className="h-4 w-4 mx-2 text-muted-foreground dark:text-muted-foreground" />
               )}
             </div>
           );
@@ -735,7 +735,7 @@ export default function TaxITRExpertPage() {
         )}
       </div>
 
-      <Card className="bg-gray-50 dark:bg-gray-900">
+      <Card className="bg-muted dark:bg-card">
         <CardContent className="p-4">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">

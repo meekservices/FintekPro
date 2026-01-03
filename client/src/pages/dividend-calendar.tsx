@@ -160,7 +160,7 @@ export default function DividendCalendar() {
       case 'interim': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       case 'final': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'special': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -317,7 +317,7 @@ export default function DividendCalendar() {
                     className={`p-2 min-h-[80px] border rounded-lg cursor-pointer transition-colors ${
                       isToday(day) ? 'bg-blue-50 dark:bg-blue-950 border-blue-300' :
                       hasEvents ? 'bg-green-50 dark:bg-green-950 border-green-300' :
-                      'hover:bg-gray-50 dark:hover:bg-gray-800'
+                      'hover:bg-muted dark:hover:bg-muted'
                     }`}
                     onClick={() => setSelectedDate(day)}
                     data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
@@ -362,11 +362,11 @@ export default function DividendCalendar() {
                 filteredDividends.map(dividend => (
                   <div 
                     key={dividend.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg hover:bg-muted dark:hover:bg-gray-700 transition-colors"
                     data-testid={`dividend-item-${dividend.id}`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white dark:bg-gray-900 rounded-lg flex items-center justify-center font-bold text-sm">
+                      <div className="w-12 h-12 bg-white dark:bg-card rounded-lg flex items-center justify-center font-bold text-sm">
                         {dividend.symbol.slice(0, 4)}
                       </div>
                       <div>

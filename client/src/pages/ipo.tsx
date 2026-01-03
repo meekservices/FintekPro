@@ -73,7 +73,7 @@ export default function IPO() {
             )}
             <div>
               <CardTitle className="text-lg" data-testid="ipo-company-name">{ipo.companyName}</CardTitle>
-              <p className="text-sm text-gray-600" data-testid="ipo-sector">{ipo.sector}</p>
+              <p className="text-sm text-muted-foreground" data-testid="ipo-sector">{ipo.sector}</p>
             </div>
           </div>
           <Badge 
@@ -87,7 +87,7 @@ export default function IPO() {
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-gray-600">Price Band</p>
+            <p className="text-muted-foreground">Price Band</p>
             <p className="font-semibold" data-testid="ipo-price-band">
               {ipo.priceBandMin && ipo.priceBandMax 
                 ? `${formatCurrency(Number(ipo.priceBandMin))} - ${formatCurrency(Number(ipo.priceBandMax))}`
@@ -96,19 +96,19 @@ export default function IPO() {
             </p>
           </div>
           <div>
-            <p className="text-gray-600">Issue Size</p>
+            <p className="text-muted-foreground">Issue Size</p>
             <p className="font-semibold" data-testid="ipo-issue-size">
               {ipo.issueSize ? `₹${Number(ipo.issueSize).toLocaleString()} Cr` : 'Not Issued'}
             </p>
           </div>
           <div>
-            <p className="text-gray-600">{showPerformance ? 'Listing Date' : 'Open Date'}</p>
+            <p className="text-muted-foreground">{showPerformance ? 'Listing Date' : 'Open Date'}</p>
             <p className="font-semibold" data-testid="ipo-open-date">
               {showPerformance ? formatDate(ipo.listingDate) : formatDate(ipo.openDate)}
             </p>
           </div>
           <div>
-            <p className="text-gray-600">{showPerformance ? 'Issue Type' : 'Close Date'}</p>
+            <p className="text-muted-foreground">{showPerformance ? 'Issue Type' : 'Close Date'}</p>
             <p className="font-semibold" data-testid="ipo-close-date">
               {showPerformance ? (ipo.issueType || 'Book Built') : formatDate(ipo.closeDate)}
             </p>
@@ -116,13 +116,13 @@ export default function IPO() {
           {showPerformance && (
             <>
               <div>
-                <p className="text-gray-600">Listing Gain</p>
+                <p className="text-muted-foreground">Listing Gain</p>
                 <p className="font-semibold" data-testid="ipo-listing-gain">
                   {formatReturn(Number(ipo.listingGainPercent))}
                 </p>
               </div>
               <div>
-                <p className="text-gray-600">Current Return</p>
+                <p className="text-muted-foreground">Current Return</p>
                 <p className="font-semibold" data-testid="ipo-current-return">
                   {formatReturn(Number(ipo.currentReturnPercent))}
                 </p>
@@ -189,11 +189,11 @@ export default function IPO() {
                 {upcomingIpos.map((ipo: IpoCompany) => renderIpoCard(ipo))}
               </div>
             ) : (
-              <Card className="border-dashed border-2 border-gray-300">
+              <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Building2 className="h-12 w-12 text-gray-400 mb-4" />
+                  <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Upcoming IPOs</h3>
-                  <p className="text-gray-500 text-center">
+                  <p className="text-muted-foreground text-center">
                     IPO data will be displayed here when available from authorized sources
                   </p>
                 </CardContent>
@@ -220,11 +220,11 @@ export default function IPO() {
                 </div>
               </div>
             ) : (
-              <Card className="border-dashed border-2 border-gray-300">
+              <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Clock className="h-12 w-12 text-gray-400 mb-4" />
+                  <Clock className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Ongoing IPOs</h3>
-                  <p className="text-gray-500 text-center">
+                  <p className="text-muted-foreground text-center">
                     Currently open IPO applications will be displayed here
                   </p>
                 </CardContent>
@@ -240,11 +240,11 @@ export default function IPO() {
                 {listedIpos.map((ipo: IpoCompany) => renderIpoCard(ipo, true))}
               </div>
             ) : (
-              <Card className="border-dashed border-2 border-gray-300">
+              <Card className="border-dashed border-2 border-border">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <TrendingUp className="h-12 w-12 text-gray-400 mb-4" />
+                  <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Recent Listings</h3>
-                  <p className="text-gray-500 text-center">
+                  <p className="text-muted-foreground text-center">
                     Recently listed IPO performance will be shown here
                   </p>
                 </CardContent>
@@ -262,11 +262,11 @@ export default function IPO() {
                 Small and Medium Enterprises (SME) IPOs offer investment opportunities in emerging companies with growth potential.
               </p>
             </div>
-            <Card className="border-dashed border-2 border-gray-300">
+            <Card className="border-dashed border-2 border-border">
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Building2 className="h-12 w-12 text-gray-400 mb-4" />
+                <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">SME IPOs Coming Soon</h3>
-                <p className="text-gray-500 text-center">
+                <p className="text-muted-foreground text-center">
                   SME IPO listings will be displayed here when available
                 </p>
               </CardContent>
@@ -274,11 +274,11 @@ export default function IPO() {
           </TabsContent>
 
           <TabsContent value="applications" className="space-y-6" data-testid="my-applications">
-            <Card className="border-dashed border-2 border-gray-300">
+            <Card className="border-dashed border-2 border-border">
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <FileText className="h-12 w-12 text-gray-400 mb-4" />
+                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No Applications</h3>
-                <p className="text-gray-500 text-center mb-4">
+                <p className="text-muted-foreground text-center mb-4">
                   Your IPO applications and status will appear here
                 </p>
                 <Button variant="outline">Apply for an IPO</Button>
@@ -345,19 +345,19 @@ export default function IPO() {
                         <div className="space-y-2 text-sm">
                           <div>
                             <span className="font-medium text-green-600">Strengths:</span>
-                            <p className="text-gray-600">Strong market position, experienced management</p>
+                            <p className="text-muted-foreground">Strong market position, experienced management</p>
                           </div>
                           <div>
                             <span className="font-medium text-orange-600">Weaknesses:</span>
-                            <p className="text-gray-600">High customer concentration</p>
+                            <p className="text-muted-foreground">High customer concentration</p>
                           </div>
                           <div>
                             <span className="font-medium text-blue-600">Opportunities:</span>
-                            <p className="text-gray-600">Expanding healthcare market</p>
+                            <p className="text-muted-foreground">Expanding healthcare market</p>
                           </div>
                           <div>
                             <span className="font-medium text-red-600">Threats:</span>
-                            <p className="text-gray-600">Regulatory changes</p>
+                            <p className="text-muted-foreground">Regulatory changes</p>
                           </div>
                         </div>
                       </div>
@@ -369,10 +369,10 @@ export default function IPO() {
                             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                             <span className="text-sm font-medium text-green-700">SUBSCRIBE</span>
                           </div>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             Strong fundamentals with good growth prospects. Recommended for long-term investors.
                           </p>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             Target Price: ₹145-160 (1 Year)
                           </div>
                         </div>
@@ -407,17 +407,17 @@ export default function IPO() {
                         />
                         <div className="flex-1">
                           <h4 className="font-semibold text-gray-900">Anlon Healthcare</h4>
-                          <p className="text-sm text-gray-600">₹86 - ₹91 | ₹121 Cr</p>
+                          <p className="text-sm text-muted-foreground">₹86 - ₹91 | ₹121 Cr</p>
                         </div>
                         <Badge variant="outline" className="text-orange-600 border-orange-300">Neutral</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="bg-gray-50 p-2 rounded">
-                          <span className="text-gray-600">Revenue Growth:</span>
+                        <div className="bg-muted p-2 rounded">
+                          <span className="text-muted-foreground">Revenue Growth:</span>
                           <div className="font-medium">+15.2%</div>
                         </div>
-                        <div className="bg-gray-50 p-2 rounded">
-                          <span className="text-gray-600">Net Margin:</span>
+                        <div className="bg-muted p-2 rounded">
+                          <span className="text-muted-foreground">Net Margin:</span>
                           <div className="font-medium">8.7%</div>
                         </div>
                       </div>
@@ -437,17 +437,17 @@ export default function IPO() {
                         />
                         <div className="flex-1">
                           <h4 className="font-semibold text-gray-900">Fractal Analytics</h4>
-                          <p className="text-sm text-gray-600">Price TBA | ₹4,900 Cr</p>
+                          <p className="text-sm text-muted-foreground">Price TBA | ₹4,900 Cr</p>
                         </div>
                         <Badge className="bg-green-100 text-green-800">Subscribe</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="bg-gray-50 p-2 rounded">
-                          <span className="text-gray-600">AI/Analytics:</span>
+                        <div className="bg-muted p-2 rounded">
+                          <span className="text-muted-foreground">AI/Analytics:</span>
                           <div className="font-medium">High Growth</div>
                         </div>
-                        <div className="bg-gray-50 p-2 rounded">
-                          <span className="text-gray-600">Market Leader:</span>
+                        <div className="bg-muted p-2 rounded">
+                          <span className="text-muted-foreground">Market Leader:</span>
                           <div className="font-medium">Yes</div>
                         </div>
                       </div>
@@ -499,15 +499,15 @@ export default function IPO() {
                     <Card key={news.id} className="hover:shadow-sm transition-shadow" data-testid={`news-${news.id}`}>
                       <CardContent className="p-4">
                         <h4 className="font-medium text-gray-900 mb-1 line-clamp-2">{news.title}</h4>
-                        <p className="text-xs text-gray-500">{formatDate(news.publishedAt)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(news.publishedAt)}</p>
                       </CardContent>
                     </Card>
                   ))
                 ) : (
-                  <Card className="border-dashed border-2 border-gray-300">
+                  <Card className="border-dashed border-2 border-border">
                     <CardContent className="text-center py-8">
-                      <Newspaper className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-500 text-sm">IPO news will appear here</p>
+                      <Newspaper className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground text-sm">IPO news will appear here</p>
                     </CardContent>
                   </Card>
                 )}
@@ -522,7 +522,7 @@ export default function IPO() {
             <CardContent className="p-8 text-center">
               <div className="max-w-2xl mx-auto">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Ready to Apply for IPOs?</h2>
-                <p className="text-gray-600 mb-6">
+                <p className="text-muted-foreground mb-6">
                   Open your Demat account now to apply for your favorite IPOs. Get access to detailed analysis, 
                   application tracking, and expert recommendations.
                 </p>
@@ -552,7 +552,7 @@ export default function IPO() {
                   <Calendar className="h-6 w-6 text-finance-blue" />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-2">Check IPO Calendar</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-muted-foreground text-sm">
                   Stay updated with upcoming IPO dates and subscription periods
                 </p>
               </CardContent>
@@ -564,7 +564,7 @@ export default function IPO() {
                   <IndianRupee className="h-6 w-6 text-finance-green" />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-2">Apply Online</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-muted-foreground text-sm">
                   Quick and easy online application process with instant confirmation
                 </p>
               </CardContent>
@@ -576,7 +576,7 @@ export default function IPO() {
                   <TrendingUp className="h-6 w-6 text-purple-600" />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-2">Track Status</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-muted-foreground text-sm">
                   Monitor your application status and allotment details
                 </p>
               </CardContent>

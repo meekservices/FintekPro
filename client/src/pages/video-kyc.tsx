@@ -316,7 +316,7 @@ export default function VideoKYC() {
                 <canvas ref={canvasRef} className="hidden" />
                 
                 {!isStreaming && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                  <div className="absolute inset-0 flex items-center justify-center bg-card">
                     <Loader2 className="h-8 w-8 text-white animate-spin" />
                   </div>
                 )}
@@ -382,8 +382,8 @@ export default function VideoKYC() {
                   />
                 </div>
               ) : (
-                <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center">
-                  <User className="h-16 w-16 text-gray-400" />
+                <div className="aspect-video bg-muted dark:bg-muted rounded-xl flex items-center justify-center">
+                  <User className="h-16 w-16 text-muted-foreground" />
                 </div>
               )}
 

@@ -117,7 +117,7 @@ const getSourceColor = (source: string) => {
     case 'fintekpro': return 'bg-blue-100 text-blue-700 border-blue-200';
     case 'cashfree': return 'bg-purple-100 text-purple-700 border-purple-200';
     case 'phonepe': return 'bg-green-100 text-green-700 border-green-200';
-    default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    default: return 'bg-muted text-muted-foreground border-border';
   }
 };
 
@@ -132,7 +132,7 @@ const getStatusColor = (status: string) => {
   if (normalizedStatus.includes('fail') || normalizedStatus.includes('cancel') || normalizedStatus === 'rejected') {
     return 'bg-red-100 text-red-700 border-red-200';
   }
-  return 'bg-gray-100 text-gray-700 border-gray-200';
+  return 'bg-muted text-muted-foreground border-border';
 };
 
 const getStatusIcon = (status: string) => {
@@ -146,7 +146,7 @@ const getStatusIcon = (status: string) => {
   if (normalizedStatus.includes('fail') || normalizedStatus.includes('cancel') || normalizedStatus === 'rejected') {
     return <XCircle className="w-4 h-4 text-red-600" />;
   }
-  return <AlertCircle className="w-4 h-4 text-gray-600" />;
+  return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
 };
 
 const normalizeStatus = (status: string): TransactionStatus => {
@@ -161,7 +161,7 @@ const normalizeStatus = (status: string): TransactionStatus => {
 function TransactionCard({ transaction }: { transaction: NormalizedTransaction }) {
   return (
     <div 
-      className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-white dark:bg-gray-900"
+      className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-white dark:bg-card"
       data-testid={`transaction-card-${transaction.id}`}
     >
       <div className="flex items-start justify-between gap-4">
@@ -191,21 +191,21 @@ function TransactionCard({ transaction }: { transaction: NormalizedTransaction }
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-gray-500">Order #</p>
+              <p className="text-muted-foreground">Order #</p>
               <p className="font-medium">{transaction.orderNumber}</p>
             </div>
             <div>
-              <p className="text-gray-500">Product Type</p>
+              <p className="text-muted-foreground">Product Type</p>
               <p className="font-medium capitalize">{productLabels[transaction.productType as ProductFilter] || transaction.productType?.replace(/_/g, ' ')}</p>
             </div>
             <div>
-              <p className="text-gray-500">Amount</p>
+              <p className="text-muted-foreground">Amount</p>
               <p className="font-bold text-finance-blue">
                 {transaction.currency === 'INR' ? '₹' : transaction.currency}{Number(transaction.amount).toLocaleString()}
               </p>
             </div>
             <div>
-              <p className="text-gray-500">Date</p>
+              <p className="text-muted-foreground">Date</p>
               <p className="font-medium">
                 {new Date(transaction.createdAt).toLocaleDateString('en-IN', {
                   day: '2-digit',
@@ -217,7 +217,7 @@ function TransactionCard({ transaction }: { transaction: NormalizedTransaction }
           </div>
 
           {transaction.paymentMethod && (
-            <div className="mt-2 text-sm text-gray-500">
+            <div className="mt-2 text-sm text-muted-foreground">
               Payment: <span className="font-medium">{transaction.paymentMethod}</span>
             </div>
           )}
@@ -229,7 +229,7 @@ function TransactionCard({ transaction }: { transaction: NormalizedTransaction }
 
 function TransactionSkeleton() {
   return (
-    <div className="p-4 border rounded-lg bg-white dark:bg-gray-900">
+    <div className="p-4 border rounded-lg bg-white dark:bg-card">
       <div className="flex items-center gap-2 mb-3">
         <Skeleton className="w-4 h-4" />
         <Skeleton className="h-5 w-40" />
@@ -526,7 +526,7 @@ export default function TransactionReports() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Transaction Reports</h1>
-            <p className="text-gray-600 dark:text-gray-400">View all your FintekPro orders and payment transactions</p>
+            <p className="text-muted-foreground dark:text-muted-foreground">View all your FintekPro orders and payment transactions</p>
           </div>
           <div className="flex items-center gap-2">
             <Button 
@@ -568,7 +568,7 @@ export default function TransactionReports() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-sm text-gray-500">Total Transactions</p>
+                <p className="text-sm text-muted-foreground">Total Transactions</p>
               </div>
             </div>
           </CardContent>
@@ -581,7 +581,7 @@ export default function TransactionReports() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.completed}</p>
-                <p className="text-sm text-gray-500">Completed</p>
+                <p className="text-sm text-muted-foreground">Completed</p>
               </div>
             </div>
           </CardContent>
@@ -594,7 +594,7 @@ export default function TransactionReports() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.pending}</p>
-                <p className="text-sm text-gray-500">Pending</p>
+                <p className="text-sm text-muted-foreground">Pending</p>
               </div>
             </div>
           </CardContent>
@@ -607,7 +607,7 @@ export default function TransactionReports() {
               </div>
               <div>
                 <p className="text-2xl font-bold">₹{stats.completedAmount.toLocaleString()}</p>
-                <p className="text-sm text-gray-500">Completed Value</p>
+                <p className="text-sm text-muted-foreground">Completed Value</p>
               </div>
             </div>
           </CardContent>
@@ -636,9 +636,9 @@ export default function TransactionReports() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div>
-              <Label className="text-xs text-gray-500 mb-1">Search</Label>
+              <Label className="text-xs text-muted-foreground mb-1">Search</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Order # or product..."
                   value={filters.searchQuery}
@@ -649,7 +649,7 @@ export default function TransactionReports() {
               </div>
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1">Status</Label>
+              <Label className="text-xs text-muted-foreground mb-1">Status</Label>
               <Select 
                 value={filters.status} 
                 onValueChange={(v) => setFilters(prev => ({ ...prev, status: v as TransactionStatus }))}
@@ -665,7 +665,7 @@ export default function TransactionReports() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1">Product</Label>
+              <Label className="text-xs text-muted-foreground mb-1">Product</Label>
               <Select 
                 value={filters.product} 
                 onValueChange={(v) => setFilters(prev => ({ ...prev, product: v as ProductFilter }))}
@@ -681,9 +681,9 @@ export default function TransactionReports() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1">From Date</Label>
+              <Label className="text-xs text-muted-foreground mb-1">From Date</Label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="date"
                   value={filters.dateFrom}
@@ -694,9 +694,9 @@ export default function TransactionReports() {
               </div>
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1">To Date</Label>
+              <Label className="text-xs text-muted-foreground mb-1">To Date</Label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="date"
                   value={filters.dateTo}
@@ -707,7 +707,7 @@ export default function TransactionReports() {
               </div>
             </div>
             <div className="flex items-end">
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 Showing <span className="font-semibold text-gray-900 dark:text-white">{filteredTransactions.length}</span> of {normalizedTransactions.length}
               </div>
             </div>
@@ -745,9 +745,9 @@ export default function TransactionReports() {
           ) : filteredTransactions.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <Receipt className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <Receipt className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No transactions found</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                <p className="text-muted-foreground dark:text-muted-foreground mb-6">
                   {hasActiveFilters 
                     ? 'Try adjusting your filters to see more transactions' 
                     : 'Complete some purchases to see your transaction history here'}

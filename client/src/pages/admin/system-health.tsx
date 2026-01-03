@@ -100,7 +100,7 @@ function getStatusColor(status: string) {
     case 'critical':
       return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
     default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+      return 'bg-muted dark:bg-muted text-foreground dark:bg-muted dark:text-muted-foreground';
   }
 }
 
@@ -117,7 +117,7 @@ function getStatusIcon(status: string) {
     case 'critical':
       return <XCircle className="w-4 h-4 text-red-600" />;
     default:
-      return <Activity className="w-4 h-4 text-gray-600" />;
+      return <Activity className="w-4 h-4 text-muted-foreground" />;
   }
 }
 
@@ -267,7 +267,7 @@ export default function SystemHealthMonitor() {
                 {healthData?.services?.map((service) => (
                   <div 
                     key={service.name} 
-                    className="p-4 border rounded-lg bg-white dark:bg-gray-900 space-y-3"
+                    className="p-4 border rounded-lg bg-white dark:bg-card space-y-3"
                     data-testid={`card-service-${service.name.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     <div className="flex items-center justify-between">

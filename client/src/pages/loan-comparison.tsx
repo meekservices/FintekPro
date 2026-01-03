@@ -408,7 +408,7 @@ export default function LoanComparison() {
           <GitCompare className="h-8 w-8 text-blue-600" />
           Loan Comparison Tool
         </h1>
-        <p className="text-gray-600">Compare multiple loan offers side-by-side to find the best deal</p>
+        <p className="text-muted-foreground">Compare multiple loan offers side-by-side to find the best deal</p>
       </div>
 
       {/* Comparison Parameters */}
@@ -552,11 +552,11 @@ export default function LoanComparison() {
                     className="w-full"
                   />
                 </div>
-                <div className="text-center text-sm text-gray-600">{value}%</div>
+                <div className="text-center text-sm text-muted-foreground">{value}%</div>
               </div>
             ))}
           </div>
-          <div className="mt-4 text-sm text-gray-600">
+          <div className="mt-4 text-sm text-muted-foreground">
             Total Weight: {Object.values(comparisonCriteria).reduce((a, b) => a + b, 0)}%
           </div>
         </CardContent>
@@ -651,14 +651,14 @@ export default function LoanComparison() {
               {[1, 2, 3, 4, 5, 6].map(i => (
                 <Card key={i} className="animate-pulse">
                   <CardHeader>
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-4 bg-muted rounded w-3/4"></div>
+                    <div className="h-3 bg-muted rounded w-1/2"></div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      <div className="h-3 bg-gray-200 rounded"></div>
-                      <div className="h-3 bg-gray-200 rounded w-5/6"></div>
-                      <div className="h-8 bg-gray-200 rounded"></div>
+                      <div className="h-3 bg-muted rounded"></div>
+                      <div className="h-3 bg-muted rounded w-5/6"></div>
+                      <div className="h-8 bg-muted rounded"></div>
                     </div>
                   </CardContent>
                 </Card>
@@ -688,7 +688,7 @@ export default function LoanComparison() {
                     <div className="flex items-start justify-between">
                       <div>
                         <CardTitle className="text-lg">{offer.providerName}</CardTitle>
-                        <p className="text-sm text-gray-600">{offer.productName}</p>
+                        <p className="text-sm text-muted-foreground">{offer.productName}</p>
                       </div>
                       <div className="text-right">
                         <div className="flex items-center gap-1">
@@ -707,25 +707,25 @@ export default function LoanComparison() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-600">Interest Rate</p>
+                        <p className="text-sm text-muted-foreground">Interest Rate</p>
                         <p className="text-lg font-bold text-blue-600">{offer.interestRate}%</p>
                         <Badge variant={offer.rateType === 'fixed' ? 'default' : 'secondary'}>
                           {offer.rateType}
                         </Badge>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Monthly EMI</p>
+                        <p className="text-sm text-muted-foreground">Monthly EMI</p>
                         <p className="text-lg font-bold">₹{offer.emi.toLocaleString()}</p>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-gray-600">Processing Fee</p>
+                        <p className="text-muted-foreground">Processing Fee</p>
                         <p className="font-medium">₹{offer.processingFee.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-gray-600">Total Cost</p>
+                        <p className="text-muted-foreground">Total Cost</p>
                         <p className="font-medium">₹{offer.totalCost.toLocaleString()}</p>
                       </div>
                     </div>
@@ -739,7 +739,7 @@ export default function LoanComparison() {
                     </div>
                     
                     <div className="flex items-center justify-between pt-2">
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {offer.responseTime}
                       </div>
@@ -772,9 +772,9 @@ export default function LoanComparison() {
           {selectedOffersData.length < 2 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <GitCompare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <GitCompare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">Select Offers to Compare</h3>
-                <p className="text-gray-600">Choose at least 2 offers from the available offers tab to see detailed comparison</p>
+                <p className="text-muted-foreground">Choose at least 2 offers from the available offers tab to see detailed comparison</p>
               </CardContent>
             </Card>
           ) : (
@@ -849,9 +849,9 @@ export default function LoanComparison() {
           {selectedOffersData.length < 2 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">Select Offers for Analytics</h3>
-                <p className="text-gray-600">Choose at least 2 offers to see visual comparisons and analytics</p>
+                <p className="text-muted-foreground">Choose at least 2 offers to see visual comparisons and analytics</p>
               </CardContent>
             </Card>
           ) : (

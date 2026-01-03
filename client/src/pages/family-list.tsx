@@ -103,9 +103,9 @@ export default function FamilyList() {
       case 'member':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'view_only':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+        return 'bg-muted text-foreground dark:bg-gray-700 dark:text-foreground';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -120,7 +120,7 @@ export default function FamilyList() {
                 <Users className="h-10 w-10 text-blue-600" />
                 Family Groups
               </h1>
-              <p className="text-gray-600 dark:text-gray-300 mt-2">
+              <p className="text-muted-foreground dark:text-muted-foreground mt-2">
                 Collaborate with your family on financial goals and budgets
               </p>
             </div>
@@ -219,11 +219,11 @@ export default function FamilyList() {
         ) : families.length === 0 ? (
           <Card className="text-center py-12" data-testid="card-no-families">
             <CardContent>
-              <Users className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+              <Users className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                 No Family Groups Yet
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
+              <p className="text-muted-foreground dark:text-muted-foreground mb-6">
                 Create your first family group to start collaborating on financial goals
               </p>
               <Button
@@ -257,17 +257,17 @@ export default function FamilyList() {
                         {family.groupType === 'household' && 'Household'}
                       </CardDescription>
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                    <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                   </div>
                 </CardHeader>
                 <CardContent>
                   {family.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-4" data-testid={`text-family-description-${family.id}`}>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-4" data-testid={`text-family-description-${family.id}`}>
                       {family.description}
                     </p>
                   )}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
                       <Users className="h-4 w-4" />
                       <span data-testid={`text-member-count-${family.id}`}>
                         {family.memberCount || 0} {family.memberCount === 1 ? 'member' : 'members'}

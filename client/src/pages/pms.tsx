@@ -54,7 +54,7 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Bot className="w-16 h-16 text-purple-400 mb-4" />
           <h3 className="text-xl font-semibold mb-2">No Pending PMS Proposals</h3>
-          <p className="text-gray-500 text-center max-w-md mb-4">AI and agent recommendations for Portfolio Management Services will appear here.</p>
+          <p className="text-muted-foreground text-center max-w-md mb-4">AI and agent recommendations for Portfolio Management Services will appear here.</p>
           <Button variant="outline" onClick={() => refetch()} className="border-purple-300 text-purple-600"><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
         </CardContent>
       </Card>
@@ -80,11 +80,11 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                       <Badge variant="outline" className="bg-purple-50 text-purple-700">PMS</Badge>
                     </div>
                     <h3 className="text-lg font-semibold">{proposal.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{proposal.description}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold flex items-center justify-end"><IndianRupee className="w-5 h-5" />{parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}</p>
-                    <p className="text-sm text-gray-500">Investment Amount</p>
+                    <p className="text-sm text-muted-foreground">Investment Amount</p>
                   </div>
                 </div>
 
@@ -100,11 +100,11 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                   </div>
                 )}
 
-                <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="text-center"><p className="text-sm text-gray-500">Expected Return</p><p className="text-lg font-bold text-emerald-600">{proposal.expectedReturns || 'N/A'}%</p></div>
-                  <div className="text-center"><p className="text-sm text-gray-500">Strategy</p><p className="text-lg font-bold">{proposal.strategy || 'Multicap'}</p></div>
-                  <div className="text-center"><p className="text-sm text-gray-500">Lock-in</p><p className="text-lg font-bold">{proposal.lockIn || 'None'}</p></div>
-                  <div className="text-center"><p className="text-sm text-gray-500">Risk</p><p className="text-lg font-bold text-amber-600">{proposal.riskProfile || 'Moderate'}</p></div>
+                <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-muted rounded-lg">
+                  <div className="text-center"><p className="text-sm text-muted-foreground">Expected Return</p><p className="text-lg font-bold text-emerald-600">{proposal.expectedReturns || 'N/A'}%</p></div>
+                  <div className="text-center"><p className="text-sm text-muted-foreground">Strategy</p><p className="text-lg font-bold">{proposal.strategy || 'Multicap'}</p></div>
+                  <div className="text-center"><p className="text-sm text-muted-foreground">Lock-in</p><p className="text-lg font-bold">{proposal.lockIn || 'None'}</p></div>
+                  <div className="text-center"><p className="text-sm text-muted-foreground">Risk</p><p className="text-lg font-bold text-amber-600">{proposal.riskProfile || 'Moderate'}</p></div>
                 </div>
 
                 <div className="flex gap-3">
@@ -161,7 +161,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
         <CardContent className="flex flex-col items-center justify-center py-16">
           <ShoppingCart className="w-16 h-16 text-purple-400 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Your PMS Cart is Empty</h3>
-          <p className="text-gray-500 text-center max-w-md">Approve proposals to add them to cart.</p>
+          <p className="text-muted-foreground text-center max-w-md">Approve proposals to add them to cart.</p>
         </CardContent>
       </Card>
     );
@@ -197,8 +197,8 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
           <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-600" />Order Summary</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Total Items</span><span className="font-medium">{cartItems.length}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="font-medium">₹{totalValue.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Total Items</span><span className="font-medium">{cartItems.length}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">₹{totalValue.toLocaleString('en-IN')}</span></div>
             </div>
             <div className="border-t pt-4">
               <div className="flex justify-between text-lg font-bold"><span>Total</span><span className="text-purple-600">₹{totalValue.toLocaleString('en-IN')}</span></div>
@@ -226,11 +226,11 @@ function OrdersTab({ productType }: { productType: string }) {
 
   if (!orders || orders.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-gray-200">
+      <Card className="border-dashed border-2 border-border">
         <CardContent className="flex flex-col items-center justify-center py-16">
-          <FileText className="w-16 h-16 text-gray-400 mb-4" />
+          <FileText className="w-16 h-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold mb-2">No PMS Orders Yet</h3>
-          <p className="text-gray-500">Your orders will appear here once placed.</p>
+          <p className="text-muted-foreground">Your orders will appear here once placed.</p>
         </CardContent>
       </Card>
     );
@@ -242,14 +242,14 @@ function OrdersTab({ productType }: { productType: string }) {
         <Card key={order.id} data-testid={`pms-order-${order.id}`}>
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-4">
-              <div><h4 className="font-semibold text-lg">{order.schemeName || order.productName}</h4><p className="text-sm text-gray-500">Order #{order.id?.slice(-8)}</p></div>
+              <div><h4 className="font-semibold text-lg">{order.schemeName || order.productName}</h4><p className="text-sm text-muted-foreground">Order #{order.id?.slice(-8)}</p></div>
               <Badge className={order.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{order.status}</Badge>
             </div>
             <div className="grid grid-cols-4 gap-4 text-sm">
-              <div><span className="text-gray-500">Amount</span><p className="font-semibold">₹{parseFloat(order.amount || '0').toLocaleString('en-IN')}</p></div>
-              <div><span className="text-gray-500">Date</span><p className="font-semibold">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A'}</p></div>
-              <div><span className="text-gray-500">Type</span><p className="font-semibold">{order.orderType || 'Lumpsum'}</p></div>
-              <div><span className="text-gray-500">Payment</span><p className="font-semibold">{order.paymentStatus || 'Pending'}</p></div>
+              <div><span className="text-muted-foreground">Amount</span><p className="font-semibold">₹{parseFloat(order.amount || '0').toLocaleString('en-IN')}</p></div>
+              <div><span className="text-muted-foreground">Date</span><p className="font-semibold">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A'}</p></div>
+              <div><span className="text-muted-foreground">Type</span><p className="font-semibold">{order.orderType || 'Lumpsum'}</p></div>
+              <div><span className="text-muted-foreground">Payment</span><p className="font-semibold">{order.paymentStatus || 'Pending'}</p></div>
             </div>
           </CardContent>
         </Card>
@@ -265,11 +265,11 @@ function PortfolioTab({ productType }: { productType: string }) {
 
   if (!holdings || holdings.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-gray-200">
+      <Card className="border-dashed border-2 border-border">
         <CardContent className="flex flex-col items-center justify-center py-16">
-          <Wallet className="w-16 h-16 text-gray-400 mb-4" />
+          <Wallet className="w-16 h-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold mb-2">No PMS Holdings</h3>
-          <p className="text-gray-500">Your investments will appear here.</p>
+          <p className="text-muted-foreground">Your investments will appear here.</p>
         </CardContent>
       </Card>
     );
@@ -281,7 +281,7 @@ function PortfolioTab({ productType }: { productType: string }) {
         <Card key={holding.id}>
           <CardContent className="p-6">
             <div className="flex justify-between items-start">
-              <div><h4 className="font-semibold">{holding.schemeName}</h4><p className="text-sm text-gray-500">{holding.fundHouse}</p></div>
+              <div><h4 className="font-semibold">{holding.schemeName}</h4><p className="text-sm text-muted-foreground">{holding.fundHouse}</p></div>
               <div className="text-right">
                 <p className="text-xl font-bold">₹{parseFloat(holding.currentValue || '0').toLocaleString('en-IN')}</p>
                 <p className={`text-sm ${parseFloat(holding.returns || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(holding.returns || '0') >= 0 ? '+' : ''}{holding.returns}%</p>
@@ -328,14 +328,14 @@ export default function PMS() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Portfolio Management Services (PMS)</h1>
-          <p className="text-gray-600 text-lg max-w-3xl">Professional portfolio management with customized strategies from SEBI-registered portfolio managers.</p>
+          <p className="text-muted-foreground text-lg max-w-3xl">Professional portfolio management with customized strategies from SEBI-registered portfolio managers.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Total PMS Schemes</p><p className="text-3xl font-bold text-purple-600">{statistics.totalFunds}</p></div><Briefcase className="w-10 h-10 text-purple-600" /></div></CardContent></Card>
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Total AUM</p><p className="text-3xl font-bold text-green-600">₹{(statistics.totalAUM / 10000000).toFixed(0)} Cr</p></div><IndianRupee className="w-10 h-10 text-green-600" /></div></CardContent></Card>
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Avg. 1Y Returns</p><p className="text-3xl font-bold text-blue-600">+{statistics.averageReturns.toFixed(1)}%</p></div><BarChart3 className="w-10 h-10 text-blue-600" /></div></CardContent></Card>
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Active Providers</p><p className="text-3xl font-bold text-amber-600">{statistics.activeProviders}</p></div><Award className="w-10 h-10 text-amber-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Total PMS Schemes</p><p className="text-3xl font-bold text-purple-600">{statistics.totalFunds}</p></div><Briefcase className="w-10 h-10 text-purple-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Total AUM</p><p className="text-3xl font-bold text-green-600">₹{(statistics.totalAUM / 10000000).toFixed(0)} Cr</p></div><IndianRupee className="w-10 h-10 text-green-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Avg. 1Y Returns</p><p className="text-3xl font-bold text-blue-600">+{statistics.averageReturns.toFixed(1)}%</p></div><BarChart3 className="w-10 h-10 text-blue-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Active Providers</p><p className="text-3xl font-bold text-amber-600">{statistics.activeProviders}</p></div><Award className="w-10 h-10 text-amber-600" /></div></CardContent></Card>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -352,7 +352,7 @@ export default function PMS() {
           <TabsContent value="schemes" className="space-y-6">
             <div className="flex flex-wrap gap-4 mb-6">
               <div className="flex-1 min-w-[200px]">
-                <div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search PMS schemes..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="search-pms" /></div>
+                <div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" /><Input placeholder="Search PMS schemes..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="search-pms" /></div>
               </div>
               <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Strategy" /></SelectTrigger>
@@ -391,9 +391,9 @@ export default function PMS() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      <div className="flex justify-between text-sm"><span className="text-gray-500">Min Investment</span><span className="font-semibold">₹{(parseFloat(scheme.minInvestment || '5000000') / 100000).toFixed(0)} L</span></div>
-                      <div className="flex justify-between text-sm"><span className="text-gray-500">1Y Returns</span><span className={`font-semibold ${parseFloat(scheme.return1Y || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(scheme.return1Y || '0') >= 0 ? '+' : ''}{scheme.return1Y || 'N/A'}%</span></div>
-                      <div className="flex justify-between text-sm"><span className="text-gray-500">AUM</span><span className="font-semibold">₹{(parseFloat(scheme.aum || '0') / 10000000).toFixed(0)} Cr</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">Min Investment</span><span className="font-semibold">₹{(parseFloat(scheme.minInvestment || '5000000') / 100000).toFixed(0)} L</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">1Y Returns</span><span className={`font-semibold ${parseFloat(scheme.return1Y || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(scheme.return1Y || '0') >= 0 ? '+' : ''}{scheme.return1Y || 'N/A'}%</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">AUM</span><span className="font-semibold">₹{(parseFloat(scheme.aum || '0') / 10000000).toFixed(0)} Cr</span></div>
                       <ExpressInterestButton productId={scheme.id} productType="pms" productName={scheme.name} />
                     </div>
                   </CardContent>
@@ -411,7 +411,7 @@ export default function PMS() {
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <Zap className="w-16 h-16 text-purple-400 mb-4" />
                 <h3 className="text-xl font-semibold mb-2">PMS SIP Coming Soon</h3>
-                <p className="text-gray-500 text-center max-w-md">Systematic Investment Plans for PMS will be available soon. Get notified when it launches.</p>
+                <p className="text-muted-foreground text-center max-w-md">Systematic Investment Plans for PMS will be available soon. Get notified when it launches.</p>
                 <Button className="mt-4" variant="outline">Notify Me</Button>
               </CardContent>
             </Card>
@@ -421,9 +421,9 @@ export default function PMS() {
 
           <TabsContent value="tools">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="hover:shadow-lg cursor-pointer" onClick={() => navigate('/calculators')}><CardContent className="p-6 text-center"><Calculator className="w-12 h-12 text-purple-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Investment Calculator</h3><p className="text-sm text-gray-500">Calculate PMS returns</p></CardContent></Card>
-              <Card className="hover:shadow-lg cursor-pointer"><CardContent className="p-6 text-center"><PieChart className="w-12 h-12 text-green-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Risk Assessment</h3><p className="text-sm text-gray-500">Evaluate risk tolerance</p></CardContent></Card>
-              <Card className="hover:shadow-lg cursor-pointer"><CardContent className="p-6 text-center"><Target className="w-12 h-12 text-blue-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Goal Planning</h3><p className="text-sm text-gray-500">Plan investment goals</p></CardContent></Card>
+              <Card className="hover:shadow-lg cursor-pointer" onClick={() => navigate('/calculators')}><CardContent className="p-6 text-center"><Calculator className="w-12 h-12 text-purple-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Investment Calculator</h3><p className="text-sm text-muted-foreground">Calculate PMS returns</p></CardContent></Card>
+              <Card className="hover:shadow-lg cursor-pointer"><CardContent className="p-6 text-center"><PieChart className="w-12 h-12 text-green-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Risk Assessment</h3><p className="text-sm text-muted-foreground">Evaluate risk tolerance</p></CardContent></Card>
+              <Card className="hover:shadow-lg cursor-pointer"><CardContent className="p-6 text-center"><Target className="w-12 h-12 text-blue-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Goal Planning</h3><p className="text-sm text-muted-foreground">Plan investment goals</p></CardContent></Card>
             </div>
           </TabsContent>
         </Tabs>

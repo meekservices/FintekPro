@@ -46,7 +46,7 @@ interface ActivityTimelineData {
 
 const eventTypeColors: Record<string, string> = {
   login: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  logout: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+  logout: 'bg-muted dark:bg-muted text-foreground dark:bg-muted dark:text-muted-foreground',
   kyc: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
   transaction: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
   profile: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
@@ -206,7 +206,7 @@ export default function UserActivityTimeline() {
         </CardHeader>
         <CardContent>
           <div className="relative">
-            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
+            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted dark:bg-gray-700" />
             
             <div className="space-y-4">
               {filteredEvents.length === 0 ? (
@@ -225,12 +225,12 @@ export default function UserActivityTimeline() {
                       className="relative pl-10"
                       data-testid={`activity-event-${event.id}`}
                     >
-                      <div className={`absolute left-2 w-5 h-5 rounded-full flex items-center justify-center ${eventTypeColors[event.eventType] || 'bg-gray-100'}`}>
+                      <div className={`absolute left-2 w-5 h-5 rounded-full flex items-center justify-center ${eventTypeColors[event.eventType] || 'bg-muted dark:bg-muted'}`}>
                         <IconComponent className="w-3 h-3" />
                       </div>
                       
                       <div 
-                        className="p-4 border rounded-lg bg-white dark:bg-gray-900 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                        className="p-4 border rounded-lg bg-white dark:bg-card cursor-pointer hover:bg-muted dark:bg-muted dark:hover:bg-muted"
                         onClick={() => toggleEvent(event.id)}
                       >
                         <div className="flex items-center justify-between">
@@ -240,7 +240,7 @@ export default function UserActivityTimeline() {
                               <User className="w-4 h-4 text-muted-foreground" />
                               <span className="font-medium">{event.userName}</span>
                             </div>
-                            <Badge className={eventTypeColors[event.eventType] || 'bg-gray-100'}>
+                            <Badge className={eventTypeColors[event.eventType] || 'bg-muted dark:bg-muted'}>
                               {event.eventType}
                             </Badge>
                           </div>
@@ -275,7 +275,7 @@ export default function UserActivityTimeline() {
                               </div>
                             </div>
                             {event.metadata && Object.keys(event.metadata).length > 0 && (
-                              <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <div className="mt-2 p-2 bg-muted dark:bg-muted dark:bg-muted rounded">
                                 <span className="text-muted-foreground">Metadata:</span>
                                 <pre className="mt-1 text-xs overflow-auto">
                                   {JSON.stringify(event.metadata, null, 2)}

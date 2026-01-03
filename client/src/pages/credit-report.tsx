@@ -109,7 +109,7 @@ export default function CreditReportPage() {
       case "active":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case "closed":
-        return <MinusCircle className="h-4 w-4 text-gray-600" />;
+        return <MinusCircle className="h-4 w-4 text-muted-foreground" />;
       case "defaulted":
         return <XCircle className="h-4 w-4 text-red-600" />;
       default:
@@ -128,7 +128,7 @@ export default function CreditReportPage() {
       case "poor":
         return "text-red-600";
       default:
-        return "text-gray-600";
+        return "text-muted-foreground";
     }
   };
 

@@ -251,7 +251,7 @@ export default function MutualFundsSeeding() {
   const missingCount = missingAmcsData?.missingCount || 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-muted dark:bg-muted dark:bg-card p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -264,7 +264,7 @@ export default function MutualFundsSeeding() {
             </Link>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Regular Mutual Fund Seeding</h1>
-              <p className="text-gray-500 dark:text-gray-400">Seed and manage Regular Plans for Mutual Funds. Direct plans managed separately.</p>
+              <p className="text-muted-foreground dark:text-muted-foreground">Seed and manage Regular Plans for Mutual Funds. Direct plans managed separately.</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -321,7 +321,7 @@ export default function MutualFundsSeeding() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card data-testid="card-total-amcs">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
                 Total AMCs
               </CardTitle>
@@ -332,19 +332,19 @@ export default function MutualFundsSeeding() {
           </Card>
           <Card data-testid="card-enabled-amcs">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 Enabled AMCs
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{enabledAmcs}</div>
-              <p className="text-xs text-gray-500">Regular plans active</p>
+              <p className="text-xs text-muted-foreground">Regular plans active</p>
             </CardContent>
           </Card>
           <Card data-testid="card-total-schemes">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 Total Regular Schemes
               </CardTitle>
@@ -355,14 +355,14 @@ export default function MutualFundsSeeding() {
           </Card>
           <Card data-testid="card-published-schemes">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Eye className="h-4 w-4 text-blue-600" />
                 Published Schemes
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">{publishedSchemes}</div>
-              <p className="text-xs text-gray-500">Visible to clients</p>
+              <p className="text-xs text-muted-foreground">Visible to clients</p>
             </CardContent>
           </Card>
         </div>
@@ -425,7 +425,7 @@ export default function MutualFundsSeeding() {
                 {/* AMC Search */}
                 <div className="mb-4">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
                       placeholder="Search AMCs..."
                       value={amcSearchQuery}
@@ -443,7 +443,7 @@ export default function MutualFundsSeeding() {
                     ))}
                   </div>
                 ) : filteredAmcs.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     No AMCs found. Click "Sync AMCs" to populate from mutual fund data.
                   </div>
                 ) : (
@@ -463,13 +463,13 @@ export default function MutualFundsSeeding() {
                           <TableRow key={amc.id} data-testid={`row-amc-${amc.id}`}>
                             <TableCell className="font-medium">
                               <div className="flex items-center gap-2">
-                                <Building2 className="h-4 w-4 text-gray-400" />
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
                                 {amc.displayName || amc.name}
                               </div>
                             </TableCell>
                             <TableCell className="text-center">{amc.totalSchemes}</TableCell>
                             <TableCell className="text-center">
-                              <span className={amc.publishedRegularSchemes > 0 ? "text-green-600 font-medium" : "text-gray-400"}>
+                              <span className={amc.publishedRegularSchemes > 0 ? "text-green-600 font-medium" : "text-muted-foreground"}>
                                 {amc.publishedRegularSchemes}
                               </span>
                             </TableCell>
@@ -480,7 +480,7 @@ export default function MutualFundsSeeding() {
                                   Enabled
                                 </Badge>
                               ) : (
-                                <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                                <Badge variant="secondary" className="bg-muted dark:bg-muted text-muted-foreground">
                                   <XCircle className="h-3 w-3 mr-1" />
                                   Disabled
                                 </Badge>
@@ -518,7 +518,7 @@ export default function MutualFundsSeeding() {
                 <div className="flex flex-wrap gap-4 mb-4">
                   <div className="flex-1 min-w-[200px]">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                       <Input
                         placeholder="Search by scheme name, code, or AMC..."
                         value={schemeSearchQuery}
@@ -569,7 +569,7 @@ export default function MutualFundsSeeding() {
                     ))}
                   </div>
                 ) : schemes.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     No Regular schemes found. Try adjusting your filters or sync AMC data first.
                   </div>
                 ) : (
@@ -597,7 +597,7 @@ export default function MutualFundsSeeding() {
                                   {scheme.schemeName}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-sm text-gray-500">{scheme.schemeCode}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{scheme.schemeCode}</TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="text-xs">
                                   {scheme.category || 'N/A'}
@@ -611,7 +611,7 @@ export default function MutualFundsSeeding() {
                                     Published
                                   </Badge>
                                 ) : (
-                                  <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                                  <Badge variant="secondary" className="bg-muted dark:bg-muted text-muted-foreground">
                                     <EyeOff className="h-3 w-3 mr-1" />
                                     Unpublished
                                   </Badge>
@@ -660,7 +660,7 @@ export default function MutualFundsSeeding() {
                 )}
 
                 {schemesData?.pagination && schemesData.pagination.total > 0 && (
-                  <div className="mt-4 text-sm text-gray-500 text-center">
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
                     Showing {schemes.length} of {schemesData.pagination.total} Regular schemes
                   </div>
                 )}

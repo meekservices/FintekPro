@@ -268,7 +268,7 @@ export default function DomesticTrading() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Domestic Trading</h1>
-          <p className="text-gray-600">NSE & BSE Equity, F&O, and Commodities Trading</p>
+          <p className="text-muted-foreground">NSE & BSE Equity, F&O, and Commodities Trading</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="bg-green-100 text-green-800">
@@ -288,7 +288,7 @@ export default function DomesticTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total P&L</p>
+                <p className="text-sm text-muted-foreground">Total P&L</p>
                 <p className={`text-lg font-bold ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   ₹{Math.abs(totalPnL).toLocaleString()}
                 </p>
@@ -305,7 +305,7 @@ export default function DomesticTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Invested</p>
+                <p className="text-sm text-muted-foreground">Invested</p>
                 <p className="text-lg font-bold">₹{totalInvested.toLocaleString()}</p>
               </div>
               <DollarSign className="h-6 w-6 text-blue-600" />
@@ -317,7 +317,7 @@ export default function DomesticTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Day's P&L</p>
+                <p className="text-sm text-muted-foreground">Day's P&L</p>
                 <p className="text-lg font-bold text-green-600">+₹2,845</p>
               </div>
               <Activity className="h-6 w-6 text-green-600" />
@@ -329,7 +329,7 @@ export default function DomesticTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Available Cash</p>
+                <p className="text-sm text-muted-foreground">Available Cash</p>
                 <p className="text-lg font-bold">₹45,230</p>
               </div>
               <Target className="h-6 w-6 text-purple-600" />
@@ -370,7 +370,7 @@ export default function DomesticTrading() {
                         </SelectContent>
                       </Select>
                       <div className="relative">
-                        <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
+                        <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
                         <Input
                           placeholder="Search stocks..."
                           value={searchTerm}
@@ -399,13 +399,13 @@ export default function DomesticTrading() {
                         {filteredStocks.map(stock => (
                           <tr 
                             key={stock.symbol} 
-                            className="border-b hover:bg-gray-50 dark:hover:bg-gray-900/50 cursor-pointer"
+                            className="border-b hover:bg-muted dark:hover:bg-card/50 cursor-pointer"
                             onClick={() => setSelectedStock(stock)}
                           >
                             <td className="p-2">
                               <div>
                                 <div className="font-semibold">{stock.symbol}</div>
-                                <div className="text-xs text-gray-500">{stock.sector}</div>
+                                <div className="text-xs text-muted-foreground">{stock.sector}</div>
                               </div>
                             </td>
                             <td className="text-right p-2 font-semibold">₹{stock.price.toFixed(2)}</td>
@@ -485,7 +485,7 @@ export default function DomesticTrading() {
                             <td className="p-2">
                               <div>
                                 <div className="font-semibold">{position.symbol}</div>
-                                <div className="text-xs text-gray-500">{position.type} • {position.exchange}</div>
+                                <div className="text-xs text-muted-foreground">{position.type} • {position.exchange}</div>
                               </div>
                             </td>
                             <td className="text-right p-2">{position.quantity}</td>
@@ -546,7 +546,7 @@ export default function DomesticTrading() {
                             <td className="p-2">
                               <div>
                                 <div className="font-semibold">{order.symbol}</div>
-                                <div className="text-xs text-gray-500">{order.exchange}</div>
+                                <div className="text-xs text-muted-foreground">{order.exchange}</div>
                               </div>
                             </td>
                             <td className="text-center p-2">
@@ -614,11 +614,11 @@ export default function DomesticTrading() {
                       </div>
                       <div className="grid gap-2">
                         {watchlist.stocks.map(stock => (
-                          <div key={stock.symbol} className="flex items-center justify-between p-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                          <div key={stock.symbol} className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted dark:hover:bg-card/50">
                             <div className="flex items-center gap-3">
                               <div>
                                 <div className="font-semibold">{stock.symbol}</div>
-                                <div className="text-xs text-gray-500">{stock.sector}</div>
+                                <div className="text-xs text-muted-foreground">{stock.sector}</div>
                               </div>
                             </div>
                             <div className="text-right">
@@ -661,7 +661,7 @@ export default function DomesticTrading() {
                 <div className="space-y-4">
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div className="font-semibold">{selectedStock.symbol}</div>
-                    <div className="text-sm text-gray-600">{selectedStock.name}</div>
+                    <div className="text-sm text-muted-foreground">{selectedStock.name}</div>
                     <div className="text-lg font-bold">₹{selectedStock.price.toFixed(2)}</div>
                     <div className={`text-sm ${selectedStock.changePercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {selectedStock.changePercent >= 0 ? '+' : ''}{selectedStock.changePercent.toFixed(2)}%
@@ -735,7 +735,7 @@ export default function DomesticTrading() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>Select a stock to start trading</p>
                 </div>
@@ -754,7 +754,7 @@ export default function DomesticTrading() {
               <div className="flex items-center justify-between p-2 border rounded-lg">
                 <div>
                   <div className="font-semibold">NIFTY 50</div>
-                  <div className="text-sm text-gray-500">NSE</div>
+                  <div className="text-sm text-muted-foreground">NSE</div>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">19,674.25</div>
@@ -765,7 +765,7 @@ export default function DomesticTrading() {
               <div className="flex items-center justify-between p-2 border rounded-lg">
                 <div>
                   <div className="font-semibold">SENSEX</div>
-                  <div className="text-sm text-gray-500">BSE</div>
+                  <div className="text-sm text-muted-foreground">BSE</div>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">65,995.63</div>
@@ -776,7 +776,7 @@ export default function DomesticTrading() {
               <div className="flex items-center justify-between p-2 border rounded-lg">
                 <div>
                   <div className="font-semibold">BANK NIFTY</div>
-                  <div className="text-sm text-gray-500">NSE</div>
+                  <div className="text-sm text-muted-foreground">NSE</div>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">45,234.80</div>

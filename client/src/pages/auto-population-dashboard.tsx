@@ -484,7 +484,7 @@ export default function AutoPopulationDashboard() {
                         data-testid={`consent-item-${consent.dataSource}`}
                       >
                         <div className="flex items-center gap-4">
-                          <Icon className={`h-5 w-5 ${config?.color || 'text-gray-600'}`} />
+                          <Icon className={`h-5 w-5 ${config?.color || 'text-muted-foreground'}`} />
                           <div>
                             <p className="font-medium">{config?.label || consent.dataSource}</p>
                             <p className="text-sm text-muted-foreground">

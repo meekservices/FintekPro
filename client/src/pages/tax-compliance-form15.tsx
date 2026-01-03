@@ -25,7 +25,7 @@ import {
 
 // Status colors and labels
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-  draft: { label: "Draft", color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300", icon: FileText },
+  draft: { label: "Draft", color: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground", icon: FileText },
   pending_documents: { label: "Pending Documents", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300", icon: Upload },
   pending_ca_review: { label: "Pending CA Review", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300", icon: Clock },
   ca_reviewing: { label: "CA Reviewing", color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300", icon: Eye },
@@ -477,7 +477,7 @@ export default function TaxComplianceForm15Page() {
             <CardTitle className="text-sm font-medium">Draft</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-600">{stats?.draft || 0}</div>
+            <div className="text-2xl font-bold text-muted-foreground">{stats?.draft || 0}</div>
           </CardContent>
         </Card>
         <Card>

@@ -301,7 +301,7 @@ export default function TaxDataCenter() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tax Data Center</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
+          <p className="text-muted-foreground dark:text-muted-foreground mt-2">
             Aggregate all your tax data from multiple sources in one place
           </p>
         </div>
@@ -368,7 +368,7 @@ export default function TaxDataCenter() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Overall Completion</span>
-                  <span className="text-sm text-gray-600">{Math.round(completionPercentage)}%</span>
+                  <span className="text-sm text-muted-foreground">{Math.round(completionPercentage)}%</span>
                 </div>
                 <Progress value={completionPercentage} className="w-full" />
                 <div className="flex gap-2">
@@ -405,27 +405,27 @@ export default function TaxDataCenter() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-600">₹{((taxSummary as any)?.totalIncome || 0).toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Total Income</div>
+                    <div className="text-sm text-muted-foreground">Total Income</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-blue-600">₹{((taxSummary as any)?.totalTDS || 0).toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Total TDS</div>
+                    <div className="text-sm text-muted-foreground">Total TDS</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-purple-600">₹{((taxSummary as any)?.salaryIncome || 0).toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Salary Income</div>
+                    <div className="text-sm text-muted-foreground">Salary Income</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-orange-600">₹{((taxSummary as any)?.capitalGains || 0).toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Capital Gains</div>
+                    <div className="text-sm text-muted-foreground">Capital Gains</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-indigo-600">₹{((taxSummary as any)?.dividendIncome || 0).toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Dividend Income</div>
+                    <div className="text-sm text-muted-foreground">Dividend Income</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-teal-600">₹{((taxSummary as any)?.interestIncome || 0).toLocaleString()}</div>
-                    <div className="text-sm text-gray-600">Interest Income</div>
+                    <div className="text-sm text-muted-foreground">Interest Income</div>
                   </div>
                 </div>
               </CardContent>
@@ -477,7 +477,7 @@ export default function TaxDataCenter() {
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span>Last Sync:</span>
-                                <span className="text-gray-600">{sourceData.lastSync || 'Never'}</span>
+                                <span className="text-muted-foreground">{sourceData.lastSync || 'Never'}</span>
                               </div>
                             </div>
                           )}
@@ -577,10 +577,10 @@ export default function TaxDataCenter() {
                         />
                       </div>
                       {selectedFile && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
                           <FileText className="h-4 w-4" />
                           <span>{selectedFile.name}</span>
-                          <span className="text-gray-400">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                          <span className="text-muted-foreground">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
                         </div>
                       )}
                     </div>
@@ -608,7 +608,7 @@ export default function TaxDataCenter() {
                     {/* Supported Documents */}
                     <div className="pt-4 border-t">
                       <p className="text-sm font-medium mb-2">Supported Documents:</p>
-                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                      <ul className="text-sm text-muted-foreground dark:text-muted-foreground space-y-1">
                         <li className="flex items-center gap-2">
                           <CheckCircle className="h-3 w-3 text-green-500" />
                           Form 16 (TDS Certificate from Employer)
@@ -635,7 +635,7 @@ export default function TaxDataCenter() {
                   </CardHeader>
                   <CardContent>
                     {!ocrResult && !ocrParseMutation.isPending && (
-                      <div className="text-center py-8 text-gray-500">
+                      <div className="text-center py-8 text-muted-foreground">
                         <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 opacity-50" />
                         <p>Upload and parse a document to see extracted data here</p>
                       </div>
@@ -644,7 +644,7 @@ export default function TaxDataCenter() {
                     {ocrParseMutation.isPending && (
                       <div className="text-center py-8">
                         <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-blue-500" />
-                        <p className="text-gray-600 dark:text-gray-400">Analyzing document with OCR...</p>
+                        <p className="text-muted-foreground dark:text-muted-foreground">Analyzing document with OCR...</p>
                       </div>
                     )}
 
@@ -655,7 +655,7 @@ export default function TaxDataCenter() {
                             {ocrResult.documentType}
                           </Badge>
                           {ocrResult.confidence && (
-                            <span className="text-sm text-gray-500">
+                            <span className="text-sm text-muted-foreground">
                               Confidence: {(ocrResult.confidence * 100).toFixed(1)}%
                             </span>
                           )}
@@ -665,28 +665,28 @@ export default function TaxDataCenter() {
                         {ocrResult.documentType === 'form16' && ocrResult.data && (
                           <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div className="text-gray-600 dark:text-gray-400">PAN:</div>
+                              <div className="text-muted-foreground dark:text-muted-foreground">PAN:</div>
                               <div className="font-medium">{ocrResult.data.pan || 'N/A'}</div>
-                              <div className="text-gray-600 dark:text-gray-400">Employer:</div>
+                              <div className="text-muted-foreground dark:text-muted-foreground">Employer:</div>
                               <div className="font-medium">{ocrResult.data.employerName || 'N/A'}</div>
-                              <div className="text-gray-600 dark:text-gray-400">Assessment Year:</div>
+                              <div className="text-muted-foreground dark:text-muted-foreground">Assessment Year:</div>
                               <div className="font-medium">{ocrResult.data.assessmentYear || 'N/A'}</div>
                             </div>
                             <div className="border-t pt-3 space-y-2">
                               <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Gross Salary:</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground">Gross Salary:</span>
                                 <span className="font-medium text-green-600">₹{(ocrResult.data.grossSalary || 0).toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Total Deductions:</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground">Total Deductions:</span>
                                 <span className="font-medium text-orange-600">₹{(ocrResult.data.totalDeductions || 0).toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Taxable Income:</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground">Taxable Income:</span>
                                 <span className="font-medium">₹{(ocrResult.data.taxableIncome || 0).toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between border-t pt-2">
-                                <span className="text-gray-600 dark:text-gray-400 font-medium">Total TDS:</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground font-medium">Total TDS:</span>
                                 <span className="font-bold text-blue-600">₹{(ocrResult.data.totalTax || 0).toLocaleString()}</span>
                               </div>
                             </div>
@@ -697,14 +697,14 @@ export default function TaxDataCenter() {
                         {ocrResult.documentType === 'form26as' && ocrResult.data && (
                           <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div className="text-gray-600 dark:text-gray-400">PAN:</div>
+                              <div className="text-muted-foreground dark:text-muted-foreground">PAN:</div>
                               <div className="font-medium">{ocrResult.data.pan || 'N/A'}</div>
-                              <div className="text-gray-600 dark:text-gray-400">Assessment Year:</div>
+                              <div className="text-muted-foreground dark:text-muted-foreground">Assessment Year:</div>
                               <div className="font-medium">{ocrResult.data.assessmentYear || 'N/A'}</div>
                             </div>
                             <div className="border-t pt-3">
                               <div className="flex justify-between mb-3">
-                                <span className="text-gray-600 dark:text-gray-400 font-medium">Total TDS Deducted:</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground font-medium">Total TDS Deducted:</span>
                                 <span className="font-bold text-blue-600">₹{(ocrResult.data.totalTDSDeducted || 0).toLocaleString()}</span>
                               </div>
                               {ocrResult.data.tdsEntries && ocrResult.data.tdsEntries.length > 0 && (
@@ -712,16 +712,16 @@ export default function TaxDataCenter() {
                                   <p className="text-sm font-medium">TDS Entries ({ocrResult.data.tdsEntries.length}):</p>
                                   <div className="max-h-48 overflow-y-auto space-y-2">
                                     {ocrResult.data.tdsEntries.slice(0, 5).map((entry: any, idx: number) => (
-                                      <div key={idx} className="bg-gray-50 dark:bg-gray-800 p-2 rounded text-sm">
+                                      <div key={idx} className="bg-muted dark:bg-muted p-2 rounded text-sm">
                                         <div className="font-medium">{entry.deductorName}</div>
-                                        <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                                        <div className="flex justify-between text-muted-foreground dark:text-muted-foreground">
                                           <span>{entry.section}</span>
                                           <span>₹{(entry.tdsDeducted || 0).toLocaleString()}</span>
                                         </div>
                                       </div>
                                     ))}
                                     {ocrResult.data.tdsEntries.length > 5 && (
-                                      <p className="text-sm text-gray-500 text-center">
+                                      <p className="text-sm text-muted-foreground text-center">
                                         +{ocrResult.data.tdsEntries.length - 5} more entries
                                       </p>
                                     )}

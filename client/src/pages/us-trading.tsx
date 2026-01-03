@@ -859,7 +859,7 @@ export default function USTradingPage() {
                                   <div className="flex items-center gap-2">
                                     <Badge 
                                       variant="outline" 
-                                      className={trade.priority === 'high' ? 'border-red-300 text-red-600' : trade.priority === 'medium' ? 'border-yellow-300 text-yellow-600' : 'border-gray-300'}
+                                      className={trade.priority === 'high' ? 'border-red-300 text-red-600' : trade.priority === 'medium' ? 'border-yellow-300 text-yellow-600' : 'border-border'}
                                     >
                                       {trade.priority}
                                     </Badge>

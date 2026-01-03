@@ -270,7 +270,7 @@ export default function TaxRegimeComparison() {
               </div>
             </div>
 
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-2">
+            <div className="p-4 bg-muted dark:bg-muted rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Income Tax</span>
                 <span>{formatCurrency(oldRegimeCalc.tax)}</span>
@@ -325,7 +325,7 @@ export default function TaxRegimeComparison() {
               </div>
             </div>
 
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-2">
+            <div className="p-4 bg-muted dark:bg-muted rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Income Tax</span>
                 <span>{formatCurrency(newRegimeCalc.tax)}</span>
@@ -365,7 +365,7 @@ export default function TaxRegimeComparison() {
               ) : recommendation === 'new' ? (
                 <TrendingUp className="h-10 w-10 text-blue-600 dark:text-blue-400" />
               ) : (
-                <Scale className="h-10 w-10 text-gray-600 dark:text-gray-400" />
+                <Scale className="h-10 w-10 text-muted-foreground dark:text-muted-foreground" />
               )}
               <div>
                 <h3 className="text-xl font-bold">

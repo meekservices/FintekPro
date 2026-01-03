@@ -76,7 +76,7 @@ export default function TaxReminderDashboard() {
       <Card className="border-dashed" data-testid="card-no-subscription">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <Bell className="h-12 w-12 text-gray-400" />
+            <Bell className="h-12 w-12 text-muted-foreground" />
           </div>
           <CardTitle>No Active Subscription</CardTitle>
           <CardDescription>
@@ -126,17 +126,17 @@ export default function TaxReminderDashboard() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div data-testid="subscription-plan-info">
-              <div className="text-sm text-gray-600 dark:text-gray-400">Plan Type</div>
+              <div className="text-sm text-muted-foreground dark:text-muted-foreground">Plan Type</div>
               <div className="text-lg font-semibold">{subscription.itrFormType}</div>
             </div>
             <div data-testid="subscription-validity-info">
-              <div className="text-sm text-gray-600 dark:text-gray-400">Valid Until</div>
+              <div className="text-sm text-muted-foreground dark:text-muted-foreground">Valid Until</div>
               <div className="text-lg font-semibold">
                 {new Date(subscription.validUntil).toLocaleDateString()}
               </div>
             </div>
             <div data-testid="subscription-channels-info">
-              <div className="text-sm text-gray-600 dark:text-gray-400">Notification Channels</div>
+              <div className="text-sm text-muted-foreground dark:text-muted-foreground">Notification Channels</div>
               <div className="flex gap-2 mt-1">
                 {subscription.reminderChannels.includes('email') && (
                   <Badge variant="outline" className="text-xs">
@@ -174,13 +174,13 @@ export default function TaxReminderDashboard() {
             {upcomingReminder ? (
               <div className="space-y-4">
                 <div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Quarter</div>
+                  <div className="text-sm text-muted-foreground dark:text-muted-foreground">Quarter</div>
                   <div className="text-2xl font-bold text-blue-600">
                     {upcomingReminder.quarter} - FY {upcomingReminder.financialYear}
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Due Date</div>
+                  <div className="text-sm text-muted-foreground dark:text-muted-foreground">Due Date</div>
                   <div className="text-lg font-semibold">
                     {new Date(upcomingReminder.dueDate).toLocaleDateString('en-IN', { 
                       day: 'numeric', 
@@ -196,16 +196,16 @@ export default function TaxReminderDashboard() {
                   )}
                 </div>
                 <div className="pt-4 border-t">
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Estimated Tax Liability</div>
+                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">Estimated Tax Liability</div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-xs text-gray-500">STCG (20%)</div>
+                      <div className="text-xs text-muted-foreground">STCG (20%)</div>
                       <div className="text-lg font-bold text-orange-600">
                         ₹{parseFloat(upcomingReminder.estimatedSTCG).toLocaleString()}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500">LTCG (12.5%)</div>
+                      <div className="text-xs text-muted-foreground">LTCG (12.5%)</div>
                       <div className="text-lg font-bold text-green-600">
                         ₹{parseFloat(upcomingReminder.estimatedLTCG).toLocaleString()}
                       </div>
@@ -222,7 +222,7 @@ export default function TaxReminderDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No upcoming reminders</p>
                 {remindersLoading && <Skeleton className="h-4 w-32 mx-auto mt-2" />}
@@ -242,7 +242,7 @@ export default function TaxReminderDashboard() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between" data-testid="setting-email">
               <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-gray-500" />
+                <Mail className="h-4 w-4 text-muted-foreground" />
                 <Label htmlFor="email-notifications">Email Notifications</Label>
               </div>
               <Switch 
@@ -252,7 +252,7 @@ export default function TaxReminderDashboard() {
             </div>
             <div className="flex items-center justify-between" data-testid="setting-sms">
               <div className="flex items-center gap-3">
-                <MessageSquare className="h-4 w-4 text-gray-500" />
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
                 <Label htmlFor="sms-notifications">SMS Notifications</Label>
               </div>
               <Switch 
@@ -262,7 +262,7 @@ export default function TaxReminderDashboard() {
             </div>
             <div className="flex items-center justify-between" data-testid="setting-whatsapp">
               <div className="flex items-center gap-3">
-                <MessageSquare className="h-4 w-4 text-gray-500" />
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
                 <Label htmlFor="whatsapp-notifications">WhatsApp Notifications</Label>
               </div>
               <Switch 
@@ -271,7 +271,7 @@ export default function TaxReminderDashboard() {
               />
             </div>
             <div className="pt-4 border-t">
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Reminders are sent 7 days before each advance tax due date
               </p>
             </div>
@@ -282,7 +282,7 @@ export default function TaxReminderDashboard() {
       <Card data-testid="card-past-reminders">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-gray-600" />
+            <Receipt className="h-5 w-5 text-muted-foreground" />
             Past Reminders
           </CardTitle>
           <CardDescription>History of your tax reminders</CardDescription>
@@ -297,27 +297,27 @@ export default function TaxReminderDashboard() {
               {pastReminders.map((reminder) => (
                 <div 
                   key={reminder.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg"
                   data-testid={`past-reminder-${reminder.id}`}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`p-2 rounded-full ${
                       reminder.status === 'paid' ? 'bg-green-100' : 
-                      reminder.status === 'sent' ? 'bg-blue-100' : 'bg-gray-100'
+                      reminder.status === 'sent' ? 'bg-blue-100' : 'bg-muted'
                     }`}>
                       {reminder.status === 'paid' ? (
                         <CheckCircle className="h-4 w-4 text-green-600" />
                       ) : reminder.status === 'sent' ? (
                         <Bell className="h-4 w-4 text-blue-600" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 text-gray-600" />
+                        <AlertCircle className="h-4 w-4 text-muted-foreground" />
                       )}
                     </div>
                     <div>
                       <div className="font-medium">
                         {reminder.quarter} - FY {reminder.financialYear}
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                      <div className="text-sm text-muted-foreground dark:text-muted-foreground">
                         Due: {new Date(reminder.dueDate).toLocaleDateString()}
                       </div>
                     </div>
@@ -334,7 +334,7 @@ export default function TaxReminderDashboard() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <Receipt className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p>No past reminders yet</p>
             </div>

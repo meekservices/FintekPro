@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 const itrStatusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Draft", color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
+  draft: { label: "Draft", color: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground" },
   preview: { label: "Locked", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
   paid: { label: "Paid", color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
   filed: { label: "Filed", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
@@ -30,7 +30,7 @@ const itrStatusConfig: Record<string, { label: string; color: string }> = {
 };
 
 const form15StatusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Draft", color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
+  draft: { label: "Draft", color: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground" },
   pending_documents: { label: "Pending Docs", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" },
   pending_ca_review: { label: "Pending CA", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
   ca_reviewing: { label: "CA Reviewing", color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
@@ -150,7 +150,7 @@ export default function AgentTaxCasesPage() {
 
   const getStatusBadge = (status: string, type: "itr" | "form15") => {
     const config = type === "itr" ? itrStatusConfig[status] : form15StatusConfig[status];
-    const displayConfig = config || { label: status, color: "bg-gray-100 text-gray-700" };
+    const displayConfig = config || { label: status, color: "bg-muted text-muted-foreground" };
     return (
       <Badge className={displayConfig.color}>
         {displayConfig.label}
@@ -198,7 +198,7 @@ export default function AgentTaxCasesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tax Cases Management</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage ITR filings, 15CA/CB cases, and tax notices for your clients</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Manage ITR filings, 15CA/CB cases, and tax notices for your clients</p>
         </div>
       </div>
 
@@ -211,7 +211,7 @@ export default function AgentTaxCasesPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalItrCases}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">ITR Cases</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">ITR Cases</p>
               </div>
             </div>
           </CardContent>
@@ -224,7 +224,7 @@ export default function AgentTaxCasesPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pendingItrCases}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Pending ITRs</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Pending ITRs</p>
               </div>
             </div>
           </CardContent>
@@ -237,7 +237,7 @@ export default function AgentTaxCasesPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalForm15Cases}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">15CA/CB Cases</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">15CA/CB Cases</p>
               </div>
             </div>
           </CardContent>
@@ -250,7 +250,7 @@ export default function AgentTaxCasesPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.urgentNotices}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Urgent Notices</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Urgent Notices</p>
               </div>
             </div>
           </CardContent>
@@ -259,7 +259,7 @@ export default function AgentTaxCasesPage() {
 
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search by client name, PAN, or case number..."
             value={searchQuery}
@@ -311,7 +311,7 @@ export default function AgentTaxCasesPage() {
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : filteredItrCases.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-muted-foreground dark:text-muted-foreground">
                   <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No ITR cases found</p>
                 </div>
@@ -336,7 +336,7 @@ export default function AgentTaxCasesPage() {
                         <TableCell>{itrCase.assessmentYear || "2024-25"}</TableCell>
                         <TableCell>{itrCase.itrForm || "ITR-1"}</TableCell>
                         <TableCell>{getStatusBadge(itrCase.status, "itr")}</TableCell>
-                        <TableCell className="text-sm text-gray-500">
+                        <TableCell className="text-sm text-muted-foreground">
                           {itrCase.updatedAt ? new Date(itrCase.updatedAt).toLocaleDateString("en-IN") : "-"}
                         </TableCell>
                         <TableCell>
@@ -380,7 +380,7 @@ export default function AgentTaxCasesPage() {
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : filteredForm15Cases.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-muted-foreground dark:text-muted-foreground">
                   <Globe className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No 15CA/CB cases found</p>
                 </div>
@@ -407,7 +407,7 @@ export default function AgentTaxCasesPage() {
                         </TableCell>
                         <TableCell>{form15Case.beneficiary_country}</TableCell>
                         <TableCell>{getStatusBadge(form15Case.status, "form15")}</TableCell>
-                        <TableCell className="text-sm text-gray-500">
+                        <TableCell className="text-sm text-muted-foreground">
                           {new Date(form15Case.created_at).toLocaleDateString("en-IN")}
                         </TableCell>
                         <TableCell>
@@ -451,7 +451,7 @@ export default function AgentTaxCasesPage() {
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : notices.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-muted-foreground dark:text-muted-foreground">
                   <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No tax notices assigned</p>
                 </div>
@@ -518,23 +518,23 @@ export default function AgentTaxCasesPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Client Name</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Client Name</p>
                   <p className="font-medium text-gray-900 dark:text-white">
                     {selectedCase.clientName || selectedCase.client_name || "N/A"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">PAN</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">PAN</p>
                   <p className="font-mono text-gray-900 dark:text-white">
                     {selectedCase.clientPan || selectedCase.client_pan || "N/A"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">Status</p>
                   {getStatusBadge(selectedCase.status, selectedCase.type === "itr" ? "itr" : "form15")}
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                     {selectedCase.type === "itr" ? "ITR Form" : "Amount"}
                   </p>
                   <p className="font-medium text-gray-900 dark:text-white">

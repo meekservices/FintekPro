@@ -196,11 +196,11 @@ export default function ProductionReadiness() {
   const getStatusIcon = (status: 'ready' | 'warning' | 'critical') => {
     switch (status) {
       case 'ready':
-        return <CheckCircle2 className="h-5 w-5 text-green-400" />;
+        return <CheckCircle2 className="h-5 w-5 text-green-500 dark:text-green-400" />;
       case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-yellow-400" />;
+        return <AlertTriangle className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />;
       case 'critical':
-        return <XCircle className="h-5 w-5 text-red-400" />;
+        return <XCircle className="h-5 w-5 text-red-500 dark:text-red-400" />;
     }
   };
 
@@ -224,54 +224,54 @@ export default function ProductionReadiness() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Production Readiness</h1>
-        <p className="text-gray-400 mt-1">System deployment checklist and status</p>
+        <h1 className="text-3xl font-bold text-foreground">Production Readiness</h1>
+        <p className="text-muted-foreground mt-1">System deployment checklist and status</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-gray-900 border-gray-800">
+        <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-400">Overall Status</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Overall Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white mb-2">{readinessPercentage}%</div>
+            <div className="text-3xl font-bold text-foreground mb-2">{readinessPercentage}%</div>
             <Progress value={readinessPercentage} className="h-2" />
-            <p className="text-xs text-gray-400 mt-2">{readyCount} of {totalChecks} checks passed</p>
+            <p className="text-xs text-muted-foreground mt-2">{readyCount} of {totalChecks} checks passed</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-400">Ready</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Ready</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-8 w-8 text-green-400" />
-              <div className="text-3xl font-bold text-green-400">{readyCount}</div>
+              <CheckCircle2 className="h-8 w-8 text-green-500 dark:text-green-400" />
+              <div className="text-3xl font-bold text-green-500 dark:text-green-400">{readyCount}</div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-400">Warnings</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Warnings</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3">
-              <AlertTriangle className="h-8 w-8 text-yellow-400" />
-              <div className="text-3xl font-bold text-yellow-400">{warningCount}</div>
+              <AlertTriangle className="h-8 w-8 text-yellow-500 dark:text-yellow-400" />
+              <div className="text-3xl font-bold text-yellow-500 dark:text-yellow-400">{warningCount}</div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-400">Critical</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Critical</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3">
-              <XCircle className="h-8 w-8 text-red-400" />
-              <div className="text-3xl font-bold text-red-400">{criticalCount}</div>
+              <XCircle className="h-8 w-8 text-red-500 dark:text-red-400" />
+              <div className="text-3xl font-bold text-red-500 dark:text-red-400">{criticalCount}</div>
             </div>
           </CardContent>
         </Card>
@@ -279,13 +279,13 @@ export default function ProductionReadiness() {
 
       <div className="space-y-6">
         {readinessChecks.map((check) => (
-          <Card key={check.category} className="bg-gray-900 border-gray-800">
+          <Card key={check.category}>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                <div className="p-2 bg-blue-500/20 rounded-lg text-blue-600 dark:text-blue-400">
                   {getCategoryIcon(check.category)}
                 </div>
-                <CardTitle className="text-white">{check.category}</CardTitle>
+                <CardTitle className="text-foreground">{check.category}</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -293,28 +293,28 @@ export default function ProductionReadiness() {
                 {check.items.map((item, idx) => (
                   <div 
                     key={idx}
-                    className="flex items-start justify-between border-b border-gray-800 pb-4 last:border-0 last:pb-0"
+                    className="flex items-start justify-between border-b border-border pb-4 last:border-0 last:pb-0"
                   >
                     <div className="flex items-start gap-3 flex-1">
                       {getStatusIcon(item.status)}
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-white">{item.name}</h4>
+                          <h4 className="font-medium text-foreground">{item.name}</h4>
                           <Badge 
                             className={
                               item.status === 'ready' 
-                                ? 'bg-green-500/20 text-green-400 border-green-500/50'
+                                ? 'bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/50'
                                 : item.status === 'warning'
-                                ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50'
-                                : 'bg-red-500/20 text-red-400 border-red-500/50'
+                                ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/50'
+                                : 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/50'
                             }
                           >
                             {item.status}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-400 mt-1">{item.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                         {item.action && (
-                          <p className="text-sm text-blue-400 mt-2">
+                          <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
                             → {item.action}
                           </p>
                         )}
@@ -329,13 +329,13 @@ export default function ProductionReadiness() {
       </div>
 
       {criticalCount > 0 && (
-        <Card className="bg-red-950/30 border-red-900">
+        <Card className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
           <CardHeader>
-            <CardTitle className="text-red-400 flex items-center gap-2">
+            <CardTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
               <XCircle className="h-5 w-5" />
               Critical Issues Detected
             </CardTitle>
-            <CardDescription className="text-red-300">
+            <CardDescription className="text-red-700 dark:text-red-300">
               {criticalCount} critical {criticalCount === 1 ? 'issue' : 'issues'} must be resolved before production deployment
             </CardDescription>
           </CardHeader>

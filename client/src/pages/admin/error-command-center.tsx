@@ -136,7 +136,7 @@ function TransactionTimeline({ errors, onViewError }: { errors: ErrorEntry[]; on
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <code className="text-sm font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                    <code className="text-sm font-mono bg-muted dark:bg-muted dark:bg-muted px-2 py-1 rounded">
                       {transactionId}
                     </code>
                     <Badge variant={hasCritical ? "destructive" : "secondary"}>
@@ -148,7 +148,7 @@ function TransactionTimeline({ errors, onViewError }: { errors: ErrorEntry[]; on
                   </span>
                 </div>
                 
-                <div className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-3">
+                <div className="relative pl-4 border-l-2 border-border dark:border-border space-y-3">
                   {errors.map((error, idx) => (
                     <div key={error.id} className="relative">
                       <div className={`absolute -left-[17px] w-3 h-3 rounded-full ${SEVERITY_COLORS[error.severity] || 'bg-gray-400'}`} />
@@ -621,7 +621,7 @@ export default function ErrorCommandCenter() {
                 {criticalErrors?.slice(0, 3).map(error => (
                   <div 
                     key={error.id} 
-                    className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg border border-red-200"
+                    className="flex items-center justify-between p-3 bg-white dark:bg-card rounded-lg border border-red-200"
                   >
                     <div className="flex items-center gap-3">
                       <AlertTriangle className="h-4 w-4 text-red-500" />

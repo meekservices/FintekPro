@@ -340,7 +340,7 @@ export default function GlobalTrading() {
             <Globe className="h-8 w-8 text-blue-600" />
             Global Trading
           </h1>
-          <p className="text-gray-600">International Stock Markets • 24/5 Trading • Multi-Currency</p>
+          <p className="text-muted-foreground">International Stock Markets • 24/5 Trading • Multi-Currency</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="bg-blue-100 text-blue-800">
@@ -360,7 +360,7 @@ export default function GlobalTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Global P&L (₹)</p>
+                <p className="text-sm text-muted-foreground">Global P&L (₹)</p>
                 <p className={`text-lg font-bold ${totalGlobalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   ₹{Math.abs(totalGlobalPnL).toLocaleString()}
                 </p>
@@ -374,7 +374,7 @@ export default function GlobalTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Markets Open</p>
+                <p className="text-sm text-muted-foreground">Markets Open</p>
                 <p className="text-lg font-bold text-green-600">2/4</p>
               </div>
               <Clock className="h-6 w-6 text-green-600" />
@@ -386,7 +386,7 @@ export default function GlobalTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Positions</p>
+                <p className="text-sm text-muted-foreground">Active Positions</p>
                 <p className="text-lg font-bold">{globalPositions.length}</p>
               </div>
               <Target className="h-6 w-6 text-purple-600" />
@@ -398,7 +398,7 @@ export default function GlobalTrading() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Buying Power</p>
+                <p className="text-sm text-muted-foreground">Buying Power</p>
                 <p className="text-lg font-bold">$12,580</p>
               </div>
               <DollarSign className="h-6 w-6 text-green-600" />
@@ -428,7 +428,7 @@ export default function GlobalTrading() {
                     {session.status}
                   </Badge>
                 </div>
-                <div className="text-xs text-gray-600">
+                <div className="text-xs text-muted-foreground">
                   <div>{session.timezone}</div>
                   <div>{session.openTime} - {session.closeTime}</div>
                   {session.status === "CLOSED" && (
@@ -476,7 +476,7 @@ export default function GlobalTrading() {
                         </SelectContent>
                       </Select>
                       <div className="relative">
-                        <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
+                        <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
                         <Input
                           placeholder="Search global stocks..."
                           value={searchTerm}
@@ -505,7 +505,7 @@ export default function GlobalTrading() {
                         {filteredStocks.map(stock => (
                           <tr 
                             key={`${stock.symbol}-${stock.exchange}`}
-                            className="border-b hover:bg-gray-50 dark:hover:bg-gray-900/50"
+                            className="border-b hover:bg-muted dark:hover:bg-card/50"
                             onClick={() => setSelectedStock(stock)}
                           >
                             <td className="p-2">
@@ -518,18 +518,18 @@ export default function GlobalTrading() {
                                     <div className="w-2 h-2 bg-gray-400 rounded-full" />
                                   )}
                                 </div>
-                                <div className="text-xs text-gray-500">{stock.name}</div>
+                                <div className="text-xs text-muted-foreground">{stock.name}</div>
                               </div>
                             </td>
                             <td className="p-2">
                               <div>
                                 <div className="font-medium">{stock.exchange}</div>
-                                <div className="text-xs text-gray-500">{stock.country}</div>
+                                <div className="text-xs text-muted-foreground">{stock.country}</div>
                               </div>
                             </td>
                             <td className="text-right p-2">
                               <div className="font-semibold">{stock.currency} {stock.price.toFixed(2)}</div>
-                              <div className="text-xs text-gray-500">₹{(stock.price * 83.25).toFixed(2)}</div>
+                              <div className="text-xs text-muted-foreground">₹{(stock.price * 83.25).toFixed(2)}</div>
                             </td>
                             <td className={`text-right p-2 ${stock.changePercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               <div className="flex items-center justify-end gap-1">
@@ -597,7 +597,7 @@ export default function GlobalTrading() {
                             <td className="p-2">
                               <div>
                                 <div className="font-semibold">{position.symbol}</div>
-                                <div className="text-xs text-gray-500">{position.exchange} • {position.type}</div>
+                                <div className="text-xs text-muted-foreground">{position.exchange} • {position.type}</div>
                               </div>
                             </td>
                             <td className="text-right p-2">{position.quantity}</td>
@@ -642,13 +642,13 @@ export default function GlobalTrading() {
                           <div className="flex items-center justify-between">
                             <div>
                               <CardTitle className="text-lg mb-1">{fund.name}</CardTitle>
-                              <div className="text-sm text-gray-600">{fund.fundHouse} • {fund.region}</div>
+                              <div className="text-sm text-muted-foreground">{fund.fundHouse} • {fund.region}</div>
                             </div>
                             <div className="flex items-center gap-1">
                               {[...Array(5)].map((_, i) => (
                                 <Star 
                                   key={i} 
-                                  className={`h-3 w-3 ${i < fund.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                                  className={`h-3 w-3 ${i < fund.rating ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`} 
                                 />
                               ))}
                             </div>
@@ -657,21 +657,21 @@ export default function GlobalTrading() {
                         <CardContent className="space-y-3">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <div className="text-sm text-gray-600">NAV</div>
+                              <div className="text-sm text-muted-foreground">NAV</div>
                               <div className="font-semibold">{fund.currency} {fund.nav.toFixed(2)}</div>
                             </div>
                             <div>
-                              <div className="text-sm text-gray-600">Change</div>
+                              <div className="text-sm text-muted-foreground">Change</div>
                               <div className={`font-semibold ${fund.changePercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {fund.changePercent >= 0 ? '+' : ''}{fund.changePercent.toFixed(2)}%
                               </div>
                             </div>
                             <div>
-                              <div className="text-sm text-gray-600">AUM</div>
+                              <div className="text-sm text-muted-foreground">AUM</div>
                               <div className="font-semibold">{fund.aum}</div>
                             </div>
                             <div>
-                              <div className="text-sm text-gray-600">Expense Ratio</div>
+                              <div className="text-sm text-muted-foreground">Expense Ratio</div>
                               <div className="font-semibold">{fund.expenseRatio}%</div>
                             </div>
                           </div>
@@ -707,7 +707,7 @@ export default function GlobalTrading() {
                         <div key={`${rate.from}-${rate.to}`} className="flex items-center justify-between p-3 border rounded-lg">
                           <div>
                             <div className="font-semibold">{rate.from}/{rate.to}</div>
-                            <div className="text-sm text-gray-600">1 {rate.from} = ₹{rate.rate.toFixed(2)}</div>
+                            <div className="text-sm text-muted-foreground">1 {rate.from} = ₹{rate.rate.toFixed(2)}</div>
                           </div>
                           <div className={`text-right ${rate.changePercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             <div className="font-semibold">
@@ -768,11 +768,11 @@ export default function GlobalTrading() {
                         </div>
                         {convertAmount && (
                           <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                            <div className="text-sm text-gray-600">Converted Amount</div>
+                            <div className="text-sm text-muted-foreground">Converted Amount</div>
                             <div className="text-lg font-bold text-blue-600">
                               {toCurrency} {(Number(convertAmount) * 83.25).toFixed(2)}
                             </div>
-                            <div className="text-xs text-gray-500">Rate: 1 {fromCurrency} = 83.25 {toCurrency}</div>
+                            <div className="text-xs text-muted-foreground">Rate: 1 {fromCurrency} = 83.25 {toCurrency}</div>
                           </div>
                         )}
                       </div>
@@ -803,9 +803,9 @@ export default function GlobalTrading() {
                         {selectedStock.isMarketOpen ? "OPEN" : "CLOSED"}
                       </Badge>
                     </div>
-                    <div className="text-sm text-gray-600">{selectedStock.exchange}</div>
+                    <div className="text-sm text-muted-foreground">{selectedStock.exchange}</div>
                     <div className="text-lg font-bold">{selectedStock.currency} {selectedStock.price.toFixed(2)}</div>
-                    <div className="text-sm text-gray-500">₹{(selectedStock.price * 83.25).toFixed(2)} (INR)</div>
+                    <div className="text-sm text-muted-foreground">₹{(selectedStock.price * 83.25).toFixed(2)} (INR)</div>
                     <div className={`text-sm ${selectedStock.changePercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {selectedStock.changePercent >= 0 ? '+' : ''}{selectedStock.changePercent.toFixed(2)}%
                     </div>
@@ -840,7 +840,7 @@ export default function GlobalTrading() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <Globe className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>Select a global stock to trade</p>
                 </div>
@@ -859,7 +859,7 @@ export default function GlobalTrading() {
               <div className="flex items-center justify-between p-2 border rounded-lg">
                 <div>
                   <div className="font-semibold">S&P 500</div>
-                  <div className="text-sm text-gray-500">US</div>
+                  <div className="text-sm text-muted-foreground">US</div>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">4,567.80</div>
@@ -870,7 +870,7 @@ export default function GlobalTrading() {
               <div className="flex items-center justify-between p-2 border rounded-lg">
                 <div>
                   <div className="font-semibold">FTSE 100</div>
-                  <div className="text-sm text-gray-500">UK</div>
+                  <div className="text-sm text-muted-foreground">UK</div>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">7,456.32</div>
@@ -881,7 +881,7 @@ export default function GlobalTrading() {
               <div className="flex items-center justify-between p-2 border rounded-lg">
                 <div>
                   <div className="font-semibold">Nikkei 225</div>
-                  <div className="text-sm text-gray-500">Japan</div>
+                  <div className="text-sm text-muted-foreground">Japan</div>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">33,248.95</div>

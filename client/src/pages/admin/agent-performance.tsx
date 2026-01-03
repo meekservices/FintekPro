@@ -177,7 +177,7 @@ export default function AgentPerformanceDashboard() {
   const getTrendIcon = (trend: string) => {
     if (trend === "up") return <ArrowUpRight className="h-4 w-4 text-green-400" />;
     if (trend === "down") return <ArrowDownRight className="h-4 w-4 text-red-400" />;
-    return <TrendingUp className="h-4 w-4 text-gray-400" />;
+    return <TrendingUp className="h-4 w-4 text-muted-foreground" />;
   };
 
   const getStatusBadge = (status: string) => {
@@ -191,12 +191,12 @@ export default function AgentPerformanceDashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white" data-testid="text-page-title">Agent Performance Dashboard</h1>
-          <p className="text-gray-400 mt-1">Monitor and analyze all agents' performance metrics</p>
+          <p className="text-muted-foreground mt-1">Monitor and analyze all agents' performance metrics</p>
         </div>
         <div className="flex gap-2">
           <Button 
             variant="outline" 
-            className="border-gray-700 text-gray-300 hover:bg-gray-800" 
+            className="border-border text-muted-foreground hover:bg-muted" 
             data-testid="button-refresh"
             onClick={handleRefresh}
             disabled={isLoading}
@@ -212,9 +212,9 @@ export default function AgentPerformanceDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total Agents</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Agents</CardTitle>
             <Users className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
@@ -223,13 +223,13 @@ export default function AgentPerformanceDashboard() {
             ) : (
               <div className="text-2xl font-bold text-white" data-testid="text-total-agents">{totalAgents}</div>
             )}
-            <p className="text-xs text-gray-400 mt-1">Real-time count</p>
+            <p className="text-xs text-muted-foreground mt-1">Real-time count</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total AUM</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total AUM</CardTitle>
             <Wallet className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
@@ -238,13 +238,13 @@ export default function AgentPerformanceDashboard() {
             ) : (
               <div className="text-2xl font-bold text-white" data-testid="text-total-aum">{formatCurrency(totalAUM)}</div>
             )}
-            <p className="text-xs text-gray-400 mt-1">Based on commissions</p>
+            <p className="text-xs text-muted-foreground mt-1">Based on commissions</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total Revenue MTD</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue MTD</CardTitle>
             <IndianRupee className="h-4 w-4 text-purple-400" />
           </CardHeader>
           <CardContent>
@@ -253,13 +253,13 @@ export default function AgentPerformanceDashboard() {
             ) : (
               <div className="text-2xl font-bold text-white" data-testid="text-total-revenue">{formatCurrency(totalRevenue)}</div>
             )}
-            <p className="text-xs text-gray-400 mt-1">Total commissions</p>
+            <p className="text-xs text-muted-foreground mt-1">Total commissions</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Avg Conversion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Conversion Rate</CardTitle>
             <Target className="h-4 w-4 text-amber-400" />
           </CardHeader>
           <CardContent>
@@ -274,10 +274,10 @@ export default function AgentPerformanceDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">Revenue by Agent (₹K)</CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardTitle className="text-foreground">Revenue by Agent (₹K)</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Monthly revenue contribution by top agents
             </CardDescription>
           </CardHeader>
@@ -304,25 +304,25 @@ export default function AgentPerformanceDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-400" />
               Agents Needing Attention
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Low performers, inactive agents, or those with declining metrics
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {agentsNeedingAttention.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">All agents are performing well!</p>
+                <p className="text-muted-foreground text-center py-8">All agents are performing well!</p>
               ) : (
                 agentsNeedingAttention.map((agent) => (
                   <div
                     key={agent.id}
-                    className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700"
+                    className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border"
                     data-testid={`card-agent-attention-${agent.id}`}
                   >
                     <div className="flex items-center gap-3">
@@ -337,14 +337,14 @@ export default function AgentPerformanceDashboard() {
                       </div>
                       <div>
                         <p className="font-medium text-white">{agent.name}</p>
-                        <p className="text-sm text-gray-400">Last active: {agent.lastActive}</p>
+                        <p className="text-sm text-muted-foreground">Last active: {agent.lastActive}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="flex items-center gap-2">
                         {getStatusBadge(agent.status)}
                       </div>
-                      <p className="text-sm text-gray-400 mt-1">
+                      <p className="text-sm text-muted-foreground mt-1">
                         Conv: {agent.conversionRate}%
                       </p>
                     </div>
@@ -356,31 +356,31 @@ export default function AgentPerformanceDashboard() {
         </Card>
       </div>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle className="text-white">Top Performing Agents</CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardTitle className="text-foreground">Top Performing Agents</CardTitle>
+              <CardDescription className="text-muted-foreground">
                 Detailed performance metrics for all agents
               </CardDescription>
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search agents..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-gray-800 border-gray-700 text-white w-48"
+                  className="pl-10 bg-muted border-border text-white w-48"
                   data-testid="input-search-agents"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32 bg-gray-800 border-gray-700 text-white" data-testid="select-status-filter">
+                <SelectTrigger className="w-32 bg-muted border-border text-white" data-testid="select-status-filter">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
+                <SelectContent className="bg-muted border-border">
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="warning">Warning</SelectItem>
@@ -388,10 +388,10 @@ export default function AgentPerformanceDashboard() {
                 </SelectContent>
               </Select>
               <Select value={performanceFilter} onValueChange={setPerformanceFilter}>
-                <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white" data-testid="select-performance-filter">
+                <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-performance-filter">
                   <SelectValue placeholder="Performance" />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
+                <SelectContent className="bg-muted border-border">
                   <SelectItem value="all">All Performance</SelectItem>
                   <SelectItem value="high">High (&gt;60%)</SelectItem>
                   <SelectItem value="medium">Medium (40-60%)</SelectItem>
@@ -402,30 +402,30 @@ export default function AgentPerformanceDashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-gray-700 overflow-hidden">
+          <div className="rounded-md border border-border overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-700 bg-gray-800/50">
-                  <TableHead className="text-gray-300">Agent Name</TableHead>
-                  <TableHead className="text-gray-300 text-right">AUM</TableHead>
-                  <TableHead className="text-gray-300 text-right">Revenue MTD</TableHead>
-                  <TableHead className="text-gray-300 text-right">Clients</TableHead>
-                  <TableHead className="text-gray-300 text-right">Conversion Rate</TableHead>
-                  <TableHead className="text-gray-300 text-center">Trend</TableHead>
-                  <TableHead className="text-gray-300 text-center">Status</TableHead>
+                <TableRow className="border-border bg-muted/50">
+                  <TableHead className="text-muted-foreground">Agent Name</TableHead>
+                  <TableHead className="text-muted-foreground text-right">AUM</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Revenue MTD</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Clients</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Conversion Rate</TableHead>
+                  <TableHead className="text-muted-foreground text-center">Trend</TableHead>
+                  <TableHead className="text-muted-foreground text-center">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAgents.map((agent) => (
                   <TableRow
                     key={agent.id}
-                    className="border-gray-700 hover:bg-gray-800/50"
+                    className="border-border hover:bg-muted/50"
                     data-testid={`row-agent-${agent.id}`}
                   >
                     <TableCell className="font-medium text-white">{agent.name}</TableCell>
-                    <TableCell className="text-right text-gray-300">{formatCurrency(agent.aum)}</TableCell>
-                    <TableCell className="text-right text-gray-300">{formatCurrency(agent.revenueMTD)}</TableCell>
-                    <TableCell className="text-right text-gray-300">{agent.clients}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatCurrency(agent.aum)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatCurrency(agent.revenueMTD)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{agent.clients}</TableCell>
                     <TableCell className="text-right">
                       <span className={`font-medium ${
                         agent.conversionRate >= 60 ? "text-green-400" :
@@ -448,7 +448,7 @@ export default function AgentPerformanceDashboard() {
             </Table>
           </div>
           {filteredAgents.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No agents found matching the current filters.
             </div>
           )}

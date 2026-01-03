@@ -269,7 +269,7 @@ export function OneClickBondInvest({
   };
 
   const getRatingColor = (rating: string) => {
-    if (!rating) return "bg-gray-100 text-gray-700";
+    if (!rating) return "bg-muted text-muted-foreground";
     if (rating.includes("AAA") || rating === "SOV") return "bg-green-100 text-green-700";
     if (rating.includes("AA")) return "bg-blue-100 text-blue-700";
     if (rating.includes("A")) return "bg-yellow-100 text-yellow-700";
@@ -308,7 +308,7 @@ export function OneClickBondInvest({
                 <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Order Placed Successfully!</h3>
-              <p className="text-gray-500">Your bond order has been submitted for processing.</p>
+              <p className="text-muted-foreground">Your bond order has been submitted for processing.</p>
             </div>
           ) : (
             <>
@@ -328,7 +328,7 @@ export function OneClickBondInvest({
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900 line-clamp-2">{bondName}</h4>
-                        <p className="text-sm text-gray-500">{bond.isin}</p>
+                        <p className="text-sm text-muted-foreground">{bond.isin}</p>
                       </div>
                       <Badge className={getRatingColor(bond.rating || bond.creditRating || "")}>
                         {bond.rating || bond.creditRating || "NR"}
@@ -336,15 +336,15 @@ export function OneClickBondInvest({
                     </div>
                     <div className="grid grid-cols-3 gap-4 mt-3">
                       <div>
-                        <p className="text-xs text-gray-500">Price</p>
+                        <p className="text-xs text-muted-foreground">Price</p>
                         <p className="font-semibold">₹{currentPrice.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Yield</p>
+                        <p className="text-xs text-muted-foreground">Yield</p>
                         <p className="font-semibold text-green-600">{yieldValue}%</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Face Value</p>
+                        <p className="text-xs text-muted-foreground">Face Value</p>
                         <p className="font-semibold">₹{faceValue.toLocaleString()}</p>
                       </div>
                     </div>
@@ -385,34 +385,34 @@ export function OneClickBondInvest({
                       >
                         +
                       </Button>
-                      <div className="text-sm text-gray-500 ml-2">
+                      <div className="text-sm text-muted-foreground ml-2">
                         bonds
                       </div>
                     </div>
                   </div>
 
                   {userProfile && (
-                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <div className="bg-muted rounded-lg p-3 space-y-2">
                       <div className="flex items-center gap-2 mb-2">
-                        <CreditCard className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Investor Details (Pre-filled)</span>
+                        <CreditCard className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">Investor Details (Pre-filled)</span>
                       </div>
                       {(userProfile.firstName || userProfile.lastName) && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Name</span>
+                          <span className="text-muted-foreground">Name</span>
                           <span className="font-medium">{[userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ')}</span>
                         </div>
                       )}
                       {userProfile.pan && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">PAN</span>
-                          <span className="font-mono text-gray-700">{userProfile.pan}</span>
+                          <span className="text-muted-foreground">PAN</span>
+                          <span className="font-mono text-muted-foreground">{userProfile.pan}</span>
                         </div>
                       )}
                       {userProfile.dematAccountNumber && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Demat Account</span>
-                          <span className="font-mono text-gray-700">{userProfile.dematAccountNumber}</span>
+                          <span className="text-muted-foreground">Demat Account</span>
+                          <span className="font-mono text-muted-foreground">{userProfile.dematAccountNumber}</span>
                         </div>
                       )}
                     </div>
@@ -423,19 +423,19 @@ export function OneClickBondInvest({
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Order Amount ({quantity} × ₹{currentPrice.toLocaleString()})</span>
+                    <span className="text-muted-foreground">Order Amount ({quantity} × ₹{currentPrice.toLocaleString()})</span>
                     <span className="font-medium">₹{fees.principal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Brokerage</span>
+                    <span className="text-muted-foreground">Brokerage</span>
                     <span>₹{fees.brokerage.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Platform Fee</span>
+                    <span className="text-muted-foreground">Platform Fee</span>
                     <span>₹{fees.platformFee.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 flex items-center gap-1">
+                    <span className="text-muted-foreground flex items-center gap-1">
                       Stamp Duty
                       {fees.stampDutyExempt && (
                         <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-100 text-green-700">
@@ -448,7 +448,7 @@ export function OneClickBondInvest({
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">GST (18%)</span>
+                    <span className="text-muted-foreground">GST (18%)</span>
                     <span>₹{fees.gst.toFixed(2)}</span>
                   </div>
                   <Separator />
@@ -458,10 +458,10 @@ export function OneClickBondInvest({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm text-gray-700">Add to cart instead</span>
+                    <span className="text-sm text-muted-foreground">Add to cart instead</span>
                   </div>
                   <Switch
                     checked={addToCartInstead}

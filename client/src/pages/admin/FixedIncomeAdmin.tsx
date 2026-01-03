@@ -650,7 +650,7 @@ function BondsManagement() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search bonds..." 
             value={searchTerm}
@@ -937,19 +937,19 @@ function SgbManagement() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <span className="text-gray-500">Issue Price:</span>
+                    <span className="text-muted-foreground">Issue Price:</span>
                     <span className="font-semibold ml-2">₹{issue.issuePrice}/gm</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Interest:</span>
+                    <span className="text-muted-foreground">Interest:</span>
                     <span className="font-semibold ml-2">{issue.interestRate}%</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Opens:</span>
+                    <span className="text-muted-foreground">Opens:</span>
                     <span className="font-semibold ml-2">{new Date(issue.subscriptionOpenDate).toLocaleDateString()}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Closes:</span>
+                    <span className="text-muted-foreground">Closes:</span>
                     <span className="font-semibold ml-2">{new Date(issue.subscriptionCloseDate).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -1122,7 +1122,7 @@ function AuditLogsView() {
                   <TableCell className="text-sm">
                     {log.entityType}: {log.entityId?.slice(0, 8)}...
                   </TableCell>
-                  <TableCell className="text-sm text-gray-600 max-w-xs truncate">
+                  <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
                     {JSON.stringify(log.eventDetails)}
                   </TableCell>
                 </TableRow>
@@ -1232,7 +1232,7 @@ function BondMarketplaceManagement() {
               <Store className="h-5 w-5 text-blue-600" />
               <div>
                 <p className="text-xl font-bold">{stats?.activeSellListings || 0}</p>
-                <p className="text-sm text-gray-500">Active Sell Listings</p>
+                <p className="text-sm text-muted-foreground">Active Sell Listings</p>
               </div>
             </div>
           </CardContent>
@@ -1243,7 +1243,7 @@ function BondMarketplaceManagement() {
               <ShoppingCart className="h-5 w-5 text-green-600" />
               <div>
                 <p className="text-xl font-bold">{stats?.activeBuyRequests || 0}</p>
-                <p className="text-sm text-gray-500">Active Buy Requests</p>
+                <p className="text-sm text-muted-foreground">Active Buy Requests</p>
               </div>
             </div>
           </CardContent>
@@ -1254,7 +1254,7 @@ function BondMarketplaceManagement() {
               <Handshake className="h-5 w-5 text-purple-600" />
               <div>
                 <p className="text-xl font-bold">{stats?.pendingDeals || 0}</p>
-                <p className="text-sm text-gray-500">Pending Deals</p>
+                <p className="text-sm text-muted-foreground">Pending Deals</p>
               </div>
             </div>
           </CardContent>
@@ -1265,7 +1265,7 @@ function BondMarketplaceManagement() {
               <TrendingUp className="h-5 w-5 text-amber-600" />
               <div>
                 <p className="text-xl font-bold">₹{parseFloat(stats?.totalVolume || '0').toLocaleString()}</p>
-                <p className="text-sm text-gray-500">Total Volume</p>
+                <p className="text-sm text-muted-foreground">Total Volume</p>
               </div>
             </div>
           </CardContent>
@@ -1492,7 +1492,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Fixed Income Administration</h1>
-          <p className="text-gray-600">Manage bonds, NCDs, SGBs, and monitor marketplace activity</p>
+          <p className="text-muted-foreground">Manage bonds, NCDs, SGBs, and monitor marketplace activity</p>
         </div>
       </div>
 
@@ -1505,7 +1505,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
               </div>
               <div>
                 <p className="text-2xl font-bold">0</p>
-                <p className="text-sm text-gray-500">Active Bonds</p>
+                <p className="text-sm text-muted-foreground">Active Bonds</p>
               </div>
             </div>
           </CardContent>
@@ -1518,7 +1518,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
               </div>
               <div>
                 <p className="text-2xl font-bold">0</p>
-                <p className="text-sm text-gray-500">Open NCDs</p>
+                <p className="text-sm text-muted-foreground">Open NCDs</p>
               </div>
             </div>
           </CardContent>
@@ -1531,7 +1531,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
               </div>
               <div>
                 <p className="text-2xl font-bold">0</p>
-                <p className="text-sm text-gray-500">SGB Issues</p>
+                <p className="text-sm text-muted-foreground">SGB Issues</p>
               </div>
             </div>
           </CardContent>
@@ -1544,7 +1544,7 @@ export default function FixedIncomeAdmin({ defaultTab = 'bonds' }: FixedIncomeAd
               </div>
               <div>
                 <p className="text-2xl font-bold">0</p>
-                <p className="text-sm text-gray-500">Today's Orders</p>
+                <p className="text-sm text-muted-foreground">Today's Orders</p>
               </div>
             </div>
           </CardContent>

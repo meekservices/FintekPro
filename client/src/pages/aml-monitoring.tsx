@@ -89,7 +89,7 @@ export default function AMLMonitoring() {
       case 'medium': return 'bg-yellow-100 text-yellow-800';
       case 'high': return 'bg-orange-100 text-orange-800';
       case 'critical': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -99,7 +99,7 @@ export default function AMLMonitoring() {
         <Shield className="h-8 w-8 text-blue-600" />
         <div>
           <h1 className="text-3xl font-bold">AML Monitoring & Compliance</h1>
-          <p className="text-gray-600">Anti-Money Laundering screening and monitoring dashboard</p>
+          <p className="text-muted-foreground">Anti-Money Laundering screening and monitoring dashboard</p>
         </div>
       </div>
 
@@ -223,8 +223,8 @@ export default function AMLMonitoring() {
                         {(alert.riskLevel || 'unknown').toUpperCase()}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-600">{alert.description}</p>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <p className="text-sm text-muted-foreground">{alert.description}</p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Status: {alert.status}</span>
                       <span>{new Date(alert.createdAt).toLocaleDateString()}</span>
                     </div>
@@ -232,7 +232,7 @@ export default function AMLMonitoring() {
                 )) : null}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
                 <p>No AML alerts found</p>
                 <p className="text-sm">All customers are compliant</p>

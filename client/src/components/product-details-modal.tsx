@@ -43,7 +43,7 @@ export function ProductDetailsModal({
       case "low": return "text-green-600 bg-green-50 border-green-200";
       case "medium": return "text-yellow-600 bg-yellow-50 border-yellow-200";
       case "high": return "text-red-600 bg-red-50 border-red-200";
-      default: return "text-gray-600 bg-gray-50 border-gray-200";
+      default: return "text-muted-foreground bg-muted border-border";
     }
   };
 
@@ -74,7 +74,7 @@ export function ProductDetailsModal({
               <DialogTitle className="text-2xl font-bold text-gray-900">
                 {product.name}
               </DialogTitle>
-              <DialogDescription className="text-gray-600 mt-2">
+              <DialogDescription className="text-muted-foreground mt-2">
                 {product.shortDescription}
               </DialogDescription>
               <div className="flex items-center gap-2 mt-3">
@@ -96,7 +96,7 @@ export function ProductDetailsModal({
               onClick={() => onWishlistToggle(product.id)}
               data-testid="button-wishlist-modal"
             >
-              <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+              <Heart className={`h-5 w-5 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
             </Button>
           </div>
         </DialogHeader>
@@ -110,7 +110,7 @@ export function ProductDetailsModal({
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Expected Returns</p>
+                      <p className="text-sm text-muted-foreground">Expected Returns</p>
                       <p className="text-2xl font-bold text-green-600">{product.expectedReturns}%</p>
                     </div>
                     <TrendingUp className="h-8 w-8 text-green-600" />
@@ -122,7 +122,7 @@ export function ProductDetailsModal({
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Min Investment</p>
+                      <p className="text-sm text-muted-foreground">Min Investment</p>
                       <p className="text-2xl font-bold text-gray-900">₹{product.minimumInvestment.toLocaleString()}</p>
                     </div>
                     <ShoppingCart className="h-8 w-8 text-finance-blue" />
@@ -134,7 +134,7 @@ export function ProductDetailsModal({
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Risk Level</p>
+                      <p className="text-sm text-muted-foreground">Risk Level</p>
                       <p className="text-lg font-semibold text-gray-900">
                         {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)}
                       </p>
@@ -148,7 +148,7 @@ export function ProductDetailsModal({
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Provider</p>
+                      <p className="text-sm text-muted-foreground">Provider</p>
                       <p className="text-sm font-medium text-gray-900">{product.provider}</p>
                     </div>
                     <CheckCircle className="h-8 w-8 text-green-600" />
@@ -163,7 +163,7 @@ export function ProductDetailsModal({
               {mockDetailedFeatures.map((feature, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-gray-700">{feature}</span>
+                  <span className="text-sm text-muted-foreground">{feature}</span>
                 </div>
               ))}
             </div>
@@ -174,27 +174,27 @@ export function ProductDetailsModal({
               <CardContent className="p-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
-                    <p className="text-xs text-gray-500">Current NAV</p>
+                    <p className="text-xs text-muted-foreground">Current NAV</p>
                     <p className="font-semibold">{mockRegulatoryInfo.nav}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Fund Manager</p>
+                    <p className="text-xs text-muted-foreground">Fund Manager</p>
                     <p className="font-semibold">{mockRegulatoryInfo.fundManager}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Expense Ratio</p>
+                    <p className="text-xs text-muted-foreground">Expense Ratio</p>
                     <p className="font-semibold">{mockRegulatoryInfo.expenseRatio}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">AUM</p>
+                    <p className="text-xs text-muted-foreground">AUM</p>
                     <p className="font-semibold">{mockRegulatoryInfo.aum}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Benchmark</p>
+                    <p className="text-xs text-muted-foreground">Benchmark</p>
                     <p className="font-semibold text-xs">{mockRegulatoryInfo.benchmark}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Exit Load</p>
+                    <p className="text-xs text-muted-foreground">Exit Load</p>
                     <p className="font-semibold text-xs">{mockRegulatoryInfo.exitLoad}</p>
                   </div>
                 </div>
@@ -210,18 +210,18 @@ export function ProductDetailsModal({
                 
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Minimum Investment</span>
+                    <span className="text-sm text-muted-foreground">Minimum Investment</span>
                     <span className="font-semibold">₹{product.minimumInvestment.toLocaleString()}</span>
                   </div>
                   {product.price && (
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Premium/Price</span>
+                      <span className="text-sm text-muted-foreground">Premium/Price</span>
                       <span className="font-semibold">₹{product.price.toLocaleString()}</span>
                     </div>
                   )}
                   <Separator />
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Expected Returns</span>
+                    <span className="text-sm text-muted-foreground">Expected Returns</span>
                     <span className="font-semibold text-green-600">{product.expectedReturns}% p.a.</span>
                   </div>
                 </div>

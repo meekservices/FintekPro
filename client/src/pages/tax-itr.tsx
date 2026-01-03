@@ -179,7 +179,7 @@ export default function TaxITRPage() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
                   <span>PAN: {panContext?.pan || "---"}</span>
                   <span>•</span>
                   <span className="capitalize">{panContext?.panType?.replace("_", " ") || "Individual"}</span>
@@ -197,7 +197,7 @@ export default function TaxITRPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Income Tax Return Filing</h1>
-          <p className="text-gray-600 dark:text-gray-400">AY 2024-25 | Due Date: July 31, 2024</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">AY 2024-25 | Due Date: July 31, 2024</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-orange-600 border-orange-300">
@@ -267,7 +267,7 @@ export default function TaxITRPage() {
                 </ul>
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div>
-                    <p className="text-xs text-gray-500">Starting from</p>
+                    <p className="text-xs text-muted-foreground">Starting from</p>
                     <p className="text-2xl font-bold text-blue-600">₹499</p>
                   </div>
                   <Button className="gap-2" data-testid="button-start-self-file">
@@ -315,7 +315,7 @@ export default function TaxITRPage() {
                 </ul>
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div>
-                    <p className="text-xs text-gray-500">Starting from</p>
+                    <p className="text-xs text-muted-foreground">Starting from</p>
                     <p className="text-2xl font-bold text-purple-600">₹1,999</p>
                   </div>
                   <Button className="gap-2 bg-purple-600 hover:bg-purple-700" data-testid="button-hire-expert">
@@ -342,30 +342,30 @@ export default function TaxITRPage() {
                   const features = FORM_FEATURES[form.form] || [];
                   const complexity = FORM_COMPLEXITY[form.form] || "moderate";
                   return (
-                    <Card key={form.form} className="border hover:shadow-md transition-shadow dark:border-gray-700" data-testid={`form-${form.form.toLowerCase()}`}>
+                    <Card key={form.form} className="border hover:shadow-md transition-shadow dark:border-border" data-testid={`form-${form.form.toLowerCase()}`}>
                       <CardHeader className="pb-2">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-lg dark:text-white">{form.form}</CardTitle>
                           {getComplexityBadge(complexity)}
                         </div>
-                        <CardDescription className="font-medium dark:text-gray-300">{form.name}</CardDescription>
+                        <CardDescription className="font-medium dark:text-muted-foreground">{form.name}</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{form.description}</p>
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{form.description}</p>
                         <div className="space-y-1">
                           {features.slice(0, 3).map((feature, idx) => (
-                            <p key={idx} className="text-xs flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                            <p key={idx} className="text-xs flex items-center gap-1 text-muted-foreground dark:text-muted-foreground">
                               <CheckCircle className="h-3 w-3 text-green-500" /> {feature}
                             </p>
                           ))}
                         </div>
-                        <div className="flex items-center justify-between pt-2 border-t dark:border-gray-700 text-sm">
+                        <div className="flex items-center justify-between pt-2 border-t dark:border-border text-sm">
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Self: </span>
+                            <span className="text-muted-foreground dark:text-muted-foreground">Self: </span>
                             <span className="font-semibold dark:text-white">₹{formPricing.selfFile}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">Expert: </span>
+                            <span className="text-muted-foreground dark:text-muted-foreground">Expert: </span>
                             <span className="font-semibold dark:text-white">₹{formPricing.expert}</span>
                           </div>
                         </div>
@@ -384,7 +384,7 @@ export default function TaxITRPage() {
                 <div className="text-center">
                   <Sparkles className="h-8 w-8 mx-auto text-green-600 mb-2" />
                   <div className="text-2xl font-bold text-green-700">98%</div>
-                  <p className="text-xs text-gray-600">Accuracy Rate</p>
+                  <p className="text-xs text-muted-foreground">Accuracy Rate</p>
                 </div>
               </CardContent>
             </Card>
@@ -393,7 +393,7 @@ export default function TaxITRPage() {
                 <div className="text-center">
                   <Clock className="h-8 w-8 mx-auto text-blue-600 mb-2" />
                   <div className="text-2xl font-bold text-blue-700">15 min</div>
-                  <p className="text-xs text-gray-600">Avg. Filing Time</p>
+                  <p className="text-xs text-muted-foreground">Avg. Filing Time</p>
                 </div>
               </CardContent>
             </Card>
@@ -402,7 +402,7 @@ export default function TaxITRPage() {
                 <div className="text-center">
                   <Users className="h-8 w-8 mx-auto text-purple-600 mb-2" />
                   <div className="text-2xl font-bold text-purple-700">50+</div>
-                  <p className="text-xs text-gray-600">Expert CAs</p>
+                  <p className="text-xs text-muted-foreground">Expert CAs</p>
                 </div>
               </CardContent>
             </Card>
@@ -411,7 +411,7 @@ export default function TaxITRPage() {
                 <div className="text-center">
                   <IndianRupee className="h-8 w-8 mx-auto text-orange-600 mb-2" />
                   <div className="text-2xl font-bold text-orange-700">₹2.5L</div>
-                  <p className="text-xs text-gray-600">Avg. Refund</p>
+                  <p className="text-xs text-muted-foreground">Avg. Refund</p>
                 </div>
               </CardContent>
             </Card>
@@ -441,7 +441,7 @@ export default function TaxITRPage() {
               {/* Self-file wizard steps indicator */}
               <div className="grid grid-cols-6 gap-2 text-xs text-center">
                 {["Personal", "Income", "Deductions", "Tax", "Preview", "Submit"].map((step, idx) => (
-                  <div key={step} className={`p-2 rounded ${idx === 0 ? "bg-blue-100 text-blue-700 font-medium" : "bg-gray-100 text-gray-500"}`}>
+                  <div key={step} className={`p-2 rounded ${idx === 0 ? "bg-blue-100 text-blue-700 font-medium" : "bg-muted text-muted-foreground"}`}>
                     {step}
                   </div>
                 ))}
@@ -505,17 +505,17 @@ export default function TaxITRPage() {
                 <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
                   <Star className="h-6 w-6 text-purple-600 mb-2" />
                   <h4 className="font-semibold">Dedicated CA</h4>
-                  <p className="text-sm text-gray-600">Personal tax expert assigned to your case</p>
+                  <p className="text-sm text-muted-foreground">Personal tax expert assigned to your case</p>
                 </div>
                 <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
                   <Shield className="h-6 w-6 text-green-600 mb-2" />
                   <h4 className="font-semibold">100% Accuracy</h4>
-                  <p className="text-sm text-gray-600">Expert review ensures error-free filing</p>
+                  <p className="text-sm text-muted-foreground">Expert review ensures error-free filing</p>
                 </div>
                 <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                   <IndianRupee className="h-6 w-6 text-blue-600 mb-2" />
                   <h4 className="font-semibold">Max Savings</h4>
-                  <p className="text-sm text-gray-600">Optimize deductions for maximum refund</p>
+                  <p className="text-sm text-muted-foreground">Optimize deductions for maximum refund</p>
                 </div>
               </div>
 
@@ -584,13 +584,13 @@ export default function TaxITRPage() {
                       </div>
                       <div>
                         <h4 className="font-semibold">AY 2024-25</h4>
-                        <p className="text-sm text-gray-600">ITR-1 (Sahaj)</p>
+                        <p className="text-sm text-muted-foreground">ITR-1 (Sahaj)</p>
                       </div>
                     </div>
                     <Badge className="bg-yellow-100 text-yellow-700">In Progress</Badge>
                   </div>
                   <Progress value={40} className="h-2 mb-2" />
-                  <p className="text-xs text-gray-500">Step 3 of 6: Deductions</p>
+                  <p className="text-xs text-muted-foreground">Step 3 of 6: Deductions</p>
                   <Button size="sm" className="mt-3" data-testid="button-continue-filing">
                     Continue Filing <ArrowRight className="h-3 w-3 ml-1" />
                   </Button>
@@ -598,7 +598,7 @@ export default function TaxITRPage() {
 
                 {/* Past Filings */}
                 <div className="space-y-3">
-                  <h4 className="font-medium text-sm text-gray-600">Past Filings</h4>
+                  <h4 className="font-medium text-sm text-muted-foreground">Past Filings</h4>
                   {[
                     { ay: "2023-24", form: "ITR-1", status: "Filed", date: "Jul 28, 2023", refund: "₹12,500" },
                     { ay: "2022-23", form: "ITR-1", status: "Filed", date: "Jul 25, 2022", refund: "₹8,200" }
@@ -611,7 +611,7 @@ export default function TaxITRPage() {
                           </div>
                           <div>
                             <h4 className="font-semibold">AY {filing.ay}</h4>
-                            <p className="text-sm text-gray-600">{filing.form} • Filed {filing.date}</p>
+                            <p className="text-sm text-muted-foreground">{filing.form} • Filed {filing.date}</p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -629,14 +629,14 @@ export default function TaxITRPage() {
       </Tabs>
 
       {/* Help Section */}
-      <Card className="bg-gray-50 dark:bg-gray-900">
+      <Card className="bg-muted dark:bg-card">
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <HelpCircle className="h-6 w-6 text-blue-500" />
               <div>
                 <p className="font-medium">Need help choosing?</p>
-                <p className="text-sm text-gray-600">Our tax experts are available 24/7</p>
+                <p className="text-sm text-muted-foreground">Our tax experts are available 24/7</p>
               </div>
             </div>
             <Button variant="outline" data-testid="button-contact-support">

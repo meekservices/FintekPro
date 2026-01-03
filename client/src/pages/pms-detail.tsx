@@ -104,9 +104,9 @@ function formatDate(dateStr: string | null): string {
 }
 
 function getReturnColor(value: string | null): string {
-  if (!value) return "text-gray-500";
+  if (!value) return "text-muted-foreground";
   const num = parseFloat(value);
-  if (isNaN(num)) return "text-gray-500";
+  if (isNaN(num)) return "text-muted-foreground";
   return num >= 0 ? "text-green-600" : "text-red-600";
 }
 
@@ -193,7 +193,7 @@ function OtherFundsByManager({
           {otherFunds.map((fund) => (
             <div
               key={fund.id}
-              className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-gray-50 hover:bg-white"
+              className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-muted hover:bg-white"
               onClick={() => navigate(`/${fund.fundType}/${fund.id}`)}
               data-testid={`other-fund-${fund.id}`}
             >
@@ -203,16 +203,16 @@ function OtherFundsByManager({
                   {fund.fundType.toUpperCase()}
                 </span>
               </div>
-              <p className="text-xs text-gray-500 mb-3">{fund.strategy || fund.category || 'N/A'}</p>
+              <p className="text-xs text-muted-foreground mb-3">{fund.strategy || fund.category || 'N/A'}</p>
               <div className="flex justify-between text-xs">
                 <div>
-                  <span className="text-gray-500">1Y Return</span>
+                  <span className="text-muted-foreground">1Y Return</span>
                   <p className={`font-semibold ${fund.return1Y && parseFloat(fund.return1Y) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatPercent(fund.return1Y)}
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-500">AUM</span>
+                  <span className="text-muted-foreground">AUM</span>
                   <p className="font-semibold">{formatCurrency(fund.aum)}</p>
                 </div>
               </div>
@@ -273,7 +273,7 @@ export default function PMSDetail() {
         <Card className="p-8 text-center">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold">PMS Scheme Not Found</h3>
-          <p className="text-gray-600 mb-4">The requested scheme could not be found.</p>
+          <p className="text-muted-foreground mb-4">The requested scheme could not be found.</p>
           <Button onClick={() => navigate("/pms")}>Back to PMS List</Button>
         </Card>
       </div>
@@ -289,11 +289,11 @@ export default function PMSDetail() {
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2" data-testid="scheme-name">{scheme.name}</h1>
-          <div className="flex items-center gap-3 text-gray-600">
+          <div className="flex items-center gap-3 text-muted-foreground">
             <Building2 className="w-5 h-5" />
             <span>{scheme.fundHouseName || "Unknown Provider"}</span>
             {scheme.registrationNo && (
-              <span className="text-sm text-gray-500">| Reg: {scheme.registrationNo}</span>
+              <span className="text-sm text-muted-foreground">| Reg: {scheme.registrationNo}</span>
             )}
           </div>
         </div>
@@ -307,7 +307,7 @@ export default function PMSDetail() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500 flex items-center gap-1"><TrendingUp className="w-4 h-4" /> 1Y Return</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><TrendingUp className="w-4 h-4" /> 1Y Return</p>
             <p className={`text-2xl font-bold ${getReturnColor(scheme.return1Y)}`} data-testid="return-1y">
               {formatPercent(scheme.return1Y)}
             </p>
@@ -315,7 +315,7 @@ export default function PMSDetail() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500 flex items-center gap-1"><TrendingUp className="w-4 h-4" /> 3Y Return</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><TrendingUp className="w-4 h-4" /> 3Y Return</p>
             <p className={`text-2xl font-bold ${getReturnColor(scheme.return3Y)}`} data-testid="return-3y">
               {formatPercent(scheme.return3Y)}
             </p>
@@ -323,13 +323,13 @@ export default function PMSDetail() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500 flex items-center gap-1"><PieChart className="w-4 h-4" /> AUM</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><PieChart className="w-4 h-4" /> AUM</p>
             <p className="text-2xl font-bold text-indigo-600" data-testid="aum">{formatCurrency(scheme.aum)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500 flex items-center gap-1"><Shield className="w-4 h-4" /> Risk</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><Shield className="w-4 h-4" /> Risk</p>
             <div className="mt-1">{getRiskBadge(scheme.riskScore)}</div>
           </CardContent>
         </Card>
@@ -351,23 +351,23 @@ export default function PMSDetail() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">Minimum Investment</span>
+                  <span className="text-muted-foreground">Minimum Investment</span>
                   <span className="font-medium">{formatCurrency(scheme.minInvestment)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">Minimum SIP</span>
+                  <span className="text-muted-foreground">Minimum SIP</span>
                   <span className="font-medium">{formatCurrency(scheme.minSIPInvestment)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">Lock-in Period</span>
+                  <span className="text-muted-foreground">Lock-in Period</span>
                   <span className="font-medium">{scheme.lockIn || "N/A"}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">Benchmark</span>
+                  <span className="text-muted-foreground">Benchmark</span>
                   <span className="font-medium">{scheme.benchmark || "N/A"}</span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-gray-600">Inception Date</span>
+                  <span className="text-muted-foreground">Inception Date</span>
                   <span className="font-medium">{formatDate(scheme.inceptionDate)}</span>
                 </div>
               </CardContent>
@@ -379,27 +379,27 @@ export default function PMSDetail() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">1 Month</span>
+                  <span className="text-muted-foreground">1 Month</span>
                   <span className={`font-medium ${getReturnColor(scheme.return1M)}`}>{formatPercent(scheme.return1M)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">3 Months</span>
+                  <span className="text-muted-foreground">3 Months</span>
                   <span className={`font-medium ${getReturnColor(scheme.return3M)}`}>{formatPercent(scheme.return3M)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">6 Months</span>
+                  <span className="text-muted-foreground">6 Months</span>
                   <span className={`font-medium ${getReturnColor(scheme.return6M)}`}>{formatPercent(scheme.return6M)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">1 Year</span>
+                  <span className="text-muted-foreground">1 Year</span>
                   <span className={`font-medium ${getReturnColor(scheme.return1Y)}`}>{formatPercent(scheme.return1Y)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">3 Years</span>
+                  <span className="text-muted-foreground">3 Years</span>
                   <span className={`font-medium ${getReturnColor(scheme.return3Y)}`}>{formatPercent(scheme.return3Y)}</span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-gray-600">Since Inception</span>
+                  <span className="text-muted-foreground">Since Inception</span>
                   <span className={`font-medium ${getReturnColor(scheme.returnSI)}`}>{formatPercent(scheme.returnSI)}</span>
                 </div>
               </CardContent>
@@ -430,8 +430,8 @@ export default function PMSDetail() {
                   </RechartsLineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center py-12 text-muted-foreground">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                   <p>No monthly performance data available</p>
                 </div>
               )}
@@ -446,24 +446,24 @@ export default function PMSDetail() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">1Y Rolling</p>
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">1Y Rolling</p>
                     <p className={`text-xl font-bold ${getReturnColor(rolling.roll1Y)}`}>{formatPercent(rolling.roll1Y)}</p>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">3Y Rolling</p>
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">3Y Rolling</p>
                     <p className={`text-xl font-bold ${getReturnColor(rolling.roll3Y)}`}>{formatPercent(rolling.roll3Y)}</p>
                   </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">5Y Rolling</p>
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">5Y Rolling</p>
                     <p className={`text-xl font-bold ${getReturnColor(rolling.roll5Y)}`}>{formatPercent(rolling.roll5Y)}</p>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-gray-500">Best 1Y</p>
+                    <p className="text-sm text-muted-foreground">Best 1Y</p>
                     <p className="text-xl font-bold text-green-600">{formatPercent(rolling.bestRoll1Y)}</p>
                   </div>
                   <div className="text-center p-4 bg-red-50 rounded-lg">
-                    <p className="text-sm text-gray-500">Worst 1Y</p>
+                    <p className="text-sm text-muted-foreground">Worst 1Y</p>
                     <p className="text-xl font-bold text-red-600">{formatPercent(rolling.worstRoll1Y)}</p>
                   </div>
                 </div>
@@ -540,25 +540,25 @@ export default function PMSDetail() {
                   <div className="flex flex-col md:flex-row gap-6">
                     <div className="flex-1">
                       <h3 className="text-xl font-semibold mb-1">{scheme.manager.name}</h3>
-                      <p className="text-gray-600 mb-4">{scheme.manager.designation || "Portfolio Manager"}</p>
+                      <p className="text-muted-foreground mb-4">{scheme.manager.designation || "Portfolio Manager"}</p>
                       {scheme.manager.bio && (
-                        <p className="text-gray-700 mb-6">{scheme.manager.bio}</p>
+                        <p className="text-muted-foreground mb-6">{scheme.manager.bio}</p>
                       )}
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-gray-500">Experience</p>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="text-sm text-muted-foreground">Experience</p>
                           <p className="font-semibold">{scheme.manager.experienceYears ? `${scheme.manager.experienceYears}+ years` : "N/A"}</p>
                         </div>
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-gray-500">Strategies Managed</p>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="text-sm text-muted-foreground">Strategies Managed</p>
                           <p className="font-semibold">{scheme.manager.fundsManaged || "N/A"}</p>
                         </div>
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-gray-500">Total AUM</p>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="text-sm text-muted-foreground">Total AUM</p>
                           <p className="font-semibold">{formatCurrency(scheme.manager.totalAumManaged)}</p>
                         </div>
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-gray-500">Avg Alpha</p>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="text-sm text-muted-foreground">Avg Alpha</p>
                           <p className={`font-semibold ${scheme.manager.avgAlpha && parseFloat(scheme.manager.avgAlpha) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {formatPercent(scheme.manager.avgAlpha)}
                           </p>
@@ -572,9 +572,9 @@ export default function PMSDetail() {
             </>
           ) : (
             <Card className="p-8 text-center">
-              <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-800">Portfolio Manager Information Not Available</h3>
-              <p className="text-gray-600">Contact the PMS provider for manager details.</p>
+              <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground">Portfolio Manager Information Not Available</h3>
+              <p className="text-muted-foreground">Contact the PMS provider for manager details.</p>
             </Card>
           )}
         </TabsContent>

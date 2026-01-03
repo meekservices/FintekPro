@@ -179,7 +179,7 @@ export default function LoanDashboard() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Loan Dashboard
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-xl text-muted-foreground">
             Track your loan applications and manage your borrowings
           </p>
         </div>
@@ -191,7 +191,7 @@ export default function LoanDashboard() {
               <div className="flex items-center">
                 <FileText className="w-8 h-8 text-blue-600 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Applications</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Applications</p>
                   <p className="text-2xl font-bold text-gray-900">{loanSummary.totalApplications}</p>
                 </div>
               </div>
@@ -203,7 +203,7 @@ export default function LoanDashboard() {
               <div className="flex items-center">
                 <CheckCircle className="w-8 h-8 text-green-600 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Approved</p>
+                  <p className="text-sm font-medium text-muted-foreground">Approved</p>
                   <p className="text-2xl font-bold text-gray-900">{loanSummary.approved}</p>
                 </div>
               </div>
@@ -215,7 +215,7 @@ export default function LoanDashboard() {
               <div className="flex items-center">
                 <IndianRupee className="w-8 h-8 text-purple-600 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Loan Amount</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Loan Amount</p>
                   <p className="text-2xl font-bold text-gray-900">₹{(loanSummary.totalLoanAmount / 100000).toFixed(1)}L</p>
                 </div>
               </div>
@@ -227,7 +227,7 @@ export default function LoanDashboard() {
               <div className="flex items-center">
                 <Calendar className="w-8 h-8 text-orange-600 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Monthly EMI</p>
+                  <p className="text-sm font-medium text-muted-foreground">Monthly EMI</p>
                   <p className="text-2xl font-bold text-gray-900">₹{loanSummary.monthlyEMI.toLocaleString()}</p>
                 </div>
               </div>
@@ -257,7 +257,7 @@ export default function LoanDashboard() {
                             <span className="text-2xl">{getLenderLogo(application.lenderId)}</span>
                             <div>
                               <h3 className="font-semibold text-lg">{application.lenderName}</h3>
-                              <p className="text-sm text-gray-600">Application ID: {application.applicationId}</p>
+                              <p className="text-sm text-muted-foreground">Application ID: {application.applicationId}</p>
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -270,23 +270,23 @@ export default function LoanDashboard() {
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                           <div>
-                            <p className="text-sm text-gray-600">Loan Amount</p>
+                            <p className="text-sm text-muted-foreground">Loan Amount</p>
                             <p className="font-semibold text-lg">₹{application.amount.toLocaleString()}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-600">EMI</p>
+                            <p className="text-sm text-muted-foreground">EMI</p>
                             <p className="font-semibold text-lg">₹{application.emi.toLocaleString()}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-600">Interest Rate</p>
+                            <p className="text-sm text-muted-foreground">Interest Rate</p>
                             <p className="font-semibold text-lg">{application.interestRate}%</p>
                           </div>
                         </div>
 
                         <div className="mb-4">
                           <div className="flex justify-between items-center mb-2">
-                            <p className="text-sm font-medium text-gray-700">Progress</p>
-                            <p className="text-sm text-gray-600">{application.stage}</p>
+                            <p className="text-sm font-medium text-muted-foreground">Progress</p>
+                            <p className="text-sm text-muted-foreground">{application.stage}</p>
                           </div>
                           <Progress value={getProgressPercentage(application.status)} className="h-2" />
                         </div>
@@ -295,7 +295,7 @@ export default function LoanDashboard() {
                           <h4 className="text-sm font-semibold mb-2">Next Steps:</h4>
                           <ul className="space-y-1">
                             {application.nextSteps.map((step, index) => (
-                              <li key={index} className="text-sm text-gray-600 flex items-center">
+                              <li key={index} className="text-sm text-muted-foreground flex items-center">
                                 <ArrowRight className="w-3 h-3 mr-2 text-blue-500" />
                                 {step}
                               </li>
@@ -308,7 +308,7 @@ export default function LoanDashboard() {
                             <h4 className="text-sm font-semibold mb-2">Document Status:</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               {application.documentsRequired.map((doc, index) => (
-                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
                                   <span className="text-sm">{doc.name}</span>
                                   <Badge variant={
                                     doc.status === 'verified' ? 'default' : 
@@ -323,7 +323,7 @@ export default function LoanDashboard() {
                         )}
 
                         <div className="flex justify-between items-center">
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-muted-foreground">
                             <p>Applied: {new Date(application.appliedDate).toLocaleDateString()}</p>
                             <p>Updated: {new Date(application.lastUpdated).toLocaleDateString()}</p>
                           </div>
@@ -412,21 +412,21 @@ export default function LoanDashboard() {
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm text-gray-600">Current Status</p>
+                          <p className="text-sm text-muted-foreground">Current Status</p>
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(selectedApplication.status)}
                             <span className="font-semibold">{selectedApplication.status.replace('_', ' ').toUpperCase()}</span>
                           </div>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Current Stage</p>
+                          <p className="text-sm text-muted-foreground">Current Stage</p>
                           <p className="font-semibold">{selectedApplication.stage}</p>
                         </div>
                       </div>
 
                       {selectedApplication.estimatedDisbursementDate && (
                         <div>
-                          <p className="text-sm text-gray-600">Expected Disbursement</p>
+                          <p className="text-sm text-muted-foreground">Expected Disbursement</p>
                           <p className="font-semibold text-green-600">
                             {new Date(selectedApplication.estimatedDisbursementDate).toLocaleDateString()}
                           </p>
@@ -437,7 +437,7 @@ export default function LoanDashboard() {
                         <h4 className="font-semibold mb-2">Next Steps:</h4>
                         <ul className="space-y-1">
                           {selectedApplication.nextSteps.map((step, index) => (
-                            <li key={index} className="text-sm text-gray-700 flex items-center">
+                            <li key={index} className="text-sm text-muted-foreground flex items-center">
                               <ArrowRight className="w-3 h-3 mr-2 text-blue-500" />
                               {step}
                             </li>
@@ -477,7 +477,7 @@ export default function LoanDashboard() {
                             {doc.status.replace('_', ' ')}
                           </Badge>
                         </div>
-                        <p className="text-xs text-gray-600 mb-3">{doc.description}</p>
+                        <p className="text-xs text-muted-foreground mb-3">{doc.description}</p>
                         <div className="flex space-x-2">
                           {doc.status === 'not_submitted' && (
                             <Button size="sm" className="w-full">
@@ -512,7 +512,7 @@ export default function LoanDashboard() {
                       <CardContent className="py-4 text-center">
                         <PhoneCall className="w-8 h-8 text-blue-600 mx-auto mb-2" />
                         <h4 className="font-semibold text-sm mb-1">Call Support</h4>
-                        <p className="text-xs text-gray-600">1800-123-4567</p>
+                        <p className="text-xs text-muted-foreground">1800-123-4567</p>
                       </CardContent>
                     </Card>
                     
@@ -520,7 +520,7 @@ export default function LoanDashboard() {
                       <CardContent className="py-4 text-center">
                         <Mail className="w-8 h-8 text-green-600 mx-auto mb-2" />
                         <h4 className="font-semibold text-sm mb-1">Email Support</h4>
-                        <p className="text-xs text-gray-600">loans@fintekpro.com</p>
+                        <p className="text-xs text-muted-foreground">loans@fintekpro.com</p>
                       </CardContent>
                     </Card>
                     
@@ -528,7 +528,7 @@ export default function LoanDashboard() {
                       <CardContent className="py-4 text-center">
                         <MapPin className="w-8 h-8 text-purple-600 mx-auto mb-2" />
                         <h4 className="font-semibold text-sm mb-1">Branch Locator</h4>
-                        <p className="text-xs text-gray-600">Find nearest branch</p>
+                        <p className="text-xs text-muted-foreground">Find nearest branch</p>
                       </CardContent>
                     </Card>
                   </div>

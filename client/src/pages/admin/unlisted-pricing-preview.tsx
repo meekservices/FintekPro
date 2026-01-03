@@ -128,7 +128,7 @@ const getComplianceStatusBadge = (status: string | undefined, riskScore: number 
 };
 
 const getSpreadColor = (spreadPercent: number | undefined) => {
-  if (spreadPercent === undefined) return 'text-gray-400';
+  if (spreadPercent === undefined) return 'text-muted-foreground';
   if (spreadPercent > 20) return 'text-red-500';
   if (spreadPercent >= 15) return 'text-yellow-500';
   return 'text-green-500';
@@ -285,7 +285,7 @@ export default function UnlistedPricingPreviewPage() {
     return (
       <div className="flex items-center justify-center h-64" data-testid="loading-state">
         <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-        <span className="ml-3 text-gray-400">Loading pricing preview...</span>
+        <span className="ml-3 text-muted-foreground">Loading pricing preview...</span>
       </div>
     );
   }
@@ -295,7 +295,7 @@ export default function UnlistedPricingPreviewPage() {
       <div className="p-8 text-center" data-testid="not-found-state">
         <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
         <h2 className="text-xl font-bold text-white mb-2">Company Not Found</h2>
-        <p className="text-gray-400 mb-4">The company you're looking for doesn't exist.</p>
+        <p className="text-muted-foreground mb-4">The company you're looking for doesn't exist.</p>
         <Button onClick={() => navigate('/admin/store/seed-unlisted')} variant="outline" data-testid="button-back-not-found">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Companies
@@ -307,14 +307,14 @@ export default function UnlistedPricingPreviewPage() {
   return (
     <div className="space-y-6" data-testid="pricing-preview-page">
       {/* Header Section */}
-      <div className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800 -mx-6 px-6 py-4">
+      <div className="sticky top-0 z-10 bg-background border-b border-border -mx-6 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => navigate('/admin/store/seed-unlisted')}
-              className="text-gray-400 hover:text-white"
+              className="text-muted-foreground hover:text-white"
               data-testid="button-back"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -327,7 +327,7 @@ export default function UnlistedPricingPreviewPage() {
                 <h1 className="text-xl font-bold text-white" data-testid="text-company-name">{company.name}</h1>
               </div>
               {company.cin && (
-                <p className="text-sm text-gray-400 mt-1" data-testid="text-company-cin">CIN: {company.cin}</p>
+                <p className="text-sm text-muted-foreground mt-1" data-testid="text-company-cin">CIN: {company.cin}</p>
               )}
             </div>
           </div>
@@ -358,26 +358,26 @@ export default function UnlistedPricingPreviewPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Price Preview Card */}
-        <Card className="bg-gray-900 border-gray-800" data-testid="card-price-preview">
+        <Card className="bg-card border-border" data-testid="card-price-preview">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-green-400" />
               Price Preview
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Draft prices that will be published to the marketplace
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-800 rounded-lg p-4 text-center">
-                <p className="text-sm text-gray-400 mb-1">Buy Price</p>
+              <div className="bg-muted rounded-lg p-4 text-center">
+                <p className="text-sm text-muted-foreground mb-1">Buy Price</p>
                 <p className="text-2xl font-bold text-green-400" data-testid="text-buy-price">
                   {effectiveBuyPrice ? `₹${parseFloat(effectiveBuyPrice).toLocaleString('en-IN')}` : '—'}
                 </p>
               </div>
-              <div className="bg-gray-800 rounded-lg p-4 text-center">
-                <p className="text-sm text-gray-400 mb-1">Sell Price</p>
+              <div className="bg-muted rounded-lg p-4 text-center">
+                <p className="text-sm text-muted-foreground mb-1">Sell Price</p>
                 <p className="text-2xl font-bold text-red-400" data-testid="text-sell-price">
                   {effectiveSellPrice ? `₹${parseFloat(effectiveSellPrice).toLocaleString('en-IN')}` : '—'}
                 </p>
@@ -385,15 +385,15 @@ export default function UnlistedPricingPreviewPage() {
             </div>
 
             {/* Spread Percentage */}
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-muted/50 rounded-lg p-4">
               <div className="flex justify-between items-center">
-                <span className="text-gray-400">Spread</span>
+                <span className="text-muted-foreground">Spread</span>
                 <span className={`text-lg font-semibold ${getSpreadColor(spreadPercent)}`} data-testid="text-spread-percent">
                   {spreadPercent !== undefined ? `${spreadPercent.toFixed(2)}%` : '—'}
                 </span>
               </div>
               {spreadPercent !== undefined && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {spreadPercent > 20 ? '⚠️ High spread - may reduce client interest' : 
                    spreadPercent >= 15 ? '⚠️ Moderate spread' : 
                    '✓ Healthy spread range'}
@@ -403,15 +403,15 @@ export default function UnlistedPricingPreviewPage() {
 
             {/* Price Change from Last Published */}
             {company.lastPublishedBuyPrice && priceChangePercent !== undefined && (
-              <div className="bg-gray-800/50 rounded-lg p-4">
+              <div className="bg-muted/50 rounded-lg p-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Change from Last Published</span>
+                  <span className="text-muted-foreground">Change from Last Published</span>
                   <span className={`flex items-center gap-1 text-lg font-semibold ${priceChangePercent >= 0 ? 'text-green-400' : 'text-red-400'}`} data-testid="text-price-change">
                     {priceChangePercent >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                     {priceChangePercent >= 0 ? '+' : ''}{priceChangePercent.toFixed(2)}%
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Previous: ₹{parseFloat(company.lastPublishedBuyPrice).toLocaleString('en-IN')}
                 </p>
               </div>
@@ -464,24 +464,24 @@ export default function UnlistedPricingPreviewPage() {
         </Card>
 
         {/* Client View Simulation */}
-        <Card className="bg-gray-900 border-gray-800" data-testid="card-client-view">
+        <Card className="bg-card border-border" data-testid="card-client-view">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Eye className="w-5 h-5 text-purple-400" />
               Client View Simulation
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Exactly what clients will see on the marketplace
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="border border-gray-700 rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg overflow-hidden">
               {/* Simulated Marketplace Card */}
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-bold text-white" data-testid="client-view-name">{company.name}</h3>
-                    <p className="text-sm text-gray-400">{company.sector || 'Unlisted'} • {company.industry || 'N/A'}</p>
+                    <p className="text-sm text-muted-foreground">{company.sector || 'Unlisted'} • {company.industry || 'N/A'}</p>
                   </div>
                   <Badge variant="outline" className="border-blue-500 text-blue-400">
                     Unlisted
@@ -490,13 +490,13 @@ export default function UnlistedPricingPreviewPage() {
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <p className="text-xs text-gray-500">Buy Price</p>
+                    <p className="text-xs text-muted-foreground">Buy Price</p>
                     <p className="text-xl font-bold text-green-400">
                       {effectiveBuyPrice ? `₹${parseFloat(effectiveBuyPrice).toLocaleString('en-IN')}` : '—'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Sell Price</p>
+                    <p className="text-xs text-muted-foreground">Sell Price</p>
                     <p className="text-xl font-bold text-red-400">
                       {effectiveSellPrice ? `₹${parseFloat(effectiveSellPrice).toLocaleString('en-IN')}` : '—'}
                     </p>
@@ -507,15 +507,15 @@ export default function UnlistedPricingPreviewPage() {
 
                 <div className="grid grid-cols-3 gap-4 text-center text-sm">
                   <div>
-                    <p className="text-gray-500">Face Value</p>
+                    <p className="text-muted-foreground">Face Value</p>
                     <p className="text-white font-medium">{company.faceValue ? `₹${company.faceValue}` : '—'}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Shares</p>
+                    <p className="text-muted-foreground">Shares</p>
                     <p className="text-white font-medium">{company.totalShares?.toLocaleString() || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Spread</p>
+                    <p className="text-muted-foreground">Spread</p>
                     <p className={`font-medium ${getSpreadColor(spreadPercent)}`}>
                       {spreadPercent !== undefined ? `${spreadPercent.toFixed(1)}%` : '—'}
                     </p>
@@ -545,13 +545,13 @@ export default function UnlistedPricingPreviewPage() {
         </Card>
 
         {/* Compliance Summary */}
-        <Card className="bg-gray-900 border-gray-800" data-testid="card-compliance-summary">
+        <Card className="bg-card border-border" data-testid="card-compliance-summary">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Shield className="w-5 h-5 text-blue-400" />
               Compliance Summary
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Regulatory and compliance checks
             </CardDescription>
           </CardHeader>
@@ -559,7 +559,7 @@ export default function UnlistedPricingPreviewPage() {
             {/* Risk Score Meter */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-400">Risk Score</span>
+                <span className="text-muted-foreground">Risk Score</span>
                 <span className="text-lg font-semibold text-white" data-testid="text-risk-score">{company.riskScore ?? 0}/100</span>
               </div>
               <Progress 
@@ -567,14 +567,14 @@ export default function UnlistedPricingPreviewPage() {
                 className="h-3"
                 data-testid="progress-risk-score"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {(company.riskScore ?? 0) <= 40 ? '✓ Low risk' : (company.riskScore ?? 0) <= 70 ? '⚠️ Moderate risk' : '⚠️ High risk - Review required'}
               </p>
             </div>
 
             {/* Last Checked */}
             {company.complianceLastChecked && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
                 <span>Last checked: {format(new Date(company.complianceLastChecked), 'PPp')}</span>
               </div>
@@ -582,7 +582,7 @@ export default function UnlistedPricingPreviewPage() {
 
             {/* Compliance Flags */}
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-300">Compliance Flags</p>
+              <p className="text-sm font-medium text-muted-foreground">Compliance Flags</p>
               {company.complianceFlags?.length ? (
                 <div className="space-y-2">
                   {company.complianceFlags.map((flag) => (
@@ -607,7 +607,7 @@ export default function UnlistedPricingPreviewPage() {
                           }`}>
                             {flag.code}
                           </p>
-                          <p className="text-xs text-gray-400">{flag.message}</p>
+                          <p className="text-xs text-muted-foreground">{flag.message}</p>
                         </div>
                         <Badge 
                           variant="outline" 
@@ -649,40 +649,40 @@ export default function UnlistedPricingPreviewPage() {
         </Card>
 
         {/* Audit Trail */}
-        <Card className="bg-gray-900 border-gray-800" data-testid="card-audit-trail">
+        <Card className="bg-card border-border" data-testid="card-audit-trail">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Activity className="w-5 h-5 text-orange-400" />
               Audit Trail
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Recent activity and changes for this company
             </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingAudit ? (
               <div className="flex items-center justify-center h-32">
-                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : auditLog?.length ? (
               <div className="space-y-3 max-h-80 overflow-y-auto">
                 {auditLog.map((entry) => (
                   <div 
                     key={entry.id} 
-                    className="flex items-start gap-3 p-3 bg-gray-800/50 rounded-lg"
+                    className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg"
                     data-testid={`audit-entry-${entry.id}`}
                   >
                     <div className="p-2 bg-gray-700 rounded-full">
-                      <FileText className="w-4 h-4 text-gray-300" />
+                      <FileText className="w-4 h-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white">{entry.action}</p>
                       {entry.details && (entry.details.oldBuyPrice || entry.details.newBuyPrice) && (
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-muted-foreground mt-1">
                           Price: {entry.details.oldBuyPrice || '—'} → {entry.details.newBuyPrice || '—'}
                         </p>
                       )}
-                      <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                         {entry.userName && (
                           <>
                             <User className="w-3 h-3" />
@@ -698,7 +698,7 @@ export default function UnlistedPricingPreviewPage() {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-32 text-gray-500">
+              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
                 <Activity className="w-8 h-8 mb-2 opacity-50" />
                 <p className="text-sm">No audit entries yet</p>
               </div>
@@ -708,7 +708,7 @@ export default function UnlistedPricingPreviewPage() {
       </div>
 
       {/* Action Buttons */}
-      <Card className="bg-gray-900 border-gray-800" data-testid="card-actions">
+      <Card className="bg-card border-border" data-testid="card-actions">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <Button
@@ -754,22 +754,22 @@ export default function UnlistedPricingPreviewPage() {
 
       {/* Publish Confirmation Dialog */}
       <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
-        <DialogContent className="bg-gray-900 border-gray-800" data-testid="dialog-publish-confirm">
+        <DialogContent className="bg-card border-border" data-testid="dialog-publish-confirm">
           <DialogHeader>
-            <DialogTitle className="text-white">Confirm Publication</DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogTitle className="text-foreground">Confirm Publication</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               You are about to publish {company.name} to the marketplace with the following prices:
             </DialogDescription>
           </DialogHeader>
           
           <div className="py-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-800 rounded-lg p-4 text-center">
-                <p className="text-sm text-gray-400">Buy Price</p>
+              <div className="bg-muted rounded-lg p-4 text-center">
+                <p className="text-sm text-muted-foreground">Buy Price</p>
                 <p className="text-xl font-bold text-green-400">₹{parseFloat(effectiveBuyPrice || '0').toLocaleString('en-IN')}</p>
               </div>
-              <div className="bg-gray-800 rounded-lg p-4 text-center">
-                <p className="text-sm text-gray-400">Sell Price</p>
+              <div className="bg-muted rounded-lg p-4 text-center">
+                <p className="text-sm text-muted-foreground">Sell Price</p>
                 <p className="text-xl font-bold text-red-400">₹{parseFloat(effectiveSellPrice || '0').toLocaleString('en-IN')}</p>
               </div>
             </div>

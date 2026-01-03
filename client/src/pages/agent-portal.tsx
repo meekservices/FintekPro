@@ -168,7 +168,7 @@ function ClientProfileCompletion() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Complete Your Profile</h1>
-            <p className="text-gray-600 dark:text-gray-400">Please provide the required information to complete your profile</p>
+            <p className="text-muted-foreground dark:text-muted-foreground">Please provide the required information to complete your profile</p>
           </div>
         </div>
 
@@ -577,7 +577,7 @@ export default function AgentPortal() {
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="title-partner-portal">
                 Partner Portal
               </h1>
-              <p className="text-gray-600 dark:text-gray-300 mt-1">
+              <p className="text-muted-foreground dark:text-muted-foreground mt-1">
                 Welcome back, {agentProfile?.fullName || 'Partner'}
               </p>
               {agentProfile?.euinNumber && (
@@ -594,8 +594,8 @@ export default function AgentPortal() {
               )}
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">partner.fintekpro.com</p>
-              <p className="text-xs text-gray-400">Partner ID: {agentProfile?.employeeId}</p>
+              <p className="text-sm text-muted-foreground">partner.fintekpro.com</p>
+              <p className="text-xs text-muted-foreground">Partner ID: {agentProfile?.employeeId}</p>
             </div>
           </div>
         </div>
@@ -699,7 +699,7 @@ export default function AgentPortal() {
                   <CardContent>
                     <div className="space-y-4">
                       {agentStats?.recentActivity?.map((activity: any, index: number) => (
-                        <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                        <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted dark:bg-muted">
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                           <div className="flex-1">
                             <p className="text-sm font-medium">{activity.description}</p>
@@ -1086,7 +1086,7 @@ export default function AgentPortal() {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddPartnerDialog(false)} data-testid="button-cancel-partner">
+                  <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setShowAddPartnerDialog(false)} data-testid="button-cancel-partner">
                     Cancel
                   </Button>
                   <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={addPartnerMutation.isPending} data-testid="button-submit-partner">
@@ -1205,7 +1205,7 @@ export default function AgentPortal() {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddClientDialog(false)} data-testid="button-cancel-client">
+                  <Button type="button" variant="outline" className="border-border text-muted-foreground hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-muted" onClick={() => setShowAddClientDialog(false)} data-testid="button-cancel-client">
                     Cancel
                   </Button>
                   <Button type="submit" className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white" disabled={addClientMutation.isPending} data-testid="button-submit-client">

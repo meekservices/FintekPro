@@ -278,7 +278,7 @@ export default function CAManagement() {
                   <RefreshCw className="h-6 w-6 animate-spin" />
                 </div>
               ) : pendingCAs.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500 opacity-50" />
                   <h3 className="text-lg font-medium mb-1">All caught up!</h3>
                   <p>No pending CA applications to review</p>
@@ -301,8 +301,8 @@ export default function CAManagement() {
                         <TableCell>
                           <div>
                             <p className="font-medium">{ca.name}</p>
-                            <p className="text-sm text-gray-500">{ca.email}</p>
-                            <p className="text-sm text-gray-500">{ca.mobile}</p>
+                            <p className="text-sm text-muted-foreground">{ca.email}</p>
+                            <p className="text-sm text-muted-foreground">{ca.mobile}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -310,13 +310,13 @@ export default function CAManagement() {
                             <p className="font-mono">{ca.icaiNumber}</p>
                             <Badge variant="outline">{ca.membershipType}</Badge>
                             {ca.firmName && (
-                              <p className="text-sm text-gray-500 mt-1">{ca.firmName}</p>
+                              <p className="text-sm text-muted-foreground mt-1">{ca.firmName}</p>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4 text-gray-400" />
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
                             {ca.city}, {ca.state}
                           </div>
                         </TableCell>
@@ -388,7 +388,7 @@ export default function CAManagement() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search CAs..."
                       className="pl-10 w-[250px]"
@@ -417,7 +417,7 @@ export default function CAManagement() {
                   <RefreshCw className="h-6 w-6 animate-spin" />
                 </div>
               ) : allCAs.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <Users className="h-16 w-16 mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-medium mb-1">No CAs found</h3>
                   <p>Try adjusting your search or filters</p>
@@ -442,7 +442,7 @@ export default function CAManagement() {
                         <TableCell>
                           <div>
                             <p className="font-medium">{ca.name}</p>
-                            <p className="text-sm text-gray-500">{ca.email}</p>
+                            <p className="text-sm text-muted-foreground">{ca.email}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -455,12 +455,12 @@ export default function CAManagement() {
                           {ca.city}, {ca.state}
                         </TableCell>
                         <TableCell>
-                          <Badge className={VERIFICATION_STATUS_COLORS[ca.verificationStatus] || 'bg-gray-100'}>
+                          <Badge className={VERIFICATION_STATUS_COLORS[ca.verificationStatus] || 'bg-muted dark:bg-muted'}>
                             {ca.verificationStatus}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className={AVAILABILITY_COLORS[ca.availability] || 'bg-gray-100'}>
+                          <Badge className={AVAILABILITY_COLORS[ca.availability] || 'bg-muted dark:bg-muted'}>
                             {ca.availability?.replace(/_/g, ' ')}
                           </Badge>
                         </TableCell>
@@ -468,7 +468,7 @@ export default function CAManagement() {
                           <div className="text-sm">
                             <span className="font-medium">{ca.activeCases}</span> active
                             <br />
-                            <span className="text-gray-500">{ca.completedCases} completed</span>
+                            <span className="text-muted-foreground">{ca.completedCases} completed</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -503,7 +503,7 @@ export default function CAManagement() {
                   <RefreshCw className="h-6 w-6 animate-spin" />
                 </div>
               ) : performance.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <TrendingUp className="h-16 w-16 mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-medium mb-1">No performance data</h3>
                   <p>Performance metrics will appear once CAs start working on cases</p>
@@ -528,7 +528,7 @@ export default function CAManagement() {
                           <p className="font-medium">{ca.name}</p>
                         </TableCell>
                         <TableCell>
-                          <Badge className={AVAILABILITY_COLORS[ca.availability] || 'bg-gray-100'}>
+                          <Badge className={AVAILABILITY_COLORS[ca.availability] || 'bg-muted dark:bg-muted'}>
                             {ca.availability?.replace(/_/g, ' ')}
                           </Badge>
                         </TableCell>
@@ -574,9 +574,9 @@ export default function CAManagement() {
           
           {selectedCA && (
             <div className="space-y-4">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-2">
+              <div className="p-4 bg-muted dark:bg-muted dark:bg-muted rounded-lg space-y-2">
                 <p className="font-medium">{selectedCA.name}</p>
-                <p className="text-sm text-gray-500">{selectedCA.email}</p>
+                <p className="text-sm text-muted-foreground">{selectedCA.email}</p>
                 <div className="flex items-center gap-2 text-sm">
                   <Badge variant="outline">{selectedCA.icaiNumber}</Badge>
                   <Badge variant="outline">{selectedCA.membershipType}</Badge>

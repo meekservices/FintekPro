@@ -438,7 +438,7 @@ export default function Contact() {
                 <Button 
                   size="lg" 
                   variant="secondary"
-                  className="bg-white text-finance-blue hover:bg-gray-100"
+                  className="bg-white text-finance-blue hover:bg-muted"
                   data-testid="button-whatsapp-now"
                 >
                   <SiWhatsapp className="h-5 w-5 mr-2" />

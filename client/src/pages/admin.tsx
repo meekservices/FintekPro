@@ -117,7 +117,7 @@ function ApiStatusPanel() {
       case 'error':
         return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400';
       default:
-        return 'bg-gray-50 text-gray-700 dark:bg-gray-950 dark:text-gray-400';
+        return 'bg-muted text-muted-foreground dark:bg-background dark:text-muted-foreground';
     }
   };
 
@@ -134,7 +134,7 @@ function ApiStatusPanel() {
       case 'error':
         return <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400" />;
       default:
-        return <Monitor className="w-4 h-4 text-gray-600 dark:text-gray-400" />;
+        return <Monitor className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />;
     }
   };
 
@@ -149,7 +149,7 @@ function ApiStatusPanel() {
       case 'low':
         return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-900';
       default:
-        return 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-400 dark:border-gray-900';
+        return 'bg-muted text-muted-foreground border-border dark:bg-background dark:text-muted-foreground dark:border-gray-900';
     }
   };
 
@@ -618,7 +618,7 @@ function AIBusinessIntelligenceDashboard() {
   const getTrendIcon = (trend?: 'up' | 'down' | 'stable') => {
     if (trend === 'up') return <TrendingUp className="w-4 h-4 text-green-600" />;
     if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-600" />;
-    return <TrendingUp className="w-4 h-4 text-gray-400" />;
+    return <TrendingUp className="w-4 h-4 text-muted-foreground" />;
   };
 
   return (

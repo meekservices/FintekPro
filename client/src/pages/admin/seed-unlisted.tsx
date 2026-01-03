@@ -192,7 +192,7 @@ const getSourceBadge = (source: string, dataQuality?: number) => {
     },
     probe42: { 
       label: 'Probe42', 
-      color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+      color: 'bg-muted dark:bg-muted text-foreground dark:bg-card dark:text-foreground',
       description: 'Legacy source (deprecated)'
     },
     internal: { 
@@ -727,7 +727,7 @@ export default function SeedUnlistedPage() {
       case 'pre_ipo': return 'bg-blue-600/20 text-blue-400';
       case 'growth': return 'bg-purple-600/20 text-purple-400';
       case 'mature': return 'bg-cyan-600/20 text-cyan-400';
-      default: return 'bg-gray-600/20 text-gray-400';
+      default: return 'bg-gray-600/20 text-muted-foreground';
     }
   };
 
@@ -745,7 +745,7 @@ export default function SeedUnlistedPage() {
       case 'high': return <Badge className="bg-green-600/20 text-green-400">High</Badge>;
       case 'medium': return <Badge className="bg-yellow-600/20 text-yellow-400">Medium</Badge>;
       case 'low': return <Badge className="bg-red-600/20 text-red-400">Low</Badge>;
-      default: return <Badge className="bg-gray-600/20 text-gray-400">N/A</Badge>;
+      default: return <Badge className="bg-gray-600/20 text-muted-foreground">N/A</Badge>;
     }
   };
 
@@ -764,9 +764,9 @@ export default function SeedUnlistedPage() {
     };
 
     return (
-      <div className="p-4 bg-gray-800/50 border-t border-gray-700 space-y-4">
+      <div className="p-4 bg-muted/50 border-t border-border space-y-4">
         <div className="flex items-center justify-between mb-2">
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-muted-foreground">
             Review price sources and set final prices before publishing
           </div>
           <Button
@@ -782,7 +782,7 @@ export default function SeedUnlistedPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* MoneyControl Source */}
-          <Card className="bg-gray-900 border-gray-700">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2 text-orange-400">
                 <ExternalLink className="w-4 h-4" />
@@ -801,7 +801,7 @@ export default function SeedUnlistedPage() {
                     </div>
                   )}
                   {suggestion.moneyControl.matchedName && (
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-muted-foreground">
                       Matched: {suggestion.moneyControl.matchedName}
                     </div>
                   )}
@@ -827,7 +827,7 @@ export default function SeedUnlistedPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-sm text-gray-300">
+                <div className="text-sm text-muted-foreground">
                   <AlertCircle className="w-4 h-4 inline mr-1" />
                   {suggestion.moneyControl.error || 'Not available'}
                 </div>
@@ -835,7 +835,7 @@ export default function SeedUnlistedPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="w-full text-xs text-gray-400 hover:text-white"
+                className="w-full text-xs text-muted-foreground hover:text-white"
                 onClick={() => refreshMoneyControlPrice(company.id)}
                 data-testid={`refresh-mc-${company.id}`}
               >
@@ -846,7 +846,7 @@ export default function SeedUnlistedPage() {
           </Card>
 
           {/* Internal Calculation Source */}
-          <Card className="bg-gray-900 border-gray-700">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2 text-blue-400">
                 <Calculator className="w-4 h-4" />
@@ -859,15 +859,15 @@ export default function SeedUnlistedPage() {
                   <div className="text-2xl font-bold text-white">
                     {formatPrice(suggestion.internalCalculation.suggestedPrice)}
                   </div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-muted-foreground">
                     Range: {formatPrice(suggestion.internalCalculation.minPrice)} - {formatPrice(suggestion.internalCalculation.maxPrice)}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">Confidence:</span>
+                    <span className="text-xs text-muted-foreground">Confidence:</span>
                     {getConfidenceBadge(suggestion.internalCalculation.confidence)}
                   </div>
                   {suggestion.internalCalculation.methodology && (
-                    <div className="text-xs text-gray-300">
+                    <div className="text-xs text-muted-foreground">
                       {suggestion.internalCalculation.methodology}
                     </div>
                   )}
@@ -893,7 +893,7 @@ export default function SeedUnlistedPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-sm text-gray-300">
+                <div className="text-sm text-muted-foreground">
                   <AlertCircle className="w-4 h-4 inline mr-1" />
                   {suggestion.internalCalculation.error || 'Insufficient data'}
                 </div>
@@ -902,7 +902,7 @@ export default function SeedUnlistedPage() {
           </Card>
 
           {/* Marketplace Source */}
-          <Card className="bg-gray-900 border-gray-700">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2 text-purple-400">
                 <Users className="w-4 h-4" />
@@ -914,18 +914,18 @@ export default function SeedUnlistedPage() {
                 <>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <div className="text-gray-400 text-xs">Best Bid</div>
+                      <div className="text-muted-foreground text-xs">Best Bid</div>
                       <div className="font-bold text-green-400">{formatPrice(suggestion.marketplace.bestBid)}</div>
-                      <div className="text-xs text-gray-300">{suggestion.marketplace.bidVolume} shares</div>
+                      <div className="text-xs text-muted-foreground">{suggestion.marketplace.bidVolume} shares</div>
                     </div>
                     <div>
-                      <div className="text-gray-400 text-xs">Best Ask</div>
+                      <div className="text-muted-foreground text-xs">Best Ask</div>
                       <div className="font-bold text-red-400">{formatPrice(suggestion.marketplace.bestAsk)}</div>
-                      <div className="text-xs text-gray-300">{suggestion.marketplace.askVolume} shares</div>
+                      <div className="text-xs text-muted-foreground">{suggestion.marketplace.askVolume} shares</div>
                     </div>
                   </div>
                   {suggestion.marketplace.recentClearingPrice && (
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-muted-foreground">
                       Recent avg: {formatPrice(suggestion.marketplace.recentClearingPrice)} ({suggestion.marketplace.recentDealCount} deals)
                     </div>
                   )}
@@ -955,12 +955,12 @@ export default function SeedUnlistedPage() {
                   </div>
                 </>
               ) : (
-                <div className="text-sm text-gray-300">
+                <div className="text-sm text-muted-foreground">
                   <AlertCircle className="w-4 h-4 inline mr-1" />
                   No marketplace activity
                 </div>
               )}
-              <div className="text-xs text-gray-300">
+              <div className="text-xs text-muted-foreground">
                 {suggestion.marketplace.activeBuyRequests} buy requests, {suggestion.marketplace.activeSellListings} sell listings
               </div>
             </CardContent>
@@ -968,20 +968,20 @@ export default function SeedUnlistedPage() {
         </div>
 
         {/* Recommended Prices & Input */}
-        <div className="flex items-center gap-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
+        <div className="flex items-center gap-4 p-4 bg-card rounded-lg border border-border">
           <div className="flex-1">
-            <div className="text-sm text-gray-400 mb-1">Recommended</div>
+            <div className="text-sm text-muted-foreground mb-1">Recommended</div>
             <div className="flex items-center gap-4">
               <div>
-                <span className="text-xs text-gray-300">Buy:</span>
+                <span className="text-xs text-muted-foreground">Buy:</span>
                 <span className="ml-1 font-bold text-green-400">{formatPrice(suggestion.recommendedBuyPrice)}</span>
               </div>
               <div>
-                <span className="text-xs text-gray-300">Sell:</span>
+                <span className="text-xs text-muted-foreground">Sell:</span>
                 <span className="ml-1 font-bold text-red-400">{formatPrice(suggestion.recommendedSellPrice)}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-300">Confidence:</span>
+                <span className="text-xs text-muted-foreground">Confidence:</span>
                 {getConfidenceBadge(suggestion.priceConfidence)}
               </div>
             </div>
@@ -1005,24 +1005,24 @@ export default function SeedUnlistedPage() {
           <DollarSign className="w-5 h-5 text-emerald-400" />
           <div className="flex-1 grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Buy Price (₹)</label>
+              <label className="text-xs text-muted-foreground block mb-1">Buy Price (₹)</label>
               <Input
                 type="number"
                 value={prices.buyPrice}
                 onChange={(e) => updatePrice(company.id, 'buyPrice', e.target.value)}
                 placeholder="Enter buy price"
-                className="bg-gray-800 border-gray-700"
+                className="bg-muted border-border"
                 data-testid={`input-buy-price-${company.id}`}
               />
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Sell Price (₹)</label>
+              <label className="text-xs text-muted-foreground block mb-1">Sell Price (₹)</label>
               <Input
                 type="number"
                 value={prices.sellPrice}
                 onChange={(e) => updatePrice(company.id, 'sellPrice', e.target.value)}
                 placeholder="Enter sell price"
-                className="bg-gray-800 border-gray-700"
+                className="bg-muted border-border"
                 data-testid={`input-sell-price-${company.id}`}
               />
             </div>
@@ -1046,7 +1046,7 @@ export default function SeedUnlistedPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/admin/store-management">
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid="button-back">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-white" data-testid="button-back">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Store Management
             </Button>
@@ -1056,7 +1056,7 @@ export default function SeedUnlistedPage() {
               <Sprout className="w-6 h-6 text-emerald-400" />
               Seed Unlisted Stocks
             </h1>
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="text-muted-foreground text-sm mt-1">
               Set buy/sell prices and publish unlisted companies to the Store
             </p>
           </div>
@@ -1088,19 +1088,19 @@ export default function SeedUnlistedPage() {
             <Search className="w-5 h-5 text-blue-400" />
             Add New Unlisted Stock
           </CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardDescription className="text-muted-foreground">
             Search across MoneyControl and Probe42 to find companies and publish them to the store
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Search company by name, ISIN, or CIN..."
                 value={unifiedSearchQuery}
                 onChange={(e) => setUnifiedSearchQuery(e.target.value)}
-                className="pl-10 bg-gray-800 border-gray-700 text-white"
+                className="pl-10 bg-muted border-border text-white"
                 data-testid="input-unified-search"
               />
               {isSearching && (
@@ -1109,7 +1109,7 @@ export default function SeedUnlistedPage() {
             </div>
             
             {unifiedSearchData && unifiedSearchData.results.length > 0 && (
-              <div className="text-xs text-gray-400 flex items-center gap-4 flex-wrap">
+              <div className="text-xs text-muted-foreground flex items-center gap-4 flex-wrap">
                 <span>Found {unifiedSearchData.totalResults} results:</span>
                 {unifiedSearchData.sources.mca > 0 && (
                   <Badge variant="outline" className="text-green-400 border-green-400/50">
@@ -1122,7 +1122,7 @@ export default function SeedUnlistedPage() {
                   </Badge>
                 )}
                 {unifiedSearchData.sources.probe42 > 0 && (
-                  <Badge variant="outline" className="text-gray-400 border-gray-400/50">
+                  <Badge variant="outline" className="text-muted-foreground border-gray-400/50">
                     Probe42: {unifiedSearchData.sources.probe42}
                   </Badge>
                 )}
@@ -1139,7 +1139,7 @@ export default function SeedUnlistedPage() {
                       className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                         selectedSearchResult?.id === result.id
                           ? 'bg-blue-900/30 border-blue-500'
-                          : 'bg-gray-800/50 border-gray-700 hover:bg-gray-800'
+                          : 'bg-muted/50 border-border hover:bg-muted'
                       } ${result.isInFintekPro ? 'opacity-60' : ''}`}
                       onClick={() => !result.isInFintekPro && setSelectedSearchResult(result)}
                       data-testid={`search-result-${result.id}`}
@@ -1155,7 +1155,7 @@ export default function SeedUnlistedPage() {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
                             {result.isin && <span>ISIN: {result.isin}</span>}
                             {result.cin && <span>CIN: {result.cin}</span>}
                             {result.sector && <span>Sector: {result.sector}</span>}
@@ -1180,7 +1180,7 @@ export default function SeedUnlistedPage() {
 
             {debouncedUnifiedSearch.length >= 2 && !isSearching && unifiedSearchData?.results.length === 0 && (
               <div className="py-6">
-                <div className="text-center text-gray-400 mb-4">
+                <div className="text-center text-muted-foreground mb-4">
                   <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p>No companies found matching "{debouncedUnifiedSearch}"</p>
                 </div>
@@ -1193,11 +1193,11 @@ export default function SeedUnlistedPage() {
                       <div className={`p-3 rounded-lg border text-left ${
                         unifiedSearchData.sourceStatuses.mca.error 
                           ? 'bg-red-900/20 border-red-500/30' 
-                          : 'bg-gray-800/50 border-gray-700'
+                          : 'bg-muted/50 border-border'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
                           <Badge variant="outline" className="text-green-400 border-green-400/50 text-xs">MCA</Badge>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-muted-foreground">
                             {unifiedSearchData.sourceStatuses.mca.searched 
                               ? `${unifiedSearchData.sourceStatuses.mca.resultCount} results`
                               : 'Not searched'}
@@ -1223,11 +1223,11 @@ export default function SeedUnlistedPage() {
                           ? 'bg-red-900/20 border-red-500/30' 
                           : unifiedSearchData.sourceStatuses.probe42.usedMockData
                             ? 'bg-yellow-900/20 border-yellow-500/30'
-                            : 'bg-gray-800/50 border-gray-700'
+                            : 'bg-muted/50 border-border'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-gray-400 border-gray-400/50 text-xs">Probe42</Badge>
-                          <span className="text-xs text-gray-400">
+                          <Badge variant="outline" className="text-muted-foreground border-gray-400/50 text-xs">Probe42</Badge>
+                          <span className="text-xs text-muted-foreground">
                             {unifiedSearchData.sourceStatuses.probe42.searched 
                               ? `${unifiedSearchData.sourceStatuses.probe42.resultCount} results`
                               : 'Not searched'}
@@ -1261,11 +1261,11 @@ export default function SeedUnlistedPage() {
                       <div className={`p-3 rounded-lg border text-left ${
                         unifiedSearchData.sourceStatuses.moneycontrol.error 
                           ? 'bg-red-900/20 border-red-500/30' 
-                          : 'bg-gray-800/50 border-gray-700'
+                          : 'bg-muted/50 border-border'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
                           <Badge variant="outline" className="text-purple-400 border-purple-400/50 text-xs">MoneyControl</Badge>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-muted-foreground">
                             {unifiedSearchData.sourceStatuses.moneycontrol.searched 
                               ? `${unifiedSearchData.sourceStatuses.moneycontrol.resultCount} results`
                               : 'Not searched'}
@@ -1313,23 +1313,23 @@ export default function SeedUnlistedPage() {
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
-                        <Label className="text-gray-400 text-sm">Company Name *</Label>
+                        <Label className="text-muted-foreground text-sm">Company Name *</Label>
                         <Input
                           value={manualAddData.name}
                           onChange={(e) => setManualAddData(prev => ({ ...prev, name: e.target.value }))}
                           placeholder="Enter company name"
-                          className="mt-1 bg-gray-800 border-gray-600 text-white"
+                          className="mt-1 bg-muted border-border text-white"
                           data-testid="input-manual-company-name"
                         />
                       </div>
                       <div>
-                        <Label className="text-gray-400 text-sm">CIN (21 characters)</Label>
+                        <Label className="text-muted-foreground text-sm">CIN (21 characters)</Label>
                         <Input
                           value={manualAddData.cin}
                           onChange={(e) => setManualAddData(prev => ({ ...prev, cin: e.target.value.toUpperCase() }))}
                           placeholder="e.g., U72900KA2008PLC045316"
                           maxLength={21}
-                          className="mt-1 bg-gray-800 border-gray-600 text-white font-mono"
+                          className="mt-1 bg-muted border-border text-white font-mono"
                           data-testid="input-manual-cin"
                         />
                         {manualAddData.cin && !isValidCINFormat(manualAddData.cin) && manualAddData.cin.length === 21 && (
@@ -1337,11 +1337,11 @@ export default function SeedUnlistedPage() {
                         )}
                       </div>
                       <div>
-                        <Label className="text-gray-400 text-sm">Sector</Label>
+                        <Label className="text-muted-foreground text-sm">Sector</Label>
                         <select
                           value={manualAddData.sector}
                           onChange={(e) => setManualAddData(prev => ({ ...prev, sector: e.target.value }))}
-                          className="mt-1 w-full bg-gray-800 border border-gray-600 text-white rounded-md px-3 py-2"
+                          className="mt-1 w-full bg-muted border border-border text-white rounded-md px-3 py-2"
                           data-testid="select-manual-sector"
                         >
                           <option value="Unknown">Unknown</option>
@@ -1358,23 +1358,23 @@ export default function SeedUnlistedPage() {
                         </select>
                       </div>
                       <div>
-                        <Label className="text-gray-400 text-sm">Industry</Label>
+                        <Label className="text-muted-foreground text-sm">Industry</Label>
                         <Input
                           value={manualAddData.industry}
                           onChange={(e) => setManualAddData(prev => ({ ...prev, industry: e.target.value }))}
                           placeholder="e.g., Software Development"
-                          className="mt-1 bg-gray-800 border-gray-600 text-white"
+                          className="mt-1 bg-muted border-border text-white"
                           data-testid="input-manual-industry"
                         />
                       </div>
                     </div>
                     <div className="mb-4">
-                      <Label className="text-gray-400 text-sm">Description (optional)</Label>
+                      <Label className="text-muted-foreground text-sm">Description (optional)</Label>
                       <Input
                         value={manualAddData.description}
                         onChange={(e) => setManualAddData(prev => ({ ...prev, description: e.target.value }))}
                         placeholder="Brief company description"
-                        className="mt-1 bg-gray-800 border-gray-600 text-white"
+                        className="mt-1 bg-muted border-border text-white"
                         data-testid="input-manual-description"
                       />
                     </div>
@@ -1398,13 +1398,13 @@ export default function SeedUnlistedPage() {
                           setShowManualAdd(false);
                           setManualAddData({ name: '', cin: '', sector: 'Unknown', industry: '', description: '' });
                         }}
-                        className="text-gray-400 border-gray-600"
+                        className="text-muted-foreground border-border"
                         data-testid="button-cancel-manual-add"
                       >
                         Cancel
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-300 mt-3">
+                    <p className="text-xs text-muted-foreground mt-3">
                       After adding, you can enrich data from the preview page and set prices before publishing.
                     </p>
                   </div>
@@ -1421,33 +1421,33 @@ export default function SeedUnlistedPage() {
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
                   <div>
-                    <span className="text-gray-400">Source:</span>
+                    <span className="text-muted-foreground">Source:</span>
                     <span className="ml-2 text-white capitalize">{selectedSearchResult.source}</span>
                   </div>
                   {selectedSearchResult.isin && (
                     <div>
-                      <span className="text-gray-400">ISIN:</span>
+                      <span className="text-muted-foreground">ISIN:</span>
                       <span className="ml-2 text-white">{selectedSearchResult.isin}</span>
                     </div>
                   )}
                   {selectedSearchResult.cin && (
                     <div>
-                      <span className="text-gray-400">CIN:</span>
+                      <span className="text-muted-foreground">CIN:</span>
                       <span className="ml-2 text-white">{selectedSearchResult.cin}</span>
                     </div>
                   )}
                   {selectedSearchResult.currentPrice && (
                     <div>
-                      <span className="text-gray-400">Current Price:</span>
+                      <span className="text-muted-foreground">Current Price:</span>
                       <span className="ml-2 text-white">₹{selectedSearchResult.currentPrice.toLocaleString()}</span>
                     </div>
                   )}
                 </div>
-                <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700 mb-4">
-                  <p className="text-sm text-gray-400">
+                <div className="p-3 bg-muted/50 rounded-lg border border-border mb-4">
+                  <p className="text-sm text-muted-foreground">
                     <span className="text-blue-400 font-medium">Step 1:</span> Add to FintekPro database for internal review
                   </p>
-                  <p className="text-sm text-gray-400 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     <span className="text-emerald-400 font-medium">Step 2:</span> Review price sources below, then publish to store with your set prices
                   </p>
                 </div>
@@ -1471,12 +1471,12 @@ export default function SeedUnlistedPage() {
                       setSelectedSearchResult(null);
                       setPublishPrices({ buyPrice: '', sellPrice: '' });
                     }}
-                    className="text-gray-400 border-gray-600"
+                    className="text-muted-foreground border-border"
                     data-testid="button-cancel-publish"
                   >
                     Cancel
                   </Button>
-                  <span className="text-xs text-gray-300">
+                  <span className="text-xs text-muted-foreground">
                     Company will appear in the list below after adding
                   </span>
                 </div>
@@ -1496,13 +1496,13 @@ export default function SeedUnlistedPage() {
                   <Globe className="w-5 h-5 text-orange-400" />
                   MoneyControl Suggestions
                 </CardTitle>
-                <CardDescription className="text-gray-400">
+                <CardDescription className="text-muted-foreground">
                   Companies found on MoneyControl that are not yet in FintekPro
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 {reconciliationData?.cacheInfo && (
-                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     Last scraped: {format(new Date(reconciliationData.cacheInfo.scrapedAt), 'MMM d, HH:mm')}
                   </div>
@@ -1533,16 +1533,16 @@ export default function SeedUnlistedPage() {
             </div>
             {reconciliationData?.cacheInfo && (
               <div className="flex items-center gap-4 mt-2 text-xs">
-                <span className="text-gray-400">
+                <span className="text-muted-foreground">
                   MoneyControl: <span className="text-orange-400 font-medium">{reconciliationData.cacheInfo.totalMoneyControlCompanies}</span>
                 </span>
-                <span className="text-gray-400">
+                <span className="text-muted-foreground">
                   FintekPro: <span className="text-blue-400 font-medium">{reconciliationData.cacheInfo.totalFintekProCompanies}</span>
                 </span>
-                <span className="text-gray-400">
+                <span className="text-muted-foreground">
                   Already Synced: <span className="text-green-400 font-medium">{reconciliationData.cacheInfo.matchedCount}</span>
                 </span>
-                <span className="text-gray-400">
+                <span className="text-muted-foreground">
                   New to Add: <span className="text-yellow-400 font-medium">{reconciliationData.cacheInfo.unmatchedCount}</span>
                 </span>
               </div>
@@ -1552,10 +1552,10 @@ export default function SeedUnlistedPage() {
             {isLoadingReconciliation ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-orange-400 mr-2" />
-                <span className="text-gray-400">Fetching MoneyControl data...</span>
+                <span className="text-muted-foreground">Fetching MoneyControl data...</span>
               </div>
             ) : !reconciliationData?.suggestions?.length ? (
-              <div className="text-center py-8 text-gray-400">
+              <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-400" />
                 <p>All MoneyControl companies are already synced!</p>
               </div>
@@ -1565,7 +1565,7 @@ export default function SeedUnlistedPage() {
                   {reconciliationData.suggestions.map((suggestion) => (
                     <div 
                       key={suggestion.externalCompany.isin}
-                      className="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-orange-500/30"
+                      className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg border border-border hover:border-orange-500/30"
                     >
                       <Checkbox
                         checked={selectedSuggestions.has(suggestion.externalCompany.isin)}
@@ -1579,13 +1579,13 @@ export default function SeedUnlistedPage() {
                             <Badge variant="outline" className={
                               suggestion.matchConfidence === 'partial' 
                                 ? 'text-yellow-400 border-yellow-500/30' 
-                                : 'text-gray-400 border-gray-600'
+                                : 'text-muted-foreground border-border'
                             }>
                               {suggestion.matchConfidence === 'partial' ? 'Possible duplicate' : 'Low match'}
                             </Badge>
                           )}
                         </div>
-                        <div className="text-sm text-gray-400 mt-1">
+                        <div className="text-sm text-muted-foreground mt-1">
                           ISIN: {suggestion.externalCompany.isin} • 
                           Price: <span className="text-green-400">₹{suggestion.externalCompany.price.toLocaleString('en-IN')}</span>
                           {suggestion.externalCompany.changePercent !== 0 && (
@@ -1626,7 +1626,7 @@ export default function SeedUnlistedPage() {
         </Card>
       )}
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -1634,18 +1634,18 @@ export default function SeedUnlistedPage() {
                 <Building2 className="w-5 h-5 text-blue-400" />
                 Available Companies
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-muted-foreground">
                 Click on a company row to view price suggestions from MoneyControl, Internal Calculation, and Marketplace
               </CardDescription>
             </div>
           </div>
           <div className="relative mt-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               placeholder="Search by company name, CIN, or sector..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-gray-800 border-gray-700 text-white"
+              className="pl-10 bg-muted border-border text-white"
               data-testid="input-search-companies"
             />
           </div>
@@ -1654,10 +1654,10 @@ export default function SeedUnlistedPage() {
           {isLoadingCompanies ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-              <span className="ml-2 text-gray-400">Loading companies...</span>
+              <span className="ml-2 text-muted-foreground">Loading companies...</span>
             </div>
           ) : availableCompanies.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-muted-foreground">
               <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-400" />
               <p className="text-lg font-medium text-white">All companies are already published!</p>
               <p className="text-sm mt-2">No more unlisted companies available to seed</p>
@@ -1669,10 +1669,10 @@ export default function SeedUnlistedPage() {
                   const prices = companyPrices[company.id] || { buyPrice: '', sellPrice: '', expanded: false, loading: false, priceSuggestion: null };
                   
                   return (
-                    <div key={company.id} className="border border-gray-800 rounded-lg overflow-hidden">
+                    <div key={company.id} className="border border-border rounded-lg overflow-hidden">
                       {/* Company Header Row */}
                       <div 
-                        className="flex items-center gap-4 p-4 hover:bg-gray-800/50 cursor-pointer"
+                        className="flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer"
                         onClick={() => toggleExpanded(company.id)}
                         data-testid={`row-company-${company.id}`}
                       >
@@ -1680,9 +1680,9 @@ export default function SeedUnlistedPage() {
                           {prices.loading ? (
                             <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
                           ) : prices.expanded ? (
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
                           ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
                           )}
                         </div>
                         <Checkbox
@@ -1699,17 +1699,17 @@ export default function SeedUnlistedPage() {
                               {getStageLabel(company.listingStage)}
                             </Badge>
                           </div>
-                          <div className="text-sm text-gray-400 mt-1">
+                          <div className="text-sm text-muted-foreground mt-1">
                             {company.cin || 'No CIN'} • {company.sector || 'No sector'}
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
                           {prices.buyPrice && prices.sellPrice && (
                             <div className="text-right">
-                              <div className="text-xs text-gray-400">Prices Set</div>
+                              <div className="text-xs text-muted-foreground">Prices Set</div>
                               <div className="text-sm">
                                 <span className="text-green-400">₹{prices.buyPrice}</span>
-                                <span className="text-gray-400 mx-1">/</span>
+                                <span className="text-muted-foreground mx-1">/</span>
                                 <span className="text-red-400">₹{prices.sellPrice}</span>
                               </div>
                             </div>
@@ -1734,16 +1734,16 @@ export default function SeedUnlistedPage() {
                       {prices.expanded && (
                         <>
                           {prices.loading ? (
-                            <div className="p-8 flex items-center justify-center bg-gray-800/30 border-t border-gray-700">
+                            <div className="p-8 flex items-center justify-center bg-muted/30 border-t border-border">
                               <Loader2 className="w-6 h-6 animate-spin text-blue-400 mr-2" />
-                              <span className="text-gray-400">Loading price suggestions...</span>
+                              <span className="text-muted-foreground">Loading price suggestions...</span>
                             </div>
                           ) : prices.priceSuggestion ? (
                             <PriceSuggestionPanel company={company} prices={prices} />
                           ) : (
-                            <div className="p-8 flex items-center justify-center bg-gray-800/30 border-t border-gray-700">
+                            <div className="p-8 flex items-center justify-center bg-muted/30 border-t border-border">
                               <AlertCircle className="w-6 h-6 text-yellow-400 mr-2" />
-                              <span className="text-gray-400">No price data available</span>
+                              <span className="text-muted-foreground">No price data available</span>
                             </div>
                           )}
                         </>
@@ -1758,13 +1758,13 @@ export default function SeedUnlistedPage() {
       </Card>
 
       {alreadyPublishedCompanies.length > 0 && (
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-400" />
               Already Published ({alreadyPublishedCompanies.length})
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               These companies are already available in the Store
             </CardDescription>
           </CardHeader>
@@ -1772,26 +1772,26 @@ export default function SeedUnlistedPage() {
             <ScrollArea className="h-[200px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-800 hover:bg-transparent">
-                    <TableHead className="text-gray-400">Company Name</TableHead>
-                    <TableHead className="text-gray-400">Sector</TableHead>
-                    <TableHead className="text-gray-400">Stage</TableHead>
-                    <TableHead className="text-right text-gray-400">Status</TableHead>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-muted-foreground">Company Name</TableHead>
+                    <TableHead className="text-muted-foreground">Sector</TableHead>
+                    <TableHead className="text-muted-foreground">Stage</TableHead>
+                    <TableHead className="text-right text-muted-foreground">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {alreadyPublishedCompanies.map((company) => (
                     <TableRow 
                       key={company.id} 
-                      className="border-gray-800 hover:bg-gray-800/50"
+                      className="border-border hover:bg-muted/50"
                     >
-                      <TableCell className="font-medium text-gray-400">
+                      <TableCell className="font-medium text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-gray-400" />
+                          <Building2 className="w-4 h-4 text-muted-foreground" />
                           {company.name}
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-300">
+                      <TableCell className="text-muted-foreground">
                         {company.sector || 'N/A'}
                       </TableCell>
                       <TableCell>

@@ -51,7 +51,7 @@ const bondTypeColors: Record<string, string> = {
   tax_free: "bg-green-100 text-green-800 border-green-300",
   sgb: "bg-yellow-100 text-yellow-800 border-yellow-300",
   sdl: "bg-cyan-100 text-cyan-800 border-cyan-300",
-  t_bill: "bg-gray-100 text-gray-800 border-gray-300",
+  t_bill: "bg-muted dark:bg-muted text-foreground border-border",
   infrastructure: "bg-indigo-100 text-indigo-800 border-indigo-300",
 };
 
@@ -175,7 +175,7 @@ export default function BondCommissionSettings() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bond Commission Settings</h1>
-          <p className="text-gray-500">Configure brokerage and platform fees for each bond type</p>
+          <p className="text-muted-foreground">Configure brokerage and platform fees for each bond type</p>
         </div>
       </div>
 
@@ -207,7 +207,7 @@ export default function BondCommissionSettings() {
             <TableBody>
               {(configs || []).map((config) => {
                 const IconComponent = bondTypeIcons[config.bondType] || IndianRupee;
-                const colorClass = bondTypeColors[config.bondType] || "bg-gray-100 text-gray-800";
+                const colorClass = bondTypeColors[config.bondType] || "bg-muted dark:bg-muted text-foreground";
                 const sampleFees = calculateSampleFees(config);
                 
                 return (
@@ -286,9 +286,9 @@ export default function BondCommissionSettings() {
                                     onChange={(e) => setFormData({ ...formData, brokerageBps: e.target.value })}
                                     data-testid="input-brokerage-bps"
                                   />
-                                  <span className="absolute right-3 top-2 text-sm text-gray-500">bps</span>
+                                  <span className="absolute right-3 top-2 text-sm text-muted-foreground">bps</span>
                                 </div>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-muted-foreground">
                                   = {((parseFloat(formData.brokerageBps || "0")) / 100).toFixed(4)}%
                                 </p>
                               </div>
@@ -397,7 +397,7 @@ export default function BondCommissionSettings() {
                               </div>
                             </div>
 
-                            <Card className="bg-gray-50">
+                            <Card className="bg-muted dark:bg-muted">
                               <CardHeader className="py-3">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                   <Calculator className="h-4 w-4" />
@@ -478,15 +478,15 @@ export default function BondCommissionSettings() {
                   </CardHeader>
                   <CardContent className="py-2 space-y-1 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Brokerage</span>
+                      <span className="text-muted-foreground">Brokerage</span>
                       <span>₹{fees.brokerage}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Platform Fee</span>
+                      <span className="text-muted-foreground">Platform Fee</span>
                       <span>₹{fees.platformFee}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Charges + GST</span>
+                      <span className="text-muted-foreground">Charges + GST</span>
                       <span>₹{(parseFloat(fees.transactionCharge) + parseFloat(fees.gst)).toFixed(2)}</span>
                     </div>
                     <Separator className="my-1" />

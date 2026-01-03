@@ -96,7 +96,7 @@ export default function AgentPerformance() {
     switch (trend) {
       case 'up': return <ArrowUp className="h-4 w-4 text-green-600 dark:text-green-400" />;
       case 'down': return <ArrowDown className="h-4 w-4 text-red-600 dark:text-red-400" />;
-      default: return <Minus className="h-4 w-4 text-gray-600 dark:text-gray-400" />;
+      default: return <Minus className="h-4 w-4 text-muted-foreground dark:text-muted-foreground" />;
     }
   };
 
@@ -218,7 +218,7 @@ export default function AgentPerformance() {
                       {getTrendIcon(metric.trend)}
                       <span className={`text-sm ${
                         metric.trend === 'up' ? 'text-green-600' : 
-                        metric.trend === 'down' ? 'text-red-600' : 'text-gray-600'
+                        metric.trend === 'down' ? 'text-red-600' : 'text-muted-foreground'
                       }`}>
                         {metric.trendValue > 0 ? '+' : ''}{metric.trendValue}%
                       </span>
@@ -262,21 +262,21 @@ export default function AgentPerformance() {
                     className={`flex items-center justify-between p-4 rounded-lg ${
                       entry.isCurrentUser 
                         ? 'bg-blue-50 dark:bg-blue-950 border-2 border-blue-300' 
-                        : 'bg-gray-50 dark:bg-gray-800'
+                        : 'bg-muted dark:bg-muted'
                     }`}
                     data-testid={`leaderboard-entry-${entry.rank}`}
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
                         entry.rank === 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                        entry.rank === 2 ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' :
+                        entry.rank === 2 ? 'bg-muted text-foreground dark:bg-gray-700 dark:text-foreground' :
                         entry.rank === 3 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                        'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground'
                       }`}>
                         {entry.rank <= 3 ? (
                           <Trophy className={`h-5 w-5 ${
                             entry.rank === 1 ? 'text-yellow-600 dark:text-yellow-400' :
-                            entry.rank === 2 ? 'text-gray-500 dark:text-gray-300' :
+                            entry.rank === 2 ? 'text-muted-foreground dark:text-muted-foreground' :
                             'text-orange-600 dark:text-orange-400'
                           }`} />
                         ) : (

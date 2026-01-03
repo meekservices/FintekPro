@@ -124,8 +124,8 @@ function EventCard({ event, compact = false }: { event: BondCalendarEvent; compa
   const config = eventTypeConfig[event.eventType] || { 
     label: event.eventType, 
     icon: Calendar, 
-    color: "text-gray-600", 
-    bgColor: "bg-gray-100" 
+    color: "text-muted-foreground", 
+    bgColor: "bg-muted" 
   };
   const Icon = config.icon;
   const instrConfig = instrumentTypeConfig[event.instrumentType] || { label: event.instrumentType, color: "bg-gray-500" };
@@ -198,7 +198,7 @@ function EventCard({ event, compact = false }: { event: BondCalendarEvent; compa
 }
 
 function EventDetailDialog({ event, children }: { event: BondCalendarEvent; children: React.ReactNode }) {
-  const config = eventTypeConfig[event.eventType] || { label: event.eventType, icon: Calendar, color: "text-gray-600", bgColor: "bg-gray-100" };
+  const config = eventTypeConfig[event.eventType] || { label: event.eventType, icon: Calendar, color: "text-muted-foreground", bgColor: "bg-muted" };
   const Icon = config.icon;
 
   return (
@@ -756,7 +756,7 @@ export function BondCalendarWidget() {
       </CardHeader>
       <CardContent className="space-y-2">
         {events.slice(0, 3).map(event => {
-          const config = eventTypeConfig[event.eventType] || { label: event.eventType, icon: Calendar, color: "text-gray-600", bgColor: "bg-gray-100" };
+          const config = eventTypeConfig[event.eventType] || { label: event.eventType, icon: Calendar, color: "text-muted-foreground", bgColor: "bg-muted" };
           const Icon = config.icon;
           
           return (

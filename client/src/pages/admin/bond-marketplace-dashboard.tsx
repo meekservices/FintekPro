@@ -39,7 +39,7 @@ export default function BondMarketplaceDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Bond Marketplace Dashboard</h1>
-          <p className="text-gray-600 mt-1">Manage bond sell listings, buy requests, and deals</p>
+          <p className="text-muted-foreground mt-1">Manage bond sell listings, buy requests, and deals</p>
         </div>
         <Button 
           variant="outline" 
@@ -62,7 +62,7 @@ export default function BondMarketplaceDashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats?.activeSellListings || 0}</p>
-                <p className="text-sm text-gray-500">Active Sell Listings</p>
+                <p className="text-sm text-muted-foreground">Active Sell Listings</p>
               </div>
             </div>
           </CardContent>
@@ -76,7 +76,7 @@ export default function BondMarketplaceDashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats?.activeBuyRequests || 0}</p>
-                <p className="text-sm text-gray-500">Active Buy Requests</p>
+                <p className="text-sm text-muted-foreground">Active Buy Requests</p>
               </div>
             </div>
           </CardContent>
@@ -90,7 +90,7 @@ export default function BondMarketplaceDashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats?.pendingDeals || 0}</p>
-                <p className="text-sm text-gray-500">Pending Deals</p>
+                <p className="text-sm text-muted-foreground">Pending Deals</p>
               </div>
             </div>
           </CardContent>
@@ -104,7 +104,7 @@ export default function BondMarketplaceDashboard() {
               </div>
               <div>
                 <p className="text-2xl font-bold">₹{parseFloat(stats?.totalVolume || '0').toLocaleString()}</p>
-                <p className="text-sm text-gray-500">Total Volume</p>
+                <p className="text-sm text-muted-foreground">Total Volume</p>
               </div>
             </div>
           </CardContent>
@@ -188,7 +188,7 @@ export default function BondMarketplaceDashboard() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <History className="h-6 w-6 text-gray-600" />
+            <History className="h-6 w-6 text-muted-foreground" />
             <div>
               <CardTitle>Audit Trail</CardTitle>
               <CardDescription>7-year SEBI/RBI compliant audit log retention</CardDescription>

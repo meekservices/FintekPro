@@ -261,7 +261,7 @@ export default function CDSLServices() {
           <Shield className="h-12 w-12 text-finance-red" />
           <h1 className="text-4xl font-bold text-gray-900">CDSL Services</h1>
         </div>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+        <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
           Central Depository Services Limited - Complete depository services including demat accounts, 
           eDIS transactions, margin pledge, and e-voting facilities
         </p>
@@ -280,19 +280,19 @@ export default function CDSLServices() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-finance-red">6.5Cr+</div>
-              <div className="text-sm text-gray-600">Active Accounts</div>
+              <div className="text-sm text-muted-foreground">Active Accounts</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-finance-red">₹75L Cr</div>
-              <div className="text-sm text-gray-600">Assets Under Custody</div>
+              <div className="text-sm text-muted-foreground">Assets Under Custody</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-finance-red">99.9%</div>
-              <div className="text-sm text-gray-600">Uptime</div>
+              <div className="text-sm text-muted-foreground">Uptime</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-finance-red">24x7</div>
-              <div className="text-sm text-gray-600">API Availability</div>
+              <div className="text-sm text-muted-foreground">API Availability</div>
             </div>
           </div>
         </CardContent>
@@ -497,19 +497,19 @@ export default function CDSLServices() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div className="text-center">
                       <div className="text-2xl font-bold">₹{holdingsQuery.data.data.totalMarketValue}</div>
-                      <div className="text-sm text-gray-600">Total Value</div>
+                      <div className="text-sm text-muted-foreground">Total Value</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold">{holdingsQuery.data.data.totalSecurities}</div>
-                      <div className="text-sm text-gray-600">Securities</div>
+                      <div className="text-sm text-muted-foreground">Securities</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold">{holdingsQuery.data.data.dpId}</div>
-                      <div className="text-sm text-gray-600">DP ID</div>
+                      <div className="text-sm text-muted-foreground">DP ID</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold">{holdingsQuery.data.data.boId}</div>
-                      <div className="text-sm text-gray-600">BO ID</div>
+                      <div className="text-sm text-muted-foreground">BO ID</div>
                     </div>
                   </div>
 
@@ -520,28 +520,28 @@ export default function CDSLServices() {
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <h4 className="font-semibold">{holding.securityName}</h4>
-                              <p className="text-sm text-gray-600">ISIN: {holding.isin}</p>
+                              <p className="text-sm text-muted-foreground">ISIN: {holding.isin}</p>
                             </div>
                             <div className="text-right">
                               <div className="text-lg font-bold">₹{holding.marketValue}</div>
-                              <div className="text-sm text-gray-600">{holding.quantity} shares</div>
+                              <div className="text-sm text-muted-foreground">{holding.quantity} shares</div>
                             </div>
                           </div>
                           <div className="grid grid-cols-4 gap-4 mt-3 text-sm">
                             <div>
-                              <div className="text-gray-600">Free</div>
+                              <div className="text-muted-foreground">Free</div>
                               <div className="font-medium">{holding.freeQuantity}</div>
                             </div>
                             <div>
-                              <div className="text-gray-600">Locked</div>
+                              <div className="text-muted-foreground">Locked</div>
                               <div className="font-medium">{holding.lockedQuantity}</div>
                             </div>
                             <div>
-                              <div className="text-gray-600">Pledged</div>
+                              <div className="text-muted-foreground">Pledged</div>
                               <div className="font-medium">{holding.pledgedQuantity}</div>
                             </div>
                             <div>
-                              <div className="text-gray-600">Earmark</div>
+                              <div className="text-muted-foreground">Earmark</div>
                               <div className="font-medium">{holding.earmarkQuantity}</div>
                             </div>
                           </div>
@@ -940,9 +940,9 @@ export default function CDSLServices() {
             </CardHeader>
             <CardContent>
               <div className="text-center py-8">
-                <Vote className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <Vote className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">e-Voting Portal</h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-muted-foreground mb-4">
                   Access the complete e-voting interface to participate in corporate governance
                 </p>
                 <Button 

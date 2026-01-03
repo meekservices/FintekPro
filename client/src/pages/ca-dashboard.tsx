@@ -86,7 +86,7 @@ const AVAILABILITY_OPTIONS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  initiated: 'bg-gray-100 text-gray-700',
+  initiated: 'bg-muted text-muted-foreground',
   documents_pending: 'bg-yellow-100 text-yellow-700',
   documents_received: 'bg-blue-100 text-blue-700',
   under_review: 'bg-indigo-100 text-indigo-700',
@@ -98,7 +98,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  low: 'bg-gray-100 text-gray-700',
+  low: 'bg-muted text-muted-foreground',
   normal: 'bg-blue-100 text-blue-700',
   high: 'bg-orange-100 text-orange-700',
   urgent: 'bg-red-100 text-red-700',
@@ -186,9 +186,9 @@ export default function CADashboard() {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <Shield className="h-16 w-16 text-gray-400" />
-        <h2 className="text-xl font-semibold text-gray-700">Authentication Required</h2>
-        <p className="text-gray-500">Please log in to access your CA Dashboard</p>
+        <Shield className="h-16 w-16 text-muted-foreground" />
+        <h2 className="text-xl font-semibold text-muted-foreground">Authentication Required</h2>
+        <p className="text-muted-foreground">Please log in to access your CA Dashboard</p>
         <Button onClick={() => setLocation('/login')}>Go to Login</Button>
       </div>
     );
@@ -203,8 +203,8 @@ export default function CADashboard() {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="border-b bg-white dark:bg-gray-800">
+    <div className="min-h-screen bg-muted dark:bg-card">
+      <div className="border-b bg-white dark:bg-muted">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -217,7 +217,7 @@ export default function CADashboard() {
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                   {profile?.name || 'CA Dashboard'}
                 </h1>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>{profile?.icaiNumber}</span>
                   <span>•</span>
                   <Badge variant="outline">{profile?.membershipType}</Badge>
@@ -285,7 +285,7 @@ export default function CADashboard() {
                   <div className="text-2xl font-bold">{stats.activeCases}</div>
                   <div className="flex items-center gap-2 mt-2">
                     <Progress value={utilizationRate} className="h-2 flex-1" />
-                    <span className="text-xs text-gray-500">{utilizationRate}% capacity</span>
+                    <span className="text-xs text-muted-foreground">{utilizationRate}% capacity</span>
                   </div>
                 </CardContent>
               </Card>
@@ -341,7 +341,7 @@ export default function CADashboard() {
                 </CardHeader>
                 <CardContent>
                   {cases.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-muted-foreground">
                       <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-50" />
                       <p>No cases assigned yet</p>
                     </div>
@@ -351,7 +351,7 @@ export default function CADashboard() {
                         <div key={caseItem.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div>
                             <p className="font-medium">{caseItem.clientName}</p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <span>{caseItem.caseType}</span>
                               {caseItem.itrFormType && (
                                 <>
@@ -362,7 +362,7 @@ export default function CADashboard() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge className={STATUS_COLORS[caseItem.status] || 'bg-gray-100'}>
+                            <Badge className={STATUS_COLORS[caseItem.status] || 'bg-muted'}>
                               {caseItem.status.replace(/_/g, ' ')}
                             </Badge>
                             <Button variant="ghost" size="sm" data-testid={`button-view-case-${caseItem.id}`}>
@@ -388,7 +388,7 @@ export default function CADashboard() {
                         {spec.replace(/_/g, ' ')}
                       </Badge>
                     )) || (
-                      <p className="text-gray-500">No specializations set</p>
+                      <p className="text-muted-foreground">No specializations set</p>
                     )}
                   </div>
                   
@@ -396,15 +396,15 @@ export default function CADashboard() {
                   
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Location</span>
+                      <span className="text-muted-foreground">Location</span>
                       <span>{profile?.city}, {profile?.state}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Max Cases/Month</span>
+                      <span className="text-muted-foreground">Max Cases/Month</span>
                       <span>{profile?.maxCases || 50}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Verification Status</span>
+                      <span className="text-muted-foreground">Verification Status</span>
                       <Badge variant={profile?.verificationStatus === 'verified' ? 'default' : 'secondary'}>
                         {profile?.verificationStatus || 'pending'}
                       </Badge>
@@ -442,7 +442,7 @@ export default function CADashboard() {
                     <RefreshCw className="h-6 w-6 animate-spin" />
                   </div>
                 ) : cases.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-muted-foreground">
                     <Briefcase className="h-16 w-16 mx-auto mb-4 opacity-50" />
                     <h3 className="text-lg font-medium mb-1">No cases found</h3>
                     <p>Cases will appear here once assigned to you</p>
@@ -466,24 +466,24 @@ export default function CADashboard() {
                           <TableCell>
                             <div>
                               <p className="font-medium">{caseItem.clientName}</p>
-                              <p className="text-sm text-gray-500">{caseItem.clientEmail}</p>
+                              <p className="text-sm text-muted-foreground">{caseItem.clientEmail}</p>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div>
                               <p>{caseItem.caseType}</p>
                               {caseItem.itrFormType && (
-                                <p className="text-sm text-gray-500">{caseItem.itrFormType}</p>
+                                <p className="text-sm text-muted-foreground">{caseItem.itrFormType}</p>
                               )}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[caseItem.status] || 'bg-gray-100'}>
+                            <Badge className={STATUS_COLORS[caseItem.status] || 'bg-muted'}>
                               {caseItem.status.replace(/_/g, ' ')}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={PRIORITY_COLORS[caseItem.priority] || 'bg-gray-100'}>
+                            <Badge className={PRIORITY_COLORS[caseItem.priority] || 'bg-muted'}>
                               {caseItem.priority}
                             </Badge>
                           </TableCell>
@@ -526,19 +526,19 @@ export default function CADashboard() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">This Month</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">This Month</p>
                       <p className="text-2xl font-bold text-green-600">₹{stats.thisMonthEarnings.toLocaleString()}</p>
                     </div>
                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Total Earnings</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Earnings</p>
                       <p className="text-2xl font-bold text-blue-600">₹{stats.totalEarnings.toLocaleString()}</p>
                     </div>
                     <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Pending</p>
                       <p className="text-2xl font-bold text-yellow-600">₹0</p>
                     </div>
                     <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Avg per Case</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Avg per Case</p>
                       <p className="text-2xl font-bold text-purple-600">
                         ₹{stats.completedCases > 0 
                           ? Math.round(stats.totalEarnings / stats.completedCases).toLocaleString()
@@ -548,7 +548,7 @@ export default function CADashboard() {
                     </div>
                   </div>
                   
-                  <div className="text-center py-8 text-gray-500 border rounded-lg">
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
                     <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p>Earnings chart will be displayed here</p>
                   </div>
@@ -561,19 +561,19 @@ export default function CADashboard() {
                   <CardDescription>Your base fees by service type</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
                     <span>ITR-1</span>
                     <span className="font-semibold">₹500</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
                     <span>ITR-2</span>
                     <span className="font-semibold">₹1,500</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
                     <span>ITR-3</span>
                     <span className="font-semibold">₹3,000</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
                     <span>ITR-4</span>
                     <span className="font-semibold">₹2,000</span>
                   </div>
@@ -644,7 +644,7 @@ export default function CADashboard() {
                       </div>
                       <div>
                         <p className="font-medium">Top Rated</p>
-                        <p className="text-xs text-gray-500">5.0 Rating</p>
+                        <p className="text-xs text-muted-foreground">5.0 Rating</p>
                       </div>
                     </div>
                     
@@ -654,7 +654,7 @@ export default function CADashboard() {
                       </div>
                       <div>
                         <p className="font-medium">Verified</p>
-                        <p className="text-xs text-gray-500">ICAI Verified</p>
+                        <p className="text-xs text-muted-foreground">ICAI Verified</p>
                       </div>
                     </div>
                     
@@ -664,7 +664,7 @@ export default function CADashboard() {
                       </div>
                       <div>
                         <p className="font-medium">Goal Setter</p>
-                        <p className="text-xs text-gray-500">{stats.completedCases}+ Cases</p>
+                        <p className="text-xs text-muted-foreground">{stats.completedCases}+ Cases</p>
                       </div>
                     </div>
                     
@@ -674,7 +674,7 @@ export default function CADashboard() {
                       </div>
                       <div>
                         <p className="font-medium">Expert</p>
-                        <p className="text-xs text-gray-500">{profile?.membershipType || 'ACA'}</p>
+                        <p className="text-xs text-muted-foreground">{profile?.membershipType || 'ACA'}</p>
                       </div>
                     </div>
                   </div>

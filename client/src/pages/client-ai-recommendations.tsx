@@ -194,7 +194,7 @@ const RISK_CONFIG = {
 const PRIORITY_CONFIG = {
   high: { label: 'High Priority', color: 'bg-red-100 text-red-700 border-red-200' },
   medium: { label: 'Medium', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  low: { label: 'Low', color: 'bg-gray-100 text-gray-700 border-gray-200' }
+  low: { label: 'Low', color: 'bg-muted text-muted-foreground border-border' }
 };
 
 // Transform AI MF recommendations to display format
@@ -328,11 +328,11 @@ export default function ClientAIRecommendations() {
     if (score >= 90) return 'text-emerald-600';
     if (score >= 75) return 'text-blue-600';
     if (score >= 60) return 'text-amber-600';
-    return 'text-gray-600';
+    return 'text-muted-foreground';
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6" data-testid="client-ai-recommendations-page">
+    <div className="min-h-screen bg-muted p-6" data-testid="client-ai-recommendations-page">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -340,7 +340,7 @@ export default function ClientAIRecommendations() {
               <Brain className="h-7 w-7 text-blue-600" />
               AI Investment Insights
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-muted-foreground mt-1">
               Personalized investment recommendations based on your risk profile and portfolio
             </p>
           </div>
@@ -349,7 +349,7 @@ export default function ClientAIRecommendations() {
               <Sparkles className="h-3 w-3 mr-1" />
               AI-Powered
             </Badge>
-            <Button variant="outline" size="sm" className="border-gray-300" data-testid="button-refresh">
+            <Button variant="outline" size="sm" className="border-border" data-testid="button-refresh">
               <RefreshCw className="h-4 w-4 mr-1" />
               Refresh
             </Button>
@@ -357,56 +357,56 @@ export default function ClientAIRecommendations() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-total-recommendations">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-total-recommendations">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100">
                   <Zap className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Total Recommendations</p>
+                  <p className="text-muted-foreground text-sm">Total Recommendations</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-total-count">{stats.total}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-high-priority">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-high-priority">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-red-100">
                   <Target className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">High Priority</p>
+                  <p className="text-muted-foreground text-sm">High Priority</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-high-priority-count">{stats.highPriority}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-potential-gains">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-potential-gains">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-100">
                   <ArrowUpRight className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Potential Gains</p>
+                  <p className="text-muted-foreground text-sm">Potential Gains</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-gains-count">{stats.potentialGains}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-last-updated">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-last-updated">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gray-100">
-                  <Clock className="h-5 w-5 text-gray-600" />
+                <div className="p-2 rounded-lg bg-muted">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Last Updated</p>
+                  <p className="text-muted-foreground text-sm">Last Updated</p>
                   <p className="text-sm font-medium text-gray-900" data-testid="text-last-updated">{stats.lastUpdated}</p>
                 </div>
               </div>
@@ -416,7 +416,7 @@ export default function ClientAIRecommendations() {
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
-            <TabsList className="bg-white border border-gray-200 shadow-sm">
+            <TabsList className="bg-white border border-border shadow-sm">
               <TabsTrigger value="all" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white" data-testid="tab-all">
                 All
               </TabsTrigger>
@@ -437,7 +437,7 @@ export default function ClientAIRecommendations() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="border-gray-300" data-testid="button-priority-filter">
+              <Button variant="outline" className="border-border" data-testid="button-priority-filter">
                 <Filter className="h-4 w-4 mr-2" />
                 Priority: {priorityFilter === 'all' ? 'All' : priorityFilter.charAt(0).toUpperCase() + priorityFilter.slice(1)}
                 <ChevronDown className="h-4 w-4 ml-2" />
@@ -460,14 +460,14 @@ export default function ClientAIRecommendations() {
           </DropdownMenu>
         </div>
 
-        <Card className="bg-white border-gray-200 shadow-sm">
+        <Card className="bg-white border-border shadow-sm">
           <CardContent className="p-0">
             <ScrollArea className="h-[600px]">
               <div className="divide-y divide-gray-100">
                 {filteredRecommendations.length === 0 ? (
                   <div className="p-8 text-center">
-                    <Brain className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No recommendations found for this filter</p>
+                    <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No recommendations found for this filter</p>
                   </div>
                 ) : (
                   filteredRecommendations.map((rec) => {
@@ -476,7 +476,7 @@ export default function ClientAIRecommendations() {
                     return (
                       <div
                         key={rec.id}
-                        className="p-5 hover:bg-gray-50 transition-colors"
+                        className="p-5 hover:bg-muted transition-colors"
                         data-testid={`recommendation-card-${rec.id}`}
                       >
                         <div className="flex items-start gap-4">
@@ -494,12 +494,12 @@ export default function ClientAIRecommendations() {
                                     {typeConfig.label}
                                   </Badge>
                                   {rec.symbol && (
-                                    <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-200" data-testid={`rec-symbol-${rec.id}`}>
+                                    <Badge variant="outline" className="bg-muted text-muted-foreground border-border" data-testid={`rec-symbol-${rec.id}`}>
                                       {rec.symbol}
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-gray-600 text-sm mb-3" data-testid={`rec-description-${rec.id}`}>
+                                <p className="text-muted-foreground text-sm mb-3" data-testid={`rec-description-${rec.id}`}>
                                   {rec.description}
                                 </p>
                                 
@@ -523,7 +523,7 @@ export default function ClientAIRecommendations() {
                                     {RISK_CONFIG[rec.riskLevel].label}
                                   </Badge>
                                   <div className="flex items-center gap-1">
-                                    <Percent className="h-4 w-4 text-gray-400" />
+                                    <Percent className="h-4 w-4 text-muted-foreground" />
                                     <span className={`text-sm font-medium ${getConfidenceColor(rec.confidenceScore)}`} data-testid={`rec-confidence-${rec.id}`}>
                                       {rec.confidenceScore}% AI Confidence
                                     </span>
@@ -547,7 +547,7 @@ export default function ClientAIRecommendations() {
                                     {PRIORITY_CONFIG[rec.priority].label}
                                   </Badge>
                                   {rec.sector && (
-                                    <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200">
+                                    <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
                                       {rec.sector}
                                     </Badge>
                                   )}
@@ -566,7 +566,7 @@ export default function ClientAIRecommendations() {
                                 <Button 
                                   size="sm" 
                                   variant="outline"
-                                  className="border-gray-300 text-gray-600 hover:bg-gray-100"
+                                  className="border-border text-muted-foreground hover:bg-muted"
                                   onClick={() => handleDismiss(rec.id)}
                                   data-testid={`button-dismiss-${rec.id}`}
                                 >
@@ -595,7 +595,7 @@ export default function ClientAIRecommendations() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">How AI Recommendations Work</h3>
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-muted-foreground text-sm">
                     Our AI analyzes your portfolio, risk profile, market trends, and tax situation to provide personalized suggestions.
                   </p>
                 </div>

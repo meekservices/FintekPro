@@ -120,7 +120,7 @@ export function ReCKYCWorkflow({
 
         <div className="space-y-6">
           {/* Progress Steps */}
-          <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+          <div className="flex items-center justify-between bg-muted dark:bg-muted p-4 rounded-lg">
             {['overview', 'documents', 'verification', 'status'].map((step, index) => (
               <div key={step} className="flex items-center">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
@@ -128,7 +128,7 @@ export function ReCKYCWorkflow({
                     ? 'bg-blue-600 text-white' 
                     : index < ['overview', 'documents', 'verification', 'status'].indexOf(currentStep)
                       ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-600'
+                      : 'bg-muted text-muted-foreground'
                 }`}>
                   {getStepIcon(step)}
                 </div>
@@ -166,7 +166,7 @@ export function ReCKYCWorkflow({
                       <h4 className="font-semibold mb-3">Requested Changes:</h4>
                       <div className="space-y-2">
                         {Object.entries(requestedChanges).map(([field, value]) => (
-                          <div key={field} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div key={field} className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
                             <span className="font-medium capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}</span>
                             <Badge variant="outline">{String(value)}</Badge>
                           </div>
@@ -306,7 +306,7 @@ export function ReCKYCWorkflow({
                       className="min-h-[100px]"
                       data-testid="textarea-re-ckyc-reason"
                     />
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       This information helps our compliance team process your request efficiently
                     </p>
                   </div>
@@ -376,7 +376,7 @@ export function ReCKYCWorkflow({
                       <h4 className="font-semibold mb-3">Pending Requests:</h4>
                       <div className="space-y-2">
                         {reCkycStatus.data.pendingRequests.map((request: any) => (
-                          <div key={request.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div key={request.id} className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
                             <span className="text-sm">Request ID: {request.id}</span>
                             <Badge variant="secondary">
                               <Clock className="h-3 w-3 mr-1" />

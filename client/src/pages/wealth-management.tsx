@@ -117,7 +117,7 @@ export default function PremiumInvestments() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-muted p-6">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="text-center space-y-2">
             <Skeleton className="h-12 w-96 mx-auto" />
@@ -135,7 +135,7 @@ export default function PremiumInvestments() {
   // Error state
   if (error || !financialAnalysis) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-muted p-6">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="text-center space-y-2">
             <h1 className="text-4xl font-bold text-gray-900">FintekPro Premium Investments</h1>
@@ -155,7 +155,7 @@ export default function PremiumInvestments() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -331,7 +331,7 @@ export default function PremiumInvestments() {
                       return (
                         <div 
                           key={holding.id} 
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors"
                           data-testid={`holding-${holding.symbol}`}
                         >
                           <div className="flex items-center gap-3">
@@ -349,7 +349,7 @@ export default function PremiumInvestments() {
                                     ? "bg-blue-100 text-blue-700"
                                     : (holding as any).dataSource === "NSDL" || (holding as any).dataSource === "CDSL"
                                     ? "bg-green-100 text-green-700"
-                                    : "bg-gray-100 text-gray-700"
+                                    : "bg-muted text-muted-foreground"
                                 }`}>
                                   {(holding as any).dataSource || "Manual"}
                                 </Badge>
@@ -373,8 +373,8 @@ export default function PremiumInvestments() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                      <BarChart3 className="w-8 h-8 text-gray-400" />
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                      <BarChart3 className="w-8 h-8 text-muted-foreground" />
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">No Holdings Yet</h3>
                     <p className="text-muted-foreground mb-4">
@@ -522,7 +522,7 @@ export default function PremiumInvestments() {
                   <div className="text-center">
                     <div className="text-4xl font-bold text-blue-600 mb-2">785</div>
                     <Badge variant="default" className="text-sm bg-blue-600">Very Good Credit Score</Badge>
-                    <p className="text-sm text-gray-600 mt-2">Based on latest CIBIL report</p>
+                    <p className="text-sm text-muted-foreground mt-2">Based on latest CIBIL report</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -602,8 +602,8 @@ export default function PremiumInvestments() {
                     </div>
                     <div className="space-y-3">
                       <div className="bg-white p-3 rounded border">
-                        <p className="text-sm text-gray-600">Current Progress: 17%</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                        <p className="text-sm text-muted-foreground">Current Progress: 17%</p>
+                        <div className="w-full bg-muted rounded-full h-2 mt-1">
                           <div className="bg-blue-600 h-2 rounded-full" style={{ width: '17%' }}></div>
                         </div>
                       </div>
@@ -627,8 +627,8 @@ export default function PremiumInvestments() {
                     </div>
                     <div className="space-y-3">
                       <div className="bg-white p-3 rounded border">
-                        <p className="text-sm text-gray-600">Current Progress: 13%</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                        <p className="text-sm text-muted-foreground">Current Progress: 13%</p>
+                        <div className="w-full bg-muted rounded-full h-2 mt-1">
                           <div className="bg-green-600 h-2 rounded-full" style={{ width: '13%' }}></div>
                         </div>
                       </div>
@@ -652,8 +652,8 @@ export default function PremiumInvestments() {
                     </div>
                     <div className="space-y-3">
                       <div className="bg-white p-3 rounded border">
-                        <p className="text-sm text-gray-600">Current Progress: 4%</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                        <p className="text-sm text-muted-foreground">Current Progress: 4%</p>
+                        <div className="w-full bg-muted rounded-full h-2 mt-1">
                           <div className="bg-purple-600 h-2 rounded-full" style={{ width: '4%' }}></div>
                         </div>
                       </div>
@@ -676,7 +676,7 @@ export default function PremiumInvestments() {
                         variant="secondary"
                         onClick={() => setActiveTab("goals")}
                         data-testid="button-set-investment-goals"
-                        className="bg-white text-green-700 hover:bg-gray-100"
+                        className="bg-white text-green-700 hover:bg-muted"
                       >
                         <Target className="w-4 h-4 mr-2" />
                         Set Investment Goals
@@ -686,7 +686,7 @@ export default function PremiumInvestments() {
                         variant="secondary"
                         onClick={() => setActiveTab("recommendations")}
                         data-testid="button-get-recommendations"
-                        className="bg-white text-green-700 hover:bg-gray-100"
+                        className="bg-white text-green-700 hover:bg-muted"
                       >
                         <Lightbulb className="w-4 h-4 mr-2" />
                         Get AI Recommendations
@@ -696,7 +696,7 @@ export default function PremiumInvestments() {
                         variant="secondary"
                         onClick={() => setActiveTab("risk")}
                         data-testid="button-assess-risk-profile"
-                        className="bg-white text-green-700 hover:bg-gray-100"
+                        className="bg-white text-green-700 hover:bg-muted"
                       >
                         <PieChart className="w-4 h-4 mr-2" />
                         Assess Risk Profile
@@ -737,7 +737,7 @@ export default function PremiumInvestments() {
                         <div className="text-sm font-medium text-blue-900">Expected Yield: 7-9%</div>
                         <div className="text-xs text-blue-600">Minimum: ₹10,000-₹25,000</div>
                       </div>
-                      <div className="text-xs text-gray-600 mb-3">
+                      <div className="text-xs text-muted-foreground mb-3">
                         <p>✓ Embassy Office Parks REIT: 7.2%</p>
                         <p>✓ Mindspace Business Parks: 6.8%</p>
                         <p>✓ PowerGrid InvIT: 7.5%</p>
@@ -764,7 +764,7 @@ export default function PremiumInvestments() {
                         <div className="text-sm font-medium text-purple-900">Expected Returns: 12-18%</div>
                         <div className="text-xs text-purple-600">Fee: 2-3% + Performance</div>
                       </div>
-                      <div className="text-xs text-gray-600 mb-3">
+                      <div className="text-xs text-muted-foreground mb-3">
                         <p>✓ ICICI Prudential PMS: 15.2%</p>
                         <p>✓ HDFC Portfolio Management: 14.8%</p>
                         <p>✓ Kotak Mahindra PMS: 16.1%</p>
@@ -794,7 +794,7 @@ export default function PremiumInvestments() {
                         <div className="text-sm font-medium text-indigo-900">Expected Returns: 15-25%</div>
                         <div className="text-xs text-indigo-600">Category I/II/III</div>
                       </div>
-                      <div className="text-xs text-gray-600 mb-3">
+                      <div className="text-xs text-muted-foreground mb-3">
                         <p>✓ PE/VC Funds (Cat I): 18-22%</p>
                         <p>✓ Debt Funds (Cat II): 12-16%</p>
                         <p>✓ Hedge Funds (Cat III): 15-25%</p>
@@ -824,7 +824,7 @@ export default function PremiumInvestments() {
                         <div className="text-sm font-medium text-green-900">Yields: 8-12%</div>
                         <div className="text-xs text-green-600">Minimum: ₹10,000</div>
                       </div>
-                      <div className="text-xs text-gray-600 mb-3">
+                      <div className="text-xs text-muted-foreground mb-3">
                         <p>✓ Corporate Bonds: 9-11%</p>
                         <p>✓ Tax-Free Bonds: 5.5-6.5%</p>
                         <p>✓ NCDs: 8-12%</p>
@@ -854,9 +854,9 @@ export default function PremiumInvestments() {
                           <span className="text-sm">Premium Bonds (25%)</span>
                           <span className="font-medium text-green-600">₹{(financialAnalysis.additionalCapacity * 0.25).toLocaleString('en-IN')}</span>
                         </div>
-                        <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <div className="flex justify-between items-center p-2 bg-muted rounded">
                           <span className="text-sm">Liquid/Emergency (20%)</span>
-                          <span className="font-medium text-gray-600">₹{(financialAnalysis.additionalCapacity * 0.20).toLocaleString('en-IN')}</span>
+                          <span className="font-medium text-muted-foreground">₹{(financialAnalysis.additionalCapacity * 0.20).toLocaleString('en-IN')}</span>
                         </div>
                       </div>
                     </div>
@@ -932,7 +932,7 @@ export default function PremiumInvestments() {
                     <Button 
                       size="lg"
                       variant="secondary"
-                      className="bg-white text-green-700 hover:bg-gray-100 font-bold"
+                      className="bg-white text-green-700 hover:bg-muted font-bold"
                       onClick={() => setActiveTab("recommendations")}
                       data-testid="button-start-investing-now"
                     >

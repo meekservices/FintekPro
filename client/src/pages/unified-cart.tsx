@@ -128,7 +128,7 @@ export default function UnifiedCart() {
             <ShoppingCart className="w-10 h-10 text-primary" />
             Investment Cart
           </h1>
-          <p className="text-gray-600 text-lg">
+          <p className="text-muted-foreground text-lg">
             Review and checkout your approved investment proposals across all product categories.
           </p>
         </div>
@@ -204,13 +204,13 @@ export default function UnifiedCart() {
               {['all', 'aif', 'pms', 'mld', 'mutual_fund'].map(tab => (
                 <TabsContent key={tab} value={tab} className="space-y-4">
                   {getItemsByCategory(tab).length === 0 ? (
-                    <Card className="border-dashed border-2 border-gray-200">
+                    <Card className="border-dashed border-2 border-border">
                       <CardContent className="flex flex-col items-center justify-center py-16">
-                        <ShoppingCart className="w-16 h-16 text-gray-400 mb-4" />
+                        <ShoppingCart className="w-16 h-16 text-muted-foreground mb-4" />
                         <h3 className="text-xl font-semibold text-gray-900 mb-2">
                           {tab === 'all' ? 'Your Cart is Empty' : `No ${tab.toUpperCase()} Items`}
                         </h3>
-                        <p className="text-gray-500 text-center max-w-md mb-4">
+                        <p className="text-muted-foreground text-center max-w-md mb-4">
                           Approve investment proposals to add them to your cart.
                         </p>
                         <Button variant="outline" onClick={() => navigate('/investments')}>
@@ -233,13 +233,13 @@ export default function UnifiedCart() {
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <IconComponent className="w-5 h-5 text-gray-600" />
+                                      <IconComponent className="w-5 h-5 text-muted-foreground" />
                                       <h4 className="font-semibold text-gray-900">
                                         {item.productName || item.schemeName || 'Investment Item'}
                                       </h4>
                                       <Badge className={config.color}>{config.label}</Badge>
                                     </div>
-                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                       {item.fundHouse && <span>{item.fundHouse}</span>}
                                       {item.orderType && <span className="capitalize">{item.orderType}</span>}
                                       {item.proposalId && (
@@ -295,7 +295,7 @@ export default function UnifiedCart() {
                 <div className="space-y-3">
                   {categoryCounts.aif > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 flex items-center gap-2">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <Building2 className="w-4 h-4" />AIF ({categoryCounts.aif})
                       </span>
                       <span className="font-medium">
@@ -305,7 +305,7 @@ export default function UnifiedCart() {
                   )}
                   {categoryCounts.pms > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 flex items-center gap-2">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <Briefcase className="w-4 h-4" />PMS ({categoryCounts.pms})
                       </span>
                       <span className="font-medium">
@@ -315,7 +315,7 @@ export default function UnifiedCart() {
                   )}
                   {categoryCounts.mld > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 flex items-center gap-2">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <BarChart3 className="w-4 h-4" />MLD ({categoryCounts.mld})
                       </span>
                       <span className="font-medium">
@@ -325,7 +325,7 @@ export default function UnifiedCart() {
                   )}
                   {categoryCounts.mutual_fund > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 flex items-center gap-2">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <TrendingUp className="w-4 h-4" />Mutual Funds ({categoryCounts.mutual_fund})
                       </span>
                       <span className="font-medium">
@@ -389,7 +389,7 @@ export default function UnifiedCart() {
                   )}
                 </Button>
 
-                <p className="text-xs text-center text-gray-500">
+                <p className="text-xs text-center text-muted-foreground">
                   Secure payment powered by Cashfree & PhonePe
                 </p>
               </CardContent>

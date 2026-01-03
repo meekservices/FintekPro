@@ -533,7 +533,7 @@ export default function StakeholdersPage() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
           Stakeholder Management
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">
+        <p className="text-muted-foreground dark:text-muted-foreground mt-2">
           Manage clients, partners, agents, and suppliers across your platform
         </p>
       </div>
@@ -542,7 +542,7 @@ export default function StakeholdersPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card data-testid="card-clients-summary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               Total Clients
             </CardTitle>
             <Users className="h-4 w-4 text-blue-600" />
@@ -560,7 +560,7 @@ export default function StakeholdersPage() {
 
         <Card data-testid="card-partners-summary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               Total Partners
             </CardTitle>
             <Building2 className="h-4 w-4 text-purple-600" />
@@ -578,7 +578,7 @@ export default function StakeholdersPage() {
 
         <Card data-testid="card-agents-summary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               Total Agents
             </CardTitle>
             <Headphones className="h-4 w-4 text-orange-600" />
@@ -596,7 +596,7 @@ export default function StakeholdersPage() {
 
         <Card data-testid="card-suppliers-summary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               Total Suppliers
             </CardTitle>
             <Package className="h-4 w-4 text-green-600" />
@@ -617,7 +617,7 @@ export default function StakeholdersPage() {
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-80">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, email, or ID..."
               className="pl-10"
@@ -701,13 +701,13 @@ export default function StakeholdersPage() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No clients found
                       </TableCell>
                     </TableRow>
@@ -718,12 +718,12 @@ export default function StakeholdersPage() {
                         <TableCell className="font-medium">{user.fullName}</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div className="flex items-center text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
                               <Mail className="h-3 w-3 mr-2" />
                               {user.email}
                             </div>
                             {user.mobile && (
-                              <div className="flex items-center text-gray-600 dark:text-gray-400">
+                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
                                 <Phone className="h-3 w-3 mr-2" />
                                 {user.mobile}
                               </div>
@@ -745,7 +745,7 @@ export default function StakeholdersPage() {
                             className={
                               user.kycStatus === "approved" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" :
                               user.kycStatus === "pending" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" :
-                              "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+                              "bg-muted dark:bg-muted text-foreground dark:bg-muted dark:text-gray-100"
                             }
                           >
                             {user.kycStatus || "Not Started"}
@@ -805,13 +805,13 @@ export default function StakeholdersPage() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No partners found
                       </TableCell>
                     </TableRow>
@@ -821,12 +821,12 @@ export default function StakeholdersPage() {
                         <TableCell className="font-medium">{partner.companyName}</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div className="flex items-center text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
                               <Mail className="h-3 w-3 mr-2" />
                               {partner.contactEmail}
                             </div>
                             {partner.contactPhone && (
-                              <div className="flex items-center text-gray-600 dark:text-gray-400">
+                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
                                 <Phone className="h-3 w-3 mr-2" />
                                 {partner.contactPhone}
                               </div>
@@ -902,13 +902,13 @@ export default function StakeholdersPage() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No agents found
                       </TableCell>
                     </TableRow>
@@ -918,12 +918,12 @@ export default function StakeholdersPage() {
                         <TableCell className="font-medium">{agent.fullName}</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div className="flex items-center text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
                               <Mail className="h-3 w-3 mr-2" />
                               {agent.email}
                             </div>
                             {agent.phone && (
-                              <div className="flex items-center text-gray-600 dark:text-gray-400">
+                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
                                 <Phone className="h-3 w-3 mr-2" />
                                 {agent.phone}
                               </div>
@@ -1002,13 +1002,13 @@ export default function StakeholdersPage() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No suppliers found
                       </TableCell>
                     </TableRow>
@@ -1019,13 +1019,13 @@ export default function StakeholdersPage() {
                         <TableCell>
                           <div className="space-y-1 text-sm">
                             {supplier.contactEmail && (
-                              <div className="flex items-center text-gray-600 dark:text-gray-400">
+                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
                                 <Mail className="h-3 w-3 mr-2" />
                                 {supplier.contactEmail}
                               </div>
                             )}
                             {supplier.contactPhone && (
-                              <div className="flex items-center text-gray-600 dark:text-gray-400">
+                              <div className="flex items-center text-muted-foreground dark:text-muted-foreground">
                                 <Phone className="h-3 w-3 mr-2" />
                                 {supplier.contactPhone}
                               </div>
@@ -1041,7 +1041,7 @@ export default function StakeholdersPage() {
                                 </Badge>
                               ))
                             ) : (
-                              <span className="text-gray-400 text-sm">N/A</span>
+                              <span className="text-muted-foreground text-sm">N/A</span>
                             )}
                           </div>
                         </TableCell>
@@ -1097,7 +1097,7 @@ export default function StakeholdersPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground">
             Showing page {currentPage} of {totalPages} ({totalCount} total)
           </p>
           <div className="flex gap-2">

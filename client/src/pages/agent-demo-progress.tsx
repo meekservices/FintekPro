@@ -188,7 +188,7 @@ export default function AgentDemoProgress() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white" data-testid="heading-demo-progress">My Demo Progress</h1>
-          <p className="text-gray-400 mt-1">Track your demo proposals and conversion performance</p>
+          <p className="text-muted-foreground mt-1">Track your demo proposals and conversion performance</p>
         </div>
         <div className="flex gap-2">
           <Link href="/proposal-builder">
@@ -208,33 +208,33 @@ export default function AgentDemoProgress() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">My Demos</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">My Demos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold text-white" data-testid="text-total-demos">{calculatedStats.totalDemos}</div>
               <FileText className="h-8 w-8 text-blue-500" />
             </div>
-            <p className="text-xs text-gray-500 mt-2">Value: {formatCurrency(calculatedStats.totalDemoValue)}</p>
+            <p className="text-xs text-muted-foreground mt-2">Value: {formatCurrency(calculatedStats.totalDemoValue)}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Converted</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Converted</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold text-green-400" data-testid="text-converted">{calculatedStats.converted}</div>
               <CheckCircle2 className="h-8 w-8 text-green-500" />
             </div>
-            <p className="text-xs text-gray-500 mt-2">Value: {formatCurrency(calculatedStats.convertedValue)}</p>
+            <p className="text-xs text-muted-foreground mt-2">Value: {formatCurrency(calculatedStats.convertedValue)}</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Conversion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Conversion Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
@@ -250,14 +250,14 @@ export default function AgentDemoProgress() {
 
         <Card className="bg-slate-900 border-slate-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Pending Actions</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Actions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold text-amber-400" data-testid="text-pending">{calculatedStats.pending}</div>
               <Clock className="h-8 w-8 text-amber-500" />
             </div>
-            <p className="text-xs text-gray-500 mt-2">Follow up to convert</p>
+            <p className="text-xs text-muted-foreground mt-2">Follow up to convert</p>
           </CardContent>
         </Card>
       </div>
@@ -308,7 +308,7 @@ export default function AgentDemoProgress() {
               </div>
               <div className="flex gap-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search..."
                     value={searchTerm}
@@ -335,12 +335,12 @@ export default function AgentDemoProgress() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-700">
-                    <TableHead className="text-gray-300">Client</TableHead>
-                    <TableHead className="text-gray-300">Proposal</TableHead>
-                    <TableHead className="text-gray-300 text-right">Amount</TableHead>
-                    <TableHead className="text-gray-300 text-center">Views</TableHead>
-                    <TableHead className="text-gray-300">Status</TableHead>
-                    <TableHead className="text-gray-300 text-right">Action</TableHead>
+                    <TableHead className="text-muted-foreground">Client</TableHead>
+                    <TableHead className="text-muted-foreground">Proposal</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Amount</TableHead>
+                    <TableHead className="text-muted-foreground text-center">Views</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -352,7 +352,7 @@ export default function AgentDemoProgress() {
                     </TableRow>
                   ) : filteredDemos.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-gray-400">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No demos found
                       </TableCell>
                     </TableRow>
@@ -361,14 +361,14 @@ export default function AgentDemoProgress() {
                       <TableRow key={demo.id} className="border-slate-700 hover:bg-slate-800/50">
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-gray-400" />
+                            <Users className="h-4 w-4 text-muted-foreground" />
                             <span className="text-white">{demo.clientName}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div>
                             <div className="text-white text-sm">{demo.title}</div>
-                            <div className="text-xs text-gray-400">{getTimeAgo(demo.createdAt)}</div>
+                            <div className="text-xs text-muted-foreground">{getTimeAgo(demo.createdAt)}</div>
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-mono text-white">
@@ -376,7 +376,7 @@ export default function AgentDemoProgress() {
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
-                            <Eye className="h-3 w-3 text-gray-400" />
+                            <Eye className="h-3 w-3 text-muted-foreground" />
                             <span className="text-white">{demo.demoViewCount}</span>
                           </div>
                         </TableCell>
@@ -421,11 +421,11 @@ export default function AgentDemoProgress() {
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-400">Client:</span>
+                  <span className="text-muted-foreground">Client:</span>
                   <p className="text-white font-medium">{convertDialog.proposal.clientName}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Amount:</span>
+                  <span className="text-muted-foreground">Amount:</span>
                   <p className="text-white font-medium">{formatCurrency(parseFloat(convertDialog.proposal.totalInvestmentAmount || '0'))}</p>
                 </div>
               </div>

@@ -109,9 +109,9 @@ export default function Support() {
       case "resolved":
         return "bg-green-100 text-green-800";
       case "closed":
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-foreground";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-foreground";
     }
   };
 
@@ -269,7 +269,7 @@ export default function Support() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         {/* Hero Section */}
         <div className="bg-white py-16 border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -307,7 +307,7 @@ export default function Support() {
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900">Need Help?</h3>
-                      <p className="text-gray-600">Create a support request and our team will assist you</p>
+                      <p className="text-muted-foreground">Create a support request and our team will assist you</p>
                     </div>
                   </div>
                   <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -458,15 +458,15 @@ export default function Support() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-mono text-gray-500">{ticket.ticketNumber}</span>
+                            <span className="text-sm font-mono text-muted-foreground">{ticket.ticketNumber}</span>
                             <Badge className={getStatusColor(ticket.status)}>
                               {ticket.status.replace('_', ' ')}
                             </Badge>
                           </div>
                           <h4 className="font-medium text-gray-900">{ticket.subject}</h4>
-                          <p className="text-sm text-gray-600 line-clamp-2 mt-1">{ticket.description}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{ticket.description}</p>
                         </div>
-                        <div className="text-right text-sm text-gray-500">
+                        <div className="text-right text-sm text-muted-foreground">
                           <p>{new Date(ticket.createdAt).toLocaleDateString()}</p>
                           <Badge variant="outline" className="mt-1 capitalize">{ticket.category.replace('_', ' ')}</Badge>
                         </div>

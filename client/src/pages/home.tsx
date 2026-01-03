@@ -367,7 +367,7 @@ export default function Home() {
               <h2 className="text-4xl font-bold text-gray-900 mb-4">
                 Why Choose FintekPro?
               </h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
                 Experience next-generation financial technology with AI-powered insights, 
                 real-time data, and comprehensive investment solutions.
               </p>
@@ -388,7 +388,7 @@ export default function Home() {
                       className={`w-full text-left p-6 rounded-xl border-2 cursor-pointer transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                         activeFeature === index 
                           ? 'border-blue-500 bg-blue-50 shadow-lg' 
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-border hover:border-border'
                       }`}
                       onClick={() => setActiveFeature(index)}
                       onKeyDown={(e) => {
@@ -417,7 +417,7 @@ export default function Home() {
                         </div>
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                          <p className="text-gray-600 mb-3">{feature.description}</p>
+                          <p className="text-muted-foreground mb-3">{feature.description}</p>
                           <Badge variant="secondary" className="text-xs">
                             {feature.stats}
                           </Badge>
@@ -458,11 +458,11 @@ export default function Home() {
         </section>
 
         {/* Investment Products Grid */}
-        <section className="py-20 bg-gray-50" data-testid="investment-products-section">
+        <section className="py-20 bg-muted" data-testid="investment-products-section">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-gray-900 mb-4">Investment Products</h2>
-              <p className="text-xl text-gray-600">Complete suite of investment solutions for wealth creation</p>
+              <p className="text-xl text-muted-foreground">Complete suite of investment solutions for wealth creation</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -476,23 +476,23 @@ export default function Home() {
                           <div className={`p-3 rounded-lg ${colorClasses[product.color as keyof typeof colorClasses]}`}>
                             <ProductIcon className="w-6 h-6" />
                           </div>
-                          <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                          <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                         </div>
                         <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                           {product.name}
                         </CardTitle>
-                        <p className="text-gray-600">{product.description}</p>
+                        <p className="text-muted-foreground">{product.description}</p>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3 mb-4">
                           {product.features.map((feature, fIndex) => (
-                            <div key={fIndex} className="flex items-center text-sm text-gray-600">
+                            <div key={fIndex} className="flex items-center text-sm text-muted-foreground">
                               <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
                               {feature}
                             </div>
                           ))}
                         </div>
-                        <div className="pt-3 border-t border-gray-200">
+                        <div className="pt-3 border-t border-border">
                           <p className="text-sm font-semibold text-gray-900">{product.volume}</p>
                         </div>
                       </CardContent>
@@ -509,7 +509,7 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-gray-900 mb-4">Financial Services</h2>
-              <p className="text-xl text-gray-600">Comprehensive financial services ecosystem</p>
+              <p className="text-xl text-muted-foreground">Comprehensive financial services ecosystem</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -524,17 +524,17 @@ export default function Home() {
                       const ServiceIcon = service.icon;
                       return (
                         <Link key={sIndex} href={service.route}>
-                          <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-300">
+                          <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-border hover:border-blue-300">
                             <CardContent className="p-4">
                               <div className="flex items-center space-x-3">
-                                <ServiceIcon className="w-5 h-5 text-gray-600 group-hover:text-blue-600 transition-colors" />
+                                <ServiceIcon className="w-5 h-5 text-muted-foreground group-hover:text-blue-600 transition-colors" />
                                 <div className="flex-1">
                                   <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                                     {service.name}
                                   </h4>
-                                  <p className="text-sm text-gray-600">{service.desc}</p>
+                                  <p className="text-sm text-muted-foreground">{service.desc}</p>
                                 </div>
-                                <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                               </div>
                             </CardContent>
                           </Card>
@@ -553,7 +553,7 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <h2 className="text-3xl font-bold text-gray-900 mb-3">Fixed Income Market Insights</h2>
-              <p className="text-lg text-gray-600">Track government securities yields and compare historical trends</p>
+              <p className="text-lg text-muted-foreground">Track government securities yields and compare historical trends</p>
             </div>
             <YieldCurveChart />
             <div className="mt-8 text-center">
@@ -598,11 +598,11 @@ export default function Home() {
         </section>
 
         {/* Security & Trust Section */}
-        <section className="py-20 bg-gray-50">
+        <section className="py-20 bg-muted">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-gray-900 mb-4">Security & Trust</h2>
-              <p className="text-xl text-gray-600">Your security is our top priority</p>
+              <p className="text-xl text-muted-foreground">Your security is our top priority</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -633,7 +633,7 @@ export default function Home() {
                     <item.icon className="w-8 h-8 text-blue-600" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{item.title}</h3>
-                  <p className="text-gray-600">{item.description}</p>
+                  <p className="text-muted-foreground">{item.description}</p>
                 </div>
               ))}
             </div>

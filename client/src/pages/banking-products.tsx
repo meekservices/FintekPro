@@ -55,7 +55,7 @@ export default function BankingProducts() {
       <div className="space-y-6">
         <div className="mb-8" data-testid="banking-header">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Banking Products</h1>
-          <p className="text-gray-600 text-lg">
+          <p className="text-muted-foreground text-lg">
             Compare and apply for best banking products from leading banks
           </p>
         </div>
@@ -75,9 +75,9 @@ export default function BankingProducts() {
                     <IconComponent className={`h-6 w-6 text-finance-${category.color}`} />
                   </div>
                   <h3 className="font-bold text-gray-900 mb-2">{category.name}</h3>
-                  <p className="text-gray-600 text-sm mb-3">{category.description}</p>
+                  <p className="text-muted-foreground text-sm mb-3">{category.description}</p>
                   <div className="text-xs">
-                    <span className="text-gray-500">Interest/Rewards: </span>
+                    <span className="text-muted-foreground">Interest/Rewards: </span>
                     <span className="font-semibold text-finance-green">{category.avgRate}</span>
                   </div>
                 </CardContent>
@@ -100,7 +100,7 @@ export default function BankingProducts() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="h-72 bg-gray-200 rounded-lg"></div>
+                    <div className="h-72 bg-muted rounded-lg"></div>
                   </div>
                 ))}
               </div>
@@ -113,7 +113,7 @@ export default function BankingProducts() {
                         <div className="flex justify-between items-start">
                           <div>
                             <CardTitle className="text-lg">{product.name}</CardTitle>
-                            <p className="text-sm text-gray-600 mt-1">{product.issuer || product.provider}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{product.issuer || product.provider}</p>
                           </div>
                           {product.isFeatured && (
                             <Badge className="bg-finance-gold text-white">
@@ -124,30 +124,30 @@ export default function BankingProducts() {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <p className="text-sm text-gray-600">{product.description}</p>
+                        <p className="text-sm text-muted-foreground">{product.description}</p>
                         
                         <div className="space-y-2">
                           {product.interestRate && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Interest Rate:</span>
+                              <span className="text-muted-foreground">Interest Rate:</span>
                               <span className="font-semibold text-finance-green">{product.interestRate}% p.a.</span>
                             </div>
                           )}
                           {product.minDeposit && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Min Deposit:</span>
+                              <span className="text-muted-foreground">Min Deposit:</span>
                               <span className="font-semibold">₹{product.minDeposit.toLocaleString()}</span>
                             </div>
                           )}
                           {product.tenure && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Tenure:</span>
+                              <span className="text-muted-foreground">Tenure:</span>
                               <span className="font-semibold">{product.tenure}</span>
                             </div>
                           )}
                           {product.annualFee !== undefined && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Annual Fee:</span>
+                              <span className="text-muted-foreground">Annual Fee:</span>
                               <span className="font-semibold">
                                 {product.annualFee === 0 ? 'FREE' : `₹${product.annualFee.toLocaleString()}`}
                               </span>
@@ -155,14 +155,14 @@ export default function BankingProducts() {
                           )}
                           {product.rewards && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Rewards:</span>
+                              <span className="text-muted-foreground">Rewards:</span>
                               <Badge variant="outline" className="text-xs">{product.rewards}</Badge>
                             </div>
                           )}
                           {product.features && product.features.length > 0 && (
                             <div className="pt-2">
-                              <p className="text-xs text-gray-500 mb-1">Key Features:</p>
-                              <ul className="text-xs text-gray-600 space-y-1">
+                              <p className="text-xs text-muted-foreground mb-1">Key Features:</p>
+                              <ul className="text-xs text-muted-foreground space-y-1">
                                 {product.features.slice(0, 3).map((feature: string, idx: number) => (
                                   <li key={idx}>• {feature}</li>
                                 ))}
@@ -184,9 +184,9 @@ export default function BankingProducts() {
                   ))
                 ) : (
                   <div className="col-span-full text-center py-12">
-                    <Landmark className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No banking products available in this category.</p>
-                    <p className="text-gray-400 text-sm mt-2">Please check other categories or try again later.</p>
+                    <Landmark className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No banking products available in this category.</p>
+                    <p className="text-muted-foreground text-sm mt-2">Please check other categories or try again later.</p>
                   </div>
                 )}
               </div>
@@ -236,8 +236,8 @@ export default function BankingProducts() {
               <div className="bg-white rounded-lg p-4">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-finance-green">8.5%</p>
-                  <p className="text-xs text-gray-600 mt-1">Best FD Rate Today</p>
-                  <p className="text-xs text-gray-500 mt-1">Senior Citizens: Up to 9.0%</p>
+                  <p className="text-xs text-muted-foreground mt-1">Best FD Rate Today</p>
+                  <p className="text-xs text-muted-foreground mt-1">Senior Citizens: Up to 9.0%</p>
                 </div>
               </div>
               <Button className="w-full" size="sm" data-testid="button-check-rates">

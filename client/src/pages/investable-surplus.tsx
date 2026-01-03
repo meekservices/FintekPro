@@ -75,7 +75,7 @@ const SEGMENT_COLORS = {
   hni: "bg-green-100 text-green-800",
   shni: "bg-purple-100 text-purple-800",
   bhni: "bg-amber-100 text-amber-800",
-  corporate: "bg-gray-100 text-gray-800",
+  corporate: "bg-muted text-foreground",
 };
 
 const SEGMENT_DESCRIPTIONS = {
@@ -318,7 +318,7 @@ export default function InvestableSurplusPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Badge className={SEGMENT_COLORS[segment?.segment as keyof typeof SEGMENT_COLORS] || 'bg-gray-100'}>
+              <Badge className={SEGMENT_COLORS[segment?.segment as keyof typeof SEGMENT_COLORS] || 'bg-muted'}>
                 {(segment?.segment || 'retail').toUpperCase()}
               </Badge>
             </div>

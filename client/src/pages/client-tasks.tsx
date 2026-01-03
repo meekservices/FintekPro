@@ -57,7 +57,7 @@ const PRIORITY_CONFIG = {
 };
 
 const STATUS_CONFIG = {
-  pending: { label: 'Pending', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+  pending: { label: 'Pending', color: 'bg-muted text-muted-foreground border-border' },
   completed: { label: 'Completed', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   overdue: { label: 'Overdue', color: 'bg-red-100 text-red-700 border-red-200' }
 };
@@ -125,11 +125,11 @@ export default function ClientTasks() {
     if (days < 0) return 'text-red-600';
     if (days === 0) return 'text-orange-600';
     if (days <= 3) return 'text-amber-600';
-    return 'text-gray-600';
+    return 'text-muted-foreground';
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6" data-testid="client-tasks-page">
+    <div className="min-h-screen bg-muted p-6" data-testid="client-tasks-page">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -137,61 +137,61 @@ export default function ClientTasks() {
               <ListTodo className="h-7 w-7 text-blue-600" />
               My Tasks
             </h1>
-            <p className="text-gray-600 mt-1">Track your pending actions and deadlines</p>
+            <p className="text-muted-foreground mt-1">Track your pending actions and deadlines</p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-pending-tasks">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-pending-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-100">
                   <Clock className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Pending Tasks</p>
+                  <p className="text-muted-foreground text-sm">Pending Tasks</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-pending-count">{stats.pending}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-completed-tasks">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-completed-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-100">
                   <CheckCircle className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Completed This Month</p>
+                  <p className="text-muted-foreground text-sm">Completed This Month</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-completed-count">{stats.completedThisMonth}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-overdue-tasks">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-overdue-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-red-100">
                   <AlertTriangle className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Overdue</p>
+                  <p className="text-muted-foreground text-sm">Overdue</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-overdue-count">{stats.overdue}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-gray-200 shadow-sm" data-testid="card-due-week-tasks">
+          <Card className="bg-white border-border shadow-sm" data-testid="card-due-week-tasks">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-100">
                   <Calendar className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm">Due This Week</p>
+                  <p className="text-muted-foreground text-sm">Due This Week</p>
                   <p className="text-2xl font-bold text-gray-900" data-testid="text-due-week-count">{stats.dueThisWeek}</p>
                 </div>
               </div>
@@ -200,7 +200,7 @@ export default function ClientTasks() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-white border border-gray-200 shadow-sm">
+          <TabsList className="bg-white border border-border shadow-sm">
             <TabsTrigger value="all" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white" data-testid="tab-all">
               All Tasks
             </TabsTrigger>
@@ -216,14 +216,14 @@ export default function ClientTasks() {
           </TabsList>
         </Tabs>
 
-        <Card className="bg-white border-gray-200 shadow-sm">
+        <Card className="bg-white border-border shadow-sm">
           <CardContent className="p-0">
             <ScrollArea className="h-[500px]">
               <div className="divide-y divide-gray-100">
                 {filteredTasks.length === 0 ? (
                   <div className="p-8 text-center">
-                    <CheckCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No tasks found</p>
+                    <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No tasks found</p>
                   </div>
                 ) : (
                   filteredTasks.map((task) => {
@@ -232,7 +232,7 @@ export default function ClientTasks() {
                     return (
                       <div
                         key={task.id}
-                        className="p-4 hover:bg-gray-50 transition-colors"
+                        className="p-4 hover:bg-muted transition-colors"
                         data-testid={`task-card-${task.id}`}
                       >
                         <div className="flex items-start gap-4">
@@ -243,22 +243,22 @@ export default function ClientTasks() {
                             <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                                  <p className={`font-medium ${task.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-900'}`} data-testid={`task-title-${task.id}`}>
+                                  <p className={`font-medium ${task.status === 'completed' ? 'text-muted-foreground line-through' : 'text-gray-900'}`} data-testid={`task-title-${task.id}`}>
                                     {task.title}
                                   </p>
                                   <Badge variant="outline" className={typeConfig.color} data-testid={`task-type-${task.id}`}>
                                     {typeConfig.label}
                                   </Badge>
                                 </div>
-                                <p className="text-gray-600 text-sm mb-2" data-testid={`task-description-${task.id}`}>
+                                <p className="text-muted-foreground text-sm mb-2" data-testid={`task-description-${task.id}`}>
                                   {task.description}
                                 </p>
                                 <div className="flex items-center gap-3 flex-wrap">
                                   <span className={`text-sm font-medium ${getDueDateColor(task.dueDate, task.status)}`} data-testid={`task-due-${task.id}`}>
                                     {getDueDateLabel(task.dueDate, task.status)}
                                   </span>
-                                  <span className="text-gray-400 text-sm">•</span>
-                                  <span className="text-gray-500 text-sm">{formatDate(task.dueDate)}</span>
+                                  <span className="text-muted-foreground text-sm">•</span>
+                                  <span className="text-muted-foreground text-sm">{formatDate(task.dueDate)}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
@@ -296,7 +296,7 @@ export default function ClientTasks() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">Need Help?</h3>
-                <p className="text-gray-600 text-sm">Contact your advisor for assistance with any pending tasks.</p>
+                <p className="text-muted-foreground text-sm">Contact your advisor for assistance with any pending tasks.</p>
               </div>
               <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" data-testid="button-contact-advisor">
                 Contact Advisor

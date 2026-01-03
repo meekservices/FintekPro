@@ -441,7 +441,7 @@ export default function NRIServices() {
                   className={`p-4 rounded-lg border-2 transition-all duration-200 ${
                     selectedCountry === country.code 
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                      : 'border-gray-200 hover:border-blue-300'
+                      : 'border-border hover:border-blue-300'
                   }`}
                   data-testid={`button-country-${country.code}`}
                 >
@@ -470,7 +470,7 @@ export default function NRIServices() {
               <h4 className="font-semibold mb-2">Popular Services</h4>
               <div className="space-y-1">
                 {selectedCountryData?.popularServices.map(service => (
-                  <div key={service} className="text-sm text-gray-600 flex items-center">
+                  <div key={service} className="text-sm text-muted-foreground flex items-center">
                     <CheckCircle className="h-3 w-3 mr-2 text-green-500" />
                     {service}
                   </div>
@@ -481,7 +481,7 @@ export default function NRIServices() {
               <h4 className="font-semibold mb-2">Key Regulations</h4>
               <div className="space-y-1">
                 {selectedCountryData?.regulations.map(regulation => (
-                  <div key={regulation} className="text-sm text-gray-600 flex items-center">
+                  <div key={regulation} className="text-sm text-muted-foreground flex items-center">
                     <Shield className="h-3 w-3 mr-2 text-blue-500" />
                     {regulation}
                   </div>
@@ -549,10 +549,10 @@ export default function NRIServices() {
                             {[...Array(5)].map((_, i) => (
                               <Star 
                                 key={i} 
-                                className={`h-3 w-3 ${i < Math.floor(service.rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                                className={`h-3 w-3 ${i < Math.floor(service.rating) ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`} 
                               />
                             ))}
-                            <span className="text-sm text-gray-600 ml-1">{service.rating}</span>
+                            <span className="text-sm text-muted-foreground ml-1">{service.rating}</span>
                           </div>
                           <Badge variant="outline" className="text-xs">{service.category}</Badge>
                         </div>
@@ -562,17 +562,17 @@ export default function NRIServices() {
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  <p className="text-gray-600 text-sm leading-relaxed">{service.description}</p>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{service.description}</p>
                   
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm">
-                      <Clock className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-600">Processing: {service.processingTime}</span>
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Processing: {service.processingTime}</span>
                     </div>
                     {service.minimumAmount && (
                       <div className="flex items-center gap-2 text-sm">
-                        <Banknote className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">Min: {service.currency} {service.minimumAmount.toLocaleString()}</span>
+                        <Banknote className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Min: {service.currency} {service.minimumAmount.toLocaleString()}</span>
                       </div>
                     )}
                   </div>
@@ -597,7 +597,7 @@ export default function NRIServices() {
                     <h5 className="font-semibold text-sm">Benefits:</h5>
                     <div className="space-y-1">
                       {service.benefits.slice(0, 2).map(benefit => (
-                        <div key={benefit} className="text-xs text-gray-600 flex items-start">
+                        <div key={benefit} className="text-xs text-muted-foreground flex items-start">
                           <Check className="h-3 w-3 mr-1 text-green-500 mt-0.5 flex-shrink-0" />
                           {benefit}
                         </div>
@@ -637,7 +637,7 @@ export default function NRIServices() {
             <Calculator className="h-5 w-5 text-green-600" />
             Remittance Calculator
           </CardTitle>
-          <p className="text-gray-600">Compare rates and fees for sending money to India</p>
+          <p className="text-muted-foreground">Compare rates and fees for sending money to India</p>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid md:grid-cols-3 gap-4">
@@ -680,19 +680,19 @@ export default function NRIServices() {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h4 className="font-semibold">{option.name}</h4>
-                    <p className="text-sm text-gray-600">{option.provider}</p>
+                    <p className="text-sm text-muted-foreground">{option.provider}</p>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-green-600">
                       ₹{calculateRemittanceCost(option).toLocaleString()}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       Rate: {option.exchangeRate} | Fee: ${option.fee}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">{option.processingTime}</span>
+                  <span className="text-muted-foreground">{option.processingTime}</span>
                   <div className="flex gap-1">
                     {option.features.map(feature => (
                       <Badge key={feature} variant="outline" className="text-xs">
@@ -719,15 +719,15 @@ export default function NRIServices() {
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-gray-400" />
+                <Phone className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">+91-80-4718-1000 (India)</span>
               </div>
               <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-gray-400" />
+                <Mail className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">nri@fintekpro.com</span>
               </div>
               <div className="flex items-center gap-3">
-                <Clock className="h-4 w-4 text-gray-400" />
+                <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">24/7 Support Available</span>
               </div>
             </div>
@@ -746,7 +746,7 @@ export default function NRIServices() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Get personalized service from a dedicated NRI relationship manager for all your financial needs.
             </p>
             <div className="space-y-2">

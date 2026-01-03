@@ -426,7 +426,7 @@ export default function ITRTaxServices() {
                 <FileText className="h-5 w-5 text-green-600" />
                 Choose Your ITR Form
               </CardTitle>
-              <p className="text-gray-600">Select the appropriate ITR form based on your income sources</p>
+              <p className="text-muted-foreground">Select the appropriate ITR form based on your income sources</p>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -442,9 +442,9 @@ export default function ITRTaxServices() {
                           {form.complexity}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-3">{form.description}</p>
+                      <p className="text-sm text-muted-foreground mb-3">{form.description}</p>
                       <div className="text-2xl font-bold text-green-600">₹{form.price.toLocaleString()}</div>
-                      <div className="text-sm text-gray-500">{form.estimatedTime}</div>
+                      <div className="text-sm text-muted-foreground">{form.estimatedTime}</div>
                     </CardHeader>
                     
                     <CardContent className="space-y-4">
@@ -463,7 +463,7 @@ export default function ITRTaxServices() {
                         <h5 className="font-semibold text-sm mb-2">Features:</h5>
                         <div className="space-y-1">
                           {form.features.slice(0, 3).map(feature => (
-                            <div key={feature} className="text-xs text-gray-600 flex items-center">
+                            <div key={feature} className="text-xs text-muted-foreground flex items-center">
                               <CheckCircle className="h-3 w-3 mr-2 text-green-500" />
                               {feature}
                             </div>
@@ -542,10 +542,10 @@ export default function ITRTaxServices() {
                             {[...Array(5)].map((_, i) => (
                               <Star 
                                 key={i} 
-                                className={`h-3 w-3 ${i < Math.floor(service.rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                                className={`h-3 w-3 ${i < Math.floor(service.rating) ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`} 
                               />
                             ))}
-                            <span className="text-sm text-gray-600 ml-1">{service.rating}</span>
+                            <span className="text-sm text-muted-foreground ml-1">{service.rating}</span>
                           </div>
                         </div>
                       </div>
@@ -554,7 +554,7 @@ export default function ITRTaxServices() {
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  <p className="text-gray-600 text-sm">{service.description}</p>
+                  <p className="text-muted-foreground text-sm">{service.description}</p>
                   
                   <div className="flex items-center justify-between">
                     <div>
@@ -562,13 +562,13 @@ export default function ITRTaxServices() {
                         ₹{service.price.toLocaleString()}
                       </div>
                       {service.originalPrice && (
-                        <div className="text-sm text-gray-500 line-through">
+                        <div className="text-sm text-muted-foreground line-through">
                           ₹{service.originalPrice.toLocaleString()}
                         </div>
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
                         {service.processingTime}
                       </div>
@@ -618,7 +618,7 @@ export default function ITRTaxServices() {
                 <Calculator className="h-5 w-5 text-blue-600" />
                 Tax Saving Strategies
               </CardTitle>
-              <p className="text-gray-600">Maximize your tax savings with these proven strategies</p>
+              <p className="text-muted-foreground">Maximize your tax savings with these proven strategies</p>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -632,7 +632,7 @@ export default function ITRTaxServices() {
                         <Badge variant="outline">{strategy.category}</Badge>
                       </div>
                       <CardTitle className="text-lg mb-2">{strategy.title}</CardTitle>
-                      <p className="text-sm text-gray-600 mb-3">{strategy.description}</p>
+                      <p className="text-sm text-muted-foreground mb-3">{strategy.description}</p>
                       <div className="text-xl font-bold text-green-600">
                         Save up to {strategy.potentialSavings}
                       </div>
@@ -643,7 +643,7 @@ export default function ITRTaxServices() {
                         <h5 className="font-semibold text-sm">Details:</h5>
                         <div className="space-y-1">
                           {strategy.details.map((detail, index) => (
-                            <div key={index} className="text-xs text-gray-600 flex items-start">
+                            <div key={index} className="text-xs text-muted-foreground flex items-start">
                               <CheckCircle className="h-3 w-3 mr-2 text-green-500 mt-0.5 flex-shrink-0" />
                               {detail}
                             </div>
@@ -735,21 +735,21 @@ export default function ITRTaxServices() {
                   <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <div>
                       <div className="font-semibold">ITR Filing Deadline</div>
-                      <div className="text-sm text-gray-600">July 31, 2024</div>
+                      <div className="text-sm text-muted-foreground">July 31, 2024</div>
                     </div>
                     <Badge variant="destructive">Urgent</Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                     <div>
                       <div className="font-semibold">Advance Tax Q3</div>
-                      <div className="text-sm text-gray-600">December 15, 2024</div>
+                      <div className="text-sm text-muted-foreground">December 15, 2024</div>
                     </div>
                     <Badge variant="outline">Upcoming</Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <div>
                       <div className="font-semibold">TDS Return Filing</div>
-                      <div className="text-sm text-gray-600">Quarterly</div>
+                      <div className="text-sm text-muted-foreground">Quarterly</div>
                     </div>
                     <Badge variant="secondary">Regular</Badge>
                   </div>
@@ -810,7 +810,7 @@ export default function ITRTaxServices() {
                     <Phone className="h-6 w-6 text-blue-600" />
                   </div>
                   <h4 className="font-semibold mb-1">Phone Support</h4>
-                  <p className="text-sm text-gray-600 mb-3">Direct line to our CA experts</p>
+                  <p className="text-sm text-muted-foreground mb-3">Direct line to our CA experts</p>
                   <Button variant="outline" size="sm" data-testid="button-phone-support">
                     Call Now
                   </Button>
@@ -820,7 +820,7 @@ export default function ITRTaxServices() {
                     <Mail className="h-6 w-6 text-green-600" />
                   </div>
                   <h4 className="font-semibold mb-1">Email Support</h4>
-                  <p className="text-sm text-gray-600 mb-3">24/7 email assistance</p>
+                  <p className="text-sm text-muted-foreground mb-3">24/7 email assistance</p>
                   <Button variant="outline" size="sm" data-testid="button-email-support">
                     Send Email
                   </Button>
@@ -830,7 +830,7 @@ export default function ITRTaxServices() {
                     <Calendar className="h-6 w-6 text-purple-600" />
                   </div>
                   <h4 className="font-semibold mb-1">Schedule Meeting</h4>
-                  <p className="text-sm text-gray-600 mb-3">Book one-on-one consultation</p>
+                  <p className="text-sm text-muted-foreground mb-3">Book one-on-one consultation</p>
                   <Button variant="outline" size="sm" data-testid="button-schedule-meeting">
                     Book Meeting
                   </Button>

@@ -94,7 +94,7 @@ export default function PreIPOPage() {
       case "low": return "text-green-600 bg-green-50";
       case "medium": return "text-yellow-600 bg-yellow-50";
       case "high": return "text-red-600 bg-red-50";
-      default: return "text-gray-600 bg-gray-50";
+      default: return "text-muted-foreground bg-muted";
     }
   };
 
@@ -103,7 +103,7 @@ export default function PreIPOPage() {
       case "confirmed": return "text-green-600 bg-green-50";
       case "pending": return "text-yellow-600 bg-yellow-50";
       case "rejected": return "text-red-600 bg-red-50";
-      default: return "text-gray-600 bg-gray-50";
+      default: return "text-muted-foreground bg-muted";
     }
   };
 
@@ -112,7 +112,7 @@ export default function PreIPOPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading Pre-IPO data...</p>
+          <p className="mt-4 text-muted-foreground">Loading Pre-IPO data...</p>
         </div>
       </div>
     );
@@ -124,7 +124,7 @@ export default function PreIPOPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900" data-testid="page-title">Pre-IPO Investments</h1>
-          <p className="text-gray-600 mt-2">Invest in promising companies before they go public</p>
+          <p className="text-muted-foreground mt-2">Invest in promising companies before they go public</p>
         </div>
         <div className="flex gap-2">
           <Badge variant="outline" className="text-green-600" data-testid="market-status">
@@ -141,49 +141,49 @@ export default function PreIPOPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card data-testid="market-overview-upcoming">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Upcoming IPOs</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming IPOs</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
               {marketStats?.data?.totalUpcomingIPOs || 15}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Companies preparing</p>
+            <p className="text-xs text-muted-foreground mt-1">Companies preparing</p>
           </CardContent>
         </Card>
 
         <Card data-testid="market-overview-current">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Active Applications</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Applications</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
               {marketStats?.data?.totalCurrentIPOs || 2}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Open for subscription</p>
+            <p className="text-xs text-muted-foreground mt-1">Open for subscription</p>
           </CardContent>
         </Card>
 
         <Card data-testid="market-overview-amount">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Raised</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Raised</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
               {marketStats?.data?.totalAmountRaised || "₹45,680 Cr"}
             </div>
-            <p className="text-xs text-gray-500 mt-1">This fiscal year</p>
+            <p className="text-xs text-muted-foreground mt-1">This fiscal year</p>
           </CardContent>
         </Card>
 
         <Card data-testid="market-overview-gains">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Avg Listing Gains</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Listing Gains</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">
               {marketStats?.data?.averageListingGains || "14.8%"}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Historical average</p>
+            <p className="text-xs text-muted-foreground mt-1">Historical average</p>
           </CardContent>
         </Card>
       </div>
@@ -215,13 +215,13 @@ export default function PreIPOPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-600">Total Investment</p>
+                        <p className="text-sm text-muted-foreground">Total Investment</p>
                         <p className="text-xl font-semibold">
                           ₹{myInvestments.summary?.totalInvestment?.toLocaleString() || "0"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Current Value</p>
+                        <p className="text-sm text-muted-foreground">Current Value</p>
                         <p className="text-xl font-semibold text-green-600">
                           ₹{myInvestments.summary?.totalCurrentValue?.toLocaleString() || "0"}
                         </p>
@@ -229,13 +229,13 @@ export default function PreIPOPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-600">Unrealized Gains</p>
+                        <p className="text-sm text-muted-foreground">Unrealized Gains</p>
                         <p className="text-lg font-semibold text-blue-600">
                           ₹{myInvestments.summary?.totalUnrealizedGains?.toLocaleString() || "0"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Average ROI</p>
+                        <p className="text-sm text-muted-foreground">Average ROI</p>
                         <p className="text-lg font-semibold text-purple-600">
                           {myInvestments.summary?.averageROI?.toFixed(1) || "0.0"}%
                         </p>
@@ -244,8 +244,8 @@ export default function PreIPOPage() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">No Pre-IPO investments yet</p>
+                    <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No Pre-IPO investments yet</p>
                     <Button 
                       className="mt-4" 
                       onClick={() => setSelectedTab("companies")}
@@ -272,11 +272,11 @@ export default function PreIPOPage() {
                     <div key={index} className="flex justify-between items-center">
                       <div>
                         <p className="font-medium">{trend.month} 2025</p>
-                        <p className="text-sm text-gray-600">{trend.ipos} IPOs</p>
+                        <p className="text-sm text-muted-foreground">{trend.ipos} IPOs</p>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">{trend.amount}</p>
-                        <p className="text-sm text-gray-600">Amount raised</p>
+                        <p className="text-sm text-muted-foreground">Amount raised</p>
                       </div>
                     </div>
                   ))}
@@ -297,7 +297,7 @@ export default function PreIPOPage() {
                   <div key={listing.id} className="flex justify-between items-center p-3 border rounded-lg">
                     <div>
                       <p className="font-medium">{listing.companyName}</p>
-                      <p className="text-sm text-gray-600">{listing.category} • Listed {listing.listingDate}</p>
+                      <p className="text-sm text-muted-foreground">{listing.category} • Listed {listing.listingDate}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold">₹{listing.currentPrice}</p>
@@ -334,7 +334,7 @@ export default function PreIPOPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-600">Expected Returns</p>
+                      <p className="text-sm text-muted-foreground">Expected Returns</p>
                       <p className="text-2xl font-bold text-green-600">{company.expectedReturns}%</p>
                     </div>
                   </div>
@@ -342,19 +342,19 @@ export default function PreIPOPage() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>
-                      <p className="text-sm text-gray-600">Valuation</p>
+                      <p className="text-sm text-muted-foreground">Valuation</p>
                       <p className="font-semibold">₹{(company.currentValuation / 10000000).toFixed(0)} Cr</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Revenue Growth</p>
+                      <p className="text-sm text-muted-foreground">Revenue Growth</p>
                       <p className="font-semibold text-green-600">{company.revenueGrowthRate}%</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Expected IPO</p>
+                      <p className="text-sm text-muted-foreground">Expected IPO</p>
                       <p className="font-semibold">{company.expectedIpoDate}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Min Investment</p>
+                      <p className="text-sm text-muted-foreground">Min Investment</p>
                       <p className="font-semibold">₹{company.minimumInvestment.toLocaleString()}</p>
                     </div>
                   </div>
@@ -416,7 +416,7 @@ export default function PreIPOPage() {
                         </DialogContent>
                       </Dialog>
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       {company.availableSlots}/{company.totalInvestmentSlots} slots available
                     </div>
                   </div>
@@ -446,27 +446,27 @@ export default function PreIPOPage() {
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                       <div>
-                        <p className="text-sm text-gray-600">Investment</p>
+                        <p className="text-sm text-muted-foreground">Investment</p>
                         <p className="font-semibold">₹{investment.investmentAmount.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Current Value</p>
+                        <p className="text-sm text-muted-foreground">Current Value</p>
                         <p className="font-semibold">₹{investment.currentValuation.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Unrealized Gains</p>
+                        <p className="text-sm text-muted-foreground">Unrealized Gains</p>
                         <p className={`font-semibold ${investment.unrealizedGains >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           ₹{investment.unrealizedGains.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">ROI</p>
+                        <p className="text-sm text-muted-foreground">ROI</p>
                         <p className={`font-semibold ${investment.roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {investment.roi.toFixed(1)}%
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Expected Listing</p>
+                        <p className="text-sm text-muted-foreground">Expected Listing</p>
                         <p className="font-semibold">{investment.expectedListingDate}</p>
                       </div>
                     </div>
@@ -477,9 +477,9 @@ export default function PreIPOPage() {
           ) : (
             <Card>
               <CardContent className="text-center py-12">
-                <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <Building2 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Investments Yet</h3>
-                <p className="text-gray-600 mb-4">Start building your Pre-IPO portfolio</p>
+                <p className="text-muted-foreground mb-4">Start building your Pre-IPO portfolio</p>
                 <Button onClick={() => setSelectedTab("companies")} data-testid="button-start-investing">
                   Start Investing
                 </Button>
@@ -505,19 +505,19 @@ export default function PreIPOPage() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                      <p className="text-sm text-gray-600">Issue Size</p>
+                      <p className="text-sm text-muted-foreground">Issue Size</p>
                       <p className="font-semibold">{ipo.issueSize}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Price Range</p>
+                      <p className="text-sm text-muted-foreground">Price Range</p>
                       <p className="font-semibold">{ipo.priceRange}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">GMP</p>
+                      <p className="text-sm text-muted-foreground">GMP</p>
                       <p className="font-semibold text-green-600">+₹{ipo.gmp} ({ipo.gmpPercentage}%)</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Open Date</p>
+                      <p className="text-sm text-muted-foreground">Open Date</p>
                       <p className="font-semibold">{ipo.openDate}</p>
                     </div>
                   </div>
@@ -547,19 +547,19 @@ export default function PreIPOPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <p className="text-sm text-gray-600">Issue Size</p>
+                        <p className="text-sm text-muted-foreground">Issue Size</p>
                         <p className="font-semibold">{ipo.issueSize}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Price Range</p>
+                        <p className="text-sm text-muted-foreground">Price Range</p>
                         <p className="font-semibold">{ipo.priceRange}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">GMP</p>
+                        <p className="text-sm text-muted-foreground">GMP</p>
                         <p className="font-semibold text-green-600">+₹{ipo.gmp} ({ipo.gmpPercentage}%)</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Subscription</p>
+                        <p className="text-sm text-muted-foreground">Subscription</p>
                         <p className="font-semibold">{ipo.subscriptionStatus}</p>
                       </div>
                     </div>
@@ -603,26 +603,26 @@ export default function PreIPOPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <p className="text-sm text-gray-600">Avg Valuation</p>
+                        <p className="text-sm text-muted-foreground">Avg Valuation</p>
                         <p className="font-semibold">₹{(insight.averageValuation / 10000000).toFixed(0)} Cr</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Success Rate</p>
+                        <p className="text-sm text-muted-foreground">Success Rate</p>
                         <p className="font-semibold text-green-600">{insight.successRate}%</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Avg IPO Gains</p>
+                        <p className="text-sm text-muted-foreground">Avg IPO Gains</p>
                         <p className="font-semibold text-blue-600">{insight.averageIpoGains}%</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Upcoming IPOs</p>
+                        <p className="text-sm text-muted-foreground">Upcoming IPOs</p>
                         <p className="font-semibold">{insight.upcomingIpos}</p>
                       </div>
                     </div>
 
                     <div>
                       <h4 className="font-semibold mb-2">AI Analysis</h4>
-                      <p className="text-gray-700 text-sm">{insight.aiAnalysis}</p>
+                      <p className="text-muted-foreground text-sm">{insight.aiAnalysis}</p>
                     </div>
 
                     <div>

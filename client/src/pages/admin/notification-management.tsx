@@ -98,7 +98,7 @@ export default function NotificationManagement() {
   });
 
   const getChannelStatusColor = (enabled: boolean) => {
-    return enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800';
+    return enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-muted dark:bg-muted text-foreground';
   };
 
   return (
@@ -190,8 +190,8 @@ export default function NotificationManagement() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${channel.enabled ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                            <IconComponent className={`w-5 h-5 ${channel.enabled ? 'text-blue-600' : 'text-gray-400'}`} />
+                          <div className={`p-2 rounded-lg ${channel.enabled ? 'bg-blue-100' : 'bg-muted dark:bg-muted'}`}>
+                            <IconComponent className={`w-5 h-5 ${channel.enabled ? 'text-blue-600' : 'text-muted-foreground'}`} />
                           </div>
                           <div>
                             <p className="font-medium">{channel.name}</p>
@@ -262,7 +262,7 @@ export default function NotificationManagement() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={template.active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100'}>
+                      <Badge className={template.active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted dark:bg-muted'}>
                         {template.active ? 'Active' : 'Inactive'}
                       </Badge>
                       <Button size="sm" variant="ghost">

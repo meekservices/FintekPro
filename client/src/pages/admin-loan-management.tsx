@@ -216,11 +216,11 @@ export default function AdminLoanManagement() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
+      case 'inactive': return 'bg-muted text-foreground';
       case 'on_leave': return 'bg-yellow-100 text-yellow-800';
       case 'resigned': return 'bg-red-100 text-red-800';
       case 'terminated': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -242,7 +242,7 @@ export default function AdminLoanManagement() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Loan Marketplace Management</h1>
-          <p className="text-gray-600">Manage partner lenders, staff, commissions, and revenue</p>
+          <p className="text-muted-foreground">Manage partner lenders, staff, commissions, and revenue</p>
         </div>
         <Button variant="outline" onClick={() => queryClient.invalidateQueries()} data-testid="refresh-btn">
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -258,7 +258,7 @@ export default function AdminLoanManagement() {
             </div>
             <div>
               <p className="text-2xl font-bold">{providers.length}</p>
-              <p className="text-xs text-gray-600">Partner Lenders</p>
+              <p className="text-xs text-muted-foreground">Partner Lenders</p>
             </div>
           </CardContent>
         </Card>
@@ -269,7 +269,7 @@ export default function AdminLoanManagement() {
             </div>
             <div>
               <p className="text-2xl font-bold">{products.length}</p>
-              <p className="text-xs text-gray-600">Loan Products</p>
+              <p className="text-xs text-muted-foreground">Loan Products</p>
             </div>
           </CardContent>
         </Card>
@@ -280,7 +280,7 @@ export default function AdminLoanManagement() {
             </div>
             <div>
               <p className="text-2xl font-bold">{formatCurrency(revenueDashboard?.data?.totalCommissions || 0)}</p>
-              <p className="text-xs text-gray-600">Total Commissions</p>
+              <p className="text-xs text-muted-foreground">Total Commissions</p>
             </div>
           </CardContent>
         </Card>
@@ -291,7 +291,7 @@ export default function AdminLoanManagement() {
             </div>
             <div>
               <p className="text-2xl font-bold">{formatCurrency(revenueDashboard?.data?.netRevenue || 0)}</p>
-              <p className="text-xs text-gray-600">Net Revenue</p>
+              <p className="text-xs text-muted-foreground">Net Revenue</p>
             </div>
           </CardContent>
         </Card>
@@ -327,15 +327,15 @@ export default function AdminLoanManagement() {
                       </Badge>
                     </div>
                     <h3 className="font-bold text-lg mb-2">{provider.name}</h3>
-                    <p className="text-sm text-gray-600 mb-4">{provider.description}</p>
+                    <p className="text-sm text-muted-foreground mb-4">{provider.description}</p>
                     
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Products:</span>
+                        <span className="text-muted-foreground">Products:</span>
                         <span className="font-semibold">{provider.products?.length || 0}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Commission Range:</span>
+                        <span className="text-muted-foreground">Commission Range:</span>
                         <span className="font-semibold text-green-600">
                           {provider.products?.length > 0 
                             ? `${Math.min(...provider.products.map(p => p.commissionRate))}% - ${Math.max(...provider.products.map(p => p.commissionRate))}%`
@@ -388,34 +388,34 @@ export default function AdminLoanManagement() {
                       </Badge>
                     </div>
                     <h3 className="font-bold text-lg mb-2">{product.name}</h3>
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{product.description}</p>
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{product.description}</p>
                     
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Interest Rate:</span>
+                        <span className="text-muted-foreground">Interest Rate:</span>
                         <span className="font-semibold text-green-600">
                           {product.minInterestRate}% - {product.maxInterestRate}%
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Amount Range:</span>
+                        <span className="text-muted-foreground">Amount Range:</span>
                         <span className="font-semibold">
                           {formatCurrency(product.minAmount)} - {formatCurrency(product.maxAmount)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Tenure:</span>
+                        <span className="text-muted-foreground">Tenure:</span>
                         <span className="font-semibold">{product.minTenure} - {product.maxTenure} years</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Processing Fee:</span>
+                        <span className="text-muted-foreground">Processing Fee:</span>
                         <span className="font-semibold">{product.processingFee}%</span>
                       </div>
                     </div>
 
                     {product.eligibility && (
                       <div className="mt-4 pt-4 border-t">
-                        <p className="text-xs text-gray-500 mb-2">Eligibility Requirements</p>
+                        <p className="text-xs text-muted-foreground mb-2">Eligibility Requirements</p>
                         <div className="flex flex-wrap gap-1">
                           <Badge variant="outline" className="text-xs">
                             Min Income: {formatCurrency(product.eligibility.minMonthlyIncome || 0)}
@@ -453,7 +453,7 @@ export default function AdminLoanManagement() {
             
             <div className="flex gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search staff..."
                   value={searchTerm}
@@ -704,9 +704,9 @@ export default function AdminLoanManagement() {
           {!selectedProvider ? (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Users className="h-12 w-12 text-gray-400 mb-4" />
+                <Users className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Select a Lender</h3>
-                <p className="text-gray-500">Choose a partner lender to view and manage their staff</p>
+                <p className="text-muted-foreground">Choose a partner lender to view and manage their staff</p>
               </CardContent>
             </Card>
           ) : staffLoading ? (
@@ -714,9 +714,9 @@ export default function AdminLoanManagement() {
           ) : filteredStaff.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Users className="h-12 w-12 text-gray-400 mb-4" />
+                <Users className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Staff Found</h3>
-                <p className="text-gray-500 mb-4">Add staff members for this lender</p>
+                <p className="text-muted-foreground mb-4">Add staff members for this lender</p>
                 <Button onClick={() => setIsAddStaffOpen(true)} data-testid="add-first-staff-btn">
                   <UserPlus className="h-4 w-4 mr-2" />
                   Add First Staff Member
@@ -726,19 +726,19 @@ export default function AdminLoanManagement() {
           ) : (
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Designation</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Contact</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Branch</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Designation</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Contact</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Branch</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredStaff.map((member) => (
-                    <tr key={member.id} className="border-t hover:bg-gray-50" data-testid={`staff-row-${member.id}`}>
+                    <tr key={member.id} className="border-t hover:bg-muted" data-testid={`staff-row-${member.id}`}>
                       <td className="py-3 px-4">
                         <div className="font-medium">{member.name}</div>
                       </td>
@@ -747,11 +747,11 @@ export default function AdminLoanManagement() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-sm">
-                          <div className="flex items-center gap-1 text-gray-600">
+                          <div className="flex items-center gap-1 text-muted-foreground">
                             <Mail className="h-3 w-3" />
                             {member.email}
                           </div>
-                          <div className="flex items-center gap-1 text-gray-600">
+                          <div className="flex items-center gap-1 text-muted-foreground">
                             <Phone className="h-3 w-3" />
                             {member.phone}
                           </div>
@@ -760,7 +760,7 @@ export default function AdminLoanManagement() {
                       <td className="py-3 px-4">
                         <div className="text-sm">
                           {member.branch && <div>{member.branch}</div>}
-                          {member.region && <div className="text-gray-500">{member.region}</div>}
+                          {member.region && <div className="text-muted-foreground">{member.region}</div>}
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -807,7 +807,7 @@ export default function AdminLoanManagement() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Configure how commission revenue is split between FintekPro, partners, and agents.
                 </p>
                 
@@ -817,7 +817,7 @@ export default function AdminLoanManagement() {
                       <span className="text-sm font-medium">FintekPro Share</span>
                       <span className="text-sm font-bold text-blue-600">{payoutConfig?.data?.fintekProShare || 40}%</span>
                     </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-blue-600 rounded-full" 
                         style={{ width: `${payoutConfig?.data?.fintekProShare || 40}%` }}
@@ -829,7 +829,7 @@ export default function AdminLoanManagement() {
                       <span className="text-sm font-medium">Partner Share</span>
                       <span className="text-sm font-bold text-green-600">{payoutConfig?.data?.partnerShare || 30}%</span>
                     </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-green-600 rounded-full" 
                         style={{ width: `${payoutConfig?.data?.partnerShare || 30}%` }}
@@ -841,7 +841,7 @@ export default function AdminLoanManagement() {
                       <span className="text-sm font-medium">Agent Share</span>
                       <span className="text-sm font-bold text-purple-600">{payoutConfig?.data?.agentShare || 30}%</span>
                     </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-purple-600 rounded-full" 
                         style={{ width: `${payoutConfig?.data?.agentShare || 30}%` }}
@@ -851,7 +851,7 @@ export default function AdminLoanManagement() {
                 </div>
 
                 <div className="pt-4 border-t">
-                  <p className="text-xs text-gray-500 mb-4">
+                  <p className="text-xs text-muted-foreground mb-4">
                     Total must equal 100%. Changes will affect all new commission calculations.
                   </p>
                   <Button variant="outline" className="w-full" data-testid="edit-split-btn">
@@ -877,7 +877,7 @@ export default function AdminLoanManagement() {
                       <div className="space-y-2">
                         {provider.products?.slice(0, 4).map((product) => (
                           <div key={product.productKey} className="flex justify-between text-sm">
-                            <span className="text-gray-600">{product.productName}</span>
+                            <span className="text-muted-foreground">{product.productName}</span>
                             <Badge variant="outline" className="text-green-600">
                               {product.commissionRate}%
                             </Badge>
@@ -902,7 +902,7 @@ export default function AdminLoanManagement() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Total Commissions</p>
+                        <p className="text-sm text-muted-foreground">Total Commissions</p>
                         <p className="text-2xl font-bold text-green-600">
                           {formatCurrency(revenueDashboard?.data?.totalCommissions || 0)}
                         </p>
@@ -915,7 +915,7 @@ export default function AdminLoanManagement() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Partner Payouts</p>
+                        <p className="text-sm text-muted-foreground">Partner Payouts</p>
                         <p className="text-2xl font-bold text-blue-600">
                           {formatCurrency(revenueDashboard?.data?.partnerPayouts || 0)}
                         </p>
@@ -928,7 +928,7 @@ export default function AdminLoanManagement() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Agent Payouts</p>
+                        <p className="text-sm text-muted-foreground">Agent Payouts</p>
                         <p className="text-2xl font-bold text-purple-600">
                           {formatCurrency(revenueDashboard?.data?.agentPayouts || 0)}
                         </p>
@@ -941,7 +941,7 @@ export default function AdminLoanManagement() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Net Revenue</p>
+                        <p className="text-sm text-muted-foreground">Net Revenue</p>
                         <p className="text-2xl font-bold text-orange-600">
                           {formatCurrency(revenueDashboard?.data?.netRevenue || 0)}
                         </p>
@@ -962,7 +962,7 @@ export default function AdminLoanManagement() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
                             <Clock className="h-4 w-4 text-blue-600" />
@@ -971,7 +971,7 @@ export default function AdminLoanManagement() {
                         </div>
                         <span className="font-bold">{revenueDashboard?.data?.leadAnalytics?.totalLeads || 0}</span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-yellow-100 rounded flex items-center justify-center">
                             <AlertTriangle className="h-4 w-4 text-yellow-600" />
@@ -980,7 +980,7 @@ export default function AdminLoanManagement() {
                         </div>
                         <span className="font-bold">{revenueDashboard?.data?.leadAnalytics?.processing || 0}</span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-green-100 rounded flex items-center justify-center">
                             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -989,7 +989,7 @@ export default function AdminLoanManagement() {
                         </div>
                         <span className="font-bold">{revenueDashboard?.data?.leadAnalytics?.sanctioned || 0}</span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center">
                             <IndianRupee className="h-4 w-4 text-purple-600" />
@@ -998,7 +998,7 @@ export default function AdminLoanManagement() {
                         </div>
                         <span className="font-bold">{revenueDashboard?.data?.leadAnalytics?.disbursed || 0}</span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
                             <XCircle className="h-4 w-4 text-red-600" />
@@ -1029,11 +1029,11 @@ export default function AdminLoanManagement() {
                         <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                           <div>
                             <p className="font-medium">{product.name}</p>
-                            <p className="text-sm text-gray-500">{product.leads} leads</p>
+                            <p className="text-sm text-muted-foreground">{product.leads} leads</p>
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-green-600">{product.conversion}%</p>
-                            <p className="text-xs text-gray-500">conversion</p>
+                            <p className="text-xs text-muted-foreground">conversion</p>
                           </div>
                         </div>
                       ))}

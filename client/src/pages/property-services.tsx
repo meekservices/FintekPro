@@ -194,7 +194,7 @@ export default function PropertyServices() {
         {service.features && (
           <div className="space-y-2 mb-4">
             {service.features.slice(0, 3).map((feature, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+              <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
                 <CheckCircle className="h-3 w-3 text-green-500" />
                 {feature}
               </div>
@@ -204,7 +204,7 @@ export default function PropertyServices() {
         
         {service.providers && (
           <div className="mb-4">
-            <p className="text-xs text-gray-500 mb-2">Available from:</p>
+            <p className="text-xs text-muted-foreground mb-2">Available from:</p>
             <div className="flex flex-wrap gap-1">
               {service.providers.slice(0, 3).map((provider, index) => (
                 <Badge key={index} variant="outline" className="text-xs">
@@ -253,13 +253,13 @@ export default function PropertyServices() {
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-muted rounded w-3/4"></div>
+                <div className="h-3 bg-muted rounded w-1/2"></div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <div className="h-3 bg-gray-200 rounded"></div>
-                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                  <div className="h-3 bg-muted rounded"></div>
+                  <div className="h-3 bg-muted rounded w-2/3"></div>
                 </div>
               </CardContent>
             </Card>
@@ -281,7 +281,7 @@ export default function PropertyServices() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="heading-property-services">
               Property Services Hub
             </h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-1">
+            <p className="text-muted-foreground dark:text-muted-foreground mt-1">
               Complete real estate solutions from financing to investment
             </p>
           </div>
@@ -319,7 +319,7 @@ export default function PropertyServices() {
                   <CardContent className="pt-6">
                     <div className="text-2xl mb-2">{category.name.split(' ')[0]}</div>
                     <h3 className="font-semibold text-sm mb-1">{category.name.split(' ').slice(1).join(' ')}</h3>
-                    <p className="text-xs text-gray-500 mb-3">{category.description}</p>
+                    <p className="text-xs text-muted-foreground mb-3">{category.description}</p>
                     <div className="flex justify-center items-center gap-2">
                       <Badge variant="outline" className="text-xs">
                         {availableCount}/{categoryServices.length} ready
@@ -395,7 +395,7 @@ export default function PropertyServices() {
           <TabsContent key={category.id} value={category.id} className="space-y-6" data-testid={`tab-${category.id}`}>
             <div className="mb-6">
               <h2 className="text-2xl font-bold mb-2">{category.name}</h2>
-              <p className="text-gray-600 dark:text-gray-300">{category.description}</p>
+              <p className="text-muted-foreground dark:text-muted-foreground">{category.description}</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -137,7 +137,7 @@ export function KYCTierBadge({ tier }: { tier: string }) {
       case 'basic':
       case 'tier_1':
       default:
-        return { label: 'Basic KYC', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: CheckCircle2 };
+        return { label: 'Basic KYC', color: 'bg-muted text-muted-foreground border-border', icon: CheckCircle2 };
     }
   };
 
@@ -251,7 +251,7 @@ export function NetYieldDisplay({
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-700">
       <div className="flex justify-between items-center mb-2">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Net Yield</span>
+        <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Net Yield</span>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -271,15 +271,15 @@ export function NetYieldDisplay({
                   <span>Gross Yield:</span>
                   <span className="font-medium">{grossYield.toFixed(2)}%</span>
                 </div>
-                <div className="flex justify-between text-gray-500">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Brokerage:</span>
                   <span>-₹{feeBreakdown.brokerage.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-gray-500">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Platform Fee:</span>
                   <span>-₹{feeBreakdown.platformFee.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-gray-500">
+                <div className="flex justify-between text-muted-foreground">
                   <span>GST:</span>
                   <span>-₹{feeBreakdown.gst.toFixed(2)}</span>
                 </div>
@@ -297,7 +297,7 @@ export function NetYieldDisplay({
         <span className="text-2xl font-bold text-green-600 dark:text-green-400">
           {netYield.toFixed(2)}%
         </span>
-        <span className="text-sm text-gray-500 line-through">
+        <span className="text-sm text-muted-foreground line-through">
           {grossYield.toFixed(2)}%
         </span>
         <Badge variant="outline" className="text-xs bg-red-50 text-red-600 border-red-200">
@@ -327,7 +327,7 @@ export function SuitabilityScore({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
+    <div className="bg-white dark:bg-muted p-4 rounded-lg border border-border dark:border-border space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="h-5 w-5 text-blue-500" />
@@ -461,7 +461,7 @@ export function RiskDisclosureModal({
           disabled
           data-testid="final-acknowledgment"
         />
-        <Label htmlFor="final-acknowledgment" className="text-sm text-gray-600">
+        <Label htmlFor="final-acknowledgment" className="text-sm text-muted-foreground">
           I have read and understood all risk disclosures above
         </Label>
       </div>
@@ -501,7 +501,7 @@ export function WatchlistButton({
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`p-2 ${isWatched ? 'text-amber-500' : 'text-gray-400'}`}
+            className={`p-2 ${isWatched ? 'text-amber-500' : 'text-muted-foreground'}`}
             onClick={onToggle}
             data-testid={`watchlist-button-${bondId}`}
           >
@@ -532,7 +532,7 @@ export function AlertButton({
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`p-2 ${hasAlert ? 'text-blue-500' : 'text-gray-400'}`}
+            className={`p-2 ${hasAlert ? 'text-blue-500' : 'text-muted-foreground'}`}
             onClick={onManageAlert}
             data-testid={`alert-button-${bondId}`}
           >
@@ -566,14 +566,14 @@ const getFilterCreditRatingColors = (rating: string, isSelected: boolean): strin
     if (r.startsWith('AA')) return 'bg-green-600 text-white border-green-700 hover:bg-green-700';
     if (r.startsWith('A')) return 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700';
     if (r.startsWith('BBB')) return 'bg-yellow-500 text-white border-yellow-600 hover:bg-yellow-600';
-    return 'bg-gray-600 text-white border-gray-700 hover:bg-gray-700';
+    return 'bg-gray-600 text-white border-border hover:bg-gray-700';
   } else {
     // Unselected state - lighter background with colored text/border
     if (r === 'SOV' || r === 'AAA') return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
     if (r.startsWith('AA')) return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100';
     if (r.startsWith('A')) return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
     if (r.startsWith('BBB')) return 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100';
-    return 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100';
+    return 'bg-muted text-muted-foreground border-border hover:bg-muted';
   }
 };
 
@@ -617,7 +617,7 @@ const getFilterInstrumentTypeColors = (type: string, isSelected: boolean): strin
     if (t === 'ncd') return 'bg-orange-600 text-white border-orange-700 hover:bg-orange-700';
     if (t === 'infrastructure') return 'bg-teal-600 text-white border-teal-700 hover:bg-teal-700';
     if (t === 'tax_free') return 'bg-green-600 text-white border-green-700 hover:bg-green-700';
-    return 'bg-gray-600 text-white border-gray-700 hover:bg-gray-700';
+    return 'bg-gray-600 text-white border-border hover:bg-gray-700';
   } else {
     // Unselected state - lighter background with colored text/border
     if (t === 'gsec' || t === 'government') return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
@@ -628,7 +628,7 @@ const getFilterInstrumentTypeColors = (type: string, isSelected: boolean): strin
     if (t === 'ncd') return 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100';
     if (t === 'infrastructure') return 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100';
     if (t === 'tax_free') return 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100';
-    return 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100';
+    return 'bg-muted text-muted-foreground border-border hover:bg-muted';
   }
 };
 
@@ -659,7 +659,7 @@ export function EnhancedBondFilters({
   };
 
   return (
-    <div className="space-y-6 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+    <div className="space-y-6 p-4 bg-white dark:bg-muted rounded-xl border border-border dark:border-border">
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">Advanced Filters</h3>
         <Button 
@@ -715,7 +715,7 @@ export function EnhancedBondFilters({
               min={0}
               max={30}
               step={1}
-              className="[&_[data-radix-slider-track]]:bg-gray-200 [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-400 [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
+              className="[&_[data-radix-slider-track]]:bg-muted [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-400 [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
               data-testid="filter-maturity-slider"
             />
           </div>
@@ -743,7 +743,7 @@ export function EnhancedBondFilters({
               min={0}
               max={15}
               step={0.25}
-              className="[&_[data-radix-slider-track]]:bg-gray-200 [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-400 [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
+              className="[&_[data-radix-slider-track]]:bg-muted [&_[data-radix-slider-track]]:h-3 [&_[data-radix-slider-track]]:border [&_[data-radix-slider-track]]:border-gray-400 [&_[data-radix-slider-track]]:shadow-sm [&_[data-radix-slider-range]]:bg-[var(--slider-range-bg)] [&_[data-radix-slider-range]]:h-3 [&_[data-radix-slider-thumb]]:border-[var(--slider-thumb-border)] [&_[data-radix-slider-thumb]]:border-3 [&_[data-radix-slider-thumb]]:bg-white [&_[data-radix-slider-thumb]]:shadow-lg [&_[data-radix-slider-thumb]]:h-6 [&_[data-radix-slider-thumb]]:w-6"
               data-testid="filter-yield-slider"
             />
           </div>
@@ -871,12 +871,12 @@ export function MaturityLadderView({ bonds }: { bonds: UnifiedBond[] }) {
                   {bucket.bonds.length}
                 </span>
               </div>
-              <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-b-lg">
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              <div className="bg-muted dark:bg-gray-700 p-2 rounded-b-lg">
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                   {bucket.label}
                 </p>
                 {bucket.bonds.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Avg: {(bucket.bonds.reduce((sum, b) => 
                       sum + (parseFloat(b.yieldToMaturity || '0') || 0), 0
                     ) / bucket.bonds.length).toFixed(2)}%
@@ -900,7 +900,7 @@ export function BondComparisonTable({
 }) {
   if (selectedBonds.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-muted-foreground">
         <Scale className="h-12 w-12 mx-auto mb-4 opacity-50" />
         <p>Select bonds to compare their features side-by-side</p>
       </div>
@@ -925,9 +925,9 @@ export function BondComparisonTable({
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className="text-left p-3 bg-gray-50 dark:bg-gray-800 font-semibold">Attribute</th>
+            <th className="text-left p-3 bg-muted dark:bg-muted font-semibold">Attribute</th>
             {selectedBonds.map(bond => (
-              <th key={bond.id} className="text-left p-3 bg-gray-50 dark:bg-gray-800">
+              <th key={bond.id} className="text-left p-3 bg-muted dark:bg-muted">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm">{bond.bondName}</span>
                   <Button 
@@ -946,8 +946,8 @@ export function BondComparisonTable({
         </thead>
         <tbody>
           {attributes.map(attr => (
-            <tr key={attr.key} className="border-t border-gray-200 dark:border-gray-700">
-              <td className="p-3 font-medium text-gray-700 dark:text-gray-300 text-sm">
+            <tr key={attr.key} className="border-t border-border dark:border-border">
+              <td className="p-3 font-medium text-muted-foreground dark:text-muted-foreground text-sm">
                 {attr.label}
               </td>
               {selectedBonds.map(bond => {

@@ -538,7 +538,7 @@ export default function AgentDashboard() {
             <Shield className="w-8 h-8 text-blue-600" />
             Care Agent Dashboard
           </h1>
-          <p className="text-gray-600">Manage CKYC client communications and support</p>
+          <p className="text-muted-foreground">Manage CKYC client communications and support</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/proposal-builder'} data-testid="button-quick-proposal">
@@ -760,7 +760,7 @@ export default function AgentDashboard() {
                           <ClipboardList className="h-5 w-5 text-orange-600" />
                           <div>
                             <p className="font-medium text-sm">ITR Filings Pending</p>
-                            <p className="text-xs text-gray-500">{overview.itrPending} clients awaiting filing</p>
+                            <p className="text-xs text-muted-foreground">{overview.itrPending} clients awaiting filing</p>
                           </div>
                         </div>
                         <Button size="sm" variant="outline" className="border-orange-200 text-orange-700 hover:bg-orange-100 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950" data-testid="button-view-itr-pending">
@@ -773,7 +773,7 @@ export default function AgentDashboard() {
                           <UserCheck className="h-5 w-5 text-yellow-600" />
                           <div>
                             <p className="font-medium text-sm">KYC Pending</p>
-                            <p className="text-xs text-gray-500">{overview.kycPending} clients need verification</p>
+                            <p className="text-xs text-muted-foreground">{overview.kycPending} clients need verification</p>
                           </div>
                         </div>
                         <Button size="sm" variant="outline" className="border-yellow-200 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-800 dark:text-yellow-300 dark:hover:bg-yellow-950" data-testid="button-view-kyc-pending">
@@ -786,7 +786,7 @@ export default function AgentDashboard() {
                           <Receipt className="h-5 w-5 text-blue-600" />
                           <div>
                             <p className="font-medium text-sm">TDS Returns Due</p>
-                            <p className="text-xs text-gray-500">Q3 filing due in 15 days</p>
+                            <p className="text-xs text-muted-foreground">Q3 filing due in 15 days</p>
                           </div>
                         </div>
                         <Button size="sm" variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950" data-testid="button-view-tds-due">
@@ -832,13 +832,13 @@ export default function AgentDashboard() {
                   <CardContent>
                     <div className="space-y-3">
                       {recentActivity.map((activity) => (
-                        <div key={activity.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg" data-testid={`activity-${activity.id}`}>
+                        <div key={activity.id} className="flex items-center gap-4 p-3 bg-muted dark:bg-muted rounded-lg" data-testid={`activity-${activity.id}`}>
                           <div className={`p-2 rounded-full ${
                             activity.type === 'itr_filed' ? 'bg-green-100 text-green-600' :
                             activity.type === 'kyc_completed' ? 'bg-blue-100 text-blue-600' :
                             activity.type === 'ca_assigned' ? 'bg-purple-100 text-purple-600' :
                             activity.type === 'payment_received' ? 'bg-emerald-100 text-emerald-600' :
-                            'bg-gray-100 text-gray-600'
+                            'bg-muted text-muted-foreground'
                           }`}>
                             {activity.type === 'itr_filed' ? <FileText className="h-4 w-4" /> :
                              activity.type === 'kyc_completed' ? <CheckCircle className="h-4 w-4" /> :
@@ -848,9 +848,9 @@ export default function AgentDashboard() {
                           </div>
                           <div className="flex-1">
                             <p className="font-medium text-sm">{activity.client}</p>
-                            <p className="text-xs text-gray-500">{activity.message}</p>
+                            <p className="text-xs text-muted-foreground">{activity.message}</p>
                           </div>
-                          <span className="text-xs text-gray-400">{activity.time}</span>
+                          <span className="text-xs text-muted-foreground">{activity.time}</span>
                         </div>
                       ))}
                     </div>
@@ -884,8 +884,8 @@ export default function AgentDashboard() {
                 case "ca_review": return "bg-purple-100 text-purple-700 border-purple-200";
                 case "assigned_to_ca": return "bg-blue-100 text-blue-700 border-blue-200";
                 case "pending_documents": return "bg-orange-100 text-orange-700 border-orange-200";
-                case "draft": return "bg-gray-100 text-gray-700 border-gray-200";
-                default: return "bg-gray-100 text-gray-700 border-gray-200";
+                case "draft": return "bg-muted text-muted-foreground border-border";
+                default: return "bg-muted text-muted-foreground border-border";
               }
             };
             
@@ -893,7 +893,7 @@ export default function AgentDashboard() {
               switch (priority) {
                 case "high": return "bg-red-100 text-red-700";
                 case "medium": return "bg-yellow-100 text-yellow-700";
-                default: return "bg-gray-100 text-gray-700";
+                default: return "bg-muted text-muted-foreground";
               }
             };
             
@@ -917,25 +917,25 @@ export default function AgentDashboard() {
                   <CardContent>
                     {/* Summary Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                      <div className="p-3 bg-muted dark:bg-muted rounded-lg text-center">
                         <div className="text-2xl font-bold">{itrCases.length}</div>
-                        <p className="text-xs text-gray-500">Total Cases</p>
+                        <p className="text-xs text-muted-foreground">Total Cases</p>
                       </div>
                       <div className="p-3 bg-orange-50 dark:bg-orange-900 rounded-lg text-center">
                         <div className="text-2xl font-bold text-orange-600">{itrCases.filter(c => c.status === "pending_documents").length}</div>
-                        <p className="text-xs text-gray-500">Pending Docs</p>
+                        <p className="text-xs text-muted-foreground">Pending Docs</p>
                       </div>
                       <div className="p-3 bg-blue-50 dark:bg-blue-900 rounded-lg text-center">
                         <div className="text-2xl font-bold text-blue-600">{itrCases.filter(c => c.status === "assigned_to_ca").length}</div>
-                        <p className="text-xs text-gray-500">With CA</p>
+                        <p className="text-xs text-muted-foreground">With CA</p>
                       </div>
                       <div className="p-3 bg-purple-50 dark:bg-purple-900 rounded-lg text-center">
                         <div className="text-2xl font-bold text-purple-600">{itrCases.filter(c => c.status === "ca_review").length}</div>
-                        <p className="text-xs text-gray-500">CA Review</p>
+                        <p className="text-xs text-muted-foreground">CA Review</p>
                       </div>
                       <div className="p-3 bg-green-50 dark:bg-green-900 rounded-lg text-center">
                         <div className="text-2xl font-bold text-green-600">{itrCases.filter(c => c.status === "filed").length}</div>
-                        <p className="text-xs text-gray-500">Filed</p>
+                        <p className="text-xs text-muted-foreground">Filed</p>
                       </div>
                     </div>
                     
@@ -945,7 +945,7 @@ export default function AgentDashboard() {
                         <div key={itrCase.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow" data-testid={`itr-case-${itrCase.id}`}>
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-4">
-                              <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                              <div className="p-2 bg-muted dark:bg-muted rounded-lg">
                                 <FileText className="h-6 w-6" />
                               </div>
                               <div>
@@ -955,7 +955,7 @@ export default function AgentDashboard() {
                                     {itrCase.priority}
                                   </Badge>
                                 </div>
-                                <div className="flex items-center gap-3 text-xs text-gray-500">
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                   <span>PAN: {itrCase.panNumber}</span>
                                   <span>•</span>
                                   <span>{itrCase.itrForm}</span>
@@ -973,13 +973,13 @@ export default function AgentDashboard() {
                               <Badge className={`${getStatusBadgeColor(itrCase.status)}`}>
                                 {(itrCase.status || 'pending').replace(/_/g, " ").toUpperCase()}
                               </Badge>
-                              <span className="text-xs text-gray-500">Due: {itrCase.dueDate}</span>
+                              <span className="text-xs text-muted-foreground">Due: {itrCase.dueDate}</span>
                             </div>
                           </div>
                           
                           <div className="flex items-center justify-between mt-4 pt-3 border-t">
                             <div className="flex items-center gap-4 text-sm">
-                              <span className="text-gray-600">Income: ₹{(itrCase.totalIncome || 0).toLocaleString()}</span>
+                              <span className="text-muted-foreground">Income: ₹{(itrCase.totalIncome || 0).toLocaleString()}</span>
                               <span className="text-orange-600">Tax: ₹{(itrCase.taxLiability || 0).toLocaleString()}</span>
                             </div>
                             <div className="flex gap-2">
@@ -1096,7 +1096,7 @@ export default function AgentDashboard() {
                                 </div>
                                 <div>
                                   <h4 className="font-semibold">{quarter.quarter}</h4>
-                                  <p className="text-xs text-gray-500">{quarter.clientsCount} clients • Due: {quarter.dueDate}</p>
+                                  <p className="text-xs text-muted-foreground">{quarter.clientsCount} clients • Due: {quarter.dueDate}</p>
                                 </div>
                               </div>
                               <div className="text-right">
@@ -1255,7 +1255,7 @@ export default function AgentDashboard() {
                   <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
               ) : filteredProposals.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No investment proposals found. Create your first proposal to get started.
                 </div>
               ) : (
@@ -1263,7 +1263,7 @@ export default function AgentDashboard() {
                   {filteredProposals.map((proposal) => (
                     <div 
                       key={proposal.id} 
-                      className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                      className="border rounded-lg p-4 hover:bg-muted transition-colors"
                       data-testid={`card-proposal-${proposal.id}`}
                     >
                       <div className="flex items-center justify-between">
@@ -1272,8 +1272,8 @@ export default function AgentDashboard() {
                             <h3 className="font-semibold">{proposal.title}</h3>
                             {getProposalStatusBadge(proposal.status)}
                           </div>
-                          <p className="text-sm text-gray-600">{proposal.description}</p>
-                          <div className="text-sm text-gray-600 space-y-1">
+                          <p className="text-sm text-muted-foreground">{proposal.description}</p>
+                          <div className="text-sm text-muted-foreground space-y-1">
                             <div className="flex items-center gap-4">
                               <span className="flex items-center gap-1">
                                 <User size={14} />
@@ -1493,8 +1493,8 @@ export default function AgentDashboard() {
 
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gray-100 rounded-full">
-                      <PieChart className="h-4 w-4 text-gray-600" />
+                    <div className="p-2 bg-muted rounded-full">
+                      <PieChart className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
                       <p className="font-medium">Sarah Wilson - Capital Gains Report</p>
@@ -1570,7 +1570,7 @@ export default function AgentDashboard() {
                   <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
               ) : filteredClients.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No CKYC clients found matching your criteria
                 </div>
               ) : (
@@ -1578,7 +1578,7 @@ export default function AgentDashboard() {
                   {filteredClients.map((client) => (
                     <div 
                       key={client.id} 
-                      className={`border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                      className={`border rounded-lg p-4 hover:bg-muted cursor-pointer transition-colors ${
                         selectedClient?.id === client.id ? 'border-blue-500 bg-blue-50' : ''
                       }`}
                       onClick={() => setSelectedClient(selectedClient?.id === client.id ? null : client)}
@@ -1589,7 +1589,7 @@ export default function AgentDashboard() {
                             <h3 className="font-semibold">{client.firstName} {client.lastName}</h3>
                             {getStatusBadge(client.verificationStatus)}
                           </div>
-                          <div className="text-sm text-gray-600 space-y-1">
+                          <div className="text-sm text-muted-foreground space-y-1">
                             <div className="flex items-center gap-4">
                               <span className="flex items-center gap-1">
                                 <Mail size={14} />
@@ -1639,18 +1639,18 @@ export default function AgentDashboard() {
                   <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
               ) : notificationTriggers?.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No notifications sent yet</div>
+                <div className="text-center py-8 text-muted-foreground">No notifications sent yet</div>
               ) : (
                 <div className="space-y-4">
                   {notificationTriggers?.map((trigger) => (
-                    <div key={trigger.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div key={trigger.id} className="border rounded-lg p-4 hover:bg-muted">
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium">{trigger.subject}</h4>
                             {getNotificationStatusBadge(trigger.status)}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-muted-foreground">
                             <div>Type: {(trigger.triggerType || 'notification').replace("_", " ")}</div>
                             <div>Method: {trigger.notificationMethod}</div>
                             <div>Recipient: {trigger.recipientEmail || trigger.recipientMobile}</div>
@@ -1689,7 +1689,7 @@ export default function AgentDashboard() {
                   </Button>
                 </div>
                 
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   Profile management features will be accessible here for agents to view and update client profiles, 
                   KYC documentation, and compliance status.
                 </div>
@@ -1743,7 +1743,7 @@ export default function AgentDashboard() {
                   </Card>
                 </div>
 
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   AML screening tools, CKYC verification, and compliance monitoring features 
                   are now secured under agent access for enhanced regulatory compliance.
                 </div>
@@ -2015,7 +2015,7 @@ export default function AgentDashboard() {
 
                   {/* Past Meetings */}
                   <div className="mt-6">
-                    <h3 className="text-sm font-semibold mb-3 text-gray-600 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
                       <Clock className="h-4 w-4" />
                       Past Meetings
                     </h3>
@@ -2024,7 +2024,7 @@ export default function AgentDashboard() {
                         .filter((m) => new Date(m.scheduledAt) < new Date() || m.status !== "confirmed")
                         .slice(0, 5)
                         .map((meeting) => (
-                          <div key={meeting.id} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-900 opacity-75">
+                          <div key={meeting.id} className="border rounded-lg p-3 bg-muted dark:bg-card opacity-75">
                             <div className="flex items-center justify-between">
                               <div>
                                 <h4 className="font-medium text-sm">{meeting.topic}</h4>
@@ -2479,7 +2479,7 @@ function ViewProposalDialog({ proposal, open, onOpenChange }: ViewProposalDialog
               </div>
               <div>
                 <Label className="text-sm font-medium">Description</Label>
-                <p className="text-sm text-gray-600">{proposal.description}</p>
+                <p className="text-sm text-muted-foreground">{proposal.description}</p>
               </div>
             </CardContent>
           </Card>
@@ -2492,45 +2492,45 @@ function ViewProposalDialog({ proposal, open, onOpenChange }: ViewProposalDialog
             <CardContent>
               <div className="space-y-4">
                 {proposal.items.map((item, index) => (
-                  <Card key={index} className="p-4 bg-gray-50">
+                  <Card key={index} className="p-4 bg-muted">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div>
-                        <Label className="text-xs font-medium text-gray-500">Product Type</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Product Type</Label>
                         <p className="text-sm font-medium">{(item.productType || 'investment').replace("_", " ").toUpperCase()}</p>
                       </div>
                       <div>
-                        <Label className="text-xs font-medium text-gray-500">Product Name</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Product Name</Label>
                         <p className="text-sm font-medium">{item.productName}</p>
                       </div>
                       {item.symbol && (
                         <div>
-                          <Label className="text-xs font-medium text-gray-500">Symbol</Label>
+                          <Label className="text-xs font-medium text-muted-foreground">Symbol</Label>
                           <p className="text-sm">{item.symbol}</p>
                         </div>
                       )}
                       <div>
-                        <Label className="text-xs font-medium text-gray-500">Recommended Amount</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Recommended Amount</Label>
                         <p className="text-sm font-semibold">₹{item.recommendedAmount.toLocaleString()}</p>
                       </div>
                       <div>
-                        <Label className="text-xs font-medium text-gray-500">Risk Level</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Risk Level</Label>
                         <Badge variant={item.riskLevel === 'high' ? 'destructive' : item.riskLevel === 'moderate' ? 'secondary' : 'outline'}>
                           {(item.riskLevel || 'moderate').toUpperCase()}
                         </Badge>
                       </div>
                       {item.expectedReturn && (
                         <div>
-                          <Label className="text-xs font-medium text-gray-500">Expected Return</Label>
+                          <Label className="text-xs font-medium text-muted-foreground">Expected Return</Label>
                           <p className="text-sm">{item.expectedReturn}% p.a.</p>
                         </div>
                       )}
                       <div>
-                        <Label className="text-xs font-medium text-gray-500">Time Horizon</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Time Horizon</Label>
                         <p className="text-sm">{item.timeHorizon}</p>
                       </div>
                       <div className="md:col-span-2 lg:col-span-3">
-                        <Label className="text-xs font-medium text-gray-500">Investment Rationale</Label>
-                        <p className="text-sm text-gray-600">{item.rationale}</p>
+                        <Label className="text-xs font-medium text-muted-foreground">Investment Rationale</Label>
+                        <p className="text-sm text-muted-foreground">{item.rationale}</p>
                       </div>
                     </div>
                   </Card>
@@ -2699,7 +2699,7 @@ function NotificationDialog({ open, onOpenChange, selectedClient, onSubmit, isLo
             </div>
           </form>
         ) : (
-          <div className="text-center py-4 text-gray-500">
+          <div className="text-center py-4 text-muted-foreground">
             Please select a client from the list to send notifications
           </div>
         )}

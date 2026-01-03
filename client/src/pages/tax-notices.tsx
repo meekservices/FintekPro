@@ -126,7 +126,7 @@ export default function TaxNoticesPage() {
             <FileWarning className="h-8 w-8 text-orange-500" />
             Tax Notices & Responses
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage and respond to income tax notices</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Manage and respond to income tax notices</p>
         </div>
         <Button className="gap-2" data-testid="button-upload-notice">
           <Upload className="h-4 w-4" /> Upload Notice
@@ -139,7 +139,7 @@ export default function TaxNoticesPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pending</p>
+                <p className="text-sm text-muted-foreground">Pending</p>
                 <p className="text-2xl font-bold text-yellow-700">{notices.filter(n => n.status === "pending").length}</p>
               </div>
               <Clock className="h-8 w-8 text-yellow-500" />
@@ -150,7 +150,7 @@ export default function TaxNoticesPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Responded</p>
+                <p className="text-sm text-muted-foreground">Responded</p>
                 <p className="text-2xl font-bold text-blue-700">{notices.filter(n => n.status === "responded").length}</p>
               </div>
               <MessageSquare className="h-8 w-8 text-blue-500" />
@@ -161,7 +161,7 @@ export default function TaxNoticesPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Closed</p>
+                <p className="text-sm text-muted-foreground">Closed</p>
                 <p className="text-2xl font-bold text-green-700">{notices.filter(n => n.status === "closed").length}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
@@ -172,7 +172,7 @@ export default function TaxNoticesPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Escalated</p>
+                <p className="text-sm text-muted-foreground">Escalated</p>
                 <p className="text-2xl font-bold text-red-700">{notices.filter(n => n.status === "escalated").length}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-500" />
@@ -191,7 +191,7 @@ export default function TaxNoticesPage() {
           </ScrollableTabsList>
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
               <Input 
                 placeholder="Search notices..." 
                 value={searchTerm}
@@ -226,8 +226,8 @@ export default function TaxNoticesPage() {
                           <h4 className="font-semibold">{notice.noticeType}</h4>
                           {getPriorityBadge(notice.priority)}
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{notice.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{notice.description}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" /> AY {notice.assessmentYear}
                           </span>
@@ -266,7 +266,7 @@ export default function TaxNoticesPage() {
                 <CardContent className="text-center">
                   <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
                   <h3 className="font-semibold text-lg">No notices found</h3>
-                  <p className="text-gray-500">You're all caught up!</p>
+                  <p className="text-muted-foreground">You're all caught up!</p>
                 </CardContent>
               </Card>
             )}
@@ -299,7 +299,7 @@ export default function TaxNoticesPage() {
                   </Badge>
                 </div>
                 <h4 className="font-semibold">{notice.name}</h4>
-                <p className="text-sm text-gray-600">{notice.description}</p>
+                <p className="text-sm text-muted-foreground">{notice.description}</p>
               </div>
             ))}
           </div>
@@ -314,7 +314,7 @@ export default function TaxNoticesPage() {
               <Users className="h-8 w-8 text-purple-600" />
               <div>
                 <p className="font-medium">Need Expert Help?</p>
-                <p className="text-sm text-gray-600">Get a CA to handle your tax notice</p>
+                <p className="text-sm text-muted-foreground">Get a CA to handle your tax notice</p>
               </div>
             </div>
             <Button className="bg-purple-600 hover:bg-purple-700" data-testid="button-hire-expert">

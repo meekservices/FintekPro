@@ -77,58 +77,58 @@ export default function DuplicatesPage() {
     <div className="space-y-6" data-testid="page-admin-duplicates">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white" data-testid="heading-page-title">
+        <h1 className="text-3xl font-bold text-foreground" data-testid="heading-page-title">
           Duplicate Accounts Detection
         </h1>
-        <p className="text-gray-400 mt-1">
+        <p className="text-muted-foreground mt-1">
           Identify and manage duplicate user registrations
         </p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-gray-900 border-gray-800">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Duplicate Emails
             </CardTitle>
-            <Mail className="h-4 w-4 text-red-400" />
+            <Mail className="h-4 w-4 text-red-500 dark:text-red-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="count-duplicate-emails">
+            <div className="text-2xl font-bold text-foreground" data-testid="count-duplicate-emails">
               {duplicatesData?.summary.totalDuplicateEmails || 0}
             </div>
-            <p className="text-xs text-gray-400 mt-1">Unique emails with duplicates</p>
+            <p className="text-xs text-muted-foreground mt-1">Unique emails with duplicates</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Duplicate Mobiles
             </CardTitle>
-            <Phone className="h-4 w-4 text-orange-400" />
+            <Phone className="h-4 w-4 text-orange-500 dark:text-orange-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="count-duplicate-mobiles">
+            <div className="text-2xl font-bold text-foreground" data-testid="count-duplicate-mobiles">
               {duplicatesData?.summary.totalDuplicateMobiles || 0}
             </div>
-            <p className="text-xs text-gray-400 mt-1">Unique mobiles with duplicates</p>
+            <p className="text-xs text-muted-foreground mt-1">Unique mobiles with duplicates</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Affected Accounts
             </CardTitle>
-            <Users className="h-4 w-4 text-purple-400" />
+            <Users className="h-4 w-4 text-purple-500 dark:text-purple-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white" data-testid="count-affected-accounts">
+            <div className="text-2xl font-bold text-foreground" data-testid="count-affected-accounts">
               {duplicatesData?.summary.totalAffectedAccounts || 0}
             </div>
-            <p className="text-xs text-gray-400 mt-1">Accounts involved in duplicates</p>
+            <p className="text-xs text-muted-foreground mt-1">Accounts involved in duplicates</p>
           </CardContent>
         </Card>
       </div>
@@ -143,28 +143,28 @@ export default function DuplicatesPage() {
         <>
           {/* Email Duplicates */}
           {duplicatesData?.duplicateEmails && duplicatesData.duplicateEmails.length > 0 && (
-            <Card className="bg-gray-900 border-gray-800">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-red-400" />
+                <CardTitle className="text-foreground flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-red-500 dark:text-red-400" />
                   Duplicate Email Addresses
                 </CardTitle>
-                <CardDescription className="text-gray-400">
+                <CardDescription>
                   {duplicatesData.duplicateEmails.length} email{duplicatesData.duplicateEmails.length !== 1 ? 's' : ''} registered multiple times
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   {duplicatesData.duplicateEmails.map((duplicate, idx) => (
-                    <div key={duplicate.email} className="border border-gray-800 rounded-lg p-4">
+                    <div key={duplicate.email} className="border border-border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <p className="text-sm font-medium text-gray-400">Email Address</p>
-                          <p className="text-white font-semibold" data-testid={`duplicate-email-${idx}`}>
+                          <p className="text-sm font-medium text-muted-foreground">Email Address</p>
+                          <p className="text-foreground font-semibold" data-testid={`duplicate-email-${idx}`}>
                             {duplicate.email}
                           </p>
                         </div>
-                        <Badge variant="destructive" className="bg-red-900/50 text-red-300">
+                        <Badge variant="destructive">
                           {duplicate.count} accounts
                         </Badge>
                       </div>
@@ -172,29 +172,29 @@ export default function DuplicatesPage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b border-gray-800">
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">User ID</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Name</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Mobile</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Role</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Created</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Status</th>
+                            <tr className="border-b border-border">
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">User ID</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Name</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Mobile</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Role</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Created</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {duplicate.users.map((user, userIdx) => (
                               <tr 
                                 key={user.id} 
-                                className="border-b border-gray-800 last:border-0"
+                                className="border-b border-border last:border-0"
                                 data-testid={`email-duplicate-row-${idx}-${userIdx}`}
                               >
-                                <td className="py-3 px-2 text-white font-mono text-xs">
+                                <td className="py-3 px-2 text-foreground font-mono text-xs">
                                   {user.userId}
                                 </td>
-                                <td className="py-3 px-2 text-white">
+                                <td className="py-3 px-2 text-foreground">
                                   {getFullName(user)}
                                 </td>
-                                <td className="py-3 px-2 text-gray-300">
+                                <td className="py-3 px-2 text-muted-foreground">
                                   {user.mobile}
                                 </td>
                                 <td className="py-3 px-2">
@@ -202,13 +202,13 @@ export default function DuplicatesPage() {
                                     {user.role}
                                   </Badge>
                                 </td>
-                                <td className="py-3 px-2 text-gray-400">
+                                <td className="py-3 px-2 text-muted-foreground">
                                   {format(new Date(user.createdAt), 'MMM dd, yyyy')}
                                 </td>
                                 <td className="py-3 px-2">
                                   <Badge 
                                     variant={user.isActive ? "default" : "secondary"}
-                                    className={user.isActive ? "bg-green-900/50 text-green-300" : "bg-gray-800 text-gray-400"}
+                                    className={user.isActive ? "bg-green-600 dark:bg-green-700 text-white" : ""}
                                   >
                                     {user.isActive ? "Active" : "Inactive"}
                                   </Badge>
@@ -227,28 +227,28 @@ export default function DuplicatesPage() {
 
           {/* Mobile Duplicates */}
           {duplicatesData?.duplicateMobiles && duplicatesData.duplicateMobiles.length > 0 && (
-            <Card className="bg-gray-900 border-gray-800">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-orange-400" />
+                <CardTitle className="text-foreground flex items-center gap-2">
+                  <Phone className="h-5 w-5 text-orange-500 dark:text-orange-400" />
                   Duplicate Mobile Numbers
                 </CardTitle>
-                <CardDescription className="text-gray-400">
+                <CardDescription>
                   {duplicatesData.duplicateMobiles.length} mobile number{duplicatesData.duplicateMobiles.length !== 1 ? 's' : ''} registered multiple times
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   {duplicatesData.duplicateMobiles.map((duplicate, idx) => (
-                    <div key={duplicate.mobile} className="border border-gray-800 rounded-lg p-4">
+                    <div key={duplicate.mobile} className="border border-border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <p className="text-sm font-medium text-gray-400">Mobile Number</p>
-                          <p className="text-white font-semibold" data-testid={`duplicate-mobile-${idx}`}>
+                          <p className="text-sm font-medium text-muted-foreground">Mobile Number</p>
+                          <p className="text-foreground font-semibold" data-testid={`duplicate-mobile-${idx}`}>
                             {duplicate.mobile}
                           </p>
                         </div>
-                        <Badge variant="destructive" className="bg-orange-900/50 text-orange-300">
+                        <Badge variant="destructive" className="bg-orange-600 dark:bg-orange-700 text-white">
                           {duplicate.count} accounts
                         </Badge>
                       </div>
@@ -256,29 +256,29 @@ export default function DuplicatesPage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b border-gray-800">
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">User ID</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Name</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Email</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Role</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Created</th>
-                              <th className="text-left py-2 px-2 text-gray-400 font-medium">Status</th>
+                            <tr className="border-b border-border">
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">User ID</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Name</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Email</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Role</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Created</th>
+                              <th className="text-left py-2 px-2 text-muted-foreground font-medium">Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {duplicate.users.map((user, userIdx) => (
                               <tr 
                                 key={user.id} 
-                                className="border-b border-gray-800 last:border-0"
+                                className="border-b border-border last:border-0"
                                 data-testid={`mobile-duplicate-row-${idx}-${userIdx}`}
                               >
-                                <td className="py-3 px-2 text-white font-mono text-xs">
+                                <td className="py-3 px-2 text-foreground font-mono text-xs">
                                   {user.userId}
                                 </td>
-                                <td className="py-3 px-2 text-white">
+                                <td className="py-3 px-2 text-foreground">
                                   {getFullName(user)}
                                 </td>
-                                <td className="py-3 px-2 text-gray-300">
+                                <td className="py-3 px-2 text-muted-foreground">
                                   {user.email}
                                 </td>
                                 <td className="py-3 px-2">
@@ -286,13 +286,13 @@ export default function DuplicatesPage() {
                                     {user.role}
                                   </Badge>
                                 </td>
-                                <td className="py-3 px-2 text-gray-400">
+                                <td className="py-3 px-2 text-muted-foreground">
                                   {format(new Date(user.createdAt), 'MMM dd, yyyy')}
                                 </td>
                                 <td className="py-3 px-2">
                                   <Badge 
                                     variant={user.isActive ? "default" : "secondary"}
-                                    className={user.isActive ? "bg-green-900/50 text-green-300" : "bg-gray-800 text-gray-400"}
+                                    className={user.isActive ? "bg-green-600 dark:bg-green-700 text-white" : ""}
                                   >
                                     {user.isActive ? "Active" : "Inactive"}
                                   </Badge>
@@ -310,9 +310,9 @@ export default function DuplicatesPage() {
           )}
 
           {/* Info Alert */}
-          <Alert className="bg-blue-900/20 border-blue-900">
-            <AlertTriangle className="h-4 w-4 text-blue-400" />
-            <AlertDescription className="text-blue-300">
+          <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+            <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
               To delete duplicate accounts, use the Database pane → "My Data" → Toggle "Edit" → Find and remove the unwanted records. 
               Keep the oldest account (earliest created date) to preserve data integrity.
             </AlertDescription>

@@ -542,7 +542,7 @@ export default function ListedStocksSeed() {
         {/* Stocks Table */}
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-white">Synced Stocks</CardTitle>
+            <CardTitle className="text-foreground">Synced Stocks</CardTitle>
             <CardDescription className="text-slate-400">
               Manage stocks synced from NSE and BSE exchanges
             </CardDescription>

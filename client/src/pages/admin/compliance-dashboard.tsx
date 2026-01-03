@@ -80,7 +80,7 @@ export default function ComplianceDashboard() {
       case 'pending': return 'bg-amber-100 text-amber-800';
       case 'overdue': return 'bg-red-100 text-red-800';
       case 'upcoming': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted dark:bg-muted text-foreground';
     }
   };
 
@@ -272,7 +272,7 @@ export default function ComplianceDashboard() {
                     data-testid={`update-${index}`}
                   >
                     <div className="flex items-center gap-3">
-                      <Badge className={regulatorColors[update.regulator as keyof typeof regulatorColors] || 'bg-gray-100'}>
+                      <Badge className={regulatorColors[update.regulator as keyof typeof regulatorColors] || 'bg-muted dark:bg-muted'}>
                         {update.regulator}
                       </Badge>
                       <span className="font-medium">{update.title}</span>

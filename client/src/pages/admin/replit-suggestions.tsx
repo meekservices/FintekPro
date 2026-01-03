@@ -441,7 +441,7 @@ export default function ReplitSuggestions() {
 
   const getStatusColor = (status: SuggestionStatus) => {
     switch (status) {
-      case "pending": return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
+      case "pending": return "bg-muted dark:bg-muted text-foreground dark:bg-muted dark:text-muted-foreground";
       case "in_progress": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "completed": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "deferred": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
@@ -514,10 +514,10 @@ export default function ReplitSuggestions() {
               <Lightbulb className="h-8 w-8 text-yellow-500" />
               Replit Suggestions
             </h1>
-            <p className="text-gray-400 mt-1">
+            <p className="text-muted-foreground mt-1">
               Track improvement initiatives and error analysis for FintekPro
             </p>
-            <p className="text-gray-500 text-xs mt-1">
+            <p className="text-muted-foreground text-xs mt-1">
               Suggestion status is saved locally. Error logs are fetched from server.
             </p>
           </div>
@@ -533,55 +533,55 @@ export default function ReplitSuggestions() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-muted border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Total Suggestions</p>
+                  <p className="text-muted-foreground text-sm">Total Suggestions</p>
                   <p className="text-2xl font-bold text-white">{stats.total}</p>
                 </div>
                 <Lightbulb className="h-8 w-8 text-yellow-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-muted border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Critical Priority</p>
+                  <p className="text-muted-foreground text-sm">Critical Priority</p>
                   <p className="text-2xl font-bold text-red-400">{stats.critical}</p>
                 </div>
                 <AlertCircle className="h-8 w-8 text-red-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-muted border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Pending</p>
-                  <p className="text-2xl font-bold text-gray-300">{stats.pending}</p>
+                  <p className="text-muted-foreground text-sm">Pending</p>
+                  <p className="text-2xl font-bold text-muted-foreground">{stats.pending}</p>
                 </div>
-                <Clock className="h-8 w-8 text-gray-500 opacity-50" />
+                <Clock className="h-8 w-8 text-muted-foreground opacity-50" />
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-muted border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">In Progress</p>
+                  <p className="text-muted-foreground text-sm">In Progress</p>
                   <p className="text-2xl font-bold text-blue-400">{stats.inProgress}</p>
                 </div>
                 <Play className="h-8 w-8 text-blue-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-muted border-border">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Completed</p>
+                  <p className="text-muted-foreground text-sm">Completed</p>
                   <p className="text-2xl font-bold text-green-400">{stats.completed}</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-500 opacity-50" />
@@ -610,7 +610,7 @@ export default function ReplitSuggestions() {
           <TabsContent value="suggestions" className="space-y-6">
             <div className="flex flex-wrap gap-4">
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[180px] bg-gray-800 border-gray-700" data-testid="select-category-filter">
+                <SelectTrigger className="w-[180px] bg-muted border-border" data-testid="select-category-filter">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -624,7 +624,7 @@ export default function ReplitSuggestions() {
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-[150px] bg-gray-800 border-gray-700" data-testid="select-priority-filter">
+                <SelectTrigger className="w-[150px] bg-muted border-border" data-testid="select-priority-filter">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -637,7 +637,7 @@ export default function ReplitSuggestions() {
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px] bg-gray-800 border-gray-700" data-testid="select-status-filter">
+                <SelectTrigger className="w-[150px] bg-muted border-border" data-testid="select-status-filter">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -666,7 +666,7 @@ export default function ReplitSuggestions() {
                   
                   <div className="grid gap-4">
                     {items.map((suggestion) => (
-                      <Card key={suggestion.id} className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors">
+                      <Card key={suggestion.id} className="bg-muted border-border hover:border-border transition-colors">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 space-y-2">
@@ -679,26 +679,26 @@ export default function ReplitSuggestions() {
                                   {suggestion.status.replace('_', ' ')}
                                 </Badge>
                               </div>
-                              <p className="text-gray-400">{suggestion.description}</p>
+                              <p className="text-muted-foreground">{suggestion.description}</p>
                               
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-sm">
                                 <div>
-                                  <p className="text-gray-500">Action Required</p>
-                                  <p className="text-gray-300">{suggestion.actionRequired}</p>
+                                  <p className="text-muted-foreground">Action Required</p>
+                                  <p className="text-muted-foreground">{suggestion.actionRequired}</p>
                                 </div>
                                 <div>
-                                  <p className="text-gray-500">Impact</p>
-                                  <p className="text-gray-300">{suggestion.impact}</p>
+                                  <p className="text-muted-foreground">Impact</p>
+                                  <p className="text-muted-foreground">{suggestion.impact}</p>
                                 </div>
                                 <div>
-                                  <p className="text-gray-500">Estimated Effort</p>
-                                  <p className="text-gray-300">{suggestion.estimatedEffort}</p>
+                                  <p className="text-muted-foreground">Estimated Effort</p>
+                                  <p className="text-muted-foreground">{suggestion.estimatedEffort}</p>
                                 </div>
                               </div>
 
                               {suggestion.notes && (
                                 <div className="mt-2 p-2 bg-gray-700 rounded text-sm">
-                                  <p className="text-gray-400">Notes: {suggestion.notes}</p>
+                                  <p className="text-muted-foreground">Notes: {suggestion.notes}</p>
                                 </div>
                               )}
                             </div>
@@ -845,7 +845,7 @@ export default function ReplitSuggestions() {
 
             <div className="flex gap-4">
               <Select value={errorLevelFilter} onValueChange={setErrorLevelFilter}>
-                <SelectTrigger className="w-[150px] bg-gray-800 border-gray-700" data-testid="select-error-level-filter">
+                <SelectTrigger className="w-[150px] bg-muted border-border" data-testid="select-error-level-filter">
                   <SelectValue placeholder="Level" />
                 </SelectTrigger>
                 <SelectContent>
@@ -858,7 +858,7 @@ export default function ReplitSuggestions() {
               </Select>
             </div>
 
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-muted border-border">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <Bug className="h-5 w-5" />
@@ -871,7 +871,7 @@ export default function ReplitSuggestions() {
               <CardContent>
                 <div className="space-y-4">
                   {filteredErrors.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400">
+                    <div className="text-center py-8 text-muted-foreground">
                       <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
                       <p>No errors found matching the filter criteria</p>
                     </div>
@@ -881,8 +881,8 @@ export default function ReplitSuggestions() {
                         key={error.id}
                         className={`p-4 rounded-lg border ${
                           error.resolved 
-                            ? 'bg-gray-700/50 border-gray-600 opacity-60' 
-                            : 'bg-gray-700 border-gray-600'
+                            ? 'bg-gray-700/50 border-border opacity-60' 
+                            : 'bg-gray-700 border-border'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -898,12 +898,12 @@ export default function ReplitSuggestions() {
                               {error.resolved && (
                                 <Badge className="bg-green-600">Resolved</Badge>
                               )}
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-muted-foreground">
                                 {format(new Date(error.lastOccurrence), 'MMM d, yyyy HH:mm')}
                               </span>
                             </div>
                             <p className="text-white font-medium">{error.message}</p>
-                            <p className="text-sm text-gray-400">Source: {error.source}</p>
+                            <p className="text-sm text-muted-foreground">Source: {error.source}</p>
                             {error.suggestedFix && (
                               <div className="mt-2 p-2 bg-blue-900/30 border border-blue-800 rounded">
                                 <p className="text-sm text-blue-300">
@@ -937,9 +937,9 @@ export default function ReplitSuggestions() {
         </Tabs>
 
         <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
-          <DialogContent className="bg-gray-800 border-gray-700">
+          <DialogContent className="bg-muted border-border">
             <DialogHeader>
-              <DialogTitle className="text-white">Add Notes</DialogTitle>
+              <DialogTitle className="text-foreground">Add Notes</DialogTitle>
               <DialogDescription>
                 Add notes or comments for: {selectedSuggestion?.title}
               </DialogDescription>
@@ -948,7 +948,7 @@ export default function ReplitSuggestions() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Enter your notes here..."
-              className="min-h-[100px] bg-gray-700 border-gray-600"
+              className="min-h-[100px] bg-gray-700 border-border"
               data-testid="input-notes"
             />
             <DialogFooter>

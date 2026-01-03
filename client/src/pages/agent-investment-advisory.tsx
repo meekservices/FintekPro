@@ -344,7 +344,7 @@ export default function AgentInvestmentAdvisory() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="page-title">
             AI Investment Advisory
           </h1>
-          <p className="text-gray-500 dark:text-gray-400">
+          <p className="text-muted-foreground dark:text-muted-foreground">
             Analyze portfolios and generate intelligent investment recommendations
           </p>
         </div>
@@ -526,12 +526,12 @@ export default function AgentInvestmentAdvisory() {
                     className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                       isDragActive 
                         ? 'border-primary bg-primary/5' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-primary'
+                        : 'border-border dark:border-border hover:border-primary'
                     }`}
                     data-testid="dropzone-csv"
                   >
                     <input {...getInputProps()} />
-                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                     {isDragActive ? (
                       <p>Drop the CSV file here...</p>
                     ) : (
@@ -564,7 +564,7 @@ export default function AgentInvestmentAdvisory() {
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold">{formatCurrency(portfolio.totalValue)}</p>
-                    <p className="text-sm text-gray-500">Total Value</p>
+                    <p className="text-sm text-muted-foreground">Total Value</p>
                   </div>
                 </div>
               </CardHeader>
@@ -585,7 +585,7 @@ export default function AgentInvestmentAdvisory() {
                     {portfolio.holdings.map((holding, idx) => (
                       <TableRow key={holding.id || idx} data-testid={`row-holding-${idx}`}>
                         <TableCell className="font-medium">{holding.symbol}</TableCell>
-                        <TableCell className="text-gray-500 max-w-[200px] truncate">
+                        <TableCell className="text-muted-foreground max-w-[200px] truncate">
                           {holding.name}
                         </TableCell>
                         <TableCell className="text-right">{holding.quantity}</TableCell>
@@ -608,9 +608,9 @@ export default function AgentInvestmentAdvisory() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
-                <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No Portfolio Data</h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-muted-foreground mb-4">
                   Add holdings manually or upload a CSV to get started
                 </p>
                 <div className="flex justify-center gap-2">
@@ -645,7 +645,7 @@ export default function AgentInvestmentAdvisory() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-6">
-                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
                       <DollarSign className="h-4 w-4" />
                       <span className="text-sm">Total Value</span>
                     </div>
@@ -656,7 +656,7 @@ export default function AgentInvestmentAdvisory() {
                 </Card>
                 <Card>
                   <CardContent className="p-6">
-                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
                       <TrendingUp className="h-4 w-4" />
                       <span className="text-sm">Total P&L</span>
                     </div>
@@ -669,7 +669,7 @@ export default function AgentInvestmentAdvisory() {
                 </Card>
                 <Card>
                   <CardContent className="p-6">
-                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
                       <Scale className="h-4 w-4" />
                       <span className="text-sm">Risk Score</span>
                     </div>
@@ -685,7 +685,7 @@ export default function AgentInvestmentAdvisory() {
                 </Card>
                 <Card>
                   <CardContent className="p-6">
-                    <div className="flex items-center gap-2 text-gray-500 mb-2">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
                       <PieChart className="h-4 w-4" />
                       <span className="text-sm">Diversification</span>
                     </div>
@@ -707,26 +707,26 @@ export default function AgentInvestmentAdvisory() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-500">Avg P/E Ratio</p>
+                      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                        <p className="text-sm text-muted-foreground">Avg P/E Ratio</p>
                         <p className="text-xl font-bold" data-testid="text-avg-pe">
                           {analysis.fundamentalRatios.avgPE.toFixed(2)}
                         </p>
                       </div>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-500">Avg P/B Ratio</p>
+                      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                        <p className="text-sm text-muted-foreground">Avg P/B Ratio</p>
                         <p className="text-xl font-bold" data-testid="text-avg-pb">
                           {analysis.fundamentalRatios.avgPB.toFixed(2)}
                         </p>
                       </div>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-500">Avg ROE</p>
+                      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                        <p className="text-sm text-muted-foreground">Avg ROE</p>
                         <p className="text-xl font-bold" data-testid="text-avg-roe">
                           {analysis.fundamentalRatios.avgROE.toFixed(2)}%
                         </p>
                       </div>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-500">Avg Debt/Equity</p>
+                      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
+                        <p className="text-sm text-muted-foreground">Avg Debt/Equity</p>
                         <p className="text-xl font-bold" data-testid="text-avg-de">
                           {analysis.fundamentalRatios.avgDebtEquity.toFixed(2)}
                         </p>
@@ -762,9 +762,9 @@ export default function AgentInvestmentAdvisory() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
-                <PieChart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <PieChart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No Analysis Available</h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-muted-foreground mb-4">
                   Add portfolio holdings and run AI analysis to see insights
                 </p>
                 <Button onClick={handleRunAnalysis} disabled={!portfolio}>
@@ -874,29 +874,29 @@ export default function AgentInvestmentAdvisory() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                        <p className="text-gray-500">Current</p>
+                      <div className="text-center p-2 bg-muted dark:bg-muted rounded">
+                        <p className="text-muted-foreground">Current</p>
                         <p className="font-bold">{formatCurrency(pick.currentPrice)}</p>
                       </div>
                       <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
-                        <p className="text-gray-500">Target</p>
+                        <p className="text-muted-foreground">Target</p>
                         <p className="font-bold text-green-600">{formatCurrency(pick.targetPrice)}</p>
                       </div>
                       <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
-                        <p className="text-gray-500">Stop Loss</p>
+                        <p className="text-muted-foreground">Stop Loss</p>
                         <p className="font-bold text-red-600">{formatCurrency(pick.stopLoss)}</p>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Expected Return</span>
+                      <span className="text-muted-foreground">Expected Return</span>
                       <span className={`font-bold ${pick.expectedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {formatPercent(pick.expectedReturn)}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Confidence</span>
+                      <span className="text-muted-foreground">Confidence</span>
                       <div className="flex items-center gap-2">
                         <Progress value={pick.confidenceScore} className="w-16 h-2" />
                         <span className="font-medium">{pick.confidenceScore}%</span>
@@ -904,7 +904,7 @@ export default function AgentInvestmentAdvisory() {
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">Risk Level</span>
+                      <span className="text-muted-foreground">Risk Level</span>
                       <Badge variant="outline" className={RISK_COLORS[pick.riskLevel]}>
                         {pick.riskLevel}
                       </Badge>
@@ -913,7 +913,7 @@ export default function AgentInvestmentAdvisory() {
                     <Separator />
 
                     <div className="text-sm">
-                      <p className="text-gray-500 mb-1">Technical Indicators</p>
+                      <p className="text-muted-foreground mb-1">Technical Indicators</p>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>RSI: <span className="font-medium">{pick.technicalIndicators.rsi}</span></div>
                         <div>MACD: <span className="font-medium">{pick.technicalIndicators.macd}</span></div>
@@ -922,7 +922,7 @@ export default function AgentInvestmentAdvisory() {
                     </div>
 
                     <div className="text-sm">
-                      <p className="text-gray-500 mb-1">AI Rationale</p>
+                      <p className="text-muted-foreground mb-1">AI Rationale</p>
                       <p className="text-xs line-clamp-3">{pick.aiRationale}</p>
                     </div>
                   </CardContent>
@@ -932,9 +932,9 @@ export default function AgentInvestmentAdvisory() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
-                <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No AI Picks Available</h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-muted-foreground mb-4">
                   Run AI analysis to generate intelligent stock recommendations
                 </p>
                 <Button onClick={handleRunAnalysis} disabled={!portfolio}>
@@ -1002,7 +1002,7 @@ export default function AgentInvestmentAdvisory() {
               <CardContent className="p-12 text-center">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
                 <h3 className="text-lg font-medium mb-2">No Alerts</h3>
-                <p className="text-gray-500">
+                <p className="text-muted-foreground">
                   Portfolio is performing well with no issues detected
                 </p>
               </CardContent>
@@ -1042,9 +1042,9 @@ export default function AgentInvestmentAdvisory() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{point.content}</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">{point.content}</p>
                       {point.supportingData && (
-                        <p className="text-xs text-gray-500 mt-2 italic">{point.supportingData}</p>
+                        <p className="text-xs text-muted-foreground mt-2 italic">{point.supportingData}</p>
                       )}
                     </CardContent>
                     <CardFooter className="pt-0">
@@ -1060,9 +1060,9 @@ export default function AgentInvestmentAdvisory() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">No Talking Points</h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-muted-foreground mb-4">
                   Run AI analysis to generate client talking points
                 </p>
                 <Button onClick={handleRunAnalysis} disabled={!portfolio}>
@@ -1085,7 +1085,7 @@ export default function AgentInvestmentAdvisory() {
             <CardContent className="space-y-4">
               {filteredProfitPicks?.length ? (
                 <>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                  <div className="bg-muted dark:bg-muted rounded-lg p-4">
                     <h4 className="font-medium mb-3">Selected AI Recommendations</h4>
                     <Table>
                       <TableHeader>
@@ -1148,9 +1148,9 @@ export default function AgentInvestmentAdvisory() {
                 </>
               ) : (
                 <div className="text-center py-8">
-                  <Target className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-medium mb-2">No Recommendations to Finalize</h3>
-                  <p className="text-gray-500 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Generate AI profit picks first to create an investment proposal
                   </p>
                   <Button onClick={() => setActiveTab("profit-picks")}>
@@ -1509,7 +1509,7 @@ function ItrServicesTab({ clientId }: { clientId: string }) {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      initiated: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+      initiated: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground",
       documents_pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
       documents_received: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
       under_review: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
@@ -1867,7 +1867,7 @@ function ItrServicesTab({ clientId }: { clientId: string }) {
                     return (
                       <div 
                         key={doc.value}
-                        className={`flex items-center gap-2 p-2 rounded ${isReceived ? 'bg-green-50 dark:bg-green-950' : 'bg-gray-50 dark:bg-gray-900'}`}
+                        className={`flex items-center gap-2 p-2 rounded ${isReceived ? 'bg-green-50 dark:bg-green-950' : 'bg-muted dark:bg-card'}`}
                       >
                         {isReceived ? (
                           <CheckCircle2 className="h-4 w-4 text-green-500" />

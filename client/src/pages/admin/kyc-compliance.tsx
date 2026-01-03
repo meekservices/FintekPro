@@ -176,10 +176,10 @@ export default function KycCompliancePage() {
       header: "User",
       cell: (submission) => (
         <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-gray-400" />
+          <User className="h-4 w-4 text-muted-foreground" />
           <div>
             <div className="font-medium">{submission.userName}</div>
-            <div className="text-sm text-gray-500">{submission.userEmail}</div>
+            <div className="text-sm text-muted-foreground">{submission.userEmail}</div>
           </div>
         </div>
       ),
@@ -216,7 +216,7 @@ export default function KycCompliancePage() {
       id: "submittedAt",
       header: "Submitted",
       cell: (submission) => (
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="h-4 w-4" />
           {new Date(submission.submittedAt).toLocaleDateString()}
         </div>
@@ -361,7 +361,7 @@ export default function KycCompliancePage() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
           KYC & Compliance Hub
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">
+        <p className="text-muted-foreground dark:text-muted-foreground mt-2">
           Review KYC submissions, verify documents, and monitor compliance alerts
         </p>
       </div>
@@ -392,7 +392,7 @@ export default function KycCompliancePage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card data-testid="card-pending-kyc">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                   Pending KYC
                 </CardTitle>
                 <Clock className="h-4 w-4 text-orange-600" />
@@ -406,7 +406,7 @@ export default function KycCompliancePage() {
 
             <Card data-testid="card-approved-today">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                   Approved Today
                 </CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
@@ -420,7 +420,7 @@ export default function KycCompliancePage() {
 
             <Card data-testid="card-rejected-today">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                   Rejected Today
                 </CardTitle>
                 <XCircle className="h-4 w-4 text-red-600" />
@@ -434,7 +434,7 @@ export default function KycCompliancePage() {
 
             <Card data-testid="card-pending-docs">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                   Pending Documents
                 </CardTitle>
                 <FileText className="h-4 w-4 text-blue-600" />
@@ -456,15 +456,15 @@ export default function KycCompliancePage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">{stats?.tier1Count || 0}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Tier 1</div>
+                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">Tier 1</div>
                 </div>
                 <div className="text-center p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">{stats?.tier2Count || 0}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Tier 2</div>
+                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">Tier 2</div>
                 </div>
                 <div className="text-center p-4 bg-green-50 dark:bg-green-950 rounded-lg">
                   <div className="text-2xl font-bold text-green-600">{stats?.tier3Count || 0}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Tier 3</div>
+                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">Tier 3</div>
                 </div>
               </div>
             </CardContent>
@@ -479,7 +479,7 @@ export default function KycCompliancePage() {
               </Badge>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                 {stats?.activeAlerts ? `${stats.activeAlerts} alerts require attention` : "No active alerts"}
               </p>
             </CardContent>
@@ -491,7 +491,7 @@ export default function KycCompliancePage() {
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name or email..."
                 className="pl-10"
@@ -549,7 +549,7 @@ export default function KycCompliancePage() {
               <CardTitle>Document Verification</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 Document verification interface will be displayed here
               </p>
             </CardContent>
@@ -574,7 +574,7 @@ export default function KycCompliancePage() {
                 <TableBody>
                   {alerts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No compliance alerts
                       </TableCell>
                     </TableRow>

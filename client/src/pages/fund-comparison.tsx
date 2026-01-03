@@ -59,7 +59,7 @@ function FundSearchInput({ onFundSelect, selectedFunds }: {
   return (
     <div className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search for mutual funds to compare..."
           value={searchTerm}
@@ -70,7 +70,7 @@ function FundSearchInput({ onFundSelect, selectedFunds }: {
       </div>
       
       {searchTerm && (
-        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-muted border border-border dark:border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
           {isLoading ? (
             <div className="p-4">
               <Skeleton className="h-4 w-full mb-2" />
@@ -84,15 +84,15 @@ function FundSearchInput({ onFundSelect, selectedFunds }: {
                   onFundSelect(fund);
                   setSearchTerm("");
                 }}
-                className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-600 last:border-b-0"
+                className="w-full text-left p-3 hover:bg-muted dark:hover:bg-gray-700 border-b border-gray-100 dark:border-border last:border-b-0"
                 data-testid={`fund-option-${fund.schemeCode}`}
               >
                 <div className="font-medium text-gray-900 dark:text-white">{fund.schemeName}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">{fund.fundHouse} • NAV: ₹{fund.nav}</div>
+                <div className="text-sm text-muted-foreground dark:text-muted-foreground">{fund.fundHouse} • NAV: ₹{fund.nav}</div>
               </button>
             ))
           ) : (
-            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+            <div className="p-4 text-center text-muted-foreground dark:text-muted-foreground">
               No funds found
             </div>
           )}
@@ -108,18 +108,18 @@ function SelectedFundCard({ fund, onRemove }: { fund: MutualFundData; onRemove: 
   const changePercent = parseFloat(fund.changePercent || "0");
 
   return (
-    <Card className="border border-gray-200 dark:border-gray-700" data-testid={`selected-fund-${fund.schemeCode}`}>
+    <Card className="border border-border dark:border-border" data-testid={`selected-fund-${fund.schemeCode}`}>
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1">
             <h3 className="font-semibold text-sm line-clamp-2">{fund.schemeName}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{fund.fundHouse}</p>
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">{fund.fundHouse}</p>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={onRemove}
-            className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500"
             data-testid={`button-remove-fund-${fund.schemeCode}`}
           >
             <X className="h-4 w-4" />
@@ -128,11 +128,11 @@ function SelectedFundCard({ fund, onRemove }: { fund: MutualFundData; onRemove: 
         
         <div className="space-y-1">
           <div className="flex justify-between">
-            <span className="text-xs text-gray-500">NAV</span>
+            <span className="text-xs text-muted-foreground">NAV</span>
             <span className="text-sm font-medium">₹{navValue.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-xs text-gray-500">Change</span>
+            <span className="text-xs text-muted-foreground">Change</span>
             <span className={`text-sm font-medium ${changeValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {changeValue >= 0 ? '+' : ''}₹{changeValue.toFixed(2)} ({changePercent.toFixed(2)}%)
             </span>
@@ -198,7 +198,7 @@ function ComparisonResults({ comparison }: { comparison: FundComparisonResult })
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{comparison.aiInsights}</p>
+          <p className="text-muted-foreground dark:text-muted-foreground leading-relaxed">{comparison.aiInsights}</p>
           <div className="mt-4 flex items-center gap-2">
             <Badge variant="secondary" className="bg-finance-blue/10 text-finance-blue">
               Recommendation Score: {comparison.recommendationScore}/100
@@ -219,32 +219,32 @@ function ComparisonResults({ comparison }: { comparison: FundComparisonResult })
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left p-2 font-medium text-gray-600 dark:text-gray-300">Metric</th>
+                <tr className="border-b border-border dark:border-border">
+                  <th className="text-left p-2 font-medium text-muted-foreground dark:text-muted-foreground">Metric</th>
                   {comparison.funds.map((fund, index) => (
-                    <th key={fund.schemeCode} className="text-center p-2 font-medium text-gray-600 dark:text-gray-300">
+                    <th key={fund.schemeCode} className="text-center p-2 font-medium text-muted-foreground dark:text-muted-foreground">
                       Fund {index + 1}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-gray-100 dark:border-border">
                   <td className="p-2 font-medium">Fund Name</td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center text-xs">
                       <div className="font-medium">{fund.schemeName.slice(0, 30)}...</div>
-                      <div className="text-gray-500">{fund.fundHouse}</div>
+                      <div className="text-muted-foreground">{fund.fundHouse}</div>
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-gray-100 dark:border-border">
                   <td className="p-2 font-medium">Current NAV</td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center font-medium">₹{fund.currentNAV.toFixed(2)}</td>
                   ))}
                 </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-gray-100 dark:border-border">
                   <td className="p-2 font-medium">1Y Returns</td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center">
@@ -254,7 +254,7 @@ function ComparisonResults({ comparison }: { comparison: FundComparisonResult })
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-gray-100 dark:border-border">
                   <td className="p-2 font-medium">3Y Returns</td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center">
@@ -264,25 +264,25 @@ function ComparisonResults({ comparison }: { comparison: FundComparisonResult })
                     </td>
                   ))}
                 </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-gray-100 dark:border-border">
                   <td className="p-2 font-medium">Sharpe Ratio</td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center">{fund.sharpeRatio.toFixed(2)}</td>
                   ))}
                 </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-gray-100 dark:border-border">
                   <td className="p-2 font-medium">Volatility</td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center">{fund.volatility.toFixed(2)}%</td>
                   ))}
                 </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-gray-100 dark:border-border">
                   <td className="p-2 font-medium">Expense Ratio</td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center">{fund.expenseRatio?.toFixed(2) || 'N/A'}%</td>
                   ))}
                 </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-gray-100 dark:border-border">
                   <td className="p-2 font-medium">AUM</td>
                   {comparison.funds.map((fund) => (
                     <td key={fund.schemeCode} className="p-2 text-center">
@@ -302,7 +302,7 @@ function ComparisonResults({ comparison }: { comparison: FundComparisonResult })
                             {[...Array(5)].map((_, i) => (
                               <Star
                                 key={i}
-                                className={`h-3 w-3 ${i < fund.crisilRating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                                className={`h-3 w-3 ${i < fund.crisilRating ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`}
                               />
                             ))}
                           </div>
@@ -393,7 +393,7 @@ export default function FundComparison() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Fund Comparison</h1>
-        <p className="text-gray-600 dark:text-gray-300">Compare mutual funds side-by-side with AI-powered insights</p>
+        <p className="text-muted-foreground dark:text-muted-foreground">Compare mutual funds side-by-side with AI-powered insights</p>
       </div>
 
       {/* Fund Selection */}
@@ -461,12 +461,12 @@ export default function FundComparison() {
       {selectedFunds.length === 0 && !comparisonResult && (
         <Card className="text-center py-12">
           <CardContent>
-            <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Start Comparing Funds</h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="text-muted-foreground dark:text-muted-foreground mb-4">
               Search and select mutual funds above to begin your comparison analysis
             </p>
-            <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
+            <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
                 <CheckCircle className="h-4 w-4 text-green-500" />
                 Performance Metrics

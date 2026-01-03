@@ -46,18 +46,18 @@ function ExchangeRatesTable({ baseCurrency }: { baseCurrency: string }) {
   });
 
   if (isLoading) {
-    return <div className="text-sm text-gray-500">Loading exchange rates...</div>;
+    return <div className="text-sm text-muted-foreground">Loading exchange rates...</div>;
   }
 
   if (!ratesData || !ratesData.rates) {
-    return <div className="text-sm text-gray-500">No exchange rates available</div>;
+    return <div className="text-sm text-muted-foreground">No exchange rates available</div>;
   }
 
   const rates = Object.entries(ratesData.rates) as [string, number][];
 
   return (
     <div className="space-y-2">
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-muted-foreground">
         Last updated: {new Date(ratesData.lastUpdated).toLocaleString()}
       </div>
       <Table>
@@ -75,7 +75,7 @@ function ExchangeRatesTable({ baseCurrency }: { baseCurrency: string }) {
               <TableCell className="text-right">
                 <CurrencyDisplay amount={rate} currency={baseCurrency} showSymbol={false} />
               </TableCell>
-              <TableCell className="text-right text-sm text-gray-600">
+              <TableCell className="text-right text-sm text-muted-foreground">
                 1 {baseCurrency} = {rate.toFixed(4)} {currency}
               </TableCell>
             </TableRow>
@@ -697,10 +697,10 @@ export default function ProfilePage() {
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
-                <div className="h-8 bg-gray-200 rounded mb-4"></div>
+                <div className="h-8 bg-muted rounded mb-4"></div>
                 <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded"></div>
                 </div>
               </CardContent>
             </Card>
@@ -718,14 +718,14 @@ export default function ProfilePage() {
             <User className="h-8 w-8" />
             Client Profile & KYC Onboarding
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-muted-foreground mt-2">
             Complete your profile for regulatory compliance and enhanced services
           </p>
         </div>
         
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <p className="text-sm text-gray-600">Profile Completeness</p>
+            <p className="text-sm text-muted-foreground">Profile Completeness</p>
             <div className="flex items-center gap-2 mt-1">
               <Progress value={profileCompleteness} className="w-32" />
               <span className="text-sm font-medium">{profileCompleteness}%</span>
@@ -773,8 +773,8 @@ export default function ProfilePage() {
                 </Alert>
               ) : kycProfileLoading || eligibilityLoading ? (
                 <div className="animate-pulse space-y-4">
-                  <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
-                  <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+                  <div className="h-32 bg-muted dark:bg-muted rounded-lg"></div>
+                  <div className="h-64 bg-muted dark:bg-muted rounded-lg"></div>
                 </div>
               ) : (
                 <>
@@ -807,7 +807,7 @@ export default function ProfilePage() {
                         <div className="flex justify-between items-center">
                           <div>
                             <h1 className="text-3xl font-bold dark:text-white" data-testid="heading-kyc-dashboard">My KYC Dashboard</h1>
-                            <p className="text-gray-600 dark:text-gray-400">Manage your verification and access</p>
+                            <p className="text-muted-foreground dark:text-muted-foreground">Manage your verification and access</p>
                           </div>
                           <Badge className={`${getTierColor(kycProfileData?.kycTier || 'basic')} text-white px-4 py-2 text-lg`} data-testid="badge-kyc-tier">
                             {getTierIcon(kycProfileData?.kycTier || 'basic')}
@@ -828,25 +828,25 @@ export default function ProfilePage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               {/* Email */}
                               <div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
+                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Email</p>
                                 <p className="font-semibold dark:text-white" data-testid="text-email">{kycProfileData?.email}</p>
                               </div>
 
                               {/* Mobile */}
                               <div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Mobile</p>
+                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Mobile</p>
                                 <p className="font-semibold dark:text-white" data-testid="text-mobile">{kycProfileData?.mobile}</p>
                               </div>
 
                               {/* PAN Number */}
                               <div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">PAN Number</p>
+                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">PAN Number</p>
                                 <p className="font-semibold dark:text-white" data-testid="text-pan">{kycProfileData?.panNumber || 'Not verified'}</p>
                               </div>
 
                               {/* KYC Status */}
                               <div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">KYC Status</p>
+                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">KYC Status</p>
                                 <Badge variant={kycProfileData?.kycStatus === 'approved' ? 'default' : 'secondary'} data-testid="badge-kyc-status">
                                   {kycProfileData?.kycStatus || 'pending'}
                                 </Badge>
@@ -1056,7 +1056,7 @@ export default function ProfilePage() {
                               {/* Locked Products */}
                               {eligibility?.lockedProducts && eligibility.lockedProducts.length > 0 && (
                                 <div>
-                                  <h3 className="font-semibold mb-3 text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                  <h3 className="font-semibold mb-3 text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
                                     <Lock className="h-5 w-5" />
                                     Locked Products ({eligibility?.totalProductsLocked || 0})
                                   </h3>
@@ -1118,7 +1118,7 @@ export default function ProfilePage() {
                               <Label htmlFor="individual" className="cursor-pointer">
                                 <div>
                                   <div className="font-medium">Individual</div>
-                                  <div className="text-sm text-gray-500">Personal account</div>
+                                  <div className="text-sm text-muted-foreground">Personal account</div>
                                 </div>
                               </Label>
                             </div>
@@ -1127,7 +1127,7 @@ export default function ProfilePage() {
                               <Label htmlFor="non_individual" className="cursor-pointer">
                                 <div>
                                   <div className="font-medium">Non-Individual</div>
-                                  <div className="text-sm text-gray-500">Business/Entity account</div>
+                                  <div className="text-sm text-muted-foreground">Business/Entity account</div>
                                 </div>
                               </Label>
                             </div>
@@ -1269,11 +1269,11 @@ export default function ProfilePage() {
                               type="email" 
                               placeholder="Enter email address" 
                               disabled={isEmailVerified}
-                              className={isEmailVerified ? "bg-gray-100 dark:bg-gray-800 cursor-not-allowed" : ""}
+                              className={isEmailVerified ? "bg-muted dark:bg-muted cursor-not-allowed" : ""}
                             />
                           </FormControl>
                           {isEmailVerified && (
-                            <FormDescription className="text-xs text-gray-500">
+                            <FormDescription className="text-xs text-muted-foreground">
                               This field is verified and cannot be edited
                             </FormDescription>
                           )}
@@ -1300,11 +1300,11 @@ export default function ProfilePage() {
                               {...field} 
                               placeholder="Enter mobile number" 
                               disabled={isMobileVerified}
-                              className={isMobileVerified ? "bg-gray-100 dark:bg-gray-800 cursor-not-allowed" : ""}
+                              className={isMobileVerified ? "bg-muted dark:bg-muted cursor-not-allowed" : ""}
                             />
                           </FormControl>
                           {isMobileVerified && (
-                            <FormDescription className="text-xs text-gray-500">
+                            <FormDescription className="text-xs text-muted-foreground">
                               This field is verified and cannot be edited
                             </FormDescription>
                           )}
@@ -1456,12 +1456,12 @@ export default function ProfilePage() {
                             <Input 
                               {...field} 
                               placeholder="ABCDE1234F" 
-                              className={`uppercase ${isPanVerified ? "bg-gray-100 dark:bg-gray-800 cursor-not-allowed" : ""}`}
+                              className={`uppercase ${isPanVerified ? "bg-muted dark:bg-muted cursor-not-allowed" : ""}`}
                               disabled={isPanVerified}
                             />
                           </FormControl>
                           {isPanVerified && (
-                            <FormDescription className="text-xs text-gray-500">
+                            <FormDescription className="text-xs text-muted-foreground">
                               This field is verified and cannot be edited
                             </FormDescription>
                           )}
@@ -2047,7 +2047,7 @@ export default function ProfilePage() {
               {isAmlScreening && (
                 <>
                   <div className="h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm text-gray-600">Running AML screening...</span>
+                  <span className="text-sm text-muted-foreground">Running AML screening...</span>
                 </>
               )}
             </div>
@@ -2104,11 +2104,11 @@ export default function ProfilePage() {
 // Verification Badge Component
 function VerificationBadge({ label, verified, testId }: { label: string; verified: boolean; testId: string }) {
   return (
-    <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg" data-testid={testId}>
+    <div className="flex items-center gap-2 p-2 bg-muted dark:bg-muted rounded-lg" data-testid={testId}>
       {verified ? (
         <CheckCircle2 className="h-4 w-4 text-green-500" />
       ) : (
-        <XCircle className="h-4 w-4 text-gray-400" />
+        <XCircle className="h-4 w-4 text-muted-foreground" />
       )}
       <span className="text-sm dark:text-white">{label}</span>
     </div>
@@ -2118,8 +2118,8 @@ function VerificationBadge({ label, verified, testId }: { label: string; verifie
 // Compliance Item Component
 function ComplianceItem({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
-    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-      <p className="text-xs text-gray-600 dark:text-gray-400">{label}</p>
+    <div className="p-3 bg-muted dark:bg-muted rounded-lg">
+      <p className="text-xs text-muted-foreground dark:text-muted-foreground">{label}</p>
       <p className="font-semibold capitalize dark:text-white" data-testid={testId}>{value}</p>
     </div>
   );
@@ -2132,7 +2132,7 @@ function ProductCard({ product, isAccessible }: { product: any; isAccessible: bo
       className={`p-3 rounded-lg border ${
         isAccessible 
           ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' 
-          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+          : 'bg-muted dark:bg-muted border-border dark:border-border'
       }`}
       data-testid={`card-product-${product.productCode}`}
     >
@@ -2148,7 +2148,7 @@ function ProductCard({ product, isAccessible }: { product: any; isAccessible: bo
         {isAccessible ? (
           <Unlock className="h-4 w-4 text-green-500" />
         ) : (
-          <Lock className="h-4 w-4 text-gray-400" />
+          <Lock className="h-4 w-4 text-muted-foreground" />
         )}
       </div>
     </div>

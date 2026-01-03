@@ -110,7 +110,7 @@ export default function PublicProposalPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">
           <div className="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading your personalized proposal...</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Loading your personalized proposal...</p>
         </div>
       </div>
     );
@@ -125,7 +125,7 @@ export default function PublicProposalPage() {
               <Clock className="w-8 h-8 text-red-600" />
             </div>
             <h2 className="text-xl font-bold mb-2">Proposal Not Found</h2>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               {(error as Error)?.message || "This proposal may have expired or been removed."}
             </p>
           </CardContent>
@@ -141,7 +141,7 @@ export default function PublicProposalPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b sticky top-0 z-10">
+      <header className="bg-white/80 dark:bg-card/80 backdrop-blur-sm border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-lg flex items-center justify-center">
@@ -170,7 +170,7 @@ export default function PublicProposalPage() {
             {proposal.proposalTitle}
           </h1>
           {proposal.executiveSummary && (
-            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+            <p className="text-lg text-muted-foreground dark:text-muted-foreground max-w-3xl mx-auto">
               {proposal.executiveSummary}
             </p>
           )}
@@ -236,21 +236,21 @@ export default function PublicProposalPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-1">Goal</p>
+                <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Goal</p>
                   <p className="font-medium">{GOAL_TYPE_LABELS[proposal.investmentGoals.goalType] || proposal.investmentGoals.goalType}</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-1">Time Horizon</p>
+                <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Time Horizon</p>
                   <p className="font-medium capitalize">{proposal.investmentGoals.timeHorizon?.replace('_', ' ')}</p>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-1">Risk Tolerance</p>
+                <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Risk Tolerance</p>
                   <p className="font-medium capitalize">{proposal.investmentGoals.riskTolerance}</p>
                 </div>
                 {proposal.investmentGoals.targetAmount && (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                    <p className="text-xs text-gray-500 mb-1">Target Amount</p>
+                  <div className="bg-muted dark:bg-muted rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Target Amount</p>
                     <p className="font-medium">₹{parseFloat(proposal.investmentGoals.targetAmount).toLocaleString('en-IN')}</p>
                   </div>
                 )}
@@ -269,7 +269,7 @@ export default function PublicProposalPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 dark:text-gray-300">{proposal.currentAnalysis}</p>
+              <p className="text-muted-foreground dark:text-muted-foreground">{proposal.currentAnalysis}</p>
             </CardContent>
           </Card>
         )}
@@ -290,7 +290,7 @@ export default function PublicProposalPage() {
                     <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gradient-to-br from-indigo-100 to-blue-100 dark:from-indigo-900 dark:to-blue-900 flex items-center justify-center">
                       <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{percentage}%</span>
                     </div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{asset}</p>
+                    <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">{asset}</p>
                   </div>
                 ))}
               </div>
@@ -319,31 +319,31 @@ export default function PublicProposalPage() {
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold text-gray-900 dark:text-white">{rec.productName}</h4>
                           {rec.riskRating && (
-                            <Badge className={RISK_COLORS[rec.riskRating] || "bg-gray-100 text-gray-700"} variant="outline">
+                            <Badge className={RISK_COLORS[rec.riskRating] || "bg-muted text-muted-foreground"} variant="outline">
                               {rec.riskRating}
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500 mb-2">
+                        <p className="text-sm text-muted-foreground mb-2">
                           {rec.amc && `${rec.amc} • `}{rec.category}
                         </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{rec.selectionReason}</p>
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">{rec.selectionReason}</p>
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-center">
-                          <p className="text-xs text-gray-500">Investment</p>
+                          <p className="text-xs text-muted-foreground">Investment</p>
                           <p className="font-bold text-lg">₹{rec.recommendedAmount?.toLocaleString('en-IN')}</p>
-                          <p className="text-xs text-gray-500">{rec.allocationPercentage}% allocation</p>
+                          <p className="text-xs text-muted-foreground">{rec.allocationPercentage}% allocation</p>
                         </div>
                         {rec.investmentType === 'sip' && rec.sipAmount && (
                           <div className="text-center">
-                            <p className="text-xs text-gray-500">Monthly SIP</p>
+                            <p className="text-xs text-muted-foreground">Monthly SIP</p>
                             <p className="font-bold text-lg text-green-600">₹{rec.sipAmount?.toLocaleString('en-IN')}</p>
                           </div>
                         )}
                         {(rec.returns1Y || rec.returns3Y || rec.returns5Y) && (
                           <div className="text-center">
-                            <p className="text-xs text-gray-500">Returns</p>
+                            <p className="text-xs text-muted-foreground">Returns</p>
                             <div className="flex gap-2 text-sm">
                               {rec.returns1Y && <span className="text-green-600">1Y: {rec.returns1Y}%</span>}
                               {rec.returns3Y && <span className="text-green-600">3Y: {rec.returns3Y}%</span>}
@@ -395,7 +395,7 @@ export default function PublicProposalPage() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-lg">{proposal.agentName || "Your Advisor"}</h4>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                     {proposal.agentEmail && (
                       <a href={`mailto:${proposal.agentEmail}`} className="flex items-center gap-1 hover:text-indigo-600">
                         <Mail className="w-4 h-4" /> {proposal.agentEmail}
@@ -420,28 +420,28 @@ export default function PublicProposalPage() {
               <Shield className="w-6 h-6 text-indigo-600" />
             </div>
             <h4 className="font-semibold mb-1">SEBI Registered</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Fully compliant with regulatory guidelines</p>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Fully compliant with regulatory guidelines</p>
           </div>
           <div className="text-center">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="w-6 h-6 text-green-600" />
             </div>
             <h4 className="font-semibold mb-1">Secure Platform</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Bank-grade security for your investments</p>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Bank-grade security for your investments</p>
           </div>
           <div className="text-center">
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <TrendingUp className="w-6 h-6 text-purple-600" />
             </div>
             <h4 className="font-semibold mb-1">Expert Guidance</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Personalized advice from certified professionals</p>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Personalized advice from certified professionals</p>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-50 dark:bg-gray-900 border-t py-8">
-        <div className="max-w-5xl mx-auto px-4 text-center text-sm text-gray-600 dark:text-gray-400">
+      <footer className="bg-muted dark:bg-card border-t py-8">
+        <div className="max-w-5xl mx-auto px-4 text-center text-sm text-muted-foreground dark:text-muted-foreground">
           <p className="mb-2">This proposal is generated for informational purposes only and does not constitute investment advice.</p>
           <p>Past performance is not indicative of future results. Please read all scheme-related documents carefully before investing.</p>
           <p className="mt-4">© {new Date().getFullYear()} FintekPro. All rights reserved.</p>

@@ -165,7 +165,7 @@ export default function PortfolioStressTest() {
       case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
       case 'extreme': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+      default: return 'bg-muted text-foreground dark:bg-muted dark:text-foreground';
     }
   };
 
@@ -231,7 +231,7 @@ export default function PortfolioStressTest() {
                 className={`cursor-pointer transition-all hover:shadow-lg ${
                   selectedScenario?.id === scenario.id 
                     ? 'ring-2 ring-blue-500 border-blue-500' 
-                    : 'hover:border-gray-300'
+                    : 'hover:border-border'
                 }`}
                 onClick={() => {
                   setSelectedScenario(scenario);
@@ -437,7 +437,7 @@ export default function PortfolioStressTest() {
             <CardContent>
               <div className="space-y-4">
                 {stressedPortfolio.map((holding, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted dark:bg-muted rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className={`w-3 h-3 rounded-full ${
                         holding.type === 'equity' ? 'bg-blue-500' :

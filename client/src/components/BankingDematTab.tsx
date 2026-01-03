@@ -390,16 +390,16 @@ export function BankingTab() {
                   {ifscDetails && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                       <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Bank Name</label>
+                        <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Bank Name</label>
                         <p className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1">{ifscDetails.bank}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch Name</label>
+                        <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Branch Name</label>
                         <p className="text-base font-semibold text-gray-900 dark:text-gray-100 mt-1">{ifscDetails.branch}</p>
                       </div>
                       <div className="md:col-span-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch Address</label>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        <label className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Branch Address</label>
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                           {ifscDetails.address}, {ifscDetails.city}, {ifscDetails.state}
                         </p>
                       </div>
@@ -481,7 +481,7 @@ export function BankingTab() {
                         <FormControl>
                           <Input {...field} placeholder="Enter name as per bank records" data-testid="input-account-holder" />
                         </FormControl>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                           This will be verified via penny drop (₹1 deposit)
                         </p>
                         <FormMessage />
@@ -557,7 +557,7 @@ export function BankingTab() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {account.accountHolderName} • {account.accountType.toUpperCase()}
                         </p>
                       </div>
@@ -587,13 +587,13 @@ export function BankingTab() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <p className="text-sm font-medium">Account Details</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Account: ****{account.accountNumber.slice(-4)}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         IFSC: {account.ifscCode}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Branch: {account.branchName}
                       </p>
                     </div>
@@ -608,19 +608,19 @@ export function BankingTab() {
                               ✓ Verified via Penny Drop
                             </p>
                             {account.verifiedAccountHolderName && (
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-muted-foreground">
                                 Bank Name: {account.verifiedAccountHolderName}
                               </p>
                             )}
                             {account.nameMatchScore && (
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-muted-foreground">
                                 Match Score: {account.nameMatchScore}%
                               </p>
                             )}
                           </>
                         )}
                         {account.verificationAttempts && account.verificationAttempts > 0 && (
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             Attempts: {account.verificationAttempts}/3
                           </p>
                         )}
@@ -676,7 +676,7 @@ export function BankingTab() {
                           </>
                         )}
                       </Button>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-muted-foreground mt-2">
                         ₹1 will be deposited to verify account. {account.verificationAttempts ? `${3 - account.verificationAttempts} attempts remaining` : '3 attempts available'}
                       </p>
                     </div>
@@ -714,9 +714,9 @@ export function BankingTab() {
       {bankAccounts && bankAccounts.length === 0 && !isAddingAccount && (
         <Card className="text-center py-12">
           <CardContent>
-            <CreditCard className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Bank Accounts Added</h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               Add your bank accounts to enable mutual fund transactions
             </p>
             <Button onClick={() => setIsAddingAccount(true)} data-testid="button-add-first-account">

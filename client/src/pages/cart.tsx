@@ -553,7 +553,7 @@ export default function Cart() {
       case 'client':
         return 'bg-green-100 text-green-600';
       default:
-        return 'bg-gray-100 text-gray-600';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -581,9 +581,9 @@ export default function Cart() {
       case 'rejected':
         return 'bg-red-50 text-red-700 border-red-200';
       case 'completed':
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
       default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -628,16 +628,16 @@ export default function Cart() {
       
       <CardContent className="space-y-4">
         {proposal.description && (
-          <p className="text-gray-700">{proposal.description}</p>
+          <p className="text-muted-foreground">{proposal.description}</p>
         )}
         
         {proposal.analysisRationale && (
-          <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="p-4 bg-muted rounded-lg">
             <div className="flex items-start gap-2">
               <Lightbulb className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-gray-800">Rationale</p>
-                <p className="text-sm text-gray-700">{proposal.analysisRationale}</p>
+                <p className="text-sm font-medium text-foreground">Rationale</p>
+                <p className="text-sm text-muted-foreground">{proposal.analysisRationale}</p>
               </div>
             </div>
           </div>
@@ -729,10 +729,10 @@ export default function Cart() {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
+          <div className="h-8 bg-muted rounded w-48 mb-4"></div>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
+              <div key={i} className="h-24 bg-muted rounded"></div>
             ))}
           </div>
         </div>
@@ -750,7 +750,7 @@ export default function Cart() {
             </Button>
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Cart & Proposals</h1>
-          <p className="text-gray-600">Manage your cart items and review investment proposals</p>
+          <p className="text-muted-foreground">Manage your cart items and review investment proposals</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
@@ -774,9 +774,9 @@ export default function Cart() {
             {!cart || cart.items.length === 0 ? (
               <Card>
                 <CardContent className="text-center py-12">
-                  <ShoppingCart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <ShoppingCart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">Your cart is empty</h2>
-                  <p className="text-gray-600 mb-6">Add financial products or proposals to get started</p>
+                  <p className="text-muted-foreground mb-6">Add financial products or proposals to get started</p>
                   <div className="flex gap-4 justify-center">
                     <Link href="/store">
                       <Button className="bg-finance-blue hover:bg-finance-blue/90" data-testid="button-browse-products">
@@ -820,12 +820,12 @@ export default function Cart() {
                           >
                             <div className="flex-1">
                               <h3 className="font-semibold text-lg">{itemName}</h3>
-                              <p className="text-sm text-gray-600">{itemDescription}</p>
+                              <p className="text-sm text-muted-foreground">{itemDescription}</p>
                               <div className="flex items-center gap-4 mt-2">
                                 {isInvestment ? (
                                   <>
                                     <Badge variant="outline">{item.metadata?.investmentType || "Investment"}</Badge>
-                                    <span className="text-sm text-gray-500">{item.metadata?.fundHouse}</span>
+                                    <span className="text-sm text-muted-foreground">{item.metadata?.fundHouse}</span>
                                     {item.metadata?.frequency && (
                                       <Badge>{item.metadata.frequency}</Badge>
                                     )}
@@ -833,7 +833,7 @@ export default function Cart() {
                                 ) : (
                                   <>
                                     <Badge variant="outline">{item.product?.category}</Badge>
-                                    <span className="text-sm text-gray-500">by {item.product?.provider}</span>
+                                    <span className="text-sm text-muted-foreground">by {item.product?.provider}</span>
                                     <Badge className={
                                       item.product?.riskLevel === "low" ? "bg-green-100 text-green-700" :
                                       item.product?.riskLevel === "medium" ? "bg-yellow-100 text-yellow-700" :
@@ -877,7 +877,7 @@ export default function Cart() {
                                 <div className="w-32">
                                   <div className="text-center">
                                     <span className="font-medium text-lg">₹{parseInt(item.investmentAmount || '0').toLocaleString()}</span>
-                                    <p className="text-xs text-gray-500">Amount</p>
+                                    <p className="text-xs text-muted-foreground">Amount</p>
                                   </div>
                                 </div>
                               )}
@@ -892,7 +892,7 @@ export default function Cart() {
                                     min={item.product?.minimumInvestment || undefined}
                                     data-testid={`input-investment-amount-${itemId}`}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">
+                                  <p className="text-xs text-muted-foreground mt-1">
                                     Min: ₹{parseInt(item.product?.minimumInvestment || '0').toLocaleString()}
                                   </p>
                                 </div>
@@ -970,24 +970,24 @@ export default function Cart() {
                     <div className="mt-6 space-y-3">
                       <Label className="text-base font-semibold">Select Payment Method</Label>
                       <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cashfree" | "phonepe")}>
-                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted cursor-pointer">
                           <RadioGroupItem value="cashfree" id="cashfree" data-testid="radio-cashfree" />
                           <Label htmlFor="cashfree" className="flex-1 cursor-pointer">
                             <div className="flex items-center gap-2">
                               <div className="font-medium">Cashfree</div>
                               <Badge variant="secondary">Primary</Badge>
                             </div>
-                            <div className="text-xs text-gray-500">UPI, Cards & more payment options</div>
+                            <div className="text-xs text-muted-foreground">UPI, Cards & more payment options</div>
                           </Label>
                         </div>
-                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                        <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted dark:hover:bg-muted cursor-pointer">
                           <RadioGroupItem value="phonepe" id="phonepe" data-testid="radio-phonepe" />
                           <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
                             <div className="flex items-center gap-2">
                               <div className="font-medium">PhonePe</div>
                               <Badge variant="outline">UPI</Badge>
                             </div>
-                            <div className="text-xs text-gray-500">UPI, Wallets & Net Banking</div>
+                            <div className="text-xs text-muted-foreground">UPI, Wallets & Net Banking</div>
                           </Label>
                         </div>
                       </RadioGroup>
@@ -1044,9 +1044,9 @@ export default function Cart() {
             ) : unifiedCartItems.length === 0 ? (
               <Card>
                 <CardContent className="text-center py-12">
-                  <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <TrendingUp className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">No investment items</h2>
-                  <p className="text-gray-600 mb-6">Add investments from mutual funds, bonds, NCDs, IPOs, or unlisted shares</p>
+                  <p className="text-muted-foreground mb-6">Add investments from mutual funds, bonds, NCDs, IPOs, or unlisted shares</p>
                   <div className="flex gap-4 justify-center flex-wrap">
                     <Link href="/mutual-funds">
                       <Button variant="outline" data-testid="button-browse-mf">
@@ -1125,7 +1125,7 @@ export default function Cart() {
                           {categoryItems.map((item) => (
                             <div 
                               key={item.id}
-                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted dark:hover:bg-muted"
                               data-testid={`unified-cart-item-${item.id}`}
                             >
                               <div className="flex-1">
@@ -1159,11 +1159,11 @@ export default function Cart() {
                                   </Badge>
                                 </div>
                                 {item.metadata && Object.keys(item.metadata).length > 0 && (
-                                  <p className="text-sm text-gray-600" data-testid={`text-description-${item.id}`}>
+                                  <p className="text-sm text-muted-foreground" data-testid={`text-description-${item.id}`}>
                                     {(item.metadata as any)?.description || (item.metadata as any)?.fundHouse || (item.metadata as any)?.companyName || ''}
                                   </p>
                                 )}
-                                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                                <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                                   <span data-testid={`text-qty-${item.id}`}>Qty: {item.quantity || 1}</span>
                                   <span data-testid={`text-price-${item.id}`}>₹{Number(item.amount || 0).toLocaleString()}</span>
                                 </div>
@@ -1174,7 +1174,7 @@ export default function Cart() {
                                   <div className="text-lg font-bold" data-testid={`text-total-${item.id}`}>
                                     ₹{(Number(item.amount || 0) * (item.quantity || 1)).toLocaleString()}
                                   </div>
-                                  <p className="text-xs text-gray-500">Total</p>
+                                  <p className="text-xs text-muted-foreground">Total</p>
                                 </div>
                                 
                                 {/* Approve button for agent/AI items */}

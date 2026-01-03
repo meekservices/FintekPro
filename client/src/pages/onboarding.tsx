@@ -1348,7 +1348,7 @@ export default function SmartKYCOnboarding() {
                   <Input
                     value={panNumber}
                     disabled
-                    className="bg-gray-50 dark:bg-gray-900 border-green-200 dark:border-green-800"
+                    className="bg-muted dark:bg-card border-green-200 dark:border-green-800"
                     data-testid="input-pan-verified"
                   />
                 </div>
@@ -1361,7 +1361,7 @@ export default function SmartKYCOnboarding() {
                   <Input
                     value={panFullName}
                     disabled
-                    className="bg-gray-50 dark:bg-gray-900 border-green-200 dark:border-green-800"
+                    className="bg-muted dark:bg-card border-green-200 dark:border-green-800"
                     data-testid="input-fullname-verified"
                   />
                 </div>
@@ -1375,7 +1375,7 @@ export default function SmartKYCOnboarding() {
                     value={panDob}
                     disabled
                     type="date"
-                    className="bg-gray-50 dark:bg-gray-900 border-green-200 dark:border-green-800"
+                    className="bg-muted dark:bg-card border-green-200 dark:border-green-800"
                     data-testid="input-dob-verified"
                   />
                 </div>
@@ -1990,10 +1990,10 @@ export default function SmartKYCOnboarding() {
           
           <div className="space-y-2">
             <Label>Digital Signature (Optional)</Label>
-            <div className="border rounded-md p-4 bg-gray-50">
+            <div className="border rounded-md p-4 bg-muted">
               <canvas
                 ref={signatureCanvasRef}
-                className="w-full border border-dashed border-gray-300 rounded cursor-crosshair bg-white"
+                className="w-full border border-dashed border-border rounded cursor-crosshair bg-white"
                 style={{ height: '150px' }}
                 data-testid="canvas-signature"
               />

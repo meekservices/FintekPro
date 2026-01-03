@@ -53,7 +53,7 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Bot className="w-16 h-16 text-teal-400 mb-4" />
           <h3 className="text-xl font-semibold mb-2">No Pending MLD Proposals</h3>
-          <p className="text-gray-500 text-center max-w-md mb-4">AI and agent recommendations for Market Linked Debentures will appear here.</p>
+          <p className="text-muted-foreground text-center max-w-md mb-4">AI and agent recommendations for Market Linked Debentures will appear here.</p>
           <Button variant="outline" onClick={() => refetch()} className="border-teal-300 text-teal-600"><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>
         </CardContent>
       </Card>
@@ -79,11 +79,11 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                       <Badge variant="outline" className="bg-teal-50 text-teal-700">MLD</Badge>
                     </div>
                     <h3 className="text-lg font-semibold">{proposal.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{proposal.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{proposal.description}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold flex items-center justify-end"><IndianRupee className="w-5 h-5" />{parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}</p>
-                    <p className="text-sm text-gray-500">Investment Amount</p>
+                    <p className="text-sm text-muted-foreground">Investment Amount</p>
                   </div>
                 </div>
 
@@ -99,11 +99,11 @@ function ProposalsTab({ productType, onApprove }: { productType: string; onAppro
                   </div>
                 )}
 
-                <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="text-center"><p className="text-sm text-gray-500">Capital Protection</p><p className="text-lg font-bold text-green-600">{proposal.capitalProtection || '100%'}</p></div>
-                  <div className="text-center"><p className="text-sm text-gray-500">Participation</p><p className="text-lg font-bold">{proposal.participationRate || '80%'}</p></div>
-                  <div className="text-center"><p className="text-sm text-gray-500">Tenure</p><p className="text-lg font-bold">{proposal.tenure || '3 Years'}</p></div>
-                  <div className="text-center"><p className="text-sm text-gray-500">Underlying</p><p className="text-lg font-bold text-blue-600">{proposal.underlyingIndex || 'NIFTY 50'}</p></div>
+                <div className="grid grid-cols-4 gap-4 mb-4 p-4 bg-muted rounded-lg">
+                  <div className="text-center"><p className="text-sm text-muted-foreground">Capital Protection</p><p className="text-lg font-bold text-green-600">{proposal.capitalProtection || '100%'}</p></div>
+                  <div className="text-center"><p className="text-sm text-muted-foreground">Participation</p><p className="text-lg font-bold">{proposal.participationRate || '80%'}</p></div>
+                  <div className="text-center"><p className="text-sm text-muted-foreground">Tenure</p><p className="text-lg font-bold">{proposal.tenure || '3 Years'}</p></div>
+                  <div className="text-center"><p className="text-sm text-muted-foreground">Underlying</p><p className="text-lg font-bold text-blue-600">{proposal.underlyingIndex || 'NIFTY 50'}</p></div>
                 </div>
 
                 <div className="flex gap-3">
@@ -160,7 +160,7 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
         <CardContent className="flex flex-col items-center justify-center py-16">
           <ShoppingCart className="w-16 h-16 text-teal-400 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Your MLD Cart is Empty</h3>
-          <p className="text-gray-500 text-center max-w-md">Approve proposals to add them to cart.</p>
+          <p className="text-muted-foreground text-center max-w-md">Approve proposals to add them to cart.</p>
         </CardContent>
       </Card>
     );
@@ -196,8 +196,8 @@ function CartTab({ productType, onCheckout }: { productType: string; onCheckout:
           <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-teal-600" />Order Summary</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Total Items</span><span className="font-medium">{cartItems.length}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="font-medium">₹{totalValue.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Total Items</span><span className="font-medium">{cartItems.length}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">₹{totalValue.toLocaleString('en-IN')}</span></div>
             </div>
             <div className="border-t pt-4">
               <div className="flex justify-between text-lg font-bold"><span>Total</span><span className="text-teal-600">₹{totalValue.toLocaleString('en-IN')}</span></div>
@@ -225,11 +225,11 @@ function OrdersTab({ productType }: { productType: string }) {
 
   if (!orders || orders.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-gray-200">
+      <Card className="border-dashed border-2 border-border">
         <CardContent className="flex flex-col items-center justify-center py-16">
-          <FileText className="w-16 h-16 text-gray-400 mb-4" />
+          <FileText className="w-16 h-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold mb-2">No MLD Orders Yet</h3>
-          <p className="text-gray-500">Your orders will appear here once placed.</p>
+          <p className="text-muted-foreground">Your orders will appear here once placed.</p>
         </CardContent>
       </Card>
     );
@@ -241,14 +241,14 @@ function OrdersTab({ productType }: { productType: string }) {
         <Card key={order.id} data-testid={`mld-order-${order.id}`}>
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-4">
-              <div><h4 className="font-semibold text-lg">{order.productName || order.schemeName}</h4><p className="text-sm text-gray-500">Order #{order.id?.slice(-8)}</p></div>
+              <div><h4 className="font-semibold text-lg">{order.productName || order.schemeName}</h4><p className="text-sm text-muted-foreground">Order #{order.id?.slice(-8)}</p></div>
               <Badge className={order.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{order.status}</Badge>
             </div>
             <div className="grid grid-cols-4 gap-4 text-sm">
-              <div><span className="text-gray-500">Amount</span><p className="font-semibold">₹{parseFloat(order.amount || '0').toLocaleString('en-IN')}</p></div>
-              <div><span className="text-gray-500">Date</span><p className="font-semibold">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A'}</p></div>
-              <div><span className="text-gray-500">Tenure</span><p className="font-semibold">{order.tenure || '3 Years'}</p></div>
-              <div><span className="text-gray-500">Payment</span><p className="font-semibold">{order.paymentStatus || 'Pending'}</p></div>
+              <div><span className="text-muted-foreground">Amount</span><p className="font-semibold">₹{parseFloat(order.amount || '0').toLocaleString('en-IN')}</p></div>
+              <div><span className="text-muted-foreground">Date</span><p className="font-semibold">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A'}</p></div>
+              <div><span className="text-muted-foreground">Tenure</span><p className="font-semibold">{order.tenure || '3 Years'}</p></div>
+              <div><span className="text-muted-foreground">Payment</span><p className="font-semibold">{order.paymentStatus || 'Pending'}</p></div>
             </div>
           </CardContent>
         </Card>
@@ -264,11 +264,11 @@ function PortfolioTab({ productType }: { productType: string }) {
 
   if (!holdings || holdings.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-gray-200">
+      <Card className="border-dashed border-2 border-border">
         <CardContent className="flex flex-col items-center justify-center py-16">
-          <Wallet className="w-16 h-16 text-gray-400 mb-4" />
+          <Wallet className="w-16 h-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold mb-2">No MLD Holdings</h3>
-          <p className="text-gray-500">Your investments will appear here.</p>
+          <p className="text-muted-foreground">Your investments will appear here.</p>
         </CardContent>
       </Card>
     );
@@ -280,10 +280,10 @@ function PortfolioTab({ productType }: { productType: string }) {
         <Card key={holding.id}>
           <CardContent className="p-6">
             <div className="flex justify-between items-start">
-              <div><h4 className="font-semibold">{holding.productName}</h4><p className="text-sm text-gray-500">{holding.issuer}</p></div>
+              <div><h4 className="font-semibold">{holding.productName}</h4><p className="text-sm text-muted-foreground">{holding.issuer}</p></div>
               <div className="text-right">
                 <p className="text-xl font-bold">₹{parseFloat(holding.currentValue || '0').toLocaleString('en-IN')}</p>
-                <p className="text-sm text-gray-500">Maturity: {holding.maturityDate || 'N/A'}</p>
+                <p className="text-sm text-muted-foreground">Maturity: {holding.maturityDate || 'N/A'}</p>
               </div>
             </div>
           </CardContent>
@@ -326,14 +326,14 @@ export default function MLDs() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Market Linked Debentures (MLDs)</h1>
-          <p className="text-gray-600 text-lg">Structured debt instruments linked to market indices with capital protection options.</p>
+          <p className="text-muted-foreground text-lg">Structured debt instruments linked to market indices with capital protection options.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Total MLDs</p><p className="text-3xl font-bold text-teal-600">{statistics.totalProducts}</p></div><BarChart3 className="w-10 h-10 text-teal-600" /></div></CardContent></Card>
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Avg. Protection</p><p className="text-3xl font-bold text-green-600">{statistics.avgProtection}</p></div><Shield className="w-10 h-10 text-green-600" /></div></CardContent></Card>
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Avg. Participation</p><p className="text-3xl font-bold text-blue-600">{statistics.avgParticipation}</p></div><TrendingUp className="w-10 h-10 text-blue-600" /></div></CardContent></Card>
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-600">Tenure Options</p><p className="text-3xl font-bold text-purple-600">{statistics.activeTenures}</p></div><Calendar className="w-10 h-10 text-purple-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Total MLDs</p><p className="text-3xl font-bold text-teal-600">{statistics.totalProducts}</p></div><BarChart3 className="w-10 h-10 text-teal-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Avg. Protection</p><p className="text-3xl font-bold text-green-600">{statistics.avgProtection}</p></div><Shield className="w-10 h-10 text-green-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Avg. Participation</p><p className="text-3xl font-bold text-blue-600">{statistics.avgParticipation}</p></div><TrendingUp className="w-10 h-10 text-blue-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Tenure Options</p><p className="text-3xl font-bold text-purple-600">{statistics.activeTenures}</p></div><Calendar className="w-10 h-10 text-purple-600" /></div></CardContent></Card>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -348,14 +348,14 @@ export default function MLDs() {
 
           <TabsContent value="schemes" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <Card><CardHeader><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-finance-blue" /><CardTitle className="text-lg">Market Linked Returns</CardTitle></div></CardHeader><CardContent><p className="text-sm text-gray-600">Returns based on underlying index performance (NIFTY, SENSEX, etc.)</p></CardContent></Card>
-              <Card><CardHeader><div className="flex items-center gap-2"><Shield className="h-5 w-5 text-finance-green" /><CardTitle className="text-lg">Capital Protection</CardTitle></div></CardHeader><CardContent><p className="text-sm text-gray-600">Options with 100%, 90%, or 80% principal protection at maturity</p></CardContent></Card>
-              <Card><CardHeader><div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-finance-purple" /><CardTitle className="text-lg">Structured Payoffs</CardTitle></div></CardHeader><CardContent><p className="text-sm text-gray-600">Digital, range accrual, or step-up payoff structures</p></CardContent></Card>
+              <Card><CardHeader><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-finance-blue" /><CardTitle className="text-lg">Market Linked Returns</CardTitle></div></CardHeader><CardContent><p className="text-sm text-muted-foreground">Returns based on underlying index performance (NIFTY, SENSEX, etc.)</p></CardContent></Card>
+              <Card><CardHeader><div className="flex items-center gap-2"><Shield className="h-5 w-5 text-finance-green" /><CardTitle className="text-lg">Capital Protection</CardTitle></div></CardHeader><CardContent><p className="text-sm text-muted-foreground">Options with 100%, 90%, or 80% principal protection at maturity</p></CardContent></Card>
+              <Card><CardHeader><div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-finance-purple" /><CardTitle className="text-lg">Structured Payoffs</CardTitle></div></CardHeader><CardContent><p className="text-sm text-muted-foreground">Digital, range accrual, or step-up payoff structures</p></CardContent></Card>
             </div>
 
             <div className="flex flex-wrap gap-4 mb-6">
               <div className="flex-1 min-w-[200px]">
-                <div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search MLDs..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="search-mld" /></div>
+                <div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" /><Input placeholder="Search MLDs..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" data-testid="search-mld" /></div>
               </div>
               <Select value={selectedProtection} onValueChange={setSelectedProtection}>
                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Protection" /></SelectTrigger>
@@ -383,15 +383,15 @@ export default function MLDs() {
                 <Card key={product.id} className="hover:shadow-lg transition-shadow" data-testid={`mld-${product.id}`}>
                   <CardHeader>
                     <div className="flex justify-between items-start"><CardTitle className="text-lg">{product.name}</CardTitle>{product.badge && <Badge variant="secondary">{product.badge}</Badge>}</div>
-                    <p className="text-sm text-gray-600">{product.issuer || product.provider}</p>
+                    <p className="text-sm text-muted-foreground">{product.issuer || product.provider}</p>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm"><span className="text-gray-600">Underlying Index:</span><span className="font-semibold">{product.benchmarkIndex || 'NIFTY 50'}</span></div>
-                      <div className="flex justify-between text-sm"><span className="text-gray-600">Capital Protection:</span><span className="font-semibold text-finance-green">{product.capitalProtection || '100%'}</span></div>
-                      <div className="flex justify-between text-sm"><span className="text-gray-600">Participation Rate:</span><span className="font-semibold">{product.participationRate || '80%'}</span></div>
-                      <div className="flex justify-between text-sm"><span className="text-gray-600">Tenure:</span><span className="font-semibold">{product.tenure || '3 years'}</span></div>
-                      <div className="flex justify-between text-sm"><span className="text-gray-600">Min Investment:</span><span className="font-semibold">₹{product.minInvestment?.toLocaleString() || '100,000'}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">Underlying Index:</span><span className="font-semibold">{product.benchmarkIndex || 'NIFTY 50'}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">Capital Protection:</span><span className="font-semibold text-finance-green">{product.capitalProtection || '100%'}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">Participation Rate:</span><span className="font-semibold">{product.participationRate || '80%'}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tenure:</span><span className="font-semibold">{product.tenure || '3 years'}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-muted-foreground">Min Investment:</span><span className="font-semibold">₹{product.minInvestment?.toLocaleString() || '100,000'}</span></div>
                     </div>
                     <div className="flex gap-2">
                       <ExpressInterestButton productId={product.id} productType="mld" productName={product.name} />
@@ -400,7 +400,7 @@ export default function MLDs() {
                   </CardContent>
                 </Card>
               )) : (
-                <div className="col-span-full text-center py-12"><p className="text-gray-500">No MLDs available. Check back soon!</p></div>
+                <div className="col-span-full text-center py-12"><p className="text-muted-foreground">No MLDs available. Check back soon!</p></div>
               )}
             </div>
           </TabsContent>
@@ -412,9 +412,9 @@ export default function MLDs() {
 
           <TabsContent value="tools">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="hover:shadow-lg cursor-pointer" onClick={() => navigate('/calculators')}><CardContent className="p-6 text-center"><Calculator className="w-12 h-12 text-teal-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">MLD Calculator</h3><p className="text-sm text-gray-500">Calculate potential returns</p></CardContent></Card>
-              <Card className="hover:shadow-lg cursor-pointer"><CardContent className="p-6 text-center"><PieChart className="w-12 h-12 text-green-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Payoff Simulator</h3><p className="text-sm text-gray-500">Simulate different scenarios</p></CardContent></Card>
-              <Card className="hover:shadow-lg cursor-pointer"><CardContent className="p-6 text-center"><Target className="w-12 h-12 text-blue-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Risk Analyzer</h3><p className="text-sm text-gray-500">Understand risk-return</p></CardContent></Card>
+              <Card className="hover:shadow-lg cursor-pointer" onClick={() => navigate('/calculators')}><CardContent className="p-6 text-center"><Calculator className="w-12 h-12 text-teal-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">MLD Calculator</h3><p className="text-sm text-muted-foreground">Calculate potential returns</p></CardContent></Card>
+              <Card className="hover:shadow-lg cursor-pointer"><CardContent className="p-6 text-center"><PieChart className="w-12 h-12 text-green-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Payoff Simulator</h3><p className="text-sm text-muted-foreground">Simulate different scenarios</p></CardContent></Card>
+              <Card className="hover:shadow-lg cursor-pointer"><CardContent className="p-6 text-center"><Target className="w-12 h-12 text-blue-600 mx-auto mb-4" /><h3 className="font-semibold text-lg mb-2">Risk Analyzer</h3><p className="text-sm text-muted-foreground">Understand risk-return</p></CardContent></Card>
             </div>
           </TabsContent>
         </Tabs>
@@ -422,8 +422,8 @@ export default function MLDs() {
         <Card className="mt-8">
           <CardHeader><CardTitle>Understanding Market Linked Debentures</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div><h3 className="font-semibold mb-2">What are MLDs?</h3><p className="text-sm text-gray-600">Market Linked Debentures are structured debt securities where returns are linked to the performance of underlying market indices like NIFTY 50, SENSEX, or sectoral indices. They offer a blend of debt security with equity-like upside potential.</p></div>
-            <div><h3 className="font-semibold mb-2">Key Features:</h3><ul className="text-sm text-gray-600 space-y-1 list-disc list-inside"><li>Capital protection options (100%, 90%, or 80% of principal)</li><li>Participation in index upside with defined participation rate</li><li>Fixed tenure (typically 1-5 years)</li><li>Tax efficiency for long-term holdings</li></ul></div>
+            <div><h3 className="font-semibold mb-2">What are MLDs?</h3><p className="text-sm text-muted-foreground">Market Linked Debentures are structured debt securities where returns are linked to the performance of underlying market indices like NIFTY 50, SENSEX, or sectoral indices. They offer a blend of debt security with equity-like upside potential.</p></div>
+            <div><h3 className="font-semibold mb-2">Key Features:</h3><ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside"><li>Capital protection options (100%, 90%, or 80% of principal)</li><li>Participation in index upside with defined participation rate</li><li>Fixed tenure (typically 1-5 years)</li><li>Tax efficiency for long-term holdings</li></ul></div>
           </CardContent>
         </Card>
       </main>

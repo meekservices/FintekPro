@@ -204,7 +204,7 @@ function PortfolioSummaryCard() {
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">Start Your Fixed Income Portfolio</h3>
-              <p className="text-gray-600 text-sm">Explore bonds, NCDs, and government securities to build stable returns.</p>
+              <p className="text-muted-foreground text-sm">Explore bonds, NCDs, and government securities to build stable returns.</p>
             </div>
           </div>
         </CardContent>
@@ -223,37 +223,37 @@ function PortfolioSummaryCard() {
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-xs text-gray-500">Total Invested</p>
+            <p className="text-xs text-muted-foreground">Total Invested</p>
             <p className="text-lg font-bold text-gray-900">₹{(summary.totalInvested / 100000).toFixed(2)}L</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Current Value</p>
+            <p className="text-xs text-muted-foreground">Current Value</p>
             <p className="text-lg font-bold text-gray-900">₹{(summary.currentValue / 100000).toFixed(2)}L</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Unrealized P&L</p>
+            <p className="text-xs text-muted-foreground">Unrealized P&L</p>
             <p className={`text-lg font-bold ${summary.unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {summary.unrealizedPnL >= 0 ? '+' : ''}₹{Math.abs(summary.unrealizedPnL).toLocaleString()}
               <span className="text-xs ml-1">({summary.unrealizedPnLPercent.toFixed(2)}%)</span>
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Avg Yield</p>
+            <p className="text-xs text-muted-foreground">Avg Yield</p>
             <p className="text-lg font-bold text-emerald-600">{summary.avgYield.toFixed(2)}%</p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-emerald-200">
           <div className="text-center">
             <p className="text-2xl font-bold text-gray-900">{summary.holdingsCount}</p>
-            <p className="text-xs text-gray-500">Holdings</p>
+            <p className="text-xs text-muted-foreground">Holdings</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-green-600">₹{summary.totalCouponsReceived.toLocaleString()}</p>
-            <p className="text-xs text-gray-500">Coupons Received</p>
+            <p className="text-xs text-muted-foreground">Coupons Received</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-amber-600">₹{summary.pendingCoupons.toLocaleString()}</p>
-            <p className="text-xs text-gray-500">Pending Coupons</p>
+            <p className="text-xs text-muted-foreground">Pending Coupons</p>
           </div>
         </div>
       </CardContent>
@@ -268,7 +268,7 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
   onToggleWatchlist: (bond: Bond) => void;
 }) {
   const getRatingColor = (rating: string | null) => {
-    if (!rating) return 'bg-gray-100 text-gray-700';
+    if (!rating) return 'bg-muted text-muted-foreground';
     if (rating.startsWith('AAA')) return 'bg-green-100 text-green-700';
     if (rating.startsWith('AA')) return 'bg-emerald-100 text-emerald-700';
     if (rating.startsWith('A')) return 'bg-blue-100 text-blue-700';
@@ -292,7 +292,7 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
             {getBondTypeIcon()}
             <div>
               <h4 className="font-semibold text-gray-900 text-sm line-clamp-1">{bond.securityName}</h4>
-              <p className="text-xs text-gray-500">{bond.issuer}</p>
+              <p className="text-xs text-muted-foreground">{bond.issuer}</p>
             </div>
           </div>
           <Button
@@ -308,7 +308,7 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
             {isWatchlisted ? (
               <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
             ) : (
-              <StarOff className="h-4 w-4 text-gray-400 group-hover:text-amber-500" />
+              <StarOff className="h-4 w-4 text-muted-foreground group-hover:text-amber-500" />
             )}
           </Button>
         </div>
@@ -329,26 +329,26 @@ function BondCard({ bond, onSelect, isWatchlisted, onToggleWatchlist }: {
 
         <div className="grid grid-cols-2 gap-3 text-sm mb-3">
           <div>
-            <p className="text-gray-500 text-xs">Coupon Rate</p>
+            <p className="text-muted-foreground text-xs">Coupon Rate</p>
             <p className="font-semibold text-gray-900">{bond.couponRate}%</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">YTM</p>
+            <p className="text-muted-foreground text-xs">YTM</p>
             <p className="font-semibold text-emerald-600">{bond.yieldToMaturity?.toFixed(2) || '-'}%</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">Price</p>
+            <p className="text-muted-foreground text-xs">Price</p>
             <p className="font-semibold">₹{bond.currentPrice?.toLocaleString() || bond.faceValue.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">Maturity</p>
+            <p className="text-muted-foreground text-xs">Maturity</p>
             <p className="font-semibold">{new Date(bond.maturityDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</p>
           </div>
         </div>
 
         <div className="flex items-center justify-between pt-3 border-t">
           <div className="text-xs">
-            <span className="text-gray-500">Min: </span>
+            <span className="text-muted-foreground">Min: </span>
             <span className="font-semibold">₹{bond.minInvestment.toLocaleString()}</span>
           </div>
           <Button 
@@ -384,25 +384,25 @@ function NcdIssueCard({ issue, onApply }: { issue: NcdIssue; onApply: (issue: Nc
       <CardContent className="pb-2">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-gray-500 text-xs">Coupon Rate</p>
+            <p className="text-muted-foreground text-xs">Coupon Rate</p>
             <p className="font-bold text-lg text-emerald-600">{issue.couponRate}%</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">Tenure</p>
+            <p className="text-muted-foreground text-xs">Tenure</p>
             <p className="font-semibold">{issue.tenure} {issue.tenureUnit}</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">Issue Size</p>
+            <p className="text-muted-foreground text-xs">Issue Size</p>
             <p className="font-semibold">₹{(issue.issueSize / 10000000).toFixed(0)} Cr</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">Rating</p>
+            <p className="text-muted-foreground text-xs">Rating</p>
             <Badge variant="outline" className="bg-green-50 text-green-700">{issue.creditRating}</Badge>
           </div>
         </div>
         <div className="mt-3 pt-3 border-t flex items-center justify-between">
           <div className="text-xs">
-            <span className="text-gray-500">Min Application: </span>
+            <span className="text-muted-foreground">Min Application: </span>
             <span className="font-semibold">₹{issue.minApplicationAmount.toLocaleString()}</span>
           </div>
           <Button 
@@ -444,25 +444,25 @@ function SgbIssueCard({ issue, onApply }: { issue: SgbIssue; onApply: (issue: Sg
       <CardContent className="pb-2">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-gray-500 text-xs">Issue Price</p>
+            <p className="text-muted-foreground text-xs">Issue Price</p>
             <p className="font-bold text-lg">₹{issue.issuePrice.toLocaleString()}/gm</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">Interest Rate</p>
+            <p className="text-muted-foreground text-xs">Interest Rate</p>
             <p className="font-semibold text-emerald-600">{issue.interestRate}% p.a.</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">Gold Reference</p>
+            <p className="text-muted-foreground text-xs">Gold Reference</p>
             <p className="font-semibold">₹{issue.goldPriceReference.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-gray-500 text-xs">Maturity</p>
+            <p className="text-muted-foreground text-xs">Maturity</p>
             <p className="font-semibold">{new Date(issue.maturityDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</p>
           </div>
         </div>
         <div className="mt-3 pt-3 border-t flex items-center justify-between">
           <div className="text-xs">
-            <span className="text-gray-500">Qty: </span>
+            <span className="text-muted-foreground">Qty: </span>
             <span className="font-semibold">{issue.minQuantity} - {issue.maxQuantity} grams</span>
           </div>
           <Button 
@@ -552,19 +552,19 @@ function BondOrderDialog({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg text-sm">
             <div>
-              <p className="text-gray-500">ISIN</p>
+              <p className="text-muted-foreground">ISIN</p>
               <p className="font-semibold">{bond.isin}</p>
             </div>
             <div>
-              <p className="text-gray-500">Coupon</p>
+              <p className="text-muted-foreground">Coupon</p>
               <p className="font-semibold">{bond.couponRate}%</p>
             </div>
             <div>
-              <p className="text-gray-500">YTM</p>
+              <p className="text-muted-foreground">YTM</p>
               <p className="font-semibold text-emerald-600">{bond.yieldToMaturity?.toFixed(2)}%</p>
             </div>
             <div>
-              <p className="text-gray-500">Unit Price</p>
+              <p className="text-muted-foreground">Unit Price</p>
               <p className="font-semibold">₹{unitPrice.toLocaleString()}</p>
             </div>
           </div>
@@ -732,7 +732,7 @@ function BondsTab() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, issuer, or ISIN..."
             value={searchTerm}
@@ -1027,19 +1027,19 @@ function SellOrderDialog({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 p-4 bg-red-50 rounded-lg text-sm">
             <div>
-              <p className="text-gray-500">ISIN</p>
+              <p className="text-muted-foreground">ISIN</p>
               <p className="font-semibold">{holding.isin}</p>
             </div>
             <div>
-              <p className="text-gray-500">Available Qty</p>
+              <p className="text-muted-foreground">Available Qty</p>
               <p className="font-semibold">{holding.quantity}</p>
             </div>
             <div>
-              <p className="text-gray-500">Avg Buy Price</p>
+              <p className="text-muted-foreground">Avg Buy Price</p>
               <p className="font-semibold">₹{holding.averagePrice.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-gray-500">Current Price</p>
+              <p className="text-muted-foreground">Current Price</p>
               <p className="font-semibold">₹{currentPrice.toLocaleString()}</p>
             </div>
           </div>
@@ -1115,12 +1115,12 @@ function SellOrderDialog({
 
           <div className="space-y-2">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500">Estimated Proceeds</span>
+              <span className="text-muted-foreground">Estimated Proceeds</span>
               <span className="font-semibold">₹{totalAmount.toLocaleString()}</span>
             </div>
             {holding.unrealizedPnL !== 0 && (
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Estimated {holding.unrealizedPnL >= 0 ? 'Gain' : 'Loss'}</span>
+                <span className="text-muted-foreground">Estimated {holding.unrealizedPnL >= 0 ? 'Gain' : 'Loss'}</span>
                 <span className={`font-semibold ${holding.unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {holding.unrealizedPnL >= 0 ? '+' : ''}₹{((quantity / holding.quantity) * holding.unrealizedPnL).toFixed(0)}
                 </span>
@@ -1197,7 +1197,7 @@ function HoldingsTab() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h4 className="font-semibold">{holding.securityName}</h4>
-                  <p className="text-sm text-gray-500">{holding.isin}</p>
+                  <p className="text-sm text-muted-foreground">{holding.isin}</p>
                 </div>
                 <Badge variant="outline" className={holding.unrealizedPnL >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}>
                   {holding.unrealizedPnL >= 0 ? '+' : ''}₹{holding.unrealizedPnL.toLocaleString()}
@@ -1205,25 +1205,25 @@ function HoldingsTab() {
               </div>
               <div className="grid grid-cols-4 gap-4 mt-3 text-sm">
                 <div>
-                  <p className="text-gray-500 text-xs">Qty</p>
+                  <p className="text-muted-foreground text-xs">Qty</p>
                   <p className="font-semibold">{holding.quantity}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Avg Price</p>
+                  <p className="text-muted-foreground text-xs">Avg Price</p>
                   <p className="font-semibold">₹{holding.averagePrice.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Current Value</p>
+                  <p className="text-muted-foreground text-xs">Current Value</p>
                   <p className="font-semibold">₹{holding.currentValue.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Coupon</p>
+                  <p className="text-muted-foreground text-xs">Coupon</p>
                   <p className="font-semibold text-emerald-600">{holding.couponRate}%</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t flex items-center justify-between">
                 {holding.nextCouponDate ? (
-                  <div className="flex items-center text-sm text-gray-600">
+                  <div className="flex items-center text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4 mr-2" />
                     Next Coupon: {new Date(holding.nextCouponDate).toLocaleDateString('en-IN')}
                   </div>
@@ -1294,7 +1294,7 @@ function WatchlistTab() {
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="font-semibold">{item.isin}</p>
-              <p className="text-sm text-gray-500">Added {new Date(item.addedAt).toLocaleDateString()}</p>
+              <p className="text-sm text-muted-foreground">Added {new Date(item.addedAt).toLocaleDateString()}</p>
             </div>
             <Button 
               variant="ghost" 
@@ -1403,7 +1403,7 @@ function ReportsTab() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">{holdingReport ? 'Cached' : '7-year retention'}</span>
+              <span className="text-sm text-muted-foreground">{holdingReport ? 'Cached' : '7-year retention'}</span>
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -1431,7 +1431,7 @@ function ReportsTab() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">{couponReport ? 'Cached' : 'Next 12 months'}</span>
+              <span className="text-sm text-muted-foreground">{couponReport ? 'Cached' : 'Next 12 months'}</span>
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -1459,7 +1459,7 @@ function ReportsTab() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">{maturityReport ? 'Cached' : 'All holdings'}</span>
+              <span className="text-sm text-muted-foreground">{maturityReport ? 'Cached' : 'All holdings'}</span>
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -1495,23 +1495,23 @@ function ReportsTab() {
             ) : (
               <div className="space-y-4">
                 {holdingReport?.summary && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
                     <div>
-                      <p className="text-xs text-gray-500">Total Investment</p>
+                      <p className="text-xs text-muted-foreground">Total Investment</p>
                       <p className="text-lg font-bold">₹{((holdingReport.summary.totalInvestment || 0) / 100000).toFixed(2)}L</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Current Value</p>
+                      <p className="text-xs text-muted-foreground">Current Value</p>
                       <p className="text-lg font-bold">₹{((holdingReport.summary.currentValue || 0) / 100000).toFixed(2)}L</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Unrealized P&L</p>
+                      <p className="text-xs text-muted-foreground">Unrealized P&L</p>
                       <p className={`text-lg font-bold ${holdingReport.summary.unrealizedGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {holdingReport.summary.unrealizedGain >= 0 ? '+' : ''}₹{((holdingReport.summary.unrealizedGain || 0) / 1000).toFixed(2)}K
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Avg YTM</p>
+                      <p className="text-xs text-muted-foreground">Avg YTM</p>
                       <p className="text-lg font-bold">{(holdingReport.summary.weightedAvgYTM || 0).toFixed(2)}%</p>
                     </div>
                   </div>
@@ -1522,7 +1522,7 @@ function ReportsTab() {
                       <div key={holding.bondId} className="p-3 border rounded-lg flex justify-between items-center" data-testid={`holding-${holding.isin}`}>
                         <div>
                           <p className="font-medium">{holding.bondName}</p>
-                          <p className="text-sm text-gray-500">ISIN: {holding.isin} | Qty: {holding.quantity}</p>
+                          <p className="text-sm text-muted-foreground">ISIN: {holding.isin} | Qty: {holding.quantity}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">₹{holding.currentValue.toFixed(2)}</p>
@@ -1567,13 +1567,13 @@ function ReportsTab() {
                     <div key={idx} className="p-3 border rounded-lg flex justify-between items-center" data-testid={`coupon-${payment.bondId}-${idx}`}>
                       <div>
                         <p className="font-medium">{payment.bondName}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {new Date(payment.couponDate).toLocaleDateString()} | {payment.couponRate}% coupon
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-green-600">₹{payment.expectedAmount.toFixed(2)}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {payment.daysUntilPayment} days away
                         </p>
                       </div>
@@ -1613,7 +1613,7 @@ function ReportsTab() {
                     <div key={idx} className="p-3 border rounded-lg flex justify-between items-center" data-testid={`maturity-${maturity.bondId}`}>
                       <div>
                         <p className="font-medium">{maturity.bondName}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           Matures: {new Date(maturity.maturityDate).toLocaleDateString()} | Qty: {maturity.quantity}
                         </p>
                       </div>
@@ -1668,7 +1668,7 @@ function OrdersTab() {
       case 'pending': case 'processing': case 'awaiting_settlement': return 'bg-amber-100 text-amber-800';
       case 'failed': case 'rejected': case 'cancelled': return 'bg-red-100 text-red-800';
       case 'pending_payment': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -1734,7 +1734,7 @@ function OrdersTab() {
                           {typeStyles.label}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-500">ISIN: {order.isin}</p>
+                      <p className="text-sm text-muted-foreground">ISIN: {order.isin}</p>
                     </div>
                   </div>
                   <Badge className={getStatusColor(order.orderStatus)}>
@@ -1744,21 +1744,21 @@ function OrdersTab() {
 
                 <div className="grid grid-cols-4 gap-4 text-sm">
                   <div>
-                    <p className="text-gray-500">Type</p>
+                    <p className="text-muted-foreground">Type</p>
                     <p className={`font-medium ${order.orderType === 'buy' ? 'text-emerald-600' : 'text-red-600'}`}>
                       {order.orderType === 'buy' ? 'Purchase' : 'Redemption'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Quantity</p>
+                    <p className="text-muted-foreground">Quantity</p>
                     <p className="font-medium">{order.quantity}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Price</p>
+                    <p className="text-muted-foreground">Price</p>
                     <p className="font-medium">₹{parseFloat(order.orderPrice || order.price || '0').toFixed(2)}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">{order.orderType === 'buy' ? 'Amount Paid' : 'Proceeds'}</p>
+                    <p className="text-muted-foreground">{order.orderType === 'buy' ? 'Amount Paid' : 'Proceeds'}</p>
                     <p className={`font-medium ${order.orderType === 'sell' ? 'text-emerald-600' : ''}`}>
                       ₹{parseFloat(order.netAmount || '0').toLocaleString()}
                     </p>
@@ -1791,12 +1791,12 @@ function OrdersTab() {
                 )}
 
                 {(order.settlementStatus || order.settlementDate) && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="mt-3 pt-3 border-t border-border">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm text-gray-500">Settlement:</p>
+                      <p className="text-sm text-muted-foreground">Settlement:</p>
                       {order.settlementStatus && <Badge variant="outline">{order.settlementStatus}</Badge>}
                       {order.settlementDate && (
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-muted-foreground">
                           {order.orderStatus === 'completed' ? 'Completed' : 'Expected'}: {new Date(order.settlementDate).toLocaleDateString()}
                         </span>
                       )}
@@ -1804,7 +1804,7 @@ function OrdersTab() {
                   </div>
                 )}
 
-                <div className="mt-2 text-xs text-gray-400 flex items-center justify-between">
+                <div className="mt-2 text-xs text-muted-foreground flex items-center justify-between">
                   <span>Order #{order.orderNumber}</span>
                   <span>Order Date: {new Date(order.orderDate || order.createdAt).toLocaleDateString()}</span>
                 </div>
@@ -1823,7 +1823,7 @@ export default function FixedIncomeMarketplace() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Fixed Income Marketplace</h1>
-          <p className="text-gray-600">Browse and invest in bonds, NCDs, G-Secs, and Sovereign Gold Bonds</p>
+          <p className="text-muted-foreground">Browse and invest in bonds, NCDs, G-Secs, and Sovereign Gold Bonds</p>
         </div>
         <Button variant="outline" className="gap-2" data-testid="btn-calculator">
           <Calculator className="h-4 w-4" />

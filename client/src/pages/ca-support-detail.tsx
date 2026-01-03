@@ -212,7 +212,7 @@ export default function CASupportDetail() {
       case "blocked":
         return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400";
+        return "bg-muted text-foreground dark:bg-muted dark:text-muted-foreground";
     }
   };
 
@@ -225,7 +225,7 @@ export default function CASupportDetail() {
       case "blocked":
         return <XCircle className="h-5 w-5 text-red-600" />;
       default:
-        return <Circle className="h-5 w-5 text-gray-400" />;
+        return <Circle className="h-5 w-5 text-muted-foreground" />;
     }
   };
 
@@ -259,7 +259,7 @@ export default function CASupportDetail() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
             <h2 className="text-xl font-semibold mb-2">Ticket Not Found</h2>
-            <p className="text-gray-600 mb-4">The support ticket you're looking for doesn't exist.</p>
+            <p className="text-muted-foreground mb-4">The support ticket you're looking for doesn't exist.</p>
             <Button onClick={() => setLocation("/partner/ca-support")} data-testid="button-back-to-dashboard">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
@@ -271,7 +271,7 @@ export default function CASupportDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-muted dark:bg-card">
       <div className="container mx-auto p-6">
         <div className="flex items-center gap-4 mb-6">
           <Button variant="ghost" onClick={() => setLocation("/partner/ca-support")} data-testid="button-back">
@@ -284,7 +284,7 @@ export default function CASupportDetail() {
               <Badge className={getPriorityColor(ticket.priority)}>{ticket.priority}</Badge>
               <Badge className={getStatusColor(ticket.status)}>{ticket.status}</Badge>
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               {ticket.ticketNumber} • Created {new Date(ticket.createdAt).toLocaleDateString()}
             </p>
           </div>
@@ -428,8 +428,8 @@ export default function CASupportDetail() {
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                       </div>
                     ) : steps.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <div className="text-center py-8 text-muted-foreground">
+                        <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                         <p>No workflow steps defined yet.</p>
                         <p className="text-sm">Add steps to create a structured workflow.</p>
                       </div>
@@ -461,9 +461,9 @@ export default function CASupportDetail() {
                                   <Badge className={getStatusColor(step.status)}>{step.status}</Badge>
                                 </div>
                                 {step.description && (
-                                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{step.description}</p>
+                                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{step.description}</p>
                                 )}
-                                <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                                   <span className="flex items-center gap-1">
                                     <Timer className="h-3 w-3" />
                                     {step.expectedDuration} min
@@ -476,7 +476,7 @@ export default function CASupportDetail() {
                                   )}
                                 </div>
                               </div>
-                              <ChevronRight className="h-5 w-5 text-gray-400" />
+                              <ChevronRight className="h-5 w-5 text-muted-foreground" />
                             </div>
                           </div>
                         ))}
@@ -487,21 +487,21 @@ export default function CASupportDetail() {
                   <TabsContent value="details" className="mt-0">
                     <div className="space-y-4">
                       <div>
-                        <Label className="text-sm text-gray-500">Description</Label>
+                        <Label className="text-sm text-muted-foreground">Description</Label>
                         <p className="text-gray-900 dark:text-white mt-1">{ticket.description}</p>
                       </div>
                       <Separator />
                       <div>
-                        <Label className="text-sm text-gray-500">Category</Label>
+                        <Label className="text-sm text-muted-foreground">Category</Label>
                         <p className="text-gray-900 dark:text-white mt-1">{ticket.category}</p>
                       </div>
                       {template && (
                         <>
                           <Separator />
                           <div>
-                            <Label className="text-sm text-gray-500">Template Applied</Label>
+                            <Label className="text-sm text-muted-foreground">Template Applied</Label>
                             <p className="text-gray-900 dark:text-white mt-1">{template.title}</p>
-                            <p className="text-sm text-gray-600">{template.description}</p>
+                            <p className="text-sm text-muted-foreground">{template.description}</p>
                           </div>
                         </>
                       )}
@@ -516,7 +516,7 @@ export default function CASupportDetail() {
                         </div>
                         <div>
                           <p className="font-medium">Ticket created</p>
-                          <p className="text-gray-500">{new Date(ticket.createdAt).toLocaleString()}</p>
+                          <p className="text-muted-foreground">{new Date(ticket.createdAt).toLocaleString()}</p>
                         </div>
                       </div>
                       {ticket.status !== "open" && (
@@ -526,7 +526,7 @@ export default function CASupportDetail() {
                           </div>
                           <div>
                             <p className="font-medium">Work started</p>
-                            <p className="text-gray-500">Status changed to {ticket.status}</p>
+                            <p className="text-muted-foreground">Status changed to {ticket.status}</p>
                           </div>
                         </div>
                       )}
@@ -537,7 +537,7 @@ export default function CASupportDetail() {
                           </div>
                           <div>
                             <p className="font-medium">Completed: {step.title}</p>
-                            <p className="text-gray-500">{step.completedAt && new Date(step.completedAt).toLocaleString()}</p>
+                            <p className="text-muted-foreground">{step.completedAt && new Date(step.completedAt).toLocaleString()}</p>
                           </div>
                         </div>
                       ))}
@@ -583,7 +583,7 @@ export default function CASupportDetail() {
                 <CardContent className="space-y-4">
                   {selectedStep.description && (
                     <div>
-                      <Label className="text-sm text-gray-500">Instructions</Label>
+                      <Label className="text-sm text-muted-foreground">Instructions</Label>
                       <p className="mt-1 text-gray-900 dark:text-white">{selectedStep.description}</p>
                     </div>
                   )}
@@ -591,17 +591,17 @@ export default function CASupportDetail() {
                   <Separator />
 
                   <div>
-                    <Label className="text-sm text-gray-500 mb-2 block">Comments</Label>
+                    <Label className="text-sm text-muted-foreground mb-2 block">Comments</Label>
                     <ScrollArea className="h-48 border rounded-md p-3">
                       {comments.length === 0 ? (
-                        <p className="text-center text-gray-500 py-4">No comments yet</p>
+                        <p className="text-center text-muted-foreground py-4">No comments yet</p>
                       ) : (
                         <div className="space-y-3">
                           {comments.map((comment) => (
-                            <div key={comment.id} className={`p-3 rounded-lg ${comment.isInternal ? "bg-yellow-50 dark:bg-yellow-900/20" : "bg-gray-50 dark:bg-gray-800"}`}>
+                            <div key={comment.id} className={`p-3 rounded-lg ${comment.isInternal ? "bg-yellow-50 dark:bg-yellow-900/20" : "bg-muted dark:bg-muted"}`}>
                               <div className="flex items-center gap-2 mb-1">
-                                <User className="h-3 w-3 text-gray-500" />
-                                <span className="text-xs text-gray-500">
+                                <User className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">
                                   {new Date(comment.createdAt).toLocaleString()}
                                 </span>
                                 {comment.isInternal && (
@@ -651,18 +651,18 @@ export default function CASupportDetail() {
                   </div>
                   <div>
                     <p className="font-medium text-gray-900 dark:text-white">{ticket.clientName}</p>
-                    <p className="text-sm text-gray-500">Client</p>
+                    <p className="text-sm text-muted-foreground">Client</p>
                   </div>
                 </div>
                 <Separator />
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-gray-400" />
+                    <Mail className="h-4 w-4 text-muted-foreground" />
                     <span>{ticket.clientEmail}</span>
                   </div>
                   {ticket.clientPhone && (
                     <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-gray-400" />
+                      <Phone className="h-4 w-4 text-muted-foreground" />
                       <span>{ticket.clientPhone}</span>
                     </div>
                   )}
@@ -679,16 +679,16 @@ export default function CASupportDetail() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Created</span>
+                  <span className="text-muted-foreground">Created</span>
                   <span className="font-medium">{new Date(ticket.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Last Updated</span>
+                  <span className="text-muted-foreground">Last Updated</span>
                   <span className="font-medium">{new Date(ticket.updatedAt).toLocaleDateString()}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Est. Completion</span>
+                  <span className="text-muted-foreground">Est. Completion</span>
                   <span className="font-medium">
                     {steps.reduce((acc, s) => acc + s.expectedDuration, 0)} min
                   </span>

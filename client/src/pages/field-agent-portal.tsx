@@ -131,7 +131,7 @@ export default function FieldAgentPortal() {
               <Award className="h-8 w-8 text-primary" />
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Agent Dashboard</h1>
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               Welcome back, {(agentProfile as any)?.fullName || 'Agent'}
             </p>
           </div>

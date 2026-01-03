@@ -159,7 +159,7 @@ export function ProfileCompletionReminder() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
-                  <User className="h-4 w-4 text-gray-600" />
+                  <User className="h-4 w-4 text-muted-foreground" />
                   <h3 className="font-semibold text-gray-900 text-sm">
                     Complete Your Profile
                   </h3>
@@ -175,7 +175,7 @@ export function ProfileCompletionReminder() {
                 </div>
                 <button
                   onClick={handleDismiss}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-muted-foreground hover:text-muted-foreground transition-colors"
                   data-testid="button-dismiss-reminder"
                 >
                   <X className="h-4 w-4" />
@@ -185,16 +185,16 @@ export function ProfileCompletionReminder() {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Progress value={completeness} className="h-1.5" />
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-muted-foreground">
                     {message}
                   </p>
-                  <p className="text-xs text-gray-500 font-medium">
+                  <p className="text-xs text-muted-foreground font-medium">
                     {urgency}
                   </p>
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4 text-xs text-gray-500">
+                  <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                     <div className="flex items-center space-x-1">
                       <CheckCircle2 className="h-3 w-3 text-green-500" />
                       <span>Quick setup</span>
@@ -214,7 +214,7 @@ export function ProfileCompletionReminder() {
                       variant="ghost"
                       size="sm"
                       onClick={handleDismiss}
-                      className="text-xs h-7 px-3 text-gray-600 hover:text-gray-800"
+                      className="text-xs h-7 px-3 text-muted-foreground hover:text-foreground"
                       data-testid="button-maybe-later"
                     >
                       Maybe Later

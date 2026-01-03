@@ -88,7 +88,7 @@ interface AcquisitionMetrics {
 }
 
 const STATE_BADGES: Record<string, { label: string; color: string }> = {
-  prospect: { label: "Prospect", color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
+  prospect: { label: "Prospect", color: "bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground" },
   onboarded: { label: "Onboarded", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
   active_client: { label: "Active Client", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
 };
@@ -669,7 +669,7 @@ export default function AgentClientAcquisitionPage() {
                     <span>Prospects</span>
                     <span className="font-bold">{metrics.prospects}</span>
                   </div>
-                  <Progress value={100} className="h-3 bg-gray-200" />
+                  <Progress value={100} className="h-3 bg-muted" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
@@ -678,7 +678,7 @@ export default function AgentClientAcquisitionPage() {
                   </div>
                   <Progress 
                     value={metrics.total > 0 ? (metrics.onboarded / metrics.total) * 100 : 0} 
-                    className="h-3 bg-gray-200" 
+                    className="h-3 bg-muted" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -688,7 +688,7 @@ export default function AgentClientAcquisitionPage() {
                   </div>
                   <Progress 
                     value={metrics.total > 0 ? (metrics.activeClients / metrics.total) * 100 : 0} 
-                    className="h-3 bg-gray-200" 
+                    className="h-3 bg-muted" 
                   />
                 </div>
               </CardContent>

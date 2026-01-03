@@ -87,7 +87,7 @@ function UnlistedCategoriesSection() {
                   <IconComponent className={`h-6 w-6 text-${category.color === 'blue' ? 'finance-blue' : category.color === 'green' ? 'finance-green' : category.color}-600`} />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-2">{category.name}</h3>
-                <p className="text-gray-600 text-sm mb-4">
+                <p className="text-muted-foreground text-sm mb-4">
                   {category.description}
                 </p>
                 <div className="space-y-2 text-xs">
@@ -108,7 +108,7 @@ function UnlistedCategoriesSection() {
                   </Badge>
                 </div>
                 <div className="mt-4">
-                  <p className="text-xs text-gray-500 mb-2">Featured Companies:</p>
+                  <p className="text-xs text-muted-foreground mb-2">Featured Companies:</p>
                   <div className="flex flex-wrap gap-1">
                     {category.companies.slice(0, 3).map((company, idx) => (
                       <Badge key={idx} variant="secondary" className="text-xs">{company}</Badge>
@@ -270,7 +270,7 @@ function AIPicksSection() {
       case 'buy': return 'bg-green-100 text-green-800';
       case 'hold': return 'bg-yellow-100 text-yellow-800';
       case 'avoid': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -280,7 +280,7 @@ function AIPicksSection() {
       case 'moderate': return 'text-yellow-600';
       case 'high': return 'text-orange-600';
       case 'very_high': return 'text-red-600';
-      default: return 'text-gray-600';
+      default: return 'text-muted-foreground';
     }
   };
 
@@ -415,7 +415,7 @@ function AIPicksSection() {
                 <div className="flex items-center gap-2 mb-3">
                   <Target className="w-4 h-4 text-blue-500" />
                   <span className="text-sm">Suitability: {rec.suitabilityScore}/100</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div className="flex-1 bg-muted rounded-full h-2">
                     <div
                       className="bg-blue-500 h-2 rounded-full"
                       style={{ width: `${rec.suitabilityScore}%` }}
@@ -515,7 +515,7 @@ export default function Unlisted() {
             <Gem className="w-8 h-8 text-finance-blue" />
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Unlisted Securities</h1>
-              <p className="text-gray-600">Exclusive access to pre-IPO and unlisted equity investments</p>
+              <p className="text-muted-foreground">Exclusive access to pre-IPO and unlisted equity investments</p>
             </div>
           </div>
         </div>
@@ -596,7 +596,7 @@ export default function Unlisted() {
                           <h4 className="font-semibold">{opportunity.name}</h4>
                           <Badge variant="secondary">{opportunity.badge}</Badge>
                         </div>
-                        <p className="text-sm text-gray-600 mb-3">{opportunity.sector}</p>
+                        <p className="text-sm text-muted-foreground mb-3">{opportunity.sector}</p>
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
                             <span>Valuation:</span>
@@ -665,7 +665,7 @@ export default function Unlisted() {
                 <CardTitle>My Unlisted Investments</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Start investing in unlisted securities to track your portfolio here.</p>
+                <p className="text-muted-foreground">Start investing in unlisted securities to track your portfolio here.</p>
                 <Button className="mt-4" onClick={() => setLocation('/unlisted/browse')} data-testid="button-explore-opportunities">
                   Explore Opportunities
                 </Button>
@@ -679,7 +679,7 @@ export default function Unlisted() {
                 <CardTitle>My Watchlist</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Add unlisted securities to your watchlist to get updates on pricing and availability.</p>
+                <p className="text-muted-foreground">Add unlisted securities to your watchlist to get updates on pricing and availability.</p>
                 <Button className="mt-4" onClick={() => setLocation('/unlisted/browse')} data-testid="button-browse-securities">
                   Browse Securities
                 </Button>
@@ -694,7 +694,7 @@ export default function Unlisted() {
                   <CardTitle>Understanding Unlisted Securities</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Learn about the risks and opportunities in unlisted securities investing.
                   </p>
                   <Button variant="outline">Read Guide</Button>
@@ -705,7 +705,7 @@ export default function Unlisted() {
                   <CardTitle>Pre-IPO Investment Strategy</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Discover how to evaluate pre-IPO opportunities and build a diversified portfolio.
                   </p>
                   <Button variant="outline">Learn More</Button>

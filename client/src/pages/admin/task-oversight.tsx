@@ -209,12 +209,12 @@ export default function AdminTaskOversight() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white" data-testid="text-page-title">Task Oversight</h1>
-          <p className="text-gray-400 mt-1">Monitor all agents' tasks and compliance status</p>
+          <p className="text-muted-foreground mt-1">Monitor all agents' tasks and compliance status</p>
         </div>
         <div className="flex gap-2">
           <Button 
             variant="outline" 
-            className="border-gray-700 text-gray-300 hover:bg-gray-800" 
+            className="border-border text-muted-foreground hover:bg-muted" 
             data-testid="button-refresh"
             onClick={handleRefresh}
             disabled={isLoading}
@@ -230,9 +230,9 @@ export default function AdminTaskOversight() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Total Tasks (All Agents)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Tasks (All Agents)</CardTitle>
             <CheckCircle className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
@@ -243,9 +243,9 @@ export default function AdminTaskOversight() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Overdue Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Overdue Tasks</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-400" />
           </CardHeader>
           <CardContent>
@@ -254,9 +254,9 @@ export default function AdminTaskOversight() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Tasks Due Today</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tasks Due Today</CardTitle>
             <Clock className="h-4 w-4 text-amber-400" />
           </CardHeader>
           <CardContent>
@@ -265,9 +265,9 @@ export default function AdminTaskOversight() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Completion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
@@ -279,20 +279,20 @@ export default function AdminTaskOversight() {
 
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search agents..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-gray-800 border-gray-700 text-white w-56"
+            className="pl-10 bg-muted border-border text-white w-56"
             data-testid="input-search"
           />
         </div>
         <Select value={agentFilter} onValueChange={setAgentFilter}>
-          <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white" data-testid="select-agent-filter">
+          <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-agent-filter">
             <SelectValue placeholder="Agent" />
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700">
+          <SelectContent className="bg-muted border-border">
             <SelectItem value="all">All Agents</SelectItem>
             {agentOverview.map(agent => (
               <SelectItem key={agent.id} value={agent.id.toString()}>{agent.name}</SelectItem>
@@ -300,10 +300,10 @@ export default function AdminTaskOversight() {
           </SelectContent>
         </Select>
         <Select value={taskTypeFilter} onValueChange={setTaskTypeFilter}>
-          <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white" data-testid="select-type-filter">
+          <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-type-filter">
             <SelectValue placeholder="Task Type" />
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700">
+          <SelectContent className="bg-muted border-border">
             <SelectItem value="all">All Types</SelectItem>
             {Object.entries(TASK_TYPE_CONFIG).map(([key, config]) => (
               <SelectItem key={key} value={key}>{config.label}</SelectItem>
@@ -311,10 +311,10 @@ export default function AdminTaskOversight() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40 bg-gray-800 border-gray-700 text-white" data-testid="select-status-filter">
+          <SelectTrigger className="w-40 bg-muted border-border text-white" data-testid="select-status-filter">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700">
+          <SelectContent className="bg-muted border-border">
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="compliant">Compliant</SelectItem>
             <SelectItem value="at_risk">At Risk</SelectItem>
@@ -323,7 +323,7 @@ export default function AdminTaskOversight() {
         </Select>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700" data-testid="button-date-range">
+            <Button variant="outline" className="border-border bg-muted text-muted-foreground hover:bg-gray-700" data-testid="button-date-range">
               <CalendarIcon className="h-4 w-4 mr-2" />
               {dateRange.from ? (
                 dateRange.to ? (
@@ -336,22 +336,22 @@ export default function AdminTaskOversight() {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0 bg-gray-800 border-gray-700" align="start">
+          <PopoverContent className="w-auto p-0 bg-muted border-border" align="start">
             <Calendar
               mode="range"
               selected={{ from: dateRange.from, to: dateRange.to }}
               onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
-              className="bg-gray-800"
+              className="bg-muted"
             />
           </PopoverContent>
         </Popover>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">Task Type Breakdown</CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardTitle className="text-foreground">Task Type Breakdown</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Distribution of tasks across all agents
             </CardDescription>
           </CardHeader>
@@ -379,7 +379,7 @@ export default function AdminTaskOversight() {
                   />
                   <Legend
                     wrapperStyle={{ color: '#9ca3af' }}
-                    formatter={(value) => <span className="text-gray-300">{value}</span>}
+                    formatter={(value) => <span className="text-muted-foreground">{value}</span>}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -387,20 +387,20 @@ export default function AdminTaskOversight() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-400" />
               Compliance Alerts
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-muted-foreground">
               Agents with overdue compliance tasks
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-72 overflow-y-auto">
               {complianceAlerts.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No compliance alerts!</p>
+                <p className="text-muted-foreground text-center py-8">No compliance alerts!</p>
               ) : (
                 complianceAlerts.map((alert) => {
                   const typeConfig = TASK_TYPE_CONFIG[alert.taskType] || TASK_TYPE_CONFIG.custom;
@@ -408,7 +408,7 @@ export default function AdminTaskOversight() {
                   return (
                     <div
                       key={alert.id}
-                      className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700"
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border"
                       data-testid={`alert-item-${alert.id}`}
                     >
                       <div className="flex items-center gap-3">
@@ -417,7 +417,7 @@ export default function AdminTaskOversight() {
                         </div>
                         <div>
                           <p className="font-medium text-white text-sm">{alert.taskTitle}</p>
-                          <p className="text-xs text-gray-400">{alert.agentName}</p>
+                          <p className="text-xs text-muted-foreground">{alert.agentName}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -435,41 +435,41 @@ export default function AdminTaskOversight() {
         </Card>
       </div>
 
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Users className="h-5 w-5 text-blue-400" />
             Agent Task Overview
           </CardTitle>
-          <CardDescription className="text-gray-400">
+          <CardDescription className="text-muted-foreground">
             Task metrics and compliance status for all agents
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-gray-700 overflow-hidden">
+          <div className="rounded-md border border-border overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-700 bg-gray-800/50">
-                  <TableHead className="text-gray-300">Agent Name</TableHead>
-                  <TableHead className="text-gray-300 text-right">Pending Tasks</TableHead>
-                  <TableHead className="text-gray-300 text-right">Overdue</TableHead>
-                  <TableHead className="text-gray-300 text-right">Completed Today</TableHead>
-                  <TableHead className="text-gray-300 text-right">Completion Rate</TableHead>
-                  <TableHead className="text-gray-300">Last Active</TableHead>
-                  <TableHead className="text-gray-300 text-center">Compliance</TableHead>
+                <TableRow className="border-border bg-muted/50">
+                  <TableHead className="text-muted-foreground">Agent Name</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Pending Tasks</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Overdue</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Completed Today</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Completion Rate</TableHead>
+                  <TableHead className="text-muted-foreground">Last Active</TableHead>
+                  <TableHead className="text-muted-foreground text-center">Compliance</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAgents.map((agent) => (
                   <TableRow
                     key={agent.id}
-                    className="border-gray-700 hover:bg-gray-800/50"
+                    className="border-border hover:bg-muted/50"
                     data-testid={`row-agent-${agent.id}`}
                   >
                     <TableCell className="font-medium text-white">{agent.name}</TableCell>
-                    <TableCell className="text-right text-gray-300">{agent.pendingTasks}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{agent.pendingTasks}</TableCell>
                     <TableCell className="text-right">
-                      <span className={agent.overdueTasks > 0 ? "text-red-400 font-medium" : "text-gray-300"}>
+                      <span className={agent.overdueTasks > 0 ? "text-red-400 font-medium" : "text-muted-foreground"}>
                         {agent.overdueTasks}
                       </span>
                     </TableCell>
@@ -482,7 +482,7 @@ export default function AdminTaskOversight() {
                         {agent.completionRate.toFixed(1)}%
                       </span>
                     </TableCell>
-                    <TableCell className="text-gray-400">{agent.lastActive}</TableCell>
+                    <TableCell className="text-muted-foreground">{agent.lastActive}</TableCell>
                     <TableCell className="text-center">
                       {getComplianceStatusBadge(agent.complianceStatus)}
                     </TableCell>
@@ -492,7 +492,7 @@ export default function AdminTaskOversight() {
             </Table>
           </div>
           {filteredAgents.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No agents found matching the current filters.
             </div>
           )}

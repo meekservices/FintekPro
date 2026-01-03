@@ -417,15 +417,15 @@ export default function TaxITRSelfPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label>PAN</Label>
-          <Input value={panContext?.pan || "Loading..."} disabled className="bg-gray-50 dark:bg-gray-800" data-testid="input-pan" />
+          <Input value={panContext?.pan || "Loading..."} disabled className="bg-muted dark:bg-muted" data-testid="input-pan" />
         </div>
         <div className="space-y-2">
           <Label>Name</Label>
-          <Input value={panContext?.name || "Loading..."} disabled className="bg-gray-50 dark:bg-gray-800" data-testid="input-name" />
+          <Input value={panContext?.name || "Loading..."} disabled className="bg-muted dark:bg-muted" data-testid="input-name" />
         </div>
         <div className="space-y-2">
           <Label>Entity Type</Label>
-          <Input value={panContext?.entityDescription || panContext?.panType?.toUpperCase() || "Individual"} disabled className="bg-gray-50 dark:bg-gray-800" data-testid="input-entity-type" />
+          <Input value={panContext?.entityDescription || panContext?.panType?.toUpperCase() || "Individual"} disabled className="bg-muted dark:bg-muted" data-testid="input-entity-type" />
         </div>
         <div className="space-y-2">
           <Label>Assessment Year</Label>
@@ -451,7 +451,7 @@ export default function TaxITRSelfPage() {
 
   const renderIncomeSourcesStep = () => (
     <div className="space-y-6">
-      <p className="text-gray-600 dark:text-gray-400">Select all sources of income you have for this assessment year:</p>
+      <p className="text-muted-foreground dark:text-muted-foreground">Select all sources of income you have for this assessment year:</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
@@ -467,7 +467,7 @@ export default function TaxITRSelfPage() {
           return (
             <Card 
               key={source.key} 
-              className={`cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/5' : 'hover:border-gray-400 dark:hover:border-gray-600'}`}
+              className={`cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/5' : 'hover:border-gray-400 dark:hover:border-border'}`}
               onClick={() => setIncomeSources(prev => ({ ...prev, [source.key]: !prev[source.key as keyof IncomeSource] }))}
               data-testid={`card-source-${source.key}`}
             >
@@ -478,7 +478,7 @@ export default function TaxITRSelfPage() {
                     <Icon className="h-4 w-4 text-primary" />
                     <span className="font-medium dark:text-white">{source.label}</span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{source.desc}</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{source.desc}</p>
                 </div>
               </CardContent>
             </Card>
@@ -501,7 +501,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="grossSalary">Gross Salary (Annual)</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="grossSalary"
               type="number" 
@@ -516,7 +516,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="allowances">Allowances (HRA, LTA, etc.)</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="allowances"
               type="number" 
@@ -531,7 +531,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="professionalTax">Professional Tax Paid</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="professionalTax"
               type="number" 
@@ -546,7 +546,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="employerPF">Employer's PF Contribution</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="employerPF"
               type="number" 
@@ -560,9 +560,9 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600 dark:text-gray-400">Standard Deduction (Auto-applied)</span>
+          <span className="text-muted-foreground dark:text-muted-foreground">Standard Deduction (Auto-applied)</span>
           <span className="font-semibold dark:text-white">{formatCurrency(salaryDetails.standardDeduction)}</span>
         </div>
         <Separator className="my-2" />
@@ -602,7 +602,7 @@ export default function TaxITRSelfPage() {
           <div className="space-y-2">
             <Label htmlFor="rentalIncome">Annual Rental Income</Label>
             <div className="relative">
-              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 id="rentalIncome"
                 type="number" 
@@ -618,7 +618,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="interestOnLoan">Interest on Home Loan</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="interestOnLoan"
               type="number" 
@@ -630,12 +630,12 @@ export default function TaxITRSelfPage() {
             />
           </div>
           {housePropertyDetails.isSelfOccupied && (
-            <p className="text-xs text-gray-500">Maximum deduction of ₹2,00,000 for self-occupied property</p>
+            <p className="text-xs text-muted-foreground">Maximum deduction of ₹2,00,000 for self-occupied property</p>
           )}
         </div>
       </div>
 
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
         <div className="flex justify-between items-center">
           <span className="font-medium dark:text-white">Income/Loss from House Property</span>
           <span className={`font-bold text-lg ${totals.housePropertyIncome < 0 ? 'text-red-600' : 'text-green-600'}`}>
@@ -652,7 +652,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="shortTermGains">Short Term Capital Gains</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="shortTermGains"
               type="number" 
@@ -667,7 +667,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="longTermGains">Long Term Capital Gains</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="longTermGains"
               type="number" 
@@ -682,7 +682,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="exemptions">Exemptions (54, 54EC, 54F)</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="exemptions"
               type="number" 
@@ -696,7 +696,7 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
         <div className="flex justify-between items-center">
           <span className="font-medium dark:text-white">Net Capital Gains</span>
           <span className="font-bold text-lg dark:text-white">{formatCurrency(totals.capitalGains)}</span>
@@ -711,7 +711,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="interestIncome">Interest from Savings/FD</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="interestIncome"
               type="number" 
@@ -726,7 +726,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="dividendIncome">Dividend Income</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="dividendIncome"
               type="number" 
@@ -741,7 +741,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="otherSources">Other Sources</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="otherSources"
               type="number" 
@@ -755,7 +755,7 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
         <div className="flex justify-between items-center">
           <span className="font-medium dark:text-white">Total Other Income</span>
           <span className="font-bold text-lg dark:text-white">{formatCurrency(totals.otherIncome)}</span>
@@ -770,7 +770,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="section80C">Section 80C (Max ₹1.5L)</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="section80C"
               type="number" 
@@ -785,7 +785,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="section80D">Section 80D - Health Insurance (Max ₹50K)</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="section80D"
               type="number" 
@@ -800,7 +800,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="section80E">Section 80E - Education Loan Interest</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="section80E"
               type="number" 
@@ -815,7 +815,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="section80G">Section 80G - Donations</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="section80G"
               type="number" 
@@ -830,7 +830,7 @@ export default function TaxITRSelfPage() {
         <div className="space-y-2">
           <Label htmlFor="section80TTA">Section 80TTA - Savings Interest (Max ₹10K)</Label>
           <div className="relative">
-            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               id="section80TTA"
               type="number" 
@@ -844,7 +844,7 @@ export default function TaxITRSelfPage() {
         </div>
       </div>
 
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="p-4 bg-muted dark:bg-muted rounded-lg">
         <div className="flex justify-between items-center">
           <span className="font-medium dark:text-white">Total Deductions</span>
           <span className="font-bold text-lg text-green-600">{formatCurrency(totals.totalDeductions)}</span>
@@ -856,20 +856,20 @@ export default function TaxITRSelfPage() {
   const renderSummaryStep = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="dark:border-gray-700">
+        <Card className="dark:border-border">
           <CardHeader>
             <CardTitle className="text-lg dark:text-white">Income Summary</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {incomeSources.hasSalary && (
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Salary Income</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Salary Income</span>
                 <span className="font-medium dark:text-white">{formatCurrency(totals.salaryIncome)}</span>
               </div>
             )}
             {incomeSources.hasHouseProperty && (
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">House Property</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">House Property</span>
                 <span className={`font-medium ${totals.housePropertyIncome < 0 ? 'text-red-600' : 'dark:text-white'}`}>
                   {formatCurrency(totals.housePropertyIncome)}
                 </span>
@@ -877,13 +877,13 @@ export default function TaxITRSelfPage() {
             )}
             {incomeSources.hasCapitalGains && (
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Capital Gains</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Capital Gains</span>
                 <span className="font-medium dark:text-white">{formatCurrency(totals.capitalGains)}</span>
               </div>
             )}
             {incomeSources.hasOtherIncome && (
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Other Income</span>
+                <span className="text-muted-foreground dark:text-muted-foreground">Other Income</span>
                 <span className="font-medium dark:text-white">{formatCurrency(totals.otherIncome)}</span>
               </div>
             )}
@@ -895,17 +895,17 @@ export default function TaxITRSelfPage() {
           </CardContent>
         </Card>
 
-        <Card className="dark:border-gray-700">
+        <Card className="dark:border-border">
           <CardHeader>
             <CardTitle className="text-lg dark:text-white">Tax Computation</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Gross Total Income</span>
+              <span className="text-muted-foreground dark:text-muted-foreground">Gross Total Income</span>
               <span className="font-medium dark:text-white">{formatCurrency(totals.grossTotalIncome)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Total Deductions</span>
+              <span className="text-muted-foreground dark:text-muted-foreground">Total Deductions</span>
               <span className="font-medium text-green-600">- {formatCurrency(totals.totalDeductions)}</span>
             </div>
             <Separator />
@@ -929,7 +929,7 @@ export default function TaxITRSelfPage() {
               <FileText className="h-6 w-6 text-primary" />
               <div>
                 <p className="font-semibold dark:text-white">Recommended Form: {recommendedForm}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Based on your income sources and details</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Based on your income sources and details</p>
               </div>
             </div>
             <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
@@ -956,7 +956,7 @@ export default function TaxITRSelfPage() {
       return (
         <div className="text-center py-8">
           <Clock className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Loading step...</p>
+          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading step...</p>
         </div>
       );
     }
@@ -979,7 +979,7 @@ export default function TaxITRSelfPage() {
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Clock className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Loading your details...</p>
+          <p className="mt-2 text-muted-foreground dark:text-muted-foreground">Loading your details...</p>
         </div>
       </div>
     );
@@ -993,7 +993,7 @@ export default function TaxITRSelfPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold dark:text-white">Self-File ITR</h1>
-          <p className="text-gray-600 dark:text-gray-400">Assessment Year {assessmentYear} | Form {recommendedForm}</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Assessment Year {assessmentYear} | Form {recommendedForm}</p>
         </div>
       </div>
 
@@ -1015,7 +1015,7 @@ export default function TaxITRSelfPage() {
                 {isCompleted ? <CheckCircle className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                 <span className="hidden sm:inline">{step.title}</span>
               </Button>
-              {idx < activeSteps.length - 1 && <ArrowRight className="h-4 w-4 mx-1 text-gray-400" />}
+              {idx < activeSteps.length - 1 && <ArrowRight className="h-4 w-4 mx-1 text-muted-foreground" />}
             </div>
           );
         })}
@@ -1023,13 +1023,13 @@ export default function TaxITRSelfPage() {
 
       <Progress value={progress} className="h-2" />
 
-      <Card className="dark:border-gray-700">
+      <Card className="dark:border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 dark:text-white">
             {(() => { const Icon = activeSteps[safeCurrentStep]?.icon || FileText; return <Icon className="h-5 w-5" />; })()}
             {activeSteps[safeCurrentStep]?.title}
           </CardTitle>
-          <CardDescription className="dark:text-gray-400">
+          <CardDescription className="dark:text-muted-foreground">
             Step {safeCurrentStep + 1} of {activeSteps.length}
           </CardDescription>
         </CardHeader>

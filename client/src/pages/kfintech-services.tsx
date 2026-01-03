@@ -256,7 +256,7 @@ export default function KfintechServices() {
       case 'PENDING': return 'bg-yellow-100 text-yellow-800';
       case 'FAILED': case 'STOPPED': return 'bg-red-100 text-red-800';
       case 'PAUSED': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -275,7 +275,7 @@ export default function KfintechServices() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900" data-testid="page-title">Kfintech Services</h1>
-          <p className="text-gray-600 mt-2" data-testid="page-description">
+          <p className="text-muted-foreground mt-2" data-testid="page-description">
             Advanced mutual fund registrar services and portfolio management
           </p>
         </div>
@@ -391,7 +391,7 @@ export default function KfintechServices() {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-500">Current Value</p>
+                          <p className="text-sm text-muted-foreground">Current Value</p>
                           <p className="text-2xl font-bold" data-testid="text-portfolio-value">
                             {formatCurrency(portfolioData.totalPortfolioValue)}
                           </p>
@@ -405,7 +405,7 @@ export default function KfintechServices() {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-500">Investment Value</p>
+                          <p className="text-sm text-muted-foreground">Investment Value</p>
                           <p className="text-2xl font-bold" data-testid="text-investment-value">
                             {formatCurrency(portfolioData.totalInvestmentValue)}
                           </p>
@@ -419,7 +419,7 @@ export default function KfintechServices() {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-500">Total Gain/Loss</p>
+                          <p className="text-sm text-muted-foreground">Total Gain/Loss</p>
                           <p className={`text-2xl font-bold ${portfolioData.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`} 
                              data-testid="text-gain-loss">
                             {formatCurrency(portfolioData.totalGainLoss)}
@@ -438,7 +438,7 @@ export default function KfintechServices() {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-500">Return %</p>
+                          <p className="text-sm text-muted-foreground">Return %</p>
                           <p className={`text-2xl font-bold ${portfolioData.totalGainLossPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}
                              data-testid="text-return-percentage">
                             {portfolioData.totalGainLossPercentage.toFixed(2)}%
@@ -466,23 +466,23 @@ export default function KfintechServices() {
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                             <div>
-                              <span className="text-gray-500">Folio:</span>
+                              <span className="text-muted-foreground">Folio:</span>
                               <span className="ml-2 font-medium">{folio.folioNumber}</span>
                             </div>
                             <div>
-                              <span className="text-gray-500">Units:</span>
+                              <span className="text-muted-foreground">Units:</span>
                               <span className="ml-2 font-medium">{folio.units.toFixed(3)}</span>
                             </div>
                             <div>
-                              <span className="text-gray-500">NAV:</span>
+                              <span className="text-muted-foreground">NAV:</span>
                               <span className="ml-2 font-medium">₹{folio.nav.toFixed(2)}</span>
                             </div>
                             <div>
-                              <span className="text-gray-500">Current Value:</span>
+                              <span className="text-muted-foreground">Current Value:</span>
                               <span className="ml-2 font-medium">{formatCurrency(folio.currentValue)}</span>
                             </div>
                             <div>
-                              <span className="text-gray-500">Gain/Loss:</span>
+                              <span className="text-muted-foreground">Gain/Loss:</span>
                               <span className={`ml-2 font-medium ${folio.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {formatCurrency(folio.gainLoss)} ({folio.gainLossPercentage.toFixed(2)}%)
                               </span>
@@ -497,9 +497,9 @@ export default function KfintechServices() {
             ) : (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <Wallet className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <Wallet className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Portfolio Data</h3>
-                  <p className="text-gray-600">No mutual fund holdings found for this PAN.</p>
+                  <p className="text-muted-foreground">No mutual fund holdings found for this PAN.</p>
                 </CardContent>
               </Card>
             )}
@@ -540,23 +540,23 @@ export default function KfintechServices() {
                         <h4 className="font-medium mb-2">{transaction.schemeName}</h4>
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                           <div>
-                            <span className="text-gray-500">Folio:</span>
+                            <span className="text-muted-foreground">Folio:</span>
                             <span className="ml-2 font-medium">{transaction.folioNumber}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Amount:</span>
+                            <span className="text-muted-foreground">Amount:</span>
                             <span className="ml-2 font-medium">{formatCurrency(transaction.amount)}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Units:</span>
+                            <span className="text-muted-foreground">Units:</span>
                             <span className="ml-2 font-medium">{transaction.units.toFixed(3)}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">NAV:</span>
+                            <span className="text-muted-foreground">NAV:</span>
                             <span className="ml-2 font-medium">₹{transaction.nav.toFixed(2)}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Date:</span>
+                            <span className="text-muted-foreground">Date:</span>
                             <span className="ml-2 font-medium">
                               {new Date(transaction.transactionDate).toLocaleDateString()}
                             </span>
@@ -570,9 +570,9 @@ export default function KfintechServices() {
             ) : (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Transactions</h3>
-                  <p className="text-gray-600">No transaction history found for this PAN.</p>
+                  <p className="text-muted-foreground">No transaction history found for this PAN.</p>
                 </CardContent>
               </Card>
             )}
@@ -605,21 +605,21 @@ export default function KfintechServices() {
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>
-                              <span className="text-gray-500">Amount:</span>
+                              <span className="text-muted-foreground">Amount:</span>
                               <span className="ml-2 font-medium">{formatCurrency(sip.amount)}</span>
                             </div>
                             <div>
-                              <span className="text-gray-500">Frequency:</span>
+                              <span className="text-muted-foreground">Frequency:</span>
                               <span className="ml-2 font-medium">{sip.frequency}</span>
                             </div>
                             <div>
-                              <span className="text-gray-500">Next Date:</span>
+                              <span className="text-muted-foreground">Next Date:</span>
                               <span className="ml-2 font-medium">
                                 {new Date(sip.nextInstallmentDate).toLocaleDateString()}
                               </span>
                             </div>
                             <div>
-                              <span className="text-gray-500">Progress:</span>
+                              <span className="text-muted-foreground">Progress:</span>
                               <span className="ml-2 font-medium">{sip.executedInstallments}/{sip.totalInstallments}</span>
                             </div>
                           </div>
@@ -639,8 +639,8 @@ export default function KfintechServices() {
                     </div>
                   ) : (
                     <div className="text-center py-4">
-                      <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600">No active SIPs found</p>
+                      <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground">No active SIPs found</p>
                     </div>
                   )}
                 </CardContent>
@@ -836,7 +836,7 @@ export default function KfintechServices() {
                                 <SelectItem key={scheme.schemeCode} value={scheme.schemeCode}>
                                   <div className="flex flex-col">
                                     <span>{scheme.schemeName}</span>
-                                    <span className="text-xs text-gray-500">
+                                    <span className="text-xs text-muted-foreground">
                                       {scheme.amc} | NAV: ₹{scheme.nav} | Min: {formatCurrency(scheme.minimumInvestment)}
                                     </span>
                                   </div>
@@ -1160,23 +1160,23 @@ export default function KfintechServices() {
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                           <div>
-                            <span className="text-gray-500">NAV:</span>
+                            <span className="text-muted-foreground">NAV:</span>
                             <span className="ml-2 font-medium">₹{scheme.nav.toFixed(2)}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Min Investment:</span>
+                            <span className="text-muted-foreground">Min Investment:</span>
                             <span className="ml-2 font-medium">{formatCurrency(scheme.minimumInvestment)}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">SIP Minimum:</span>
+                            <span className="text-muted-foreground">SIP Minimum:</span>
                             <span className="ml-2 font-medium">{formatCurrency(scheme.sipMinimum)}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Risk Level:</span>
+                            <span className="text-muted-foreground">Risk Level:</span>
                             <span className="ml-2 font-medium">{scheme.riskLevel}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Expense Ratio:</span>
+                            <span className="text-muted-foreground">Expense Ratio:</span>
                             <span className="ml-2 font-medium">{scheme.expenseRatio}%</span>
                           </div>
                         </div>
@@ -1196,9 +1196,9 @@ export default function KfintechServices() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <DollarSign className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <DollarSign className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">No Schemes Available</h3>
-                    <p className="text-gray-600">Unable to load scheme data at this time.</p>
+                    <p className="text-muted-foreground">Unable to load scheme data at this time.</p>
                   </div>
                 )}
               </CardContent>
@@ -1216,7 +1216,7 @@ export default function KfintechServices() {
                 <div className="text-center py-8">
                   <Download className="h-16 w-16 text-purple-600 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Generate Statement</h3>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Generate your Kfintech account statement for the last 12 months
                   </p>
                   <Button 

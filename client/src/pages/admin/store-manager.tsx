@@ -119,9 +119,9 @@ function formatPercent(value: string | null): string {
 }
 
 function getReturnColor(value: string | null): string {
-  if (!value) return "text-gray-500";
+  if (!value) return "text-muted-foreground";
   const num = parseFloat(value);
-  if (isNaN(num)) return "text-gray-500";
+  if (isNaN(num)) return "text-muted-foreground";
   return num >= 0 ? "text-green-600" : "text-red-600";
 }
 
@@ -453,7 +453,7 @@ export default function AdminStoreManager() {
             <Settings className="w-8 h-8 text-indigo-600" />
             Store Manager
           </h1>
-          <p className="text-gray-600 mt-1">Manage AIF and PMS scheme visibility in the store</p>
+          <p className="text-muted-foreground mt-1">Manage AIF and PMS scheme visibility in the store</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => { refetchAif(); refetchPms(); }} data-testid="refresh-all">
@@ -465,25 +465,25 @@ export default function AdminStoreManager() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Total AIF Schemes</p>
+            <p className="text-sm text-muted-foreground">Total AIF Schemes</p>
             <p className="text-2xl font-bold text-indigo-600">{aifSchemes.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Published AIF</p>
+            <p className="text-sm text-muted-foreground">Published AIF</p>
             <p className="text-2xl font-bold text-green-600">{aifPublishedCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Total PMS Strategies</p>
+            <p className="text-sm text-muted-foreground">Total PMS Strategies</p>
             <p className="text-2xl font-bold text-purple-600">{pmsSchemes.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Published PMS</p>
+            <p className="text-sm text-muted-foreground">Published PMS</p>
             <p className="text-2xl font-bold text-green-600">{pmsPublishedCount}</p>
           </CardContent>
         </Card>
@@ -523,7 +523,7 @@ export default function AdminStoreManager() {
                 </div>
                 <div className="flex gap-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                     <Input
                       placeholder="Search schemes..."
                       value={aifSearch}
@@ -551,8 +551,8 @@ export default function AdminStoreManager() {
                   {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
                 </div>
               ) : filteredAif.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                   <p>No AIF schemes found</p>
                 </div>
               ) : (
@@ -574,7 +574,7 @@ export default function AdminStoreManager() {
                         <TableCell>
                           <div>
                             <p className="font-medium">{scheme.name}</p>
-                            <p className="text-xs text-gray-500">{scheme.fundHouseName}</p>
+                            <p className="text-xs text-muted-foreground">{scheme.fundHouseName}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -591,7 +591,7 @@ export default function AdminStoreManager() {
                             {scheme.isPublished ? (
                               <Eye className="w-4 h-4 text-green-600" />
                             ) : (
-                              <EyeOff className="w-4 h-4 text-gray-400" />
+                              <EyeOff className="w-4 h-4 text-muted-foreground" />
                             )}
                             <Switch
                               checked={scheme.isPublished}
@@ -620,7 +620,7 @@ export default function AdminStoreManager() {
                 </div>
                 <div className="flex gap-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                     <Input
                       placeholder="Search strategies..."
                       value={pmsSearch}
@@ -648,8 +648,8 @@ export default function AdminStoreManager() {
                   {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
                 </div>
               ) : filteredPms.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                   <p>No PMS strategies found</p>
                 </div>
               ) : (
@@ -671,7 +671,7 @@ export default function AdminStoreManager() {
                         <TableCell>
                           <div>
                             <p className="font-medium">{scheme.name}</p>
-                            <p className="text-xs text-gray-500">{scheme.fundHouseName}</p>
+                            <p className="text-xs text-muted-foreground">{scheme.fundHouseName}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -688,7 +688,7 @@ export default function AdminStoreManager() {
                             {scheme.isPublished ? (
                               <Eye className="w-4 h-4 text-green-600" />
                             ) : (
-                              <EyeOff className="w-4 h-4 text-gray-400" />
+                              <EyeOff className="w-4 h-4 text-muted-foreground" />
                             )}
                             <Switch
                               checked={scheme.isPublished}
@@ -720,7 +720,7 @@ export default function AdminStoreManager() {
                 </div>
                 <div className="flex gap-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                     <Input
                       placeholder="Search managers..."
                       value={managerSearch}
@@ -811,8 +811,8 @@ export default function AdminStoreManager() {
                   {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
                 </div>
               ) : !fundManagersData?.managers?.length ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                   <p>No fund managers found</p>
                   <p className="text-sm">Add fund managers to associate with PMS and AIF schemes</p>
                 </div>
@@ -835,7 +835,7 @@ export default function AdminStoreManager() {
                         <TableCell>
                           <div>
                             <p className="font-medium">{manager.name}</p>
-                            {manager.qualifications && <p className="text-xs text-gray-500">{manager.qualifications}</p>}
+                            {manager.qualifications && <p className="text-xs text-muted-foreground">{manager.qualifications}</p>}
                           </div>
                         </TableCell>
                         <TableCell>{manager.designation || "N/A"}</TableCell>
@@ -973,7 +973,7 @@ export default function AdminStoreManager() {
                             </span>
                           </td>
                           <td className="p-3 text-center">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.isActive ? "bg-green-100 text-green-700" : "bg-muted dark:bg-muted text-muted-foreground"}`}>
                               {pricing.isActive ? "Active" : "Inactive"}
                             </span>
                           </td>

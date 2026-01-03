@@ -90,7 +90,7 @@ const MetricCard = ({
   variant?: 'default' | 'success' | 'warning' | 'error';
 }) => {
   const variantStyles = {
-    default: 'border-gray-700 bg-gray-800/50',
+    default: 'border-border bg-muted/50',
     success: 'border-green-700 bg-green-900/20',
     warning: 'border-yellow-700 bg-yellow-900/20',
     error: 'border-red-700 bg-red-900/20',
@@ -104,18 +104,18 @@ const MetricCard = ({
   };
   
   const content = (
-    <Card className={`${variantStyles[variant]} hover:bg-gray-800/70 transition-colors cursor-pointer`} data-testid={`metric-card-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card className={`${variantStyles[variant]} hover:bg-muted/70 transition-colors cursor-pointer`} data-testid={`metric-card-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-gray-400">{title}</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
         <Icon className={`h-5 w-5 ${iconColors[variant]}`} />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold text-white">{value}</div>
         {description && (
-          <p className="text-xs text-gray-500 mt-1">{description}</p>
+          <p className="text-xs text-muted-foreground mt-1">{description}</p>
         )}
         {trend && (
-          <div className={`text-xs mt-1 ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-gray-400'}`}>
+          <div className={`text-xs mt-1 ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-muted-foreground'}`}>
             {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'} vs last week
           </div>
         )}
@@ -148,7 +148,7 @@ const AlertItem = ({ alert }: { alert: ComplianceAlert }) => {
       {icons[alert.type]}
       <div className="flex-1">
         <p className="text-sm font-medium text-white">{alert.title}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{alert.description}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{alert.description}</p>
       </div>
       {alert.companyId && (
         <Link href={`/admin/unlisted/preview/${alert.companyId}`}>
@@ -175,11 +175,11 @@ export default function UnlistedDashboard() {
   
   if (!user || !user.roles?.includes('admin')) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950">
-        <Card className="bg-gray-900 border-gray-800 max-w-md">
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="bg-card border-border max-w-md">
           <CardHeader>
             <CardTitle className="text-white text-center">Access Denied</CardTitle>
-            <CardDescription className="text-gray-400 text-center">
+            <CardDescription className="text-muted-foreground text-center">
               Admin privileges required to access this page.
             </CardDescription>
           </CardHeader>
@@ -213,12 +213,12 @@ export default function UnlistedDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-white">Unlisted Marketplace Dashboard</h1>
-          <p className="text-gray-400 mt-1">Overview of marketplace activity and compliance status</p>
+          <p className="text-muted-foreground mt-1">Overview of marketplace activity and compliance status</p>
         </div>
         <Button 
           variant="outline" 
           onClick={() => refetch()}
-          className="border-gray-700"
+          className="border-border"
           data-testid="button-refresh-dashboard"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -291,11 +291,11 @@ export default function UnlistedDashboard() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 bg-gray-900 border-gray-800">
+        <Card className="lg:col-span-2 bg-card border-border">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-white">Compliance Alerts</CardTitle>
+                <CardTitle className="text-foreground">Compliance Alerts</CardTitle>
                 <CardDescription>Issues requiring attention</CardDescription>
               </div>
               <Badge variant={complianceAlerts.length > 0 ? "destructive" : "secondary"}>
@@ -308,7 +308,7 @@ export default function UnlistedDashboard() {
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <CheckCircle className="h-12 w-12 text-green-500 mb-3" />
                 <p className="text-white font-medium">All Clear</p>
-                <p className="text-gray-400 text-sm">No compliance issues detected</p>
+                <p className="text-muted-foreground text-sm">No compliance issues detected</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -320,14 +320,14 @@ export default function UnlistedDashboard() {
           </CardContent>
         </Card>
         
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">Quick Actions</CardTitle>
+            <CardTitle className="text-foreground">Quick Actions</CardTitle>
             <CardDescription>Common admin tasks</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Link href="/admin/unlisted/companies">
-              <Button variant="outline" className="w-full justify-between border-gray-700" data-testid="button-manage-companies">
+              <Button variant="outline" className="w-full justify-between border-border" data-testid="button-manage-companies">
                 <span className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
                   Manage Companies
@@ -336,7 +336,7 @@ export default function UnlistedDashboard() {
               </Button>
             </Link>
             <Link href="/admin/unlisted/orders">
-              <Button variant="outline" className="w-full justify-between border-gray-700" data-testid="button-manage-orders">
+              <Button variant="outline" className="w-full justify-between border-border" data-testid="button-manage-orders">
                 <span className="flex items-center gap-2">
                   <Package className="h-4 w-4" />
                   Order Management
@@ -345,7 +345,7 @@ export default function UnlistedDashboard() {
               </Button>
             </Link>
             <Link href="/admin/unlisted/negotiations">
-              <Button variant="outline" className="w-full justify-between border-gray-700" data-testid="button-negotiations">
+              <Button variant="outline" className="w-full justify-between border-border" data-testid="button-negotiations">
                 <span className="flex items-center gap-2">
                   <Activity className="h-4 w-4" />
                   Negotiations
@@ -354,7 +354,7 @@ export default function UnlistedDashboard() {
               </Button>
             </Link>
             <Link href="/admin/unlisted/audit-log">
-              <Button variant="outline" className="w-full justify-between border-gray-700" data-testid="button-audit-log">
+              <Button variant="outline" className="w-full justify-between border-border" data-testid="button-audit-log">
                 <span className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   Audit Log
@@ -364,7 +364,7 @@ export default function UnlistedDashboard() {
             </Link>
             <Separator className="my-2 bg-gray-700" />
             <Link href="/admin/unlisted/seed">
-              <Button variant="outline" className="w-full justify-between border-gray-700 text-green-400 hover:text-green-300" data-testid="button-seed-data">
+              <Button variant="outline" className="w-full justify-between border-border text-green-400 hover:text-green-300" data-testid="button-seed-data">
                 <span className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" />
                   Seed Test Data
@@ -376,47 +376,47 @@ export default function UnlistedDashboard() {
         </Card>
       </div>
       
-      <Card className="bg-gray-900 border-gray-800">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Trading Status</CardTitle>
+          <CardTitle className="text-foreground">Trading Status</CardTitle>
           <CardDescription>Current marketplace state</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <div className="p-2 rounded-full bg-green-900/50">
                 <CheckCircle className="h-5 w-5 text-green-400" />
               </div>
               <div>
                 <p className="text-sm font-medium text-white">{metrics.activeCompanies}</p>
-                <p className="text-xs text-gray-400">Active Trading</p>
+                <p className="text-xs text-muted-foreground">Active Trading</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <div className="p-2 rounded-full bg-yellow-900/50">
                 <Clock className="h-5 w-5 text-yellow-400" />
               </div>
               <div>
                 <p className="text-sm font-medium text-white">{metrics.companiesWithDraftPrices}</p>
-                <p className="text-xs text-gray-400">Pending Review</p>
+                <p className="text-xs text-muted-foreground">Pending Review</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <div className="p-2 rounded-full bg-orange-900/50">
                 <Ban className="h-5 w-5 text-orange-400" />
               </div>
               <div>
                 <p className="text-sm font-medium text-white">{metrics.suspendedCompanies}</p>
-                <p className="text-xs text-gray-400">Suspended</p>
+                <p className="text-xs text-muted-foreground">Suspended</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <div className="p-2 rounded-full bg-red-900/50">
                 <XCircle className="h-5 w-5 text-red-400" />
               </div>
               <div>
                 <p className="text-sm font-medium text-white">{metrics.highRiskCompanies}</p>
-                <p className="text-xs text-gray-400">Blocked</p>
+                <p className="text-xs text-muted-foreground">Blocked</p>
               </div>
             </div>
           </div>

@@ -81,7 +81,7 @@ const getStatusColor = (status: CartItemStatus) => {
     case 'active': return 'bg-green-100 text-green-700 border-green-200';
     case 'pending_approval': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
     case 'removed': return 'bg-red-100 text-red-700 border-red-200';
-    default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    default: return 'bg-muted text-muted-foreground border-border';
   }
 };
 
@@ -163,19 +163,19 @@ function StatusTimeline({ status, approvedAt, createdAt, source }: {
                 stepStatus === 'completed' ? 'bg-green-500 text-white' :
                 stepStatus === 'current' ? 'bg-blue-500 text-white' :
                 stepStatus === 'cancelled' ? 'bg-red-200 text-red-500' :
-                'bg-gray-200 text-gray-400'
+                'bg-muted text-muted-foreground'
               }`}>
                 <Icon className="w-4 h-4" />
               </div>
               <span className={`text-xs mt-1 ${
                 stepStatus === 'completed' ? 'text-green-600' :
                 stepStatus === 'current' ? 'text-blue-600 font-medium' :
-                'text-gray-400'
+                'text-muted-foreground'
               }`}>
                 {step.label}
               </span>
               {step.date && formatDate(step.date) && (
-                <span className="text-[10px] text-gray-400">
+                <span className="text-[10px] text-muted-foreground">
                   {formatDate(step.date)}
                 </span>
               )}
@@ -184,7 +184,7 @@ function StatusTimeline({ status, approvedAt, createdAt, source }: {
               <div className={`w-8 h-0.5 mx-1 ${
                 stepStatus === 'completed' ? 'bg-green-500' :
                 stepStatus === 'cancelled' ? 'bg-red-200' :
-                'bg-gray-200'
+                'bg-muted'
               }`} />
             )}
           </div>
@@ -229,7 +229,7 @@ function OrderCard({ item }: { item: UnifiedCartItem }) {
             </Badge>
           </div>
           
-          <div className="text-sm text-gray-600 mb-2">
+          <div className="text-sm text-muted-foreground mb-2">
             <Badge variant="secondary" className="mr-2">
               {categoryLabels[item.productCategory as ProductCategory] || item.productCategory}
             </Badge>
@@ -240,7 +240,7 @@ function OrderCard({ item }: { item: UnifiedCartItem }) {
           </div>
 
           {item.metadata && Object.keys(item.metadata).length > 0 && (
-            <p className="text-sm text-gray-500 mb-2" data-testid={`text-description-${item.id}`}>
+            <p className="text-sm text-muted-foreground mb-2" data-testid={`text-description-${item.id}`}>
               {(item.metadata as any)?.description || (item.metadata as any)?.fundHouse || (item.metadata as any)?.companyName || ''}
             </p>
           )}
@@ -316,10 +316,10 @@ export default function Orders() {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
+          <div className="h-8 bg-muted rounded w-48 mb-4"></div>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              <div key={i} className="h-32 bg-muted rounded"></div>
             ))}
           </div>
         </div>
@@ -349,7 +349,7 @@ export default function Orders() {
           </Button>
         </Link>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Order Tracking</h1>
-        <p className="text-gray-600 dark:text-gray-400">Track your investments and orders across all categories</p>
+        <p className="text-muted-foreground dark:text-muted-foreground">Track your investments and orders across all categories</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -361,7 +361,7 @@ export default function Orders() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{items.length}</p>
-                <p className="text-sm text-gray-500">Total Orders</p>
+                <p className="text-sm text-muted-foreground">Total Orders</p>
               </div>
             </div>
           </CardContent>
@@ -374,7 +374,7 @@ export default function Orders() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{statusStats.active}</p>
-                <p className="text-sm text-gray-500">Active</p>
+                <p className="text-sm text-muted-foreground">Active</p>
               </div>
             </div>
           </CardContent>
@@ -387,7 +387,7 @@ export default function Orders() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{statusStats.pending_approval}</p>
-                <p className="text-sm text-gray-500">Pending Approval</p>
+                <p className="text-sm text-muted-foreground">Pending Approval</p>
               </div>
             </div>
           </CardContent>
@@ -400,7 +400,7 @@ export default function Orders() {
               </div>
               <div>
                 <p className="text-2xl font-bold">₹{items.reduce((sum, item) => sum + Number(item.amount || 0) * (item.quantity || 1), 0).toLocaleString()}</p>
-                <p className="text-sm text-gray-500">Total Value</p>
+                <p className="text-sm text-muted-foreground">Total Value</p>
               </div>
             </div>
           </CardContent>
@@ -409,8 +409,8 @@ export default function Orders() {
 
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <span className="text-sm text-gray-600">Filters:</span>
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Filters:</span>
         </div>
         <Select 
           value={filters.status} 
@@ -488,9 +488,9 @@ export default function Orders() {
           {filteredItems.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No orders found</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                <p className="text-muted-foreground dark:text-muted-foreground mb-6">
                   {activeTab === 'all' 
                     ? 'Start investing to see your orders here' 
                     : `No ${categoryLabels[activeTab as ProductCategory] || activeTab} orders found`}

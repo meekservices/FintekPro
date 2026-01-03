@@ -54,7 +54,7 @@ const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
   contacted: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   resolved: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+  cancelled: "bg-muted dark:bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground"
 };
 
 const statusIcons: Record<string, any> = {
@@ -140,7 +140,7 @@ export default function AdminStoreInquiriesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-muted dark:bg-muted dark:bg-card p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -214,7 +214,7 @@ export default function AdminStoreInquiriesPage() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by name, email, product..."
                     value={searchTerm}
@@ -246,8 +246,8 @@ export default function AdminStoreInquiriesPage() {
               </div>
             ) : filteredInquiries.length === 0 ? (
               <div className="text-center py-12">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p className="text-gray-500">No inquiries found</p>
+                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">No inquiries found</p>
               </div>
             ) : (
               <Table>
@@ -273,7 +273,7 @@ export default function AdminStoreInquiriesPage() {
                             </div>
                             <div>
                               <p className="font-medium text-gray-900 dark:text-white">{inquiry.name}</p>
-                              <p className="text-sm text-gray-500">{inquiry.email}</p>
+                              <p className="text-sm text-muted-foreground">{inquiry.email}</p>
                             </div>
                           </div>
                         </TableCell>
@@ -283,7 +283,7 @@ export default function AdminStoreInquiriesPage() {
                               <Badge variant="outline" className="mr-2">{inquiry.categoryName}</Badge>
                             )}
                             {inquiry.productName && (
-                              <span className="text-sm text-gray-600 dark:text-gray-400">{inquiry.productName}</span>
+                              <span className="text-sm text-muted-foreground dark:text-muted-foreground">{inquiry.productName}</span>
                             )}
                           </div>
                         </TableCell>
@@ -297,7 +297,7 @@ export default function AdminStoreInquiriesPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1 text-sm text-gray-500">
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <Calendar className="h-4 w-4" />
                             {format(new Date(inquiry.createdAt), 'MMM d, yyyy')}
                           </div>
@@ -337,36 +337,36 @@ export default function AdminStoreInquiriesPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Contact Name</p>
+                    <p className="text-sm text-muted-foreground">Contact Name</p>
                     <p className="font-medium">{selectedInquiry.name}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Email</p>
+                    <p className="text-sm text-muted-foreground">Email</p>
                     <a href={`mailto:${selectedInquiry.email}`} className="font-medium text-blue-600 hover:underline">
                       {selectedInquiry.email}
                     </a>
                   </div>
                   {selectedInquiry.phone && (
                     <div className="space-y-1">
-                      <p className="text-sm text-gray-500">Phone</p>
+                      <p className="text-sm text-muted-foreground">Phone</p>
                       <a href={`tel:${selectedInquiry.phone}`} className="font-medium text-blue-600 hover:underline">
                         {selectedInquiry.phone}
                       </a>
                     </div>
                   )}
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Inquiry Type</p>
+                    <p className="text-sm text-muted-foreground">Inquiry Type</p>
                     <Badge variant="secondary">{selectedInquiry.inquiryType || 'general'}</Badge>
                   </div>
                   {selectedInquiry.categoryName && (
                     <div className="space-y-1">
-                      <p className="text-sm text-gray-500">Category</p>
+                      <p className="text-sm text-muted-foreground">Category</p>
                       <Badge variant="outline">{selectedInquiry.categoryName}</Badge>
                     </div>
                   )}
                   {selectedInquiry.productName && (
                     <div className="space-y-1">
-                      <p className="text-sm text-gray-500">Product</p>
+                      <p className="text-sm text-muted-foreground">Product</p>
                       <p className="font-medium">{selectedInquiry.productName}</p>
                     </div>
                   )}
@@ -374,15 +374,15 @@ export default function AdminStoreInquiriesPage() {
 
                 {selectedInquiry.message && (
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-500">Message</p>
-                    <p className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm">
+                    <p className="text-sm text-muted-foreground">Message</p>
+                    <p className="p-3 bg-muted dark:bg-muted dark:bg-muted rounded-lg text-sm">
                       {selectedInquiry.message}
                     </p>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-500">Admin Notes / Response</p>
+                  <p className="text-sm text-muted-foreground">Admin Notes / Response</p>
                   <Textarea
                     placeholder="Add notes or response..."
                     value={responseNote}
@@ -393,7 +393,7 @@ export default function AdminStoreInquiriesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-500">Update Status</p>
+                  <p className="text-sm text-muted-foreground">Update Status</p>
                   <div className="flex gap-2 flex-wrap">
                     <Button
                       size="sm"
@@ -419,7 +419,7 @@ export default function AdminStoreInquiriesPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-gray-600"
+                      className="text-muted-foreground"
                       onClick={() => handleUpdateStatus('cancelled')}
                       disabled={updateStatusMutation.isPending}
                       data-testid="button-status-cancelled"

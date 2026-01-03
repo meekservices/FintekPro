@@ -243,7 +243,7 @@ export default function AIPortfolioReport() {
                             <Badge variant="outline" className={
                               insight.impact === 'high' ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' :
                               insight.impact === 'medium' ? 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300' :
-                              'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                              'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground'
                             }>
                               {(insight.impact || 'low').toUpperCase()}
                             </Badge>
@@ -264,7 +264,7 @@ export default function AIPortfolioReport() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-green-100 dark:bg-green-900 rounded">
                           <ArrowUp className="h-5 w-5 text-green-600" />
@@ -276,7 +276,7 @@ export default function AIPortfolioReport() {
                       </div>
                       <p className="text-2xl font-bold text-green-600">+18.5%</p>
                     </div>
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded">
                           <PieChart className="h-5 w-5 text-blue-600" />
@@ -288,7 +288,7 @@ export default function AIPortfolioReport() {
                       </div>
                       <p className="text-2xl font-bold">1.42</p>
                     </div>
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-muted dark:bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded">
                           <TrendingDown className="h-5 w-5 text-orange-600" />

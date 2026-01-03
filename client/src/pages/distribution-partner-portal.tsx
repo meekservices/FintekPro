@@ -109,7 +109,7 @@ export default function DistributionPartnerPortal() {
               <Briefcase className="h-8 w-8 text-primary" />
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Partner Portal</h1>
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               Welcome back, {(partnerProfile as any)?.companyName || 'Partner'}
             </p>
           </div>
@@ -311,7 +311,7 @@ export default function DistributionPartnerPortal() {
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                             agent.rank === 1 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
-                            agent.rank === 2 ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' :
+                            agent.rank === 2 ? 'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground' :
                             'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
                           }`}>
                             #{agent.rank}
@@ -420,7 +420,7 @@ export default function DistributionPartnerPortal() {
                             <Badge variant="outline" className={
                               agent.agentLevel === 'master' ? 'bg-blue-100 text-blue-800' :
                               agent.agentLevel === 'sub_agent' ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-800'
+                              'bg-muted text-foreground'
                             }>
                               {agent.agentLevel === 'master' ? 'Agent' : 
                                agent.agentLevel === 'sub_agent' ? 'Sub-Agent' : 'Associate'}

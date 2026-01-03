@@ -160,7 +160,7 @@ export default function AgentPayoutDashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Earnings & Payouts</h1>
-              <p className="text-gray-500 dark:text-gray-400">Track your commissions and request withdrawals</p>
+              <p className="text-muted-foreground dark:text-muted-foreground">Track your commissions and request withdrawals</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -188,7 +188,7 @@ export default function AgentPayoutDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Withdrawable Balance</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Withdrawable Balance</p>
                 <p className="text-2xl font-bold text-green-600">{formatCurrency(metrics.withdrawable)}</p>
               </div>
               <Banknote className="w-10 h-10 text-green-400" />
@@ -209,7 +209,7 @@ export default function AgentPayoutDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Total Earnings</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total Earnings</p>
                 <p className="text-xl font-bold">{formatCurrency(metrics.totalEarnings)}</p>
               </div>
               <IndianRupee className="w-8 h-8 text-blue-400" />
@@ -222,12 +222,12 @@ export default function AgentPayoutDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Pending Approval</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Pending Approval</p>
                 <p className="text-xl font-bold text-amber-600">{formatCurrency(metrics.pendingEarnings)}</p>
               </div>
               <Clock className="w-8 h-8 text-amber-400" />
             </div>
-            <p className="text-xs text-gray-500 mt-1">Processing within 48 hrs</p>
+            <p className="text-xs text-muted-foreground mt-1">Processing within 48 hrs</p>
           </CardContent>
         </Card>
         
@@ -235,12 +235,12 @@ export default function AgentPayoutDashboard() {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Already Paid</p>
-                <p className="text-xl font-bold text-gray-600">{formatCurrency(metrics.paidEarnings)}</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Already Paid</p>
+                <p className="text-xl font-bold text-muted-foreground">{formatCurrency(metrics.paidEarnings)}</p>
               </div>
-              <CheckCircle className="w-8 h-8 text-gray-400" />
+              <CheckCircle className="w-8 h-8 text-muted-foreground" />
             </div>
-            <p className="text-xs text-gray-500 mt-1">Lifetime payouts</p>
+            <p className="text-xs text-muted-foreground mt-1">Lifetime payouts</p>
           </CardContent>
         </Card>
       </div>
@@ -270,12 +270,12 @@ export default function AgentPayoutDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <span className="text-gray-600 dark:text-gray-400">Gross Commission</span>
+                  <div className="flex justify-between items-center p-3 bg-muted dark:bg-muted rounded-lg">
+                    <span className="text-muted-foreground dark:text-muted-foreground">Gross Commission</span>
                     <span className="font-bold text-lg">{formatCurrency(earnings.reduce((s, e) => s + e.grossCommission, 0))}</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <span className="text-gray-600 dark:text-gray-400">Platform Fee (10%)</span>
+                    <span className="text-muted-foreground dark:text-muted-foreground">Platform Fee (10%)</span>
                     <span className="font-medium text-red-600">-{formatCurrency(earnings.reduce((s, e) => s + e.platformFee, 0))}</span>
                   </div>
                   <Separator />
@@ -327,12 +327,12 @@ export default function AgentPayoutDashboard() {
                     <Building className="w-12 h-12 text-green-600" />
                     <div>
                       <p className="font-medium text-lg">HDFC Bank</p>
-                      <p className="text-gray-600 dark:text-gray-400">Account ending in 1234</p>
-                      <p className="text-sm text-gray-500">IFSC: HDFC0001234</p>
+                      <p className="text-muted-foreground dark:text-muted-foreground">Account ending in 1234</p>
+                      <p className="text-sm text-muted-foreground">IFSC: HDFC0001234</p>
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
-                    <Badge variant="outline" className="bg-white dark:bg-gray-800">Primary Account</Badge>
+                    <Badge variant="outline" className="bg-white dark:bg-muted">Primary Account</Badge>
                     <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Verified</Badge>
                   </div>
                 </div>
@@ -440,7 +440,7 @@ export default function AgentPayoutDashboard() {
             </CardContent>
             <CardFooter className="border-t pt-4">
               <div className="flex justify-between items-center w-full">
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-muted-foreground dark:text-muted-foreground">
                   Total Net Earnings: <span className="font-bold text-green-600">{formatCurrency(metrics.totalEarnings)}</span>
                 </p>
                 <Button variant="outline" data-testid="button-download-statement">
@@ -494,19 +494,19 @@ export default function AgentPayoutDashboard() {
                       </div>
                       <div>
                         <p className="font-medium">{formatCurrency(payout.amount)}</p>
-                        <p className="text-sm text-gray-500">Requested: {format(new Date(payout.requestDate), 'dd MMM yyyy')}</p>
-                        <p className="text-xs text-gray-400">{payout.bankDetails}</p>
+                        <p className="text-sm text-muted-foreground">Requested: {format(new Date(payout.requestDate), 'dd MMM yyyy')}</p>
+                        <p className="text-xs text-muted-foreground">{payout.bankDetails}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <Badge className={getStatusBadge(payout.status)}>{payout.status}</Badge>
                       {payout.processedDate && (
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                           Processed: {format(new Date(payout.processedDate), 'dd MMM')}
                         </p>
                       )}
                       {payout.referenceNumber && (
-                        <p className="text-xs text-gray-400">{payout.referenceNumber}</p>
+                        <p className="text-xs text-muted-foreground">{payout.referenceNumber}</p>
                       )}
                     </div>
                   </div>
@@ -525,7 +525,7 @@ export default function AgentPayoutDashboard() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Available Balance</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Available Balance</p>
               <p className="text-2xl font-bold text-green-600">{formatCurrency(metrics.withdrawable)}</p>
             </div>
             
@@ -563,13 +563,13 @@ export default function AgentPayoutDashboard() {
               </div>
             </div>
             
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="p-4 bg-muted dark:bg-muted rounded-lg">
               <p className="text-sm font-medium mb-2">Payout To:</p>
               <div className="flex items-center gap-3">
-                <Building className="w-8 h-8 text-gray-400" />
+                <Building className="w-8 h-8 text-muted-foreground" />
                 <div>
                   <p className="font-medium">HDFC Bank ***1234</p>
-                  <p className="text-xs text-gray-500">Processing time: 1-3 business days</p>
+                  <p className="text-xs text-muted-foreground">Processing time: 1-3 business days</p>
                 </div>
               </div>
             </div>

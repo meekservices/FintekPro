@@ -69,7 +69,7 @@ export default function TaxDocumentVaultPage() {
       const Icon = category.icon;
       return <Icon className={`h-5 w-5 ${category.color.split(" ")[0]}`} />;
     }
-    return <FileText className="h-5 w-5 text-gray-600" />;
+    return <FileText className="h-5 w-5 text-muted-foreground" />;
   };
 
   const getStatusBadge = (status: string) => {
@@ -103,7 +103,7 @@ export default function TaxDocumentVaultPage() {
             <Folder className="h-8 w-8 text-blue-500" />
             Tax Document Vault
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">Securely store and access all your tax documents</p>
+          <p className="text-muted-foreground dark:text-muted-foreground">Securely store and access all your tax documents</p>
         </div>
         <Button className="gap-2" data-testid="button-upload-document">
           <Upload className="h-4 w-4" /> Upload Document
@@ -137,7 +137,7 @@ export default function TaxDocumentVaultPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">{category.name}</p>
+                    <p className="text-sm text-muted-foreground">{category.name}</p>
                     <p className="text-2xl font-bold">{count}</p>
                   </div>
                   <div className={`p-3 rounded-lg ${category.color.split(" ")[1]}`}>
@@ -155,7 +155,7 @@ export default function TaxDocumentVaultPage() {
         <CardContent className="py-4">
           <div className="flex items-center gap-4">
             <div className="relative flex-1">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
               <Input 
                 placeholder="Search documents..." 
                 value={searchTerm}
@@ -204,14 +204,14 @@ export default function TaxDocumentVaultPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {docs.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" data-testid={`document-${doc.id}`}>
+                  <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted dark:hover:bg-muted transition-colors" data-testid={`document-${doc.id}`}>
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${DOCUMENT_CATEGORIES.find(c => c.type === doc.type)?.color.split(" ")[1] || "bg-gray-100"}`}>
+                      <div className={`p-2 rounded-lg ${DOCUMENT_CATEGORIES.find(c => c.type === doc.type)?.color.split(" ")[1] || "bg-muted"}`}>
                         {getDocumentIcon(doc.type)}
                       </div>
                       <div>
                         <p className="font-medium">{doc.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Calendar className="h-3 w-3" />
                           <span>{doc.uploadDate}</span>
                           <span>•</span>
@@ -238,9 +238,9 @@ export default function TaxDocumentVaultPage() {
         {filteredDocuments.length === 0 && (
           <Card className="py-12">
             <CardContent className="text-center">
-              <Folder className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <Folder className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="font-semibold text-lg">No documents found</h3>
-              <p className="text-gray-500 mb-4">Upload your first document to get started</p>
+              <p className="text-muted-foreground mb-4">Upload your first document to get started</p>
               <Button data-testid="button-upload-first">
                 <Upload className="h-4 w-4 mr-2" /> Upload Document
               </Button>

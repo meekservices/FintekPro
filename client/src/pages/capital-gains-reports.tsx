@@ -642,34 +642,34 @@ export default function CapitalGainsReports() {
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-gray-300">
+                    <table className="w-full border-collapse border border-border">
                       <thead>
-                        <tr className="bg-gray-50">
-                          <th className="border border-gray-300 px-4 py-2 text-left">Company</th>
-                          <th className="border border-gray-300 px-4 py-2 text-left">Symbol</th>
-                          <th className="border border-gray-300 px-4 py-2 text-left">Buy Date</th>
-                          <th className="border border-gray-300 px-4 py-2 text-left">Sell Date</th>
-                          <th className="border border-gray-300 px-4 py-2 text-right">Buy Value</th>
-                          <th className="border border-gray-300 px-4 py-2 text-right">Sell Value</th>
-                          <th className="border border-gray-300 px-4 py-2 text-right">Gain/Loss</th>
-                          <th className="border border-gray-300 px-4 py-2 text-center">Type</th>
+                        <tr className="bg-muted">
+                          <th className="border border-border px-4 py-2 text-left">Company</th>
+                          <th className="border border-border px-4 py-2 text-left">Symbol</th>
+                          <th className="border border-border px-4 py-2 text-left">Buy Date</th>
+                          <th className="border border-border px-4 py-2 text-left">Sell Date</th>
+                          <th className="border border-border px-4 py-2 text-right">Buy Value</th>
+                          <th className="border border-border px-4 py-2 text-right">Sell Value</th>
+                          <th className="border border-border px-4 py-2 text-right">Gain/Loss</th>
+                          <th className="border border-border px-4 py-2 text-center">Type</th>
                         </tr>
                       </thead>
                       <tbody>
                         {currentReport.transactions.map((transaction) => (
-                          <tr key={transaction.id} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-4 py-2">{transaction.companyName}</td>
-                            <td className="border border-gray-300 px-4 py-2 font-mono">{transaction.symbol}</td>
-                            <td className="border border-gray-300 px-4 py-2">{new Date(transaction.buyDate).toLocaleDateString()}</td>
-                            <td className="border border-gray-300 px-4 py-2">{new Date(transaction.sellDate).toLocaleDateString()}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(transaction.buyValue)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(transaction.sellValue)}</td>
-                            <td className={`border border-gray-300 px-4 py-2 text-right font-semibold ${
+                          <tr key={transaction.id} className="hover:bg-muted">
+                            <td className="border border-border px-4 py-2">{transaction.companyName}</td>
+                            <td className="border border-border px-4 py-2 font-mono">{transaction.symbol}</td>
+                            <td className="border border-border px-4 py-2">{new Date(transaction.buyDate).toLocaleDateString()}</td>
+                            <td className="border border-border px-4 py-2">{new Date(transaction.sellDate).toLocaleDateString()}</td>
+                            <td className="border border-border px-4 py-2 text-right">{formatCurrency(transaction.buyValue)}</td>
+                            <td className="border border-border px-4 py-2 text-right">{formatCurrency(transaction.sellValue)}</td>
+                            <td className={`border border-border px-4 py-2 text-right font-semibold ${
                               parseFloat(transaction.gainLoss) >= 0 ? 'text-green-600' : 'text-red-600'
                             }`}>
                               {formatCurrency(transaction.gainLoss)}
                             </td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">
+                            <td className="border border-border px-4 py-2 text-center">
                               <Badge variant={transaction.gainType === 'long_term' ? 'default' : 'secondary'}>
                                 {transaction.gainType.replace('_', ' ')}
                               </Badge>
@@ -685,9 +685,9 @@ export default function CapitalGainsReports() {
           ) : (
             <Card>
               <CardContent className="text-center py-12">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">No Report Generated</h3>
-                <p className="text-gray-500 mb-4">Generate a new capital gains report to view details here.</p>
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Report Generated</h3>
+                <p className="text-muted-foreground mb-4">Generate a new capital gains report to view details here.</p>
                 <Button onClick={() => setActiveTab('generate')}>
                   Generate Report
                 </Button>
@@ -723,19 +723,19 @@ export default function CapitalGainsReports() {
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                               <div>
-                                <span className="text-gray-500">LTCG:</span>
+                                <span className="text-muted-foreground">LTCG:</span>
                                 <span className="ml-2 font-semibold">{formatCurrency(report.totalLongTermGains)}</span>
                               </div>
                               <div>
-                                <span className="text-gray-500">STCG:</span>
+                                <span className="text-muted-foreground">STCG:</span>
                                 <span className="ml-2 font-semibold">{formatCurrency(report.totalShortTermGains)}</span>
                               </div>
                               <div>
-                                <span className="text-gray-500">Dividend:</span>
+                                <span className="text-muted-foreground">Dividend:</span>
                                 <span className="ml-2 font-semibold">{formatCurrency(report.totalDividend)}</span>
                               </div>
                               <div>
-                                <span className="text-gray-500">Generated:</span>
+                                <span className="text-muted-foreground">Generated:</span>
                                 <span className="ml-2">{new Date(report.createdAt).toLocaleDateString()}</span>
                               </div>
                             </div>
@@ -765,9 +765,9 @@ export default function CapitalGainsReports() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No Saved Reports</h3>
-                  <p className="text-gray-500">Generate and save reports to access them later.</p>
+                  <Database className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Saved Reports</h3>
+                  <p className="text-muted-foreground">Generate and save reports to access them later.</p>
                 </div>
               )}
             </CardContent>

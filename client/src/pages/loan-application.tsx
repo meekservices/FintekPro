@@ -273,7 +273,7 @@ export default function LoanApplication() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Apply for Loan
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-xl text-muted-foreground">
             Get the best loan offers from ICICI, HDFC, Tata Capital & Bajaj Finance
           </p>
         </div>
@@ -284,7 +284,7 @@ export default function LoanApplication() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                  currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'
                 }`}>
                   {currentStep > 1 ? <CheckCircle className="w-5 h-5" /> : '1'}
                 </div>
@@ -297,7 +297,7 @@ export default function LoanApplication() {
               
               <div className="flex items-center space-x-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                  currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'
                 }`}>
                   {currentStep > 2 ? <CheckCircle className="w-5 h-5" /> : '2'}
                 </div>
@@ -310,7 +310,7 @@ export default function LoanApplication() {
               
               <div className="flex items-center space-x-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                  currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground'
                 }`}>
                   {currentStep > 3 ? <CheckCircle className="w-5 h-5" /> : '3'}
                 </div>
@@ -323,7 +323,7 @@ export default function LoanApplication() {
               
               <div className="flex items-center space-x-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  currentStep >= 4 ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
+                  currentStep >= 4 ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'
                 }`}>
                   {currentStep >= 4 ? <CheckCircle className="w-5 h-5" /> : '4'}
                 </div>
@@ -441,7 +441,7 @@ export default function LoanApplication() {
                     onChange={(e) => setEligibilityForm(prev => ({ ...prev, cibilScore: e.target.value }))}
                     data-testid="input-cibil-score"
                   />
-                  <p className="text-sm text-gray-500">Leave empty if you don't know your CIBIL score</p>
+                  <p className="text-sm text-muted-foreground">Leave empty if you don't know your CIBIL score</p>
                 </div>
               </div>
 
@@ -488,19 +488,19 @@ export default function LoanApplication() {
                       <CardContent className="space-y-4">
                         <div className="space-y-2">
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Interest Rate</span>
+                            <span className="text-sm text-muted-foreground">Interest Rate</span>
                             <span className="font-semibold text-blue-600">{offer.interestRate}%</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">EMI</span>
+                            <span className="text-sm text-muted-foreground">EMI</span>
                             <span className="font-semibold">₹{offer.emi.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Processing Fee</span>
+                            <span className="text-sm text-muted-foreground">Processing Fee</span>
                             <span className="font-semibold">₹{offer.processingFee.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Total Amount</span>
+                            <span className="text-sm text-muted-foreground">Total Amount</span>
                             <span className="font-semibold">₹{offer.totalAmount.toLocaleString()}</span>
                           </div>
                         </div>
@@ -521,7 +521,7 @@ export default function LoanApplication() {
                         <div className="space-y-2">
                           <h4 className="text-sm font-semibold">Terms & Requirements</h4>
                           {offer.terms.slice(0, 2).map((term, idx) => (
-                            <p key={idx} className="text-xs text-gray-600">• {term}</p>
+                            <p key={idx} className="text-xs text-muted-foreground">• {term}</p>
                           ))}
                           {offer.terms.length > 2 && (
                             <p className="text-xs text-blue-600">+{offer.terms.length - 2} more requirements</p>
@@ -559,15 +559,15 @@ export default function LoanApplication() {
                     <CardContent>
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
-                          <p className="text-sm text-gray-600">Best Rate</p>
+                          <p className="text-sm text-muted-foreground">Best Rate</p>
                           <p className="text-lg font-semibold text-green-600">{comparisonResult.comparisonSummary.lowestRate}%</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Total Offers</p>
+                          <p className="text-sm text-muted-foreground">Total Offers</p>
                           <p className="text-lg font-semibold">{comparisonResult.totalOffers}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Avg. Processing Fee</p>
+                          <p className="text-sm text-muted-foreground">Avg. Processing Fee</p>
                           <p className="text-lg font-semibold">₹{Math.round(comparisonResult.comparisonSummary.averageProcessingFee).toLocaleString()}</p>
                         </div>
                       </div>
@@ -596,7 +596,7 @@ export default function LoanApplication() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-semibold">Selected Offer: {selectedOffer.lenderName}</h3>
-                        <p className="text-sm text-gray-600">Interest Rate: {selectedOffer.interestRate}% | EMI: ₹{selectedOffer.emi.toLocaleString()}</p>
+                        <p className="text-sm text-muted-foreground">Interest Rate: {selectedOffer.interestRate}% | EMI: ₹{selectedOffer.emi.toLocaleString()}</p>
                       </div>
                       <Button 
                         variant="outline" 
@@ -796,7 +796,7 @@ export default function LoanApplication() {
               <CardTitle className="text-2xl text-green-800">Application Submitted Successfully!</CardTitle>
             </CardHeader>
             <CardContent className="text-center space-y-6">
-              <p className="text-lg text-gray-600">
+              <p className="text-lg text-muted-foreground">
                 Your loan application has been submitted to {selectedOffer?.lenderName}
               </p>
               
