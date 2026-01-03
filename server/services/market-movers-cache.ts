@@ -33,14 +33,14 @@ interface CacheMetrics {
 }
 
 // Increased TTLs to reduce API calls and prevent rate limiting
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes (was 2 minutes)
-const STALE_TTL_MS = 30 * 60 * 1000; // 30 minutes (was 10 minutes)
-const CRUMB_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (was 1 hour)
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (was 30 seconds)
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
+const STALE_TTL_MS = 60 * 60 * 1000; // 60 minutes (increased from 30 minutes)
+const CRUMB_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours (increased from 2 hours)
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
 
 // Exponential backoff settings for rate limiting
-const INITIAL_BACKOFF_MS = 60 * 1000; // Start with 1 minute
-const MAX_BACKOFF_MS = 30 * 60 * 1000; // Max 30 minutes
+const INITIAL_BACKOFF_MS = 5 * 60 * 1000; // Start with 5 minutes (increased from 1 minute)
+const MAX_BACKOFF_MS = 60 * 60 * 1000; // Max 60 minutes (increased from 30 minutes)
 const BACKOFF_MULTIPLIER = 2;
 
 const INDIAN_STOCKS = [
