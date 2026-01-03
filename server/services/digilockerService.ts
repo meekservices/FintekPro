@@ -364,17 +364,29 @@ export class DigiLockerService {
   }
 
   // Helper methods to extract data from documents
-  // TODO: In production, these should parse actual XML/JSON DigiLocker responses
+  // Supports both XML (real DigiLocker responses) and JSON (mock/test data) formats
   private extractAadhaarNumber(documentContent: string): string {
     try {
-      // Parse the base64-encoded document content
       const decoded = Buffer.from(documentContent, 'base64').toString();
-      const content = JSON.parse(decoded);
       
-      // TODO: Real DigiLocker Aadhaar XML would have structure like:
-      // <KycRes><UidData><Poi uid="XXXXXXXXXXXX">
-      // For now, extract from mock structure or generate consistent value
-      return content.aadhaarNumber || content.uid || this.generateConsistentMockValue('AADHAAR', 12);
+      // Try XML parsing first (real DigiLocker format)
+      // DigiLocker Aadhaar XML structure: <KycRes><UidData><Poi uid="XXXXXXXXXXXX">
+      const uidMatch = decoded.match(/uid\s*=\s*["'](\d{12})["']/i);
+      if (uidMatch) {
+        return uidMatch[1];
+      }
+      
+      // Try to parse as JSON (mock/test format)
+      try {
+        const content = JSON.parse(decoded);
+        return content.aadhaarNumber || content.uid || this.generateConsistentMockValue('AADHAAR', 12);
+      } catch {
+        // Not JSON, try plain text extraction
+        const plainMatch = decoded.match(/\d{12}/);
+        if (plainMatch) return plainMatch[0];
+      }
+      
+      return this.generateConsistentMockValue('AADHAAR', 12);
     } catch {
       return this.generateConsistentMockValue('AADHAAR', 12);
     }
@@ -383,10 +395,25 @@ export class DigiLockerService {
   private extractPANNumber(documentContent: string): string {
     try {
       const decoded = Buffer.from(documentContent, 'base64').toString();
-      const content = JSON.parse(decoded);
       
-      // TODO: Real DigiLocker PAN XML: <PANDetails><PAN>XXXXX9999X</PAN>
-      return content.panNumber || content.PAN || this.generateConsistentMockValue('PAN', 10);
+      // Try XML parsing first (real DigiLocker format)
+      // DigiLocker PAN XML: <PANDetails><PAN>XXXXX9999X</PAN>
+      const panXmlMatch = decoded.match(/<PAN>([A-Z]{5}\d{4}[A-Z])<\/PAN>/i);
+      if (panXmlMatch) {
+        return panXmlMatch[1].toUpperCase();
+      }
+      
+      // Try to parse as JSON (mock/test format)
+      try {
+        const content = JSON.parse(decoded);
+        return content.panNumber || content.PAN || this.generateConsistentMockValue('PAN', 10);
+      } catch {
+        // Not JSON, try PAN regex pattern from plain text
+        const panMatch = decoded.match(/[A-Z]{5}\d{4}[A-Z]/i);
+        if (panMatch) return panMatch[0].toUpperCase();
+      }
+      
+      return this.generateConsistentMockValue('PAN', 10);
     } catch {
       return this.generateConsistentMockValue('PAN', 10);
     }
@@ -395,10 +422,27 @@ export class DigiLockerService {
   private extractFullName(documentContent: string, source: 'aadhaar' | 'pan'): string {
     try {
       const decoded = Buffer.from(documentContent, 'base64').toString();
-      const content = JSON.parse(decoded);
       
-      // TODO: Real parsing would extract name from XML nodes
-      return content.fullName || content.name || 'Verified User';
+      // Try XML parsing first (real DigiLocker format)
+      // Aadhaar: <Poi name="FULL NAME">
+      // PAN: <NameOnCard>FULL NAME</NameOnCard>
+      const nameAttrMatch = decoded.match(/name\s*=\s*["']([^"']+)["']/i);
+      if (nameAttrMatch) {
+        return nameAttrMatch[1];
+      }
+      
+      const nameTagMatch = decoded.match(/<NameOnCard>([^<]+)<\/NameOnCard>/i);
+      if (nameTagMatch) {
+        return nameTagMatch[1];
+      }
+      
+      // Try to parse as JSON
+      try {
+        const content = JSON.parse(decoded);
+        return content.fullName || content.name || 'Verified User';
+      } catch {
+        return 'Verified User';
+      }
     } catch {
       return 'Verified User';
     }
@@ -429,10 +473,54 @@ export class DigiLockerService {
   private extractAddress(documentContent: string, source: 'aadhaar'): string {
     try {
       const decoded = Buffer.from(documentContent, 'base64').toString();
-      const content = JSON.parse(decoded);
       
-      // TODO: Real Aadhaar XML has <Poa> with house, street, lm, loc, vtc, subdist, dist, state, pc
-      return content.address || '123 Main Street, City, State';
+      // Real Aadhaar XML has <Poa> with house, street, lm, loc, vtc, subdist, dist, state, pc
+      // Try extracting address components from XML using safer attribute extraction
+      const addressParts: string[] = [];
+      
+      // Use a safer extraction method that handles various attribute formats
+      // This handles: attr="value", attr='value', and attr-name="value"
+      const extractAttribute = (attrName: string): string | null => {
+        // Escape special regex characters in attribute name and match flexibly
+        const escapedName = attrName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Match attribute with = followed by quoted value (handles hyphens, underscores in names)
+        const patterns = [
+          new RegExp(`\\b${escapedName}\\s*=\\s*["']([^"']+)["']`, 'i'),
+          new RegExp(`<${escapedName}>([^<]+)<\\/${escapedName}>`, 'i'),
+        ];
+        
+        for (const pattern of patterns) {
+          const match = decoded.match(pattern);
+          if (match && match[1]) {
+            return match[1].trim();
+          }
+        }
+        return null;
+      };
+      
+      // Standard Aadhaar address attributes
+      const attributeNames = ['house', 'street', 'lm', 'loc', 'vtc', 'subdist', 'dist', 'state', 'pc'];
+      // Also check for hyphenated variants (e.g., house-no, co-name)
+      const additionalNames = ['house-no', 'co', 'co-name', 'building', 'landmark', 'village', 'city', 'pincode', 'zip'];
+      
+      for (const attr of [...attributeNames, ...additionalNames]) {
+        const value = extractAttribute(attr);
+        if (value && !addressParts.includes(value)) {
+          addressParts.push(value);
+        }
+      }
+      
+      if (addressParts.length > 0) {
+        return addressParts.join(', ');
+      }
+      
+      // Try to parse as JSON
+      try {
+        const content = JSON.parse(decoded);
+        return content.address || '123 Main Street, City, State';
+      } catch {
+        return '123 Main Street, City, State';
+      }
     } catch {
       return '123 Main Street, City, State';
     }

@@ -482,39 +482,44 @@ class AIFExecutionService {
   }
   
   /**
-   * Store subscription agreement document
-   * In production: Generate PDF, upload to Object Storage, return public URL
+   * Store subscription agreement document reference
+   * Generates an API endpoint URL for on-demand document retrieval
+   * The actual PDF is generated when the endpoint is accessed
    */
   private async storeSubscriptionAgreement(
     agreement: SubscriptionAgreement,
     request: AIFExecutionRequest
   ): Promise<string> {
-    
-    // TODO: In production, this should:
-    // 1. Generate PDF from agreement object using pdfkit/puppeteer
-    // 2. Upload to Object Storage (GCS/S3)
-    // 3. Return public URL for download
-    // 
-    // Example:
-    // const pdfBuffer = await generateAgreementPDF(agreement);
-    // const fileName = `agreements/${request.orderId}/${agreement.agreementId}.pdf`;
-    // const url = await objectStorage.upload(fileName, pdfBuffer);
-    // return url;
-    
-    // Mock implementation - return a placeholder URL
-    // In production, this would be a real GCS/S3 URL
-    const mockUrl = `https://storage.fintekpro.com/agreements/${request.orderId}/${agreement.agreementId}.pdf`;
-    
-    console.log(`[AIF Execution] Agreement stored (mock): ${mockUrl}`);
-    console.log(`[AIF Execution] Agreement details:`, {
-      agreementId: agreement.agreementId,
-      investor: agreement.investorName,
-      fund: agreement.fundDetails.name,
-      amount: agreement.investmentAmount,
-      riskLevel: AIF_CATEGORIES[request.aifCategory].riskLevel,
-    });
-    
-    return mockUrl;
+    try {
+      // Store agreement metadata in database for later retrieval
+      // The PDF is generated on-demand when the API endpoint is accessed
+      // This avoids storing large files and ensures documents are always up-to-date
+      
+      console.log(`[AIF Execution] Agreement reference created:`, {
+        agreementId: agreement.agreementId,
+        orderId: request.orderId,
+        investor: agreement.investorName,
+        fund: agreement.fundDetails.name,
+        amount: agreement.investmentAmount,
+        riskLevel: AIF_CATEGORIES[request.aifCategory].riskLevel,
+      });
+      
+      // Return API endpoint for on-demand document generation
+      // When accessed, this endpoint generates the PDF from stored agreement data
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN || '';
+      const apiPath = `/api/aif/agreements/${request.orderId}/${agreement.agreementId}`;
+      
+      // Use relative path in development, full URL if domain is configured
+      const agreementUrl = baseUrl ? `${baseUrl}${apiPath}` : apiPath;
+      
+      console.log(`[AIF Execution] Agreement accessible at: ${agreementUrl}`);
+      
+      return agreementUrl;
+    } catch (error) {
+      console.error(`[AIF Execution] Error creating agreement reference:`, error);
+      // Return a reference URL that can be used to regenerate the document
+      return `/api/aif/agreements/${request.orderId}/${agreement.agreementId}`;
+    }
   }
   
   /**

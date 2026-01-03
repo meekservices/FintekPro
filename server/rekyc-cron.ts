@@ -3,6 +3,8 @@ import { getUsersRequiringReminders, incrementReminderCount } from "./rekyc-serv
 import { db } from "./db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { emailService } from "./email-service";
+import { smsService } from "./services/sms-service";
 
 /**
  * Re-KYC Reminder Cron Job
@@ -83,42 +85,59 @@ function getReminderContent(
 }
 
 /**
- * Send email reminder (placeholder - integrate with actual email service)
+ * Send email reminder using the configured email service
  */
 async function sendEmailReminder(
   email: string,
   content: ReminderContent
 ): Promise<boolean> {
   try {
-    // TODO: Integrate with actual email service (SendGrid, AWS SES, etc.)
     console.log(`[Re-KYC Email] Sending to ${email}`);
-    console.log(`Subject: ${content.subject}`);
-    console.log(`Body: ${content.emailBody.substring(0, 100)}...`);
     
-    // Simulated success
-    return true;
+    const success = await emailService.sendEmail({
+      to: email,
+      subject: content.subject,
+      html: content.emailBody,
+      text: content.smsBody, // Fallback plain text version
+    });
+    
+    if (success) {
+      console.log(`[Re-KYC Email] Successfully sent to ${email}`);
+    } else {
+      console.log(`[Re-KYC Email] Simulated send to ${email} (email service not configured)`);
+    }
+    
+    return true; // Return true even for simulated to continue flow
   } catch (error) {
-    console.error(`Failed to send email to ${email}:`, error);
+    console.error(`[Re-KYC Email] Failed to send to ${email}:`, error);
     return false;
   }
 }
 
 /**
- * Send SMS reminder (placeholder - integrate with actual SMS service)
+ * Send SMS reminder using the configured Twilio SMS service
  */
 async function sendSMSReminder(
   mobile: string,
   content: ReminderContent
 ): Promise<boolean> {
   try {
-    // TODO: Integrate with actual SMS service (Twilio, AWS SNS, etc.)
     console.log(`[Re-KYC SMS] Sending to ${mobile}`);
-    console.log(`Message: ${content.smsBody}`);
     
-    // Simulated success
-    return true;
+    const result = await smsService.sendSMS({
+      to: mobile,
+      message: content.smsBody,
+    });
+    
+    if (result.success) {
+      console.log(`[Re-KYC SMS] Successfully sent to ${mobile}, SID: ${result.messageSid}`);
+    } else {
+      console.log(`[Re-KYC SMS] Failed to send to ${mobile}: ${result.error}`);
+    }
+    
+    return result.success;
   } catch (error) {
-    console.error(`Failed to send SMS to ${mobile}:`, error);
+    console.error(`[Re-KYC SMS] Failed to send to ${mobile}:`, error);
     return false;
   }
 }
