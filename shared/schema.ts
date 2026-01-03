@@ -17449,6 +17449,117 @@ export const insertItrPricingConfigSchema = createInsertSchema(itrPricingConfig)
 export type InsertItrPricingConfig = z.infer<typeof insertItrPricingConfigSchema>;
 export type ItrPricingConfig = typeof itrPricingConfig.$inferSelect;
 
+// ============================================================================
+// PLATFORM FEE CONFIGURATION
+// Centralized fee management for all platform charges
+// ============================================================================
+
+export const feeCategories = [
+  "regulatory",      // STT, Stamp Duty, SEBI fees, GST
+  "platform",        // Brokerage, platform fees, account maintenance
+  "advisory",        // Portfolio review, tax planning, consultation
+  "document",        // Physical statements, certificates, reports
+  "convenience",     // Payment gateway, rush processing, after-hours
+  "value_added",     // AI recommendations, API access, premium features
+] as const;
+
+export const feeApplicability = [
+  "all",             // Applies to all transactions
+  "equity",          // Equity trades only
+  "mutual_fund",     // MF transactions
+  "bond",            // Bond purchases
+  "unlisted",        // Unlisted share deals
+  "ipo",             // IPO applications
+  "derivatives",     // F\&O trades
+  "loan",            // Loan processing
+  "tax_services",    // ITR, tax planning
+  "advisory",        // Advisory services
+] as const;
+
+export const feeChargeType = [
+  "percentage",      // % of transaction value
+  "flat",            // Fixed amount
+  "tiered",          // Based on slab
+  "per_unit",        // Per share/unit
+  "hybrid",          // Base + percentage
+] as const;
+
+export const platformFeeConfig = pgTable("platform_fee_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Fee Identification
+  feeCode: varchar("fee_code", { length: 50 }).notNull().unique(),
+  feeName: varchar("fee_name", { length: 100 }).notNull(),
+  feeDescription: text("fee_description"),
+  category: varchar("category", { length: 50 }).notNull(), // regulatory, platform, advisory, etc.
+  
+  // Charge Structure
+  chargeType: varchar("charge_type", { length: 20 }).notNull().default("percentage"),
+  rateValue: decimal("rate_value", { precision: 12, scale: 6 }).notNull(), // Rate or flat amount
+  rateUnit: varchar("rate_unit", { length: 20 }).default("percent"), // percent, bps, inr
+  minAmount: decimal("min_amount", { precision: 10, scale: 2 }).default("0"),
+  maxAmount: decimal("max_amount", { precision: 10, scale: 2 }), // Cap if applicable
+  
+  // Tiered Pricing (for tiered charge type)
+  tierSlabs: jsonb("tier_slabs"), // [{from: 0, to: 100000, rate: 0.5}, {from: 100001, to: 500000, rate: 0.3}]
+  
+  // Applicability
+  applicableTo: varchar("applicable_to", { length: 50 }).notNull().default("all"),
+  applicableProducts: text("applicable_products").array(), // Specific product codes
+  excludedProducts: text("excluded_products").array(),
+  
+  // Investor Tier Pricing
+  investorTierRates: jsonb("investor_tier_rates"), // {retail: 0.5, sHNI: 0.35, bHNI: 0.25, qib: 0.1}
+  
+  // GST Applicability
+  isGstApplicable: boolean("is_gst_applicable").default(true),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).default("18"),
+  gstIncluded: boolean("gst_included").default(false), // Is GST already included in rate?
+  
+  // Payer and Collection
+  payer: varchar("payer", { length: 20 }).default("client"), // client, platform, seller, both
+  collectionPoint: varchar("collection_point", { length: 50 }).default("transaction"), // transaction, monthly, annual
+  
+  // Regulatory Reference
+  isRegulatory: boolean("is_regulatory").default(false),
+  regulatoryReference: varchar("regulatory_reference", { length: 200 }),
+  statuteSection: varchar("statute_section", { length: 200 }),
+  
+  // Waivers and Discounts
+  isWaivable: boolean("is_waivable").default(false),
+  maxWaiverPercent: decimal("max_waiver_percent", { precision: 5, scale: 2 }).default("0"),
+  
+  // Display
+  displayOrder: integer("display_order").default(100),
+  showInBreakdown: boolean("show_in_breakdown").default(true),
+  displayLabel: varchar("display_label", { length: 100 }), // User-friendly label
+  
+  // Status and Validity
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  
+  // Audit Trail
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_fee_config_code").on(table.feeCode),
+  index("idx_fee_config_category").on(table.category),
+  index("idx_fee_config_applicable").on(table.applicableTo),
+  index("idx_fee_config_active").on(table.isActive),
+]);
+
+export const insertPlatformFeeConfigSchema = createInsertSchema(platformFeeConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlatformFeeConfig = z.infer<typeof insertPlatformFeeConfigSchema>;
+export type PlatformFeeConfig = typeof platformFeeConfig.$inferSelect;
+
 // ITR Case Documents
 export const agentItrDocuments = pgTable("agent_itr_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

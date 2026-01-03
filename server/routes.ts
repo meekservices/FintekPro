@@ -138,6 +138,7 @@ import prospectProposalsRoutes from "./routes/prospect-proposals";
 import instrumentsRoutes from "./routes/instruments";
 import storeAifPmsRoutes from "./routes/store-aif-pms";
 import itrPricingRoutes from "./routes/itr-pricing";
+import platformFeesRoutes from "./routes/platform-fees";
 import storeMldRoutes from "./routes/store-mld";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
 import unifiedAdvisoryRoutes from "./routes/unified-advisory-routes";
@@ -526,6 +527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(instrumentsRoutes);
   app.use("/api/store", storeAifPmsRoutes);
   app.use("/api/admin/itr-pricing", itrPricingRoutes);
+  app.use("/api/admin/platform-fees", platformFeesRoutes);
   console.log("✅ ITR Pricing routes registered");
   app.use("/api/store", storeMldRoutes);
   app.use("/api/ai-investment", aiInvestmentRoutes);
