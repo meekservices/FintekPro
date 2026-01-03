@@ -84,7 +84,8 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
     onSuccess: () => {
-      window.location.href = "/";
+      // Redirect to auth page, staying on the partner subdomain
+      window.location.href = "/auth";
     },
   });
 
