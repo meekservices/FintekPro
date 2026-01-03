@@ -148,7 +148,7 @@ export function RequestMeetingDialog({ open, onOpenChange, preselectedAgentId, p
 
             <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                An agent will review your request and confirm the meeting. You'll receive a notification once it's approved.
+                An agent will review your request and confirm the meeting. You'll receive an email and SMS notification once it's approved with the meeting link.
               </p>
             </div>
           </div>

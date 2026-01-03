@@ -1,5 +1,45 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { format } from "date-fns";
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
+
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  operationName: string,
+  maxRetries: number = MAX_RETRIES
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      const isRetryable = 
+        error.code === 'ECONNRESET' ||
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'ENOTFOUND' ||
+        (error.response?.status >= 500 && error.response?.status < 600) ||
+        error.response?.status === 429;
+
+      if (!isRetryable || attempt === maxRetries) {
+        console.error(`[Zoho Meeting] ${operationName} failed after ${attempt} attempt(s):`, error.message);
+        throw error;
+      }
+
+      const delayMs = RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+      console.warn(`[Zoho Meeting] ${operationName} attempt ${attempt} failed, retrying in ${delayMs}ms...`);
+      await delay(delayMs);
+    }
+  }
+  
+  throw lastError;
+}
 
 interface ZohoTokenResponse {
   access_token: string;
@@ -97,40 +137,45 @@ class ZohoMeetingService {
     }
 
     try {
-      const token = await this.getAccessToken();
-      const zsoid = process.env.ZOHO_ZSOID || "";
+      return await withRetry(async () => {
+        const token = await this.getAccessToken();
+        const zsoid = process.env.ZOHO_ZSOID || "";
 
-      const formattedStartTime = format(params.startTime, "MMM dd, yyyy hh:mm a");
+        const formattedStartTime = format(params.startTime, "MMM dd, yyyy hh:mm a");
 
-      const response = await axios.post(
-        `https://meeting.zoho.in/api/v2/${zsoid}/sessions.json`,
-        {
-          session: {
-            topic: params.topic,
-            agenda: params.agenda || "",
-            startTime: formattedStartTime,
-            duration: params.duration * 60 * 1000, // Convert to milliseconds
-            timezone: params.timezone || "Asia/Kolkata",
-            participants: params.participantEmails?.map(email => ({ email })) || [],
+        const response = await axios.post(
+          `https://meeting.zoho.in/api/v2/${zsoid}/sessions.json`,
+          {
+            session: {
+              topic: params.topic,
+              agenda: params.agenda || "",
+              startTime: formattedStartTime,
+              duration: params.duration * 60 * 1000,
+              timezone: params.timezone || "Asia/Kolkata",
+              participants: params.participantEmails?.map(email => ({ email })) || [],
+            },
           },
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Zoho-oauthtoken ${token}`,
-          },
-        }
-      );
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Zoho-oauthtoken ${token}`,
+            },
+            timeout: 30000,
+          }
+        );
 
-      const session = response.data.session;
+        const session = response.data.session;
 
-      return {
-        meetingId: session.sessionKey || session.meetingKey,
-        joinLink: session.joinLink,
-        startLink: session.startLink,
-        topic: session.topic,
-        startTime: session.startTime,
-      };
+        console.log(`[Zoho Meeting] Successfully created meeting: ${session.sessionKey || session.meetingKey}`);
+
+        return {
+          meetingId: session.sessionKey || session.meetingKey,
+          joinLink: session.joinLink,
+          startLink: session.startLink,
+          topic: session.topic,
+          startTime: session.startTime,
+        };
+      }, 'createMeeting');
     } catch (error: any) {
       console.error("Zoho Meeting creation failed:", error.response?.data || error.message);
       

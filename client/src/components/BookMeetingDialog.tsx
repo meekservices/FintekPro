@@ -170,6 +170,19 @@ export function BookMeetingDialog({ open, onOpenChange, agentId, agentName }: Bo
                 </div>
               </div>
             )}
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => window.open(`/api/meetings/${bookingData.id}/calendar.ics`, '_blank')}
+                data-testid="btn-add-calendar"
+              >
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                Add to Calendar
+              </Button>
+            </div>
           </div>
 
           <DialogFooter>
