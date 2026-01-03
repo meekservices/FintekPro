@@ -168,7 +168,7 @@ export default function AgentClientAcquisitionPage() {
 
   const createProspectMutation = useMutation({
     mutationFn: async (data: typeof newProspect) => {
-      return await apiRequest("/api/agent/prospect-clients", {
+      return await apiRequest("/api/agent-wizard/prospects", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" }
@@ -177,6 +177,7 @@ export default function AgentClientAcquisitionPage() {
     onSuccess: () => {
       toast({ title: "Prospect Added", description: "New prospect has been added to your pipeline" });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/prospect-clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent-wizard/prospects"] });
       setShowAddDialog(false);
       setNewProspect({ name: "", email: "", mobile: "", pan: "", clientType: "individual", indicativeRiskProfile: "moderate" });
     },
