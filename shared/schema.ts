@@ -9800,6 +9800,80 @@ export const corporateBonds = pgTable("corporate_bonds", {
 });
 
 // Bond Orders table - Purchase and sale orders
+
+// Commodities Master table - Gold, Silver, Crude Oil, Natural Gas, etc.
+export const commodities = pgTable("commodities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic identification
+  symbol: varchar("symbol", { length: 20 }).notNull().unique(),
+  name: varchar("name", { length: 200 }).notNull(),
+  commodityType: varchar("commodity_type", { length: 50 }).notNull(), // 'precious_metal', 'energy', 'industrial_metal', 'agricultural'
+  subType: varchar("sub_type", { length: 50 }), // 'gold', 'silver', 'platinum', 'crude_oil', 'natural_gas', 'copper', 'aluminum', 'wheat', 'cotton'
+  
+  // Pricing
+  currentPrice: decimal("current_price", { precision: 15, scale: 4 }),
+  previousClose: decimal("previous_close", { precision: 15, scale: 4 }),
+  dayChange: decimal("day_change", { precision: 10, scale: 4 }),
+  dayChangePercent: decimal("day_change_percent", { precision: 8, scale: 4 }),
+  weekHigh: decimal("week_high", { precision: 15, scale: 4 }),
+  weekLow: decimal("week_low", { precision: 15, scale: 4 }),
+  yearHigh: decimal("year_high", { precision: 15, scale: 4 }),
+  yearLow: decimal("year_low", { precision: 15, scale: 4 }),
+  
+  // Units and currency
+  unit: varchar("unit", { length: 20 }).default("gram"), // 'gram', 'ounce', 'kg', 'barrel', 'mmbtu', 'ton'
+  currency: varchar("currency", { length: 5 }).default("INR"),
+  
+  // Investment products available
+  hasEtf: boolean("has_etf").default(false),
+  hasSgb: boolean("has_sgb").default(false), // Sovereign Gold Bond
+  hasPhysical: boolean("has_physical").default(false),
+  hasFutures: boolean("has_futures").default(false),
+  
+  // Performance metrics
+  returns1w: decimal("returns_1w", { precision: 8, scale: 4 }),
+  returns1m: decimal("returns_1m", { precision: 8, scale: 4 }),
+  returns3m: decimal("returns_3m", { precision: 8, scale: 4 }),
+  returns6m: decimal("returns_6m", { precision: 8, scale: 4 }),
+  returns1y: decimal("returns_1y", { precision: 8, scale: 4 }),
+  returns3y: decimal("returns_3y", { precision: 8, scale: 4 }),
+  returns5y: decimal("returns_5y", { precision: 8, scale: 4 }),
+  
+  // Risk metrics
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  beta: decimal("beta", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  
+  // Market context
+  globalDemand: varchar("global_demand", { length: 20 }), // 'high', 'medium', 'low'
+  supplyOutlook: varchar("supply_outlook", { length: 20 }), // 'bullish', 'neutral', 'bearish'
+  inflationHedge: boolean("inflation_hedge").default(false),
+  safeHaven: boolean("safe_haven").default(false),
+  
+  // Store status
+  isPublished: boolean("is_published").default(true),
+  minInvestment: decimal("min_investment", { precision: 15, scale: 2 }).default("1000"),
+  
+  // AI recommendation metadata
+  aiSentiment: varchar("ai_sentiment", { length: 20 }), // 'bullish', 'neutral', 'bearish'
+  aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }),
+  aiRationale: text("ai_rationale"),
+  
+  // Metadata
+  dataSource: varchar("data_source").default("mcx"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_commodities_type").on(table.commodityType),
+  index("idx_commodities_published").on(table.isPublished),
+]);
+
+export type Commodity = typeof commodities.$inferSelect;
+export type InsertCommodity = typeof commodities.$inferInsert;
+
+export const insertCommoditySchema = createInsertSchema(commodities).omit({ id: true, createdAt: true, lastUpdated: true });
+
 export const bondOrders = pgTable("bond_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
@@ -20979,7 +21053,7 @@ export type InsertApiProviderPricing = z.infer<typeof insertApiProviderPricingSc
 
 export const aiRecommendationStatusValues = ['pending', 'hit_target', 'missed_target', 'stopped_out', 'expired'] as const;
 export const aiRecommendationTypeValues2 = ['buy', 'sell', 'hold', 'strong_buy', 'strong_sell'] as const;
-export const aiRecommendationAssetTypeValues = ['stock', 'mutual_fund', 'bond', 'unlisted', 'reit', 'invit', 'derivative'] as const;
+export const aiRecommendationAssetTypeValues = ['stock', 'mutual_fund', 'bond', 'unlisted', 'reit', 'invit', 'derivative', 'commodity'] as const;
 
 export const aiRecommendationTracking = pgTable("ai_recommendation_tracking", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
