@@ -110,21 +110,10 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
   }
 ];
 
-const GENERATED_REPORTS: GeneratedReport[] = [
-  { id: '1', name: 'Portfolio Summary - Q4 2024', template: 'portfolio_summary', clientName: 'Rajesh Sharma', clientId: '1', generatedAt: '2024-12-20', period: 'Q4 2024', status: 'ready', size: '2.4 MB' },
-  { id: '2', name: 'Performance Analysis - FY 2024', template: 'performance_analysis', clientName: 'Rajesh Sharma', clientId: '1', generatedAt: '2024-12-18', period: 'FY 2024', status: 'sent', size: '1.8 MB' },
-  { id: '3', name: 'Capital Gains Report - FY 2024', template: 'tax_report', clientName: 'Priya Patel', clientId: '2', generatedAt: '2024-12-15', period: 'FY 2024', status: 'ready', size: '890 KB' },
-  { id: '4', name: 'Portfolio Summary - Q4 2024', template: 'portfolio_summary', clientName: 'Amit Kumar', clientId: '3', generatedAt: '2024-12-12', period: 'Q4 2024', status: 'sent', size: '3.1 MB' },
-  { id: '5', name: 'Quarterly Review - Q3 2024', template: 'quarterly_review', clientName: 'Sunita Reddy', clientId: '4', generatedAt: '2024-10-05', period: 'Q3 2024', status: 'sent', size: '2.2 MB' }
-];
-
-const CLIENTS = [
-  { id: '1', name: 'Rajesh Sharma' },
-  { id: '2', name: 'Priya Patel' },
-  { id: '3', name: 'Amit Kumar' },
-  { id: '4', name: 'Sunita Reddy' },
-  { id: '5', name: 'Vikram Singh' }
-];
+interface Client {
+  id: string;
+  name: string;
+}
 
 export default function AgentReportsHub() {
   const { toast } = useToast();
@@ -142,6 +131,17 @@ export default function AgentReportsHub() {
     includeRecommendations: true
   });
 
+  const { data: generatedReportsData, isLoading: reportsLoading } = useQuery<GeneratedReport[]>({
+    queryKey: ['/api/agent/reports']
+  });
+
+  const { data: clientsData, isLoading: clientsLoading } = useQuery<Client[]>({
+    queryKey: ['/api/agent/clients/list']
+  });
+
+  const generatedReports = generatedReportsData || [];
+  const clients = clientsData || [];
+
   const filteredTemplates = REPORT_TEMPLATES.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       template.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -149,7 +149,7 @@ export default function AgentReportsHub() {
     return matchesSearch && matchesCategory;
   });
 
-  const filteredReports = GENERATED_REPORTS.filter(report =>
+  const filteredReports = generatedReports.filter(report =>
     report.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     report.clientName.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -170,7 +170,7 @@ export default function AgentReportsHub() {
       setShowGenerateDialog(false);
       toast({
         title: "Report Generated",
-        description: `${selectedTemplate.name} for ${CLIENTS.find(c => c.id === reportConfig.clientId)?.name} is ready for download`
+        description: `${selectedTemplate.name} for ${clients.find(c => c.id === reportConfig.clientId)?.name} is ready for download`
       });
     }, 2000);
   };
@@ -482,7 +482,7 @@ export default function AgentReportsHub() {
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-700">
-                    {CLIENTS.map((client) => (
+                    {clients.map((client) => (
                       <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
                     ))}
                   </SelectContent>

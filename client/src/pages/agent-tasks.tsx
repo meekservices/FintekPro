@@ -116,31 +116,24 @@ export default function AgentTasks() {
     notes: ''
   });
 
-  const defaultTasks: Task[] = [
-    { id: '1', title: 'KYC Renewal - Rajesh Sharma', description: 'KYC expires on Dec 31, 2025. Schedule renewal appointment.', type: 'kyc_renewal', priority: 'high', status: 'pending', dueDate: '2024-12-25', clientId: '1', clientName: 'Rajesh Sharma', reminderDate: '2024-12-23', recurring: 'yearly', createdAt: '2024-12-01' },
-    { id: '2', title: 'Quarterly Review Call - Priya Patel', description: 'Q4 portfolio review discussion', type: 'review_meeting', priority: 'high', status: 'pending', dueDate: '2024-12-23', clientId: '2', clientName: 'Priya Patel', createdAt: '2024-12-15' },
-    { id: '3', title: 'Follow up on ELSS Proposal', description: 'Client requested ELSS comparison document', type: 'follow_up', priority: 'medium', status: 'in_progress', dueDate: '2024-12-24', clientId: '3', clientName: 'Amit Kumar', createdAt: '2024-12-18' },
-    { id: '4', title: 'Exit Alert Action - HDFC Bank', description: 'Stock reached target price. Discuss booking profits with client.', type: 'alert', priority: 'high', status: 'pending', dueDate: '2024-12-22', clientId: '1', clientName: 'Rajesh Sharma', createdAt: '2024-12-21' },
-    { id: '5', title: 'Send Tax Planning Report', description: 'Compile and send annual tax planning document', type: 'document', priority: 'medium', status: 'pending', dueDate: '2024-12-26', clientId: '4', clientName: 'Sunita Reddy', createdAt: '2024-12-19' },
-    { id: '6', title: 'New Client Proposal - Vikram Singh', description: 'Prepare comprehensive investment proposal for new HNI client', type: 'proposal', priority: 'high', status: 'in_progress', dueDate: '2024-12-24', clientId: '5', clientName: 'Vikram Singh', createdAt: '2024-12-17' },
-    { id: '7', title: 'Monthly SIP Review', description: 'Review SIP performance and rebalancing opportunities', type: 'review_meeting', priority: 'low', status: 'pending', dueDate: '2024-12-28', recurring: 'monthly', createdAt: '2024-12-01' },
-    { id: '8', title: 'KYC Renewal - Meera Gupta', description: 'KYC expires in 30 days', type: 'kyc_renewal', priority: 'medium', status: 'pending', dueDate: '2024-12-30', clientId: '6', clientName: 'Meera Gupta', recurring: 'yearly', createdAt: '2024-12-01' },
-    { id: '9', title: 'Completed Q3 Review', description: 'Q3 review meeting completed', type: 'review_meeting', priority: 'high', status: 'completed', dueDate: '2024-12-10', clientId: '1', clientName: 'Rajesh Sharma', createdAt: '2024-12-01', completedAt: '2024-12-10' },
-    { id: '10', title: 'Overdue Follow-up Call', description: 'Was scheduled for last week', type: 'follow_up', priority: 'high', status: 'overdue', dueDate: '2024-12-15', clientId: '7', clientName: 'Arjun Nair', createdAt: '2024-12-10' }
-  ];
+  const { data: tasksData, isLoading: tasksLoading } = useQuery<Task[]>({
+    queryKey: ['/api/agent/tasks']
+  });
 
-  const defaultStats: TaskStats = {
-    total: 10,
-    pending: 5,
-    inProgress: 2,
-    completed: 1,
-    overdue: 2,
-    dueToday: 1,
-    dueThisWeek: 6
+  const { data: statsData, isLoading: statsLoading } = useQuery<TaskStats>({
+    queryKey: ['/api/agent/tasks/stats']
+  });
+
+  const tasks = tasksData || [];
+  const stats = statsData || {
+    total: tasks.length,
+    pending: tasks.filter(t => t.status === 'pending').length,
+    inProgress: tasks.filter(t => t.status === 'in_progress').length,
+    completed: tasks.filter(t => t.status === 'completed').length,
+    overdue: tasks.filter(t => t.status === 'overdue').length,
+    dueToday: tasks.filter(t => isToday(t.dueDate)).length,
+    dueThisWeek: tasks.filter(t => isThisWeek(t.dueDate)).length
   };
-
-  const tasks = defaultTasks;
-  const stats = defaultStats;
 
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

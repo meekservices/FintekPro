@@ -25,7 +25,8 @@ import {
   XCircle,
   AlertTriangle,
   Award,
-  Zap
+  Zap,
+  Loader2
 } from "lucide-react";
 import {
   AreaChart,
@@ -114,50 +115,59 @@ export default function AgentRevenueCockpit() {
     return `₹${value.toFixed(0)}`;
   };
 
-  const defaultMetrics: RevenueMetrics = {
-    totalAUM: 125000000,
-    aumGrowth: 12.5,
-    totalRevenue: 1850000,
-    revenueGrowth: 8.3,
-    pendingCommissions: 245000,
-    realizedCommissions: 1605000,
-    totalClients: 156,
-    activeClients: 142,
-    proposalsSent: 48,
-    proposalsConverted: 32,
-    conversionRate: 66.7,
-    avgDealSize: 850000
+  const emptyMetrics: RevenueMetrics = {
+    totalAUM: 0,
+    aumGrowth: 0,
+    totalRevenue: 0,
+    revenueGrowth: 0,
+    pendingCommissions: 0,
+    realizedCommissions: 0,
+    totalClients: 0,
+    activeClients: 0,
+    proposalsSent: 0,
+    proposalsConverted: 0,
+    conversionRate: 0,
+    avgDealSize: 0
   };
 
-  const defaultProductMix: ProductMix[] = [
-    { name: "Mutual Funds", value: 45, color: "#10b981", commission: 650000 },
-    { name: "PMS", value: 20, color: "#3b82f6", commission: 420000 },
-    { name: "AIF", value: 15, color: "#f59e0b", commission: 380000 },
-    { name: "Bonds", value: 12, color: "#8b5cf6", commission: 250000 },
-    { name: "Unlisted", value: 8, color: "#ef4444", commission: 150000 }
-  ];
+  const isLoading = metricsLoading || productMixLoading || trendsLoading || commissionsLoading;
 
-  const defaultTrends: MonthlyTrend[] = [
-    { month: "Jul", aum: 95000000, revenue: 1200000, clients: 128 },
-    { month: "Aug", aum: 102000000, revenue: 1350000, clients: 135 },
-    { month: "Sep", aum: 108000000, revenue: 1420000, clients: 142 },
-    { month: "Oct", aum: 112000000, revenue: 1550000, clients: 148 },
-    { month: "Nov", aum: 118000000, revenue: 1680000, clients: 152 },
-    { month: "Dec", aum: 125000000, revenue: 1850000, clients: 156 }
-  ];
+  const displayMetrics = metrics || emptyMetrics;
+  const displayProductMix = productMix || [];
+  const displayTrends = monthlyTrends || [];
 
-  const defaultCommissions: CommissionBreakdown[] = [
-    { product: "Mutual Funds", pending: 85000, realized: 565000, total: 650000 },
-    { product: "PMS", pending: 75000, realized: 345000, total: 420000 },
-    { product: "AIF", pending: 50000, realized: 330000, total: 380000 },
-    { product: "Bonds", pending: 25000, realized: 225000, total: 250000 },
-    { product: "Unlisted", pending: 10000, realized: 140000, total: 150000 }
-  ];
+  const hasNoData = (!metrics || metrics.totalAUM === 0) && 
+                    (!productMix || productMix.length === 0) && 
+                    (!monthlyTrends || monthlyTrends.length === 0) && 
+                    (!commissions || commissions.length === 0);
+  const displayCommissions = commissions || [];
 
-  const displayMetrics = metrics || defaultMetrics;
-  const displayProductMix = productMix || defaultProductMix;
-  const displayTrends = monthlyTrends || defaultTrends;
-  const displayCommissions = commissions || defaultCommissions;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mx-auto mb-4" />
+          <p className="text-slate-400">Loading revenue data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasNoData) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
+        <Card className="max-w-md bg-slate-900 border-slate-800">
+          <CardContent className="p-8 text-center">
+            <BarChart3 className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">No Revenue Data Available</h3>
+            <p className="text-slate-400 text-sm">
+              Revenue metrics, product mix, and commission data will appear here once transactions are recorded.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 p-6">

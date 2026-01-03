@@ -282,6 +282,31 @@ export default function AgentDashboard() {
     }
   });
 
+  // Fetch dashboard overview data
+  const { data: overviewData, isLoading: overviewLoading } = useQuery<ClientOverview>({
+    queryKey: ["/api/agent/dashboard/overview"]
+  });
+
+  // Fetch recent activity
+  const { data: recentActivityData, isLoading: activityLoading } = useQuery<Array<{ id: number; type: string; client: string; message: string; time: string }>>({
+    queryKey: ["/api/agent/dashboard/recent-activity"]
+  });
+
+  // Fetch ITR cases
+  const { data: itrCasesData, isLoading: itrCasesLoading } = useQuery<ITRCase[]>({
+    queryKey: ["/api/agent/itr-cases"]
+  });
+
+  // Fetch CA list
+  const { data: caListData, isLoading: caListLoading } = useQuery<Array<{ id: string; name: string; specialization: string; activeCase: number }>>({
+    queryKey: ["/api/agent/ca-list"]
+  });
+
+  // Fetch TDS summary
+  const { data: tdsSummaryData, isLoading: tdsSummaryLoading } = useQuery<TDSSummary[]>({
+    queryKey: ["/api/agent/tds-summary"]
+  });
+
   // Approve meeting request mutation
   const approveMeetingMutation = useMutation({
     mutationFn: async ({ id, scheduledAt, agentNotes }: { id: string; scheduledAt?: string; agentNotes?: string }) => {
@@ -646,32 +671,31 @@ export default function AgentDashboard() {
 
         {/* Client Overview At-a-Glance Tab */}
         <TabsContent value="overview" className="space-y-6" data-testid="content-overview">
-          {(() => {
-            const overview: ClientOverview = {
-              totalClients: ckycClients?.length || 42,
-              activeClients: 38,
-              newThisMonth: 5,
-              kycPending: 3,
-              itrPending: 12,
-              totalAUM: 25600000,
-              revenueThisMonth: 145000,
-              complianceScore: 94
+          {overviewLoading || clientsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">Loading dashboard...</span>
+            </div>
+          ) : (() => {
+            const overview: ClientOverview = overviewData || {
+              totalClients: ckycClients?.length || 0,
+              activeClients: 0,
+              newThisMonth: 0,
+              kycPending: 0,
+              itrPending: 0,
+              totalAUM: 0,
+              revenueThisMonth: 0,
+              complianceScore: 0
             };
             
-            const clientsByStatus = [
-              { status: "KYC Complete", count: 35, color: "bg-green-500" },
-              { status: "KYC Pending", count: 3, color: "bg-yellow-500" },
-              { status: "Documents Required", count: 2, color: "bg-orange-500" },
-              { status: "Inactive", count: 2, color: "bg-gray-400" }
-            ];
+            const clientsByStatus = ckycClients ? [
+              { status: "KYC Complete", count: ckycClients.filter(c => c.verificationStatus === 'verified').length, color: "bg-green-500" },
+              { status: "KYC Pending", count: ckycClients.filter(c => c.verificationStatus === 'pending').length, color: "bg-yellow-500" },
+              { status: "Documents Required", count: ckycClients.filter(c => c.verificationStatus === 'documents_required').length, color: "bg-orange-500" },
+              { status: "Inactive", count: ckycClients.filter(c => c.verificationStatus === 'inactive').length, color: "bg-gray-400" }
+            ] : [];
             
-            const recentActivity = [
-              { id: 1, type: "itr_filed", client: "Rajesh Kumar", message: "ITR-1 filed successfully", time: "2 hours ago" },
-              { id: 2, type: "kyc_completed", client: "Priya Sharma", message: "KYC verification completed", time: "4 hours ago" },
-              { id: 3, type: "document_uploaded", client: "Amit Patel", message: "Form 16 uploaded", time: "5 hours ago" },
-              { id: 4, type: "ca_assigned", client: "Sunita Devi", message: "CA assigned for ITR review", time: "Yesterday" },
-              { id: 5, type: "payment_received", client: "Vikram Singh", message: "Service fee received ₹2,999", time: "Yesterday" }
-            ];
+            const recentActivity = recentActivityData || [];
             
             return (
               <>
@@ -864,19 +888,9 @@ export default function AgentDashboard() {
         {/* ITR Case Management Tab */}
         <TabsContent value="itr-cases" className="space-y-4" data-testid="content-itr-cases">
           {(() => {
-            const itrCases: ITRCase[] = [
-              { id: "1", clientId: "c1", clientName: "Rajesh Kumar", panNumber: "ABCPK1234A", assessmentYear: "2024-25", itrForm: "ITR-1", status: "ca_review", assignedCA: "ca1", caName: "CA Vikram Mehta", createdAt: "2024-12-01", lastUpdated: "2024-12-15", dueDate: "2024-12-31", priority: "high", totalIncome: 850000, taxLiability: 52000 },
-              { id: "2", clientId: "c2", clientName: "Priya Sharma", panNumber: "DEFPS5678B", assessmentYear: "2024-25", itrForm: "ITR-2", status: "pending_documents", createdAt: "2024-12-05", lastUpdated: "2024-12-14", dueDate: "2024-12-31", priority: "high", totalIncome: 1250000, taxLiability: 145000 },
-              { id: "3", clientId: "c3", clientName: "Amit Patel", panNumber: "GHIAP9012C", assessmentYear: "2024-25", itrForm: "ITR-1", status: "filed", assignedCA: "ca2", caName: "CA Neha Gupta", createdAt: "2024-11-20", lastUpdated: "2024-12-10", dueDate: "2024-12-31", priority: "low", totalIncome: 650000, taxLiability: 28000 },
-              { id: "4", clientId: "c4", clientName: "Sunita Devi", panNumber: "JKLSD3456D", assessmentYear: "2024-25", itrForm: "ITR-3", status: "assigned_to_ca", assignedCA: "ca1", caName: "CA Vikram Mehta", createdAt: "2024-12-08", lastUpdated: "2024-12-12", dueDate: "2024-12-31", priority: "medium", totalIncome: 2100000, taxLiability: 425000 },
-              { id: "5", clientId: "c5", clientName: "Vikram Singh", panNumber: "MNPVS7890E", assessmentYear: "2024-25", itrForm: "ITR-4", status: "draft", createdAt: "2024-12-10", lastUpdated: "2024-12-13", dueDate: "2024-12-31", priority: "medium", totalIncome: 980000, taxLiability: 75000 }
-            ];
+            const itrCases: ITRCase[] = itrCasesData || [];
             
-            const caList = [
-              { id: "ca1", name: "CA Vikram Mehta", specialization: "Individual Taxation", activeCase: 8 },
-              { id: "ca2", name: "CA Neha Gupta", specialization: "Business Taxation", activeCase: 5 },
-              { id: "ca3", name: "CA Rahul Verma", specialization: "NRI Taxation", activeCase: 3 }
-            ];
+            const caList = caListData || [];
             
             const getStatusBadgeColor = (status: string) => {
               switch (status) {
@@ -1015,22 +1029,14 @@ export default function AgentDashboard() {
         {/* TDS Summary Tab */}
         <TabsContent value="tds-summary" className="space-y-4" data-testid="content-tds-summary">
           {(() => {
-            const tdsSummary: TDSSummary[] = [
-              { quarter: "Q1 (Apr-Jun)", totalTDS: 245000, clientsCount: 28, filed: true, dueDate: "2024-07-31", status: "filed" },
-              { quarter: "Q2 (Jul-Sep)", totalTDS: 312000, clientsCount: 32, filed: true, dueDate: "2024-10-31", status: "filed" },
-              { quarter: "Q3 (Oct-Dec)", totalTDS: 278000, clientsCount: 30, filed: false, dueDate: "2025-01-31", status: "pending" },
-              { quarter: "Q4 (Jan-Mar)", totalTDS: 0, clientsCount: 0, filed: false, dueDate: "2025-05-31", status: "pending" }
-            ];
+            const tdsSummary: TDSSummary[] = tdsSummaryData || [];
             
             const totalTDSCollected = tdsSummary.reduce((acc, q) => acc + q.totalTDS, 0);
             const filedQuarters = tdsSummary.filter(q => q.filed).length;
             
-            const tdsBreakdown = [
-              { category: "Salary (TDS 192)", amount: 485000, percentage: 58 },
-              { category: "Professional Fees (TDS 194J)", amount: 180000, percentage: 22 },
-              { category: "Rent (TDS 194I)", amount: 95000, percentage: 11 },
-              { category: "Interest (TDS 194A)", amount: 75000, percentage: 9 }
-            ];
+            const nextDue = tdsSummary.find(q => !q.filed);
+            
+            const tdsBreakdown: Array<{ category: string; amount: number; percentage: number }> = [];
             
             return (
               <>
@@ -1065,9 +1071,9 @@ export default function AgentDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-3xl font-bold text-orange-900 dark:text-orange-100" data-testid="text-next-due">
-                        Jan 31
+                        {nextDue ? new Date(nextDue.dueDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : 'N/A'}
                       </div>
-                      <p className="text-xs text-orange-600 dark:text-orange-400">Q3 TDS Return</p>
+                      <p className="text-xs text-orange-600 dark:text-orange-400">{nextDue?.quarter || 'No pending'}</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -1131,18 +1137,26 @@ export default function AgentDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {tdsBreakdown.map((item, idx) => (
-                          <div key={idx} className="space-y-2" data-testid={`tds-category-${idx}`}>
-                            <div className="flex items-center justify-between text-sm">
-                              <span>{item.category}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">₹{(item.amount / 1000).toFixed(0)}K</span>
-                                <Badge variant="secondary" className="text-xs">{item.percentage}%</Badge>
-                              </div>
-                            </div>
-                            <Progress value={item.percentage} className="h-2" />
+                        {tdsBreakdown.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No TDS breakdown data available</p>
+                            <p className="text-xs">TDS categories will appear here once data is available</p>
                           </div>
-                        ))}
+                        ) : (
+                          tdsBreakdown.map((item, idx) => (
+                            <div key={idx} className="space-y-2" data-testid={`tds-category-${idx}`}>
+                              <div className="flex items-center justify-between text-sm">
+                                <span>{item.category}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">₹{(item.amount / 1000).toFixed(0)}K</span>
+                                  <Badge variant="secondary" className="text-xs">{item.percentage}%</Badge>
+                                </div>
+                              </div>
+                              <Progress value={item.percentage} className="h-2" />
+                            </div>
+                          ))
+                        )}
                       </div>
                       
                       <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
