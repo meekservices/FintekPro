@@ -61,7 +61,25 @@ export class EPFOService {
       ? 'https://unifiedportal-mem.epfindia.gov.in/memberinterface/api'
       : 'https://sandbox-epfo.gov.in/api';
 
-    this.epfoApiKey = process.env.EPFO_API_KEY || 'sandbox_key';
+    this.epfoApiKey = process.env.EPFO_API_KEY || '';
+  }
+
+  private hasValidCredentials(): boolean {
+    return !!this.epfoApiKey;
+  }
+
+  private getComingSoonResponse(): EPFFetchResponse {
+    return {
+      success: false,
+      totalAccounts: 0,
+      totalBalance: 0,
+      totalEmployeeContribution: 0,
+      totalEmployerContribution: 0,
+      totalPensionContribution: 0,
+      totalInterestEarned: 0,
+      accounts: [],
+      message: 'Coming Soon - EPFO integration will be available once API credentials are configured. Please contact support to enable this feature.'
+    };
   }
 
   /**
@@ -72,9 +90,9 @@ export class EPFOService {
     try {
       console.log(`📊 Fetching EPF accounts from EPFO`);
 
-      if (!this.isProduction) {
-        // Return mock data for development
-        return this.getMockEPFData(request.panNumber, request.name);
+      if (!this.hasValidCredentials()) {
+        console.log('⏳ EPFO API credentials not configured - Coming Soon');
+        return this.getComingSoonResponse();
       }
 
       // Production: Call EPFO API

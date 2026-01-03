@@ -85,7 +85,24 @@ export class APYService {
   constructor() {
     this.apiBaseUrl = process.env.APY_API_URL || 'https://api.accountaggregator.org.in/v1';
     this.apiKey = process.env.APY_API_KEY || '';
-    this.useMockData = !this.apiKey || process.env.NODE_ENV === 'development';
+    this.useMockData = !this.apiKey;
+  }
+
+  private hasValidCredentials(): boolean {
+    return !!this.apiKey;
+  }
+
+  private getComingSoonResponse(): APYFetchResponse {
+    return {
+      success: false,
+      accounts: [],
+      holdings: [],
+      totalBalance: 0,
+      totalContribution: 0,
+      totalGovernmentContribution: 0,
+      message: 'Coming Soon - APY integration will be available once API credentials are configured. Please contact support to enable this feature.',
+      fetchedAt: new Date().toISOString()
+    };
   }
 
   /**
@@ -95,9 +112,9 @@ export class APYService {
     try {
       console.log(`🔍 Fetching APY accounts for user...`);
 
-      if (this.useMockData) {
-        console.log('📋 Using mock APY data (production API not configured)');
-        return this.getMockAPYData(request.panNumber);
+      if (!this.hasValidCredentials()) {
+        console.log('⏳ APY API credentials not configured - Coming Soon');
+        return this.getComingSoonResponse();
       }
 
       // Production Account Aggregator API call

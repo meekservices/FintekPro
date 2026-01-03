@@ -77,10 +77,33 @@ export class BSEStarCASService {
       : 'https://bsestarmfdemo.bseindia.com/StarMFCommonAPI/';
 
     this.credentials = {
-      userId: process.env.BSE_USER_ID || 'demo_user',
-      memberId: process.env.BSE_MEMBER_ID || 'demo_member',
-      password: process.env.BSE_PASSWORD || 'demo_password',
-      passKey: process.env.BSE_PASS_KEY || 'demo_passkey'
+      userId: process.env.BSE_USER_ID || '',
+      memberId: process.env.BSE_MEMBER_ID || '',
+      password: process.env.BSE_PASSWORD || '',
+      passKey: process.env.BSE_PASS_KEY || ''
+    };
+  }
+
+  private hasValidCredentials(): boolean {
+    return !!(this.credentials.userId && this.credentials.memberId && 
+              this.credentials.password && this.credentials.passKey);
+  }
+
+  private getComingSoonResponse(): CASFetchResponse {
+    return {
+      success: false,
+      totalHoldings: 0,
+      totalValue: 0,
+      totalInvestedAmount: 0,
+      totalReturns: 0,
+      totalReturnsPercentage: 0,
+      holdings: [],
+      rtaSummary: {
+        camsHoldings: 0,
+        karvyHoldings: 0,
+        franklinHoldings: 0
+      },
+      message: 'Coming Soon - BSE STAR MF integration will be available once API credentials are configured. Please contact support to enable this feature.'
     };
   }
 
@@ -92,9 +115,9 @@ export class BSEStarCASService {
     try {
       console.log(`📊 Fetching BSE STAR CAS`);
 
-      if (!this.isProduction) {
-        // Return mock data for development
-        return this.getMockCASData(request.panNumber);
+      if (!this.hasValidCredentials()) {
+        console.log('⏳ BSE STAR MF API credentials not configured - Coming Soon');
+        return this.getComingSoonResponse();
       }
 
       // Production: Call BSE STAR CAS API
@@ -502,8 +525,8 @@ export class BSEStarCASService {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      if (!this.isProduction) {
-        return true; // Demo mode always returns healthy
+      if (!this.hasValidCredentials()) {
+        return false; // Not configured
       }
 
       const response = await axios.get(`${this.baseUrl}/HealthCheck`, {
@@ -515,6 +538,13 @@ export class BSEStarCASService {
       console.error('BSE STAR CAS health check failed:', error);
       return false;
     }
+  }
+
+  /**
+   * Check if service is configured and ready
+   */
+  isConfigured(): boolean {
+    return this.hasValidCredentials();
   }
 }
 

@@ -96,7 +96,25 @@ export class NPSService {
   constructor() {
     this.apiBaseUrl = process.env.NPS_CRA_API_URL || 'https://api.npscra.gov.in/v1';
     this.apiKey = process.env.NPS_CRA_API_KEY || '';
-    this.useMockData = !this.apiKey || process.env.NODE_ENV === 'development';
+    this.useMockData = !this.apiKey;
+  }
+
+  private hasValidCredentials(): boolean {
+    return !!this.apiKey;
+  }
+
+  private getComingSoonResponse(): NPSFetchResponse {
+    return {
+      success: false,
+      accounts: [],
+      holdings: [],
+      totalBalance: 0,
+      totalContributions: 0,
+      totalReturns: 0,
+      returnsPercentage: 0,
+      message: 'Coming Soon - NPS CRA integration will be available once API credentials are configured. Please contact support to enable this feature.',
+      fetchedAt: new Date().toISOString()
+    };
   }
 
   /**
@@ -106,9 +124,9 @@ export class NPSService {
     try {
       console.log(`🔍 Fetching NPS accounts for user...`);
 
-      if (this.useMockData) {
-        console.log('📋 Using mock NPS data (production API not configured)');
-        return this.getMockNPSData(request.panNumber);
+      if (!this.hasValidCredentials()) {
+        console.log('⏳ NPS CRA API credentials not configured - Coming Soon');
+        return this.getComingSoonResponse();
       }
 
       // Production NPS CRA API call

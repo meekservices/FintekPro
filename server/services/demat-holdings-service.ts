@@ -76,7 +76,27 @@ export class DematHoldingsService {
       ? 'https://api.accountaggregator.org.in/v1'
       : 'https://sandbox-api.accountaggregator.org.in/v1';
 
-    this.aaApiKey = process.env.AA_API_KEY || 'sandbox_key';
+    this.aaApiKey = process.env.AA_API_KEY || '';
+  }
+
+  private hasValidCredentials(): boolean {
+    return !!this.aaApiKey;
+  }
+
+  private getComingSoonResponse(): DematFetchResponse {
+    return {
+      success: false,
+      accounts: [],
+      totalHoldings: 0,
+      totalValue: 0,
+      totalInvestedAmount: 0,
+      totalReturns: 0,
+      totalReturnsPercentage: 0,
+      holdings: [],
+      nsdlHoldings: 0,
+      cdslHoldings: 0,
+      message: 'Coming Soon - Demat holdings integration will be available once Account Aggregator API credentials are configured. Please contact support to enable this feature.'
+    };
   }
 
   /**
@@ -86,9 +106,9 @@ export class DematHoldingsService {
     try {
       console.log(`📊 Fetching demat holdings via Account Aggregator`);
 
-      if (!this.isProduction) {
-        // Return mock data for development
-        return this.getMockDematData(request.panNumber);
+      if (!this.hasValidCredentials()) {
+        console.log('⏳ Account Aggregator API credentials not configured - Coming Soon');
+        return this.getComingSoonResponse();
       }
 
       // Production: Call Account Aggregator API
