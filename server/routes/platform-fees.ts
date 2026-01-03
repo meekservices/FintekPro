@@ -3,6 +3,7 @@ import { db } from "../db";
 import { platformFeeConfig, type InsertPlatformFeeConfig } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../middleware/auth";
+import { feeCalculatorService } from "../services/fee-calculator-service";
 
 const router = Router();
 
@@ -522,6 +523,83 @@ router.patch("/:id/toggle", requireAdmin, async (req, res) => {
       .returning();
     
     res.json({ success: true, data: fee });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/calculate", async (req, res) => {
+  try {
+    const { transactionAmount, productType, investorTier, includeGst, applyWaivers, waiverPercent } = req.body;
+    
+    const amount = typeof transactionAmount === 'number' ? transactionAmount : parseFloat(transactionAmount);
+    if (isNaN(amount) || amount < 0) {
+      return res.status(400).json({ success: false, error: "Valid transactionAmount is required (positive number)" });
+    }
+    
+    const validProductTypes = ['all', 'equity', 'mutual_fund', 'bond', 'unlisted', 'ipo', 'derivatives', 'loan', 'tax_services', 'advisory'];
+    if (!productType || !validProductTypes.includes(productType)) {
+      return res.status(400).json({ success: false, error: `productType must be one of: ${validProductTypes.join(', ')}` });
+    }
+    
+    const validTiers = ['retail', 'sHNI', 'bHNI', 'qib'];
+    const tier = investorTier && validTiers.includes(investorTier) ? investorTier : 'retail';
+    
+    const gstIncluded = includeGst === true || includeGst === 'true' || includeGst === undefined;
+    const applyWaiver = applyWaivers === true || applyWaivers === 'true';
+    const waiver = typeof waiverPercent === 'number' ? waiverPercent : parseFloat(waiverPercent) || 0;
+    
+    const breakdown = await feeCalculatorService.calculateFees({
+      transactionAmount: amount,
+      productType,
+      investorTier: tier as 'retail' | 'sHNI' | 'bHNI' | 'qib',
+      includeGst: gstIncluded,
+      applyWaivers: applyWaiver,
+      waiverPercent: Math.min(Math.max(waiver, 0), 100),
+    });
+    
+    res.json({ success: true, data: breakdown });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/calculate/stamp-duty/:productType/:amount", async (req, res) => {
+  try {
+    const { productType, amount } = req.params;
+    const stampDuty = await feeCalculatorService.getStampDuty(productType, parseFloat(amount));
+    res.json({ success: true, data: { productType, amount: parseFloat(amount), stampDuty } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/calculate/stt/:productType/:amount", async (req, res) => {
+  try {
+    const { productType, amount } = req.params;
+    const side = req.query.side as 'buy' | 'sell' | undefined;
+    const stt = await feeCalculatorService.getSTT(productType, parseFloat(amount), side || 'both');
+    res.json({ success: true, data: { productType, amount: parseFloat(amount), stt, side: side || 'both' } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/calculate/brokerage/:productType/:amount", async (req, res) => {
+  try {
+    const { productType, amount } = req.params;
+    const investorTier = req.query.tier as string || 'retail';
+    const brokerage = await feeCalculatorService.getBrokerage(productType, parseFloat(amount), investorTier);
+    res.json({ success: true, data: { productType, amount: parseFloat(amount), brokerage, investorTier } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/clear-cache", requireAdmin, async (req, res) => {
+  try {
+    feeCalculatorService.clearCache();
+    res.json({ success: true, message: "Fee cache cleared" });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
