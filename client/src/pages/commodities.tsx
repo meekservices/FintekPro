@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,25 +37,18 @@ interface Commodity {
 export default function CommoditiesPage() {
   const [selectedExchange, setSelectedExchange] = useState<"MCX" | "NCDEX" | "ALL">("ALL");
 
-  const commodities: Commodity[] = [
-    // MCX
-    { id: "1", name: "Gold", symbol: "GOLD", exchange: "MCX", category: "Precious Metals", price: 62850, change: 250, changePercent: 0.4, volume: "8.5K", unit: "10g" },
-    { id: "2", name: "Silver", symbol: "SILVER", exchange: "MCX", category: "Precious Metals", price: 72500, change: -180, changePercent: -0.25, volume: "12.2K", unit: "1kg" },
-    { id: "3", name: "Crude Oil", symbol: "CRUDEOIL", exchange: "MCX", category: "Energy", price: 6250, change: 85, changePercent: 1.38, volume: "25.5K", unit: "bbl" },
-    { id: "4", name: "Natural Gas", symbol: "NATURALGAS", exchange: "MCX", category: "Energy", price: 215, change: -5, changePercent: -2.27, volume: "18.8K", unit: "mmbtu" },
-    { id: "5", name: "Copper", symbol: "COPPER", exchange: "MCX", category: "Base Metals", price: 725, change: 12, changePercent: 1.68, volume: "9.2K", unit: "kg" },
-    { id: "6", name: "Zinc", symbol: "ZINC", exchange: "MCX", category: "Base Metals", price: 245, change: -3, changePercent: -1.21, volume: "6.5K", unit: "kg" },
-    
-    // NCDEX
-    { id: "7", name: "Wheat", symbol: "WHEAT", exchange: "NCDEX", category: "Agriculture", price: 2580, change: 15, changePercent: 0.58, volume: "4.2K", unit: "qtl" },
-    { id: "8", name: "Soybean", symbol: "SOYBEAN", exchange: "NCDEX", category: "Agriculture", price: 4250, change: -25, changePercent: -0.58, volume: "5.8K", unit: "qtl" },
-    { id: "9", name: "Cotton", symbol: "COTTON", exchange: "NCDEX", category: "Agriculture", price: 58500, change: 320, changePercent: 0.55, volume: "3.5K", unit: "bale" },
-    { id: "10", name: "Turmeric", symbol: "TURMERIC", exchange: "NCDEX", category: "Spices", price: 14850, change: 180, changePercent: 1.23, volume: "2.1K", unit: "qtl" },
-  ];
+  const { data: commoditiesData, isLoading } = useQuery<Commodity[]>({
+    queryKey: ['/api/market/commodities', { exchange: selectedExchange }],
+    queryFn: () => fetch(`/api/market/commodities?exchange=${selectedExchange}`).then(res => res.json()),
+  });
 
-  const filteredCommodities = selectedExchange === "ALL" 
-    ? commodities 
-    : commodities.filter(c => c.exchange === selectedExchange);
+  const commodities = commoditiesData || [];
+
+  const filteredCommodities = useMemo(() => {
+    return selectedExchange === "ALL" 
+      ? commodities 
+      : commodities.filter(c => c.exchange === selectedExchange);
+  }, [commodities, selectedExchange]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -67,13 +61,23 @@ export default function CommoditiesPage() {
     }
   };
 
-  const marketStats = {
-    totalVolume: "156.3K",
-    advancers: 6,
-    decliners: 4,
-    topGainer: { name: "Crude Oil", percent: 1.38 },
-    topLoser: { name: "Natural Gas", percent: -2.27 }
-  };
+  const marketStats = useMemo(() => {
+    const advancers = commodities.filter(c => c.changePercent > 0).length;
+    const decliners = commodities.filter(c => c.changePercent < 0).length;
+    const sorted = [...commodities].sort((a, b) => b.changePercent - a.changePercent);
+    const topGainer = sorted[0];
+    const topLoser = sorted[sorted.length - 1];
+    
+    return {
+      totalVolume: commodities.reduce((sum, c) => sum + parseFloat(c.volume.replace('K', '')) * 1000, 0) > 0 
+        ? `${(commodities.reduce((sum, c) => sum + parseFloat(c.volume.replace('K', '')) * 1000, 0) / 1000).toFixed(1)}K` 
+        : '0',
+      advancers,
+      decliners,
+      topGainer: topGainer ? { name: topGainer.name, percent: topGainer.changePercent } : { name: '-', percent: 0 },
+      topLoser: topLoser ? { name: topLoser.name, percent: topLoser.changePercent } : { name: '-', percent: 0 }
+    };
+  }, [commodities]);
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-7xl">

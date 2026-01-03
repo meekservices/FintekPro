@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,74 +35,6 @@ interface DividendEvent {
   frequency: 'quarterly' | 'annual' | 'one-time';
 }
 
-const mockDividends: DividendEvent[] = [
-  {
-    id: '1',
-    symbol: 'HDFCBANK',
-    companyName: 'HDFC Bank Ltd',
-    exDate: new Date(2025, 0, 15),
-    recordDate: new Date(2025, 0, 17),
-    paymentDate: new Date(2025, 0, 25),
-    dividendPerShare: 19.5,
-    sharesHeld: 75,
-    expectedPayout: 1462.5,
-    type: 'interim',
-    frequency: 'quarterly'
-  },
-  {
-    id: '2',
-    symbol: 'INFY',
-    companyName: 'Infosys Ltd',
-    exDate: new Date(2025, 0, 22),
-    recordDate: new Date(2025, 0, 24),
-    paymentDate: new Date(2025, 1, 2),
-    dividendPerShare: 18,
-    sharesHeld: 100,
-    expectedPayout: 1800,
-    type: 'final',
-    frequency: 'annual'
-  },
-  {
-    id: '3',
-    symbol: 'RELIANCE',
-    companyName: 'Reliance Industries',
-    exDate: new Date(2025, 1, 10),
-    recordDate: new Date(2025, 1, 12),
-    paymentDate: new Date(2025, 1, 20),
-    dividendPerShare: 10,
-    sharesHeld: 50,
-    expectedPayout: 500,
-    type: 'interim',
-    frequency: 'quarterly'
-  },
-  {
-    id: '4',
-    symbol: 'TCS',
-    companyName: 'Tata Consultancy Services',
-    exDate: new Date(2025, 2, 5),
-    recordDate: new Date(2025, 2, 7),
-    paymentDate: new Date(2025, 2, 15),
-    dividendPerShare: 75,
-    sharesHeld: 25,
-    expectedPayout: 1875,
-    type: 'special',
-    frequency: 'one-time'
-  },
-  {
-    id: '5',
-    symbol: 'TATAMOTORS',
-    companyName: 'Tata Motors Ltd',
-    exDate: new Date(2025, 3, 20),
-    recordDate: new Date(2025, 3, 22),
-    paymentDate: new Date(2025, 3, 30),
-    dividendPerShare: 2,
-    sharesHeld: 150,
-    expectedPayout: 300,
-    type: 'final',
-    frequency: 'annual'
-  }
-];
-
 export default function DividendCalendar() {
   const { user, isAuthenticated } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -109,11 +42,25 @@ export default function DividendCalendar() {
   const [viewType, setViewType] = useState<'calendar' | 'list'>('calendar');
   const [filterType, setFilterType] = useState<'all' | 'interim' | 'final' | 'special'>('all');
 
+  const { data: dividendsData, isLoading } = useQuery<DividendEvent[]>({
+    queryKey: ['/api/portfolio/dividends'],
+    enabled: isAuthenticated,
+  });
+
+  const dividends = useMemo(() => {
+    return (dividendsData || []).map(d => ({
+      ...d,
+      exDate: new Date(d.exDate),
+      recordDate: new Date(d.recordDate),
+      paymentDate: new Date(d.paymentDate),
+    }));
+  }, [dividendsData]);
+
   const filteredDividends = useMemo(() => {
-    return mockDividends.filter(d => 
+    return dividends.filter(d => 
       filterType === 'all' || d.type === filterType
     );
-  }, [filterType]);
+  }, [filterType, dividends]);
 
   const monthDividends = useMemo(() => {
     const start = startOfMonth(currentMonth);

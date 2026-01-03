@@ -83,131 +83,6 @@ const riskColors: Record<string, string> = {
   very_high: 'bg-red-100 text-red-700'
 };
 
-const mockOpportunities: InvestmentOpportunity[] = [
-  {
-    id: '1',
-    name: 'Motilal Oswal Midcap Fund',
-    type: 'mutual_fund',
-    category: 'Mid Cap',
-    issuer: 'Motilal Oswal',
-    minInvestment: 5000,
-    expectedReturn: '18-22% CAGR',
-    riskLevel: 'high',
-    rating: 5,
-    matchScore: 95,
-    reason: 'Matches your growth-oriented profile with 5+ year horizon',
-    highlights: ['Top quartile performer', '3-year CAGR: 28%', 'Low expense ratio'],
-    isNew: true,
-    isTrending: true,
-    isin: 'INF247L01015'
-  },
-  {
-    id: '2',
-    name: 'HDFC Corporate Bond Fund',
-    type: 'mutual_fund',
-    category: 'Corporate Bond',
-    issuer: 'HDFC AMC',
-    minInvestment: 5000,
-    expectedReturn: '7-8% p.a.',
-    riskLevel: 'low',
-    rating: 4,
-    matchScore: 88,
-    reason: 'Provides stability to balance your equity-heavy portfolio',
-    highlights: ['AAA rated papers', 'YTM: 7.5%', 'Low credit risk'],
-    isin: 'INF179K01BB3'
-  },
-  {
-    id: '3',
-    name: 'REC Limited Tax-Free Bond',
-    type: 'bond',
-    category: 'Tax-Free Bond',
-    issuer: 'REC Limited',
-    minInvestment: 10000,
-    expectedReturn: '5.5% Tax-Free',
-    riskLevel: 'low',
-    rating: 4,
-    matchScore: 85,
-    reason: 'Tax-efficient fixed income for your 30% tax bracket',
-    highlights: ['Government backed', 'Tax-free interest', '10-year maturity'],
-    isTrending: true
-  },
-  {
-    id: '4',
-    name: 'Sovereign Gold Bond 2029',
-    type: 'sgb',
-    category: 'Gold Bond',
-    issuer: 'RBI',
-    minInvestment: 5000,
-    expectedReturn: '2.5% + Gold appreciation',
-    riskLevel: 'medium',
-    rating: 5,
-    matchScore: 82,
-    reason: 'Portfolio hedge recommendation - gold allocation below 5%',
-    highlights: ['2.5% annual interest', 'Tax-free gains at maturity', 'Sovereign guarantee'],
-    isNew: true,
-    closingDate: '2026-01-15'
-  },
-  {
-    id: '5',
-    name: 'Tata Elxsi',
-    type: 'stock',
-    category: 'IT Services',
-    issuer: 'Tata Group',
-    minInvestment: 8000,
-    expectedReturn: '15-20% annual',
-    riskLevel: 'high',
-    rating: 4,
-    matchScore: 78,
-    reason: 'IT sector underweight in your portfolio vs benchmark',
-    highlights: ['Strong EV/Automotive focus', 'High promoter holding', 'Consistent dividend']
-  },
-  {
-    id: '6',
-    name: 'Nifty 50 ETF',
-    type: 'etf',
-    category: 'Large Cap Index',
-    issuer: 'Nippon India',
-    minInvestment: 100,
-    expectedReturn: '12-15% CAGR',
-    riskLevel: 'medium',
-    rating: 5,
-    matchScore: 92,
-    reason: 'Low-cost core holding for long-term wealth creation',
-    highlights: ['0.05% expense ratio', 'Top 50 companies', 'High liquidity'],
-    isTrending: true
-  },
-  {
-    id: '7',
-    name: 'ABC Technologies IPO',
-    type: 'ipo',
-    category: 'Technology',
-    issuer: 'ABC Tech Pvt Ltd',
-    minInvestment: 15000,
-    expectedReturn: 'Listing gains expected',
-    riskLevel: 'very_high',
-    rating: 3,
-    matchScore: 65,
-    reason: 'High-risk allocation opportunity - limited exposure recommended',
-    highlights: ['Book running lead: Axis Capital', 'Oversubscribed 5x', 'Strong institutional interest'],
-    isNew: true,
-    closingDate: '2026-01-10'
-  },
-  {
-    id: '8',
-    name: 'SBI Fixed Deposit',
-    type: 'fd',
-    category: 'Bank FD',
-    issuer: 'SBI',
-    minInvestment: 10000,
-    expectedReturn: '7.1% p.a.',
-    riskLevel: 'low',
-    rating: 4,
-    matchScore: 70,
-    reason: 'Safe parking for emergency fund top-up',
-    highlights: ['Senior citizen: 7.6%', 'Flexible tenures', 'DICGC insured']
-  }
-];
-
 export default function FreshInvestmentDiscovery() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -217,7 +92,12 @@ export default function FreshInvestmentDiscovery() {
   const [searchQuery, setSearchQuery] = useState("");
   const [savedItems, setSavedItems] = useState<string[]>([]);
 
-  const opportunities = mockOpportunities;
+  const { data: opportunitiesData, isLoading } = useQuery<InvestmentOpportunity[]>({
+    queryKey: ['/api/investments/opportunities'],
+    enabled: !!user?.id,
+  });
+
+  const opportunities = opportunitiesData || [];
 
   const filteredOpportunities = useMemo(() => {
     let filtered = [...opportunities];

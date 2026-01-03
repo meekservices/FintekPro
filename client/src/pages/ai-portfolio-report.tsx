@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,20 +35,18 @@ interface AIInsight {
   impact: 'high' | 'medium' | 'low';
 }
 
-const mockInsights: AIInsight[] = [
-  { category: 'strength', title: 'Excellent Diversification', description: 'Your portfolio is well-diversified across 6 sectors, reducing concentration risk.', impact: 'high' },
-  { category: 'opportunity', title: 'Tech Sector Underweight', description: 'Consider increasing IT allocation by 5% to match benchmark weights.', impact: 'medium' },
-  { category: 'risk', title: 'Small Cap Volatility', description: 'Small cap holdings have shown 40% higher volatility than expected. Consider rebalancing.', impact: 'high' },
-  { category: 'action', title: 'Tax Loss Harvesting', description: 'You have Rs.15,000 in harvestable losses. Consider swapping TATAMOTORS for MARUTI.', impact: 'high' },
-  { category: 'strength', title: 'Consistent SIP Discipline', description: 'You have maintained 100% SIP consistency for the past 12 months.', impact: 'medium' },
-  { category: 'opportunity', title: 'Dividend Yield Enhancement', description: 'Adding POWERGRID could increase your portfolio dividend yield by 0.5%.', impact: 'low' },
-];
-
 export default function AIPortfolioReport() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [reportGenerated, setReportGenerated] = useState(true);
+  const [reportGenerated, setReportGenerated] = useState(false);
+
+  const { data: insightsData, isLoading: isLoadingInsights, refetch } = useQuery<AIInsight[]>({
+    queryKey: ['/api/portfolio/ai-insights'],
+    enabled: isAuthenticated,
+  });
+
+  const insights = insightsData || [];
 
   const handleGenerateReport = async () => {
     setIsGenerating(true);
@@ -228,7 +227,7 @@ export default function AIPortfolioReport() {
 
             <TabsContent value="insights" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {mockInsights.map((insight, idx) => (
+                {insights.map((insight, idx) => (
                   <Card 
                     key={idx} 
                     className={`border ${getCategoryColor(insight.category)}`}
@@ -316,7 +315,7 @@ export default function AIPortfolioReport() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {mockInsights.filter(i => i.category === 'action' || i.category === 'opportunity').map((action, idx) => (
+                    {insights.filter(i => i.category === 'action' || i.category === 'opportunity').map((action, idx) => (
                       <div key={idx} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3">
                           {getCategoryIcon(action.category)}

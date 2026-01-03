@@ -99,15 +99,6 @@ const predefinedScenarios: StressScenario[] = [
   }
 ];
 
-const mockPortfolio: PortfolioHolding[] = [
-  { name: 'Large Cap Equity', type: 'equity', value: 500000, allocation: 35 },
-  { name: 'Mid Cap Equity', type: 'equity', value: 200000, allocation: 14 },
-  { name: 'Small Cap Equity', type: 'equity', value: 100000, allocation: 7 },
-  { name: 'Debt Mutual Funds', type: 'debt', value: 400000, allocation: 28 },
-  { name: 'Gold ETF', type: 'gold', value: 150000, allocation: 10 },
-  { name: 'REITs', type: 'real_estate', value: 80000, allocation: 6 },
-];
-
 export default function PortfolioStressTest() {
   const { user, isAuthenticated } = useAuth();
   const [selectedScenario, setSelectedScenario] = useState<StressScenario | null>(null);
@@ -120,14 +111,20 @@ export default function PortfolioStressTest() {
   const [isRunning, setIsRunning] = useState(false);
   const [showResults, setShowResults] = useState(false);
 
-  const totalPortfolioValue = mockPortfolio.reduce((sum, h) => sum + h.value, 0);
+  const { data: portfolioData, isLoading: isLoadingPortfolio } = useQuery<PortfolioHolding[]>({
+    queryKey: ['/api/portfolio/stress-test-holdings'],
+    enabled: isAuthenticated,
+  });
+
+  const portfolio = portfolioData || [];
+  const totalPortfolioValue = portfolio.reduce((sum, h) => sum + h.value, 0);
   
   const stressedPortfolio = useMemo(() => {
     if (!selectedScenario && !showResults) return null;
     
     const params = selectedScenario?.parameters || customParameters;
     
-    return mockPortfolio.map(holding => {
+    return portfolio.map(holding => {
       let changePercent = 0;
       switch (holding.type) {
         case 'equity': changePercent = params.equityChange; break;

@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,54 +35,29 @@ interface DerivativePosition {
   pnlPercentage: number;
 }
 
+interface PopularContract {
+  symbol: string;
+  ltp: number;
+  change: number;
+  volume: string;
+}
+
 export default function DerivativesPage() {
+  const { user, isAuthenticated } = useAuth();
   const [orderType, setOrderType] = useState<"buy" | "sell">("buy");
   const [productType, setProductType] = useState<"futures" | "options">("futures");
 
-  const positions: DerivativePosition[] = [
-    {
-      id: "1",
-      symbol: "NIFTY",
-      type: "future",
-      expiry: "2025-01-30",
-      quantity: 50,
-      buyPrice: 21500,
-      currentPrice: 21650,
-      pnl: 7500,
-      pnlPercentage: 0.7
-    },
-    {
-      id: "2",
-      symbol: "BANKNIFTY",
-      type: "call",
-      strike: 48000,
-      expiry: "2025-01-23",
-      quantity: 25,
-      buyPrice: 350,
-      currentPrice: 420,
-      pnl: 1750,
-      pnlPercentage: 20
-    },
-    {
-      id: "3",
-      symbol: "RELIANCE",
-      type: "put",
-      strike: 2800,
-      expiry: "2025-01-23",
-      quantity: 300,
-      buyPrice: 45,
-      currentPrice: 38,
-      pnl: -2100,
-      pnlPercentage: -15.6
-    }
-  ];
+  const { data: positionsData, isLoading: isLoadingPositions } = useQuery<DerivativePosition[]>({
+    queryKey: ['/api/derivatives/positions'],
+    enabled: isAuthenticated,
+  });
 
-  const popularContracts = [
-    { symbol: "NIFTY 50", ltp: 21650, change: 1.2, volume: "2.5M" },
-    { symbol: "BANKNIFTY", ltp: 48250, change: -0.8, volume: "1.8M" },
-    { symbol: "FINNIFTY", ltp: 21100, change: 0.5, volume: "850K" },
-    { symbol: "RELIANCE", ltp: 2850, change: 2.1, volume: "1.2M" }
-  ];
+  const { data: contractsData, isLoading: isLoadingContracts } = useQuery<PopularContract[]>({
+    queryKey: ['/api/derivatives/popular-contracts'],
+  });
+
+  const positions = positionsData || [];
+  const popularContracts = contractsData || [];
 
   const calculateTotalPnL = () => {
     return positions.reduce((sum, pos) => sum + pos.pnl, 0);
