@@ -703,4 +703,411 @@ export class ZohoCRMService {
 
     return response.data?.data || [];
   }
+
+  // ============ ZOHO → FINTEKPRO IMPORT METHODS ============
+
+  /**
+   * Fetch all contacts from Zoho CRM with pagination
+   * Handles 200 records per page as per Zoho API limits
+   */
+  async fetchAllContacts(options: {
+    limit?: number;
+    page?: number;
+    fields?: string[];
+  } = {}): Promise<{ contacts: ZohoCRMContact[]; hasMore: boolean; total: number }> {
+    const perPage = Math.min(options.limit || 200, 200);
+    const page = options.page || 1;
+    const fields = options.fields || [
+      'id', 'First_Name', 'Last_Name', 'Email', 'Phone', 'Mobile',
+      'Mailing_Street', 'Mailing_City', 'Mailing_State', 'Mailing_Zip',
+      'Description', 'Lead_Source', 'Tag', 'Owner', 'Created_Time', 'Modified_Time'
+    ];
+
+    try {
+      const response = await this.apiClient.get('/Contacts', {
+        fields: fields.join(','),
+        per_page: perPage,
+        page: page,
+        sort_by: 'Created_Time',
+        sort_order: 'desc'
+      });
+
+      const contacts = response.data?.data || [];
+      const info = response.data?.info || {};
+      const hasMore = info.more_records === true;
+      const total = info.count || contacts.length;
+
+      return { contacts, hasMore, total };
+    } catch (error: any) {
+      console.error('[Zoho CRM Import] Failed to fetch contacts:', error.message);
+      return { contacts: [], hasMore: false, total: 0 };
+    }
+  }
+
+  /**
+   * Fetch all leads from Zoho CRM with pagination
+   */
+  async fetchAllLeads(options: {
+    limit?: number;
+    page?: number;
+    fields?: string[];
+  } = {}): Promise<{ leads: ZohoCRMLead[]; hasMore: boolean; total: number }> {
+    const perPage = Math.min(options.limit || 200, 200);
+    const page = options.page || 1;
+    const fields = options.fields || [
+      'id', 'First_Name', 'Last_Name', 'Email', 'Phone', 'Mobile',
+      'Company', 'Designation', 'Lead_Source', 'Lead_Status',
+      'Description', 'Tag', 'Owner', 'Created_Time', 'Modified_Time'
+    ];
+
+    try {
+      const response = await this.apiClient.get('/Leads', {
+        fields: fields.join(','),
+        per_page: perPage,
+        page: page,
+        sort_by: 'Created_Time',
+        sort_order: 'desc'
+      });
+
+      const leads = response.data?.data || [];
+      const info = response.data?.info || {};
+      const hasMore = info.more_records === true;
+      const total = info.count || leads.length;
+
+      return { leads, hasMore, total };
+    } catch (error: any) {
+      console.error('[Zoho CRM Import] Failed to fetch leads:', error.message);
+      return { leads: [], hasMore: false, total: 0 };
+    }
+  }
+
+  /**
+   * Get import preview - counts and sample records
+   * Works in both dev and production environments
+   */
+  async getImportPreview(): Promise<{
+    contacts: { total: number; sample: ZohoCRMContact[] };
+    leads: { total: number; sample: ZohoCRMLead[] };
+    existingProspects: number;
+    potentialDuplicates: number;
+  }> {
+    const { prospectClients } = await import('@shared/schema');
+    const { count } = await import('drizzle-orm');
+
+    // Fetch first page from Zoho
+    const [contactsResult, leadsResult] = await Promise.all([
+      this.fetchAllContacts({ limit: 10 }),
+      this.fetchAllLeads({ limit: 10 })
+    ]);
+
+    // Get total contacts/leads count by fetching with minimal data
+    const [contactsCount, leadsCount] = await Promise.all([
+      this.apiClient.get('/Contacts', { per_page: 1, page: 1 }).then(r => r.data?.info?.count || 0).catch(() => 0),
+      this.apiClient.get('/Leads', { per_page: 1, page: 1 }).then(r => r.data?.info?.count || 0).catch(() => 0)
+    ]);
+
+    // Count existing prospects
+    const [existingCount] = await db
+      .select({ count: count() })
+      .from(prospectClients);
+
+    // Check for potential duplicates by email
+    const sampleEmails = [
+      ...contactsResult.contacts.map(c => c.Email).filter(Boolean),
+      ...leadsResult.leads.map(l => l.Email).filter(Boolean)
+    ];
+
+    let potentialDuplicates = 0;
+    if (sampleEmails.length > 0) {
+      const { inArray } = await import('drizzle-orm');
+      const [dupeCount] = await db
+        .select({ count: count() })
+        .from(prospectClients)
+        .where(inArray(prospectClients.email, sampleEmails as string[]));
+      potentialDuplicates = dupeCount?.count || 0;
+    }
+
+    return {
+      contacts: { total: contactsCount, sample: contactsResult.contacts },
+      leads: { total: leadsCount, sample: leadsResult.leads },
+      existingProspects: existingCount?.count || 0,
+      potentialDuplicates
+    };
+  }
+
+  /**
+   * Import contacts from Zoho CRM as FintekPro prospects
+   * PRODUCTION ONLY - includes deduplication and agent attribution
+   */
+  async importContactsAsProspects(options: {
+    agentId: string;
+    skipDuplicates?: boolean;
+    batchSize?: number;
+    onProgress?: (imported: number, total: number) => void;
+  }): Promise<{
+    imported: number;
+    skipped: number;
+    duplicates: number;
+    errors: Array<{ email?: string; error: string }>;
+  }> {
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (!isProduction) {
+      console.log('[Zoho CRM Import] DRY RUN - Production import disabled in development');
+    }
+
+    const { prospectClients } = await import('@shared/schema');
+    const { or, eq: eqFn } = await import('drizzle-orm');
+    const batchSize = options.batchSize || 200;
+    const skipDuplicates = options.skipDuplicates !== false;
+
+    let imported = 0;
+    let skipped = 0;
+    let duplicates = 0;
+    const errors: Array<{ email?: string; error: string }> = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { contacts, hasMore: more } = await this.fetchAllContacts({ page, limit: batchSize });
+      hasMore = more;
+      page++;
+
+      for (const contact of contacts) {
+        try {
+          const email = contact.Email?.toLowerCase().trim();
+          const mobile = contact.Mobile || contact.Phone;
+          const name = [contact.First_Name, contact.Last_Name].filter(Boolean).join(' ').trim() || 'Unknown';
+
+          // Check for duplicates
+          if (skipDuplicates && (email || mobile)) {
+            const conditions = [];
+            if (email) conditions.push(eqFn(prospectClients.email, email));
+            if (mobile) conditions.push(eqFn(prospectClients.mobile, mobile));
+
+            const existing = await db
+              .select({ id: prospectClients.id })
+              .from(prospectClients)
+              .where(or(...conditions))
+              .limit(1);
+
+            if (existing.length > 0) {
+              duplicates++;
+              continue;
+            }
+          }
+
+          // Skip if no contact info
+          if (!email && !mobile) {
+            skipped++;
+            continue;
+          }
+
+          // Create prospect (only in production)
+          if (isProduction) {
+            const [newProspect] = await db.insert(prospectClients).values({
+              agentId: options.agentId,
+              name,
+              email: email || null,
+              mobile: mobile || null,
+              clientType: 'individual',
+              state: 'prospect',
+              createdAt: new Date()
+            }).returning({ id: prospectClients.id });
+
+            // Create entity mapping for sync tracking
+            if (contact.id && newProspect?.id) {
+              await db.insert(zohoEntityMappings).values({
+                connectionId: this.connectionId,
+                fintekproEntityType: 'prospect',
+                fintekproEntityId: newProspect.id,
+                zohoService: 'CRM',
+                zohoModule: 'Contacts',
+                zohoRecordId: contact.id,
+                zohoRecordData: contact,
+                syncDirection: 'from_zoho',
+                lastSyncedAt: new Date(),
+                syncStatus: 'synced'
+              });
+            }
+          }
+
+          imported++;
+          options.onProgress?.(imported, contacts.length);
+
+        } catch (error: any) {
+          errors.push({ email: contact.Email, error: error.message });
+        }
+      }
+
+      console.log(`[Zoho CRM Import] Page ${page - 1}: ${imported} imported, ${duplicates} duplicates, ${skipped} skipped`);
+    }
+
+    return { imported, skipped, duplicates, errors };
+  }
+
+  /**
+   * Import leads from Zoho CRM as FintekPro prospects
+   * PRODUCTION ONLY - includes deduplication
+   */
+  async importLeadsAsProspects(options: {
+    agentId: string;
+    skipDuplicates?: boolean;
+    batchSize?: number;
+    onProgress?: (imported: number, total: number) => void;
+  }): Promise<{
+    imported: number;
+    skipped: number;
+    duplicates: number;
+    errors: Array<{ email?: string; error: string }>;
+  }> {
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (!isProduction) {
+      console.log('[Zoho CRM Import] DRY RUN - Production import disabled in development');
+    }
+
+    const { prospectClients } = await import('@shared/schema');
+    const { or, eq: eqFn } = await import('drizzle-orm');
+    const batchSize = options.batchSize || 200;
+    const skipDuplicates = options.skipDuplicates !== false;
+
+    let imported = 0;
+    let skipped = 0;
+    let duplicates = 0;
+    const errors: Array<{ email?: string; error: string }> = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { leads, hasMore: more } = await this.fetchAllLeads({ page, limit: batchSize });
+      hasMore = more;
+      page++;
+
+      for (const lead of leads) {
+        try {
+          const email = lead.Email?.toLowerCase().trim();
+          const mobile = lead.Mobile || lead.Phone;
+          const name = [lead.First_Name, lead.Last_Name].filter(Boolean).join(' ').trim() || 'Unknown';
+
+          // Check for duplicates
+          if (skipDuplicates && (email || mobile)) {
+            const conditions = [];
+            if (email) conditions.push(eqFn(prospectClients.email, email));
+            if (mobile) conditions.push(eqFn(prospectClients.mobile, mobile));
+
+            const existing = await db
+              .select({ id: prospectClients.id })
+              .from(prospectClients)
+              .where(or(...conditions))
+              .limit(1);
+
+            if (existing.length > 0) {
+              duplicates++;
+              continue;
+            }
+          }
+
+          // Skip if no contact info
+          if (!email && !mobile) {
+            skipped++;
+            continue;
+          }
+
+          // Create prospect (only in production)
+          if (isProduction) {
+            const [newProspect] = await db.insert(prospectClients).values({
+              agentId: options.agentId,
+              name,
+              email: email || null,
+              mobile: mobile || null,
+              clientType: 'individual',
+              state: 'prospect',
+              createdAt: new Date()
+            }).returning({ id: prospectClients.id });
+
+            // Create entity mapping for sync tracking
+            if (lead.id && newProspect?.id) {
+              await db.insert(zohoEntityMappings).values({
+                connectionId: this.connectionId,
+                fintekproEntityType: 'prospect',
+                fintekproEntityId: newProspect.id,
+                zohoService: 'CRM',
+                zohoModule: 'Leads',
+                zohoRecordId: lead.id,
+                zohoRecordData: lead,
+                syncDirection: 'from_zoho',
+                lastSyncedAt: new Date(),
+                syncStatus: 'synced'
+              });
+            }
+          }
+
+          imported++;
+          options.onProgress?.(imported, leads.length);
+
+        } catch (error: any) {
+          errors.push({ email: lead.Email, error: error.message });
+        }
+      }
+
+      console.log(`[Zoho CRM Import] Leads Page ${page - 1}: ${imported} imported, ${duplicates} duplicates, ${skipped} skipped`);
+    }
+
+    return { imported, skipped, duplicates, errors };
+  }
+
+  /**
+   * Get sync status - how many records are synced between Zoho and FintekPro
+   */
+  async getSyncStatus(): Promise<{
+    syncedFromZoho: number;
+    syncedToZoho: number;
+    pendingSync: number;
+    lastSyncAt: Date | null;
+  }> {
+    const { count, sql: sqlFn } = await import('drizzle-orm');
+
+    const [fromZoho] = await db
+      .select({ count: count() })
+      .from(zohoEntityMappings)
+      .where(
+        and(
+          eq(zohoEntityMappings.connectionId, this.connectionId),
+          eq(zohoEntityMappings.syncDirection, 'from_zoho')
+        )
+      );
+
+    const [toZoho] = await db
+      .select({ count: count() })
+      .from(zohoEntityMappings)
+      .where(
+        and(
+          eq(zohoEntityMappings.connectionId, this.connectionId),
+          eq(zohoEntityMappings.syncDirection, 'to_zoho')
+        )
+      );
+
+    const [pending] = await db
+      .select({ count: count() })
+      .from(zohoEntityMappings)
+      .where(
+        and(
+          eq(zohoEntityMappings.connectionId, this.connectionId),
+          eq(zohoEntityMappings.syncStatus, 'pending')
+        )
+      );
+
+    const [lastSync] = await db
+      .select({ lastSyncedAt: zohoEntityMappings.lastSyncedAt })
+      .from(zohoEntityMappings)
+      .where(eq(zohoEntityMappings.connectionId, this.connectionId))
+      .orderBy(sqlFn`${zohoEntityMappings.lastSyncedAt} DESC NULLS LAST`)
+      .limit(1);
+
+    return {
+      syncedFromZoho: fromZoho?.count || 0,
+      syncedToZoho: toZoho?.count || 0,
+      pendingSync: pending?.count || 0,
+      lastSyncAt: lastSync?.lastSyncedAt || null
+    };
+  }
 }

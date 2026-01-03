@@ -551,6 +551,144 @@ router.get('/crm/partner/:partnerId/deals', async (req, res) => {
 });
 
 // ============================================================================
+// ZOHO CRM IMPORT ROUTES - Import from Zoho to FintekPro
+// ============================================================================
+
+/**
+ * GET /api/zoho/crm/import/preview
+ * Preview what would be imported from Zoho CRM
+ * Works in both dev and production - no actual import happens
+ */
+router.get('/crm/import/preview', async (req, res) => {
+  try {
+    const { connectionId } = req.query;
+
+    if (!connectionId) {
+      return res.status(400).json({ message: 'Connection ID is required' });
+    }
+
+    const crmService = new ZohoCRMService(connectionId as string);
+    const preview = await crmService.getImportPreview();
+
+    res.json({
+      ...preview,
+      environment: process.env.NODE_ENV,
+      canImport: process.env.NODE_ENV === 'production',
+      message: process.env.NODE_ENV !== 'production' 
+        ? 'Import is disabled in development. Deploy to production to enable full import.'
+        : 'Ready to import. This will create prospects in FintekPro.'
+    });
+  } catch (error: any) {
+    console.error('[Zoho Import] Preview error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/crm/import/contacts
+ * Import contacts from Zoho CRM as prospects
+ * PRODUCTION ONLY - will run dry in development
+ */
+router.post('/crm/import/contacts', async (req, res) => {
+  try {
+    const { connectionId, agentId, skipDuplicates = true } = req.body;
+
+    if (!connectionId) {
+      return res.status(400).json({ message: 'Connection ID is required' });
+    }
+    if (!agentId) {
+      return res.status(400).json({ message: 'Agent ID is required for attribution' });
+    }
+
+    const isProduction = process.env.NODE_ENV === 'production';
+    console.log(`[Zoho Import] Starting contacts import ${isProduction ? '(PRODUCTION)' : '(DRY RUN)'}`);
+
+    const crmService = new ZohoCRMService(connectionId as string);
+    const result = await crmService.importContactsAsProspects({
+      agentId,
+      skipDuplicates
+    });
+
+    res.json({
+      ...result,
+      environment: process.env.NODE_ENV,
+      wasActualImport: isProduction,
+      message: isProduction 
+        ? `Successfully imported ${result.imported} contacts as prospects`
+        : `DRY RUN: Would have imported ${result.imported} contacts (not saved in development)`
+    });
+  } catch (error: any) {
+    console.error('[Zoho Import] Contacts import error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /api/zoho/crm/import/leads
+ * Import leads from Zoho CRM as prospects
+ * PRODUCTION ONLY - will run dry in development
+ */
+router.post('/crm/import/leads', async (req, res) => {
+  try {
+    const { connectionId, agentId, skipDuplicates = true } = req.body;
+
+    if (!connectionId) {
+      return res.status(400).json({ message: 'Connection ID is required' });
+    }
+    if (!agentId) {
+      return res.status(400).json({ message: 'Agent ID is required for attribution' });
+    }
+
+    const isProduction = process.env.NODE_ENV === 'production';
+    console.log(`[Zoho Import] Starting leads import ${isProduction ? '(PRODUCTION)' : '(DRY RUN)'}`);
+
+    const crmService = new ZohoCRMService(connectionId as string);
+    const result = await crmService.importLeadsAsProspects({
+      agentId,
+      skipDuplicates
+    });
+
+    res.json({
+      ...result,
+      environment: process.env.NODE_ENV,
+      wasActualImport: isProduction,
+      message: isProduction 
+        ? `Successfully imported ${result.imported} leads as prospects`
+        : `DRY RUN: Would have imported ${result.imported} leads (not saved in development)`
+    });
+  } catch (error: any) {
+    console.error('[Zoho Import] Leads import error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /api/zoho/crm/import/status
+ * Get current sync status between Zoho and FintekPro
+ */
+router.get('/crm/import/status', async (req, res) => {
+  try {
+    const { connectionId } = req.query;
+
+    if (!connectionId) {
+      return res.status(400).json({ message: 'Connection ID is required' });
+    }
+
+    const crmService = new ZohoCRMService(connectionId as string);
+    const status = await crmService.getSyncStatus();
+
+    res.json({
+      ...status,
+      environment: process.env.NODE_ENV,
+      importEnabled: process.env.NODE_ENV === 'production'
+    });
+  } catch (error: any) {
+    console.error('[Zoho Import] Status error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ============================================================================
 // ADMIN ROUTES - For Admin Portal UI
 // ============================================================================
 
