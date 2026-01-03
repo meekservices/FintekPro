@@ -535,6 +535,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/fee-mode", feeModeRoutes);
   console.log("✅ Client Fee Mode routes registered");
 
+  // Improvement Features Routes (Dashboard, Referral, Reports, Alerts, Theme)
+  const improvementFeaturesRoutes = (await import("./routes/improvement-features")).default;
+  app.use("/api/features", improvementFeaturesRoutes);
+  console.log("✅ Improvement Features routes registered");
+
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
       const count = await seedProducts(storage as any);

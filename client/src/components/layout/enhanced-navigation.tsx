@@ -670,6 +670,20 @@ export function EnhancedNavigation() {
 
           {/* Bottom Actions */}
           <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+            {/* Referral Program */}
+            <Link href="/referral-program">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className={`${isCollapsed ? 'w-full justify-center px-0' : 'w-full justify-start'} mb-1`}
+                data-testid="sidebar-referral-button"
+                title={isCollapsed ? "Refer & Earn" : undefined}
+              >
+                <Crown className="h-4 w-4 text-amber-500" />
+                {!isCollapsed && <span className="ml-3">Refer & Earn</span>}
+              </Button>
+            </Link>
+            
             {/* Settings - prominently placed at top of footer */}
             <Link href="/settings">
               <Button 

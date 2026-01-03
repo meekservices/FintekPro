@@ -23851,3 +23851,192 @@ export const orderFeeConsentLog = pgTable("order_fee_consent_log", {
 export const insertOrderFeeConsentLogSchema = createInsertSchema(orderFeeConsentLog).omit({ id: true, createdAt: true });
 export type OrderFeeConsentLog = typeof orderFeeConsentLog.$inferSelect;
 export type InsertOrderFeeConsentLog = z.infer<typeof insertOrderFeeConsentLogSchema>;
+
+// ==================== IMPROVEMENT FEATURES ====================
+
+// Dashboard Widget Preferences
+export const dashboardWidgetPreferences = pgTable("dashboard_widget_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Widget Configuration
+  widgets: jsonb("widgets").default([
+    { id: "portfolio", enabled: true, position: 0, size: "large" },
+    { id: "market_movers", enabled: true, position: 1, size: "medium" },
+    { id: "quick_actions", enabled: true, position: 2, size: "small" },
+    { id: "kyc_progress", enabled: true, position: 3, size: "small" },
+    { id: "market_news", enabled: true, position: 4, size: "medium" },
+    { id: "trending", enabled: false, position: 5, size: "medium" },
+    { id: "goals_progress", enabled: false, position: 6, size: "medium" }
+  ]).notNull(),
+  
+  // Layout Preferences
+  layoutMode: varchar("layout_mode", { length: 20 }).default("grid"), // grid, list, compact
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_dwp_user").on(table.userId),
+]);
+
+export const insertDashboardWidgetPreferencesSchema = createInsertSchema(dashboardWidgetPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type DashboardWidgetPreferences = typeof dashboardWidgetPreferences.$inferSelect;
+
+// User Referral Program
+export const userReferrals = pgTable("user_referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Referrer Info
+  referrerId: varchar("referrer_id").references(() => users.id).notNull(),
+  referralCode: varchar("referral_code", { length: 20 }).notNull().unique(),
+  
+  // Referee Info
+  refereeId: varchar("referee_id").references(() => users.id),
+  refereeEmail: varchar("referee_email", { length: 255 }),
+  refereePhone: varchar("referee_phone", { length: 20 }),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, registered, kyc_complete, first_investment, rewarded
+  
+  // Rewards
+  referrerRewardAmount: decimal("referrer_reward_amount", { precision: 10, scale: 2 }),
+  refereeRewardAmount: decimal("referee_reward_amount", { precision: 10, scale: 2 }),
+  referrerRewardPaidAt: timestamp("referrer_reward_paid_at"),
+  refereeRewardPaidAt: timestamp("referee_reward_paid_at"),
+  
+  // Tracking
+  inviteSentAt: timestamp("invite_sent_at"),
+  registeredAt: timestamp("registered_at"),
+  kycCompletedAt: timestamp("kyc_completed_at"),
+  firstInvestmentAt: timestamp("first_investment_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ur_referrer").on(table.referrerId),
+  index("idx_ur_referee").on(table.refereeId),
+  index("idx_ur_code").on(table.referralCode),
+]);
+
+export const insertUserReferralSchema = createInsertSchema(userReferrals).omit({ id: true, createdAt: true });
+export type UserReferral = typeof userReferrals.$inferSelect;
+
+// Scheduled Reports
+export const scheduledReports = pgTable("scheduled_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Report Configuration
+  reportType: varchar("report_type", { length: 50 }).notNull(), // portfolio_summary, tax_summary, transaction_history, goal_progress
+  reportName: varchar("report_name", { length: 100 }).notNull(),
+  
+  // Schedule
+  frequency: varchar("frequency", { length: 20 }).notNull(), // daily, weekly, monthly, quarterly
+  dayOfWeek: integer("day_of_week"), // 0-6 for weekly
+  dayOfMonth: integer("day_of_month"), // 1-31 for monthly
+  
+  // Delivery
+  deliveryEmail: varchar("delivery_email", { length: 255 }).notNull(),
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  lastSentAt: timestamp("last_sent_at"),
+  nextScheduledAt: timestamp("next_scheduled_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_sr_user").on(table.userId),
+  index("idx_sr_next").on(table.nextScheduledAt),
+]);
+
+export const insertScheduledReportSchema = createInsertSchema(scheduledReports).omit({ id: true, createdAt: true, updatedAt: true });
+export type ScheduledReport = typeof scheduledReports.$inferSelect;
+
+// Compound Alerts (Multi-Condition)
+export const compoundAlerts = pgTable("compound_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Alert Configuration
+  name: varchar("name", { length: 100 }).notNull(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  
+  // Conditions (AND logic)
+  conditions: jsonb("conditions").default([]).notNull(), // [{type: "price_drop", value: 5, unit: "percent"}, {type: "volume_spike", value: 200}]
+  
+  // Logic
+  conditionLogic: varchar("condition_logic", { length: 10 }).default("AND"), // AND, OR
+  
+  // Notification
+  notifyEmail: boolean("notify_email").default(true),
+  notifySms: boolean("notify_sms").default(false),
+  notifyPush: boolean("notify_push").default(true),
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  triggeredCount: integer("triggered_count").default(0),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ca_user").on(table.userId),
+  index("idx_ca_symbol").on(table.symbol),
+]);
+
+export const insertCompoundAlertSchema = createInsertSchema(compoundAlerts).omit({ id: true, createdAt: true });
+export type CompoundAlert = typeof compoundAlerts.$inferSelect;
+
+// Trending Investments Cache
+export const trendingInvestments = pgTable("trending_investments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Investment Info
+  assetType: varchar("asset_type", { length: 30 }).notNull(), // stock, mutual_fund, bond, etf
+  symbol: varchar("symbol", { length: 30 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  
+  // Trending Metrics
+  trendScore: decimal("trend_score", { precision: 10, scale: 2 }).notNull(),
+  viewCount: integer("view_count").default(0),
+  investorCount: integer("investor_count").default(0),
+  volumeChange: decimal("volume_change", { precision: 10, scale: 2 }),
+  
+  // Category
+  category: varchar("category", { length: 50 }), // top_gainers, most_traded, newly_popular
+  
+  // Validity
+  validFrom: timestamp("valid_from").defaultNow().notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ti_type").on(table.assetType),
+  index("idx_ti_category").on(table.category),
+  index("idx_ti_valid").on(table.validUntil),
+]);
+
+export const insertTrendingInvestmentSchema = createInsertSchema(trendingInvestments).omit({ id: true, updatedAt: true });
+export type TrendingInvestment = typeof trendingInvestments.$inferSelect;
+
+// Theme Preferences (for auto dark mode)
+export const themePreferences = pgTable("theme_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // Theme Settings
+  themeMode: varchar("theme_mode", { length: 20 }).default("system"), // light, dark, system, auto
+  autoSwitchEnabled: boolean("auto_switch_enabled").default(false),
+  lightModeStart: varchar("light_mode_start", { length: 5 }).default("07:00"), // HH:MM
+  darkModeStart: varchar("dark_mode_start", { length: 5 }).default("19:00"),
+  
+  // Accessibility
+  reducedMotion: boolean("reduced_motion").default(false),
+  highContrast: boolean("high_contrast").default(false),
+  
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_tp_user").on(table.userId),
+]);
+
+export const insertThemePreferencesSchema = createInsertSchema(themePreferences).omit({ id: true, updatedAt: true });
+export type ThemePreferences = typeof themePreferences.$inferSelect;
