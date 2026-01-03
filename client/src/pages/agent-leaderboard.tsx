@@ -65,7 +65,7 @@ export default function AgentLeaderboard() {
   const [period, setPeriod] = useState("month");
 
   const { data: leaderboardData, isLoading } = useQuery<LeaderboardData>({
-    queryKey: ["/api/agent/leaderboard", period],
+    queryKey: [`/api/agent/leaderboard?period=${period}`],
   });
 
   const agents = leaderboardData?.agents || [];

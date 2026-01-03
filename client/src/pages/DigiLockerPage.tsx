@@ -472,9 +472,17 @@ export default function DigiLockerPage() {
               <Separator />
 
               <div className="flex flex-col gap-4">
+                {!widgetConfig && (
+                  <Alert variant="destructive" className="mb-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      DigiLocker integration is currently unavailable. Please contact support or try again later.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <Button
                   onClick={initiateDocumentSharing}
-                  disabled={isInitiatingShare}
+                  disabled={isInitiatingShare || !widgetConfig}
                   className="w-full"
                   size="lg"
                   data-testid="share-documents-btn"
@@ -493,7 +501,9 @@ export default function DigiLockerPage() {
                 </Button>
                 
                 <p className="text-sm text-muted-foreground text-center">
-                  You'll be redirected to the official DigiLocker platform to select and share your documents
+                  {widgetConfig 
+                    ? "You'll be redirected to the official DigiLocker platform to select and share your documents"
+                    : "Document sharing is temporarily unavailable"}
                 </p>
               </div>
             </CardContent>

@@ -62,7 +62,7 @@ export default function AgentPerformance() {
   const [timePeriod, setTimePeriod] = useState('month');
 
   const { data: performanceData, isLoading } = useQuery<PerformanceData>({
-    queryKey: ['/api/agent/performance', timePeriod],
+    queryKey: [`/api/agent/performance?period=${timePeriod}`],
     enabled: isAuthenticated
   });
 
