@@ -47,7 +47,12 @@ import {
   Bell,
   ExternalLink,
   ChevronRight,
-  Loader2
+  Loader2,
+  RefreshCw,
+  Brain,
+  Sparkles,
+  AlertCircle,
+  Lightbulb
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -122,6 +127,38 @@ const GOAL_ICONS = {
   other: Target
 };
 
+interface AIRecommendation {
+  id: string;
+  title: string;
+  priority: 'high' | 'medium' | 'low';
+  recommendation: string;
+  reasoning: string;
+  expectedImpact: string;
+  actionRequired: string;
+  timeframe: string;
+  riskLevel: 'low' | 'medium' | 'high';
+}
+
+interface AutoFetchResult {
+  success: boolean;
+  workflowId: string;
+  status: string;
+  summary: {
+    totalDataSources: number;
+    successfulSources: number;
+    failedSources: number;
+    totalRecordsFetched: number;
+    totalHoldingsValue: number;
+    durationMs: number;
+  };
+  sourceResults: any[];
+  aiAnalysis?: {
+    recommendations: AIRecommendation[];
+    proposal: any;
+    generatedAt: string;
+  };
+}
+
 export default function AgentClientProfile() {
   const [, params] = useRoute("/clients/:id");
   const clientId = params?.id || "1";
@@ -130,6 +167,50 @@ export default function AgentClientProfile() {
   const [activeTab, setActiveTab] = useState("overview");
   const [showAddNote, setShowAddNote] = useState(false);
   const [newNote, setNewNote] = useState({ type: 'call', summary: '', actionItems: '', nextSteps: '' });
+  const [autoFetchResult, setAutoFetchResult] = useState<AutoFetchResult | null>(null);
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
+
+  // Auto-fetch portfolio mutation
+  const autoFetchMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(`/api/agent/client/${clientId}/auto-fetch-portfolio`, {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAIAnalysis: true })
+      });
+      return response as AutoFetchResult;
+    },
+    onSuccess: (data) => {
+      setAutoFetchResult(data);
+      if (data.aiAnalysis) {
+        setShowAIAnalysis(true);
+      }
+      toast({
+        title: "Portfolio Data Fetched",
+        description: `Fetched ${data.summary.totalRecordsFetched} records from ${data.summary.successfulSources}/${data.summary.totalDataSources} sources`
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/agent/client', clientId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Auto-Fetch Failed",
+        description: error.message || "Could not fetch portfolio data",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Get existing portfolio analysis
+  const { data: portfolioAnalysis, isLoading: isLoadingAnalysis } = useQuery<{
+    success: boolean;
+    hasHoldings: boolean;
+    portfolioSummary?: any;
+    holdings?: any[];
+    aiAnalysis?: any;
+  }>({
+    queryKey: ['/api/agent/client', clientId, 'portfolio-analysis'],
+    enabled: !!clientId && clientId !== "1",
+  });
 
   const defaultClient: ClientProfile = {
     id: "1",
@@ -549,13 +630,151 @@ export default function AgentClientProfile() {
 
           {/* Holdings Tab */}
           <TabsContent value="holdings" className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <h2 className="text-xl font-bold text-white">Portfolio Holdings</h2>
-              <Button className="bg-emerald-600 hover:bg-emerald-700" data-testid="button-add-holding">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Investment
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => autoFetchMutation.mutate()}
+                  disabled={autoFetchMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-auto-fetch-portfolio"
+                >
+                  {autoFetchMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  {autoFetchMutation.isPending ? 'Fetching...' : 'Auto-Fetch Portfolio'}
+                </Button>
+                <Button className="bg-emerald-600 hover:bg-emerald-700" data-testid="button-add-holding">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Investment
+                </Button>
+              </div>
             </div>
+
+            {/* Auto-Fetch Status */}
+            {autoFetchResult && (
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${autoFetchResult.status === 'completed' ? 'bg-emerald-500/20' : autoFetchResult.status === 'partial_success' ? 'bg-amber-500/20' : 'bg-red-500/20'}`}>
+                        {autoFetchResult.status === 'completed' ? (
+                          <CheckCircle className="h-5 w-5 text-emerald-400" />
+                        ) : autoFetchResult.status === 'partial_success' ? (
+                          <AlertCircle className="h-5 w-5 text-amber-400" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">
+                          {autoFetchResult.status === 'completed' ? 'Portfolio Data Synced' : 
+                           autoFetchResult.status === 'partial_success' ? 'Partial Data Synced' : 'Sync Failed'}
+                        </p>
+                        <p className="text-slate-400 text-sm">
+                          {autoFetchResult.summary.totalRecordsFetched} records from {autoFetchResult.summary.successfulSources}/{autoFetchResult.summary.totalDataSources} sources
+                          {autoFetchResult.summary.totalHoldingsValue > 0 && ` • Total Value: ${formatCurrency(autoFetchResult.summary.totalHoldingsValue)}`}
+                        </p>
+                      </div>
+                    </div>
+                    {autoFetchResult.aiAnalysis && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowAIAnalysis(!showAIAnalysis)}
+                        className="border-purple-500/50 text-purple-400 hover:bg-purple-500/20"
+                        data-testid="button-toggle-ai-analysis"
+                      >
+                        <Brain className="h-4 w-4 mr-2" />
+                        {showAIAnalysis ? 'Hide' : 'View'} AI Analysis
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* AI Analysis Panel */}
+            {showAIAnalysis && autoFetchResult?.aiAnalysis && (
+              <Card className="bg-gradient-to-br from-purple-900/30 to-slate-800/50 border-purple-500/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Sparkles className="h-5 w-5 text-purple-400" />
+                    AI Portfolio Analysis
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Generated on {new Date(autoFetchResult.aiAnalysis.generatedAt).toLocaleString()}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Recommendations */}
+                  {autoFetchResult.aiAnalysis.recommendations.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <Lightbulb className="h-5 w-5 text-amber-400" />
+                        Rebalancing Recommendations
+                      </h3>
+                      <div className="grid gap-3">
+                        {autoFetchResult.aiAnalysis.recommendations.slice(0, 5).map((rec) => (
+                          <Card key={rec.id} className="bg-slate-800/50 border-slate-700">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge className={
+                                      rec.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                                      rec.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                                      'bg-blue-500/20 text-blue-400'
+                                    }>
+                                      {rec.priority.toUpperCase()}
+                                    </Badge>
+                                    <Badge variant="outline" className="border-slate-600 text-slate-300">
+                                      {rec.timeframe}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-white font-medium">{rec.title}</p>
+                                  <p className="text-slate-400 text-sm mt-1">{rec.recommendation}</p>
+                                  <p className="text-slate-500 text-sm mt-2 italic">{rec.reasoning}</p>
+                                </div>
+                                <Badge className={
+                                  rec.riskLevel === 'low' ? 'bg-emerald-500/20 text-emerald-400' :
+                                  rec.riskLevel === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                                  'bg-red-500/20 text-red-400'
+                                }>
+                                  {rec.riskLevel} risk
+                                </Badge>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Investment Proposal Summary */}
+                  {autoFetchResult.aiAnalysis.proposal && (
+                    <div className="mt-6 pt-4 border-t border-slate-700">
+                      <h3 className="text-lg font-semibold text-white mb-3">Investment Proposal Summary</h3>
+                      <p className="text-slate-300">{autoFetchResult.aiAnalysis.proposal.summary}</p>
+                      {autoFetchResult.aiAnalysis.proposal.riskAssessment && (
+                        <div className="mt-4 flex items-center gap-2">
+                          <span className="text-slate-400">Overall Risk:</span>
+                          <Badge className={
+                            autoFetchResult.aiAnalysis.proposal.riskAssessment.overallRisk === 'low' ? 'bg-emerald-500/20 text-emerald-400' :
+                            autoFetchResult.aiAnalysis.proposal.riskAssessment.overallRisk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-red-500/20 text-red-400'
+                          }>
+                            {autoFetchResult.aiAnalysis.proposal.riskAssessment.overallRisk.toUpperCase()}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
             <Card className="bg-slate-800/50 border-slate-700">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
