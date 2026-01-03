@@ -60,9 +60,9 @@ export default function DuplicatesPage() {
 
   if (error) {
     return (
-      <Alert variant="destructive" className="bg-red-900/20 border-red-900">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription className="text-red-400">
+      <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
+        <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+        <AlertDescription className="text-red-700 dark:text-red-300">
           Failed to load duplicate accounts. Please try again.
         </AlertDescription>
       </Alert>
