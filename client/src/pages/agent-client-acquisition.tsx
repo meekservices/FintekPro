@@ -138,14 +138,15 @@ export default function AgentClientAcquisitionPage() {
 
   const prospects = prospectsData?.prospects || [];
   const stats = prospectsData?.stats || { total: 0, prospects: 0, onboarded: 0, activeClients: 0 };
-  const metrics = metricsData || {
-    prospects: 0,
-    onboarded: 0,
-    activeClients: 0,
-    total: 0,
-    conversionRate: 0,
-    proposalStats: { total: 0, draft: 0, shared: 0, viewed: 0, converted: 0, acceptanceRate: 0 },
-    aumAcquired: "₹0",
+  const defaultProposalStats = { total: 0, draft: 0, shared: 0, viewed: 0, converted: 0, acceptanceRate: 0 };
+  const metrics = {
+    prospects: metricsData?.prospects ?? 0,
+    onboarded: metricsData?.onboarded ?? 0,
+    activeClients: metricsData?.activeClients ?? 0,
+    total: metricsData?.total ?? 0,
+    conversionRate: metricsData?.conversionRate ?? 0,
+    proposalStats: metricsData?.proposalStats ?? defaultProposalStats,
+    aumAcquired: metricsData?.aumAcquired ?? "₹0",
   };
 
   const filteredProspects = prospects.filter(p => {
