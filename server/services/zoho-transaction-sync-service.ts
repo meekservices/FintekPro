@@ -1178,6 +1178,183 @@ class ZohoTransactionSyncService {
     }
   }
 
+
+  /**
+   * ITR Self-File Fee Sync
+   * 
+   * When a user pays for self-filing their ITR:
+   * - Create revenue invoice for the self-file fee
+   * - ITR pricing is admin-configurable (ITR-1: ₹499, ITR-2: ₹999, etc.)
+   * - No CA involved - 100% revenue to FintekPro
+   */
+  async syncITRSelfFileFee(filingRecordId: string): Promise<TransactionSyncResult> {
+    if (!this.zohoService) {
+      await this.initialize();
+    }
+    
+    try {
+      const [filing] = await db.select()
+        .from(schema.filingRecords)
+        .where(eq(schema.filingRecords.id, filingRecordId))
+        .limit(1);
+
+      if (!filing) {
+        return { success: false, productType: "commission", transactionId: filingRecordId, syncType: "skipped", error: "Filing record not found" };
+      }
+
+      // Skip if already synced
+      if (filing.zohoSyncedAt || filing.zohoInvoiceId) {
+        return { success: true, productType: "commission", transactionId: filingRecordId, syncType: "skipped", reason: "Already synced" };
+      }
+
+      // Get user info
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.id, filing.userId))
+        .limit(1);
+      const customerName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email : "Unknown";
+
+      // Get ITR pricing
+      const [pricing] = await db.select()
+        .from(schema.itrPricingConfig)
+        .where(eq(schema.itrPricingConfig.itrFormType, filing.itrFormType || "ITR-1"))
+        .limit(1);
+      const selfFileFee = pricing ? parseFloat(pricing.selfFileFee.toString()) : 499;
+
+      // Create invoice
+      if (this.zohoService) {
+        const invoiceData = {
+          customer_name: customerName,
+          line_items: [{
+            name: `ITR Self-Filing Fee - ${filing.itrFormType || "ITR-1"}`,
+            description: `Assessment Year: ${filing.assessmentYear || "2024-25"}`,
+            rate: selfFileFee,
+            quantity: 1
+          }],
+          reference_number: `ITR-SELF-${filingRecordId}`,
+          notes: `ITR Form: ${filing.itrFormType}, PAN: ${filing.panNumber || "N/A"}`
+        };
+
+        const invoice = await this.zohoService.createInvoice(invoiceData);
+        await db.update(schema.filingRecords)
+          .set({ zohoSyncedAt: new Date(), zohoInvoiceId: invoice.invoice_id, zohoSyncStatus: "synced" })
+          .where(eq(schema.filingRecords.id, filingRecordId));
+
+        return { success: true, productType: "commission", transactionId: filingRecordId, syncType: "invoice", zohoInvoiceId: invoice.invoice_id };
+      }
+
+      // Mark as local-only if Zoho not configured
+      await db.update(schema.filingRecords)
+        .set({ zohoSyncedAt: new Date(), zohoSyncStatus: "local_only" })
+        .where(eq(schema.filingRecords.id, filingRecordId));
+
+      return { success: true, productType: "commission", transactionId: filingRecordId, syncType: "compliance_only", reason: "Zoho not configured" };
+    } catch (error: any) {
+      return { success: false, productType: "commission", transactionId: filingRecordId, syncType: "skipped", error: error.message };
+    }
+  }
+
+  /**
+   * ITR CA-Assisted Filing Sync
+   * 
+   * When a user pays for CA-assisted ITR filing:
+   * - Create revenue invoice for full CA-assisted fee
+   * - Create bill (expense) for CA revenue share (50-80% based on config)
+   * - Net revenue = CA fee - CA share
+   */
+  async syncITRCaAssistedFiling(caseId: string): Promise<TransactionSyncResult> {
+    if (!this.zohoService) {
+      await this.initialize();
+    }
+    
+    try {
+      const [itrCase] = await db.select()
+        .from(schema.agentItrCases)
+        .where(eq(schema.agentItrCases.id, caseId))
+        .limit(1);
+
+      if (!itrCase) {
+        return { success: false, productType: "commission", transactionId: caseId, syncType: "skipped", error: "ITR case not found" };
+      }
+
+      // Skip if already synced
+      if (itrCase.zohoSyncedAt || itrCase.zohoInvoiceId) {
+        return { success: true, productType: "commission", transactionId: caseId, syncType: "skipped", reason: "Already synced" };
+      }
+
+      // Get user info
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.id, itrCase.clientId))
+        .limit(1);
+      const customerName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email : "Unknown";
+
+      // Get ITR pricing with CA revenue share
+      const [pricing] = await db.select()
+        .from(schema.itrPricingConfig)
+        .where(eq(schema.itrPricingConfig.itrFormType, itrCase.itrFormType || "ITR-1"))
+        .limit(1);
+      const caAssistedFee = pricing ? parseFloat(pricing.caAssistedFee.toString()) : 999;
+      const caRevenueSharePercent = pricing?.caRevenueSharePercent || 50;
+      const caShare = caAssistedFee * (caRevenueSharePercent / 100);
+
+      let zohoInvoiceId: string | undefined;
+      let zohoBillId: string | undefined;
+
+      if (this.zohoService) {
+        // Create customer invoice for full CA-assisted fee
+        const invoiceData = {
+          customer_name: customerName,
+          line_items: [{
+            name: `ITR CA-Assisted Filing - ${itrCase.itrFormType || "ITR-1"}`,
+            description: `Assessment Year: ${itrCase.assessmentYear || "2024-25"}, Case ID: ${caseId}`,
+            rate: caAssistedFee,
+            quantity: 1
+          }],
+          reference_number: `ITR-CA-${caseId}`,
+          notes: `ITR Form: ${itrCase.itrFormType}, CA Revenue Share: ${caRevenueSharePercent}%`
+        };
+        const invoice = await this.zohoService.createInvoice(invoiceData);
+        zohoInvoiceId = invoice.invoice_id;
+
+        // Get CA vendor info
+        const caAgentId = itrCase.agentId?.toString() || "";
+        const [caAgent] = caAgentId ? await db.select().from(schema.users).where(eq(schema.users.id, parseInt(caAgentId))).limit(1) : [];
+        const vendorName = caAgent ? `${caAgent.firstName || ""} ${caAgent.lastName || ""}`.trim() || caAgent.email : "CA Partner";
+
+        // Create bill for CA revenue share
+        const billData = {
+          vendor_name: vendorName,
+          line_items: [{
+            name: `CA Revenue Share - ITR ${itrCase.itrFormType || "ITR-1"}`,
+            description: `Case: ${caseId}, Client: ${customerName}, Share: ${caRevenueSharePercent}%`,
+            rate: caShare,
+            quantity: 1
+          }],
+          reference_number: `CASHARE-${caseId}`,
+          notes: `Linked Invoice: ${zohoInvoiceId}`
+        };
+        const bill = await this.zohoService.createBill(billData);
+        zohoBillId = bill.bill_id;
+
+        // Update case with sync info
+        await db.update(schema.agentItrCases)
+          .set({ zohoSyncedAt: new Date(), zohoInvoiceId, zohoBillId, zohoSyncStatus: "synced" })
+          .where(eq(schema.agentItrCases.id, caseId));
+
+        return { success: true, productType: "commission", transactionId: caseId, syncType: "invoice", zohoInvoiceId, zohoBillId };
+      }
+
+      // Mark as local-only if Zoho not configured
+      await db.update(schema.agentItrCases)
+        .set({ zohoSyncedAt: new Date(), zohoSyncStatus: "local_only" })
+        .where(eq(schema.agentItrCases.id, caseId));
+
+      return { success: true, productType: "commission", transactionId: caseId, syncType: "compliance_only", reason: "Zoho not configured" };
+    } catch (error: any) {
+      return { success: false, productType: "commission", transactionId: caseId, syncType: "skipped", error: error.message };
+    }
+  }
   /**
    * Approve a commission payout and optionally create Zoho Bill
    * Status flow: pending → settled (for agent) or pending → approved → paid (for partner)

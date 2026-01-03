@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Search, Building2, Eye, EyeOff, RefreshCw, TrendingUp, 
-  AlertTriangle, Shield, BarChart3, Settings, Users, Plus, Pencil, Trash2, Award
+  AlertTriangle, Shield, BarChart3, Settings, Users, Plus, Pencil, Trash2, Award, Calculator
 } from "lucide-react";
 
 interface FundManager {
@@ -58,6 +58,25 @@ interface PmsScheme {
   return1Y: string | null;
   riskScore: number | null;
   isPublished: boolean;
+}
+
+interface ItrPricingConfig {
+  id: string;
+  itrFormType: string;
+  displayName: string;
+  description: string | null;
+  selfFileFee: string;
+  selfFileGst: string | null;
+  caAssistedFee: string;
+  caAssistedGst: string | null;
+  caRevenueSharePercent: string | null;
+  expertConsultationFee: string | null;
+  rushFilingFee: string | null;
+  complexityLevel: string | null;
+  estimatedProcessingDays: number | null;
+  eligibleForSelfFile: boolean | null;
+  requiresCa: boolean | null;
+  isActive: boolean | null;
 }
 
 function formatCurrency(value: string | number | null): string {
@@ -113,6 +132,16 @@ export default function AdminStoreManager() {
     name: "", designation: "", bio: "", experienceYears: "",
     qualifications: "", photoUrl: "", linkedinUrl: "",
     totalAumManaged: "", fundsManaged: "", avgAlpha: "", consistencyScore: ""
+  });
+
+  // ITR Pricing State
+  const [editingItrPricing, setEditingItrPricing] = useState<ItrPricingConfig | null>(null);
+  const [isItrPricingDialogOpen, setIsItrPricingDialogOpen] = useState(false);
+  const [newItrPricing, setNewItrPricing] = useState({
+    itrFormType: "", displayName: "", description: "",
+    selfFileFee: "0", caAssistedFee: "0", caRevenueSharePercent: "50",
+    complexityLevel: "standard", estimatedProcessingDays: 3,
+    eligibleForSelfFile: true, requiresCa: false, isActive: true
   });
 
   const { data: fundManagersData, isLoading: managersLoading, refetch: refetchManagers } = useQuery<{ managers: FundManager[]; pagination: any }>({
@@ -180,6 +209,58 @@ export default function AdminStoreManager() {
     onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
   });
 
+
+  // ITR Pricing Query and Mutations
+  const { data: itrPricingData, isLoading: itrPricingLoading, refetch: refetchItrPricing } = useQuery<{ data: ItrPricingConfig[] }>({
+    queryKey: ["/api/admin/itr-pricing"],
+  });
+
+  const seedItrPricingMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/admin/itr-pricing/seed-defaults", { method: "POST" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/itr-pricing"] });
+      toast({ title: "Default ITR Pricing Seeded Successfully" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const createItrPricingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("/api/admin/itr-pricing", { method: "POST", body: JSON.stringify(data) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/itr-pricing"] });
+      setIsItrPricingDialogOpen(false);
+      setNewItrPricing({ itrFormType: "", displayName: "", description: "", selfFileFee: "0", caAssistedFee: "0", caRevenueSharePercent: "50", complexityLevel: "standard", estimatedProcessingDays: 3, eligibleForSelfFile: true, requiresCa: false, isActive: true });
+      toast({ title: "ITR Pricing Created" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const updateItrPricingMutation = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      return await apiRequest(`/api/admin/itr-pricing/${id}`, { method: "PUT", body: JSON.stringify(data) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/itr-pricing"] });
+      setEditingItrPricing(null);
+      toast({ title: "ITR Pricing Updated" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteItrPricingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/admin/itr-pricing/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/itr-pricing"] });
+      toast({ title: "ITR Pricing Deleted" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
   const { data: pmsData, isLoading: pmsLoading, refetch: refetchPms } = useQuery<{ schemes: PmsScheme[] }>({
     queryKey: ["/api/store/pms/admin", { search: pmsSearch, status: pmsStatusFilter }],
   });
@@ -317,6 +398,10 @@ export default function AdminStoreManager() {
           <TabsTrigger value="managers" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
             Fund Managers ({fundManagersData?.managers?.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="itr-pricing" className="flex items-center gap-2">
+            <Calculator className="w-4 h-4" />
+            ITR Pricing ({itrPricingData?.data?.length || 0})
           </TabsTrigger>
         </TabsList>
 
@@ -727,7 +812,219 @@ export default function AdminStoreManager() {
             </Dialog>
           )}
         </TabsContent>
+
+        {/* ITR Pricing Tab */}
+        <TabsContent value="itr-pricing">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <CardTitle>ITR Filing Pricing Configuration</CardTitle>
+                  <CardDescription>Manage pricing for all ITR form types (ITR-1 through ITR-7)</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => seedItrPricingMutation.mutate()} disabled={seedItrPricingMutation.isPending}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${seedItrPricingMutation.isPending ? "animate-spin" : ""}`} />
+                    Seed Defaults
+                  </Button>
+                  <Button onClick={() => setIsItrPricingDialogOpen(true)} data-testid="button-add-itr-pricing">
+                    <Plus className="w-4 h-4 mr-2" /> Add Pricing
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {itrPricingLoading ? (
+                <div className="flex justify-center py-8"><RefreshCw className="w-6 h-6 animate-spin" /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3 font-medium">Form Type</th>
+                        <th className="text-left p-3 font-medium">Display Name</th>
+                        <th className="text-right p-3 font-medium">Self-File Fee</th>
+                        <th className="text-right p-3 font-medium">CA-Assisted Fee</th>
+                        <th className="text-right p-3 font-medium">CA Share %</th>
+                        <th className="text-center p-3 font-medium">Complexity</th>
+                        <th className="text-center p-3 font-medium">Status</th>
+                        <th className="text-right p-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {itrPricingData?.data?.map((pricing) => (
+                        <tr key={pricing.id} className="border-b hover:bg-muted/20">
+                          <td className="p-3 font-medium">{pricing.itrFormType}</td>
+                          <td className="p-3">{pricing.displayName}</td>
+                          <td className="p-3 text-right">{pricing.eligibleForSelfFile ? `₹${Number(pricing.selfFileFee).toLocaleString()}` : "N/A"}</td>
+                          <td className="p-3 text-right">₹{Number(pricing.caAssistedFee).toLocaleString()}</td>
+                          <td className="p-3 text-right">{pricing.caRevenueSharePercent}%</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.complexityLevel === "simple" ? "bg-green-100 text-green-700" : pricing.complexityLevel === "standard" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                              {pricing.complexityLevel}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${pricing.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                              {pricing.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex gap-1 justify-end">
+                              <Button variant="ghost" size="icon" onClick={() => setEditingItrPricing(pricing)} data-testid={`button-edit-itr-pricing-${pricing.id}`}>
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Delete this pricing?")) deleteItrPricingMutation.mutate(pricing.id.toString()); }} data-testid={`button-delete-itr-pricing-${pricing.id}`}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(!itrPricingData?.data || itrPricingData.data.length === 0) && (
+                    <div className="text-center py-8 text-muted-foreground">No ITR pricing configured. Click "Seed Defaults" to add standard pricing.</div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Create ITR Pricing Dialog */}
+      <Dialog open={isItrPricingDialogOpen} onOpenChange={setIsItrPricingDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add ITR Pricing Configuration</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>ITR Form Type</Label>
+                <select className="w-full p-2 border rounded" value={newItrPricing.itrFormType} onChange={(e) => setNewItrPricing({ ...newItrPricing, itrFormType: e.target.value })}>
+                  <option value="">Select Form</option>
+                  <option value="ITR-1">ITR-1 (Sahaj)</option>
+                  <option value="ITR-2">ITR-2</option>
+                  <option value="ITR-3">ITR-3</option>
+                  <option value="ITR-4">ITR-4 (Sugam)</option>
+                  <option value="ITR-5">ITR-5</option>
+                  <option value="ITR-6">ITR-6</option>
+                  <option value="ITR-7">ITR-7</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Display Name</Label>
+                <Input value={newItrPricing.displayName} onChange={(e) => setNewItrPricing({ ...newItrPricing, displayName: e.target.value })} placeholder="e.g., Salaried Individual" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input value={newItrPricing.description} onChange={(e) => setNewItrPricing({ ...newItrPricing, description: e.target.value })} placeholder="Brief description" />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Self-File Fee (₹)</Label>
+                <Input type="number" value={newItrPricing.selfFileFee} onChange={(e) => setNewItrPricing({ ...newItrPricing, selfFileFee: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>CA-Assisted Fee (₹)</Label>
+                <Input type="number" value={newItrPricing.caAssistedFee} onChange={(e) => setNewItrPricing({ ...newItrPricing, caAssistedFee: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>CA Share (%)</Label>
+                <Input type="number" value={newItrPricing.caRevenueSharePercent} onChange={(e) => setNewItrPricing({ ...newItrPricing, caRevenueSharePercent: e.target.value })} min="0" max="100" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Complexity Level</Label>
+                <select className="w-full p-2 border rounded" value={newItrPricing.complexityLevel} onChange={(e) => setNewItrPricing({ ...newItrPricing, complexityLevel: e.target.value })}>
+                  <option value="simple">Simple</option>
+                  <option value="standard">Standard</option>
+                  <option value="complex">Complex</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Processing Days</Label>
+                <Input type="number" value={newItrPricing.estimatedProcessingDays} onChange={(e) => setNewItrPricing({ ...newItrPricing, estimatedProcessingDays: parseInt(e.target.value) || 3 })} min="1" max="30" />
+              </div>
+            </div>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2"><input type="checkbox" checked={newItrPricing.eligibleForSelfFile} onChange={(e) => setNewItrPricing({ ...newItrPricing, eligibleForSelfFile: e.target.checked })} /> Eligible for Self-File</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={newItrPricing.requiresCa} onChange={(e) => setNewItrPricing({ ...newItrPricing, requiresCa: e.target.checked })} /> Requires CA</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={newItrPricing.isActive} onChange={(e) => setNewItrPricing({ ...newItrPricing, isActive: e.target.checked })} /> Active</label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsItrPricingDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => createItrPricingMutation.mutate({ ...newItrPricing, selfFileFee: newItrPricing.selfFileFee, caAssistedFee: newItrPricing.caAssistedFee, caRevenueSharePercent: parseInt(newItrPricing.caRevenueSharePercent) })} disabled={createItrPricingMutation.isPending} data-testid="button-submit-itr-pricing">
+              {createItrPricingMutation.isPending ? "Creating..." : "Create Pricing"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit ITR Pricing Dialog */}
+      <Dialog open={!!editingItrPricing} onOpenChange={() => setEditingItrPricing(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit ITR Pricing - {editingItrPricing?.itrFormType}</DialogTitle>
+          </DialogHeader>
+          {editingItrPricing && (
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>Display Name</Label>
+                <Input value={editingItrPricing.displayName || ""} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, displayName: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input value={editingItrPricing.description || ""} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, description: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Self-File Fee (₹)</Label>
+                  <Input type="number" value={editingItrPricing.selfFileFee} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, selfFileFee: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>CA-Assisted Fee (₹)</Label>
+                  <Input type="number" value={editingItrPricing.caAssistedFee} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, caAssistedFee: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>CA Share (%)</Label>
+                  <Input type="number" value={editingItrPricing.caRevenueSharePercent} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, caRevenueSharePercent: parseInt(e.target.value) || 50 })} min="0" max="100" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Complexity Level</Label>
+                  <select className="w-full p-2 border rounded" value={editingItrPricing.complexityLevel} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, complexityLevel: e.target.value })}>
+                    <option value="simple">Simple</option>
+                    <option value="standard">Standard</option>
+                    <option value="complex">Complex</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Processing Days</Label>
+                  <Input type="number" value={editingItrPricing.estimatedProcessingDays} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, estimatedProcessingDays: parseInt(e.target.value) || 3 })} min="1" max="30" />
+                </div>
+              </div>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={editingItrPricing.eligibleForSelfFile ?? true} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, eligibleForSelfFile: e.target.checked })} /> Eligible for Self-File</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={editingItrPricing.requiresCa ?? false} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, requiresCa: e.target.checked })} /> Requires CA</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={editingItrPricing.isActive ?? true} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, isActive: e.target.checked })} /> Active</label>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingItrPricing(null)}>Cancel</Button>
+            <Button onClick={() => editingItrPricing && updateItrPricingMutation.mutate({ id: editingItrPricing.id, displayName: editingItrPricing.displayName, description: editingItrPricing.description, selfFileFee: editingItrPricing.selfFileFee, caAssistedFee: editingItrPricing.caAssistedFee, caRevenueSharePercent: editingItrPricing.caRevenueSharePercent, complexityLevel: editingItrPricing.complexityLevel, estimatedProcessingDays: editingItrPricing.estimatedProcessingDays, eligibleForSelfFile: editingItrPricing.eligibleForSelfFile, requiresCa: editingItrPricing.requiresCa, isActive: editingItrPricing.isActive })} disabled={updateItrPricingMutation.isPending} data-testid="button-update-itr-pricing">
+              {updateItrPricingMutation.isPending ? "Updating..." : "Update Pricing"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -8795,6 +8795,11 @@ export const filingRecords = pgTable("filing_records", {
   processingErrors: jsonb("processing_errors").default([]),
   apiResponse: jsonb("api_response"), // Raw response from filing API
   
+  // Zoho Books Sync
+  zohoSyncedAt: timestamp("zoho_synced_at"),
+  zohoInvoiceId: varchar("zoho_invoice_id"),
+  zohoSyncStatus: varchar("zoho_sync_status"), // pending, synced, failed
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -17368,6 +17373,12 @@ export const agentItrCases = pgTable("agent_itr_cases", {
   sourceProduct: varchar("source_product"), // stocks, mutual_funds, bonds, unlisted, etc.
   referralCode: varchar("referral_code"),
   
+  // Zoho Books Sync
+  zohoSyncedAt: timestamp("zoho_synced_at"),
+  zohoInvoiceId: varchar("zoho_invoice_id"),
+  zohoBillId: varchar("zoho_bill_id"), // For CA payout
+  zohoSyncStatus: varchar("zoho_sync_status"), // pending, synced, failed, pass_through
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -17379,6 +17390,64 @@ export const agentItrCases = pgTable("agent_itr_cases", {
   index("idx_agent_itr_cases_status").on(table.status),
   index("idx_agent_itr_cases_ay").on(table.assessmentYear),
 ]);
+
+
+// ITR Filing Pricing Configuration
+export const itrPricingConfig = pgTable("itr_pricing_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // ITR Form Type
+  itrFormType: varchar("itr_form_type").notNull().unique(), // ITR-1, ITR-2, ITR-3, ITR-4, ITR-5, ITR-6, ITR-7
+  displayName: varchar("display_name").notNull(),
+  description: text("description"),
+  
+  // Self-File Pricing
+  selfFileFee: decimal("self_file_fee", { precision: 10, scale: 2 }).notNull().default("0"),
+  selfFileGst: decimal("self_file_gst", { precision: 10, scale: 2 }).default("0"),
+  
+  // CA-Assisted Pricing
+  caAssistedFee: decimal("ca_assisted_fee", { precision: 10, scale: 2 }).notNull().default("0"),
+  caAssistedGst: decimal("ca_assisted_gst", { precision: 10, scale: 2 }).default("0"),
+  caRevenueSharePercent: decimal("ca_revenue_share_percent", { precision: 5, scale: 2 }).default("50"), // 50-80%
+  
+  // Expert Consultation
+  expertConsultationFee: decimal("expert_consultation_fee", { precision: 10, scale: 2 }).default("0"),
+  
+  // Rush/Priority Charges
+  rushFilingFee: decimal("rush_filing_fee", { precision: 10, scale: 2 }).default("0"),
+  lateFeeMultiplier: decimal("late_fee_multiplier", { precision: 4, scale: 2 }).default("1.0"), // Multiplier for late filing
+  
+  // Complexity Factors
+  complexityLevel: varchar("complexity_level").default("standard"), // simple, standard, complex
+  estimatedProcessingDays: integer("estimated_processing_days").default(3),
+  
+  // Eligibility
+  eligibleForSelfFile: boolean("eligible_for_self_file").default(true),
+  requiresCa: boolean("requires_ca").default(false),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: timestamp("effective_from").defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  
+  // Audit
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+}, (table) => [
+  index("idx_itr_pricing_form_type").on(table.itrFormType),
+  index("idx_itr_pricing_active").on(table.isActive),
+]);
+
+export const insertItrPricingConfigSchema = createInsertSchema(itrPricingConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertItrPricingConfig = z.infer<typeof insertItrPricingConfigSchema>;
+export type ItrPricingConfig = typeof itrPricingConfig.$inferSelect;
 
 // ITR Case Documents
 export const agentItrDocuments = pgTable("agent_itr_documents", {
