@@ -1,45 +1,79 @@
-import { MutualFund } from '@shared/schema';
+import { db } from "../db";
+import { mutualFunds, listedStocks, corporateBonds, governmentSecurities } from "@shared/schema";
+import { eq, and, desc, gte, lte, sql, inArray, ilike, or, isNotNull } from "drizzle-orm";
+import { GoogleGenAI } from "@google/genai";
+
+export type AssetClass = 'mutual_fund' | 'stock' | 'bond' | 'government_security' | 'reit' | 'commodity';
 
 export interface FintekProRating {
-  rating: number; // 1-5 scale (1 = very good performance)
-  category: 'equity' | 'debt' | 'hybrid';
-  percentile: number; // 0-100 percentile ranking
+  rating: number;
+  stars: number;
+  category: 'equity' | 'debt' | 'hybrid' | 'commodity' | 'alternative';
+  percentile: number;
   evaluationDate: Date;
   riskAdjustedScore: number;
-  assetQualityScore: number;
+  qualityScore: number;
+  assetQualityScore: number; // Backward compatibility alias for qualityScore
   liquidityScore: number;
-  concentrationScore: number;
+  momentumScore: number;
+  valuationScore: number;
+  concentrationScore: number; // Backward compatibility
   overallScore: number;
-  dataSource: 'calculated' | 'api' | 'manual';
+  confidenceLevel: 'high' | 'medium' | 'low';
+  dataSource: 'database' | 'calculated' | 'ai_enhanced';
 }
 
 export interface FintekProAnalysis {
-  schemeCode: string;
-  schemeName: string;
+  id: string;
+  assetClass: AssetClass;
+  name: string;
+  symbol?: string;
   rating: FintekProRating;
   rationale: string;
   strengths: string[];
   concerns: string[];
   recommendation: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
+  keyMetrics: Record<string, number | string>;
+  peerComparison?: {
+    rank: number;
+    totalPeers: number;
+    percentile: number;
+  };
+  aiInsights?: string;
 }
 
-/**
- * FintekPro Smart Rating Service
- * 
- * Provides intelligent mutual fund ratings based on industry-standard metrics:
- * - Risk-adjusted returns (1Y, 3Y, 5Y performance)
- * - Asset quality (AUM, fund house reputation)
- * - Liquidity scores
- * - Concentration risk metrics
- * 
- * This is FintekPro's proprietary rating system, calculated using transparent
- * methodology based on quantitative analysis and fund characteristics.
- */
+export interface RatingParams {
+  assetClass: AssetClass;
+  id: string;
+  includeAI?: boolean;
+  includePeerComparison?: boolean;
+}
+
+export interface BulkRatingParams {
+  assetClass: AssetClass;
+  ids: string[];
+  includeAI?: boolean;
+  limit?: number;
+}
+
+const FUND_HOUSE_SCORES: Record<string, number> = {
+  'sbi': 95, 'icici': 93, 'hdfc': 94, 'axis': 90, 'kotak': 89,
+  'nippon': 87, 'aditya birla': 88, 'dsp': 85, 'tata': 86, 'uti': 84,
+  'mirae': 83, 'franklin': 82, 'sundaram': 80, 'invesco': 79, 'edelweiss': 78
+};
+
+const SECTOR_RISK_WEIGHTS: Record<string, number> = {
+  'banking': 0.85, 'it': 0.80, 'fmcg': 0.75, 'pharma': 0.82, 'auto': 0.88,
+  'infrastructure': 0.90, 'realty': 0.95, 'metals': 0.92, 'energy': 0.87,
+  'telecom': 0.83, 'chemicals': 0.86, 'consumer': 0.78, 'healthcare': 0.80
+};
+
 export class FintekProRatingService {
   private static instance: FintekProRatingService;
+  private genAI: GoogleGenAI | null = null;
   private ratingCache = new Map<string, FintekProAnalysis>();
   private lastCacheUpdate = new Date();
-  private readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
   public static getInstance(): FintekProRatingService {
     if (!FintekProRatingService.instance) {
@@ -49,294 +83,719 @@ export class FintekProRatingService {
   }
 
   private constructor() {
-    console.log("🏆 FintekPro Smart Rating Service initialized");
+    const apiKey = process.env.AI_INTEGRATIONS_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (apiKey) {
+      this.genAI = new GoogleGenAI({ apiKey });
+      console.log("🏆 FintekPro Smart Rating Service initialized with AI");
+    } else {
+      console.log("🏆 FintekPro Smart Rating Service initialized (rule-based mode)");
+    }
   }
 
-  /**
-   * Get FintekPro Smart Rating for a specific mutual fund scheme
-   */
-  async getRating(schemeCode: string): Promise<FintekProAnalysis | null> {
+  async getRating(paramsOrSchemeCode: RatingParams | string): Promise<FintekProAnalysis | null> {
+    // Backward compatibility: if string is passed, assume it's a mutual fund scheme code
+    const params: RatingParams = typeof paramsOrSchemeCode === 'string' 
+      ? { assetClass: 'mutual_fund', id: paramsOrSchemeCode }
+      : paramsOrSchemeCode;
+
+    const cacheKey = `${params.assetClass}:${params.id}`;
+    
+    if (this.ratingCache.has(cacheKey) && this.isCacheValid()) {
+      return this.ratingCache.get(cacheKey)!;
+    }
+
     try {
-      // Check cache first
-      if (this.ratingCache.has(schemeCode) && this.isCacheValid()) {
-        return this.ratingCache.get(schemeCode)!;
+      let analysis: FintekProAnalysis | null = null;
+
+      switch (params.assetClass) {
+        case 'mutual_fund':
+          analysis = await this.rateMutualFund(params.id, params.includeAI);
+          break;
+        case 'stock':
+          analysis = await this.rateStock(params.id, params.includeAI);
+          break;
+        case 'bond':
+          analysis = await this.rateCorporateBond(params.id, params.includeAI);
+          break;
+        case 'government_security':
+          analysis = await this.rateGovernmentSecurity(params.id, params.includeAI);
+          break;
+        default:
+          console.warn(`Asset class ${params.assetClass} not yet supported`);
+          return null;
       }
 
-      // Generate rating based on scheme characteristics
-      const rating = await this.generateRating(schemeCode);
-      
-      if (rating) {
-        this.ratingCache.set(schemeCode, rating);
+      if (analysis) {
+        this.ratingCache.set(cacheKey, analysis);
       }
 
-      return rating;
+      return analysis;
     } catch (error) {
-      console.error(`❌ Error calculating FintekPro rating for ${schemeCode}:`, error);
+      console.error(`❌ Error calculating FintekPro rating for ${params.id}:`, error);
       return null;
     }
   }
 
-  /**
-   * Get FintekPro Smart Ratings for multiple schemes
-   */
-  async getBulkRatings(schemeCodes: string[]): Promise<FintekProAnalysis[]> {
+  async getBulkRatings(params: BulkRatingParams): Promise<FintekProAnalysis[]> {
     const ratings: FintekProAnalysis[] = [];
+    const limit = params.limit || 50;
+    const idsToProcess = params.ids.slice(0, limit);
 
-    for (const schemeCode of schemeCodes) {
+    for (const id of idsToProcess) {
       try {
-        const rating = await this.getRating(schemeCode);
+        const rating = await this.getRating({
+          assetClass: params.assetClass,
+          id,
+          includeAI: params.includeAI
+        });
         if (rating) {
           ratings.push(rating);
         }
       } catch (error) {
-        console.warn(`Failed to get FintekPro rating for ${schemeCode}:`, error);
+        console.warn(`Failed to get FintekPro rating for ${id}:`, error);
       }
     }
 
-    return ratings;
+    return ratings.sort((a, b) => b.rating.overallScore - a.rating.overallScore);
   }
 
-  /**
-   * Generate FintekPro Smart Rating based on fund characteristics
-   * Uses transparent, quantitative methodology
-   */
-  private async generateRating(schemeCode: string): Promise<FintekProAnalysis | null> {
-    // Mock fund data for demonstration
-    const mockFunds = this.getMockFundDatabase();
-    const fund = mockFunds[schemeCode];
-
-    if (!fund) {
-      return null;
+  async getTopRated(assetClass: AssetClass, limit: number = 10): Promise<FintekProAnalysis[]> {
+    try {
+      switch (assetClass) {
+        case 'mutual_fund':
+          return this.getTopRatedMutualFunds(limit);
+        case 'stock':
+          return this.getTopRatedStocks(limit);
+        case 'bond':
+          return this.getTopRatedBonds(limit);
+        default:
+          return [];
+      }
+    } catch (error) {
+      console.error(`Error fetching top rated ${assetClass}:`, error);
+      return [];
     }
+  }
 
-    // Calculate scores based on fund characteristics
-    const category = this.determineCategory(fund.category);
-    const riskAdjustedScore = this.calculateRiskAdjustedScore(fund);
-    const assetQualityScore = this.calculateAssetQualityScore(fund);
-    const liquidityScore = this.calculateLiquidityScore(fund);
-    const concentrationScore = this.calculateConcentrationScore(fund);
-    
-    // Overall score is weighted average
+  private async rateMutualFund(schemeCode: string, includeAI?: boolean): Promise<FintekProAnalysis | null> {
+    const funds = await db
+      .select()
+      .from(mutualFunds)
+      .where(eq(mutualFunds.schemeCode, schemeCode))
+      .limit(1);
+
+    if (funds.length === 0) return null;
+    const fund = funds[0];
+
+    const returns1y = parseFloat(fund.returns1y?.toString() || '0');
+    const returns3y = parseFloat(fund.returns3y?.toString() || '0');
+    const returns5y = parseFloat(fund.returns5y?.toString() || '0');
+    const expenseRatio = parseFloat(fund.expenseRatio?.toString() || '1.5');
+    const aum = parseFloat(fund.aum?.toString() || '1000');
+    const nav = parseFloat(fund.nav?.toString() || '100');
+
+    const riskAdjustedScore = this.calculateMFRiskAdjustedScore(returns1y, returns3y, returns5y, expenseRatio);
+    const qualityScore = this.calculateMFQualityScore(fund.fundHouse || '', aum, fund.crisilRating);
+    const liquidityScore = this.calculateMFLiquidityScore(aum, fund.category || '');
+    const momentumScore = this.calculateMomentumScore(returns1y, returns3y);
+    const valuationScore = this.calculateMFValuationScore(expenseRatio, fund.category || '');
+
     const overallScore = (
-      riskAdjustedScore * 0.4 +
-      assetQualityScore * 0.3 +
-      liquidityScore * 0.2 +
-      concentrationScore * 0.1
+      riskAdjustedScore * 0.35 +
+      qualityScore * 0.25 +
+      liquidityScore * 0.15 +
+      momentumScore * 0.15 +
+      valuationScore * 0.10
     );
 
-    // Convert overall score to 1-5 rating (1 = best)
-    const rating = Math.max(1, Math.min(5, Math.ceil((100 - overallScore) / 20)));
-    const percentile = Math.round(overallScore);
+    const stars = this.scoreToStars(overallScore);
+    const category = this.determineMFCategory(fund.category || '');
+    const percentile = this.scoreToPercentile(overallScore);
 
-    // Generate analysis
-    const analysis: FintekProAnalysis = {
-      schemeCode,
-      schemeName: fund.name,
-      rating: {
-        rating,
-        category,
-        percentile,
-        evaluationDate: new Date(),
-        riskAdjustedScore,
-        assetQualityScore,
-        liquidityScore,
-        concentrationScore,
-        overallScore,
-        dataSource: 'calculated'
-      },
-      rationale: this.generateRationale(rating, category, overallScore),
-      strengths: this.generateStrengths(fund, overallScore),
-      concerns: this.generateConcerns(fund, overallScore),
-      recommendation: this.generateRecommendation(rating, overallScore)
+    const rating: FintekProRating = {
+      rating: stars,
+      stars,
+      category,
+      percentile,
+      evaluationDate: new Date(),
+      riskAdjustedScore,
+      qualityScore,
+      assetQualityScore: qualityScore, // Backward compatibility
+      concentrationScore: 80, // Default concentration score for backward compatibility
+      liquidityScore,
+      momentumScore,
+      valuationScore,
+      overallScore,
+      confidenceLevel: aum > 5000 ? 'high' : aum > 1000 ? 'medium' : 'low',
+      dataSource: includeAI && this.genAI ? 'ai_enhanced' : 'database'
     };
 
-    return analysis;
+    const keyMetrics = {
+      returns1Y: `${returns1y.toFixed(2)}%`,
+      returns3Y: `${returns3y.toFixed(2)}%`,
+      returns5Y: `${returns5y.toFixed(2)}%`,
+      expenseRatio: `${expenseRatio.toFixed(2)}%`,
+      aum: `₹${(aum).toFixed(0)} Cr`,
+      nav: `₹${nav.toFixed(2)}`,
+      crisilRating: fund.crisilRating || 'N/A'
+    };
+
+    const strengths = this.generateMFStrengths(fund, overallScore, returns1y, returns3y, aum, expenseRatio);
+    const concerns = this.generateMFConcerns(fund, overallScore, returns1y, aum, expenseRatio);
+    const recommendation = this.generateRecommendation(stars, overallScore);
+    const rationale = this.generateMFRationale(fund, rating, keyMetrics);
+
+    let aiInsights: string | undefined;
+    if (includeAI && this.genAI) {
+      aiInsights = await this.generateAIInsights('mutual_fund', fund.schemeName || '', keyMetrics, rating);
+    }
+
+    return {
+      id: schemeCode,
+      assetClass: 'mutual_fund',
+      name: fund.schemeName || 'Unknown Fund',
+      symbol: fund.schemeCode,
+      rating,
+      rationale,
+      strengths,
+      concerns,
+      recommendation,
+      keyMetrics,
+      aiInsights
+    };
   }
 
-  private getMockFundDatabase(): Record<string, any> {
+  private async rateStock(stockId: string, includeAI?: boolean): Promise<FintekProAnalysis | null> {
+    const stocks = await db
+      .select()
+      .from(listedStocks)
+      .where(or(eq(listedStocks.id, stockId), eq(listedStocks.symbol, stockId)))
+      .limit(1);
+
+    if (stocks.length === 0) return null;
+    const stock = stocks[0];
+
+    const currentPrice = parseFloat(stock.currentPrice?.toString() || '0');
+    const peRatio = parseFloat(stock.peRatio?.toString() || '25');
+    const pbRatio = parseFloat(stock.pbRatio?.toString() || '3');
+    const roe = parseFloat(stock.roe?.toString() || '15');
+    const marketCap = parseFloat(stock.marketCap?.toString() || '10000');
+    const returns1y = parseFloat(stock.returns1y?.toString() || '0');
+    const returns3y = parseFloat(stock.returns3y?.toString() || '0');
+    const beta = parseFloat(stock.beta?.toString() || '1');
+
+    const riskAdjustedScore = this.calculateStockRiskAdjustedScore(returns1y, returns3y, beta);
+    const qualityScore = this.calculateStockQualityScore(roe, stock.debtToEquity?.toString(), stock.sector || '');
+    const liquidityScore = this.calculateStockLiquidityScore(marketCap, stock.avgVolume?.toString());
+    const momentumScore = this.calculateMomentumScore(returns1y, returns3y);
+    const valuationScore = this.calculateStockValuationScore(peRatio, pbRatio, stock.sector || '');
+
+    const overallScore = (
+      riskAdjustedScore * 0.30 +
+      qualityScore * 0.25 +
+      liquidityScore * 0.15 +
+      momentumScore * 0.15 +
+      valuationScore * 0.15
+    );
+
+    const stars = this.scoreToStars(overallScore);
+    const percentile = this.scoreToPercentile(overallScore);
+
+    const rating: FintekProRating = {
+      rating: stars,
+      stars,
+      category: 'equity',
+      percentile,
+      evaluationDate: new Date(),
+      riskAdjustedScore,
+      qualityScore,
+      assetQualityScore: qualityScore, // Backward compatibility
+      concentrationScore: 80, // Default concentration score for backward compatibility
+      liquidityScore,
+      momentumScore,
+      valuationScore,
+      overallScore,
+      confidenceLevel: marketCap > 50000 ? 'high' : marketCap > 10000 ? 'medium' : 'low',
+      dataSource: includeAI && this.genAI ? 'ai_enhanced' : 'database'
+    };
+
+    const keyMetrics = {
+      currentPrice: `₹${currentPrice.toFixed(2)}`,
+      peRatio: peRatio.toFixed(2),
+      pbRatio: pbRatio.toFixed(2),
+      roe: `${roe.toFixed(2)}%`,
+      marketCap: `₹${(marketCap / 100).toFixed(0)} Cr`,
+      returns1Y: `${returns1y.toFixed(2)}%`,
+      beta: beta.toFixed(2),
+      sector: stock.sector || 'N/A'
+    };
+
+    const strengths = this.generateStockStrengths(stock, overallScore, returns1y, roe, peRatio);
+    const concerns = this.generateStockConcerns(stock, overallScore, returns1y, peRatio, beta);
+    const recommendation = this.generateRecommendation(stars, overallScore);
+    const rationale = this.generateStockRationale(stock, rating, keyMetrics);
+
+    let aiInsights: string | undefined;
+    if (includeAI && this.genAI) {
+      aiInsights = await this.generateAIInsights('stock', stock.companyName || stock.symbol || '', keyMetrics, rating);
+    }
+
     return {
-      '119551': {
-        name: 'SBI BlueChip Fund - Direct Plan - Growth',
-        category: 'Large Cap Fund',
-        fundHouse: 'SBI Mutual Fund',
-        aum: 25000,
-        expenseRatio: 0.95,
-        returns: { '1Y': 15.3, '3Y': 12.7, '5Y': 11.2 }
-      },
-      '120503': {
-        name: 'ICICI Prudential Bluechip Fund - Direct Plan - Growth',
-        category: 'Large Cap Fund',
-        fundHouse: 'ICICI Prudential Mutual Fund',
-        aum: 32000,
-        expenseRatio: 1.05,
-        returns: { '1Y': 14.8, '3Y': 13.1, '5Y': 12.0 }
-      },
-      '118989': {
-        name: 'Axis Bluechip Fund - Direct Plan - Growth',
-        category: 'Large Cap Fund',
-        fundHouse: 'Axis Mutual Fund',
-        aum: 28000,
-        expenseRatio: 1.15,
-        returns: { '1Y': 16.2, '3Y': 14.5, '5Y': 13.1 }
+      id: stockId,
+      assetClass: 'stock',
+      name: stock.companyName || stock.symbol || 'Unknown Stock',
+      symbol: stock.symbol || undefined,
+      rating,
+      rationale,
+      strengths,
+      concerns,
+      recommendation,
+      keyMetrics,
+      aiInsights
+    };
+  }
+
+  private async rateCorporateBond(bondId: string, includeAI?: boolean): Promise<FintekProAnalysis | null> {
+    const bonds = await db
+      .select()
+      .from(corporateBonds)
+      .where(or(eq(corporateBonds.id, bondId), eq(corporateBonds.isin, bondId)))
+      .limit(1);
+
+    if (bonds.length === 0) return null;
+    const bond = bonds[0];
+
+    const yieldToMaturity = parseFloat(bond.yieldToMaturity?.toString() || '8');
+    const couponRate = parseFloat(bond.couponRate?.toString() || '7');
+    const faceValue = parseFloat(bond.faceValue?.toString() || '1000');
+    const currentPrice = parseFloat(bond.currentPrice?.toString() || '1000');
+
+    const creditScore = this.getCreditRatingScore(bond.creditRating || 'BBB');
+    const yieldScore = Math.min(100, 50 + yieldToMaturity * 5);
+    const liquidityScore = bond.tradingStatus === 'active' ? 80 : 50;
+    const issuerScore = this.getIssuerScore(bond.issuerName || '');
+    const durationScore = this.getDurationScore(bond.maturityDate?.toString() || '');
+
+    const overallScore = (
+      creditScore * 0.35 +
+      yieldScore * 0.25 +
+      liquidityScore * 0.15 +
+      issuerScore * 0.15 +
+      durationScore * 0.10
+    );
+
+    const stars = this.scoreToStars(overallScore);
+    const percentile = this.scoreToPercentile(overallScore);
+
+    const rating: FintekProRating = {
+      rating: stars,
+      stars,
+      category: 'debt',
+      percentile,
+      evaluationDate: new Date(),
+      riskAdjustedScore: creditScore,
+      qualityScore: issuerScore,
+      assetQualityScore: issuerScore,
+      liquidityScore,
+      momentumScore: yieldScore,
+      valuationScore: durationScore,
+      concentrationScore: 80,
+      overallScore,
+      confidenceLevel: bond.creditRating?.startsWith('AA') ? 'high' : 'medium',
+      dataSource: includeAI && this.genAI ? 'ai_enhanced' : 'database'
+    };
+
+    const keyMetrics = {
+      yieldToMaturity: `${yieldToMaturity.toFixed(2)}%`,
+      couponRate: `${couponRate.toFixed(2)}%`,
+      creditRating: bond.creditRating || 'N/A',
+      issuer: bond.issuerName || 'N/A',
+      maturityDate: bond.maturityDate?.toString() || 'N/A',
+      faceValue: `₹${faceValue.toFixed(0)}`,
+      currentPrice: `₹${currentPrice.toFixed(2)}`
+    };
+
+    const strengths = this.generateBondStrengths(bond, overallScore, yieldToMaturity, creditScore);
+    const concerns = this.generateBondConcerns(bond, overallScore, yieldToMaturity);
+    const recommendation = this.generateRecommendation(stars, overallScore);
+    const rationale = `This ${bond.creditRating || 'rated'} corporate bond from ${bond.issuerName || 'the issuer'} offers ${yieldToMaturity.toFixed(2)}% yield with a ${stars}-star FintekPro rating based on credit quality, yield attractiveness, and liquidity.`;
+
+    return {
+      id: bondId,
+      assetClass: 'bond',
+      name: bond.bondName || 'Unknown Bond',
+      symbol: bond.isin || undefined,
+      rating,
+      rationale,
+      strengths,
+      concerns,
+      recommendation,
+      keyMetrics
+    };
+  }
+
+  private async rateGovernmentSecurity(securityId: string, includeAI?: boolean): Promise<FintekProAnalysis | null> {
+    const securities = await db
+      .select()
+      .from(governmentSecurities)
+      .where(or(eq(governmentSecurities.id, securityId), eq(governmentSecurities.isin, securityId)))
+      .limit(1);
+
+    if (securities.length === 0) return null;
+    const security = securities[0];
+
+    const yieldToMaturity = parseFloat(security.yieldToMaturity?.toString() || '7');
+    const couponRate = parseFloat(security.couponRate?.toString() || '6');
+
+    const safetyScore = 100;
+    const yieldScore = Math.min(100, 50 + yieldToMaturity * 6);
+    const liquidityScore = security.tradingStatus === 'active' ? 95 : 70;
+    const durationScore = this.getDurationScore(security.maturityDate?.toString() || '');
+
+    const overallScore = (
+      safetyScore * 0.30 +
+      yieldScore * 0.30 +
+      liquidityScore * 0.25 +
+      durationScore * 0.15
+    );
+
+    const stars = this.scoreToStars(overallScore);
+
+    const rating: FintekProRating = {
+      rating: stars,
+      stars,
+      category: 'debt',
+      percentile: this.scoreToPercentile(overallScore),
+      evaluationDate: new Date(),
+      riskAdjustedScore: safetyScore,
+      qualityScore: safetyScore,
+      assetQualityScore: safetyScore,
+      liquidityScore,
+      momentumScore: yieldScore,
+      valuationScore: durationScore,
+      concentrationScore: 90,
+      overallScore,
+      confidenceLevel: 'high',
+      dataSource: 'database'
+    };
+
+    return {
+      id: securityId,
+      assetClass: 'government_security',
+      name: security.securityName || 'Government Security',
+      symbol: security.isin || undefined,
+      rating,
+      rationale: `This ${security.securityType || 'government'} security offers ${yieldToMaturity.toFixed(2)}% yield with sovereign guarantee, rated ${stars} stars for safety and yield attractiveness.`,
+      strengths: ['Sovereign guarantee - zero credit risk', 'High liquidity in secondary market', `Attractive yield of ${yieldToMaturity.toFixed(2)}%`],
+      concerns: ['Interest rate risk if rates rise', 'Lower yields compared to corporate bonds'],
+      recommendation: this.generateRecommendation(stars, overallScore),
+      keyMetrics: {
+        yieldToMaturity: `${yieldToMaturity.toFixed(2)}%`,
+        couponRate: `${couponRate.toFixed(2)}%`,
+        securityType: security.securityType || 'G-Sec',
+        maturityDate: security.maturityDate?.toString() || 'N/A'
       }
     };
   }
 
-  private determineCategory(fundCategory: string): 'equity' | 'debt' | 'hybrid' {
-    const category = fundCategory.toLowerCase();
-    
-    if (category.includes('debt') || category.includes('bond') || category.includes('gilt')) {
-      return 'debt';
+  private async getTopRatedMutualFunds(limit: number): Promise<FintekProAnalysis[]> {
+    const funds = await db
+      .select()
+      .from(mutualFunds)
+      .where(and(
+        eq(mutualFunds.isPublished, true),
+        isNotNull(mutualFunds.returns3y)
+      ))
+      .orderBy(desc(mutualFunds.crisilPercentile))
+      .limit(limit * 2);
+
+    const ratings: FintekProAnalysis[] = [];
+    for (const fund of funds.slice(0, limit)) {
+      const rating = await this.rateMutualFund(fund.schemeCode, false);
+      if (rating) ratings.push(rating);
     }
-    
-    if (category.includes('hybrid') || category.includes('balanced') || category.includes('conservative')) {
-      return 'hybrid';
-    }
-    
-    return 'equity'; // Default for equity funds
+
+    return ratings.sort((a, b) => b.rating.overallScore - a.rating.overallScore).slice(0, limit);
   }
 
-  private calculateRiskAdjustedScore(fund: any): number {
-    const returns1Y = fund.returns?.['1Y'] || 0;
-    const returns3Y = fund.returns?.['3Y'] || 0;
-    const returns5Y = fund.returns?.['5Y'] || 0;
-    
-    // Higher returns get better scores, but with diminishing returns
-    const avgReturns = (returns1Y + returns3Y + returns5Y) / 3;
-    return Math.min(95, Math.max(20, 40 + (avgReturns * 2)));
+  private async getTopRatedStocks(limit: number): Promise<FintekProAnalysis[]> {
+    const stocks = await db
+      .select()
+      .from(listedStocks)
+      .where(and(
+        eq(listedStocks.isPublished, true),
+        isNotNull(listedStocks.returns1y)
+      ))
+      .orderBy(desc(listedStocks.marketCap))
+      .limit(limit * 2);
+
+    const ratings: FintekProAnalysis[] = [];
+    for (const stock of stocks.slice(0, limit)) {
+      const rating = await this.rateStock(stock.id, false);
+      if (rating) ratings.push(rating);
+    }
+
+    return ratings.sort((a, b) => b.rating.overallScore - a.rating.overallScore).slice(0, limit);
   }
 
-  private calculateAssetQualityScore(fund: any): number {
-    // Based on fund house reputation and AUM
-    const aum = fund.aum || 0;
-    const fundHouse = fund.fundHouse || '';
-    
-    let score = 60; // Base score
-    
-    // AUM bonus
-    if (aum > 30000) score += 20;
-    else if (aum > 15000) score += 15;
+  private async getTopRatedBonds(limit: number): Promise<FintekProAnalysis[]> {
+    const bonds = await db
+      .select()
+      .from(corporateBonds)
+      .where(eq(corporateBonds.tradingStatus, 'active'))
+      .orderBy(desc(corporateBonds.yieldToMaturity))
+      .limit(limit * 2);
+
+    const ratings: FintekProAnalysis[] = [];
+    for (const bond of bonds.slice(0, limit)) {
+      const rating = await this.rateCorporateBond(bond.id, false);
+      if (rating) ratings.push(rating);
+    }
+
+    return ratings.sort((a, b) => b.rating.overallScore - a.rating.overallScore).slice(0, limit);
+  }
+
+  private async generateAIInsights(
+    assetClass: string,
+    name: string,
+    metrics: Record<string, number | string>,
+    rating: FintekProRating
+  ): Promise<string | undefined> {
+    if (!this.genAI) return undefined;
+
+    try {
+      const prompt = `You are a SEBI-compliant investment analyst. Provide a brief 2-3 sentence insight for this ${assetClass}:
+
+Name: ${name}
+Key Metrics: ${JSON.stringify(metrics)}
+FintekPro Rating: ${rating.stars}/5 stars (${rating.overallScore.toFixed(1)} overall score)
+Category: ${rating.category}
+
+Focus on: investment suitability, key risks, and potential. Be factual and balanced.`;
+
+      const result = await this.genAI.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt
+      });
+
+      return result.text?.trim();
+    } catch (error) {
+      console.warn('Failed to generate AI insights:', error);
+      return undefined;
+    }
+  }
+
+  private calculateMFRiskAdjustedScore(returns1y: number, returns3y: number, returns5y: number, expenseRatio: number): number {
+    const avgReturn = (returns1y * 0.4 + returns3y * 0.35 + returns5y * 0.25);
+    const netReturn = avgReturn - expenseRatio;
+    const riskFreeRate = 6.5;
+    const excessReturn = netReturn - riskFreeRate;
+    return Math.min(100, Math.max(20, 50 + excessReturn * 3));
+  }
+
+  private calculateMFQualityScore(fundHouse: string, aum: number, crisilRating?: number | null): number {
+    let score = 60;
+    const fundHouseLower = fundHouse.toLowerCase();
+    for (const [name, bonus] of Object.entries(FUND_HOUSE_SCORES)) {
+      if (fundHouseLower.includes(name)) {
+        score = Math.max(score, bonus);
+        break;
+      }
+    }
+    if (aum > 30000) score = Math.min(100, score + 5);
+    else if (aum > 10000) score = Math.min(100, score + 3);
+    if (crisilRating && crisilRating <= 2) score = Math.min(100, score + 5);
+    return score;
+  }
+
+  private calculateMFLiquidityScore(aum: number, category: string): number {
+    let score = 70;
+    if (aum > 25000) score += 20;
+    else if (aum > 10000) score += 15;
     else if (aum > 5000) score += 10;
-    
-    // Fund house bonus
-    if (fundHouse.includes('SBI') || fundHouse.includes('ICICI') || fundHouse.includes('HDFC')) {
-      score += 10;
-    }
-    
-    return Math.min(95, score);
+    if (category.toLowerCase().includes('large cap')) score += 5;
+    return Math.min(100, score);
   }
 
-  private calculateLiquidityScore(fund: any): number {
-    const aum = fund.aum || 0;
-    const category = fund.category?.toLowerCase() || '';
-    
-    let score = 70; // Base score
-    
-    // Large funds typically have better liquidity
-    if (aum > 25000) score += 15;
-    else if (aum > 10000) score += 10;
-    
-    // Large cap funds typically have better liquidity
-    if (category.includes('large cap')) score += 10;
-    
-    return Math.min(90, score);
+  private calculateMomentumScore(returns1y: number, returns3y: number): number {
+    const momentum = returns1y * 0.6 + returns3y * 0.4;
+    return Math.min(100, Math.max(20, 50 + momentum * 2));
   }
 
-  private calculateConcentrationScore(fund: any): number {
-    const category = fund.category?.toLowerCase() || '';
-    
-    let score = 75; // Base score
-    
-    // Large cap funds typically have lower concentration risk
-    if (category.includes('large cap')) score += 10;
-    else if (category.includes('multi cap')) score += 8;
-    else if (category.includes('small cap')) score -= 10;
-    
-    return Math.max(50, Math.min(90, score));
+  private calculateMFValuationScore(expenseRatio: number, category: string): number {
+    let score = 80;
+    if (expenseRatio < 0.5) score += 15;
+    else if (expenseRatio < 1.0) score += 10;
+    else if (expenseRatio < 1.5) score += 5;
+    else if (expenseRatio > 2.0) score -= 15;
+    return Math.min(100, Math.max(30, score));
   }
 
-  private generateRationale(rating: number, category: string, overallScore: number): string {
-    const performance = overallScore > 80 ? 'excellent' : overallScore > 60 ? 'good' : 'moderate';
-    
-    return `This ${category} fund receives a ${rating}-star FintekPro Smart Rating based on ${performance} performance across risk-adjusted returns, asset quality, liquidity, and concentration metrics. The fund demonstrates ${this.getRatingDescription(rating)} characteristics relative to its peer group.`;
+  private calculateStockRiskAdjustedScore(returns1y: number, returns3y: number, beta: number): number {
+    const avgReturn = returns1y * 0.5 + returns3y * 0.5;
+    const riskAdjusted = avgReturn / Math.max(0.5, beta);
+    return Math.min(100, Math.max(20, 50 + riskAdjusted * 2));
   }
 
-  private generateStrengths(fund: any, overallScore: number): string[] {
+  private calculateStockQualityScore(roe: number, debtToEquity?: string, sector?: string): number {
+    let score = 60;
+    if (roe > 20) score += 25;
+    else if (roe > 15) score += 15;
+    else if (roe > 10) score += 5;
+    const de = parseFloat(debtToEquity || '1');
+    if (de < 0.5) score += 10;
+    else if (de > 2) score -= 10;
+    return Math.min(100, Math.max(30, score));
+  }
+
+  private calculateStockLiquidityScore(marketCap: number, avgVolume?: string): number {
+    let score = 60;
+    if (marketCap > 100000) score += 30;
+    else if (marketCap > 50000) score += 25;
+    else if (marketCap > 10000) score += 15;
+    return Math.min(100, score);
+  }
+
+  private calculateStockValuationScore(peRatio: number, pbRatio: number, sector: string): number {
+    let score = 70;
+    if (peRatio < 15) score += 15;
+    else if (peRatio < 25) score += 5;
+    else if (peRatio > 40) score -= 15;
+    if (pbRatio < 2) score += 10;
+    else if (pbRatio > 5) score -= 10;
+    return Math.min(100, Math.max(30, score));
+  }
+
+  private getCreditRatingScore(rating: string): number {
+    const scores: Record<string, number> = {
+      'AAA': 100, 'AA+': 95, 'AA': 90, 'AA-': 85,
+      'A+': 80, 'A': 75, 'A-': 70,
+      'BBB+': 65, 'BBB': 60, 'BBB-': 55,
+      'BB+': 50, 'BB': 45, 'BB-': 40,
+      'B+': 35, 'B': 30, 'B-': 25, 'C': 15, 'D': 5
+    };
+    return scores[rating.toUpperCase()] || 60;
+  }
+
+  private getIssuerScore(issuerName: string): number {
+    const name = issuerName.toLowerCase();
+    if (name.includes('hdfc') || name.includes('icici') || name.includes('sbi') || name.includes('lic')) return 95;
+    if (name.includes('tata') || name.includes('reliance') || name.includes('infosys')) return 90;
+    if (name.includes('bajaj') || name.includes('kotak') || name.includes('axis')) return 85;
+    return 70;
+  }
+
+  private getDurationScore(maturityDate: string): number {
+    if (!maturityDate) return 70;
+    const years = (new Date(maturityDate).getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000);
+    if (years < 2) return 85;
+    if (years < 5) return 80;
+    if (years < 10) return 70;
+    return 60;
+  }
+
+  private scoreToStars(score: number): number {
+    if (score >= 85) return 5;
+    if (score >= 70) return 4;
+    if (score >= 55) return 3;
+    if (score >= 40) return 2;
+    return 1;
+  }
+
+  private scoreToPercentile(score: number): number {
+    return Math.min(99, Math.max(1, score));
+  }
+
+  private determineMFCategory(category: string): 'equity' | 'debt' | 'hybrid' | 'commodity' | 'alternative' {
+    const cat = category.toLowerCase();
+    if (cat.includes('debt') || cat.includes('bond') || cat.includes('gilt') || cat.includes('liquid')) return 'debt';
+    if (cat.includes('hybrid') || cat.includes('balanced')) return 'hybrid';
+    if (cat.includes('gold') || cat.includes('silver') || cat.includes('commodity')) return 'commodity';
+    if (cat.includes('reit') || cat.includes('invit') || cat.includes('fof')) return 'alternative';
+    return 'equity';
+  }
+
+  private generateMFStrengths(fund: any, score: number, returns1y: number, returns3y: number, aum: number, expenseRatio: number): string[] {
     const strengths: string[] = [];
-    
-    if (fund.returns?.['3Y'] > 12) {
-      strengths.push('Consistent 3-year performance above category average');
-    }
-    
-    if (fund.aum > 20000) {
-      strengths.push('Large AUM indicating investor confidence');
-    }
-    
-    if (fund.expenseRatio < 1.0) {
-      strengths.push('Low expense ratio enhancing net returns');
-    }
-    
-    if (overallScore > 75) {
-      strengths.push('Strong risk management framework');
-    }
-    
-    return strengths.length > 0 ? strengths : ['Established fund house with track record'];
+    if (returns3y > 12) strengths.push(`Strong 3-year returns of ${returns3y.toFixed(1)}%`);
+    if (returns1y > 15) strengths.push(`Excellent 1-year performance of ${returns1y.toFixed(1)}%`);
+    if (aum > 20000) strengths.push('Large AUM indicates investor confidence');
+    if (expenseRatio < 1.0) strengths.push(`Low expense ratio of ${expenseRatio.toFixed(2)}%`);
+    if (fund.crisilRating && fund.crisilRating <= 2) strengths.push('Top-tier CRISIL rating');
+    if (score > 80) strengths.push('Strong risk-adjusted performance');
+    return strengths.length > 0 ? strengths : ['Established fund with consistent track record'];
   }
 
-  private generateConcerns(fund: any, overallScore: number): string[] {
+  private generateMFConcerns(fund: any, score: number, returns1y: number, aum: number, expenseRatio: number): string[] {
     const concerns: string[] = [];
-    
-    if (fund.expenseRatio > 1.2) {
-      concerns.push('Higher expense ratio compared to peers');
-    }
-    
-    if (fund.aum < 5000) {
-      concerns.push('Relatively small AUM may impact liquidity');
-    }
-    
-    if (overallScore < 60) {
-      concerns.push('Performance below category average');
-    }
-    
+    if (expenseRatio > 2.0) concerns.push(`High expense ratio of ${expenseRatio.toFixed(2)}%`);
+    if (aum < 500) concerns.push('Small AUM may affect liquidity');
+    if (returns1y < 0) concerns.push('Negative recent returns');
+    if (score < 50) concerns.push('Below-average risk-adjusted performance');
     return concerns.length > 0 ? concerns : ['Market volatility may impact short-term performance'];
   }
 
-  private generateRecommendation(rating: number, overallScore: number): 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell' {
-    if (rating === 1 && overallScore > 85) return 'Strong Buy';
-    if (rating <= 2 && overallScore > 70) return 'Buy';
-    if (rating === 3 || (rating === 2 && overallScore <= 70)) return 'Hold';
-    if (rating === 4) return 'Sell';
+  private generateStockStrengths(stock: any, score: number, returns1y: number, roe: number, peRatio: number): string[] {
+    const strengths: string[] = [];
+    if (returns1y > 20) strengths.push(`Strong 1-year returns of ${returns1y.toFixed(1)}%`);
+    if (roe > 18) strengths.push(`High ROE of ${roe.toFixed(1)}% indicates efficiency`);
+    if (peRatio < 20) strengths.push('Attractive valuation relative to earnings');
+    if (score > 80) strengths.push('Strong fundamentals and growth potential');
+    return strengths.length > 0 ? strengths : ['Established company with market presence'];
+  }
+
+  private generateStockConcerns(stock: any, score: number, returns1y: number, peRatio: number, beta: number): string[] {
+    const concerns: string[] = [];
+    if (returns1y < 0) concerns.push('Negative recent performance');
+    if (peRatio > 40) concerns.push('High valuation may limit upside');
+    if (beta > 1.5) concerns.push(`High volatility (beta: ${beta.toFixed(2)})`);
+    if (score < 50) concerns.push('Below-average fundamental scores');
+    return concerns.length > 0 ? concerns : ['Sector-specific and market risks apply'];
+  }
+
+  private generateBondStrengths(bond: any, score: number, yield_: number, creditScore: number): string[] {
+    const strengths: string[] = [];
+    if (creditScore >= 90) strengths.push('High credit quality (investment grade)');
+    if (yield_ > 9) strengths.push(`Attractive yield of ${yield_.toFixed(2)}%`);
+    if (bond.tradingStatus === 'active') strengths.push('Active secondary market trading');
+    return strengths.length > 0 ? strengths : ['Regular coupon payments'];
+  }
+
+  private generateBondConcerns(bond: any, score: number, yield_: number): string[] {
+    const concerns: string[] = [];
+    if (score < 60) concerns.push('Below-average credit quality');
+    if (yield_ < 7) concerns.push('Below-market yield');
+    return concerns.length > 0 ? concerns : ['Interest rate and credit risk apply'];
+  }
+
+  private generateRecommendation(stars: number, score: number): 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell' {
+    if (stars >= 5 && score >= 85) return 'Strong Buy';
+    if (stars >= 4 && score >= 70) return 'Buy';
+    if (stars >= 3 || score >= 50) return 'Hold';
+    if (stars === 2) return 'Sell';
     return 'Strong Sell';
   }
 
-  private getRatingDescription(rating: number): string {
-    switch (rating) {
-      case 1: return 'exceptional';
-      case 2: return 'above average';
-      case 3: return 'average';
-      case 4: return 'below average';
-      case 5: return 'poor';
-      default: return 'average';
-    }
+  private generateMFRationale(fund: any, rating: FintekProRating, metrics: Record<string, any>): string {
+    const performance = rating.overallScore > 80 ? 'excellent' : rating.overallScore > 60 ? 'good' : 'moderate';
+    return `This ${rating.category} fund receives a ${rating.stars}-star FintekPro Smart Rating based on ${performance} performance across risk-adjusted returns (${metrics.returns3Y} 3Y), quality metrics, and liquidity. The fund is in the ${rating.percentile}th percentile of its category.`;
+  }
+
+  private generateStockRationale(stock: any, rating: FintekProRating, metrics: Record<string, any>): string {
+    const quality = rating.qualityScore > 80 ? 'strong' : rating.qualityScore > 60 ? 'good' : 'moderate';
+    return `This ${stock.sector || 'equity'} stock receives a ${rating.stars}-star FintekPro Smart Rating with ${quality} fundamentals. Key metrics include P/E of ${metrics.peRatio}, ROE of ${metrics.roe}, and 1-year returns of ${metrics.returns1Y}.`;
   }
 
   private isCacheValid(): boolean {
-    const now = new Date();
-    return (now.getTime() - this.lastCacheUpdate.getTime()) < this.CACHE_TTL_MS;
+    return (Date.now() - this.lastCacheUpdate.getTime()) < this.CACHE_TTL_MS;
   }
 
-  /**
-   * Clear the rating cache (useful for testing or forced refresh)
-   */
   clearCache(): void {
     this.ratingCache.clear();
     this.lastCacheUpdate = new Date();
     console.log("🧹 FintekPro rating cache cleared");
   }
 
-  /**
-   * Get cache statistics
-   */
   getCacheStats(): { size: number; lastUpdate: Date; isValid: boolean } {
     return {
       size: this.ratingCache.size,
