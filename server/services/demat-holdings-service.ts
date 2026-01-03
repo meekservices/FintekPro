@@ -208,22 +208,47 @@ export class DematHoldingsService {
       // Parse holdings
       const holdingsData = accountData.holdings || [];
       for (const holding of holdingsData) {
+        // Safe number parsing helper to prevent NaN corruption
+        const safeParseFloat = (val: any, defaultVal: number = 0): number => {
+          if (val === null || val === undefined || val === '') return defaultVal;
+          const parsed = parseFloat(String(val));
+          return isNaN(parsed) ? defaultVal : parsed;
+        };
+
+        const quantity = safeParseFloat(holding.quantity, 0);
+        const averagePrice = safeParseFloat(holding.average_cost, 0);
+        const currentPrice = safeParseFloat(holding.current_price, 0);
+        
+        // Skip invalid holdings with zero or missing quantity
+        if (quantity <= 0 || !holding.isin) {
+          console.warn(`Skipping invalid holding: ${holding.isin || 'unknown'} - quantity: ${quantity}`);
+          continue;
+        }
+
+        // Calculate values if not provided
+        const investedAmount = safeParseFloat(holding.invested_amount, quantity * averagePrice);
+        const currentValue = safeParseFloat(holding.current_value, quantity * currentPrice);
+        const returns = safeParseFloat(holding.gain_loss, currentValue - investedAmount);
+        const returnsPercentage = investedAmount > 0 
+          ? safeParseFloat(holding.gain_loss_percent, (returns / investedAmount) * 100)
+          : 0;
+
         holdings.push({
           isin: holding.isin,
           symbol: holding.symbol || this.extractSymbolFromISIN(holding.isin),
-          companyName: holding.security_name,
-          quantity: parseFloat(holding.quantity),
-          averagePrice: parseFloat(holding.average_cost || '0'),
-          currentPrice: parseFloat(holding.current_price || '0'),
-          currentValue: parseFloat(holding.current_value || '0'),
-          investedAmount: parseFloat(holding.invested_amount || '0'),
-          returns: parseFloat(holding.gain_loss || '0'),
-          returnsPercentage: parseFloat(holding.gain_loss_percent || '0'),
-          assetType: this.determineAssetType(holding.isin, holding.security_name),
+          companyName: holding.security_name || 'Unknown Security',
+          quantity,
+          averagePrice,
+          currentPrice,
+          currentValue,
+          investedAmount,
+          returns,
+          returnsPercentage,
+          assetType: this.determineAssetType(holding.isin, holding.security_name || ''),
           exchange: holding.exchange || 'NSE',
-          pledgedQuantity: parseFloat(holding.pledged_quantity || '0'),
-          freeQuantity: parseFloat(holding.free_quantity || holding.quantity),
-          lockedQuantity: parseFloat(holding.locked_quantity || '0'),
+          pledgedQuantity: safeParseFloat(holding.pledged_quantity, 0),
+          freeQuantity: safeParseFloat(holding.free_quantity, quantity),
+          lockedQuantity: safeParseFloat(holding.locked_quantity, 0),
           // Associate holding with its depository account
           depository: accountData.depository,
           dematAccountNumber: accountData.account_number

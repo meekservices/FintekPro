@@ -406,7 +406,7 @@ export class AutoPopulationOrchestrator {
       this.fetchBankAccounts(kycData, consents.bank),
       this.fetchLoanLiabilities(kycData, consents.loans),
       this.fetchInsurance(kycData, consents.insurance),
-      this.fetchEPFAccounts(kycData, consents.epf),
+      this.fetchEPFHoldings(kycData, consents.epf),
       this.fetchNPSAccounts(kycData, consents.nps),
       this.fetchAPYAccounts(kycData, consents.apy)
     ];
@@ -582,53 +582,33 @@ export class AutoPopulationOrchestrator {
 
   /**
    * Fetch bank accounts via Account Aggregator
+   * Note: Bank account integration is pending AA FIU implementation
    */
   private async fetchBankAccounts(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
+      const { message, suggestion } = ERROR_MESSAGES['CONSENT_NOT_GRANTED'];
       return {
         source: 'bank',
         success: false,
         recordsFetched: 0,
-        error: 'User consent not granted'
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: false
       };
     }
 
-    try {
-      console.log(`🔍 Fetching bank accounts via Account Aggregator for user: ${kycData.userId}`);
-      
-      // Mock data - in production, call Account Aggregator API
-      const mockAccounts = [
-        {
-          accountNumber: '****6789',
-          bankName: 'HDFC Bank',
-          accountType: 'savings',
-          balance: 285000,
-          ifsc: 'HDFC0001234'
-        },
-        {
-          accountNumber: '****4321',
-          bankName: 'ICICI Bank',
-          accountType: 'current',
-          balance: 520000,
-          ifsc: 'ICIC0001234'
-        }
-      ];
-
-      return {
-        source: 'bank',
-        success: true,
-        recordsFetched: mockAccounts.length,
-        totalValue: mockAccounts.reduce((sum, a) => sum + a.balance, 0),
-        data: mockAccounts
-      };
-    } catch (error: any) {
-      return {
-        source: 'bank',
-        success: false,
-        recordsFetched: 0,
-        error: error.message
-      };
-    }
+    // Bank account integration is pending - AA FIU integration required
+    // Return pending status instead of fake success
+    console.log(`⏳ Bank accounts fetch pending - Account Aggregator FIU integration not yet complete`);
+    
+    return {
+      source: 'bank',
+      success: false,
+      recordsFetched: 0,
+      error: 'Bank account integration pending',
+      errorSuggestion: 'Account Aggregator FIU integration is being set up. This feature will be available soon.',
+      retryable: true
+    };
   }
 
   /**
@@ -680,40 +660,63 @@ export class AutoPopulationOrchestrator {
    */
   private async fetchInsurance(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
+      const { message, suggestion } = ERROR_MESSAGES['CONSENT_NOT_GRANTED'];
       return {
         source: 'insurance',
         success: false,
         recordsFetched: 0,
-        error: 'User consent not granted'
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: false
       };
     }
 
     try {
       console.log(`🔍 Fetching insurance policies from Turtlefin`);
       
-      const policies = await turtlefinAPI.searchPoliciesByKYC({
-        pan: kycData.pan,
-        name: kycData.name,
-        dob: kycData.dob,
-        mobile: kycData.mobile,
-        email: kycData.email
-      });
+      const policies = await this.withRetry(
+        () => turtlefinAPI.searchPoliciesByKYC({
+          pan: kycData.pan,
+          name: kycData.name,
+          dob: kycData.dob,
+          mobile: kycData.mobile,
+          email: kycData.email
+        }),
+        'Insurance Policies Fetch'
+      );
 
-      const totalValue = policies.policies.reduce((sum, p) => sum + p.sumAssured, 0);
+      if (!policies.success) {
+        return {
+          source: 'insurance',
+          success: false,
+          recordsFetched: 0,
+          error: policies.message || 'Failed to fetch insurance policies',
+          errorSuggestion: 'Verify your PAN details and ensure you have active insurance policies',
+          retryable: true
+        };
+      }
+
+      const totalValue = policies.policies.reduce((sum: number, p: any) => sum + (p.sumAssured || 0), 0);
+      
+      console.log(`✅ Fetched ${policies.totalPolicies} insurance policies (Total Sum Assured: ₹${totalValue.toFixed(2)})`);
 
       return {
         source: 'insurance',
-        success: policies.success,
+        success: true,
         recordsFetched: policies.totalPolicies,
         totalValue,
         data: policies.policies
       };
     } catch (error: any) {
+      console.error('❌ Insurance policies fetch error:', error.message);
+      const { message, suggestion } = this.getEnhancedError(error);
       return {
         source: 'insurance',
         success: false,
         recordsFetched: 0,
-        error: error.message
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: this.isRetryableError(error)
       };
     }
   }
@@ -721,20 +724,23 @@ export class AutoPopulationOrchestrator {
   /**
    * Fetch EPF/VPF accounts from EPFO
    */
-  private async fetchEPFAccounts(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
+  private async fetchEPFHoldings(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
+      const { message, suggestion } = ERROR_MESSAGES['CONSENT_NOT_GRANTED'];
       return {
         source: 'epf',
         success: false,
         recordsFetched: 0,
-        error: 'User consent not granted'
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: false
       };
     }
 
     try {
       console.log(`🔍 Fetching EPF/VPF accounts from EPFO`);
       
-      // Call EPFO service
+      // Call EPFO service with retry logic
       const epfRequest: EPFFetchRequest = {
         panNumber: kycData.pan,
         name: kycData.name,
@@ -743,7 +749,10 @@ export class AutoPopulationOrchestrator {
         requestId: `epf_${kycData.userId}_${Date.now()}`
       };
 
-      const epfResponse = await epfoService.fetchEPFAccounts(epfRequest);
+      const epfResponse = await this.withRetry(
+        () => epfoService.fetchEPFAccounts(epfRequest),
+        'EPF Accounts Fetch'
+      );
 
       if (!epfResponse.success) {
         console.error(`❌ EPF fetch failed: ${epfResponse.message}`);
@@ -751,12 +760,11 @@ export class AutoPopulationOrchestrator {
           source: 'epf',
           success: false,
           recordsFetched: 0,
-          error: epfResponse.message || 'Failed to fetch EPF accounts'
+          error: epfResponse.message || 'Failed to fetch EPF accounts',
+          errorSuggestion: 'Verify your PAN and UAN details. Ensure EPFO service is accessible.',
+          retryable: true
         };
       }
-
-      // EPF accounts will be stored via the storeHoldings method which is called by the main workflow
-      // No need to store inline here - it will be handled in the data source results loop
 
       console.log(`✅ Fetched ${epfResponse.totalAccounts} EPF accounts (Total Balance: ₹${epfResponse.totalBalance.toFixed(2)})`);
 
@@ -769,11 +777,14 @@ export class AutoPopulationOrchestrator {
       };
     } catch (error: any) {
       console.error('❌ EPF accounts fetch error:', error.message);
+      const { message, suggestion } = this.getEnhancedError(error);
       return {
         source: 'epf',
         success: false,
         recordsFetched: 0,
-        error: error.message
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: this.isRetryableError(error)
       };
     }
   }
@@ -783,18 +794,21 @@ export class AutoPopulationOrchestrator {
    */
   private async fetchNPSAccounts(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
+      const { message, suggestion } = ERROR_MESSAGES['CONSENT_NOT_GRANTED'];
       return {
         source: 'nps',
         success: false,
         recordsFetched: 0,
-        error: 'User consent not granted'
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: false
       };
     }
 
     try {
       console.log(`🔍 Fetching NPS accounts from NPS CRA`);
       
-      // Call NPS service
+      // Call NPS service with retry logic
       const npsService = new NPSService();
       const npsRequest: NPSFetchRequest = {
         panNumber: kycData.pan,
@@ -803,7 +817,10 @@ export class AutoPopulationOrchestrator {
         mobile: kycData.mobile
       };
 
-      const npsResponse = await npsService.fetchNPSAccounts(npsRequest);
+      const npsResponse = await this.withRetry(
+        () => npsService.fetchNPSAccounts(npsRequest),
+        'NPS Accounts Fetch'
+      );
 
       if (!npsResponse.success) {
         console.error(`❌ NPS fetch failed: ${npsResponse.message}`);
@@ -811,12 +828,11 @@ export class AutoPopulationOrchestrator {
           source: 'nps',
           success: false,
           recordsFetched: 0,
-          error: npsResponse.message || 'Failed to fetch NPS accounts'
+          error: npsResponse.message || 'Failed to fetch NPS accounts',
+          errorSuggestion: 'Verify your PRAN and PAN details. Ensure NPS CRA service is accessible.',
+          retryable: true
         };
       }
-
-      // NPS accounts will be stored via the storeHoldings method which is called by the main workflow
-      // No need to store inline here - it will be handled in the data source results loop
 
       console.log(`✅ Fetched ${npsResponse.accounts.length} NPS accounts (Total Balance: ₹${npsResponse.totalBalance.toFixed(2)})`);
 
@@ -829,11 +845,14 @@ export class AutoPopulationOrchestrator {
       };
     } catch (error: any) {
       console.error('❌ NPS accounts fetch error:', error.message);
+      const { message, suggestion } = this.getEnhancedError(error);
       return {
         source: 'nps',
         success: false,
         recordsFetched: 0,
-        error: error.message
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: this.isRetryableError(error)
       };
     }
   }
@@ -843,18 +862,21 @@ export class AutoPopulationOrchestrator {
    */
   private async fetchAPYAccounts(kycData: KYCData, hasConsent: boolean): Promise<DataSourceResult> {
     if (!hasConsent) {
+      const { message, suggestion } = ERROR_MESSAGES['CONSENT_NOT_GRANTED'];
       return {
         source: 'apy',
         success: false,
         recordsFetched: 0,
-        error: 'User consent not granted'
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: false
       };
     }
 
     try {
       console.log(`🔍 Fetching APY accounts via Account Aggregator`);
       
-      // Call APY service
+      // Call APY service with retry logic
       const apyService = new APYService();
       const apyRequest: APYFetchRequest = {
         panNumber: kycData.pan,
@@ -863,7 +885,10 @@ export class AutoPopulationOrchestrator {
         mobile: kycData.mobile
       };
 
-      const apyResponse = await apyService.fetchAPYAccounts(apyRequest);
+      const apyResponse = await this.withRetry(
+        () => apyService.fetchAPYAccounts(apyRequest),
+        'APY Accounts Fetch'
+      );
 
       if (!apyResponse.success) {
         console.error(`❌ APY fetch failed: ${apyResponse.message}`);
@@ -871,12 +896,11 @@ export class AutoPopulationOrchestrator {
           source: 'apy',
           success: false,
           recordsFetched: 0,
-          error: apyResponse.message || 'Failed to fetch APY accounts'
+          error: apyResponse.message || 'Failed to fetch APY accounts',
+          errorSuggestion: 'Verify your APY enrollment details with your bank.',
+          retryable: true
         };
       }
-
-      // APY accounts will be stored via the storeHoldings method which is called by the main workflow
-      // No need to store inline here - it will be handled in the data source results loop
 
       console.log(`✅ Fetched ${apyResponse.accounts.length} APY accounts (Total Balance: ₹${apyResponse.totalBalance.toFixed(2)})`);
 
@@ -889,11 +913,14 @@ export class AutoPopulationOrchestrator {
       };
     } catch (error: any) {
       console.error('❌ APY accounts fetch error:', error.message);
+      const { message, suggestion } = this.getEnhancedError(error);
       return {
         source: 'apy',
         success: false,
         recordsFetched: 0,
-        error: error.message
+        error: message,
+        errorSuggestion: suggestion,
+        retryable: this.isRetryableError(error)
       };
     }
   }

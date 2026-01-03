@@ -154,38 +154,145 @@ export class BSEStarCASService {
 
   /**
    * Call BSE STAR CAS API (Production)
+   * BSE STAR uses SOAP/XML for certain endpoints
    */
   private async callBSECASAPI(request: CASFetchRequest): Promise<any> {
     const endpoint = `${this.baseUrl}/GetCASSummary`;
 
-    const payload = {
-      UserId: this.credentials.userId,
-      MemberId: this.credentials.memberId,
-      Password: this.credentials.password,
-      PassKey: this.credentials.passKey,
-      PAN: request.panNumber,
-      Name: request.name,
-      DOB: request.dob,
-      Mobile: request.mobile || '',
-      Email: request.email || ''
-    };
-
+    // Try JSON first (newer API version)
     try {
-      const response = await axios.post(endpoint, payload, {
+      const jsonPayload = {
+        UserId: this.credentials.userId,
+        MemberId: this.credentials.memberId,
+        Password: this.credentials.password,
+        PassKey: this.credentials.passKey,
+        PAN: request.panNumber,
+        Name: request.name,
+        DOB: request.dob,
+        Mobile: request.mobile || '',
+        Email: request.email || ''
+      };
+
+      const response = await axios.post(endpoint, jsonPayload, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        timeout: 30000 // 30 second timeout for CAS queries
+        timeout: 30000
       });
 
-      if (response.data && response.data.Status === 'Success') {
+      // Check if response is JSON
+      if (typeof response.data === 'object' && response.data.Status === 'Success') {
         return response.data;
-      } else {
-        throw new Error(response.data?.Message || 'CAS fetch failed');
       }
+      
+      // If response is XML string, parse it
+      if (typeof response.data === 'string' && response.data.includes('<?xml')) {
+        const parsed = await this.parseXMLResponse(response.data);
+        return parsed;
+      }
+
+      throw new Error(response.data?.Message || 'CAS fetch failed');
     } catch (error: any) {
+      // If JSON fails, try XML/SOAP endpoint
+      if (error.response?.status === 415 || error.message?.includes('Unsupported Media Type')) {
+        return await this.callBSECASXMLAPI(request);
+      }
       throw new Error(`BSE API error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Call BSE STAR CAS API using XML/SOAP (legacy endpoint)
+   */
+  private async callBSECASXMLAPI(request: CASFetchRequest): Promise<any> {
+    const endpoint = `${this.baseUrl}/GetCASSummary`;
+
+    const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetCASSummary xmlns="http://bsestarmf.in/">
+      <UserId>${this.credentials.userId}</UserId>
+      <MemberId>${this.credentials.memberId}</MemberId>
+      <Password>${this.credentials.password}</Password>
+      <PassKey>${this.credentials.passKey}</PassKey>
+      <PAN>${request.panNumber}</PAN>
+      <Name>${request.name}</Name>
+      <DOB>${request.dob}</DOB>
+      <Mobile>${request.mobile || ''}</Mobile>
+      <Email>${request.email || ''}</Email>
+    </GetCASSummary>
+  </soap:Body>
+</soap:Envelope>`;
+
+    try {
+      const response = await axios.post(endpoint, xmlPayload, {
+        headers: {
+          'Content-Type': 'text/xml; charset=utf-8',
+          'SOAPAction': 'http://bsestarmf.in/GetCASSummary'
+        },
+        timeout: 30000
+      });
+
+      return await this.parseXMLResponse(response.data);
+    } catch (error: any) {
+      throw new Error(`BSE XML API error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Parse XML response from BSE STAR API
+   */
+  private async parseXMLResponse(xmlData: string): Promise<any> {
+    try {
+      const parsed: any = await parseXML(xmlData, {
+        explicitArray: false,
+        ignoreAttrs: true,
+        tagNameProcessors: [(name: string) => name.replace(/^.*:/, '')]
+      });
+
+      // Navigate SOAP envelope to get body content
+      const body = parsed?.Envelope?.Body || parsed?.Body || parsed;
+      const casResult = body?.GetCASSummaryResponse?.GetCASSummaryResult || body;
+
+      if (!casResult) {
+        throw new Error('Invalid XML response structure');
+      }
+
+      // Normalize XML to expected JSON format
+      const status = casResult.Status || casResult.status || 'Unknown';
+      if (status !== 'Success' && status !== '100') {
+        throw new Error(casResult.Message || casResult.message || 'CAS fetch failed');
+      }
+
+      // Extract folios from XML structure
+      const foliosData = casResult.Folios?.Folio || casResult.Data?.Folio || [];
+      const folios = Array.isArray(foliosData) ? foliosData : [foliosData].filter(Boolean);
+
+      return {
+        Status: 'Success',
+        Folios: folios.map((f: any) => ({
+          FolioNumber: f.FolioNumber || f.folioNumber || f.Folio,
+          SchemeCode: f.SchemeCode || f.schemeCode || f.ISIN,
+          SchemeName: f.SchemeName || f.schemeName,
+          AMCName: f.AMCName || f.amcName || f.FundHouse,
+          RegistrarName: f.RegistrarName || f.registrarName,
+          Units: f.Units || f.units || '0',
+          NAV: f.NAV || f.nav || f.CurrentNAV || '0',
+          MarketValue: f.MarketValue || f.marketValue || f.CurrentValue || '0',
+          InvestedAmount: f.InvestedAmount || f.investedAmount || f.InvestedValue || '0',
+          AverageNAV: f.AverageNAV || f.averageNAV || f.AvgCost || '0',
+          PurchaseDate: f.PurchaseDate || f.purchaseDate,
+          LastTransactionDate: f.LastTransactionDate || f.lastTransactionDate,
+          SchemePlan: f.SchemePlan || f.schemePlan || 'growth',
+          SchemeOption: f.SchemeOption || f.schemeOption || 'regular',
+          LockinStatus: f.LockinStatus || f.lockinStatus,
+          LockinDate: f.LockinDate || f.lockinDate
+        }))
+      };
+    } catch (error: any) {
+      console.error('XML parsing error:', error.message);
+      throw new Error(`Failed to parse XML response: ${error.message}`);
     }
   }
 
