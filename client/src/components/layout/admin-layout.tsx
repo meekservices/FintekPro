@@ -182,6 +182,7 @@ const navCategories: NavCategory[] = [
       { title: "Aadhaar Providers", href: "/admin/aadhaar-config", icon: Shield, description: "Aadhaar verification config" },
       { title: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API usage and cost tracking" },
       { title: "AI Tracking", href: "/admin/ai-recommendation-tracking", icon: Target, description: "AI recommendation success rates" },
+      { title: "Global Fee Model", href: "/admin/global-fee-model", icon: TrendingUp, description: "Advisory vs Platform-Only fees" },
     ]
   },
   {

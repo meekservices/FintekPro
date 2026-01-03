@@ -97,6 +97,7 @@ const ZohoDashboardPage = lazy(() => import("@/pages/admin/zoho-dashboard"));
 const ZohoConnectionsPage = lazy(() => import("@/pages/admin/zoho-connections"));
 const ZohoLogsPage = lazy(() => import("@/pages/admin/zoho-logs"));
 const ZohoBooksPage = lazy(() => import("@/pages/admin/zoho-books"));
+const GlobalFeeModelAdmin = lazy(() => import("@/pages/admin/global-fee-model"));
 const StoreManagement = lazy(() => import("@/pages/admin/store-management"));
 const StoreInquiriesAdmin = lazy(() => import("@/pages/admin/store-inquiries"));
 const BondSeedAdmin = lazy(() => import("@/pages/admin/bond-seed"));
@@ -695,6 +696,15 @@ function AdminRoutes() {
           <AdminLayout>
             <GlobalAdvisoryManagement />
           </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/global-fee-model">
+        {() => (
+          <Suspense fallback={<LoadingState variant="dashboard" />}>
+            <AdminLayout>
+              <GlobalFeeModelAdmin />
+            </AdminLayout>
+          </Suspense>
         )}
       </Route>
       <Route path="/admin/appointments">
