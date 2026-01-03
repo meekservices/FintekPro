@@ -55,7 +55,8 @@ import {
   BadgePercent,
   Scale,
   Folder,
-  LayoutDashboard
+  LayoutDashboard,
+  Sparkles
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
@@ -400,6 +401,13 @@ export function EnhancedNavigation() {
           href: "/agent",
           icon: LayoutDashboard,
           description: "Agent overview"
+        },
+        {
+          name: "Prospect Wizard",
+          href: "/agent-prospect-wizard",
+          icon: Sparkles,
+          description: "Complete onboarding workflow",
+          badge: "NEW"
         },
         {
           name: "Client Proposals",

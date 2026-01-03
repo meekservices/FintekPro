@@ -210,6 +210,7 @@ import ScheduledReports from "@/pages/scheduled-reports";
 import CompoundAlerts from "@/pages/compound-alerts";
 import DashboardCustomize from "@/pages/dashboard-customize";
 import ThemeSettings from "@/pages/theme-settings";
+import AgentProspectWizard from "@/pages/agent-prospect-wizard";
 import MarketingDashboard from "@/pages/admin/marketing-dashboard";
 import EmailCampaigns from "@/pages/admin/email-campaigns";
 import WhatsAppCampaigns from "@/pages/admin/whatsapp-campaigns";
@@ -481,6 +482,7 @@ function UserProtectedRoutes() {
         <Route path="/compound-alerts" component={CompoundAlerts} />
         <Route path="/dashboard-customize" component={DashboardCustomize} />
         <Route path="/theme-settings" component={ThemeSettings} />
+        <Route path="/agent-prospect-wizard" component={AgentProspectWizard} />
         <Route path="/investable-surplus" component={InvestableSurplusPage} />
         <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
         {/* Admin seed pages accessible from main site for development */}

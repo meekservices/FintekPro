@@ -540,6 +540,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/features", improvementFeaturesRoutes);
   console.log("✅ Improvement Features routes registered");
 
+  // Agent Prospect Wizard Routes
+  const agentProspectWizardRoutes = (await import("./routes/agent-prospect-wizard")).default;
+  app.use("/api/agent-wizard", agentProspectWizardRoutes);
+  console.log("✅ Agent Prospect Wizard routes registered");
+
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
       const count = await seedProducts(storage as any);
