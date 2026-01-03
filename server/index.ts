@@ -57,14 +57,18 @@ app.use(compression({
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
-      // Production domains
+      // Production domains - all subdomains
       "https://fintekpro.com",
       "https://www.fintekpro.com",
       "https://admin.fintekpro.com",
+      "https://agent.fintekpro.com",
+      "https://partner.fintekpro.com",
       // Development domains
       "http://localhost:5000",
       "http://127.0.0.1:5000",
       "http://admin.localhost:5000",
+      "http://agent.localhost:5000",
+      "http://partner.localhost:5000",
     ];
     
     // Allow Replit domains (*.replit.dev, *.repl.co, *.replit.app)
