@@ -23700,3 +23700,154 @@ export const userMarketPreferences = pgTable("user_market_preferences", {
 export const insertUserMarketPreferencesSchema = createInsertSchema(userMarketPreferences).omit({ id: true, createdAt: true, updatedAt: true });
 export type UserMarketPreferences = typeof userMarketPreferences.$inferSelect;
 export type InsertUserMarketPreferences = z.infer<typeof insertUserMarketPreferencesSchema>;
+
+// ============================================
+// GLOBAL INVESTMENTS FEE MODEL SELECTION
+// Client choice: Advisory + Platform OR Platform-Only
+// ============================================
+
+// Fee Mode Enum Values
+export const globalInvestmentFeeModeValues = ['ADVISORY_PLATFORM', 'PLATFORM_ONLY'] as const;
+export const GlobalInvestmentFeeModeEnum = z.enum(globalInvestmentFeeModeValues);
+export type GlobalInvestmentFeeMode = z.infer<typeof GlobalInvestmentFeeModeEnum>;
+
+// Client Fee Mode Selection Table
+export const globalInvestmentClientFeeMode = pgTable("global_investment_client_fee_mode", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  clientId: varchar("client_id").references(() => users.id).notNull().unique(),
+  
+  // Fee Mode Selection
+  feeMode: varchar("fee_mode", { length: 30 }).notNull(), // ADVISORY_PLATFORM, PLATFORM_ONLY
+  
+  // Consent Tracking
+  feeModeSelectedAt: timestamp("fee_mode_selected_at").notNull(),
+  feeModeConsentIp: varchar("fee_mode_consent_ip", { length: 45 }),
+  
+  // Acknowledgment Tracking
+  disclaimerAcknowledged: boolean("disclaimer_acknowledged").default(false).notNull(),
+  disclaimerAcknowledgedAt: timestamp("disclaimer_acknowledged_at"),
+  
+  // Last Update Info
+  lastModifiedBy: varchar("last_modified_by", { length: 20 }), // CLIENT, ADMIN
+  lastModifiedById: varchar("last_modified_by_id"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_gicfm_client").on(table.clientId),
+  index("idx_gicfm_mode").on(table.feeMode),
+]);
+
+export const insertGlobalInvestmentClientFeeModeSchema = createInsertSchema(globalInvestmentClientFeeMode).omit({ id: true, createdAt: true, updatedAt: true });
+export type GlobalInvestmentClientFeeMode = typeof globalInvestmentClientFeeMode.$inferSelect;
+export type InsertGlobalInvestmentClientFeeMode = z.infer<typeof insertGlobalInvestmentClientFeeModeSchema>;
+
+// Fee Mode Audit Log Table (Immutable for SEBI compliance)
+export const feeModeAuditLog = pgTable("fee_mode_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Change Details
+  oldMode: varchar("old_mode", { length: 30 }), // null for first selection
+  newMode: varchar("new_mode", { length: 30 }).notNull(),
+  
+  // Actor Info
+  changedBy: varchar("changed_by", { length: 20 }).notNull(), // CLIENT, ADMIN
+  changedById: varchar("changed_by_id"), // User ID of the actor
+  
+  // Request Context
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  // Reason (required for admin overrides)
+  changeReason: text("change_reason"),
+  
+  // Compliance
+  consentCaptured: boolean("consent_captured").default(false).notNull(),
+  disclaimerShown: boolean("disclaimer_shown").default(false).notNull(),
+  
+  // Immutability
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  checksumHash: varchar("checksum_hash", { length: 64 }), // SHA-256 for verification
+}, (table) => [
+  index("idx_fmal_client").on(table.clientId),
+  index("idx_fmal_timestamp").on(table.timestamp),
+  index("idx_fmal_changed_by").on(table.changedBy),
+]);
+
+export const insertFeeModeAuditLogSchema = createInsertSchema(feeModeAuditLog).omit({ id: true, timestamp: true });
+export type FeeModeAuditLog = typeof feeModeAuditLog.$inferSelect;
+export type InsertFeeModeAuditLog = z.infer<typeof insertFeeModeAuditLogSchema>;
+
+// Admin Policy Settings for Global Investments
+export const globalInvestmentAdminSettings = pgTable("global_investment_admin_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Policy Controls
+  enablePlatformOnlyMode: boolean("enable_platform_only_mode").default(true).notNull(),
+  allowClientSelfSelection: boolean("allow_client_self_selection").default(true).notNull(),
+  defaultFeeMode: varchar("default_fee_mode", { length: 30 }).default("ADVISORY_PLATFORM"),
+  
+  // Fee Configuration (in basis points for precision)
+  advisoryFeeBps: integer("advisory_fee_bps").default(25), // 0.25% = 25 bps
+  platformFeeBps: integer("platform_fee_bps").default(10), // 0.10% = 10 bps
+  
+  // Fee Caps
+  advisoryFeeCapInr: decimal("advisory_fee_cap_inr", { precision: 15, scale: 2 }),
+  platformFeeCapInr: decimal("platform_fee_cap_inr", { precision: 15, scale: 2 }),
+  
+  // Segment Overrides (JSON array of segment rules)
+  segmentOverrides: jsonb("segment_overrides").default([]), // [{segment: "HNI", forceMode: "ADVISORY_PLATFORM"}]
+  
+  // Policy Versioning (for client reconfirmation triggers)
+  policyVersion: integer("policy_version").default(1).notNull(),
+  policyUpdatedAt: timestamp("policy_updated_at").defaultNow(),
+  policyUpdatedBy: varchar("policy_updated_by"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertGlobalInvestmentAdminSettingsSchema = createInsertSchema(globalInvestmentAdminSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export type GlobalInvestmentAdminSettings = typeof globalInvestmentAdminSettings.$inferSelect;
+export type InsertGlobalInvestmentAdminSettings = z.infer<typeof insertGlobalInvestmentAdminSettingsSchema>;
+
+// Order Fee Consent Log (for order-level fee acknowledgment)
+export const orderFeeConsentLog = pgTable("order_fee_consent_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  orderId: varchar("order_id").notNull(),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Fee Details at Order Time
+  feeMode: varchar("fee_mode", { length: 30 }).notNull(),
+  advisoryFeeApplied: decimal("advisory_fee_applied", { precision: 15, scale: 2 }),
+  platformFeeApplied: decimal("platform_fee_applied", { precision: 15, scale: 2 }),
+  totalFeeApplied: decimal("total_fee_applied", { precision: 15, scale: 2 }).notNull(),
+  
+  // Order Context
+  orderValueInr: decimal("order_value_inr", { precision: 15, scale: 2 }).notNull(),
+  orderSymbol: varchar("order_symbol", { length: 20 }),
+  orderSide: varchar("order_side", { length: 10 }), // buy, sell
+  
+  // Consent Capture
+  feeBreakdownShown: boolean("fee_breakdown_shown").default(true).notNull(),
+  consentAcknowledged: boolean("consent_acknowledged").default(false).notNull(),
+  consentTimestamp: timestamp("consent_timestamp"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ofcl_client").on(table.clientId),
+  index("idx_ofcl_order").on(table.orderId),
+  index("idx_ofcl_mode").on(table.feeMode),
+]);
+
+export const insertOrderFeeConsentLogSchema = createInsertSchema(orderFeeConsentLog).omit({ id: true, createdAt: true });
+export type OrderFeeConsentLog = typeof orderFeeConsentLog.$inferSelect;
+export type InsertOrderFeeConsentLog = z.infer<typeof insertOrderFeeConsentLogSchema>;
