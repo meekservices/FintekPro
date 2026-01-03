@@ -80,6 +80,37 @@ export async function registerBBPSRoutes(app: Express): Promise<void> {
     }
   });
 
+  app.post("/api/digilocker/initiate-sharing", async (req, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const config = await digilockerService.generateWidgetConfig("handleDigiLockerCallback");
+      
+      if (!config || !config.baseUrl) {
+        return res.status(503).json({ 
+          success: false,
+          message: "DigiLocker integration is not configured. Please contact support."
+        });
+      }
+
+      const widgetUrl = `${config.baseUrl}/authorize?client_id=${config.appId}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code&state=${req.user.id}`;
+      
+      res.json({ 
+        success: true,
+        widgetUrl,
+        message: "Please complete the authentication in the DigiLocker window."
+      });
+    } catch (error) {
+      console.error("Error initiating DigiLocker sharing:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to initiate document sharing. Please try again."
+      });
+    }
+  });
+
   app.post("/api/digilocker/share-document", async (req, res) => {
     try {
       if (!req.user?.id) {

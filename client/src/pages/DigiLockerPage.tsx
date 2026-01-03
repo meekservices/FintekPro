@@ -165,11 +165,11 @@ export default function DigiLockerPage() {
     },
   });
 
-  const initiateDocumentSharing = () => {
+  const initiateDocumentSharing = async () => {
     if (!widgetConfig) {
       toast({
-        title: "Configuration Error",
-        description: "DigiLocker configuration not available.",
+        title: "Configuration Required",
+        description: "DigiLocker integration is not configured. Please contact support.",
         variant: "destructive",
       });
       return;
@@ -177,60 +177,37 @@ export default function DigiLockerPage() {
 
     setIsInitiatingShare(true);
 
-    // In a real implementation, this would open the DigiLocker widget
-    // For demo purposes, we'll simulate document sharing after a delay
-    setTimeout(() => {
-      // Simulate receiving documents from DigiLocker
-      const mockDocuments = [
-        {
-          docId: "DL001",
-          uri: "https://digilocker.gov.in/docs/aadhaar/123456789012",
-          docType: "aadhaar",
-          source: "UIDAI",
-          txn: "TXN001" + Date.now(),
-          filename: "aadhaar_card.pdf",
-          contentType: "application/pdf",
-          sharedTill: "31-12-2024"
-        },
-        {
-          docId: "DL002", 
-          uri: "https://digilocker.gov.in/docs/pan/ABCDE1234F",
-          docType: "pan",
-          source: "Income Tax Department",
-          txn: "TXN002" + Date.now(),
-          filename: "pan_card.pdf",
-          contentType: "application/pdf",
-          sharedTill: "31-12-2024"
-        }
-      ];
-
-      // Process each mock document
-      mockDocuments.forEach(async (doc) => {
-        try {
-          const res = await fetch("/api/digilocker/share-document", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(doc),
-          });
-          
-          if (res.ok) {
-            console.log(`✅ Shared ${doc.docType} document successfully`);
-          }
-        } catch (error) {
-          console.error(`❌ Failed to share ${doc.docType}:`, error);
-        }
+    try {
+      const res = await fetch("/api/digilocker/initiate-sharing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to initiate document sharing");
+      }
 
-      // Refresh documents list
-      setTimeout(() => {
-        refetchDocuments();
-        setIsInitiatingShare(false);
-        toast({
-          title: "Documents Shared Successfully",
-          description: "Your DigiLocker documents are now available.",
-        });
-      }, 1000);
-    }, 2000);
+      const result = await res.json();
+      
+      if (result.widgetUrl) {
+        window.open(result.widgetUrl, "_blank", "width=800,height=600");
+      }
+      
+      refetchDocuments();
+      toast({
+        title: result.success ? "Documents Shared Successfully" : "Sharing Initiated",
+        description: result.message || "Your DigiLocker documents are being processed.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Sharing Failed",
+        description: error.message || "Failed to share documents from DigiLocker.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsInitiatingShare(false);
+    }
   };
 
   const getDocumentIcon = (documentType: string) => {
