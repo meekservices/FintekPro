@@ -133,20 +133,7 @@ export default function TaxITRExpertPage() {
   });
 
   const { data: panContext, isLoading: panLoading } = useQuery<PANContext>({
-    queryKey: ["/api/tax/pan-context"],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest("/api/tax/pan-context");
-        return response;
-      } catch {
-        return {
-          pan: "ABCPK1234A",
-          panType: "individual" as PANType,
-          name: "Rajesh Kumar",
-          isVerified: true
-        };
-      }
-    }
+    queryKey: ["/api/tax/pan-context"]
   });
 
   const submitCaseMutation = useMutation({

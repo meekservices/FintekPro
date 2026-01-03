@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,8 @@ import {
   Clock,
   Sparkles,
   PieChart,
-  LineChart as LineChartIcon
+  LineChart as LineChartIcon,
+  Loader2
 } from "lucide-react";
 import {
   AreaChart,
@@ -67,117 +69,13 @@ interface AgentRecommendation {
   deadline?: string;
 }
 
-const platformInsights: PlatformInsight[] = [
-  {
-    id: '1',
-    category: 'market_trends',
-    title: 'Bullish Sentiment in IT Sector',
-    description: 'AI detects strong buying momentum in IT stocks with 73% positive sentiment across social signals.',
-    severity: 'medium',
-    timestamp: '2 hours ago',
-    impact: 'Potential sector rotation opportunity',
-    affectedCount: 156,
-    reasoning: 'NLP analysis of 50K+ social mentions shows 73% bullish sentiment. Volume patterns confirm institutional accumulation.'
-  },
-  {
-    id: '2',
-    category: 'risk_alerts',
-    title: 'High Portfolio Concentration - Banking',
-    description: '34 portfolios show >40% allocation to banking sector, exceeding recommended limits.',
-    severity: 'high',
-    timestamp: '1 hour ago',
-    impact: 'Sector-specific risk exposure',
-    affectedCount: 34,
-    reasoning: 'Concentration risk identified. Banking sector represents systemic risk; diversification recommended for affected clients.'
-  },
-  {
-    id: '3',
-    category: 'risk_alerts',
-    title: 'Market Volatility Alert',
-    description: 'VIX equivalent shows 28% increase. Elevated volatility expected in next 5 trading days.',
-    severity: 'critical',
-    timestamp: '30 mins ago',
-    impact: 'Increased portfolio fluctuations',
-    affectedCount: 892,
-    reasoning: 'Historical patterns at current VIX levels show 2.3x normal intraday swings. Consider hedging strategies.'
-  },
-  {
-    id: '4',
-    category: 'opportunity',
-    title: 'Underperforming Portfolios Detected',
-    description: '18 portfolios underperforming benchmark by >5% - rebalancing opportunity.',
-    severity: 'medium',
-    timestamp: '3 hours ago',
-    impact: 'Revenue opportunity: ₹4.2L potential',
-    affectedCount: 18,
-    reasoning: 'Portfolios showing drift from optimal allocation. Proactive outreach could convert to rebalancing revenue.'
-  },
-  {
-    id: '5',
-    category: 'opportunity',
-    title: 'NPS Upsell Opportunity',
-    description: '67 HNI clients in 30%+ tax bracket without NPS investment.',
-    severity: 'low',
-    timestamp: '4 hours ago',
-    impact: 'Tax savings: ₹33.5L potential',
-    affectedCount: 67,
-    reasoning: 'Clients can benefit from additional ₹50K deduction under 80CCD(1B). Commission opportunity: ₹2.1L.'
-  },
-  {
-    id: '6',
-    category: 'anomaly',
-    title: 'Unusual Trading Pattern Detected',
-    description: 'Client ID 4521 shows 15x normal trading volume in small-cap stocks.',
-    severity: 'high',
-    timestamp: '45 mins ago',
-    impact: 'Potential compliance concern',
-    affectedCount: 1,
-    reasoning: 'Pattern may indicate speculative behavior or front-running. Recommend compliance review.'
-  },
-  {
-    id: '7',
-    category: 'anomaly',
-    title: 'KYC Expiry Cluster',
-    description: '23 client KYCs expiring within 7 days - unusual concentration.',
-    severity: 'medium',
-    timestamp: '1 hour ago',
-    impact: 'Service disruption risk',
-    affectedCount: 23,
-    reasoning: 'Batch of onboardings from same period. Proactive renewal campaign recommended.'
-  },
-  {
-    id: '8',
-    category: 'market_trends',
-    title: 'FII Outflow Pattern',
-    description: 'FII selling detected in 8 consecutive sessions - ₹12,450 Cr net outflow.',
-    severity: 'high',
-    timestamp: '2 hours ago',
-    impact: 'Market pressure expected',
-    affectedCount: 445,
-    reasoning: 'Historical correlation suggests 3-5% index correction when FII outflow exceeds ₹10K Cr in 10 days.'
-  }
-];
-
-const agentRecommendations: AgentRecommendation[] = [
-  { id: 1, agentName: 'Rajesh Kumar', recommendedAction: 'Review 5 concentrated portfolios - banking sector risk', priority: 'high', impactScore: 85, category: 'Risk Management', deadline: 'Today' },
-  { id: 2, agentName: 'Priya Sharma', recommendedAction: 'Initiate NPS upsell campaign for 12 eligible HNIs', priority: 'medium', impactScore: 72, category: 'Revenue Growth' },
-  { id: 3, agentName: 'Amit Patel', recommendedAction: 'Schedule rebalancing calls for 8 underperforming portfolios', priority: 'high', impactScore: 78, category: 'Client Retention', deadline: '3 days' },
-  { id: 4, agentName: 'Sneha Reddy', recommendedAction: 'Follow up on pending KYC renewals (4 clients)', priority: 'critical', impactScore: 92, category: 'Compliance', deadline: 'Today' },
-  { id: 5, agentName: 'Vikram Singh', recommendedAction: 'Review unusual trading activity for Client #4521', priority: 'critical', impactScore: 95, category: 'Compliance', deadline: 'Immediate' },
-  { id: 6, agentName: 'Anita Desai', recommendedAction: 'Present hedging strategies to 15 high-volatility clients', priority: 'medium', impactScore: 68, category: 'Risk Management' },
-  { id: 7, agentName: 'Kiran Mehta', recommendedAction: 'Convert 6 pending proposals to orders', priority: 'medium', impactScore: 65, category: 'Revenue Growth', deadline: 'This week' },
-  { id: 8, agentName: 'Suresh Nair', recommendedAction: 'Re-engage 3 dormant HNI clients with market update', priority: 'low', impactScore: 55, category: 'Client Retention' },
-];
-
-const trendChartData = [
-  { date: 'Dec 1', riskScore: 45, alerts: 12, opportunities: 8, anomalies: 3 },
-  { date: 'Dec 5', riskScore: 52, alerts: 18, opportunities: 12, anomalies: 5 },
-  { date: 'Dec 10', riskScore: 48, alerts: 15, opportunities: 15, anomalies: 4 },
-  { date: 'Dec 15', riskScore: 61, alerts: 24, opportunities: 18, anomalies: 7 },
-  { date: 'Dec 18', riskScore: 58, alerts: 21, opportunities: 22, anomalies: 6 },
-  { date: 'Dec 20', riskScore: 65, alerts: 28, opportunities: 25, anomalies: 8 },
-  { date: 'Dec 22', riskScore: 72, alerts: 34, opportunities: 28, anomalies: 12 },
-];
+interface TrendChartData {
+  date: string;
+  riskScore: number;
+  alerts: number;
+  opportunities: number;
+  anomalies: number;
+}
 
 const CATEGORY_CONFIG = {
   market_trends: { label: 'Market Trends', icon: TrendingUp, color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -206,8 +104,28 @@ export default function AdminAIInsights() {
   const [timeRange, setTimeRange] = useState("24h");
   const [searchTerm, setSearchTerm] = useState("");
 
+  const { data: platformInsightsData, isLoading: insightsLoading } = useQuery<PlatformInsight[]>({
+    queryKey: ['/api/admin/ai-insights/platform', { timeRange }]
+  });
+
+  const { data: agentRecommendationsData, isLoading: recommendationsLoading } = useQuery<AgentRecommendation[]>({
+    queryKey: ['/api/admin/ai-insights/recommendations']
+  });
+
+  const { data: trendChartData, isLoading: trendsLoading } = useQuery<TrendChartData[]>({
+    queryKey: ['/api/admin/ai-insights/trends', { timeRange }]
+  });
+
+  const isLoading = insightsLoading || recommendationsLoading || trendsLoading;
+
+  const platformInsights = platformInsightsData || [];
+  const agentRecommendations = agentRecommendationsData || [];
+  const trendData = trendChartData || [];
+
   const activeAlerts = platformInsights.filter(i => i.category === 'risk_alerts').length;
-  const riskScore = 72;
+  const riskScore = platformInsights.length > 0 
+    ? Math.round(platformInsights.filter(i => i.severity === 'critical' || i.severity === 'high').length / platformInsights.length * 100)
+    : 0;
   const trendSignals = platformInsights.filter(i => i.category === 'market_trends').length;
   const anomaliesDetected = platformInsights.filter(i => i.category === 'anomaly').length;
 
@@ -225,6 +143,29 @@ export default function AdminAIInsights() {
                          rec.recommendedAction.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesPriority && matchesSearch;
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <span className="ml-2 text-muted-foreground">Loading AI insights...</span>
+      </div>
+    );
+  }
+
+  if (platformInsights.length === 0 && agentRecommendations.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+          <Brain className="h-16 w-16 text-muted-foreground/50 mb-4" />
+          <h3 className="text-xl font-semibold text-white mb-2">No AI Insights Available</h3>
+          <p className="text-muted-foreground max-w-md">
+            AI platform insights, risk alerts, and recommendations will appear here once the system has analyzed platform data.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -369,7 +310,7 @@ export default function AdminAIInsights() {
         <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRisk" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>

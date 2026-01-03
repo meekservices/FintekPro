@@ -124,33 +124,28 @@ export default function AgentLeadPipeline() {
     }
   });
 
-  const defaultLeads: Lead[] = [
-    { id: '1', name: 'Rajesh Sharma', email: 'rajesh@example.com', phone: '9876543210', stage: 'new', source: 'Website', potentialValue: 2500000, score: 85, notes: 'Interested in mutual funds and PMS', createdAt: '2024-12-20', tags: ['HNI', 'Retirement'], nextFollowUp: '2024-12-23' },
-    { id: '2', name: 'Priya Patel', email: 'priya@example.com', phone: '9876543211', stage: 'new', source: 'Referral', potentialValue: 1500000, score: 72, notes: 'Looking for tax-saving investments', createdAt: '2024-12-19', tags: ['Tax-saver'], nextFollowUp: '2024-12-22' },
-    { id: '3', name: 'Amit Kumar', email: 'amit@example.com', phone: '9876543212', stage: 'contacted', source: 'LinkedIn', potentialValue: 5000000, score: 90, notes: 'Met at conference, very interested in AIF', lastContact: '2024-12-21', createdAt: '2024-12-15', tags: ['AIF', 'UHNI'], nextFollowUp: '2024-12-24' },
-    { id: '4', name: 'Sunita Reddy', email: 'sunita@example.com', phone: '9876543213', stage: 'contacted', source: 'Webinar', potentialValue: 800000, score: 65, notes: 'First-time investor', lastContact: '2024-12-20', createdAt: '2024-12-18', tags: ['New Investor'] },
-    { id: '5', name: 'Vikram Singh', email: 'vikram@example.com', phone: '9876543214', stage: 'proposal_sent', source: 'Referral', potentialValue: 10000000, score: 95, notes: 'Corporate client, interested in treasury management', lastContact: '2024-12-19', createdAt: '2024-12-10', tags: ['Corporate', 'Treasury'] },
-    { id: '6', name: 'Meera Gupta', email: 'meera@example.com', phone: '9876543215', stage: 'proposal_sent', source: 'Event', potentialValue: 3000000, score: 78, notes: 'Wants to diversify portfolio', lastContact: '2024-12-18', createdAt: '2024-12-12', tags: ['Diversification'] },
-    { id: '7', name: 'Arjun Nair', email: 'arjun@example.com', phone: '9876543216', stage: 'negotiating', source: 'Referral', potentialValue: 7500000, score: 88, notes: 'Negotiating fees, close to conversion', lastContact: '2024-12-21', createdAt: '2024-12-05', tags: ['HNI', 'Fee-sensitive'] },
-    { id: '8', name: 'Kavita Iyer', email: 'kavita@example.com', phone: '9876543217', stage: 'converted', source: 'Website', potentialValue: 2000000, score: 100, notes: 'Converted! Started with MF SIPs', lastContact: '2024-12-21', createdAt: '2024-12-01', tags: ['SIP'] },
-    { id: '9', name: 'Rahul Joshi', email: 'rahul@example.com', phone: '9876543218', stage: 'lost', source: 'Cold Call', potentialValue: 500000, score: 30, notes: 'Not interested at this time', lastContact: '2024-12-15', createdAt: '2024-12-08', tags: [] }
-  ];
+  if (leadsLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <span className="ml-2 text-slate-400">Loading lead pipeline...</span>
+      </div>
+    );
+  }
 
-  const defaultStats: LeadStats = {
-    total: 9,
-    new: 2,
-    contacted: 2,
-    proposalSent: 2,
-    negotiating: 1,
-    converted: 1,
-    lost: 1,
-    conversionRate: 11.1,
-    avgDealValue: 2000000,
-    pipelineValue: 31800000
+  const displayLeads = leads || [];
+  const displayStats: LeadStats = stats || {
+    total: 0,
+    new: 0,
+    contacted: 0,
+    proposalSent: 0,
+    negotiating: 0,
+    converted: 0,
+    lost: 0,
+    conversionRate: 0,
+    avgDealValue: 0,
+    pipelineValue: 0
   };
-
-  const displayLeads = leads || defaultLeads;
-  const displayStats = stats || defaultStats;
 
   const filteredLeads = displayLeads.filter(lead =>
     (lead.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||

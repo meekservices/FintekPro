@@ -63,6 +63,10 @@ export default function FieldAgentPortal() {
     queryKey: ['/api/agent/tasks'],
   });
 
+  const { data: recentActivity } = useQuery<Array<{ id: string; type: string; title: string; description: string; timestamp: string }>>({
+    queryKey: ['/api/agent/activity'],
+  });
+
   const isLoading = profileLoading || statsLoading;
 
   if (isLoading) {
@@ -312,38 +316,30 @@ export default function FieldAgentPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-100 dark:border-green-900">
-                      <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">New SIP registered</p>
-                        <p className="text-xs text-muted-foreground">Client: Priya Patel • ₹10,000/month</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">2h ago</span>
-                    </div>
-                    <div className="flex items-center gap-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900">
-                      <DollarSign className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">Commission credited</p>
-                        <p className="text-xs text-muted-foreground">₹2,500 for MF transactions</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">5h ago</span>
-                    </div>
-                    <div className="flex items-center gap-4 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-100 dark:border-purple-900">
-                      <Star className="h-5 w-5 text-purple-600 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">Lead converted</p>
-                        <p className="text-xs text-muted-foreground">Amit Kumar became a client</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">1d ago</span>
-                    </div>
-                    <div className="flex items-center gap-4 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-100 dark:border-amber-900">
-                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">Pending KYC</p>
-                        <p className="text-xs text-muted-foreground">2 clients need document upload</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">2d ago</span>
-                    </div>
+                    {recentActivity && recentActivity.length > 0 ? (
+                      recentActivity.slice(0, 4).map((activity) => {
+                        const iconConfig: Record<string, { icon: typeof CheckCircle2; bgClass: string; iconClass: string }> = {
+                          sip: { icon: CheckCircle2, bgClass: 'bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900', iconClass: 'text-green-600' },
+                          commission: { icon: DollarSign, bgClass: 'bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900', iconClass: 'text-blue-600' },
+                          conversion: { icon: Star, bgClass: 'bg-purple-50 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900', iconClass: 'text-purple-600' },
+                          kyc: { icon: AlertTriangle, bgClass: 'bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900', iconClass: 'text-amber-600' }
+                        };
+                        const config = iconConfig[activity.type] || iconConfig.sip;
+                        const Icon = config.icon;
+                        return (
+                          <div key={activity.id} className={`flex items-center gap-4 p-3 rounded-lg border ${config.bgClass}`}>
+                            <Icon className={`h-5 w-5 flex-shrink-0 ${config.iconClass}`} />
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{activity.title}</p>
+                              <p className="text-xs text-muted-foreground">{activity.description}</p>
+                            </div>
+                            <span className="text-xs text-muted-foreground">{activity.timestamp}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">No recent activity</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

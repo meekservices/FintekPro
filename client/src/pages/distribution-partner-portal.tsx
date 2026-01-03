@@ -59,6 +59,14 @@ export default function DistributionPartnerPortal() {
     queryKey: ['/api/partner/clients'],
   });
 
+  const { data: recentActivity } = useQuery<Array<{ id: string; type: string; title: string; description: string; timestamp: string }>>({
+    queryKey: ['/api/partner/activity'],
+  });
+
+  const { data: topAgents } = useQuery<Array<{ id: string; name: string; clients: number; business: number; growth: number; rank: number }>>({
+    queryKey: ['/api/partner/top-agents'],
+  });
+
   const isLoading = profileLoading || statsLoading;
 
   if (isLoading) {
@@ -259,38 +267,30 @@ export default function DistributionPartnerPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-100 dark:border-green-900">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <div className="flex-1">
-                        <p className="font-medium">New client onboarded</p>
-                        <p className="text-sm text-muted-foreground">Agent: Rajesh Kumar • Client: ABC Corp</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">2h ago</span>
-                    </div>
-                    <div className="flex items-center gap-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900">
-                      <DollarSign className="h-5 w-5 text-blue-600" />
-                      <div className="flex-1">
-                        <p className="font-medium">Commission credited</p>
-                        <p className="text-sm text-muted-foreground">₹15,000 for MF transactions</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">5h ago</span>
-                    </div>
-                    <div className="flex items-center gap-4 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-100 dark:border-amber-900">
-                      <AlertTriangle className="h-5 w-5 text-amber-600" />
-                      <div className="flex-1">
-                        <p className="font-medium">KYC pending</p>
-                        <p className="text-sm text-muted-foreground">3 clients need KYC completion</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">1d ago</span>
-                    </div>
-                    <div className="flex items-center gap-4 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-100 dark:border-purple-900">
-                      <UserCheck className="h-5 w-5 text-purple-600" />
-                      <div className="flex-1">
-                        <p className="font-medium">New agent registered</p>
-                        <p className="text-sm text-muted-foreground">Priya Sharma joined as Sub-Agent</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">2d ago</span>
-                    </div>
+                    {recentActivity && recentActivity.length > 0 ? (
+                      recentActivity.slice(0, 4).map((activity) => {
+                        const iconConfig: Record<string, { icon: typeof CheckCircle2; bgClass: string; iconClass: string }> = {
+                          onboarding: { icon: CheckCircle2, bgClass: 'bg-green-50 dark:bg-green-950/30 border-green-100 dark:border-green-900', iconClass: 'text-green-600' },
+                          commission: { icon: DollarSign, bgClass: 'bg-blue-50 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900', iconClass: 'text-blue-600' },
+                          kyc: { icon: AlertTriangle, bgClass: 'bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900', iconClass: 'text-amber-600' },
+                          agent: { icon: UserCheck, bgClass: 'bg-purple-50 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900', iconClass: 'text-purple-600' }
+                        };
+                        const config = iconConfig[activity.type] || iconConfig.onboarding;
+                        const Icon = config.icon;
+                        return (
+                          <div key={activity.id} className={`flex items-center gap-4 p-3 rounded-lg border ${config.bgClass}`}>
+                            <Icon className={`h-5 w-5 ${config.iconClass}`} />
+                            <div className="flex-1">
+                              <p className="font-medium">{activity.title}</p>
+                              <p className="text-sm text-muted-foreground">{activity.description}</p>
+                            </div>
+                            <span className="text-xs text-muted-foreground">{activity.timestamp}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">No recent activity</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -302,31 +302,31 @@ export default function DistributionPartnerPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {[
-                      { name: "Rajesh Kumar", clients: 24, business: 45, growth: 18, rank: 1 },
-                      { name: "Priya Sharma", clients: 18, business: 32, growth: 12, rank: 2 },
-                      { name: "Amit Patel", clients: 15, business: 28, growth: 8, rank: 3 }
-                    ].map((agent) => (
-                      <div key={agent.rank} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                            agent.rank === 1 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
-                            agent.rank === 2 ? 'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground' :
-                            'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
-                          }`}>
-                            #{agent.rank}
+                    {topAgents && topAgents.length > 0 ? (
+                      topAgents.slice(0, 3).map((agent) => (
+                        <div key={agent.id || agent.rank} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                              agent.rank === 1 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
+                              agent.rank === 2 ? 'bg-muted text-muted-foreground dark:bg-muted dark:text-muted-foreground' :
+                              'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                            }`}>
+                              #{agent.rank}
+                            </div>
+                            <div>
+                              <p className="font-medium">{agent.name}</p>
+                              <p className="text-sm text-muted-foreground">{agent.clients} clients</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{agent.name}</p>
-                            <p className="text-sm text-muted-foreground">{agent.clients} clients</p>
+                          <div className="text-right">
+                            <p className="font-bold">₹{agent.business} L</p>
+                            <p className="text-xs text-green-600">+{agent.growth}%</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold">₹{agent.business} L</p>
-                          <p className="text-xs text-green-600">+{agent.growth}%</p>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">No agent data available</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

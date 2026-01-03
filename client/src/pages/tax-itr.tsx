@@ -81,59 +81,15 @@ export default function TaxITRPage() {
   const [selectedTab, setSelectedTab] = useState("landing");
   
   const { data: panContext, isLoading: panLoading } = useQuery<PANContext>({
-    queryKey: ["/api/tax/pan-context"],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest("/api/tax/pan-context");
-        return response;
-      } catch {
-        return {
-          pan: "ABCPK1234A",
-          panType: "individual" as PANType,
-          name: "Rajesh Kumar",
-          isVerified: true
-        };
-      }
-    }
+    queryKey: ["/api/tax/pan-context"]
   });
 
   const { data: eligibleFormsData, isLoading: formsLoading } = useQuery<EligibleFormsResponse>({
-    queryKey: ["/api/tax/eligible-forms"],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest("/api/tax/eligible-forms");
-        return response;
-      } catch {
-        return {
-          panType: "individual" as PANType,
-          eligibleForms: [
-            { form: "ITR-1", name: "Sahaj", description: "Salaried individuals with income up to ₹50 lakh" },
-            { form: "ITR-2", name: "For Individuals & HUFs", description: "Capital gains, multiple properties" }
-          ],
-          recommendedForm: "ITR-1"
-        };
-      }
-    }
+    queryKey: ["/api/tax/eligible-forms"]
   });
 
   const { data: pricing } = useQuery<ITRPricing>({
-    queryKey: ["/api/tax/itr-pricing"],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest("/api/tax/itr-pricing");
-        return response;
-      } catch {
-        return {
-          "ITR-1": { selfFile: 499, expert: 1999 },
-          "ITR-2": { selfFile: 999, expert: 3499 },
-          "ITR-3": { selfFile: 1999, expert: 5999 },
-          "ITR-4": { selfFile: 799, expert: 2499 },
-          "ITR-5": { selfFile: 2999, expert: 7999 },
-          "ITR-6": { selfFile: 4999, expert: 14999 },
-          "ITR-7": { selfFile: 3999, expert: 9999 }
-        };
-      }
-    }
+    queryKey: ["/api/tax/itr-pricing"]
   });
 
   const eligibleForms = eligibleFormsData?.eligibleForms || [];

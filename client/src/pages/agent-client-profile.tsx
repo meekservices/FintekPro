@@ -212,67 +212,58 @@ export default function AgentClientProfile() {
     enabled: !!clientId && clientId !== "1",
   });
 
-  const defaultClient: ClientProfile = {
-    id: "1",
-    name: "Rajesh Sharma",
-    email: "rajesh.sharma@email.com",
-    phone: "+91 98765 43210",
-    address: "123 MG Road, Bangalore 560001",
-    pan: "ABCDE1234F",
-    dateOfBirth: "1975-05-15",
-    occupation: "Business Owner",
-    annualIncome: 5000000,
-    riskProfile: "moderate",
-    kycStatus: "verified",
-    kycExpiry: "2025-12-31",
-    totalPortfolio: 12500000,
-    portfolioGrowth: 18.5,
-    investedSince: "2019-03-15",
-    lastContact: "2024-12-20",
-    nextReview: "2025-01-15",
-    preferredContact: "Phone",
-    notes: "Prefers evening calls. Interested in tax-saving investments and long-term wealth creation.",
-    tags: ["HNI", "Tax-saver", "Long-term"]
-  };
+  const { data: clientData, isLoading: clientLoading } = useQuery<ClientProfile>({
+    queryKey: ['/api/agent/client', clientId]
+  });
 
-  const defaultActivities: ActivityItem[] = [
-    { id: "1", type: "call", title: "Portfolio Review Call", description: "Discussed Q4 performance and rebalancing options", date: "2024-12-20", status: "completed" },
-    { id: "2", type: "investment", title: "SIP Investment - Axis Bluechip", description: "Monthly SIP processed", date: "2024-12-15", amount: 50000 },
-    { id: "3", type: "alert", title: "Exit Alert Triggered", description: "HDFC Bank reached target price", date: "2024-12-14", status: "action_needed" },
-    { id: "4", type: "document", title: "Annual Statement Sent", description: "FY 2023-24 portfolio statement", date: "2024-12-10" },
-    { id: "5", type: "meeting", title: "Quarterly Review Meeting", description: "In-person meeting at office", date: "2024-12-05", status: "completed" },
-    { id: "6", type: "email", title: "Tax Planning Proposal", description: "Sent ELSS recommendations", date: "2024-12-01" },
-    { id: "7", type: "investment", title: "Lump Sum - ICICI Prudential Value", description: "One-time investment", date: "2024-11-28", amount: 500000 },
-    { id: "8", type: "kyc", title: "KYC Renewal Reminder", description: "KYC expires in 12 months", date: "2024-11-25", status: "pending" }
-  ];
+  const { data: activitiesData, isLoading: activitiesLoading } = useQuery<ActivityItem[]>({
+    queryKey: ['/api/agent/client', clientId, 'activities']
+  });
 
-  const defaultGoals: FinancialGoal[] = [
-    { id: "1", name: "Retirement Corpus", targetAmount: 50000000, currentAmount: 12500000, targetDate: "2035-05-15", priority: "high", category: "retirement" },
-    { id: "2", name: "Daughter's Education", targetAmount: 15000000, currentAmount: 4500000, targetDate: "2028-06-01", priority: "high", category: "education" },
-    { id: "3", name: "Son's Education", targetAmount: 15000000, currentAmount: 2800000, targetDate: "2030-06-01", priority: "medium", category: "education" },
-    { id: "4", name: "New House Purchase", targetAmount: 25000000, currentAmount: 8000000, targetDate: "2027-12-31", priority: "medium", category: "house" },
-    { id: "5", name: "Emergency Fund", targetAmount: 2500000, currentAmount: 2500000, targetDate: "2024-12-31", priority: "high", category: "emergency" }
-  ];
+  const { data: goalsData, isLoading: goalsLoading } = useQuery<FinancialGoal[]>({
+    queryKey: ['/api/agent/client', clientId, 'goals']
+  });
 
-  const defaultNotes: MeetingNote[] = [
-    { id: "1", date: "2024-12-20", type: "call", summary: "Discussed portfolio performance and rebalancing. Client happy with returns but wants to reduce equity exposure by 10%.", actionItems: ["Prepare rebalancing proposal", "Send updated risk assessment"], nextSteps: "Schedule follow-up call for proposal review" },
-    { id: "2", date: "2024-12-05", type: "meeting", summary: "Quarterly review meeting. Reviewed all holdings, discussed tax implications. Client interested in increasing ELSS investments.", actionItems: ["Send ELSS comparison", "Calculate tax savings"], nextSteps: "Client will decide on ELSS by month end" },
-    { id: "3", date: "2024-11-15", type: "video", summary: "Discussed daughter's education fund progress. On track but may need to increase SIP.", actionItems: ["Calculate required SIP increase", "Explore education insurance options"], nextSteps: "Present options in next meeting" }
-  ];
+  const { data: notesData, isLoading: notesLoading } = useQuery<MeetingNote[]>({
+    queryKey: ['/api/agent/client', clientId, 'notes']
+  });
 
-  const defaultHoldings: Holding[] = [
-    { id: "1", name: "Axis Bluechip Fund", type: "Mutual Fund", invested: 1500000, current: 1850000, returns: 350000, returnsPercent: 23.3 },
-    { id: "2", name: "ICICI Prudential Value Discovery", type: "Mutual Fund", invested: 2000000, current: 2450000, returns: 450000, returnsPercent: 22.5 },
-    { id: "3", name: "HDFC Bank Ltd", type: "Equity", invested: 800000, current: 1120000, returns: 320000, returnsPercent: 40.0 },
-    { id: "4", name: "SBI Corporate Bond Fund", type: "Debt Fund", invested: 1000000, current: 1080000, returns: 80000, returnsPercent: 8.0 },
-    { id: "5", name: "Nippon India ELSS Tax Saver", type: "ELSS", invested: 500000, current: 620000, returns: 120000, returnsPercent: 24.0 }
-  ];
+  const { data: holdingsData, isLoading: holdingsLoading } = useQuery<Holding[]>({
+    queryKey: ['/api/agent/client', clientId, 'holdings']
+  });
 
-  const client = defaultClient;
-  const activities = defaultActivities;
-  const goals = defaultGoals;
-  const notes = defaultNotes;
-  const holdings = defaultHoldings;
+  const isLoading = clientLoading;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <span className="ml-2 text-slate-400">Loading client profile...</span>
+      </div>
+    );
+  }
+
+  if (!clientData) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center">
+        <User className="h-16 w-16 text-slate-600 mb-4" />
+        <h3 className="text-xl font-semibold text-white mb-2">Client Not Found</h3>
+        <p className="text-slate-400">The client profile you're looking for doesn't exist.</p>
+        <Link href="/clients">
+          <Button className="mt-4" variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Clients
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const client = clientData;
+  const activities = activitiesData || [];
+  const goals = goalsData || [];
+  const notes = notesData || [];
+  const holdings = holdingsData || [];
 
   const formatCurrency = (value: number) => {
     if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)}Cr`;

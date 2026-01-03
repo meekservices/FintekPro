@@ -235,7 +235,37 @@ export default function Portfolio() {
   const fintekproHoldingsFromTracker = taggedTrackerHoldings.filter(h => h.source === 'FINTEKPRO');
   
   const isLoading = portfoliosLoading || holdingsLoading || performanceLoading;
-  const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 1250000;
+  const totalValue = performance ? parseFloat(performance.totalCurrentValue) : 0;
+
+  // Compute dynamic portfolio analytics
+  const computePortfolioWeight = (schemeBalance: number) => {
+    if (!totalValue || totalValue === 0 || !schemeBalance) return null;
+    return ((schemeBalance / totalValue) * 100).toFixed(1);
+  };
+
+  // EPF analytics - sum of all EPF balances
+  const totalEpfBalance = (epfHoldings || []).reduce((sum, epf) => sum + parseFloat(epf.totalBalance || '0'), 0);
+  const epfPortfolioWeight = computePortfolioWeight(totalEpfBalance);
+
+  // PPF analytics - sum of all PPF balances  
+  const totalPpfBalance = (ppfHoldings || []).reduce((sum, ppf) => sum + parseFloat(ppf.currentBalance || '0'), 0);
+  const ppfPortfolioWeight = computePortfolioWeight(totalPpfBalance);
+
+  // Insurance analytics - aggregate from holdings
+  const insuranceAnalytics = {
+    totalPremium: (insuranceHoldings || []).reduce((sum, ins) => sum + parseFloat(ins.annualPremium || '0'), 0),
+    lifeCoverage: (insuranceHoldings || []).filter(ins => ins.policyType === 'life').reduce((sum, ins) => sum + parseFloat(ins.sumAssured || '0'), 0),
+    healthCoverage: (insuranceHoldings || []).filter(ins => ins.policyType === 'health').reduce((sum, ins) => sum + parseFloat(ins.sumAssured || '0'), 0),
+    motorCoverage: (insuranceHoldings || []).filter(ins => ins.policyType === 'motor').reduce((sum, ins) => sum + parseFloat(ins.sumAssured || '0'), 0),
+    ulipValue: (insuranceHoldings || []).filter(ins => ins.policyType === 'ulip').reduce((sum, ins) => sum + parseFloat(ins.fundValue || '0'), 0)
+  };
+
+  // Calculate projected retirement value (compound growth formula)
+  const calculateProjectedValue = (currentBalance: number, interestRate: number, yearsToRetirement: number = 25) => {
+    if (!currentBalance || !interestRate) return null;
+    const projectedValue = currentBalance * Math.pow(1 + interestRate / 100, yearsToRetirement);
+    return projectedValue;
+  };
 
   // Update selected currency when portfolio changes
   useEffect(() => {
@@ -1374,15 +1404,15 @@ export default function Portfolio() {
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Total Premium</span>
-                          <span className="text-sm font-medium">₹88,500</span>
+                          <span className="text-sm font-medium">{insuranceAnalytics.totalPremium > 0 ? `₹${insuranceAnalytics.totalPremium.toLocaleString('en-IN')}` : 'Not available'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm">% of Income</span>
-                          <span className="text-sm font-medium text-green-600">8.2%</span>
+                          <span className="text-sm font-medium text-muted-foreground">Not available</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm">Next Due</span>
-                          <span className="text-sm font-medium text-orange-600">15 days</span>
+                          <span className="text-sm font-medium text-muted-foreground">Not available</span>
                         </div>
                       </div>
                     </div>
@@ -1393,15 +1423,15 @@ export default function Portfolio() {
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm">Life Coverage</span>
-                          <span className="text-sm font-medium">₹1.5Cr</span>
+                          <span className="text-sm font-medium">{insuranceAnalytics.lifeCoverage > 0 ? `₹${(insuranceAnalytics.lifeCoverage / 10000000).toFixed(1)}Cr` : 'Not available'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm">Health Coverage</span>
-                          <span className="text-sm font-medium">₹20L</span>
+                          <span className="text-sm font-medium">{insuranceAnalytics.healthCoverage > 0 ? `₹${(insuranceAnalytics.healthCoverage / 100000).toFixed(0)}L` : 'Not available'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm">Motor Coverage</span>
-                          <span className="text-sm font-medium">₹15L</span>
+                          <span className="text-sm font-medium">{insuranceAnalytics.motorCoverage > 0 ? `₹${(insuranceAnalytics.motorCoverage / 100000).toFixed(0)}L` : 'Not available'}</span>
                         </div>
                       </div>
                     </div>
@@ -1411,7 +1441,7 @@ export default function Portfolio() {
                       <h4 className="font-semibold text-gray-900">Portfolio Impact</h4>
                       <div className="space-y-2">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">₹3.85L</div>
+                          <div className="text-2xl font-bold text-blue-600">{insuranceAnalytics.ulipValue > 0 ? `₹${(insuranceAnalytics.ulipValue / 100000).toFixed(2)}L` : 'Not available'}</div>
                           <p className="text-sm text-muted-foreground">ULIP Fund Value</p>
                         </div>
                         <div className="text-xs text-muted-foreground text-center">
@@ -1605,11 +1635,11 @@ export default function Portfolio() {
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <p className="text-sm text-muted-foreground">Name</p>
-                            <p className="font-medium">Priya Sharma</p>
+                            <p className="font-medium">{(epf as any).nomineeName || 'Not available'}</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Relationship</p>
-                            <p className="font-medium">Spouse</p>
+                            <p className="font-medium">{(epf as any).nomineeRelation || 'Not specified'}</p>
                           </div>
                         </div>
                       </div>
@@ -1632,12 +1662,14 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-gray-900">Portfolio Weight</h4>
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-purple-600">8.9%</div>
+                        <div className="text-3xl font-bold text-purple-600">{epfPortfolioWeight ? `${epfPortfolioWeight}%` : 'Not available'}</div>
                         <p className="text-sm text-muted-foreground">of total wealth</p>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: '8.9%' }}></div>
-                      </div>
+                      {epfPortfolioWeight && (
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${Math.min(parseFloat(epfPortfolioWeight), 100)}%` }}></div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Risk Profile */}
@@ -1664,11 +1696,18 @@ export default function Portfolio() {
                       <h4 className="font-semibold text-gray-900">Retirement Impact</h4>
                       <div className="space-y-2">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">₹85.2L</div>
+                          {(() => {
+                            const projectedValue = calculateProjectedValue(totalEpfBalance, parseFloat(epf.interestRate || '8.15'));
+                            return projectedValue ? (
+                              <div className="text-2xl font-bold text-blue-600">₹{(projectedValue / 100000).toFixed(1)}L</div>
+                            ) : (
+                              <div className="text-2xl font-bold text-muted-foreground">Not available</div>
+                            );
+                          })()}
                           <p className="text-sm text-muted-foreground">Projected at 60</p>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Based on current contributions and 8.15% annual growth
+                          Based on current contributions and {epf.interestRate || '8.15'}% annual growth
                         </div>
                       </div>
                     </div>
@@ -1775,15 +1814,15 @@ export default function Portfolio() {
                       <div className="space-y-3">
                         <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
                           <span className="text-sm font-medium text-purple-900">Total Contribution</span>
-                          <span className="font-bold text-purple-900">₹11,50,000</span>
+                          <span className="font-bold text-purple-900">{(ppf as any).totalContribution ? `₹${parseFloat((ppf as any).totalContribution).toLocaleString('en-IN')}` : 'Not available'}</span>
                         </div>
                         <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                           <span className="text-sm font-medium text-orange-900">Interest Earned</span>
-                          <span className="font-bold text-orange-900">₹7,85,240</span>
+                          <span className="font-bold text-orange-900">{(ppf as any).interestEarned ? `₹${parseFloat((ppf as any).interestEarned).toLocaleString('en-IN')}` : 'Not available'}</span>
                         </div>
                         <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                           <span className="text-sm font-medium text-green-900">Current Balance</span>
-                          <span className="font-bold text-green-900">₹19,35,240</span>
+                          <span className="font-bold text-green-900">{ppf.currentBalance ? `₹${parseFloat(ppf.currentBalance).toLocaleString('en-IN')}` : 'Not available'}</span>
                         </div>
                       </div>
                     </div>
@@ -1793,10 +1832,18 @@ export default function Portfolio() {
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-lg font-semibold text-gray-900">Projected Maturity Value</span>
-                          <span className="text-2xl font-bold text-purple-600">₹42.8L</span>
+                          {(() => {
+                            const yearsToMaturity = ppf.maturityDate ? Math.ceil((new Date(ppf.maturityDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
+                            const projectedValue = calculateProjectedValue(parseFloat(ppf.currentBalance || '0'), parseFloat((ppf as any).interestRate || '7.1'), yearsToMaturity);
+                            return projectedValue ? (
+                              <span className="text-2xl font-bold text-purple-600">₹{(projectedValue / 100000).toFixed(1)}L</span>
+                            ) : (
+                              <span className="text-2xl font-bold text-muted-foreground">Not available</span>
+                            );
+                          })()}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Based on ₹1.5L annual contribution and 8.2% average return
+                          Based on current balance and {(ppf as any).interestRate || '7.1'}% annual growth
                         </p>
                       </div>
                     </div>
@@ -1886,11 +1933,11 @@ export default function Portfolio() {
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <p className="text-sm text-muted-foreground">Name</p>
-                            <p className="font-medium">Rajesh Kumar</p>
+                            <p className="font-medium">{(ppf as any).nomineeName || 'Not available'}</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Relationship</p>
-                            <p className="font-medium">Father</p>
+                            <p className="font-medium">{(ppf as any).nomineeRelation || 'Not specified'}</p>
                           </div>
                         </div>
                       </div>
@@ -1913,12 +1960,14 @@ export default function Portfolio() {
                     <div className="space-y-3">
                       <h4 className="font-semibold text-gray-900">Portfolio Weight</h4>
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-purple-600">14.2%</div>
+                        <div className="text-3xl font-bold text-purple-600">{ppfPortfolioWeight ? `${ppfPortfolioWeight}%` : 'Not available'}</div>
                         <p className="text-sm text-muted-foreground">of total wealth</p>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: '14.2%' }}></div>
-                      </div>
+                      {ppfPortfolioWeight && (
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${Math.min(parseFloat(ppfPortfolioWeight), 100)}%` }}></div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Risk Profile */}
@@ -1964,8 +2013,16 @@ export default function Portfolio() {
                       <h4 className="font-semibold text-gray-900">Retirement Impact</h4>
                       <div className="space-y-2">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-purple-600">₹42.8L</div>
-                          <p className="text-sm text-muted-foreground">At maturity (2030)</p>
+                          {(() => {
+                            const yearsToMaturity = (ppfHoldings?.[0]?.maturityDate) ? Math.ceil((new Date(ppfHoldings[0].maturityDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
+                            const projectedValue = calculateProjectedValue(totalPpfBalance, 7.1, yearsToMaturity);
+                            return projectedValue ? (
+                              <div className="text-2xl font-bold text-purple-600">₹{(projectedValue / 100000).toFixed(1)}L</div>
+                            ) : (
+                              <div className="text-2xl font-bold text-muted-foreground">Not available</div>
+                            );
+                          })()}
+                          <p className="text-sm text-muted-foreground">At maturity ({ppfHoldings?.[0]?.maturityDate ? new Date(ppfHoldings[0].maturityDate).getFullYear() : 'N/A'})</p>
                         </div>
                         <div className="text-xs text-muted-foreground text-center">
                           Provides stable, tax-free retirement corpus
@@ -2240,15 +2297,15 @@ export default function Portfolio() {
                         <div className="grid grid-cols-3 gap-2">
                           <div>
                             <p className="text-sm text-muted-foreground">Name</p>
-                            <p className="font-medium">Priya Sharma</p>
+                            <p className="font-medium">{(eps as any).nomineeName || 'Not available'}</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Relationship</p>
-                            <p className="font-medium">Spouse</p>
+                            <p className="font-medium">{(eps as any).nomineeRelation || 'Not specified'}</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Share</p>
-                            <p className="font-medium">100%</p>
+                            <p className="font-medium">{(eps as any).nomineeShare || '100%'}</p>
                           </div>
                         </div>
                       </div>
