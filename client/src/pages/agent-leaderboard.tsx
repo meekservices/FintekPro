@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Trophy,
@@ -58,148 +59,6 @@ const achievementIcons: Record<string, { icon: typeof Trophy; color: string; lab
   consistent_performer: { icon: BadgeCheck, color: "text-emerald-400", label: "Consistent Performer" },
 };
 
-const mockLeaderboardData: AgentLeaderboardEntry[] = [
-  {
-    id: "1",
-    name: "Rajesh Kumar",
-    rank: 1,
-    previousRank: 1,
-    totalAUM: 125000000,
-    commissionMTD: 485000,
-    commissionYTD: 4850000,
-    activeClients: 156,
-    dealsClosedThisMonth: 24,
-    leadConversionRate: 68.5,
-    streak: 12,
-    achievements: ["revenue_king", "top_closer", "consistent_performer"],
-  },
-  {
-    id: "2",
-    name: "Priya Sharma",
-    rank: 2,
-    previousRank: 4,
-    totalAUM: 98500000,
-    commissionMTD: 392000,
-    commissionYTD: 3920000,
-    activeClients: 142,
-    dealsClosedThisMonth: 21,
-    leadConversionRate: 72.3,
-    streak: 8,
-    achievements: ["client_magnet", "rising_star"],
-  },
-  {
-    id: "3",
-    name: "Amit Patel",
-    rank: 3,
-    previousRank: 2,
-    totalAUM: 87200000,
-    commissionMTD: 348000,
-    commissionYTD: 3480000,
-    activeClients: 128,
-    dealsClosedThisMonth: 18,
-    leadConversionRate: 65.8,
-    streak: 5,
-    achievements: ["deal_machine"],
-  },
-  {
-    id: "4",
-    name: "Sneha Reddy",
-    rank: 4,
-    previousRank: 5,
-    totalAUM: 76800000,
-    commissionMTD: 307000,
-    commissionYTD: 3070000,
-    activeClients: 115,
-    dealsClosedThisMonth: 16,
-    leadConversionRate: 61.2,
-    streak: 3,
-    achievements: ["rising_star"],
-  },
-  {
-    id: "5",
-    name: "Vikram Singh",
-    rank: 5,
-    previousRank: 3,
-    totalAUM: 72500000,
-    commissionMTD: 290000,
-    commissionYTD: 2900000,
-    activeClients: 108,
-    dealsClosedThisMonth: 14,
-    leadConversionRate: 58.9,
-    streak: 0,
-    achievements: [],
-  },
-  {
-    id: "6",
-    name: "Ananya Gupta",
-    rank: 6,
-    previousRank: 7,
-    totalAUM: 65300000,
-    commissionMTD: 261000,
-    commissionYTD: 2610000,
-    activeClients: 96,
-    dealsClosedThisMonth: 12,
-    leadConversionRate: 55.4,
-    streak: 2,
-    achievements: [],
-  },
-  {
-    id: "7",
-    name: "Karan Mehta",
-    rank: 7,
-    previousRank: 6,
-    totalAUM: 58900000,
-    commissionMTD: 235000,
-    commissionYTD: 2350000,
-    activeClients: 89,
-    dealsClosedThisMonth: 11,
-    leadConversionRate: 52.1,
-    streak: 0,
-    achievements: [],
-  },
-  {
-    id: "8",
-    name: "Divya Nair",
-    rank: 8,
-    previousRank: 9,
-    totalAUM: 52100000,
-    commissionMTD: 208000,
-    commissionYTD: 2080000,
-    activeClients: 82,
-    dealsClosedThisMonth: 10,
-    leadConversionRate: 49.8,
-    streak: 4,
-    achievements: ["consistent_performer"],
-  },
-  {
-    id: "9",
-    name: "Rahul Joshi",
-    rank: 9,
-    previousRank: 8,
-    totalAUM: 48700000,
-    commissionMTD: 195000,
-    commissionYTD: 1950000,
-    activeClients: 76,
-    dealsClosedThisMonth: 9,
-    leadConversionRate: 47.2,
-    streak: 0,
-    achievements: [],
-  },
-  {
-    id: "10",
-    name: "Neha Verma",
-    rank: 10,
-    previousRank: 12,
-    totalAUM: 45200000,
-    commissionMTD: 181000,
-    commissionYTD: 1810000,
-    activeClients: 71,
-    dealsClosedThisMonth: 8,
-    leadConversionRate: 45.6,
-    streak: 6,
-    achievements: ["rising_star"],
-  },
-];
 
 export default function AgentLeaderboard() {
   const { user } = useAuth();
@@ -209,23 +68,10 @@ export default function AgentLeaderboard() {
     queryKey: ["/api/agent/leaderboard", period],
   });
 
-  const agents = leaderboardData?.agents?.length ? leaderboardData.agents : mockLeaderboardData;
-  const totalAgents = leaderboardData?.totalAgents || mockLeaderboardData.length;
+  const agents = leaderboardData?.agents || [];
+  const totalAgents = leaderboardData?.totalAgents || 0;
   
-  const currentUserRank = leaderboardData?.currentUserRank || {
-    id: user?.id || "current",
-    name: user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : "You",
-    rank: 15,
-    previousRank: 18,
-    totalAUM: 32500000,
-    commissionMTD: 130000,
-    commissionYTD: 1300000,
-    activeClients: 48,
-    dealsClosedThisMonth: 6,
-    leadConversionRate: 42.5,
-    streak: 2,
-    achievements: ["rising_star"],
-  };
+  const currentUserRank = leaderboardData?.currentUserRank;
 
   const formatCurrency = (value: number) => {
     if (value >= 10000000) {
@@ -333,77 +179,89 @@ export default function AgentLeaderboard() {
           </Select>
         </div>
 
-        <Card className="bg-gradient-to-r from-emerald-900/50 via-emerald-800/30 to-teal-900/50 border-emerald-700/50" data-testid="card-my-rank">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-emerald-300 flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              My Rank
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-600 text-white text-2xl font-bold">
-                    #{currentUserRank.rank}
-                  </div>
-                  {getRankChange(currentUserRank.rank, currentUserRank.previousRank)}
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-white" data-testid="text-my-name">{currentUserRank.name}</p>
-                  <p className="text-slate-400 text-sm">Rank {currentUserRank.rank} of {totalAgents} agents</p>
-                </div>
-              </div>
-
-              <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="text-center">
-                  <p className="text-slate-400 text-xs">AUM</p>
-                  <p className="text-white font-semibold" data-testid="text-my-aum">{formatCurrency(currentUserRank.totalAUM)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-slate-400 text-xs">Commission MTD</p>
-                  <p className="text-white font-semibold" data-testid="text-my-commission-mtd">{formatCurrency(currentUserRank.commissionMTD)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-slate-400 text-xs">Active Clients</p>
-                  <p className="text-white font-semibold" data-testid="text-my-clients">{currentUserRank.activeClients}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-slate-400 text-xs">Deals This Month</p>
-                  <p className="text-white font-semibold" data-testid="text-my-deals">{currentUserRank.dealsClosedThisMonth}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-slate-400 text-xs">Conversion Rate</p>
-                  <p className="text-white font-semibold" data-testid="text-my-conversion">{currentUserRank.leadConversionRate}%</p>
-                </div>
-              </div>
-
-              {currentUserRank.streak > 0 && (
-                <div className="flex items-center gap-2 bg-orange-500/20 px-3 py-2 rounded-lg">
-                  <Flame className="h-5 w-5 text-orange-400" />
-                  <span className="text-orange-300 font-semibold">{currentUserRank.streak} week streak</span>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                {currentUserRank.achievements.map((achievement) => {
-                  const config = achievementIcons[achievement];
-                  if (!config) return null;
-                  const Icon = config.icon;
-                  return (
-                    <div
-                      key={achievement}
-                      className="p-2 bg-slate-800 rounded-lg"
-                      title={config.label}
-                    >
-                      <Icon className={`h-5 w-5 ${config.color}`} />
+        {currentUserRank && (
+          <Card className="bg-gradient-to-r from-emerald-900/50 via-emerald-800/30 to-teal-900/50 border-emerald-700/50" data-testid="card-my-rank">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg text-emerald-300 flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                My Rank
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-600 text-white text-2xl font-bold">
+                      #{currentUserRank.rank}
                     </div>
-                  );
-                })}
+                    {getRankChange(currentUserRank.rank, currentUserRank.previousRank)}
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-white" data-testid="text-my-name">{currentUserRank.name}</p>
+                    <p className="text-slate-400 text-sm">Rank {currentUserRank.rank} of {totalAgents} agents</p>
+                  </div>
+                </div>
+
+                <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="text-center">
+                    <p className="text-slate-400 text-xs">AUM</p>
+                    <p className="text-white font-semibold" data-testid="text-my-aum">{formatCurrency(currentUserRank.totalAUM)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-slate-400 text-xs">Commission MTD</p>
+                    <p className="text-white font-semibold" data-testid="text-my-commission-mtd">{formatCurrency(currentUserRank.commissionMTD)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-slate-400 text-xs">Active Clients</p>
+                    <p className="text-white font-semibold" data-testid="text-my-clients">{currentUserRank.activeClients}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-slate-400 text-xs">Deals This Month</p>
+                    <p className="text-white font-semibold" data-testid="text-my-deals">{currentUserRank.dealsClosedThisMonth}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-slate-400 text-xs">Conversion Rate</p>
+                    <p className="text-white font-semibold" data-testid="text-my-conversion">{currentUserRank.leadConversionRate}%</p>
+                  </div>
+                </div>
+
+                {currentUserRank.streak > 0 && (
+                  <div className="flex items-center gap-2 bg-orange-500/20 px-3 py-2 rounded-lg">
+                    <Flame className="h-5 w-5 text-orange-400" />
+                    <span className="text-orange-300 font-semibold">{currentUserRank.streak} week streak</span>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  {currentUserRank.achievements.map((achievement) => {
+                    const config = achievementIcons[achievement];
+                    if (!config) return null;
+                    const Icon = config.icon;
+                    return (
+                      <div
+                        key={achievement}
+                        className="p-2 bg-slate-800 rounded-lg"
+                        title={config.label}
+                      >
+                        <Icon className={`h-5 w-5 ${config.color}`} />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {agents.length === 0 && !currentUserRank && (
+          <Card className="bg-slate-900 border-slate-700">
+            <CardContent className="py-12 text-center">
+              <Trophy className="h-12 w-12 mx-auto text-slate-500 mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">No Leaderboard Data</h3>
+              <p className="text-slate-400">Start closing deals to appear on the leaderboard!</p>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {agents.slice(0, 3).map((agent, index) => (
