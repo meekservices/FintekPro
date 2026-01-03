@@ -118,7 +118,8 @@ export function EnhancedNavigation() {
     try {
       await apiRequest("/api/logout", { method: "POST" });
       queryClient.setQueryData(["/api/user"], null);
-      window.location.href = "/";
+      // Redirect to auth page for consistent security across all portals
+      window.location.href = "/auth";
     } catch (error) {
       console.error("Logout failed:", error);
     }

@@ -62,7 +62,8 @@ export function TopNavLayout({ children }: TopNavLayoutProps) {
       await apiRequest("POST", "/api/logout");
       queryClient.clear();
       logout();
-      window.location.href = "/";
+      // Redirect to auth page for consistent security across all portals
+      window.location.href = "/auth";
     } catch (error) {
       console.error("Logout error:", error);
     }
