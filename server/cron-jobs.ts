@@ -5,6 +5,7 @@ import { probe42Service } from './services/probe42-service';
 import { stockSyncScheduler } from './services/stock-sync-scheduler';
 import { getProbe42AnalyticsService } from './services/probe42-analytics-service';
 import { ckycSlaEscalationService } from './services/ckyc-sla-escalation-service';
+import { auditIntegrityChecker } from './services/audit-integrity-checker';
 import { db } from './db';
 import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -572,6 +573,16 @@ export function initializeCronJobs(): void {
     ckycSlaEscalationService.initialize();
   } catch (error: any) {
     console.error('[CRON] Failed to initialize CKYC SLA Escalation Service:', error.message);
+  }
+
+  // Initialize Audit Trail Integrity Checker - Runs every hour by default
+  // Verifies SHA-256 hash chain integrity and alerts on tampering
+  try {
+    const auditCheckIntervalMinutes = parseInt(process.env.AUDIT_INTEGRITY_CHECK_INTERVAL_MINUTES || '60', 10);
+    auditIntegrityChecker.initialize(auditCheckIntervalMinutes);
+    console.log(`[CRON] Audit Integrity Checker initialized (every ${auditCheckIntervalMinutes} minutes)`);
+  } catch (error: any) {
+    console.error('[CRON] Failed to initialize Audit Integrity Checker:', error.message);
   }
   
   console.log('✓ Cron jobs initialized successfully');

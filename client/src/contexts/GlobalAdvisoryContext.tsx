@@ -1,11 +1,14 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
 import { 
   useEnabledMarkets, 
   useUserMarketPreferences, 
   useSelectMarket, 
   useHasAcknowledged,
+  useMarketEligibility,
   type Market,
-  type UserMarketPreferences 
+  type UserMarketPreferences,
+  type MarketEligibility,
+  type JurisdictionFeatureFlags
 } from "@/hooks/use-global-advisory";
 import { GlobalAdvisoryDisclaimer, ExecutionRedirectModal } from "@/components/global-advisory/GlobalAdvisoryDisclaimer";
 
@@ -17,9 +20,15 @@ interface GlobalAdvisoryContextType {
   isGlobalMode: boolean;
   canExecute: boolean;
   advisoryLevel: string;
+  isAnalyticsMode: boolean;
+  eligibleMarkets: MarketEligibility[];
+  jurisdictionFlags: JurisdictionFeatureFlags;
+  currentMarketEligibility: MarketEligibility | null;
+  displayCurrency: string;
   switchMarket: (marketCode: string) => Promise<void>;
   checkDisclaimerAndProceed: (marketCode: string, onProceed: () => void) => void;
   showExecutionRedirect: () => void;
+  isProductAllowed: (productCategory: string) => boolean;
 }
 
 const GlobalAdvisoryContext = createContext<GlobalAdvisoryContextType | null>(null);
@@ -31,6 +40,7 @@ interface GlobalAdvisoryProviderProps {
 export function GlobalAdvisoryProvider({ children }: GlobalAdvisoryProviderProps) {
   const { data: marketsData, isLoading: marketsLoading } = useEnabledMarkets();
   const { data: preferencesData, isLoading: preferencesLoading } = useUserMarketPreferences();
+  const { data: eligibilityData, isLoading: eligibilityLoading } = useMarketEligibility();
   const selectMarketMutation = useSelectMarket();
   
   const [disclaimerState, setDisclaimerState] = useState<{
@@ -50,6 +60,22 @@ export function GlobalAdvisoryProvider({ children }: GlobalAdvisoryProviderProps
   const isGlobalMode = selectedMarketCode !== "IN";
   const canExecute = selectedMarket?.executionAllowed || false;
   const advisoryLevel = selectedMarket?.advisoryLevel || "FULL";
+  const isAnalyticsMode = eligibilityData?.eligibility?.isAnalyticsMode ?? !canExecute;
+  const displayCurrency = preferences?.displayCurrency || selectedMarket?.baseCurrency || "INR";
+  
+  const eligibleMarkets = eligibilityData?.eligibility?.markets || [];
+  const currentMarketEligibility = eligibleMarkets.find(m => m.marketCode === selectedMarketCode) || null;
+  
+  const jurisdictionFlags: JurisdictionFeatureFlags = useMemo(() => ({
+    canExecuteTrades: canExecute,
+    canViewAnalytics: selectedMarket?.isEnabled ?? false,
+    canAccessRealTimeData: advisoryLevel === "FULL",
+    canAccessResearch: selectedMarket?.isEnabled ?? false,
+    canAccessAlerts: selectedMarket?.isEnabled ?? false,
+    hasEtfOnlyRestriction: currentMarketEligibility?.restrictions?.some(r => r.includes("ETF")) ?? false,
+    requiresAccreditedStatus: currentMarketEligibility?.restrictions?.some(r => r.includes("accredited")) ?? false,
+    requiredAcknowledgments: isGlobalMode ? ["global_advisory_disclaimer"] : [],
+  }), [canExecute, selectedMarket, advisoryLevel, currentMarketEligibility, isGlobalMode]);
   
   const { data: ackData } = useHasAcknowledged(
     selectedMarketCode, 
@@ -86,6 +112,11 @@ export function GlobalAdvisoryProvider({ children }: GlobalAdvisoryProviderProps
     setExecutionRedirectOpen(true);
   }, []);
   
+  const isProductAllowed = useCallback((productCategory: string): boolean => {
+    if (!currentMarketEligibility) return selectedMarketCode === "IN";
+    return currentMarketEligibility.allowedProducts.includes(productCategory);
+  }, [currentMarketEligibility, selectedMarketCode]);
+  
   const handleDisclaimerAccept = () => {
     setDisclaimerState(prev => {
       prev.onProceed?.();
@@ -103,13 +134,19 @@ export function GlobalAdvisoryProvider({ children }: GlobalAdvisoryProviderProps
         selectedMarket,
         preferences,
         markets,
-        isLoading: marketsLoading || preferencesLoading,
+        isLoading: marketsLoading || preferencesLoading || eligibilityLoading,
         isGlobalMode,
         canExecute,
         advisoryLevel,
+        isAnalyticsMode,
+        eligibleMarkets,
+        jurisdictionFlags,
+        currentMarketEligibility,
+        displayCurrency,
         switchMarket,
         checkDisclaimerAndProceed,
         showExecutionRedirect,
+        isProductAllowed,
       }}
     >
       {children}

@@ -20,6 +20,15 @@ interface CacheEntry {
   isRefreshing: boolean;
 }
 
+interface ProviderMetrics {
+  successCount: number;
+  failureCount: number;
+  lastSuccess: number;
+  lastFailure: number;
+  lastLatency: number;
+  rateLimitErrors: number;
+}
+
 interface CacheMetrics {
   hits: number;
   misses: number;
@@ -30,17 +39,20 @@ interface CacheMetrics {
   lastRefreshDuration: number;
   yahooLatency: number;
   backoffUntil: number;
+  providers: {
+    yahoo: ProviderMetrics;
+    finnhub: ProviderMetrics;
+  };
+  lastSuccessfulProvider: string | null;
 }
 
-// Increased TTLs to reduce API calls and prevent rate limiting
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
-const STALE_TTL_MS = 60 * 60 * 1000; // 60 minutes (increased from 30 minutes)
-const CRUMB_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours (increased from 2 hours)
-const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const STALE_TTL_MS = 60 * 60 * 1000;
+const CRUMB_TTL_MS = 4 * 60 * 60 * 1000;
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 
-// Exponential backoff settings for rate limiting
-const INITIAL_BACKOFF_MS = 5 * 60 * 1000; // Start with 5 minutes (increased from 1 minute)
-const MAX_BACKOFF_MS = 60 * 60 * 1000; // Max 60 minutes (increased from 30 minutes)
+const INITIAL_BACKOFF_MS = 5 * 60 * 1000;
+const MAX_BACKOFF_MS = 60 * 60 * 1000;
 const BACKOFF_MULTIPLIER = 2;
 
 const INDIAN_STOCKS = [
@@ -78,6 +90,99 @@ const FALLBACK_DATA: MarketMoversData = {
   ],
 };
 
+class FinnhubProvider {
+  private apiKey: string | null = null;
+  private isAvailable: boolean = false;
+  private readonly baseUrl = 'https://finnhub.io/api/v1';
+
+  constructor() {
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (apiKey && apiKey.length > 0) {
+      this.apiKey = apiKey;
+      this.isAvailable = true;
+      console.log('✅ [FinnhubProvider] Initialized successfully (API key length:', apiKey.length + ')');
+    } else {
+      console.log('ℹ️ [FinnhubProvider] FINNHUB_API_KEY not set - Finnhub fallback disabled');
+      this.isAvailable = false;
+    }
+  }
+
+  isEnabled(): boolean {
+    return this.isAvailable;
+  }
+
+  async getQuote(symbol: string): Promise<{ price: number; change: number; changePercent: number; previousClose: number } | null> {
+    if (!this.isAvailable || !this.apiKey) {
+      return null;
+    }
+
+    try {
+      const url = `${this.baseUrl}/quote?symbol=${encodeURIComponent(symbol)}&token=${this.apiKey}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Finnhub rate limit exceeded');
+        }
+        return null;
+      }
+
+      const data = await response.json();
+      
+      if (!data || data.c === 0 || data.c === undefined) {
+        return null;
+      }
+
+      return {
+        price: data.c || 0,
+        change: data.d || 0,
+        changePercent: data.dp || 0,
+        previousClose: data.pc || 0,
+      };
+    } catch (error) {
+      console.warn(`⚠️ [FinnhubProvider] Quote fetch error for ${symbol}:`, error);
+      throw error;
+    }
+  }
+
+  async fetchAllStocks(stocks: typeof INDIAN_STOCKS): Promise<Stock[]> {
+    if (!this.isAvailable) {
+      throw new Error('Finnhub provider not available');
+    }
+
+    const stockQuotes: Stock[] = [];
+
+    for (const stock of stocks) {
+      try {
+        const quote = await this.getQuote(stock.symbol);
+        if (quote && quote.price > 0) {
+          stockQuotes.push({
+            symbol: stock.symbol.replace('.NS', ''),
+            name: stock.name,
+            price: quote.price,
+            change: quote.change,
+            changePercent: quote.changePercent,
+            previousClose: quote.previousClose,
+          });
+        }
+        await new Promise(resolve => setTimeout(resolve, 150));
+      } catch (error) {
+        const errorStr = String(error);
+        if (errorStr.includes('rate limit') || errorStr.includes('429')) {
+          throw error;
+        }
+        console.warn(`⚠️ [FinnhubProvider] Failed to fetch ${stock.symbol}:`, error);
+      }
+    }
+
+    if (stockQuotes.length === 0) {
+      throw new Error('No stock data fetched from Finnhub');
+    }
+
+    return stockQuotes;
+  }
+}
+
 class MarketMoversCache {
   private cache: CacheEntry | null = null;
   private metrics: CacheMetrics = {
@@ -90,16 +195,40 @@ class MarketMoversCache {
     lastRefreshDuration: 0,
     yahooLatency: 0,
     backoffUntil: 0,
+    providers: {
+      yahoo: {
+        successCount: 0,
+        failureCount: 0,
+        lastSuccess: 0,
+        lastFailure: 0,
+        lastLatency: 0,
+        rateLimitErrors: 0,
+      },
+      finnhub: {
+        successCount: 0,
+        failureCount: 0,
+        lastSuccess: 0,
+        lastFailure: 0,
+        lastLatency: 0,
+        rateLimitErrors: 0,
+      },
+    },
+    lastSuccessfulProvider: null,
   };
   private refreshLock = false;
   private crumbInitialized = false;
   private crumbInitTime = 0;
   private isInitialized = false;
   private currentBackoff = INITIAL_BACKOFF_MS;
+  private finnhubProvider: FinnhubProvider;
+  private yahooRateLimited = false;
+
+  constructor() {
+    this.finnhubProvider = new FinnhubProvider();
+  }
 
   async initialize(): Promise<void> {
     console.log('📈 [MarketMoversCache] Starting background initialization...');
-    // Non-blocking initialization - start background tasks without awaiting
     this.initializeInBackground().catch(err => 
       console.error('❌ [MarketMoversCache] Background initialization failed:', err)
     );
@@ -121,7 +250,6 @@ class MarketMoversCache {
   private applyBackoff(): void {
     this.metrics.backoffUntil = Date.now() + this.currentBackoff;
     console.log(`⏸️ [MarketMoversCache] Rate limited, backing off for ${Math.round(this.currentBackoff / 1000)}s`);
-    // Increase backoff for next time (exponential)
     this.currentBackoff = Math.min(this.currentBackoff * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
   }
 
@@ -142,7 +270,6 @@ class MarketMoversCache {
       return;
     }
 
-    // Skip if rate limited
     if (this.isRateLimited()) {
       console.log('⏸️ [MarketMoversCache] Skipping crumb init - rate limited');
       return;
@@ -158,11 +285,14 @@ class MarketMoversCache {
       
       this.crumbInitialized = true;
       this.crumbInitTime = Date.now();
-      this.resetBackoff(); // Success - reset backoff
+      this.yahooRateLimited = false;
+      this.resetBackoff();
       console.log(`✅ [MarketMoversCache] Yahoo crumb initialized in ${Date.now() - startTime}ms`);
     } catch (error) {
       if (this.isRateLimitError(error)) {
         this.metrics.rateLimitErrors++;
+        this.metrics.providers.yahoo.rateLimitErrors++;
+        this.yahooRateLimited = true;
         this.applyBackoff();
       }
       console.warn('⚠️ [MarketMoversCache] Failed to initialize Yahoo crumb:', error);
@@ -171,8 +301,7 @@ class MarketMoversCache {
 
   private startBackgroundRefresh(): void {
     setInterval(async () => {
-      // Skip if rate limited
-      if (this.isRateLimited()) {
+      if (this.isRateLimited() && !this.finnhubProvider.isEnabled()) {
         const remainingMs = this.metrics.backoffUntil - Date.now();
         console.log(`⏸️ [MarketMoversCache] Skipping refresh - rate limited for ${Math.round(remainingMs / 1000)}s more`);
         return;
@@ -192,15 +321,65 @@ class MarketMoversCache {
     }, REFRESH_INTERVAL_MS);
   }
 
+  private async fetchFromYahoo(): Promise<Stock[]> {
+    const startTime = Date.now();
+    const stockQuotes: Stock[] = [];
+    
+    for (const stock of INDIAN_STOCKS) {
+      try {
+        const yahooStart = Date.now();
+        const quote = await yahooFinance.quote(stock.symbol);
+        this.metrics.yahooLatency = Date.now() - yahooStart;
+        
+        stockQuotes.push({
+          symbol: stock.symbol.replace('.NS', ''),
+          name: stock.name,
+          price: quote.regularMarketPrice || 0,
+          change: quote.regularMarketChange || 0,
+          changePercent: quote.regularMarketChangePercent || 0,
+          previousClose: quote.regularMarketPreviousClose || 0,
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        if (this.isRateLimitError(error)) {
+          this.metrics.providers.yahoo.rateLimitErrors++;
+          this.yahooRateLimited = true;
+          throw error;
+        }
+      }
+    }
+
+    if (stockQuotes.length === 0) {
+      throw new Error('No stock data fetched from Yahoo');
+    }
+
+    this.metrics.providers.yahoo.lastLatency = Date.now() - startTime;
+    this.metrics.providers.yahoo.successCount++;
+    this.metrics.providers.yahoo.lastSuccess = Date.now();
+    this.yahooRateLimited = false;
+    
+    return stockQuotes;
+  }
+
+  private async fetchFromFinnhub(): Promise<Stock[]> {
+    if (!this.finnhubProvider.isEnabled()) {
+      throw new Error('Finnhub provider not available');
+    }
+
+    const startTime = Date.now();
+    const stockQuotes = await this.finnhubProvider.fetchAllStocks(INDIAN_STOCKS);
+    
+    this.metrics.providers.finnhub.lastLatency = Date.now() - startTime;
+    this.metrics.providers.finnhub.successCount++;
+    this.metrics.providers.finnhub.lastSuccess = Date.now();
+    
+    return stockQuotes;
+  }
+
   private async refreshCache(): Promise<void> {
     if (this.refreshLock) {
       console.log('⏳ [MarketMoversCache] Refresh already in progress, skipping');
-      return;
-    }
-
-    // Skip if rate limited
-    if (this.isRateLimited()) {
-      console.log('⏸️ [MarketMoversCache] Skipping refresh - rate limited');
       return;
     }
 
@@ -210,38 +389,45 @@ class MarketMoversCache {
     try {
       console.log('📊 [MarketMoversCache] Fetching fresh market data...');
       
-      // Fetch stocks sequentially with delay to avoid rate limiting
-      const stockQuotes: Stock[] = [];
-      
-      for (const stock of INDIAN_STOCKS) {
+      let stockQuotes: Stock[] = [];
+      let successProvider: string | null = null;
+
+      if (!this.yahooRateLimited && !this.isRateLimited()) {
         try {
-          const yahooStart = Date.now();
-          const quote = await yahooFinance.quote(stock.symbol);
-          this.metrics.yahooLatency = Date.now() - yahooStart;
+          console.log('🔄 [MarketMoversCache] Trying Yahoo Finance...');
+          stockQuotes = await this.fetchFromYahoo();
+          successProvider = 'yahoo';
+          console.log(`✅ [MarketMoversCache] Yahoo Finance succeeded with ${stockQuotes.length} stocks`);
+        } catch (yahooError) {
+          console.warn('⚠️ [MarketMoversCache] Yahoo Finance failed:', yahooError);
+          this.metrics.providers.yahoo.failureCount++;
+          this.metrics.providers.yahoo.lastFailure = Date.now();
           
-          stockQuotes.push({
-            symbol: stock.symbol.replace('.NS', ''),
-            name: stock.name,
-            price: quote.regularMarketPrice || 0,
-            change: quote.regularMarketChange || 0,
-            changePercent: quote.regularMarketChangePercent || 0,
-            previousClose: quote.regularMarketPreviousClose || 0,
-          });
-          
-          // Small delay between requests to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
-          if (this.isRateLimitError(error)) {
+          if (this.isRateLimitError(yahooError)) {
             this.metrics.rateLimitErrors++;
+            this.yahooRateLimited = true;
             this.applyBackoff();
-            throw error; // Stop fetching more stocks
           }
-          // Continue with other stocks for non-rate-limit errors
+        }
+      } else {
+        console.log('⏸️ [MarketMoversCache] Skipping Yahoo Finance (rate limited)');
+      }
+
+      if (stockQuotes.length === 0 && this.finnhubProvider.isEnabled()) {
+        try {
+          console.log('🔄 [MarketMoversCache] Trying Finnhub fallback...');
+          stockQuotes = await this.fetchFromFinnhub();
+          successProvider = 'finnhub';
+          console.log(`✅ [MarketMoversCache] Finnhub succeeded with ${stockQuotes.length} stocks`);
+        } catch (finnhubError) {
+          console.warn('⚠️ [MarketMoversCache] Finnhub fallback failed:', finnhubError);
+          this.metrics.providers.finnhub.failureCount++;
+          this.metrics.providers.finnhub.lastFailure = Date.now();
         }
       }
 
       if (stockQuotes.length === 0) {
-        throw new Error('No stock data fetched');
+        throw new Error('All providers failed to fetch stock data');
       }
 
       const gainers = stockQuotes
@@ -263,14 +449,18 @@ class MarketMoversCache {
       this.metrics.refreshes++;
       this.metrics.lastRefreshTime = Date.now();
       this.metrics.lastRefreshDuration = Date.now() - startTime;
-      this.resetBackoff(); // Success - reset backoff
+      this.metrics.lastSuccessfulProvider = successProvider;
 
-      console.log(`✅ [MarketMoversCache] Cache refreshed in ${this.metrics.lastRefreshDuration}ms (${stockQuotes.length} stocks)`);
+      if (successProvider === 'yahoo') {
+        this.resetBackoff();
+      }
+
+      console.log(`✅ [MarketMoversCache] Cache refreshed in ${this.metrics.lastRefreshDuration}ms via ${successProvider} (${stockQuotes.length} stocks)`);
     } catch (error) {
       this.metrics.errors++;
       
       if (this.isRateLimitError(error)) {
-        console.warn('⚠️ [MarketMoversCache] Rate limited by Yahoo Finance');
+        console.warn('⚠️ [MarketMoversCache] Rate limited by all providers');
       } else {
         console.error('❌ [MarketMoversCache] Refresh failed:', error);
       }
@@ -281,6 +471,7 @@ class MarketMoversCache {
           timestamp: Date.now(),
           isRefreshing: false,
         };
+        this.metrics.lastSuccessfulProvider = 'static_fallback';
         console.log('📌 [MarketMoversCache] Using fallback data');
       }
     } finally {
@@ -288,7 +479,7 @@ class MarketMoversCache {
     }
   }
 
-  async getMarketMovers(): Promise<{ data: MarketMoversData; cached: boolean; cacheAge: number }> {
+  async getMarketMovers(): Promise<{ data: MarketMoversData; cached: boolean; cacheAge: number; provider: string | null }> {
     const now = Date.now();
 
     if (this.cache) {
@@ -296,31 +487,48 @@ class MarketMoversCache {
       
       if (cacheAge < CACHE_TTL_MS) {
         this.metrics.hits++;
-        return { data: this.cache.data, cached: true, cacheAge };
+        return { 
+          data: this.cache.data, 
+          cached: true, 
+          cacheAge,
+          provider: this.metrics.lastSuccessfulProvider
+        };
       }
 
       if (cacheAge < STALE_TTL_MS) {
         this.metrics.hits++;
         console.log(`📦 [MarketMoversCache] Serving stale cache (age: ${Math.round(cacheAge / 1000)}s)`);
         
-        // Only trigger background refresh if not rate limited
-        if (!this.refreshLock && !this.isRateLimited()) {
+        const canRefreshYahoo = !this.refreshLock && !this.isRateLimited();
+        const canRefreshFinnhub = !this.refreshLock && this.finnhubProvider.isEnabled();
+        
+        if (canRefreshYahoo || canRefreshFinnhub) {
           this.refreshCache().catch(console.error);
         }
         
-        return { data: this.cache.data, cached: true, cacheAge };
+        return { 
+          data: this.cache.data, 
+          cached: true, 
+          cacheAge,
+          provider: this.metrics.lastSuccessfulProvider
+        };
       }
     }
 
     this.metrics.misses++;
     
-    // Non-blocking: Return fallback data immediately if not initialized or rate limited
-    if (!this.isInitialized || this.isRateLimited()) {
-      console.log('📌 [MarketMoversCache] Returning fallback data (not initialized or rate limited)');
-      if (!this.refreshLock && !this.isRateLimited()) {
+    const cannotFetch = (!this.isInitialized || this.isRateLimited()) && !this.finnhubProvider.isEnabled();
+    if (cannotFetch) {
+      console.log('📌 [MarketMoversCache] Returning fallback data (not initialized or all providers unavailable)');
+      if (!this.refreshLock) {
         this.refreshCache().catch(console.error);
       }
-      return { data: this.cache?.data || FALLBACK_DATA, cached: false, cacheAge: 0 };
+      return { 
+        data: this.cache?.data || FALLBACK_DATA, 
+        cached: false, 
+        cacheAge: 0,
+        provider: this.cache ? this.metrics.lastSuccessfulProvider : 'static_fallback'
+      };
     }
 
     console.log('🔍 [MarketMoversCache] Cache MISS, fetching fresh data...');
@@ -334,13 +542,30 @@ class MarketMoversCache {
     }
 
     if (this.cache) {
-      return { data: this.cache.data, cached: false, cacheAge: 0 };
+      return { 
+        data: this.cache.data, 
+        cached: false, 
+        cacheAge: 0,
+        provider: this.metrics.lastSuccessfulProvider
+      };
     }
 
-    return { data: FALLBACK_DATA, cached: false, cacheAge: 0 };
+    return { 
+      data: FALLBACK_DATA, 
+      cached: false, 
+      cacheAge: 0,
+      provider: 'static_fallback'
+    };
   }
 
-  getMetrics(): CacheMetrics & { cacheAge: number | null; hitRate: string; isRateLimited: boolean; backoffRemaining: number } {
+  getMetrics(): CacheMetrics & { 
+    cacheAge: number | null; 
+    hitRate: string; 
+    isRateLimited: boolean; 
+    backoffRemaining: number;
+    finnhubEnabled: boolean;
+    yahooRateLimited: boolean;
+  } {
     const cacheAge = this.cache ? Date.now() - this.cache.timestamp : null;
     const total = this.metrics.hits + this.metrics.misses;
     const hitRate = total > 0 ? `${((this.metrics.hits / total) * 100).toFixed(1)}%` : 'N/A';
@@ -352,6 +577,8 @@ class MarketMoversCache {
       hitRate,
       isRateLimited: this.isRateLimited(),
       backoffRemaining,
+      finnhubEnabled: this.finnhubProvider.isEnabled(),
+      yahooRateLimited: this.yahooRateLimited,
     };
   }
 }

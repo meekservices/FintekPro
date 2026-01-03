@@ -188,4 +188,22 @@ function useToast() {
   }
 }
 
-export { useToast, toast }
+interface ErrorToastOptions {
+  title?: string;
+  message: string;
+  traceId?: string;
+}
+
+function showErrorToast({ title = "Error", message, traceId }: ErrorToastOptions) {
+  const description = traceId 
+    ? `${message}\n\nError ID: ${traceId.substring(0, 8)}` 
+    : message;
+  
+  toast({
+    title,
+    description,
+    variant: "destructive",
+  });
+}
+
+export { useToast, toast, showErrorToast }

@@ -112,6 +112,7 @@ import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import { marketMoversCache } from './services/market-movers-cache';
+import { platformStatsCache } from './services/platform-stats-cache';
 import * as schema from "@shared/schema";
 import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
 import adminAadhaarRoutes from "./routes/admin-aadhaar-routes";
@@ -201,6 +202,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize market movers cache at startup (non-blocking)
   marketMoversCache.initialize().catch(err => console.error("Failed to initialize market movers cache:", err));
+  // Initialize platform stats cache at startup (non-blocking)
+  platformStatsCache.initialize().catch(err => console.error("Failed to initialize platform stats cache:", err));
   // Initialize API usage tracking service
   apiUsageTrackingService.initialize().catch(err => console.error("Failed to initialize API usage tracking:", err)); // Deferred startup
   
@@ -374,67 +377,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
 
-  // Platform Statistics endpoint - Real data for homepage
+  // Platform Statistics endpoint - Real data for homepage (with caching)
   app.get("/api/platform/stats", async (req, res) => {
     try {
-      const result = await db.execute(sql`
-        SELECT 
-          (SELECT COUNT(*) FROM users WHERE is_active = true) as active_users,
-          (SELECT COALESCE(SUM(CAST(total_value AS numeric)), 0) FROM portfolios) as total_portfolio_value,
-          (SELECT COALESCE(AVG(CAST(total_value AS numeric)), 0) FROM portfolios WHERE total_value IS NOT NULL AND CAST(total_value AS numeric) > 0) as avg_portfolio_value,
-          (SELECT COUNT(*) FROM portfolios) as portfolios_count,
-          (SELECT COUNT(*) FROM unified_orders WHERE created_at >= CURRENT_DATE) as daily_orders,
-          (SELECT COUNT(*) FROM unified_orders WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as monthly_orders,
-          (SELECT COUNT(*) FROM mutual_funds) as mutual_funds_count,
-          (SELECT COUNT(*) FROM bond_catalog) as bonds_count,
-          (SELECT COUNT(*) FROM unlisted_companies) as unlisted_count,
-          (SELECT COUNT(*) FROM listed_stocks) as stocks_count,
-          (SELECT COUNT(*) FROM ipo_companies WHERE status = 'open' OR status = 'upcoming') as active_ipos_count
-      `);
-      
-      const stats = result.rows[0] as any;
-      
-      const formatNumber = (num: number): string => {
-        if (num >= 10000000) return `${(num / 10000000).toFixed(1)}Cr`;
-        if (num >= 100000) return `${(num / 100000).toFixed(1)}L`;
-        if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-        return num.toString();
-      };
-      
-      const formatCurrency = (num: number): string => {
-        if (num >= 10000000) return `₹${(num / 10000000).toFixed(0)} Cr`;
-        if (num >= 100000) return `₹${(num / 100000).toFixed(1)} L`;
-        if (num >= 1000) return `₹${(num / 1000).toFixed(0)}K`;
-        return `₹${num.toFixed(0)}`;
-      };
-
-      const totalInvestmentOptions = Number(stats.mutual_funds_count || 0) + Number(stats.bonds_count || 0) + Number(stats.unlisted_count || 0);
-
-      res.json({
-        activeUsers: formatNumber(Number(stats.active_users) || 0),
-        activeUsersRaw: Number(stats.active_users) || 0,
-        portfolioValue: formatCurrency(Number(stats.total_portfolio_value) || 0),
-        portfolioValueRaw: Number(stats.total_portfolio_value) || 0,
-        avgPortfolioValue: formatCurrency(Number(stats.avg_portfolio_value) || 0),
-        avgPortfolioValueRaw: Number(stats.avg_portfolio_value) || 0,
-        portfoliosCount: formatNumber(Number(stats.portfolios_count) || 0),
-        portfoliosCountRaw: Number(stats.portfolios_count) || 0,
-        dailyTrades: formatNumber(Number(stats.daily_orders) || 0),
-        dailyTradesRaw: Number(stats.daily_orders) || 0,
-        monthlyTrades: formatNumber(Number(stats.monthly_orders) || 0),
-        monthlyTradesRaw: Number(stats.monthly_orders) || 0,
-        mutualFundsCount: formatNumber(Number(stats.mutual_funds_count) || 0),
-        mutualFundsCountRaw: Number(stats.mutual_funds_count) || 0,
-        bondsCount: formatNumber(Number(stats.bonds_count) || 0),
-        bondsCountRaw: Number(stats.bonds_count) || 0,
-        stocksCount: formatNumber(Number(stats.stocks_count) || 0),
-        stocksCountRaw: Number(stats.stocks_count) || 0,
-        activeIpos: formatNumber(Number(stats.active_ipos_count) || 0),
-        activeIposRaw: Number(stats.active_ipos_count) || 0,
-        investmentOptions: formatNumber(totalInvestmentOptions) + "+",
-        investmentOptionsRaw: totalInvestmentOptions,
-        lastUpdated: new Date().toISOString()
-      });
+      const { data, cached, cacheAge } = await platformStatsCache.getStats();
+      res.set('X-Cache-Status', cached ? 'HIT' : 'MISS');
+      res.set('X-Cache-Age', String(Math.round(cacheAge / 1000)));
+      res.json(data);
     } catch (error) {
       console.error("Error fetching platform stats:", error);
       res.json({
@@ -462,6 +411,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         investmentOptionsRaw: 0,
         lastUpdated: new Date().toISOString()
       });
+    }
+  });
+
+  // Platform Stats Cache Management endpoints (admin only)
+  app.post("/api/platform/stats/invalidate", requireAdmin, async (req, res) => {
+    platformStatsCache.invalidate();
+    res.json({ success: true, message: "Platform stats cache invalidated" });
+  });
+
+  app.get("/api/platform/stats/metrics", requireAdmin, async (req, res) => {
+    res.json(platformStatsCache.getMetrics());
+  });
+
+  app.post("/api/platform/stats/configure", requireAdmin, async (req, res) => {
+    const { ttlSeconds } = req.body;
+    if (typeof ttlSeconds === 'number' && ttlSeconds >= 10 && ttlSeconds <= 3600) {
+      platformStatsCache.setTTL(ttlSeconds * 1000);
+      res.json({ success: true, ttlSeconds });
+    } else {
+      res.status(400).json({ error: "ttlSeconds must be a number between 10 and 3600" });
     }
   });
 

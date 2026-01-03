@@ -21,6 +21,7 @@ import {
 } from "@shared/schema";
 import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import crypto from "crypto";
+import { currencyExchangeService } from "./currency-exchange-service";
 
 // Environment detection
 function getCurrentEnvironment(): string {
@@ -341,6 +342,153 @@ export function getAdvisoryBadge(advisoryLevel: string): { label: string; varian
     default:
       return { label: 'Limited', variant: 'outline' };
   }
+}
+
+// Currency Conversion Integration
+export async function convertCurrency(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string
+): Promise<{ convertedAmount: number; rate: number; fromCurrency: string; toCurrency: string }> {
+  const convertedAmount = await currencyExchangeService.convertAmount(amount, fromCurrency, toCurrency);
+  const rate = amount > 0 ? convertedAmount / amount : 0;
+  
+  return {
+    convertedAmount,
+    rate,
+    fromCurrency,
+    toCurrency
+  };
+}
+
+export async function getExchangeRates(baseCurrency: string = "INR"): Promise<Record<string, number>> {
+  return currencyExchangeService.fetchExchangeRates(baseCurrency);
+}
+
+// User Market Eligibility Service
+export interface MarketEligibility {
+  marketCode: string;
+  marketName: string;
+  isEligible: boolean;
+  advisoryLevel: string;
+  canExecute: boolean;
+  allowedProducts: string[];
+  restrictions: string[];
+  baseCurrency: string;
+  flagEmoji: string | null;
+}
+
+export async function getUserMarketEligibility(userId: string): Promise<{
+  markets: MarketEligibility[];
+  primaryMarket: string;
+  isAnalyticsMode: boolean;
+}> {
+  const enabledMarkets = await getEnabledMarkets();
+  const userPrefs = await getUserMarketPreferences(userId);
+  
+  const eligibilityResults: MarketEligibility[] = [];
+  
+  for (const market of enabledMarkets) {
+    const products = await getProductsForMarket(market.marketCode);
+    const allowedProducts = products.filter(p => p.isEnabled).map(p => p.productCategory);
+    
+    const restrictions: string[] = [];
+    if (!market.executionAllowed) {
+      restrictions.push("Analytics-only mode - execution not available");
+    }
+    if (products.some(p => p.etfOnlyRestriction)) {
+      restrictions.push("ETF-only restriction applies to some products");
+    }
+    if (products.some(p => p.requiresAccreditedInvestor)) {
+      restrictions.push("Some products require accredited investor status");
+    }
+    
+    eligibilityResults.push({
+      marketCode: market.marketCode,
+      marketName: market.marketName,
+      isEligible: true,
+      advisoryLevel: market.advisoryLevel,
+      canExecute: market.executionAllowed,
+      allowedProducts,
+      restrictions,
+      baseCurrency: market.baseCurrency,
+      flagEmoji: market.flagEmoji
+    });
+  }
+  
+  const primaryMarket = userPrefs?.selectedMarket || "IN";
+  const selectedMarket = enabledMarkets.find(m => m.marketCode === primaryMarket);
+  const isAnalyticsMode = !selectedMarket?.executionAllowed;
+  
+  return {
+    markets: eligibilityResults,
+    primaryMarket,
+    isAnalyticsMode
+  };
+}
+
+export async function getMarketEligibilityForUser(userId: string, marketCode: string): Promise<MarketEligibility | null> {
+  const market = await getMarketByCode(marketCode);
+  if (!market) return null;
+  
+  const products = await getProductsForMarket(marketCode);
+  const allowedProducts = products.filter(p => p.isEnabled).map(p => p.productCategory);
+  
+  const restrictions: string[] = [];
+  if (!market.executionAllowed) {
+    restrictions.push("Analytics-only mode - execution not available");
+  }
+  if (products.some(p => p.etfOnlyRestriction)) {
+    restrictions.push("ETF-only restriction applies to some products");
+  }
+  if (products.some(p => p.requiresAccreditedInvestor)) {
+    restrictions.push("Some products require accredited investor status");
+  }
+  
+  return {
+    marketCode: market.marketCode,
+    marketName: market.marketName,
+    isEligible: market.isEnabled,
+    advisoryLevel: market.advisoryLevel,
+    canExecute: market.executionAllowed,
+    allowedProducts,
+    restrictions,
+    baseCurrency: market.baseCurrency,
+    flagEmoji: market.flagEmoji
+  };
+}
+
+// Jurisdiction-based Feature Flags
+export interface JurisdictionFeatureFlags {
+  canExecuteTrades: boolean;
+  canViewAnalytics: boolean;
+  canAccessRealTimeData: boolean;
+  canAccessResearch: boolean;
+  canAccessAlerts: boolean;
+  hasEtfOnlyRestriction: boolean;
+  requiresAccreditedStatus: boolean;
+  requiredAcknowledgments: string[];
+}
+
+export async function getJurisdictionFeatureFlags(marketCode: string): Promise<JurisdictionFeatureFlags> {
+  const market = await getMarketByCode(marketCode);
+  const products = await getProductsForMarket(marketCode);
+  
+  const requiredAcknowledgments: string[] = [];
+  if (marketCode !== "IN") {
+    requiredAcknowledgments.push("global_advisory_disclaimer");
+  }
+  
+  return {
+    canExecuteTrades: market?.executionAllowed ?? false,
+    canViewAnalytics: market?.isEnabled ?? false,
+    canAccessRealTimeData: market?.advisoryLevel === "FULL",
+    canAccessResearch: market?.isEnabled ?? false,
+    canAccessAlerts: market?.isEnabled ?? false,
+    hasEtfOnlyRestriction: products.some(p => p.etfOnlyRestriction),
+    requiresAccreditedStatus: products.some(p => p.requiresAccreditedInvestor),
+    requiredAcknowledgments
+  };
 }
 
 // SEBI Inspection Export

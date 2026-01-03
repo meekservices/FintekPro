@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError, normalizeError } from '../utils/errors';
 import { apiResponse } from '../utils/responses';
 import { ZodError } from 'zod';
+import { logErrorWithTraceId } from '../services/error-tracking-service';
 
 /**
  * Format Zod validation errors
@@ -18,9 +19,9 @@ function formatZodError(error: ZodError): string {
 }
 
 /**
- * Log error with context
+ * Log error with context and trace ID
  */
-function logError(error: AppError, req: Request, traceId: string): void {
+async function logError(error: AppError, req: Request, traceId: string): Promise<void> {
   const logData = {
     traceId,
     error: error.name,
@@ -43,6 +44,12 @@ function logError(error: AppError, req: Request, traceId: string): void {
   } else {
     console.warn('[WARN]', JSON.stringify(logData, null, 2));
   }
+  
+  try {
+    await logErrorWithTraceId(error, req, traceId);
+  } catch (trackingError) {
+    console.error('[ERROR_TRACKING_FAILED]', trackingError);
+  }
 }
 
 /**
@@ -55,6 +62,8 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ): void {
+  const traceId = req.traceId || res.locals.traceId || 'unknown';
+  
   // Handle Zod validation errors
   if (err instanceof ZodError) {
     const message = formatZodError(err);
@@ -62,7 +71,7 @@ export function errorHandler(
       validationErrors: err.errors,
     });
     
-    logError(appError, req, res.locals.traceId || 'unknown');
+    logError(appError, req, traceId);
     apiResponse.error(res, appError);
     return;
   }
@@ -70,8 +79,8 @@ export function errorHandler(
   // Normalize to AppError
   const appError = normalizeError(err);
   
-  // Log the error
-  logError(appError, req, res.locals.traceId || 'unknown');
+  // Log the error with trace ID
+  logError(appError, req, traceId);
 
   // Send response
   apiResponse.error(res, appError);

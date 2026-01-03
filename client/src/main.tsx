@@ -1,6 +1,8 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { SessionProvider } from "@/contexts/session-context";
+import { SessionExpiredDialog } from "@/components/ui/session-expired-dialog";
 
 // Global error handlers to prevent unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
@@ -48,4 +50,9 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <SessionProvider>
+    <App />
+    <SessionExpiredDialog />
+  </SessionProvider>
+);

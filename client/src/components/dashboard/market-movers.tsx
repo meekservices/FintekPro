@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { MarketMoversSkeleton } from "@/components/ui/market-data-skeleton";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -50,35 +50,7 @@ export function MarketMovers() {
     : (activeTab === "gainers" ? fallbackGainers : fallbackLosers);
 
   if (isLoading) {
-    return (
-      <Card data-testid="market-movers-loading">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <Skeleton className="h-6 w-32" />
-            <div className="flex space-x-2">
-              <Skeleton className="h-8 w-16" />
-              <Skeleton className="h-8 w-16" />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <Skeleton className="h-4 w-20 mb-2" />
-                  <Skeleton className="h-3 w-32" />
-                </div>
-                <div className="text-right">
-                  <Skeleton className="h-4 w-16 mb-2" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <MarketMoversSkeleton rows={5} />;
   }
 
   return (

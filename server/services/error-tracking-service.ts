@@ -860,3 +860,40 @@ Status:     ${error.status}
 }
 
 export const errorTrackingService = new ErrorTrackingService();
+
+import { Request } from 'express';
+import { AppError } from '../utils/errors';
+
+export async function logErrorWithTraceId(
+  error: AppError,
+  req: Request,
+  traceId: string
+): Promise<void> {
+  const severity = error.status >= 500 ? 'error' : error.status >= 400 ? 'warning' : 'info';
+  
+  try {
+    await errorTrackingService.ingestError({
+      source: 'server',
+      severity,
+      errorCode: error.name,
+      message: error.message,
+      stack: error.stack,
+      context: {
+        module: req.path.split('/')[2] || 'api',
+        requestId: traceId,
+        url: req.originalUrl,
+        userAgent: req.get('user-agent'),
+        clientId: (req as any).user?.id,
+        metadata: {
+          traceId,
+          method: req.method,
+          status: error.status,
+          isRetryable: error.isRetryable,
+          errorContext: error.context,
+        }
+      }
+    }, req.ip);
+  } catch (trackingError) {
+    console.error('[ERROR_TRACKING] Failed to log error with trace ID:', traceId, trackingError);
+  }
+}

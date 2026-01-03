@@ -34,7 +34,7 @@ export const apiResponse = {
   },
 
   error(res: Response, error: string | AppError, statusCode?: number, details?: any) {
-    const traceId = uuidv4();
+    const traceId = res.locals.traceId || uuidv4();
     
     if (error instanceof AppError) {
       const response: ApiErrorResponse = {

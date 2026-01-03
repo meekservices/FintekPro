@@ -8,6 +8,7 @@ export interface ApiError {
   message: string;
   errorCode?: string;
   errorId?: string;
+  traceId?: string;
   retryable: boolean;
   details?: Record<string, any>;
 }
@@ -105,6 +106,7 @@ export async function handleApiError(
     
     apiError = classifyHttpError(error.status, errorBody.message);
     apiError.errorCode = errorBody.errorCode || errorBody.code;
+    apiError.traceId = errorBody.traceId;
     apiError.details = errorBody;
   } else if (error instanceof TypeError && error.message.includes('fetch')) {
     apiError = {
@@ -197,22 +199,39 @@ export function isRetryable(error: ApiError): boolean {
 }
 
 export function getUserFriendlyMessage(error: ApiError): string {
+  let message: string;
   switch (error.type) {
     case 'network':
-      return 'Connection problem. Please check your internet and try again.';
+      message = 'Connection problem. Please check your internet and try again.';
+      break;
     case 'timeout':
-      return 'The server is taking too long to respond. Please try again.';
+      message = 'The server is taking too long to respond. Please try again.';
+      break;
     case 'authentication':
-      return 'Your session has expired. Please log in again.';
+      message = 'Your session has expired. Please log in again.';
+      break;
     case 'authorization':
-      return 'You don\'t have permission to do this.';
+      message = 'You don\'t have permission to do this.';
+      break;
     case 'validation':
-      return error.message || 'Please check your input and try again.';
+      message = error.message || 'Please check your input and try again.';
+      break;
     case 'server':
-      return 'Something went wrong. Our team has been notified.';
+      message = 'Something went wrong. Our team has been notified.';
+      break;
     default:
-      return 'An unexpected error occurred. Please try again.';
+      message = 'An unexpected error occurred. Please try again.';
   }
+  
+  return message;
+}
+
+export function getErrorMessageWithTraceId(error: ApiError): string {
+  const message = getUserFriendlyMessage(error);
+  if (error.traceId) {
+    return `${message}\n\nError ID: ${error.traceId.substring(0, 8)}`;
+  }
+  return message;
 }
 
 export async function withErrorHandling<T>(

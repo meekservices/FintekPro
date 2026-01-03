@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { storage } from '../../storage';
 import { adminService } from '../../admin-service';
 import ckycDeferredRoutes from './ckyc-deferred-routes';
+import { auditIntegrityChecker } from '../../services/audit-integrity-checker';
 
 const requireAdmin = async (req: any, res: Response, next: any) => {
   if (!req.user) {
@@ -2701,6 +2702,111 @@ System Security Data:`;
       res.status(500).json({ error: "Failed to fetch EUIN/ARN data" });
     }
   });
+
+  // Audit Trail Integrity Status API
+  app.get("/api/admin/audit/integrity-status", requireAdmin, async (req, res) => {
+    try {
+      const status = auditIntegrityChecker.getStatus();
+      const failedVerifications = await auditIntegrityChecker.getFailedVerifications(20);
+      
+      res.json({
+        success: true,
+        status,
+        failedVerifications,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("[Audit Integrity] Error fetching status:", error.message);
+      res.status(500).json({ 
+        error: "Failed to fetch audit integrity status",
+        message: error.message 
+      });
+    }
+  });
+
+  // Trigger manual integrity check
+  app.post("/api/admin/audit/integrity-check", requireAdmin, async (req, res) => {
+    try {
+      console.log("[Audit Integrity] Manual check triggered by admin");
+      const result = await auditIntegrityChecker.runIntegrityCheck();
+      
+      res.json({
+        success: true,
+        result,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("[Audit Integrity] Manual check failed:", error.message);
+      res.status(500).json({ 
+        error: "Failed to run integrity check",
+        message: error.message 
+      });
+    }
+  });
+
+  // Update integrity check schedule
+  app.post("/api/admin/audit/integrity-schedule", requireAdmin, async (req, res) => {
+    try {
+      const { intervalMinutes, enabled } = req.body;
+      
+      if (typeof intervalMinutes === 'number' && intervalMinutes >= 5) {
+        auditIntegrityChecker.setScheduleInterval(intervalMinutes);
+      }
+      
+      if (enabled === true) {
+        auditIntegrityChecker.startScheduledChecks();
+      } else if (enabled === false) {
+        auditIntegrityChecker.stopScheduledChecks();
+      }
+      
+      const status = auditIntegrityChecker.getStatus();
+      
+      res.json({
+        success: true,
+        message: "Schedule updated successfully",
+        status: {
+          isScheduleRunning: status.isScheduleRunning,
+          scheduleIntervalMinutes: status.scheduleIntervalMinutes
+        }
+      });
+    } catch (error: any) {
+      console.error("[Audit Integrity] Schedule update failed:", error.message);
+      res.status(500).json({ 
+        error: "Failed to update schedule",
+        message: error.message 
+      });
+    }
+  });
+
+  // Mark failed verification as reviewed
+  app.post("/api/admin/audit/integrity-failure/:failureId/review", requireAdmin, async (req: any, res) => {
+    try {
+      const { failureId } = req.params;
+      const reviewedBy = req.user?.id || req.user?.email || 'admin';
+      
+      const success = await auditIntegrityChecker.markVerificationReviewed(failureId, reviewedBy);
+      
+      if (success) {
+        res.json({
+          success: true,
+          message: "Failure marked as reviewed"
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: "Failed to mark as reviewed"
+        });
+      }
+    } catch (error: any) {
+      console.error("[Audit Integrity] Review marking failed:", error.message);
+      res.status(500).json({ 
+        error: "Failed to mark failure as reviewed",
+        message: error.message 
+      });
+    }
+  });
+
+  console.log("✅ Audit Integrity routes registered");
 
   // CKYC Deferred Cases Management Routes
   app.use("/api/admin/ckyc-deferred", requireAdmin, ckycDeferredRoutes);

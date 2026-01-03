@@ -1,4 +1,5 @@
 import { smsService } from './sms-service';
+import { twilioWhatsAppService } from './twilio-whatsapp-service';
 import { db } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -229,8 +230,8 @@ class MeetingNotificationService {
   async sendNotification(
     type: NotificationType,
     data: MeetingNotificationData
-  ): Promise<{ clientEmail: boolean; clientSms: boolean; agentEmail: boolean; agentSms: boolean }> {
-    const results = { clientEmail: false, clientSms: false, agentEmail: false, agentSms: false };
+  ): Promise<{ clientEmail: boolean; clientSms: boolean; clientWhatsApp: boolean; agentEmail: boolean; agentSms: boolean; agentWhatsApp: boolean }> {
+    const results = { clientEmail: false, clientSms: false, clientWhatsApp: false, agentEmail: false, agentSms: false, agentWhatsApp: false };
 
     try {
       const [client] = await db.select().from(users).where(eq(users.id, data.clientId));
@@ -259,6 +260,10 @@ class MeetingNotificationService {
           client.mobile,
           this.generateSmsText(clientContent, notificationData, 'client')
         );
+        results.clientWhatsApp = await this.sendWhatsAppNotification(
+          client.mobile,
+          this.generateWhatsAppText(clientContent, notificationData, 'client')
+        );
       }
 
       const agentContent = this.getNotificationContent(type, notificationData, 'agent');
@@ -273,6 +278,10 @@ class MeetingNotificationService {
         results.agentSms = await this.sendSmsNotification(
           agent.mobile,
           this.generateSmsText(agentContent, notificationData, 'agent')
+        );
+        results.agentWhatsApp = await this.sendWhatsAppNotification(
+          agent.mobile,
+          this.generateWhatsAppText(agentContent, notificationData, 'agent')
         );
       }
 
@@ -310,6 +319,47 @@ class MeetingNotificationService {
       return result.success;
     } catch (error) {
       console.error(`[Meeting Notification] SMS error:`, error);
+      return false;
+    }
+  }
+
+  private generateWhatsAppText(
+    content: { title: string; message: string; emoji: string },
+    data: MeetingNotificationData,
+    recipientType: 'client' | 'agent'
+  ): string {
+    const formattedTime = format(data.scheduledAt, "EEEE, MMM d 'at' h:mm a");
+    const joinLink = recipientType === 'agent' ? data.startLink : data.joinLink;
+    
+    let whatsappMsg = `${content.emoji} *${content.title}*\n\n`;
+    whatsappMsg += `📌 *Topic:* ${data.topic}\n`;
+    whatsappMsg += `📅 *When:* ${formattedTime}\n`;
+    whatsappMsg += `⏱️ *Duration:* ${data.duration} minutes\n`;
+    
+    if (data.description) {
+      whatsappMsg += `\n📝 ${data.description}\n`;
+    }
+    
+    if (joinLink) {
+      whatsappMsg += `\n🔗 *${recipientType === 'agent' ? 'Start' : 'Join'} Meeting:*\n${joinLink}`;
+    }
+    
+    whatsappMsg += `\n\n_FintekPro - Your Trusted Financial Partner_`;
+    
+    return whatsappMsg;
+  }
+
+  private async sendWhatsAppNotification(mobile: string, message: string): Promise<boolean> {
+    try {
+      const isAvailable = await twilioWhatsAppService.isAvailable();
+      if (!isAvailable) {
+        console.log(`📱 [SIMULATED] WhatsApp meeting notification to: ${mobile.substring(0, 6)}****`);
+        return false;
+      }
+      const result = await twilioWhatsAppService.sendMessage(mobile, message);
+      return result.success;
+    } catch (error) {
+      console.error(`[Meeting Notification] WhatsApp error:`, error);
       return false;
     }
   }

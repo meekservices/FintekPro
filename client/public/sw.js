@@ -1,7 +1,9 @@
-const CACHE_VERSION = 'v3';
-const CACHE_NAME = 'fintekpro-' + CACHE_VERSION;
-const STATIC_CACHE_NAME = 'fintekpro-static-' + CACHE_VERSION;
-const DYNAMIC_CACHE_NAME = 'fintekpro-dynamic-' + CACHE_VERSION;
+const VERSION = '5';
+const BUILD_TIMESTAMP = '1767425134148';
+const CACHE_PREFIX = 'fintekpro';
+const STATIC_CACHE_NAME = `${CACHE_PREFIX}-static-v${VERSION}`;
+const DYNAMIC_CACHE_NAME = `${CACHE_PREFIX}-dynamic-v${VERSION}`;
+const EXPECTED_CACHES = [STATIC_CACHE_NAME, DYNAMIC_CACHE_NAME];
 
 const STATIC_ASSETS = [
   '/',
@@ -37,34 +39,51 @@ const NEVER_CACHE_EXTENSIONS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Installing ' + CACHE_VERSION + '...');
+  console.log(`[ServiceWorker] Installing v${VERSION} (build: ${BUILD_TIMESTAMP})...`);
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME)
-      .then((cache) => {
-        console.log('[ServiceWorker] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
+    Promise.all([
+      caches.open(STATIC_CACHE_NAME)
+        .then((cache) => {
+          console.log('[ServiceWorker] Caching static assets');
+          return cache.addAll(STATIC_ASSETS);
+        }),
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames
+            .filter((name) => name.startsWith(CACHE_PREFIX) && !EXPECTED_CACHES.includes(name))
+            .map((name) => {
+              console.log('[ServiceWorker] Pre-deleting old cache during install:', name);
+              return caches.delete(name);
+            })
+        );
       })
-      .then(() => {
-        console.log('[ServiceWorker] Skip waiting to activate immediately');
-        return self.skipWaiting();
-      })
+    ]).then(() => {
+      console.log('[ServiceWorker] Skip waiting to activate immediately');
+      return self.skipWaiting();
+    })
   );
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activating ' + CACHE_VERSION + '...');
+  console.log(`[ServiceWorker] Activating v${VERSION}...`);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
           .filter((name) => {
-            if (name === STATIC_CACHE_NAME || name === DYNAMIC_CACHE_NAME) {
+            if (EXPECTED_CACHES.includes(name)) {
               return false;
             }
-            return true;
+            if (name.startsWith(CACHE_PREFIX)) {
+              return true;
+            }
+            if (name.startsWith('fintekpro-')) {
+              return true;
+            }
+            return false;
           })
           .map((name) => {
-            console.log('[ServiceWorker] Deleting old cache:', name);
+            console.log('[ServiceWorker] Deleting stale cache:', name);
             return caches.delete(name);
           })
       );
@@ -169,5 +188,8 @@ self.addEventListener('message', (event) => {
     caches.keys().then((names) => {
       names.forEach((name) => caches.delete(name));
     });
+  }
+  if (event.data === 'getVersion') {
+    event.ports[0].postMessage({ version: VERSION, build: BUILD_TIMESTAMP });
   }
 });

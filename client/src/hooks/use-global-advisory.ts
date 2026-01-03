@@ -217,6 +217,81 @@ export function useRecordAcknowledgment() {
   });
 }
 
+export interface MarketEligibility {
+  marketCode: string;
+  marketName: string;
+  isEligible: boolean;
+  advisoryLevel: string;
+  canExecute: boolean;
+  allowedProducts: string[];
+  restrictions: string[];
+  baseCurrency: string;
+  flagEmoji: string | null;
+}
+
+export interface JurisdictionFeatureFlags {
+  canExecuteTrades: boolean;
+  canViewAnalytics: boolean;
+  canAccessRealTimeData: boolean;
+  canAccessResearch: boolean;
+  canAccessAlerts: boolean;
+  hasEtfOnlyRestriction: boolean;
+  requiresAccreditedStatus: boolean;
+  requiredAcknowledgments: string[];
+}
+
+export interface CurrencyConversionResult {
+  convertedAmount: number;
+  rate: number;
+  fromCurrency: string;
+  toCurrency: string;
+}
+
+export function useMarketEligibility() {
+  return useQuery<{ success: boolean; eligibility: { markets: MarketEligibility[]; primaryMarket: string; isAnalyticsMode: boolean } }>({
+    queryKey: ["/api/global-advisory/eligibility"],
+  });
+}
+
+export function useMarketEligibilityForMarket(marketCode: string) {
+  return useQuery<{ success: boolean; eligibility: MarketEligibility }>({
+    queryKey: ["/api/global-advisory/eligibility", marketCode],
+    queryFn: async () => {
+      const response = await fetch(`/api/global-advisory/eligibility/${marketCode}`, { credentials: "include" });
+      return response.json();
+    },
+    enabled: !!marketCode,
+  });
+}
+
+export function useCurrencyConversion(amount: number, fromCurrency: string, toCurrency: string) {
+  return useQuery<{ success: boolean } & CurrencyConversionResult>({
+    queryKey: ["/api/global-advisory/convert", amount, fromCurrency, toCurrency],
+    queryFn: async () => {
+      const params = new URLSearchParams({ 
+        amount: amount.toString(), 
+        from: fromCurrency, 
+        to: toCurrency 
+      });
+      const response = await fetch(`/api/global-advisory/convert?${params}`, { credentials: "include" });
+      return response.json();
+    },
+    enabled: amount > 0 && !!fromCurrency && !!toCurrency && fromCurrency !== toCurrency,
+  });
+}
+
+export function useExchangeRates(baseCurrency: string = "INR") {
+  return useQuery<{ success: boolean; rates: Record<string, number> }>({
+    queryKey: ["/api/global-advisory/exchange-rates", baseCurrency],
+    queryFn: async () => {
+      const params = new URLSearchParams({ baseCurrency });
+      const response = await fetch(`/api/global-advisory/exchange-rates?${params}`, { credentials: "include" });
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 60, // 1 hour
+  });
+}
+
 export function getAdvisoryBadgeConfig(advisoryLevel: string): { label: string; variant: "default" | "secondary" | "outline" | "destructive"; description: string } {
   switch (advisoryLevel) {
     case "FULL":

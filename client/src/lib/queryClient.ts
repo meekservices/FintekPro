@@ -1,4 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { notifySessionExpired } from "@/contexts/session-context";
+
+const EXCLUDED_401_ENDPOINTS = ["/api/user"];
+
+function shouldTriggerSessionExpired(url: string): boolean {
+  return !EXCLUDED_401_ENDPOINTS.some(endpoint => url.includes(endpoint));
+}
 
 export class ApiError extends Error {
   status: number;
@@ -31,12 +38,21 @@ export class ApiError extends Error {
   }
 }
 
-async function throwIfResNotOk(res: Response) {
+async function throwIfResNotOk(res: Response, url?: string) {
   if (!res.ok) {
+    const requestUrl = url || res.url;
+    
+    if (res.status === 401 && shouldTriggerSessionExpired(requestUrl)) {
+      notifySessionExpired({ url: requestUrl });
+      throw new ApiError("Session expired", 401, {
+        code: "SESSION_EXPIRED",
+        userMessage: "Your session has expired. Please sign in again.",
+      });
+    }
+    
     try {
       const json = await res.json();
       
-      // Handle new error schema with { success: false, error, message, code, traceId }
       if (json.success === false) {
         throw new ApiError(
           json.error || json.message || res.statusText,
@@ -50,11 +66,9 @@ async function throwIfResNotOk(res: Response) {
         );
       }
       
-      // Fallback for old error format
       const errorMessage = json.error || json.message || res.statusText;
       throw new ApiError(errorMessage, res.status);
     } catch (parseError) {
-      // If response isn't JSON, use status text
       if (parseError instanceof ApiError) {
         throw parseError;
       }
@@ -80,9 +94,8 @@ export async function apiRequest(
     ...restOptions,
   });
 
-  await throwIfResNotOk(res);
+  await throwIfResNotOk(res, url);
   
-  // Parse JSON if response has content
   const contentType = res.headers.get("content-type");
   if (contentType?.includes("application/json")) {
     return await res.json();
@@ -97,15 +110,25 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    const res = await fetch(url, {
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    if (res.status === 401) {
+      if (unauthorizedBehavior === "returnNull") {
+        return null;
+      }
+      if (shouldTriggerSessionExpired(url)) {
+        notifySessionExpired({ url, queryKey });
+        throw new ApiError("Session expired", 401, {
+          code: "SESSION_EXPIRED",
+          userMessage: "Your session has expired. Please sign in again.",
+        });
+      }
     }
 
-    await throwIfResNotOk(res);
+    await throwIfResNotOk(res, url);
     return await res.json();
   };
 

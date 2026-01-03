@@ -285,6 +285,73 @@ router.post("/acknowledgments", requireClientOrHigher, async (req: Request, res:
 });
 
 // ============================================================================
+// ELIGIBILITY
+// ============================================================================
+
+router.get("/eligibility", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "User not authenticated" });
+    }
+    
+    const eligibility = await globalAdvisoryService.getUserMarketEligibility(userId);
+    res.json({ success: true, eligibility });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/eligibility/:marketCode", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    const { marketCode } = req.params;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "User not authenticated" });
+    }
+    
+    const eligibility = await globalAdvisoryService.getMarketEligibilityForUser(userId, marketCode);
+    res.json({ success: true, eligibility });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
+// CURRENCY CONVERSION
+// ============================================================================
+
+router.get("/convert", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const { amount, from, to } = req.query;
+    
+    if (!amount || !from || !to) {
+      return res.status(400).json({ success: false, error: "Missing required parameters: amount, from, to" });
+    }
+    
+    const result = await globalAdvisoryService.convertCurrency(
+      parseFloat(amount as string),
+      from as string,
+      to as string
+    );
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/exchange-rates", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const { baseCurrency } = req.query;
+    const rates = await globalAdvisoryService.getExchangeRates(baseCurrency as string);
+    res.json({ success: true, rates });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // EXECUTION GUARD
 // ============================================================================
 

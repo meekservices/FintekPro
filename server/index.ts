@@ -15,12 +15,16 @@ import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
 import { initializeCronJobs } from "./cron-jobs";
+import { requestContextMiddleware } from "./middleware/request-context";
 import "./services/sms-service"; // Initialize SMS service
 
 const app = express();
 
 // Trust proxy configuration for Replit environment
 app.set('trust proxy', 1);
+
+// Request context middleware - generates trace IDs for all requests
+app.use(requestContextMiddleware);
 
 // Security middleware
 app.use(helmet({
