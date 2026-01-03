@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useClientCapabilities } from "@/hooks/useClientCapabilities";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Search, TrendingUp, TrendingDown, Star, Globe, DollarSign, ArrowUpRight, 
@@ -193,6 +194,8 @@ export default function USTradingPage() {
     refetchInterval: 30000,
   });
 
+  const { canUseAi, canViewRecommendations, feeMode, requiresModeSelection } = useClientCapabilities();
+
   const { data: rebalancing, isLoading: isLoadingRebalancing, refetch: refetchRebalancing } = useQuery<{
     analysis: {
       currentAllocation: Record<string, number>;
@@ -213,7 +216,7 @@ export default function USTradingPage() {
     };
   }>({
     queryKey: ["/api/us-trading/rebalancing/analyze"],
-    enabled: isAuthenticated && activeTab === "portfolio",
+    enabled: isAuthenticated && activeTab === "portfolio" && canUseAi,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -806,14 +809,30 @@ export default function USTradingPage() {
                         <Scale className="h-5 w-5 text-blue-600" />
                         <CardTitle>AI Portfolio Rebalancing</CardTitle>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => refetchRebalancing()} data-testid="refresh-rebalancing">
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
+                      {canUseAi && (
+                        <Button variant="ghost" size="sm" onClick={() => refetchRebalancing()} data-testid="refresh-rebalancing">
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                     <CardDescription>AI-powered suggestions to optimize your portfolio allocation</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {isLoadingRebalancing ? (
+                    {!canUseAi ? (
+                      <div className="text-center py-6" data-testid="ai-disabled-notice">
+                        <Scale className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                        <p className="font-medium text-muted-foreground mb-2">AI Recommendations Unavailable</p>
+                        <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+                          {feeMode === 'PLATFORM_ONLY' 
+                            ? "You are using Platform-Only mode which does not include AI-powered recommendations. To access AI insights, switch to Advisory + Platform mode."
+                            : requiresModeSelection
+                              ? "Please select your fee mode to access AI-powered recommendations."
+                              : "AI recommendations are not available for your current subscription."
+                          }
+                        </p>
+                        <Badge variant="secondary">Platform Only Mode</Badge>
+                      </div>
+                    ) : isLoadingRebalancing ? (
                       <div className="space-y-3">
                         <Skeleton className="h-16" />
                         <Skeleton className="h-24" />
