@@ -8832,56 +8832,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Market status endpoint - live/closed status for different exchanges
+  // Market status endpoint - live/closed status for different exchanges (with holiday awareness)
   app.get("/api/market/status", async (req, res) => {
     try {
+      const { marketHolidayService } = await import('./services/market-holiday-service');
+      
       const now = new Date();
       const istTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
       const hours = istTime.getHours();
       const minutes = istTime.getMinutes();
-      const day = istTime.getDay(); // 0 = Sunday, 6 = Saturday
-      const currentTime = hours * 60 + minutes;
-      
-      // Market timings in IST (Indian Standard Time)
-      const marketTimings = {
-        nse: { open: 9 * 60 + 15, close: 15 * 60 + 30 }, // 9:15 AM to 3:30 PM
-        bse: { open: 9 * 60 + 15, close: 15 * 60 + 30 }, // 9:15 AM to 3:30 PM
-        mcx: { open: 9 * 60, close: 23 * 60 + 30 }, // 9:00 AM to 11:30 PM
-        ncdex: { open: 10 * 60, close: 17 * 60 }, // 10:00 AM to 5:00 PM
-        msei: { open: 9 * 60 + 15, close: 15 * 60 + 30 }, // 9:15 AM to 3:30 PM
-        global: { open: 0, close: 24 * 60 } // 24/7 for global markets (different time zones)
-      };
 
-      // Check if it's a weekend (Saturday = 6, Sunday = 0)
-      const isWeekend = day === 0 || day === 6;
-      
-      const getMarketStatus = (exchange: keyof typeof marketTimings) => {
-        const timing = marketTimings[exchange];
-        
-        if (isWeekend && exchange !== 'global') {
-          return {
-            status: 'closed',
-            reason: 'Weekend',
-            nextOpen: 'Monday 9:15 AM IST'
-          };
-        }
-        
-        if (currentTime >= timing.open && currentTime <= timing.close) {
-          return {
-            status: 'open',
-            reason: 'Trading Hours',
-            nextClose: `${Math.floor(timing.close / 60)}:${(timing.close % 60).toString().padStart(2, '0')} IST`
-          };
-        } else {
-          return {
-            status: 'closed',
-            reason: currentTime < timing.open ? 'Pre-market' : 'Post-market',
-            nextOpen: currentTime < timing.open 
-              ? `${Math.floor(timing.open / 60)}:${(timing.open % 60).toString().padStart(2, '0')} IST`
-              : `Tomorrow ${Math.floor(timing.open / 60)}:${(timing.open % 60).toString().padStart(2, '0')} IST`
-          };
-        }
-      };
+      const nseStatus = marketHolidayService.getMarketStatus('NSE');
+      const bseStatus = marketHolidayService.getMarketStatus('BSE');
+      const mcxStatus = marketHolidayService.getMarketStatus('MCX');
+      const ncdexStatus = marketHolidayService.getMarketStatus('NCDEX');
 
       const marketStatus = {
         timestamp: istTime.toISOString(),
@@ -8890,32 +8854,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         exchanges: {
           nse: {
             name: 'National Stock Exchange',
-            ...getMarketStatus('nse'),
-            tradingHours: '9:15 AM - 3:30 PM IST'
+            status: nseStatus.isOpen ? 'open' : 'closed',
+            reason: nseStatus.reason,
+            isHoliday: nseStatus.isHoliday,
+            holidayName: nseStatus.holidayName,
+            isWeekend: nseStatus.isWeekend,
+            nextTradingDay: nseStatus.nextTradingDay,
+            specialSession: nseStatus.specialSession,
+            tradingHours: `${nseStatus.tradingHours?.open} - ${nseStatus.tradingHours?.close} IST`
           },
           bse: {
             name: 'Bombay Stock Exchange',
-            ...getMarketStatus('bse'),
-            tradingHours: '9:15 AM - 3:30 PM IST'
+            status: bseStatus.isOpen ? 'open' : 'closed',
+            reason: bseStatus.reason,
+            isHoliday: bseStatus.isHoliday,
+            holidayName: bseStatus.holidayName,
+            isWeekend: bseStatus.isWeekend,
+            nextTradingDay: bseStatus.nextTradingDay,
+            specialSession: bseStatus.specialSession,
+            tradingHours: `${bseStatus.tradingHours?.open} - ${bseStatus.tradingHours?.close} IST`
           },
           mcx: {
             name: 'Multi Commodity Exchange',
-            ...getMarketStatus('mcx'),
-            tradingHours: '9:00 AM - 11:30 PM IST'
+            status: mcxStatus.isOpen ? 'open' : 'closed',
+            reason: mcxStatus.reason,
+            isHoliday: mcxStatus.isHoliday,
+            holidayName: mcxStatus.holidayName,
+            isWeekend: mcxStatus.isWeekend,
+            nextTradingDay: mcxStatus.nextTradingDay,
+            specialSession: mcxStatus.specialSession,
+            tradingHours: `${mcxStatus.tradingHours?.open} - ${mcxStatus.tradingHours?.close} IST`
           },
           ncdex: {
             name: 'National Commodity & Derivatives Exchange',
-            ...getMarketStatus('ncdex'),
-            tradingHours: '10:00 AM - 5:00 PM IST'
+            status: ncdexStatus.isOpen ? 'open' : 'closed',
+            reason: ncdexStatus.reason,
+            isHoliday: ncdexStatus.isHoliday,
+            holidayName: ncdexStatus.holidayName,
+            isWeekend: ncdexStatus.isWeekend,
+            nextTradingDay: ncdexStatus.nextTradingDay,
+            specialSession: ncdexStatus.specialSession,
+            tradingHours: `${ncdexStatus.tradingHours?.open} - ${ncdexStatus.tradingHours?.close} IST`
           },
           msei: {
             name: 'Metropolitan Stock Exchange',
-            ...getMarketStatus('msei'),
-            tradingHours: '9:15 AM - 3:30 PM IST'
+            status: nseStatus.isOpen ? 'open' : 'closed',
+            reason: nseStatus.reason,
+            isHoliday: nseStatus.isHoliday,
+            holidayName: nseStatus.holidayName,
+            isWeekend: nseStatus.isWeekend,
+            nextTradingDay: nseStatus.nextTradingDay,
+            tradingHours: '09:15 - 15:30 IST'
           },
           global: {
             name: 'Global Markets',
-            ...getMarketStatus('global'),
+            status: 'open',
+            reason: 'Trading Hours',
+            isHoliday: false,
+            isWeekend: false,
             tradingHours: '24/7 (Various Time Zones)'
           }
         }
@@ -8925,6 +8921,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching market status:", error);
       res.status(500).json({ error: "Failed to fetch market status" });
+    }
+  });
+
+  // Market Holiday Calendar APIs
+  app.get("/api/market/holidays", async (req, res) => {
+    try {
+      const { marketHolidayService } = await import('./services/market-holiday-service');
+      const { year, exchange } = req.query;
+      
+      const targetYear = year ? parseInt(year as string) : new Date().getFullYear();
+      const targetExchange = (exchange as 'NSE' | 'BSE' | 'MCX' | 'NCDEX') || undefined;
+      
+      const holidays = marketHolidayService.getHolidaysForYear(targetYear, targetExchange);
+      
+      res.json({
+        success: true,
+        year: targetYear,
+        exchange: targetExchange || 'ALL',
+        holidays,
+        count: holidays.length
+      });
+    } catch (error) {
+      console.error("Error fetching market holidays:", error);
+      res.status(500).json({ error: "Failed to fetch market holidays" });
+    }
+  });
+
+  app.get("/api/market/holidays/upcoming", async (req, res) => {
+    try {
+      const { marketHolidayService } = await import('./services/market-holiday-service');
+      const { count, exchange } = req.query;
+      
+      const limit = count ? parseInt(count as string) : 10;
+      const targetExchange = (exchange as 'NSE' | 'BSE' | 'MCX' | 'NCDEX') || 'NSE';
+      
+      const holidays = marketHolidayService.getUpcomingHolidays(limit, targetExchange);
+      
+      res.json({
+        success: true,
+        exchange: targetExchange,
+        holidays,
+        count: holidays.length
+      });
+    } catch (error) {
+      console.error("Error fetching upcoming holidays:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming holidays" });
+    }
+  });
+
+  app.get("/api/market/trading-calendar", async (req, res) => {
+    try {
+      const { marketHolidayService } = await import('./services/market-holiday-service');
+      const { startDate, endDate, exchange } = req.query;
+      const { format, addDays } = await import('date-fns');
+      
+      const start = startDate as string || format(new Date(), 'yyyy-MM-dd');
+      const end = endDate as string || format(addDays(new Date(), 30), 'yyyy-MM-dd');
+      const targetExchange = (exchange as 'NSE' | 'BSE' | 'MCX' | 'NCDEX') || 'NSE';
+      
+      const calendar = marketHolidayService.getTradingCalendar(start, end, targetExchange);
+      const tradingDaysCount = calendar.filter(d => d.isTrading).length;
+      const nonTradingDaysCount = calendar.filter(d => !d.isTrading).length;
+      
+      res.json({
+        success: true,
+        exchange: targetExchange,
+        startDate: start,
+        endDate: end,
+        summary: {
+          totalDays: calendar.length,
+          tradingDays: tradingDaysCount,
+          nonTradingDays: nonTradingDaysCount,
+          holidays: calendar.filter(d => d.isHoliday && !d.isWeekend).length,
+          weekends: calendar.filter(d => d.isWeekend).length
+        },
+        calendar
+      });
+    } catch (error) {
+      console.error("Error fetching trading calendar:", error);
+      res.status(500).json({ error: "Failed to fetch trading calendar" });
+    }
+  });
+
+  app.get("/api/market/is-trading-day", async (req, res) => {
+    try {
+      const { marketHolidayService } = await import('./services/market-holiday-service');
+      const { date, exchange } = req.query;
+      const { format } = await import('date-fns');
+      
+      const targetDate = date as string || format(new Date(), 'yyyy-MM-dd');
+      const targetExchange = (exchange as 'NSE' | 'BSE' | 'MCX' | 'NCDEX') || 'NSE';
+      
+      const isTradingDay = marketHolidayService.isTradingDay(targetDate, targetExchange);
+      const holiday = marketHolidayService.getHoliday(targetDate, targetExchange);
+      const isWeekend = marketHolidayService.isWeekendDay(targetDate);
+      const nextTradingDay = marketHolidayService.getNextTradingDay(targetDate, targetExchange);
+      
+      res.json({
+        success: true,
+        date: targetDate,
+        exchange: targetExchange,
+        isTradingDay,
+        isWeekend,
+        isHoliday: !!holiday,
+        holidayDetails: holiday,
+        nextTradingDay: format(nextTradingDay, 'yyyy-MM-dd')
+      });
+    } catch (error) {
+      console.error("Error checking trading day:", error);
+      res.status(500).json({ error: "Failed to check trading day" });
+    }
+  });
+
+  app.get("/api/market/next-trading-day", async (req, res) => {
+    try {
+      const { marketHolidayService } = await import('./services/market-holiday-service');
+      const { date, exchange } = req.query;
+      const { format } = await import('date-fns');
+      
+      const targetDate = date as string || format(new Date(), 'yyyy-MM-dd');
+      const targetExchange = (exchange as 'NSE' | 'BSE' | 'MCX' | 'NCDEX') || 'NSE';
+      
+      const nextTradingDay = marketHolidayService.getNextTradingDay(targetDate, targetExchange);
+      
+      res.json({
+        success: true,
+        fromDate: targetDate,
+        exchange: targetExchange,
+        nextTradingDay: format(nextTradingDay, 'yyyy-MM-dd'),
+        dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][nextTradingDay.getDay()]
+      });
+    } catch (error) {
+      console.error("Error getting next trading day:", error);
+      res.status(500).json({ error: "Failed to get next trading day" });
     }
   });
 

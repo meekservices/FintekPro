@@ -338,13 +338,25 @@ export class BSEStarApiService {
   }
 
   /**
-   * Get next business day for SIP start date
+   * Get next business day for SIP start date (holiday-aware)
    */
-  private getNextBusinessDay(): string {
+  private async getNextBusinessDayAsync(): Promise<string> {
+    try {
+      const { marketHolidayService } = await import('./services/market-holiday-service');
+      const nextTradingDay = marketHolidayService.getNextTradingDay(new Date(), 'BSE');
+      return nextTradingDay.toISOString().split('T')[0]; // YYYY-MM-DD format
+    } catch (error) {
+      return this.getNextBusinessDayFallback();
+    }
+  }
+
+  /**
+   * Synchronous fallback for next business day calculation
+   */
+  private getNextBusinessDayFallback(): string {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    // If tomorrow is weekend, move to next Monday
     const dayOfWeek = tomorrow.getDay();
     if (dayOfWeek === 0) { // Sunday
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -352,7 +364,14 @@ export class BSEStarApiService {
       tomorrow.setDate(tomorrow.getDate() + 2);
     }
     
-    return tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD format
+    return tomorrow.toISOString().split('T')[0];
+  }
+
+  /**
+   * Get next business day for SIP start date (synchronous version)
+   */
+  private getNextBusinessDay(): string {
+    return this.getNextBusinessDayFallback();
   }
 
   /**
