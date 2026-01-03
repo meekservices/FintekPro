@@ -79,6 +79,29 @@ interface ItrPricingConfig {
   isActive: boolean | null;
 }
 
+interface PlatformFeeConfig {
+  id: string;
+  feeCode: string;
+  feeName: string;
+  feeDescription: string | null;
+  category: string;
+  chargeType: string;
+  rateValue: string;
+  rateUnit: string | null;
+  minAmount: string | null;
+  maxAmount: string | null;
+  applicableTo: string;
+  isGstApplicable: boolean | null;
+  gstRate: string | null;
+  isRegulatory: boolean | null;
+  regulatoryReference: string | null;
+  isWaivable: boolean | null;
+  maxWaiverPercent: string | null;
+  displayOrder: number | null;
+  displayLabel: string | null;
+  isActive: boolean | null;
+}
+
 function formatCurrency(value: string | number | null): string {
   if (!value) return "N/A";
   const num = typeof value === "string" ? parseFloat(value) : value;
@@ -142,6 +165,19 @@ export default function AdminStoreManager() {
     selfFileFee: "0", caAssistedFee: "0", caRevenueSharePercent: "50",
     complexityLevel: "standard", estimatedProcessingDays: 3,
     eligibleForSelfFile: true, requiresCa: false, isActive: true
+  });
+
+  // Platform Fees State
+  const [platformFeeCategory, setPlatformFeeCategory] = useState("all");
+  const [editingFee, setEditingFee] = useState<PlatformFeeConfig | null>(null);
+  const [isFeeDialogOpen, setIsFeeDialogOpen] = useState(false);
+  const [newFee, setNewFee] = useState({
+    feeCode: "", feeName: "", feeDescription: "", category: "platform",
+    chargeType: "percentage", rateValue: "0", rateUnit: "percent",
+    minAmount: "0", maxAmount: "", applicableTo: "all",
+    isGstApplicable: true, gstRate: "18", isRegulatory: false,
+    regulatoryReference: "", isWaivable: false, maxWaiverPercent: "0",
+    displayOrder: 100, displayLabel: "", isActive: true
   });
 
   const { data: fundManagersData, isLoading: managersLoading, refetch: refetchManagers } = useQuery<{ managers: FundManager[]; pagination: any }>({
@@ -261,6 +297,74 @@ export default function AdminStoreManager() {
     },
     onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
   });
+
+  // Platform Fees Query and Mutations
+  const { data: platformFeesData, isLoading: platformFeesLoading } = useQuery<{ data: PlatformFeeConfig[], categories: string[] }>({
+    queryKey: ["/api/admin/platform-fees"],
+  });
+
+  const seedPlatformFeesMutation = useMutation({
+    mutationFn: async () => await apiRequest("/api/admin/platform-fees/seed-defaults", { method: "POST" }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/platform-fees"] });
+      toast({ title: "Platform Fees Seeded", description: `Seeded ${data.seeded} fees, skipped ${data.skipped} existing` });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const createFeeMutation = useMutation({
+    mutationFn: async (data: any) => await apiRequest("/api/admin/platform-fees", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/platform-fees"] });
+      setIsFeeDialogOpen(false);
+      setNewFee({ feeCode: "", feeName: "", feeDescription: "", category: "platform", chargeType: "percentage", rateValue: "0", rateUnit: "percent", minAmount: "0", maxAmount: "", applicableTo: "all", isGstApplicable: true, gstRate: "18", isRegulatory: false, regulatoryReference: "", isWaivable: false, maxWaiverPercent: "0", displayOrder: 100, displayLabel: "", isActive: true });
+      toast({ title: "Fee Created" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const updateFeeMutation = useMutation({
+    mutationFn: async ({ id, ...data }: any) => await apiRequest(`/api/admin/platform-fees/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/platform-fees"] });
+      setEditingFee(null);
+      toast({ title: "Fee Updated" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteFeeMutation = useMutation({
+    mutationFn: async (id: string) => await apiRequest(`/api/admin/platform-fees/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/platform-fees"] });
+      toast({ title: "Fee Deleted" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const toggleFeeMutation = useMutation({
+    mutationFn: async (id: string) => await apiRequest(`/api/admin/platform-fees/${id}/toggle`, { method: "PATCH" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/platform-fees"] });
+      toast({ title: "Fee Status Updated" });
+    },
+    onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const filteredFees = platformFeesData?.data?.filter(fee => 
+    platformFeeCategory === "all" || fee.category === platformFeeCategory
+  ) || [];
+
+  const feeCategories = [
+    { value: "all", label: "All Categories" },
+    { value: "regulatory", label: "Regulatory (STT, Stamp Duty)" },
+    { value: "platform", label: "Platform (Brokerage, Fees)" },
+    { value: "advisory", label: "Advisory Services" },
+    { value: "document", label: "Document Charges" },
+    { value: "convenience", label: "Convenience Fees" },
+    { value: "value_added", label: "Value-Added Services" },
+  ];
+
   const { data: pmsData, isLoading: pmsLoading, refetch: refetchPms } = useQuery<{ schemes: PmsScheme[] }>({
     queryKey: ["/api/store/pms/admin", { search: pmsSearch, status: pmsStatusFilter }],
   });
@@ -402,6 +506,10 @@ export default function AdminStoreManager() {
           <TabsTrigger value="itr-pricing" className="flex items-center gap-2">
             <Calculator className="w-4 h-4" />
             ITR Pricing ({itrPricingData?.data?.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="platform-fees" className="flex items-center gap-2" data-testid="tab-platform-fees">
+            <Settings className="w-4 h-4" />
+            Platform Fees ({platformFeesData?.data?.length || 0})
           </TabsTrigger>
         </TabsList>
 
@@ -891,7 +999,330 @@ export default function AdminStoreManager() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Platform Fees Tab */}
+        <TabsContent value="platform-fees">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Platform Fee Configuration</CardTitle>
+                  <CardDescription>Manage all platform charges including regulatory fees, brokerage, advisory, and value-added services</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Select value={platformFeeCategory} onValueChange={setPlatformFeeCategory}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {feeCategories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" onClick={() => seedPlatformFeesMutation.mutate()} disabled={seedPlatformFeesMutation.isPending} data-testid="button-seed-platform-fees">
+                    <RefreshCw className={`w-4 h-4 mr-2 ${seedPlatformFeesMutation.isPending ? "animate-spin" : ""}`} />
+                    Seed Defaults
+                  </Button>
+                  <Button onClick={() => setIsFeeDialogOpen(true)} data-testid="button-add-platform-fee">
+                    <Plus className="w-4 h-4 mr-2" /> Add Fee
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {platformFeesLoading ? (
+                <div className="flex justify-center py-8"><RefreshCw className="w-6 h-6 animate-spin" /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left p-3 font-medium">Fee Code</th>
+                        <th className="text-left p-3 font-medium">Fee Name</th>
+                        <th className="text-center p-3 font-medium">Category</th>
+                        <th className="text-center p-3 font-medium">Type</th>
+                        <th className="text-right p-3 font-medium">Rate</th>
+                        <th className="text-center p-3 font-medium">GST</th>
+                        <th className="text-center p-3 font-medium">Status</th>
+                        <th className="text-right p-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredFees.map((fee) => (
+                        <tr key={fee.id} className="border-b hover:bg-muted/20">
+                          <td className="p-3 font-mono text-sm">{fee.feeCode}</td>
+                          <td className="p-3">
+                            <div>{fee.displayLabel || fee.feeName}</div>
+                            {fee.isRegulatory && <span className="text-xs text-blue-600">Regulatory</span>}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              fee.category === "regulatory" ? "bg-blue-100 text-blue-700" :
+                              fee.category === "platform" ? "bg-purple-100 text-purple-700" :
+                              fee.category === "advisory" ? "bg-green-100 text-green-700" :
+                              fee.category === "document" ? "bg-orange-100 text-orange-700" :
+                              fee.category === "convenience" ? "bg-yellow-100 text-yellow-700" :
+                              "bg-pink-100 text-pink-700"
+                            }`}>
+                              {fee.category}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center text-sm">{fee.chargeType}</td>
+                          <td className="p-3 text-right font-mono">
+                            {fee.rateUnit === "inr" ? `₹${Number(fee.rateValue).toLocaleString()}` : 
+                             fee.rateUnit === "bps" ? `${fee.rateValue} bps` : 
+                             `${fee.rateValue}%`}
+                          </td>
+                          <td className="p-3 text-center">
+                            {fee.isGstApplicable ? <Badge className="bg-green-100 text-green-700 text-xs">{fee.gstRate}%</Badge> : <Badge variant="outline" className="text-xs">Exempt</Badge>}
+                          </td>
+                          <td className="p-3 text-center">
+                            <Switch checked={fee.isActive ?? true} onCheckedChange={() => toggleFeeMutation.mutate(fee.id)} data-testid={`switch-fee-status-${fee.id}`} />
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex gap-1 justify-end">
+                              <Button variant="ghost" size="icon" onClick={() => setEditingFee(fee)} data-testid={`button-edit-fee-${fee.id}`}>
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => { if (confirm("Delete this fee?")) deleteFeeMutation.mutate(fee.id); }} data-testid={`button-delete-fee-${fee.id}`}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {filteredFees.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">No platform fees configured. Click "Seed Defaults" to add standard fees.</div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Create Platform Fee Dialog */}
+      <Dialog open={isFeeDialogOpen} onOpenChange={setIsFeeDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Platform Fee</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Fee Code</Label>
+                <Input value={newFee.feeCode} onChange={(e) => setNewFee({ ...newFee, feeCode: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_') })} placeholder="e.g., STT_EQUITY" data-testid="input-fee-code" />
+              </div>
+              <div className="space-y-2">
+                <Label>Fee Name</Label>
+                <Input value={newFee.feeName} onChange={(e) => setNewFee({ ...newFee, feeName: e.target.value })} placeholder="Securities Transaction Tax" data-testid="input-fee-name" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <select className="w-full p-2 border rounded" value={newFee.category} onChange={(e) => setNewFee({ ...newFee, category: e.target.value })} data-testid="select-fee-category">
+                  <option value="regulatory">Regulatory</option>
+                  <option value="platform">Platform</option>
+                  <option value="advisory">Advisory</option>
+                  <option value="document">Document</option>
+                  <option value="convenience">Convenience</option>
+                  <option value="value_added">Value-Added</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Applicable To</Label>
+                <select className="w-full p-2 border rounded" value={newFee.applicableTo} onChange={(e) => setNewFee({ ...newFee, applicableTo: e.target.value })} data-testid="select-fee-applicable">
+                  <option value="all">All Products</option>
+                  <option value="equity">Equity</option>
+                  <option value="mutual_fund">Mutual Funds</option>
+                  <option value="bond">Bonds</option>
+                  <option value="unlisted">Unlisted Shares</option>
+                  <option value="ipo">IPO</option>
+                  <option value="derivatives">Derivatives (F&O)</option>
+                  <option value="tax_services">Tax Services</option>
+                  <option value="advisory">Advisory</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Charge Type</Label>
+                <select className="w-full p-2 border rounded" value={newFee.chargeType} onChange={(e) => setNewFee({ ...newFee, chargeType: e.target.value })} data-testid="select-charge-type">
+                  <option value="percentage">Percentage</option>
+                  <option value="flat">Flat Amount</option>
+                  <option value="tiered">Tiered</option>
+                  <option value="per_unit">Per Unit</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Rate Value</Label>
+                <Input type="number" step="0.0001" value={newFee.rateValue} onChange={(e) => setNewFee({ ...newFee, rateValue: e.target.value })} data-testid="input-rate-value" />
+              </div>
+              <div className="space-y-2">
+                <Label>Rate Unit</Label>
+                <select className="w-full p-2 border rounded" value={newFee.rateUnit} onChange={(e) => setNewFee({ ...newFee, rateUnit: e.target.value })} data-testid="select-rate-unit">
+                  <option value="percent">Percent (%)</option>
+                  <option value="bps">Basis Points</option>
+                  <option value="inr">INR (₹)</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Min Amount (₹)</Label>
+                <Input type="number" value={newFee.minAmount} onChange={(e) => setNewFee({ ...newFee, minAmount: e.target.value })} data-testid="input-min-amount" />
+              </div>
+              <div className="space-y-2">
+                <Label>Max Amount (₹)</Label>
+                <Input type="number" value={newFee.maxAmount} onChange={(e) => setNewFee({ ...newFee, maxAmount: e.target.value })} placeholder="No cap" data-testid="input-max-amount" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Display Label (User-friendly)</Label>
+              <Input value={newFee.displayLabel} onChange={(e) => setNewFee({ ...newFee, displayLabel: e.target.value })} placeholder="e.g., STT" data-testid="input-display-label" />
+            </div>
+            <div className="flex flex-wrap gap-6">
+              <label className="flex items-center gap-2"><input type="checkbox" checked={newFee.isGstApplicable} onChange={(e) => setNewFee({ ...newFee, isGstApplicable: e.target.checked })} /> GST Applicable</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={newFee.isRegulatory} onChange={(e) => setNewFee({ ...newFee, isRegulatory: e.target.checked })} /> Regulatory Fee</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={newFee.isWaivable} onChange={(e) => setNewFee({ ...newFee, isWaivable: e.target.checked })} /> Waivable</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={newFee.isActive} onChange={(e) => setNewFee({ ...newFee, isActive: e.target.checked })} /> Active</label>
+            </div>
+            {newFee.isGstApplicable && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>GST Rate (%)</Label>
+                  <Input type="number" value={newFee.gstRate} onChange={(e) => setNewFee({ ...newFee, gstRate: e.target.value })} data-testid="input-gst-rate" />
+                </div>
+              </div>
+            )}
+            {newFee.isWaivable && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Max Waiver (%)</Label>
+                  <Input type="number" value={newFee.maxWaiverPercent} onChange={(e) => setNewFee({ ...newFee, maxWaiverPercent: e.target.value })} max="100" data-testid="input-max-waiver" />
+                </div>
+              </div>
+            )}
+            {newFee.isRegulatory && (
+              <div className="space-y-2">
+                <Label>Regulatory Reference</Label>
+                <Input value={newFee.regulatoryReference} onChange={(e) => setNewFee({ ...newFee, regulatoryReference: e.target.value })} placeholder="e.g., Securities Transaction Tax Act, 2004" data-testid="input-regulatory-ref" />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsFeeDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => createFeeMutation.mutate(newFee)} disabled={createFeeMutation.isPending || !newFee.feeCode || !newFee.feeName} data-testid="button-submit-fee">
+              {createFeeMutation.isPending ? "Creating..." : "Create Fee"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Platform Fee Dialog */}
+      <Dialog open={!!editingFee} onOpenChange={() => setEditingFee(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Fee - {editingFee?.feeCode}</DialogTitle>
+          </DialogHeader>
+          {editingFee && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Fee Code</Label>
+                  <Input value={editingFee.feeCode} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fee Name</Label>
+                  <Input value={editingFee.feeName} onChange={(e) => setEditingFee({ ...editingFee, feeName: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <select className="w-full p-2 border rounded" value={editingFee.category} onChange={(e) => setEditingFee({ ...editingFee, category: e.target.value })}>
+                    <option value="regulatory">Regulatory</option>
+                    <option value="platform">Platform</option>
+                    <option value="advisory">Advisory</option>
+                    <option value="document">Document</option>
+                    <option value="convenience">Convenience</option>
+                    <option value="value_added">Value-Added</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Applicable To</Label>
+                  <select className="w-full p-2 border rounded" value={editingFee.applicableTo} onChange={(e) => setEditingFee({ ...editingFee, applicableTo: e.target.value })}>
+                    <option value="all">All Products</option>
+                    <option value="equity">Equity</option>
+                    <option value="mutual_fund">Mutual Funds</option>
+                    <option value="bond">Bonds</option>
+                    <option value="unlisted">Unlisted Shares</option>
+                    <option value="ipo">IPO</option>
+                    <option value="derivatives">Derivatives (F&O)</option>
+                    <option value="tax_services">Tax Services</option>
+                    <option value="advisory">Advisory</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Charge Type</Label>
+                  <select className="w-full p-2 border rounded" value={editingFee.chargeType} onChange={(e) => setEditingFee({ ...editingFee, chargeType: e.target.value })}>
+                    <option value="percentage">Percentage</option>
+                    <option value="flat">Flat Amount</option>
+                    <option value="tiered">Tiered</option>
+                    <option value="per_unit">Per Unit</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Rate Value</Label>
+                  <Input type="number" step="0.0001" value={editingFee.rateValue} onChange={(e) => setEditingFee({ ...editingFee, rateValue: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rate Unit</Label>
+                  <select className="w-full p-2 border rounded" value={editingFee.rateUnit || "percent"} onChange={(e) => setEditingFee({ ...editingFee, rateUnit: e.target.value })}>
+                    <option value="percent">Percent (%)</option>
+                    <option value="bps">Basis Points</option>
+                    <option value="inr">INR (₹)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Min Amount (₹)</Label>
+                  <Input type="number" value={editingFee.minAmount || ""} onChange={(e) => setEditingFee({ ...editingFee, minAmount: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Max Amount (₹)</Label>
+                  <Input type="number" value={editingFee.maxAmount || ""} onChange={(e) => setEditingFee({ ...editingFee, maxAmount: e.target.value })} placeholder="No cap" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Display Label</Label>
+                <Input value={editingFee.displayLabel || ""} onChange={(e) => setEditingFee({ ...editingFee, displayLabel: e.target.value })} />
+              </div>
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={editingFee.isGstApplicable ?? true} onChange={(e) => setEditingFee({ ...editingFee, isGstApplicable: e.target.checked })} /> GST Applicable</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={editingFee.isRegulatory ?? false} onChange={(e) => setEditingFee({ ...editingFee, isRegulatory: e.target.checked })} /> Regulatory</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={editingFee.isWaivable ?? false} onChange={(e) => setEditingFee({ ...editingFee, isWaivable: e.target.checked })} /> Waivable</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={editingFee.isActive ?? true} onChange={(e) => setEditingFee({ ...editingFee, isActive: e.target.checked })} /> Active</label>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingFee(null)}>Cancel</Button>
+            <Button onClick={() => editingFee && updateFeeMutation.mutate({ id: editingFee.id, ...editingFee })} disabled={updateFeeMutation.isPending} data-testid="button-update-fee">
+              {updateFeeMutation.isPending ? "Updating..." : "Update Fee"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create ITR Pricing Dialog */}
       <Dialog open={isItrPricingDialogOpen} onOpenChange={setIsItrPricingDialogOpen}>

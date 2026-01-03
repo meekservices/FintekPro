@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "../db";
 import { platformFeeConfig, type InsertPlatformFeeConfig } from "@shared/schema";
-import { eq, and, isNull, lte, or, gte, desc } from "drizzle-orm";
-import { requireAuth, requireRole } from "../replitAuth";
+import { eq } from "drizzle-orm";
+import { requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
@@ -355,7 +355,7 @@ const DEFAULT_FEES: Partial<InsertPlatformFeeConfig>[] = [
   },
 ];
 
-router.get("/", requireAuth, requireRole(["admin"]), async (req, res) => {
+router.get("/", requireAdmin, async (req, res) => {
   try {
     const { category, applicableTo, isActive } = req.query;
     
@@ -388,7 +388,7 @@ router.get("/", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
-router.get("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+router.get("/:id", requireAdmin, async (req, res) => {
   try {
     const [fee] = await db.select()
       .from(platformFeeConfig)
@@ -405,7 +405,7 @@ router.get("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
-router.post("/", requireAuth, requireRole(["admin"]), async (req, res) => {
+router.post("/", requireAdmin, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     const data = req.body;
@@ -424,7 +424,7 @@ router.post("/", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
-router.put("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     const { id, createdAt, createdBy, ...data } = req.body;
@@ -448,7 +448,7 @@ router.put("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
-router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const [fee] = await db.delete(platformFeeConfig)
       .where(eq(platformFeeConfig.id, req.params.id))
@@ -464,7 +464,7 @@ router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
-router.post("/seed-defaults", requireAuth, requireRole(["admin"]), async (req, res) => {
+router.post("/seed-defaults", requireAdmin, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     let seeded = 0;
@@ -499,7 +499,7 @@ router.post("/seed-defaults", requireAuth, requireRole(["admin"]), async (req, r
   }
 });
 
-router.patch("/:id/toggle", requireAuth, requireRole(["admin"]), async (req, res) => {
+router.patch("/:id/toggle", requireAdmin, async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     
