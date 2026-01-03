@@ -160,7 +160,8 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
     onSuccess: () => {
-      window.location.href = "/";
+      // Redirect to auth page, staying on the agent subdomain
+      window.location.href = "/auth";
     },
   });
 
