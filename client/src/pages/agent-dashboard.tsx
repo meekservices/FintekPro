@@ -50,7 +50,8 @@ import {
   DollarSign,
   Video,
   ExternalLink,
-  Brain
+  Brain,
+  UserPlus
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -218,6 +219,15 @@ export default function AgentDashboard() {
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingTime, setMeetingTime] = useState("");
   const [meetingDuration, setMeetingDuration] = useState(30);
+
+  // Add Prospect dialog states
+  const [addProspectDialog, setAddProspectDialog] = useState(false);
+  const [prospectName, setProspectName] = useState("");
+  const [prospectMobile, setProspectMobile] = useState("");
+  const [prospectEmail, setProspectEmail] = useState("");
+  const [prospectPan, setProspectPan] = useState("");
+  const [prospectNotes, setProspectNotes] = useState("");
+  const [createdProspectId, setCreatedProspectId] = useState<string | null>(null);
 
   // Fetch CKYC clients for care agents
   const { data: ckycClients, isLoading: clientsLoading } = useQuery<CkycClient[]>({
@@ -446,6 +456,60 @@ export default function AgentDashboard() {
     }
   });
 
+  // Create prospect mutation
+  const createProspectMutation = useMutation({
+    mutationFn: async (data: { name: string; mobile?: string; email?: string; pan?: string; notes?: string }) => {
+      const response = await apiRequest("/api/agent-wizard/prospects", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      });
+      return response;
+    },
+    onSuccess: (data: { success: boolean; prospectId: string }) => {
+      toast({ title: "Success", description: "Prospect added successfully" });
+      setCreatedProspectId(data.prospectId);
+      queryClient.invalidateQueries({ queryKey: ["/api/agent-wizard/prospects"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const resetProspectForm = () => {
+    setProspectName("");
+    setProspectMobile("");
+    setProspectEmail("");
+    setProspectPan("");
+    setProspectNotes("");
+    setCreatedProspectId(null);
+  };
+
+  const handleAddProspect = () => {
+    if (!prospectName.trim()) {
+      toast({ title: "Error", description: "Name is required", variant: "destructive" });
+      return;
+    }
+    createProspectMutation.mutate({
+      name: prospectName.trim(),
+      mobile: prospectMobile.trim() || undefined,
+      email: prospectEmail.trim() || undefined,
+      pan: prospectPan.trim().toUpperCase() || undefined,
+      notes: prospectNotes.trim() || undefined
+    });
+  };
+
+  const handleCloseProspectDialog = () => {
+    setAddProspectDialog(false);
+    resetProspectForm();
+  };
+
+  const handleContinueToWizard = () => {
+    if (createdProspectId) {
+      window.location.href = `/agent-prospect-wizard?prospectId=${createdProspectId}&step=2`;
+    }
+  };
+
   const resetMeetingForm = () => {
     setMeetingClientId("");
     setMeetingTopic("");
@@ -566,6 +630,10 @@ export default function AgentDashboard() {
           <p className="text-muted-foreground">Manage CKYC client communications and support</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setAddProspectDialog(true)} data-testid="button-add-prospect">
+            <UserPlus size={16} className="mr-1" />
+            Add Prospect
+          </Button>
           <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/proposal-builder'} data-testid="button-quick-proposal">
             <Plus size={16} className="mr-1" />
             New Proposal
@@ -2101,6 +2169,155 @@ export default function AgentDashboard() {
         onSubmit={(data) => createNotificationMutation.mutate(data)}
         isLoading={createNotificationMutation.isPending}
       />
+
+      {/* Add Prospect Dialog */}
+      <Dialog open={addProspectDialog} onOpenChange={(open) => !open && handleCloseProspectDialog()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-blue-600" />
+              Add New Prospect
+            </DialogTitle>
+            <DialogDescription>
+              Quickly add a new prospect to your list. You can continue to the full wizard after saving.
+            </DialogDescription>
+          </DialogHeader>
+
+          {createdProspectId ? (
+            <div className="space-y-4">
+              <div className="text-center py-6">
+                <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Prospect Added Successfully!</h3>
+                <p className="text-sm text-muted-foreground">
+                  {prospectName} has been added to your prospects list.
+                </p>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={handleContinueToWizard} 
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-continue-wizard"
+                >
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Continue to Portfolio Wizard
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseProspectDialog}
+                  className="w-full"
+                  data-testid="button-add-another"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Another Prospect
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={handleCloseProspectDialog}
+                  className="w-full"
+                  data-testid="button-close-prospect-dialog"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="prospect-name">Full Name *</Label>
+                <Input
+                  id="prospect-name"
+                  value={prospectName}
+                  onChange={(e) => setProspectName(e.target.value)}
+                  placeholder="Enter prospect's full name"
+                  required
+                  data-testid="input-prospect-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="prospect-mobile">Mobile Number</Label>
+                <Input
+                  id="prospect-mobile"
+                  value={prospectMobile}
+                  onChange={(e) => setProspectMobile(e.target.value)}
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  data-testid="input-prospect-mobile"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="prospect-email">Email Address</Label>
+                <Input
+                  id="prospect-email"
+                  type="email"
+                  value={prospectEmail}
+                  onChange={(e) => setProspectEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  data-testid="input-prospect-email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="prospect-pan">PAN Number</Label>
+                <Input
+                  id="prospect-pan"
+                  value={prospectPan}
+                  onChange={(e) => setProspectPan(e.target.value.toUpperCase())}
+                  placeholder="ABCDE1234F"
+                  maxLength={10}
+                  className="uppercase"
+                  data-testid="input-prospect-pan"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="prospect-notes">Notes (Optional)</Label>
+                <Textarea
+                  id="prospect-notes"
+                  value={prospectNotes}
+                  onChange={(e) => setProspectNotes(e.target.value)}
+                  placeholder="Any additional notes about this prospect..."
+                  rows={3}
+                  data-testid="textarea-prospect-notes"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCloseProspectDialog}
+                  data-testid="button-cancel-prospect"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleAddProspect}
+                  disabled={createProspectMutation.isPending || !prospectName.trim()}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-save-prospect"
+                >
+                  {createProspectMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Save Prospect
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
