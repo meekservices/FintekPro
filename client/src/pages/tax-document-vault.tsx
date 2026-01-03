@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   FileText, 
   Download, 
@@ -22,7 +24,8 @@ import {
   File,
   FolderOpen,
   Shield,
-  Lock
+  Lock,
+  Inbox
 } from "lucide-react";
 
 interface TaxDocument {
@@ -36,16 +39,6 @@ interface TaxDocument {
   pan: string;
 }
 
-const DEMO_DOCUMENTS: TaxDocument[] = [
-  { id: "1", name: "ITR-1 AY 2023-24", type: "itr", assessmentYear: "2023-24", uploadDate: "2023-07-28", size: "245 KB", status: "verified", pan: "ABCPK1234A" },
-  { id: "2", name: "Tax Computation AY 2023-24", type: "computation", assessmentYear: "2023-24", uploadDate: "2023-07-28", size: "156 KB", status: "verified", pan: "ABCPK1234A" },
-  { id: "3", name: "Form 26AS AY 2023-24", type: "form26as", assessmentYear: "2023-24", uploadDate: "2023-06-15", size: "512 KB", status: "verified", pan: "ABCPK1234A" },
-  { id: "4", name: "AIS AY 2024-25", type: "ais", assessmentYear: "2024-25", uploadDate: "2024-05-10", size: "1.2 MB", status: "pending", pan: "ABCPK1234A" },
-  { id: "5", name: "TIS AY 2024-25", type: "tis", assessmentYear: "2024-25", uploadDate: "2024-05-10", size: "890 KB", status: "pending", pan: "ABCPK1234A" },
-  { id: "6", name: "ITR Acknowledgement AY 2023-24", type: "acknowledgement", assessmentYear: "2023-24", uploadDate: "2023-07-28", size: "45 KB", status: "verified", pan: "ABCPK1234A" },
-  { id: "7", name: "Form 15CB - Dec 2023", type: "form15", assessmentYear: "2023-24", uploadDate: "2023-12-20", size: "320 KB", status: "verified", pan: "ABCPK1234A" },
-  { id: "8", name: "ITR-1 AY 2022-23", type: "itr", assessmentYear: "2022-23", uploadDate: "2022-07-25", size: "238 KB", status: "verified", pan: "ABCPK1234A" }
-];
 
 const DOCUMENT_CATEGORIES = [
   { type: "itr", name: "ITR Returns", icon: FileText, color: "text-blue-600 bg-blue-100" },
@@ -61,7 +54,13 @@ export default function TaxDocumentVaultPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedYear, setSelectedYear] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
-  const [documents] = useState<TaxDocument[]>(DEMO_DOCUMENTS);
+
+  // Fetch real tax documents from API
+  const { data: documentsData, isLoading } = useQuery<{ documents: TaxDocument[] }>({
+    queryKey: ["/api/tax/documents"],
+  });
+
+  const documents = documentsData?.documents || [];
 
   const getDocumentIcon = (type: string) => {
     const category = DOCUMENT_CATEGORIES.find(c => c.type === type);
@@ -93,6 +92,21 @@ export default function TaxDocumentVaultPage() {
     acc[year] = filteredDocuments.filter(d => d.assessmentYear === year);
     return acc;
   }, {} as Record<string, TaxDocument[]>);
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-16 w-full" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">

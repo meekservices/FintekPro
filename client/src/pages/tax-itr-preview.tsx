@@ -97,51 +97,6 @@ interface ValidationError {
   severity: "error" | "warning" | "info";
 }
 
-const SAMPLE_DRAFT: ITRDraft = {
-  id: 1,
-  pan: "ABCPK1234A",
-  assessmentYear: "2025-26",
-  itrForm: "ITR-1",
-  status: "draft",
-  incomeSources: {
-    hasSalary: true,
-    hasHouseProperty: false,
-    hasCapitalGains: false,
-    hasBusinessIncome: false,
-    hasForeignIncome: false,
-    hasOtherIncome: true
-  },
-  salaryDetails: {
-    grossSalary: 1200000,
-    allowances: 150000,
-    perquisites: 0,
-    profitInLieu: 0,
-    standardDeduction: 50000,
-    professionalTax: 2400,
-    employerPF: 72000
-  },
-  otherIncomeDetails: {
-    interestIncome: 25000,
-    dividendIncome: 15000,
-    otherSources: 0
-  },
-  deductionDetails: {
-    section80C: 150000,
-    section80D: 25000,
-    section80E: 0,
-    section80G: 10000,
-    section80TTA: 10000,
-    otherDeductions: 0
-  },
-  grossTotalIncome: 1165600,
-  totalDeductions: 195000,
-  taxableIncome: 970600,
-  taxPayable: 87780,
-  tdsCredits: 95000,
-  advanceTax: 0,
-  selfAssessmentTax: 0,
-  refundDue: 7220
-};
 
 export default function TaxITRPreviewPage() {
   const [, navigate] = useLocation();
@@ -155,14 +110,6 @@ export default function TaxITRPreviewPage() {
 
   const { data: draft, isLoading, error: draftError } = useQuery<ITRDraft>({
     queryKey: ["/api/tax/itr/draft", draftId],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest(`/api/tax/itr/draft/${draftId}`);
-        return response;
-      } catch {
-        return SAMPLE_DRAFT;
-      }
-    },
     enabled: !!draftId
   });
 

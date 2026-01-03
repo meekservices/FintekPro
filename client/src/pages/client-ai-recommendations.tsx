@@ -50,132 +50,6 @@ interface AIRecommendation {
   reasoning: string;
 }
 
-const SAMPLE_RECOMMENDATIONS: AIRecommendation[] = [
-  {
-    id: '1',
-    type: 'buy',
-    title: 'Consider Adding HDFC Bank',
-    description: 'Strong fundamentals with consistent dividend history. Currently trading at attractive valuations relative to historical P/E.',
-    expectedBenefit: '+12% potential return',
-    riskLevel: 'medium',
-    confidenceScore: 87,
-    priority: 'high',
-    symbol: 'HDFCBANK',
-    sector: 'Banking',
-    reasoning: 'AI analysis shows undervaluation based on DCF model. Strong loan growth and improving NPA ratios support bullish outlook.'
-  },
-  {
-    id: '2',
-    type: 'sell',
-    title: 'Consider Exiting Paytm',
-    description: 'Stock has reached resistance levels with declining volume. Regulatory concerns persist affecting business outlook.',
-    expectedBenefit: 'Protect capital from potential 15% decline',
-    riskLevel: 'high',
-    confidenceScore: 78,
-    priority: 'high',
-    symbol: 'PAYTM',
-    sector: 'Fintech',
-    reasoning: 'Technical indicators suggest overbought conditions. Fundamental analysis indicates challenges in path to profitability.'
-  },
-  {
-    id: '3',
-    type: 'rebalance',
-    title: 'Reduce IT Sector Exposure',
-    description: 'Your IT allocation at 35% exceeds the recommended 25% for your risk profile. Consider rebalancing to banking sector.',
-    expectedBenefit: 'Better risk-adjusted returns',
-    riskLevel: 'medium',
-    confidenceScore: 92,
-    priority: 'high',
-    reasoning: 'Portfolio drift detected. Sector concentration increases volatility risk. Diversification to other sectors recommended.'
-  },
-  {
-    id: '4',
-    type: 'tax_optimization',
-    title: 'Tax Loss Harvesting Opportunity',
-    description: 'Sell Wipro at loss to offset gains from Infosys sale. Estimated tax savings of ₹45,000.',
-    expectedBenefit: 'Save ₹45,000 in taxes',
-    riskLevel: 'low',
-    confidenceScore: 95,
-    priority: 'high',
-    symbol: 'WIPRO',
-    sector: 'IT Services',
-    reasoning: 'Portfolio has ₹3L STCG. Wipro loss of ₹1.5L can offset gains. Recommend reinvesting in similar IT ETF after 30 days.'
-  },
-  {
-    id: '5',
-    type: 'buy',
-    title: 'Add Reliance Industries',
-    description: 'Retail and Jio segments showing strong growth. New energy initiatives position for long-term growth.',
-    expectedBenefit: '+18% potential return over 12 months',
-    riskLevel: 'medium',
-    confidenceScore: 82,
-    priority: 'medium',
-    symbol: 'RELIANCE',
-    sector: 'Conglomerate',
-    reasoning: 'Sum-of-parts valuation suggests 20% upside. Jio and retail continue to deliver strong growth metrics.'
-  },
-  {
-    id: '6',
-    type: 'hold',
-    title: 'Maintain TCS Position',
-    description: 'Strong fundamentals with consistent performance. Wait for better entry point for additional investment.',
-    expectedBenefit: 'Steady 8-10% annual returns',
-    riskLevel: 'low',
-    confidenceScore: 88,
-    priority: 'low',
-    symbol: 'TCS',
-    sector: 'IT Services',
-    reasoning: 'Stock fairly valued at current levels. Strong cash flows and dividend yield provide downside protection.'
-  },
-  {
-    id: '7',
-    type: 'buy',
-    title: 'Consider SBI for Value Pick',
-    description: 'Largest PSU bank trading below book value. Government support and improving asset quality.',
-    expectedBenefit: '+15% potential return',
-    riskLevel: 'medium',
-    confidenceScore: 79,
-    priority: 'medium',
-    symbol: 'SBIN',
-    sector: 'Banking',
-    reasoning: 'P/B ratio at 0.9x vs historical average of 1.2x. Credit growth improving with stable NIMs.'
-  },
-  {
-    id: '8',
-    type: 'rebalance',
-    title: 'Increase Debt Allocation',
-    description: 'With rising interest rates, consider moving 10% from equity to debt funds for better stability.',
-    expectedBenefit: 'Reduce portfolio volatility by 15%',
-    riskLevel: 'low',
-    confidenceScore: 85,
-    priority: 'medium',
-    reasoning: 'Current equity allocation at 80% exceeds target of 70%. Debt funds offering attractive yields of 7-8%.'
-  },
-  {
-    id: '9',
-    type: 'sell',
-    title: 'Book Profits in Adani Enterprises',
-    description: 'Stock up 45% in 3 months. Consider booking partial profits to lock in gains.',
-    expectedBenefit: 'Lock in ₹1.2L gains',
-    riskLevel: 'high',
-    confidenceScore: 74,
-    priority: 'medium',
-    symbol: 'ADANIENT',
-    sector: 'Infrastructure',
-    reasoning: 'Technical RSI at 75 indicates overbought. Booking 50% profits recommended with trailing stop for rest.'
-  },
-  {
-    id: '10',
-    type: 'tax_optimization',
-    title: 'Maximize 80C with ELSS',
-    description: 'You have ₹50,000 remaining in 80C limit. Invest in ELSS funds before March 31.',
-    expectedBenefit: 'Tax saving of ₹15,600',
-    riskLevel: 'low',
-    confidenceScore: 98,
-    priority: 'low',
-    reasoning: 'ELSS offers dual benefit of tax saving and equity exposure. 3-year lock-in suits long-term goals.'
-  }
-];
 
 const TYPE_CONFIG = {
   buy: { label: 'Buy Signal', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', iconColor: 'text-emerald-600' },
@@ -281,11 +155,33 @@ export default function ClientAIRecommendations() {
     })
   ) || [];
 
-  // Combine AI recommendations with sample recommendations for tax optimization
+  // Fetch tax optimization recommendations from API
+  const { data: taxOptimizations } = useQuery({
+    queryKey: ['/api/tax/loss-harvesting/opportunities'],
+  });
+
+  // Transform tax optimization data to recommendations format
+  const taxOptRecs: AIRecommendation[] = ((taxOptimizations as any)?.opportunities || []).map(
+    (opp: any, i: number) => ({
+      id: `tax-${i}-${opp.symbol || Date.now()}`,
+      type: 'tax_optimization' as const,
+      title: opp.title || 'Tax Optimization Opportunity',
+      description: opp.description || 'AI-identified tax saving opportunity based on your portfolio.',
+      expectedBenefit: opp.potentialSavings ? `Save ₹${Number(opp.potentialSavings).toLocaleString('en-IN')}` : 'Tax savings available',
+      riskLevel: 'low' as const,
+      confidenceScore: opp.confidence || 85,
+      priority: opp.priority || 'medium' as const,
+      symbol: opp.symbol,
+      sector: opp.sector || 'Tax Planning',
+      reasoning: opp.reasoning || 'AI analysis of your portfolio identified this tax optimization opportunity.'
+    })
+  );
+
+  // Combine all AI-generated recommendations (no sample/mock data)
   const allRecommendations = [
     ...aiMFRecs,
     ...commodityRebalanceRecs,
-    ...SAMPLE_RECOMMENDATIONS.filter(r => r.type === 'tax_optimization')
+    ...taxOptRecs
   ];
 
   const isLoading = isMFLoading || isCommodityLoading;

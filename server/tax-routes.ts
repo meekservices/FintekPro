@@ -7,6 +7,9 @@ const router = Router();
 const itrDraftStorage = new Map<number, any>();
 let draftIdCounter = 1;
 
+const taxNoticesStorage = new Map<string, any>();
+let noticeIdCounter = 1;
+
 type TaxRole = "client" | "agent" | "ca" | "admin";
 
 interface TaxPermissions {
@@ -593,6 +596,63 @@ router.get("/itr/draft/:id", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error fetching ITR draft:", error);
     res.status(500).json({ error: "Failed to fetch draft" });
+  }
+});
+
+router.get("/notices", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.json({ notices: [] });
+    }
+    
+    const userNotices = Array.from(taxNoticesStorage.values()).filter(n => n.userId === userId);
+    
+    res.json({ notices: userNotices });
+  } catch (error) {
+    console.error("Error fetching tax notices:", error);
+    res.status(500).json({ error: "Failed to fetch notices", notices: [] });
+  }
+});
+
+router.post("/notices", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    
+    const noticeId = `NOTICE-${noticeIdCounter++}`;
+    const notice = {
+      id: noticeId,
+      userId,
+      ...req.body,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    taxNoticesStorage.set(noticeId, notice);
+    res.status(201).json({ success: true, notice });
+  } catch (error) {
+    console.error("Error creating tax notice:", error);
+    res.status(500).json({ error: "Failed to create notice" });
+  }
+});
+
+router.get("/loss-harvesting/opportunities", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).session?.userId;
+    
+    if (!userId) {
+      return res.json({ opportunities: [] });
+    }
+    
+    res.json({ opportunities: [] });
+  } catch (error) {
+    console.error("Error fetching tax loss harvesting opportunities:", error);
+    res.json({ opportunities: [] });
   }
 });
 

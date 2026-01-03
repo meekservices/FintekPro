@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   AlertTriangle, 
   FileText, 
@@ -22,7 +24,8 @@ import {
   ChevronRight,
   AlertCircle,
   FileWarning,
-  Scale
+  Scale,
+  Inbox
 } from "lucide-react";
 
 interface TaxNotice {
@@ -38,43 +41,6 @@ interface TaxNotice {
   description: string;
 }
 
-const DEMO_NOTICES: TaxNotice[] = [
-  {
-    id: "1",
-    noticeType: "Intimation u/s 143(1)",
-    section: "143(1)",
-    assessmentYear: "2023-24",
-    issueDate: "2024-01-15",
-    dueDate: "2024-02-15",
-    status: "pending",
-    priority: "high",
-    description: "Demand notice for additional tax of ₹15,000"
-  },
-  {
-    id: "2",
-    noticeType: "Notice u/s 142(1)",
-    section: "142(1)",
-    assessmentYear: "2022-23",
-    issueDate: "2023-11-20",
-    dueDate: "2023-12-20",
-    status: "responded",
-    priority: "medium",
-    assignedTo: "CA Vikram Mehta",
-    description: "Request for additional documents"
-  },
-  {
-    id: "3",
-    noticeType: "Scrutiny Notice u/s 143(2)",
-    section: "143(2)",
-    assessmentYear: "2022-23",
-    issueDate: "2023-09-10",
-    dueDate: "2023-10-10",
-    status: "closed",
-    priority: "high",
-    assignedTo: "CA Vikram Mehta",
-    description: "Scrutiny assessment completed"
-  }
-];
 
 const NOTICE_TYPES = [
   { type: "143(1)", name: "Intimation", description: "Processing of return with adjustments", severity: "low" },
@@ -88,7 +54,13 @@ const NOTICE_TYPES = [
 export default function TaxNoticesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTab, setSelectedTab] = useState("all");
-  const [notices] = useState<TaxNotice[]>(DEMO_NOTICES);
+
+  // Fetch real tax notices from API
+  const { data: noticesData, isLoading } = useQuery<{ notices: TaxNotice[] }>({
+    queryKey: ["/api/tax/notices"],
+  });
+
+  const notices = noticesData?.notices || [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -116,6 +88,20 @@ export default function TaxNoticesPage() {
     const matchesTab = selectedTab === "all" || notice.status === selectedTab;
     return matchesSearch && matchesTab;
   });
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
