@@ -48,12 +48,15 @@ export default function DividendCalendar() {
   });
 
   const dividends = useMemo(() => {
-    return (dividendsData || []).map(d => ({
-      ...d,
-      exDate: new Date(d.exDate),
-      recordDate: new Date(d.recordDate),
-      paymentDate: new Date(d.paymentDate),
-    }));
+    return (dividendsData || [])
+      .filter(d => d && d.exDate && d.recordDate && d.paymentDate)
+      .map(d => ({
+        ...d,
+        exDate: new Date(d.exDate),
+        recordDate: new Date(d.recordDate),
+        paymentDate: new Date(d.paymentDate),
+      }))
+      .filter(d => !isNaN(d.exDate.getTime()) && !isNaN(d.recordDate.getTime()) && !isNaN(d.paymentDate.getTime()));
   }, [dividendsData]);
 
   const filteredDividends = useMemo(() => {

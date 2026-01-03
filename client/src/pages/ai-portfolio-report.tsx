@@ -39,7 +39,6 @@ export default function AIPortfolioReport() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [reportGenerated, setReportGenerated] = useState(false);
 
   const { data: insightsData, isLoading: isLoadingInsights, refetch } = useQuery<AIInsight[]>({
     queryKey: ['/api/portfolio/ai-insights'],
@@ -47,16 +46,25 @@ export default function AIPortfolioReport() {
   });
 
   const insights = insightsData || [];
+  const reportGenerated = insights.length > 0;
 
   const handleGenerateReport = async () => {
     setIsGenerating(true);
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setIsGenerating(false);
-    setReportGenerated(true);
-    toast({
-      title: "Report Generated",
-      description: "Your AI-powered portfolio analysis is ready.",
-    });
+    try {
+      await refetch();
+      toast({
+        title: "Report Generated",
+        description: "Your AI-powered portfolio analysis is ready.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const formatCurrency = (value: number) => {

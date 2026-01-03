@@ -54,6 +54,7 @@ export default function DerivativesPage() {
 
   const { data: contractsData, isLoading: isLoadingContracts } = useQuery<PopularContract[]>({
     queryKey: ['/api/derivatives/popular-contracts'],
+    enabled: isAuthenticated,
   });
 
   const positions = positionsData || [];

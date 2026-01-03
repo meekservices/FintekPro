@@ -39,7 +39,6 @@ export default function CommoditiesPage() {
 
   const { data: commoditiesData, isLoading } = useQuery<Commodity[]>({
     queryKey: ['/api/market/commodities', { exchange: selectedExchange }],
-    queryFn: () => fetch(`/api/market/commodities?exchange=${selectedExchange}`).then(res => res.json()),
   });
 
   const commodities = commoditiesData || [];
@@ -61,17 +60,41 @@ export default function CommoditiesPage() {
     }
   };
 
+  const parseVolume = (volume: string | number): number => {
+    if (typeof volume === 'number') return volume;
+    if (!volume) return 0;
+    const str = String(volume).toUpperCase();
+    if (str.includes('K')) return parseFloat(str.replace('K', '')) * 1000;
+    if (str.includes('M')) return parseFloat(str.replace('M', '')) * 1000000;
+    return parseFloat(str) || 0;
+  };
+
+  const formatVolume = (volume: number): string => {
+    if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
+    if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`;
+    return String(volume);
+  };
+
   const marketStats = useMemo(() => {
+    if (commodities.length === 0) {
+      return {
+        totalVolume: '0',
+        advancers: 0,
+        decliners: 0,
+        topGainer: { name: '-', percent: 0 },
+        topLoser: { name: '-', percent: 0 }
+      };
+    }
+
     const advancers = commodities.filter(c => c.changePercent > 0).length;
     const decliners = commodities.filter(c => c.changePercent < 0).length;
     const sorted = [...commodities].sort((a, b) => b.changePercent - a.changePercent);
     const topGainer = sorted[0];
     const topLoser = sorted[sorted.length - 1];
+    const totalVolume = commodities.reduce((sum, c) => sum + parseVolume(c.volume), 0);
     
     return {
-      totalVolume: commodities.reduce((sum, c) => sum + parseFloat(c.volume.replace('K', '')) * 1000, 0) > 0 
-        ? `${(commodities.reduce((sum, c) => sum + parseFloat(c.volume.replace('K', '')) * 1000, 0) / 1000).toFixed(1)}K` 
-        : '0',
+      totalVolume: formatVolume(totalVolume),
       advancers,
       decliners,
       topGainer: topGainer ? { name: topGainer.name, percent: topGainer.changePercent } : { name: '-', percent: 0 },
