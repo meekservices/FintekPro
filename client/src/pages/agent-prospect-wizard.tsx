@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +12,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   User, ArrowRight, ArrowLeft, Check, Target, PieChart, Scale, 
   TrendingUp, TrendingDown, Sparkles, Share2, Mail, MessageSquare, 
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
-  IndianRupee, Percent, Clock, Shield, Zap, RefreshCw
+  IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users
 } from "lucide-react";
 
 interface PortfolioHolding {
@@ -121,10 +124,26 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+interface ExistingProspect {
+  id: string;
+  name: string;
+  email?: string;
+  mobile?: string;
+  pan?: string;
+  state?: string;
+  createdAt?: string;
+}
+
 export default function AgentProspectWizard() {
   const { toast } = useToast();
+  const searchString = useSearch();
+  const urlParams = new URLSearchParams(searchString);
+  const urlProspectId = urlParams.get('prospectId');
+  
   const [currentStep, setCurrentStep] = useState(1);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [prospectMode, setProspectMode] = useState<'new' | 'existing'>(urlProspectId ? 'existing' : 'new');
+  const [prospectSearch, setProspectSearch] = useState('');
   
   const [prospectData, setProspectData] = useState({
     name: "",
@@ -156,7 +175,46 @@ export default function AgentProspectWizard() {
   const [rebalancing, setRebalancing] = useState<RebalanceRecommendation[]>([]);
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
   const [proposal, setProposal] = useState<CombinedProposal | null>(null);
-  const [prospectId, setProspectId] = useState<string | null>(null);
+  const [prospectId, setProspectId] = useState<string | null>(urlProspectId);
+
+  const { data: existingProspectsData, isLoading: loadingProspects } = useQuery<{ success: boolean; prospects: ExistingProspect[] }>({
+    queryKey: ["/api/agent-wizard/prospects"],
+    enabled: prospectMode === 'existing'
+  });
+
+  const existingProspects = existingProspectsData?.prospects || [];
+  const searchLower = prospectSearch.toLowerCase();
+  const filteredProspects = existingProspects.filter(p => 
+    (p.name || '').toLowerCase().includes(searchLower) ||
+    (p.email || '').toLowerCase().includes(searchLower) ||
+    (p.pan || '').toLowerCase().includes(searchLower)
+  );
+
+  const selectExistingProspect = (prospect: ExistingProspect, autoAdvance = false) => {
+    setProspectId(prospect.id);
+    setProspectData({
+      name: prospect.name || "",
+      email: prospect.email || "",
+      mobile: prospect.mobile || "",
+      pan: prospect.pan || "",
+      notes: ""
+    });
+    if (autoAdvance) {
+      setCurrentStep(2);
+      toast({ title: "Prospect Loaded", description: `${prospect.name} loaded. Configure risk profile.` });
+    } else {
+      toast({ title: "Prospect Selected", description: `${prospect.name} selected. Continue to Risk Profile.` });
+    }
+  };
+
+  useEffect(() => {
+    if (urlProspectId && existingProspects.length > 0 && currentStep === 1) {
+      const found = existingProspects.find(p => p.id === urlProspectId);
+      if (found) {
+        selectExistingProspect(found, true);
+      }
+    }
+  }, [urlProspectId, existingProspects]);
 
   const createProspectMutation = useMutation({
     mutationFn: async (data: typeof prospectData) => {
@@ -339,70 +397,157 @@ export default function AgentProspectWizard() {
       {currentStep === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><User className="h-5 w-5" /> Add Prospect</CardTitle>
-            <CardDescription>Enter client details to begin the onboarding process</CardDescription>
+            <CardTitle className="flex items-center gap-2"><User className="h-5 w-5" /> Select or Add Prospect</CardTitle>
+            <CardDescription>Choose an existing prospect or create a new one</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Full Name *</Label>
-                <Input 
-                  placeholder="Rajesh Kumar"
-                  value={prospectData.name}
-                  onChange={(e) => setProspectData({ ...prospectData, name: e.target.value })}
-                  data-testid="prospect-name-input"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>PAN</Label>
-                <Input 
-                  placeholder="ABCDE1234F"
-                  value={prospectData.pan}
-                  onChange={(e) => setProspectData({ ...prospectData, pan: e.target.value.toUpperCase() })}
-                  maxLength={10}
-                  data-testid="prospect-pan-input"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input 
-                  type="email"
-                  placeholder="client@email.com"
-                  value={prospectData.email}
-                  onChange={(e) => setProspectData({ ...prospectData, email: e.target.value })}
-                  data-testid="prospect-email-input"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Mobile</Label>
-                <Input 
-                  placeholder="+91 9876543210"
-                  value={prospectData.mobile}
-                  onChange={(e) => setProspectData({ ...prospectData, mobile: e.target.value })}
-                  data-testid="prospect-mobile-input"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea 
-                placeholder="Any additional notes about the client..."
-                value={prospectData.notes}
-                onChange={(e) => setProspectData({ ...prospectData, notes: e.target.value })}
-                data-testid="prospect-notes-input"
-              />
-            </div>
+            <Tabs value={prospectMode} onValueChange={(v) => setProspectMode(v as 'new' | 'existing')} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="existing" className="flex items-center gap-2" data-testid="tab-existing-prospect">
+                  <Users className="h-4 w-4" /> Existing Prospect
+                </TabsTrigger>
+                <TabsTrigger value="new" className="flex items-center gap-2" data-testid="tab-new-prospect">
+                  <Plus className="h-4 w-4" /> New Prospect
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="existing" className="mt-4 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search by name, email, or PAN..."
+                    value={prospectSearch}
+                    onChange={(e) => setProspectSearch(e.target.value)}
+                    className="pl-10"
+                    data-testid="prospect-search-input"
+                  />
+                </div>
+                
+                {loadingProspects ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredProspects.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p>No prospects found. Add a new prospect to get started.</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-64 rounded-md border">
+                    <div className="p-2 space-y-2">
+                      {filteredProspects.map(prospect => (
+                        <div
+                          key={prospect.id}
+                          onClick={() => selectExistingProspect(prospect, false)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted ${
+                            prospectId === prospect.id ? 'border-primary bg-primary/5' : ''
+                          }`}
+                          data-testid={`prospect-item-${prospect.id}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{prospect.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {prospect.email || prospect.mobile || 'No contact info'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {prospect.pan && (
+                                <Badge variant="outline" className="text-xs">{prospect.pan}</Badge>
+                              )}
+                              {prospectId === prospect.id && (
+                                <CheckCircle className="h-5 w-5 text-primary" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+                
+                {prospectId && prospectMode === 'existing' && (
+                  <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                    <p className="text-sm font-medium text-primary">Selected: {prospectData.name}</p>
+                    <p className="text-xs text-muted-foreground">{prospectData.email || prospectData.mobile}</p>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="new" className="mt-4 space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Full Name *</Label>
+                    <Input 
+                      placeholder="Rajesh Kumar"
+                      value={prospectData.name}
+                      onChange={(e) => setProspectData({ ...prospectData, name: e.target.value })}
+                      data-testid="prospect-name-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>PAN</Label>
+                    <Input 
+                      placeholder="ABCDE1234F"
+                      value={prospectData.pan}
+                      onChange={(e) => setProspectData({ ...prospectData, pan: e.target.value.toUpperCase() })}
+                      maxLength={10}
+                      data-testid="prospect-pan-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input 
+                      type="email"
+                      placeholder="client@email.com"
+                      value={prospectData.email}
+                      onChange={(e) => setProspectData({ ...prospectData, email: e.target.value })}
+                      data-testid="prospect-email-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Mobile</Label>
+                    <Input 
+                      placeholder="+91 9876543210"
+                      value={prospectData.mobile}
+                      onChange={(e) => setProspectData({ ...prospectData, mobile: e.target.value })}
+                      data-testid="prospect-mobile-input"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea 
+                    placeholder="Any additional notes about the client..."
+                    value={prospectData.notes}
+                    onChange={(e) => setProspectData({ ...prospectData, notes: e.target.value })}
+                    data-testid="prospect-notes-input"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
           <CardFooter className="justify-end">
-            <Button 
-              onClick={() => createProspectMutation.mutate(prospectData)}
-              disabled={!prospectData.name || createProspectMutation.isPending}
-              data-testid="create-prospect-btn"
-            >
-              {createProspectMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Continue to Risk Profile
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
+            {prospectMode === 'existing' ? (
+              <Button 
+                onClick={() => setCurrentStep(2)}
+                disabled={!prospectId}
+                data-testid="continue-existing-btn"
+              >
+                Continue to Risk Profile
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => createProspectMutation.mutate(prospectData)}
+                disabled={!prospectData.name || createProspectMutation.isPending}
+                data-testid="create-prospect-btn"
+              >
+                {createProspectMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Continue to Risk Profile
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            )}
           </CardFooter>
         </Card>
       )}

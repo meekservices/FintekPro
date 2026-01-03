@@ -18,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { 
   Plus,
   Users,
@@ -113,6 +113,9 @@ export default function AgentClientAcquisitionPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("pipeline");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addDialogSuccess, setAddDialogSuccess] = useState(false);
+  const [createdProspectId, setCreatedProspectId] = useState<string | null>(null);
+  const [, navigate] = useLocation();
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [selectedProspect, setSelectedProspect] = useState<ProspectClient | null>(null);
@@ -168,23 +171,44 @@ export default function AgentClientAcquisitionPage() {
 
   const createProspectMutation = useMutation({
     mutationFn: async (data: typeof newProspect) => {
-      return await apiRequest("/api/agent-wizard/prospects", {
+      const response = await apiRequest("/api/agent-wizard/prospects", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" }
       });
+      return response;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       toast({ title: "Prospect Added", description: "New prospect has been added to your pipeline" });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/prospect-clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent-wizard/prospects"] });
-      setShowAddDialog(false);
-      setNewProspect({ name: "", email: "", mobile: "", pan: "", clientType: "individual", indicativeRiskProfile: "moderate" });
+      setCreatedProspectId(data?.prospectId || null);
+      setAddDialogSuccess(true);
     },
     onError: (error: any) => {
       toast({ title: "Failed to Add Prospect", description: error.message, variant: "destructive" });
     }
   });
+
+  const handleCloseAddDialog = () => {
+    setShowAddDialog(false);
+    setAddDialogSuccess(false);
+    setCreatedProspectId(null);
+    setNewProspect({ name: "", email: "", mobile: "", pan: "", clientType: "individual", indicativeRiskProfile: "moderate" });
+  };
+
+  const handleContinueToWizard = () => {
+    if (createdProspectId) {
+      navigate(`/agent/prospect-wizard?prospectId=${createdProspectId}`);
+    }
+    handleCloseAddDialog();
+  };
+
+  const handleAddAnother = () => {
+    setAddDialogSuccess(false);
+    setCreatedProspectId(null);
+    setNewProspect({ name: "", email: "", mobile: "", pan: "", clientType: "individual", indicativeRiskProfile: "moderate" });
+  };
 
   const updateStateMutation = useMutation({
     mutationFn: async ({ id, newState }: { id: string; newState: string }) => {
@@ -773,107 +797,143 @@ export default function AgentClientAcquisitionPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showAddDialog} onOpenChange={handleCloseAddDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add New Prospect</DialogTitle>
-            <DialogDescription>
-              Enter prospect details to start the acquisition journey
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={newProspect.name}
-                onChange={(e) => setNewProspect(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Full name"
-                data-testid="input-prospect-name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={newProspect.email}
-                onChange={(e) => setNewProspect(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="email@example.com"
-                data-testid="input-prospect-email"
-              />
-            </div>
-            <div>
-              <Label htmlFor="mobile">Mobile</Label>
-              <Input
-                id="mobile"
-                value={newProspect.mobile}
-                onChange={(e) => setNewProspect(prev => ({ ...prev, mobile: e.target.value }))}
-                placeholder="+91 9876543210"
-                data-testid="input-prospect-mobile"
-              />
-            </div>
-            <div>
-              <Label htmlFor="pan">PAN (for portfolio fetch)</Label>
-              <Input
-                id="pan"
-                value={newProspect.pan}
-                onChange={(e) => handlePanChange(e.target.value)}
-                placeholder="ABCDE1234F"
-                maxLength={10}
-                data-testid="input-prospect-pan"
-              />
-            </div>
-            <div>
-              <Label htmlFor="clientType">Client Type</Label>
-              <Select
-                value={newProspect.clientType}
-                onValueChange={(value) => setNewProspect(prev => ({ ...prev, clientType: value }))}
-              >
-                <SelectTrigger data-testid="select-client-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLIENT_TYPE_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="risk">Indicative Risk Profile</Label>
-              <Select
-                value={newProspect.indicativeRiskProfile}
-                onValueChange={(value) => setNewProspect(prev => ({ ...prev, indicativeRiskProfile: value }))}
-              >
-                <SelectTrigger data-testid="select-risk-profile">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RISK_PROFILE_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => createProspectMutation.mutate(newProspect)}
-              disabled={!newProspect.name || createProspectMutation.isPending}
-              data-testid="btn-submit-prospect"
-            >
-              {createProspectMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" />
-              )}
-              Add Prospect
-            </Button>
-          </DialogFooter>
+          {addDialogSuccess ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  Prospect Added Successfully
+                </DialogTitle>
+                <DialogDescription>
+                  {newProspect.name} has been added to your pipeline. What would you like to do next?
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <div className="p-4 bg-muted rounded-lg space-y-2">
+                  <p className="font-medium">{newProspect.name}</p>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    {newProspect.email && <p>{newProspect.email}</p>}
+                    {newProspect.mobile && <p>{newProspect.mobile}</p>}
+                    {newProspect.pan && <p>PAN: {newProspect.pan}</p>}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button variant="outline" onClick={handleAddAnother} data-testid="btn-add-another">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Another
+                </Button>
+                <Button onClick={handleContinueToWizard} data-testid="btn-continue-wizard">
+                  Continue to Wizard
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Add New Prospect</DialogTitle>
+                <DialogDescription>
+                  Enter prospect details to start the acquisition journey
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Name *</Label>
+                  <Input
+                    id="name"
+                    value={newProspect.name}
+                    onChange={(e) => setNewProspect(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Full name"
+                    data-testid="input-prospect-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newProspect.email}
+                    onChange={(e) => setNewProspect(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="email@example.com"
+                    data-testid="input-prospect-email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mobile">Mobile</Label>
+                  <Input
+                    id="mobile"
+                    value={newProspect.mobile}
+                    onChange={(e) => setNewProspect(prev => ({ ...prev, mobile: e.target.value }))}
+                    placeholder="+91 9876543210"
+                    data-testid="input-prospect-mobile"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pan">PAN (for portfolio fetch)</Label>
+                  <Input
+                    id="pan"
+                    value={newProspect.pan}
+                    onChange={(e) => handlePanChange(e.target.value)}
+                    placeholder="ABCDE1234F"
+                    maxLength={10}
+                    data-testid="input-prospect-pan"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="clientType">Client Type</Label>
+                  <Select
+                    value={newProspect.clientType}
+                    onValueChange={(value) => setNewProspect(prev => ({ ...prev, clientType: value }))}
+                  >
+                    <SelectTrigger data-testid="select-client-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLIENT_TYPE_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="risk">Indicative Risk Profile</Label>
+                  <Select
+                    value={newProspect.indicativeRiskProfile}
+                    onValueChange={(value) => setNewProspect(prev => ({ ...prev, indicativeRiskProfile: value }))}
+                  >
+                    <SelectTrigger data-testid="select-risk-profile">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RISK_PROFILE_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCloseAddDialog}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => createProspectMutation.mutate(newProspect)}
+                  disabled={!newProspect.name || createProspectMutation.isPending}
+                  data-testid="btn-submit-prospect"
+                >
+                  {createProspectMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
+                  Add Prospect
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
