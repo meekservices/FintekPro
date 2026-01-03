@@ -16,6 +16,7 @@ interface CalculatedFee {
   netAmount: number;
   rateApplied: string;
   isWaived: boolean;
+  sourceProductType?: string;
 }
 
 interface FeeBreakdownCardProps {
@@ -24,6 +25,23 @@ interface FeeBreakdownCardProps {
   showDetails?: boolean;
   compact?: boolean;
 }
+
+// Product type display labels
+const productTypeLabels: Record<string, string> = {
+  equity: 'Equity',
+  mutual_fund: 'Mutual Funds',
+  bond: 'Bonds',
+  unlisted: 'Unlisted',
+  ipo: 'IPO',
+  pms: 'PMS',
+  aif: 'AIF',
+  derivatives: 'Derivatives',
+  loan: 'Loans',
+  tax_services: 'Tax Services',
+  advisory: 'Advisory',
+  all: 'All Products',
+  mixed: 'Mixed'
+};
 
 export function FeeBreakdownCard({
   feeBreakdown,
@@ -46,11 +64,13 @@ export function FeeBreakdownCard({
     return null;
   }
 
-  const { summary, fees } = feeBreakdown;
+  const { summary, fees, metadata } = feeBreakdown;
   
   if (summary.grandTotal === 0) {
     return null;
   }
+
+  const isMixedBasket = metadata?.productType === 'mixed';
 
   const categoryLabels: Record<string, string> = {
     regulatory: 'Regulatory',
@@ -66,7 +86,7 @@ export function FeeBreakdownCard({
     if (!acc[category]) {
       acc[category] = [];
     }
-    acc[category].push(fee);
+    acc[category].push(fee as CalculatedFee);
     return acc;
   }, {} as Record<string, CalculatedFee[]>);
 
@@ -96,6 +116,11 @@ export function FeeBreakdownCard({
             <Badge variant="secondary" className="text-xs">
               {fees.length} items
             </Badge>
+            {isMixedBasket && (
+              <Badge variant="outline" className="text-xs">
+                Mixed Basket
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="font-semibold">₹{summary.grandTotal.toFixed(2)}</span>
@@ -116,8 +141,14 @@ export function FeeBreakdownCard({
                 {categoryFees.map((fee) => (
                   fee.netAmount > 0 && (
                     <div key={fee.feeCode} className="flex justify-between text-sm pl-2">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <span>{fee.feeName}</span>
+                        {/* Show product type badge for category-specific fees in mixed baskets */}
+                        {isMixedBasket && fee.sourceProductType && fee.sourceProductType !== 'all' && (
+                          <Badge variant="outline" className="text-xs px-1 py-0">
+                            {productTypeLabels[fee.sourceProductType] || fee.sourceProductType}
+                          </Badge>
+                        )}
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger>
@@ -126,6 +157,9 @@ export function FeeBreakdownCard({
                             <TooltipContent>
                               <p>Rate: {fee.rateApplied}</p>
                               {fee.gstAmount > 0 && <p>Includes GST: ₹{fee.gstAmount.toFixed(2)}</p>}
+                              {fee.sourceProductType && fee.sourceProductType !== 'all' && (
+                                <p>Applies to: {productTypeLabels[fee.sourceProductType] || fee.sourceProductType}</p>
+                              )}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -133,7 +167,7 @@ export function FeeBreakdownCard({
                           <Badge variant="outline" className="text-xs text-green-600">Waived</Badge>
                         )}
                       </div>
-                      <span>₹{fee.netAmount.toFixed(2)}</span>
+                      <span className="whitespace-nowrap">₹{fee.netAmount.toFixed(2)}</span>
                     </div>
                   )
                 ))}
