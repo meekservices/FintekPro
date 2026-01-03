@@ -196,12 +196,12 @@ export default function GlobalAdvisoryManagement() {
       </div>
       
       {killSwitch?.killSwitchActivatedAt && (
-        <Card className="border-destructive bg-destructive/10">
+        <Card className="border-destructive dark:border-red-700 bg-destructive/10 dark:bg-red-950/30">
           <CardContent className="flex items-center gap-3 p-4">
-            <AlertTriangle className="h-6 w-6 text-destructive" />
+            <AlertTriangle className="h-6 w-6 text-destructive dark:text-red-400" />
             <div>
-              <div className="font-semibold text-destructive">Global Advisory is DISABLED</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="font-semibold text-destructive dark:text-red-300">Global Advisory is DISABLED</div>
+              <div className="text-sm text-muted-foreground dark:text-red-200/70">
                 Reason: {killSwitch.killSwitchReason || "No reason provided"}
               </div>
             </div>
@@ -245,7 +245,7 @@ export default function GlobalAdvisoryManagement() {
                     
                     return (
                       <Collapsible key={market.marketCode} open={isExpanded} onOpenChange={() => toggleMarketExpanded(market.marketCode)}>
-                        <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                        <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30 dark:bg-muted/20 dark:border-border">
                           <div className="flex items-center gap-4">
                             <CollapsibleTrigger asChild>
                               <Button variant="ghost" size="sm" data-testid={`expand-${market.marketCode}`}>
@@ -369,8 +369,8 @@ export default function GlobalAdvisoryManagement() {
                 <TableBody>
                   {flags.map((flag) => (
                     <TableRow key={flag.id}>
-                      <TableCell className="font-mono text-sm">{flag.flagKey}</TableCell>
-                      <TableCell className="max-w-xs truncate">{flag.description || "-"}</TableCell>
+                      <TableCell className="font-mono text-sm text-foreground">{flag.flagKey}</TableCell>
+                      <TableCell className="max-w-xs truncate text-foreground">{flag.description || "-"}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{flag.category || "general"}</Badge>
                       </TableCell>
@@ -525,7 +525,7 @@ function AuditLogsSection() {
             <TableBody>
               {logs.map((log: any) => (
                 <TableRow key={log.id}>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-sm text-foreground">
                     {new Date(log.eventTimestamp).toLocaleString()}
                   </TableCell>
                   <TableCell>
@@ -534,9 +534,9 @@ function AuditLogsSection() {
                       <span className="ml-2 text-xs text-muted-foreground">{log.eventSubType}</span>
                     )}
                   </TableCell>
-                  <TableCell>{log.marketCode || "-"}</TableCell>
-                  <TableCell className="font-mono text-xs">{log.userId || "Anonymous"}</TableCell>
-                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
+                  <TableCell className="text-foreground">{log.marketCode || "-"}</TableCell>
+                  <TableCell className="font-mono text-xs text-foreground">{log.userId || "Anonymous"}</TableCell>
+                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground dark:text-muted-foreground">
                     {log.eventData ? JSON.stringify(log.eventData) : "-"}
                   </TableCell>
                 </TableRow>

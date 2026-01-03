@@ -26,10 +26,10 @@ export function ExecutionGuard({ children, fallback, showWarning = true }: Execu
   }
   
   return (
-    <Alert variant="destructive" className="border-amber-500 bg-amber-50 dark:bg-amber-900/20" data-testid="execution-guard-warning">
-      <Lock className="h-4 w-4" />
-      <AlertTitle>Execution Not Available</AlertTitle>
-      <AlertDescription className="space-y-2">
+    <Alert variant="destructive" className="border-amber-500 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100" data-testid="execution-guard-warning">
+      <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+      <AlertTitle className="text-amber-900 dark:text-amber-100">Execution Not Available</AlertTitle>
+      <AlertDescription className="space-y-2 text-amber-800 dark:text-amber-200">
         <p>
           Trading execution is not available for {selectedMarket?.marketName || "this market"}. 
           FintekPro provides analytics-only advisory for international markets.
@@ -107,7 +107,7 @@ export function AnalyticsOnlyBanner({ className }: AnalyticsOnlyBannerProps) {
   
   return (
     <div 
-      className={`flex items-center gap-2 p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-sm rounded-md ${className}`}
+      className={`flex items-center gap-2 p-2 bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-100 text-sm rounded-md border border-amber-200 dark:border-amber-800 ${className}`}
       data-testid="analytics-only-banner"
     >
       <AlertTriangle className="h-4 w-4 flex-shrink-0" />
