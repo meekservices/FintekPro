@@ -6,6 +6,33 @@ import { emailService } from "../email-service";
 import { errorSpikeDetectionService } from "./error-spike-detection-service";
 import { aiService } from "./ai-service";
 
+// Replit deployment context for error tracking
+interface ReplitDeploymentContext {
+  replId: string | null;
+  replSlug: string | null;
+  replOwner: string | null;
+  deploymentId: string | null;
+  deploymentUrl: string | null;
+  replitUrl: string | null;
+}
+
+function getReplitContext(): ReplitDeploymentContext {
+  return {
+    replId: process.env.REPL_ID || null,
+    replSlug: process.env.REPL_SLUG || null,
+    replOwner: process.env.REPL_OWNER || null,
+    deploymentId: process.env.REPLIT_DEPLOYMENT_ID || null,
+    deploymentUrl: process.env.REPLIT_DEV_DOMAIN 
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : null,
+    replitUrl: process.env.REPL_ID && process.env.REPL_OWNER
+      ? `https://replit.com/@${process.env.REPL_OWNER}/${process.env.REPL_SLUG}`
+      : null
+  };
+}
+
 interface AIErrorAnalysis {
   rootCause: string;
   suggestedFix: string;
@@ -618,6 +645,216 @@ Respond in JSON:
       }
     } catch (err) {
       console.error(`[CRITICAL ALERT] Webhook notification failed:`, err);
+    }
+  }
+
+  // Get Replit deployment context for error reports
+  getReplitContext(): ReplitDeploymentContext {
+    return getReplitContext();
+  }
+
+  // Generate a formatted support report for an error
+  async generateSupportReport(errorId: string): Promise<{
+    success: boolean;
+    report?: string;
+    jsonReport?: object;
+    error?: string;
+  }> {
+    try {
+      const errorEntry = await this.getErrorById(errorId);
+      if (!errorEntry) {
+        return { success: false, error: 'Error not found' };
+      }
+
+      const replitContext = getReplitContext();
+      const timestamp = new Date().toISOString();
+
+      const jsonReport = {
+        reportGeneratedAt: timestamp,
+        reportType: 'FintekPro Error Report',
+        errorDetails: {
+          id: errorEntry.id,
+          errorCode: errorEntry.errorCode,
+          severity: errorEntry.severity,
+          status: errorEntry.status,
+          module: errorEntry.module,
+          message: errorEntry.message,
+          occurrenceCount: errorEntry.occurrenceCount,
+          firstOccurrence: errorEntry.firstOccurrence,
+          lastOccurrence: errorEntry.lastOccurrence,
+          environment: errorEntry.environment,
+          buildVersion: errorEntry.buildVersion,
+        },
+        replitDeployment: {
+          replId: replitContext.replId,
+          replSlug: replitContext.replSlug,
+          replOwner: replitContext.replOwner,
+          deploymentId: replitContext.deploymentId,
+          deploymentUrl: replitContext.deploymentUrl,
+          replitProjectUrl: replitContext.replitUrl,
+        },
+        context: {
+          url: errorEntry.url,
+          userAgent: errorEntry.userAgent,
+          requestId: errorEntry.requestId,
+          transactionId: errorEntry.transactionId,
+          clientId: errorEntry.clientId,
+          agentId: errorEntry.agentId,
+        },
+        stackTrace: errorEntry.stackTrace,
+        metadata: errorEntry.metadata,
+        resolution: {
+          status: errorEntry.status,
+          acknowledgedBy: errorEntry.acknowledgedBy,
+          acknowledgedAt: errorEntry.acknowledgedAt,
+          resolvedBy: errorEntry.resolvedBy,
+          resolvedAt: errorEntry.resolvedAt,
+          resolutionNote: errorEntry.resolutionNote,
+        }
+      };
+
+      // Generate human-readable text report
+      const textReport = `
+═══════════════════════════════════════════════════════════════
+                    FINTEKPRO ERROR REPORT
+═══════════════════════════════════════════════════════════════
+Report Generated: ${timestamp}
+
+─────────────────────────────────────────────────────────────
+ERROR DETAILS
+─────────────────────────────────────────────────────────────
+Error ID:        ${errorEntry.id}
+Error Code:      ${errorEntry.errorCode}
+Severity:        ${errorEntry.severity?.toUpperCase()}
+Status:          ${errorEntry.status}
+Module:          ${errorEntry.module}
+Environment:     ${errorEntry.environment}
+Build Version:   ${errorEntry.buildVersion || 'N/A'}
+
+Message:
+${errorEntry.message}
+
+Occurrences:     ${errorEntry.occurrenceCount}
+First Seen:      ${errorEntry.firstOccurrence ? new Date(errorEntry.firstOccurrence).toLocaleString() : 'N/A'}
+Last Seen:       ${errorEntry.lastOccurrence ? new Date(errorEntry.lastOccurrence).toLocaleString() : 'N/A'}
+
+─────────────────────────────────────────────────────────────
+REPLIT DEPLOYMENT CONTEXT
+─────────────────────────────────────────────────────────────
+Repl ID:         ${replitContext.replId || 'N/A'}
+Repl Slug:       ${replitContext.replSlug || 'N/A'}
+Repl Owner:      ${replitContext.replOwner || 'N/A'}
+Deployment ID:   ${replitContext.deploymentId || 'N/A'}
+Deployment URL:  ${replitContext.deploymentUrl || 'N/A'}
+Project URL:     ${replitContext.replitUrl || 'N/A'}
+
+─────────────────────────────────────────────────────────────
+REQUEST CONTEXT
+─────────────────────────────────────────────────────────────
+URL:             ${errorEntry.url || 'N/A'}
+Request ID:      ${errorEntry.requestId || 'N/A'}
+Transaction ID:  ${errorEntry.transactionId || 'N/A'}
+User Agent:      ${errorEntry.userAgent || 'N/A'}
+Client ID:       ${errorEntry.clientId || 'N/A'}
+Agent ID:        ${errorEntry.agentId || 'N/A'}
+
+─────────────────────────────────────────────────────────────
+STACK TRACE
+─────────────────────────────────────────────────────────────
+${errorEntry.stackTrace || 'No stack trace available'}
+
+─────────────────────────────────────────────────────────────
+RESOLUTION STATUS
+─────────────────────────────────────────────────────────────
+Current Status:  ${errorEntry.status}
+Acknowledged By: ${errorEntry.acknowledgedBy || 'N/A'}
+Acknowledged At: ${errorEntry.acknowledgedAt ? new Date(errorEntry.acknowledgedAt).toLocaleString() : 'N/A'}
+Resolved By:     ${errorEntry.resolvedBy || 'N/A'}
+Resolved At:     ${errorEntry.resolvedAt ? new Date(errorEntry.resolvedAt).toLocaleString() : 'N/A'}
+Resolution Note: ${errorEntry.resolutionNote || 'N/A'}
+
+═══════════════════════════════════════════════════════════════
+                    END OF REPORT
+═══════════════════════════════════════════════════════════════
+`.trim();
+
+      return {
+        success: true,
+        report: textReport,
+        jsonReport
+      };
+    } catch (err) {
+      console.error('[ErrorTracking] Failed to generate support report:', err);
+      return { success: false, error: 'Failed to generate report' };
+    }
+  }
+
+  // Generate a batch report for multiple errors
+  async generateBatchSupportReport(errorIds: string[]): Promise<{
+    success: boolean;
+    report?: string;
+    errorCount: number;
+    errors?: string[];
+  }> {
+    try {
+      const replitContext = getReplitContext();
+      const timestamp = new Date().toISOString();
+      
+      const errors: ErrorLedgerEntry[] = [];
+      for (const id of errorIds) {
+        const error = await this.getErrorById(id);
+        if (error) errors.push(error);
+      }
+
+      if (errors.length === 0) {
+        return { success: false, errorCount: 0, errors: ['No valid errors found'] };
+      }
+
+      let report = `
+═══════════════════════════════════════════════════════════════
+              FINTEKPRO BATCH ERROR REPORT
+═══════════════════════════════════════════════════════════════
+Report Generated: ${timestamp}
+Total Errors:     ${errors.length}
+
+─────────────────────────────────────────────────────────────
+REPLIT DEPLOYMENT CONTEXT
+─────────────────────────────────────────────────────────────
+Repl ID:         ${replitContext.replId || 'N/A'}
+Repl Slug:       ${replitContext.replSlug || 'N/A'}
+Deployment URL:  ${replitContext.deploymentUrl || 'N/A'}
+Project URL:     ${replitContext.replitUrl || 'N/A'}
+
+`;
+
+      for (const error of errors) {
+        report += `
+─────────────────────────────────────────────────────────────
+ERROR: ${error.errorCode}
+─────────────────────────────────────────────────────────────
+ID:         ${error.id}
+Severity:   ${error.severity?.toUpperCase()}
+Module:     ${error.module}
+Message:    ${error.message}
+Count:      ${error.occurrenceCount}
+Status:     ${error.status}
+`;
+      }
+
+      report += `
+═══════════════════════════════════════════════════════════════
+                    END OF BATCH REPORT
+═══════════════════════════════════════════════════════════════
+`;
+
+      return {
+        success: true,
+        report: report.trim(),
+        errorCount: errors.length
+      };
+    } catch (err) {
+      console.error('[ErrorTracking] Failed to generate batch report:', err);
+      return { success: false, errorCount: 0, errors: ['Failed to generate batch report'] };
     }
   }
 }

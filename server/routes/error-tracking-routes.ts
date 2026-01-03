@@ -407,6 +407,87 @@ router.post("/ai-analyze-patterns", async (req: Request, res: Response) => {
   }
 });
 
+// Get Replit deployment context
+router.get("/replit-context", async (req: Request, res: Response) => {
+  try {
+    const context = errorTrackingService.getReplitContext();
+    res.json({
+      success: true,
+      context,
+      supportUrl: 'https://replit.com/support',
+      docsUrl: 'https://docs.replit.com'
+    });
+  } catch (err) {
+    console.error("Error fetching Replit context:", err);
+    res.status(500).json({ error: "Failed to fetch Replit context" });
+  }
+});
+
+// Generate support report for a single error
+router.get("/support-report/:id", async (req: Request, res: Response) => {
+  try {
+    const result = await errorTrackingService.generateSupportReport(req.params.id);
+    
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+    
+    res.json({
+      success: true,
+      errorId: req.params.id,
+      textReport: result.report,
+      jsonReport: result.jsonReport,
+      supportActions: {
+        replitSupport: 'https://replit.com/support',
+        replitCommunity: 'https://ask.replit.com',
+        replitDocs: 'https://docs.replit.com',
+        copyToClipboard: true,
+        downloadAsFile: true
+      }
+    });
+  } catch (err) {
+    console.error("Error generating support report:", err);
+    res.status(500).json({ error: "Failed to generate support report" });
+  }
+});
+
+// Generate batch support report for multiple errors
+router.post("/support-report/batch", async (req: Request, res: Response) => {
+  try {
+    const { errorIds } = req.body;
+    
+    if (!errorIds || !Array.isArray(errorIds) || errorIds.length === 0) {
+      return res.status(400).json({ error: "errorIds array is required" });
+    }
+    
+    if (errorIds.length > 50) {
+      return res.status(400).json({ error: "Maximum 50 errors can be included in a batch report" });
+    }
+    
+    const result = await errorTrackingService.generateBatchSupportReport(errorIds);
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.errors?.join(', ') || 'Failed to generate batch report' });
+    }
+    
+    res.json({
+      success: true,
+      errorCount: result.errorCount,
+      textReport: result.report,
+      supportActions: {
+        replitSupport: 'https://replit.com/support',
+        replitCommunity: 'https://ask.replit.com',
+        replitDocs: 'https://docs.replit.com',
+        copyToClipboard: true,
+        downloadAsFile: true
+      }
+    });
+  } catch (err) {
+    console.error("Error generating batch support report:", err);
+    res.status(500).json({ error: "Failed to generate batch support report" });
+  }
+});
+
 // Dynamic routes MUST be defined after all static routes
 router.get("/:id", async (req: Request, res: Response) => {
   try {

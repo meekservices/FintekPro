@@ -15,7 +15,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   AlertTriangle, AlertCircle, CheckCircle, Clock, Search, Filter, RefreshCw, 
   Eye, ExternalLink, ChevronRight, Bug, Shield, Zap, Server, Database, 
-  Globe, Smartphone, Users, TrendingUp, BarChart3, Activity, Download
+  Globe, Smartphone, Users, TrendingUp, BarChart3, Activity, Download,
+  Copy, FileText, MessageSquareWarning, HelpCircle, Loader2
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -492,6 +493,43 @@ function WebhookAlertingSettings() {
   );
 }
 
+interface SupportReportData {
+  success: boolean;
+  errorId: string;
+  textReport: string;
+  jsonReport?: {
+    errorId: string;
+    errorCode: string;
+    severity: string;
+    message: string;
+    module: string;
+    source: string;
+    replitContext: {
+      replId: string | null;
+      replSlug: string | null;
+      replOwner: string | null;
+      deploymentId: string | null;
+      deploymentUrl: string | null;
+      devDomain: string | null;
+      projectUrl: string | null;
+      environment: string;
+    };
+    requestContext?: object;
+    stackTrace?: string;
+    resolutionStatus: string;
+    firstOccurrence: string;
+    lastOccurrence: string;
+    occurrenceCount: number;
+  };
+  supportActions: {
+    replitSupport: string;
+    replitCommunity: string;
+    replitDocs: string;
+    copyToClipboard: boolean;
+    downloadAsFile: boolean;
+  };
+}
+
 export default function ErrorCommandCenter() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -499,6 +537,8 @@ export default function ErrorCommandCenter() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolutionNote, setResolutionNote] = useState("");
+  const [supportReportOpen, setSupportReportOpen] = useState(false);
+  const [supportReportData, setSupportReportData] = useState<SupportReportData | null>(null);
   
   const [filters, setFilters] = useState({
     severity: "all",
@@ -574,6 +614,48 @@ export default function ErrorCommandCenter() {
         status: 'resolved', 
         resolutionNote 
       });
+    }
+  };
+
+  // Generate support report mutation
+  const generateReportMutation = useMutation({
+    mutationFn: async (errorId: string) => {
+      const response = await fetch(`/api/errors/support-report/${errorId}`);
+      if (!response.ok) throw new Error('Failed to generate report');
+      return response.json() as Promise<SupportReportData>;
+    },
+    onSuccess: (data) => {
+      if (data.success && data.textReport) {
+        setSupportReportData(data);
+        setSupportReportOpen(true);
+      } else {
+        toast({ title: "Error", description: "Report generation returned incomplete data.", variant: "destructive" });
+      }
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to generate support report.", variant: "destructive" });
+    }
+  });
+
+  const copyReportToClipboard = async () => {
+    if (supportReportData?.textReport) {
+      await navigator.clipboard.writeText(supportReportData.textReport);
+      toast({ title: "Copied", description: "Report copied to clipboard." });
+    }
+  };
+
+  const downloadReport = () => {
+    if (supportReportData?.textReport && selectedError) {
+      const blob = new Blob([supportReportData.textReport], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `error-report-${selectedError.errorCode}-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Downloaded", description: "Report downloaded successfully." });
     }
   };
 
@@ -1130,13 +1212,135 @@ export default function ErrorCommandCenter() {
                 )}
               </div>
             )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDetailsOpen(false)}>Close</Button>
-              {selectedError?.status !== 'resolved' && (
-                <Button onClick={() => { setDetailsOpen(false); setResolveOpen(true); }}>
-                  Mark as Resolved
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectedError && generateReportMutation.mutate(selectedError.id)}
+                  disabled={generateReportMutation.isPending}
+                  className="flex-1 sm:flex-none"
+                  data-testid="button-generate-support-report"
+                >
+                  {generateReportMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-2" />
+                  )}
+                  Generate Report
                 </Button>
-              )}
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto justify-end">
+                <Button variant="outline" onClick={() => setDetailsOpen(false)}>Close</Button>
+                {selectedError?.status !== 'resolved' && (
+                  <Button onClick={() => { setDetailsOpen(false); setResolveOpen(true); }}>
+                    Mark as Resolved
+                  </Button>
+                )}
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Support Report Dialog */}
+        <Dialog open={supportReportOpen} onOpenChange={setSupportReportOpen}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquareWarning className="h-5 w-5 text-blue-500" />
+                Error Support Report
+              </DialogTitle>
+              <DialogDescription>
+                Use this report when contacting Replit support or debugging the issue
+              </DialogDescription>
+            </DialogHeader>
+            
+            {supportReportData && supportReportData.textReport && (
+              <div className="flex-1 overflow-hidden flex flex-col gap-4">
+                {/* Deployment Context Summary */}
+                {supportReportData.jsonReport?.replitContext && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">Replit Deployment Context</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {supportReportData.jsonReport.replitContext.replSlug && (
+                        <div><span className="text-muted-foreground">Repl:</span> {supportReportData.jsonReport.replitContext.replSlug}</div>
+                      )}
+                      {supportReportData.jsonReport.replitContext.environment && (
+                        <div><span className="text-muted-foreground">Env:</span> {supportReportData.jsonReport.replitContext.environment}</div>
+                      )}
+                      {supportReportData.jsonReport.replitContext.deploymentId && (
+                        <div className="col-span-2"><span className="text-muted-foreground">Deployment ID:</span> {supportReportData.jsonReport.replitContext.deploymentId}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-lg">
+                  <Button size="sm" onClick={copyReportToClipboard} data-testid="button-copy-report">
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy to Clipboard
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={downloadReport} data-testid="button-download-report">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                  {supportReportData.supportActions?.replitSupport && (
+                    <a
+                      href={supportReportData.supportActions.replitSupport}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex"
+                    >
+                      <Button size="sm" variant="outline" data-testid="button-replit-support">
+                        <HelpCircle className="h-4 w-4 mr-2" />
+                        Replit Support
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </Button>
+                    </a>
+                  )}
+                  {supportReportData.supportActions?.replitCommunity && (
+                    <a
+                      href={supportReportData.supportActions.replitCommunity}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex"
+                    >
+                      <Button size="sm" variant="outline" data-testid="button-replit-community">
+                        <Users className="h-4 w-4 mr-2" />
+                        Ask Community
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </Button>
+                    </a>
+                  )}
+                  {supportReportData.supportActions?.replitDocs && (
+                    <a
+                      href={supportReportData.supportActions.replitDocs}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex"
+                    >
+                      <Button size="sm" variant="outline" data-testid="button-replit-docs">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Docs
+                      </Button>
+                    </a>
+                  )}
+                </div>
+
+                {/* Report Content */}
+                <ScrollArea className="flex-1 border rounded-lg">
+                  <pre className="p-4 text-xs font-mono whitespace-pre-wrap">
+                    {supportReportData.textReport}
+                  </pre>
+                </ScrollArea>
+              </div>
+            )}
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSupportReportOpen(false)}>
+                Close
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
