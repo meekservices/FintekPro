@@ -1790,7 +1790,314 @@ export function registerAgentAdvisoryRoutes(app: Express) {
     }
   });
 
+  // Agent-initiated auto-fetch portfolio with AI analysis
+  app.post("/api/agent/client/:clientId/auto-fetch-portfolio", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { clientId } = req.params;
+      const { includeAIAnalysis = true } = req.body;
+
+      // Verify agent-client relationship
+      const relationship = await db
+        .select()
+        .from(clientAgentRelationships)
+        .where(and(
+          eq(clientAgentRelationships.agentId, agentId),
+          eq(clientAgentRelationships.clientId, clientId),
+          eq(clientAgentRelationships.status, 'active')
+        ))
+        .limit(1);
+
+      if (relationship.length === 0) {
+        return res.status(403).json({ 
+          error: "You don't have permission to access this client's data",
+          code: "NO_CLIENT_RELATIONSHIP"
+        });
+      }
+
+      // Import services
+      const { autoPopulationOrchestrator } = await import('../services/auto-population-orchestrator');
+      const { AIPortfolioService } = await import('../ai-portfolio-service');
+      const { DatabaseStorage } = await import('../storage');
+
+      // Log action
+      await logAgentAction({
+        agentId,
+        clientId,
+        actionCategory: 'portfolio',
+        actionType: 'auto_fetch_initiated',
+        actionDescription: `Agent initiated auto-fetch portfolio for client ${clientId}`,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      // Trigger auto-population workflow
+      console.log(`🚀 Agent ${agentId} initiating auto-fetch for client ${clientId}`);
+      const populationResult = await autoPopulationOrchestrator.initiateFromKYC(clientId, 'manual_refresh');
+
+      let aiAnalysis = null;
+      
+      if (includeAIAnalysis && populationResult.status !== 'failed') {
+        try {
+          // Get client's holdings for AI analysis
+          const { comprehensiveHoldings } = await import('@shared/schema');
+          const holdings = await db
+            .select()
+            .from(comprehensiveHoldings)
+            .where(eq(comprehensiveHoldings.userId, clientId));
+
+          if (holdings.length > 0) {
+            // Get client profile for risk assessment
+            const clientProfile = await db
+              .select()
+              .from(users)
+              .where(eq(users.id, clientId))
+              .limit(1);
+
+            const client = clientProfile[0];
+            
+            // Build portfolio data for AI service
+            const portfolioData = {
+              id: clientId,
+              totalValue: populationResult.totalHoldingsValue || 0,
+              holdings: holdings.map(h => ({
+                symbol: h.symbol || h.assetName || 'Unknown',
+                quantity: parseFloat(h.quantity || '0'),
+                currentPrice: parseFloat(h.currentPrice || '0'),
+                currentValue: parseFloat(h.marketValue || '0'),
+                investedValue: parseFloat(h.investedValue || '0'),
+                gainLoss: parseFloat(h.gainLoss || '0'),
+                gainLossPercent: parseFloat(h.gainLossPercent || '0'),
+                assetType: h.assetType || 'equity',
+                sector: (h.metadata as any)?.sector,
+                exchange: (h.metadata as any)?.exchange || 'NSE'
+              })),
+              assetAllocation: calculateAssetAllocation(holdings),
+              performance: {
+                totalGainLoss: holdings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0),
+                totalGainLossPercent: 0,
+                dayChange: 0,
+                dayChangePercent: 0
+              }
+            };
+
+            // Build user profile
+            const userProfile = {
+              age: client?.dateOfBirth ? calculateAge(client.dateOfBirth) : 35,
+              riskTolerance: ((client as any)?.riskProfile || 'moderate') as 'conservative' | 'moderate' | 'aggressive',
+              investmentGoals: ['wealth_creation', 'retirement'],
+              timeHorizon: 10
+            };
+
+            // Generate AI analysis
+            const storage = new DatabaseStorage();
+            const aiService = new AIPortfolioService(storage);
+            
+            const [recommendations, proposal] = await Promise.all([
+              aiService.generatePortfolioRebalancingRecommendations(portfolioData, userProfile),
+              aiService.generateInvestmentProposal(portfolioData, userProfile, 100000, clientId)
+            ]);
+
+            aiAnalysis = {
+              recommendations,
+              proposal,
+              generatedAt: new Date().toISOString()
+            };
+          }
+        } catch (aiError: any) {
+          console.error("AI analysis error:", aiError.message);
+          aiAnalysis = {
+            error: "AI analysis could not be generated",
+            recommendations: [],
+            proposal: null
+          };
+        }
+      }
+
+      // Log completion
+      await logAgentAction({
+        agentId,
+        clientId,
+        actionCategory: 'portfolio',
+        actionType: 'auto_fetch_completed',
+        actionDescription: `Auto-fetch completed: ${populationResult.successfulSources}/${populationResult.totalDataSources} sources, ${populationResult.totalRecordsFetched} records fetched`,
+        newState: { 
+          status: populationResult.status,
+          recordsFetched: populationResult.totalRecordsFetched,
+          hasAIAnalysis: !!aiAnalysis
+        }
+      });
+
+      res.json({
+        success: true,
+        workflowId: populationResult.workflowId,
+        status: populationResult.status,
+        summary: {
+          totalDataSources: populationResult.totalDataSources,
+          successfulSources: populationResult.successfulSources,
+          failedSources: populationResult.failedSources,
+          totalRecordsFetched: populationResult.totalRecordsFetched,
+          totalHoldingsValue: populationResult.totalHoldingsValue,
+          durationMs: populationResult.durationMs
+        },
+        sourceResults: populationResult.sourceResults,
+        aiAnalysis
+      });
+    } catch (error: any) {
+      console.error("Error in agent auto-fetch portfolio:", error);
+      res.status(500).json({ error: "Failed to auto-fetch portfolio", details: error.message });
+    }
+  });
+
+  // Get client portfolio with AI analysis (without re-fetching)
+  app.get("/api/agent/client/:clientId/portfolio-analysis", requireAgent, async (req: Request, res: Response) => {
+    try {
+      const agentId = (req.user as any).id;
+      const { clientId } = req.params;
+
+      // Verify agent-client relationship
+      const relationship = await db
+        .select()
+        .from(clientAgentRelationships)
+        .where(and(
+          eq(clientAgentRelationships.agentId, agentId),
+          eq(clientAgentRelationships.clientId, clientId),
+          eq(clientAgentRelationships.status, 'active')
+        ))
+        .limit(1);
+
+      if (relationship.length === 0) {
+        return res.status(403).json({ 
+          error: "You don't have permission to access this client's data"
+        });
+      }
+
+      // Get existing holdings
+      const { comprehensiveHoldings } = await import('@shared/schema');
+      const holdings = await db
+        .select()
+        .from(comprehensiveHoldings)
+        .where(eq(comprehensiveHoldings.userId, clientId));
+
+      if (holdings.length === 0) {
+        return res.json({
+          success: true,
+          hasHoldings: false,
+          message: "No holdings found. Use auto-fetch to populate portfolio data.",
+          holdings: [],
+          aiAnalysis: null
+        });
+      }
+
+      // Get client profile
+      const clientProfile = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, clientId))
+        .limit(1);
+
+      const client = clientProfile[0];
+      const totalValue = holdings.reduce((sum, h) => sum + parseFloat(h.marketValue || '0'), 0);
+
+      // Build portfolio data
+      const portfolioData = {
+        id: clientId,
+        totalValue,
+        holdings: holdings.map(h => ({
+          symbol: h.symbol || h.assetName || 'Unknown',
+          quantity: parseFloat(h.quantity || '0'),
+          currentPrice: parseFloat(h.currentPrice || '0'),
+          currentValue: parseFloat(h.marketValue || '0'),
+          investedValue: parseFloat(h.investedValue || '0'),
+          gainLoss: parseFloat(h.gainLoss || '0'),
+          gainLossPercent: parseFloat(h.gainLossPercent || '0'),
+          assetType: h.assetType || 'equity',
+          sector: (h.metadata as any)?.sector,
+          exchange: (h.metadata as any)?.exchange || 'NSE'
+        })),
+        assetAllocation: calculateAssetAllocation(holdings),
+        performance: {
+          totalGainLoss: holdings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0),
+          totalGainLossPercent: totalValue > 0 
+            ? (holdings.reduce((sum, h) => sum + parseFloat(h.gainLoss || '0'), 0) / totalValue) * 100 
+            : 0,
+          dayChange: 0,
+          dayChangePercent: 0
+        }
+      };
+
+      // Build user profile
+      const userProfile = {
+        age: client?.dateOfBirth ? calculateAge(client.dateOfBirth) : 35,
+        riskTolerance: ((client as any)?.riskProfile || 'moderate') as 'conservative' | 'moderate' | 'aggressive',
+        investmentGoals: ['wealth_creation', 'retirement'],
+        timeHorizon: 10
+      };
+
+      // Generate AI analysis
+      const { AIPortfolioService } = await import('../ai-portfolio-service');
+      const { DatabaseStorage } = await import('../storage');
+      const storage = new DatabaseStorage();
+      const aiService = new AIPortfolioService(storage);
+
+      const [recommendations, proposal] = await Promise.all([
+        aiService.generatePortfolioRebalancingRecommendations(portfolioData, userProfile),
+        aiService.generateInvestmentProposal(portfolioData, userProfile, 100000, clientId)
+      ]);
+
+      res.json({
+        success: true,
+        hasHoldings: true,
+        portfolioSummary: {
+          totalValue,
+          totalHoldings: holdings.length,
+          assetAllocation: portfolioData.assetAllocation,
+          performance: portfolioData.performance
+        },
+        holdings: portfolioData.holdings,
+        aiAnalysis: {
+          recommendations,
+          proposal,
+          generatedAt: new Date().toISOString()
+        }
+      });
+    } catch (error: any) {
+      console.error("Error getting portfolio analysis:", error);
+      res.status(500).json({ error: "Failed to get portfolio analysis", details: error.message });
+    }
+  });
+
   console.log("✅ Agent Advisory routes registered");
+}
+
+// Helper functions for agent portfolio routes
+function calculateAssetAllocation(holdings: any[]): { assetType: string; percentage: number; currentValue: number; }[] {
+  const allocation: Record<string, number> = {};
+  let total = 0;
+
+  for (const h of holdings) {
+    const value = parseFloat(h.marketValue || '0');
+    const type = h.assetType || 'other';
+    allocation[type] = (allocation[type] || 0) + value;
+    total += value;
+  }
+
+  return Object.entries(allocation).map(([assetType, currentValue]) => ({
+    assetType,
+    currentValue,
+    percentage: total > 0 ? (currentValue / total) * 100 : 0
+  }));
+}
+
+function calculateAge(dateOfBirth: Date | string): number {
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
 }
 
 async function logAgentAction(data: {
