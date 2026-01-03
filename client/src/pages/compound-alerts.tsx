@@ -22,6 +22,16 @@ interface AlertCondition {
   operator?: string;
 }
 
+interface AlertFormData {
+  name: string;
+  symbol: string;
+  conditions: AlertCondition[];
+  conditionLogic: 'AND' | 'OR';
+  notifyEmail: boolean;
+  notifySms: boolean;
+  notifyPush: boolean;
+}
+
 interface CompoundAlert {
   id: string;
   name: string;
@@ -47,11 +57,11 @@ const CONDITION_TYPES = [
 
 export default function CompoundAlerts() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<AlertFormData>({
     name: "",
     symbol: "",
-    conditions: [{ type: "price_above", value: 0, operator: ">" }] as AlertCondition[],
-    conditionLogic: "AND" as 'AND' | 'OR',
+    conditions: [{ type: "price_above", value: 0, operator: ">" }],
+    conditionLogic: "AND",
     notifyEmail: true,
     notifySms: false,
     notifyPush: true
@@ -63,7 +73,7 @@ export default function CompoundAlerts() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: AlertFormData) => {
       return apiRequest("/api/features/alerts/compound", {
         method: "POST",
         body: JSON.stringify(data)
@@ -73,9 +83,13 @@ export default function CompoundAlerts() {
       toast({ title: "Alert Created", description: "Your compound alert has been set up." });
       setIsDialogOpen(false);
       setFormData({
-        name: "", symbol: "",
+        name: "",
+        symbol: "",
         conditions: [{ type: "price_above", value: 0, operator: ">" }],
-        conditionLogic: "AND", notifyEmail: true, notifySms: false, notifyPush: true
+        conditionLogic: "AND",
+        notifyEmail: true,
+        notifySms: false,
+        notifyPush: true
       });
       queryClient.invalidateQueries({ queryKey: ["/api/features/alerts/compound"] });
     },
@@ -100,7 +114,7 @@ export default function CompoundAlerts() {
     });
   };
 
-  const updateCondition = (index: number, field: string, value: any) => {
+  const updateCondition = (index: number, field: keyof AlertCondition, value: string | number) => {
     const updated = [...formData.conditions];
     updated[index] = { ...updated[index], [field]: value };
     setFormData({ ...formData, conditions: updated });
@@ -170,7 +184,7 @@ export default function CompoundAlerts() {
                     value={formData.conditionLogic} 
                     onValueChange={(v: 'AND' | 'OR') => setFormData({ ...formData, conditionLogic: v })}
                   >
-                    <SelectTrigger className="w-24">
+                    <SelectTrigger className="w-24" data-testid="condition-logic-select">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -188,7 +202,7 @@ export default function CompoundAlerts() {
                         value={condition.type} 
                         onValueChange={(v) => updateCondition(index, "type", v)}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger data-testid={`condition-type-select-${index}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -209,6 +223,7 @@ export default function CompoundAlerts() {
                         type="number"
                         value={condition.value}
                         onChange={(e) => updateCondition(index, "value", parseFloat(e.target.value) || 0)}
+                        data-testid={`condition-value-input-${index}`}
                       />
                     </div>
                     {formData.conditions.length > 1 && (
@@ -217,6 +232,7 @@ export default function CompoundAlerts() {
                         size="icon"
                         onClick={() => removeCondition(index)}
                         className="text-destructive"
+                        data-testid={`remove-condition-btn-${index}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -224,7 +240,7 @@ export default function CompoundAlerts() {
                   </div>
                 ))}
 
-                <Button variant="outline" size="sm" onClick={addCondition} className="w-full">
+                <Button variant="outline" size="sm" onClick={addCondition} className="w-full" data-testid="add-condition-btn">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Condition
                 </Button>
@@ -237,6 +253,7 @@ export default function CompoundAlerts() {
                     <Switch 
                       checked={formData.notifyEmail} 
                       onCheckedChange={(v) => setFormData({ ...formData, notifyEmail: v })}
+                      data-testid="notify-email-switch"
                     />
                     <Mail className="h-4 w-4" />
                     <span className="text-sm">Email</span>
@@ -245,6 +262,7 @@ export default function CompoundAlerts() {
                     <Switch 
                       checked={formData.notifySms} 
                       onCheckedChange={(v) => setFormData({ ...formData, notifySms: v })}
+                      data-testid="notify-sms-switch"
                     />
                     <MessageSquare className="h-4 w-4" />
                     <span className="text-sm">SMS</span>
@@ -253,6 +271,7 @@ export default function CompoundAlerts() {
                     <Switch 
                       checked={formData.notifyPush} 
                       onCheckedChange={(v) => setFormData({ ...formData, notifyPush: v })}
+                      data-testid="notify-push-switch"
                     />
                     <Smartphone className="h-4 w-4" />
                     <span className="text-sm">Push</span>

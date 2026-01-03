@@ -28,6 +28,15 @@ interface ScheduledReport {
   nextRun?: string;
 }
 
+interface ReportFormData {
+  reportType: string;
+  reportName: string;
+  frequency: string;
+  dayOfWeek: number;
+  dayOfMonth: number;
+  deliveryEmail: string;
+}
+
 const REPORT_TYPES = [
   { value: "portfolio_summary", label: "Portfolio Summary", icon: PieChart },
   { value: "transaction_history", label: "Transaction History", icon: FileText },
@@ -48,7 +57,7 @@ const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "F
 
 export default function ScheduledReports() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ReportFormData>({
     reportType: "",
     reportName: "",
     frequency: "monthly",
@@ -63,7 +72,7 @@ export default function ScheduledReports() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: ReportFormData) => {
       return apiRequest("/api/features/reports/scheduled", {
         method: "POST",
         body: JSON.stringify(data)
@@ -165,7 +174,7 @@ export default function ScheduledReports() {
                 <div className="space-y-2">
                   <Label>Day of Week</Label>
                   <Select value={String(formData.dayOfWeek)} onValueChange={(v) => setFormData({ ...formData, dayOfWeek: parseInt(v) })}>
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="day-of-week-select">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -181,7 +190,7 @@ export default function ScheduledReports() {
                 <div className="space-y-2">
                   <Label>Day of Month</Label>
                   <Select value={String(formData.dayOfMonth)} onValueChange={(v) => setFormData({ ...formData, dayOfMonth: parseInt(v) })}>
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="day-of-month-select">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
