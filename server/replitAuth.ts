@@ -36,11 +36,22 @@ export function getSession() {
   });
   // Determine if we're on a custom domain or Replit domain
   const replitDomains = process.env.REPLIT_DOMAINS || '';
-  const isReplitDomain = replitDomains.includes('replit.app') || replitDomains.includes('replit.dev');
+  const domainList = replitDomains.split(',').map(d => d.trim());
   const isProduction = process.env.NODE_ENV === "production";
   
-  // Only set domain for custom domains (fintekpro.com), not Replit domains
-  const cookieDomain = isProduction && !isReplitDomain ? ".fintekpro.com" : undefined;
+  // Check if any domain is fintekpro.com (custom domain)
+  const hasCustomDomain = domainList.some(d => d.includes('fintekpro.com'));
+  // Check if ONLY replit domains exist (no custom domain)
+  const isOnlyReplitDomain = domainList.every(d => d.includes('replit.app') || d.includes('replit.dev'));
+  
+  // Set domain for custom domains to share cookie across subdomains (admin.fintekpro.com, fintekpro.com)
+  let cookieDomain: string | undefined = undefined;
+  if (isProduction && hasCustomDomain && !isOnlyReplitDomain) {
+    cookieDomain = ".fintekpro.com";
+  }
+  
+  console.log(`[Session] Domains: ${replitDomains}, Custom: ${hasCustomDomain}, Cookie domain: ${cookieDomain || 'not set'}`);
+
   
   return session({
     name: 'fintekpro.sid',
