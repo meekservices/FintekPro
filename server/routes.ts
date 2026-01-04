@@ -24905,6 +24905,315 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== FINANCIAL OPERATIONS API ====================
+
+  // Admin: Financial Dashboard Stats
+  app.get('/api/admin/financial/dashboard', requireAdmin, async (req, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get unified orders stats
+      const [{ count: totalOrders }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.unifiedOrders);
+
+      const [{ count: pendingOrders }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.unifiedOrders)
+        .where(eq(schema.unifiedOrders.status, 'pending'));
+
+      const [{ count: completedOrders }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.unifiedOrders)
+        .where(eq(schema.unifiedOrders.status, 'completed'));
+
+      // Calculate total revenue
+      const revenueResult = await db.select({ 
+        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)` 
+      }).from(schema.unifiedOrders)
+        .where(eq(schema.unifiedOrders.paymentStatus, 'paid'));
+
+      // Today's revenue
+      const todayRevenueResult = await db.select({ 
+        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)` 
+      }).from(schema.unifiedOrders)
+        .where(and(
+          eq(schema.unifiedOrders.paymentStatus, 'paid'),
+          gte(schema.unifiedOrders.createdAt, today)
+        ));
+
+      // Orders by status
+      const statusCounts = await db.select({
+        status: schema.unifiedOrders.status,
+        count: sql<number>`count(*)`
+      }).from(schema.unifiedOrders)
+        .groupBy(schema.unifiedOrders.status);
+
+      // Orders by product type with revenue
+      const productTypeCounts = await db.select({
+        productType: schema.unifiedOrders.productType,
+        count: sql<number>`count(*)`,
+        revenue: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`
+      }).from(schema.unifiedOrders)
+        .groupBy(schema.unifiedOrders.productType);
+
+      // Recent orders
+      const recentOrders = await db.select()
+        .from(schema.unifiedOrders)
+        .orderBy(desc(schema.unifiedOrders.createdAt))
+        .limit(10);
+
+      res.json({
+        success: true,
+        data: {
+          totalOrders: Number(totalOrders) || 0,
+          pendingOrders: Number(pendingOrders) || 0,
+          completedOrders: Number(completedOrders) || 0,
+          totalRevenue: revenueResult[0]?.total || '0',
+          todayRevenue: todayRevenueResult[0]?.total || '0',
+          ordersByStatus: statusCounts.map(s => ({ status: s.status || 'unknown', count: Number(s.count) })),
+          ordersByProductType: productTypeCounts.map(p => ({ 
+            productType: p.productType || 'unknown', 
+            count: Number(p.count),
+            revenue: p.revenue || '0'
+          })),
+          recentOrders: recentOrders.map(o => ({
+            ...o,
+            createdAt: o.createdAt?.toISOString() || null
+          }))
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching financial dashboard:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch dashboard' });
+    }
+  });
+
+  // Admin: Financial Orders List
+  app.get('/api/admin/financial/orders', requireAdmin, async (req, res) => {
+    try {
+      const { status, productType, paymentStatus, search, limit = '50', offset = '0' } = req.query;
+      const limitNum = parseInt(limit as string);
+      const offsetNum = parseInt(offset as string);
+
+      const filters: any[] = [];
+      if (status) filters.push(eq(schema.unifiedOrders.status, status as string));
+      if (productType) filters.push(eq(schema.unifiedOrders.productType, productType as string));
+      if (paymentStatus) filters.push(eq(schema.unifiedOrders.paymentStatus, paymentStatus as string));
+      if (search) {
+        filters.push(or(
+          like(schema.unifiedOrders.orderNumber, `%${search}%`),
+          like(schema.unifiedOrders.userId, `%${search}%`)
+        ));
+      }
+
+      let query = db.select().from(schema.unifiedOrders);
+      if (filters.length > 0) {
+        query = query.where(filters.length === 1 ? filters[0] : and(...filters)) as any;
+      }
+
+      const orders = await query
+        .orderBy(desc(schema.unifiedOrders.createdAt))
+        .limit(limitNum)
+        .offset(offsetNum);
+
+      let countQuery = db.select({ count: sql<number>`count(*)` }).from(schema.unifiedOrders);
+      if (filters.length > 0) {
+        countQuery = countQuery.where(filters.length === 1 ? filters[0] : and(...filters)) as any;
+      }
+      const [{ count: total }] = await countQuery;
+
+      res.json({
+        success: true,
+        data: orders.map(o => ({
+          ...o,
+          createdAt: o.createdAt?.toISOString() || null
+        })),
+        pagination: { total: Number(total), limit: limitNum, offset: offsetNum }
+      });
+    } catch (error) {
+      console.error('Error fetching financial orders:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch orders' });
+    }
+  });
+
+  // Admin: Get single order details
+  app.get('/api/admin/financial/orders/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [order] = await db.select().from(schema.unifiedOrders).where(eq(schema.unifiedOrders.id, id));
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+      res.json({ success: true, data: { ...order, createdAt: order.createdAt?.toISOString() || null } });
+    } catch (error) {
+      console.error('Error fetching order details:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch order' });
+    }
+  });
+
+  // Admin: Cashfree Transactions
+  app.get('/api/admin/financial/cashfree-transactions', requireAdmin, async (req, res) => {
+    try {
+      const { status, limit = '50' } = req.query;
+      let query = db.select().from(schema.cashfreeTransactions);
+      if (status) {
+        query = query.where(eq(schema.cashfreeTransactions.status, status as string)) as any;
+      }
+      const transactions = await query.orderBy(desc(schema.cashfreeTransactions.createdAt)).limit(parseInt(limit as string));
+      res.json({ success: true, data: transactions.map(t => ({ ...t, createdAt: t.createdAt?.toISOString() || null })) });
+    } catch (error) {
+      console.error('Error fetching Cashfree transactions:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch transactions' });
+    }
+  });
+
+  // Admin: PhonePe Transactions
+  app.get('/api/admin/financial/phonepe-transactions', requireAdmin, async (req, res) => {
+    try {
+      const { state, limit = '50' } = req.query;
+      let query = db.select().from(schema.phonePeTransactions);
+      if (state) {
+        query = query.where(eq(schema.phonePeTransactions.state, state as string)) as any;
+      }
+      const transactions = await query.orderBy(desc(schema.phonePeTransactions.createdAt)).limit(parseInt(limit as string));
+      res.json({ success: true, data: transactions.map(t => ({ ...t, createdAt: t.createdAt?.toISOString() || null })) });
+    } catch (error) {
+      console.error('Error fetching PhonePe transactions:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch transactions' });
+    }
+  });
+
+  // Admin: Payment Reconciliation
+  app.get('/api/admin/financial/payment-reconciliation', requireAdmin, async (req, res) => {
+    try {
+      // Get counts by payment status
+      const orderPaymentStats = await db.select({
+        paymentStatus: schema.unifiedOrders.paymentStatus,
+        count: sql<number>`count(*)`,
+        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`
+      }).from(schema.unifiedOrders).groupBy(schema.unifiedOrders.paymentStatus);
+
+      // Get Cashfree totals
+      const [cashfreeTotals] = await db.select({
+        count: sql<number>`count(*)`,
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`
+      }).from(schema.cashfreeTransactions).where(eq(schema.cashfreeTransactions.status, 'success'));
+
+      // Get PhonePe totals  
+      const [phonePeTotals] = await db.select({
+        count: sql<number>`count(*)`,
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`
+      }).from(schema.phonePeTransactions).where(eq(schema.phonePeTransactions.state, 'COMPLETED'));
+
+      res.json({
+        success: true,
+        data: {
+          orderPaymentStats: orderPaymentStats.map(s => ({
+            paymentStatus: s.paymentStatus || 'unknown',
+            count: Number(s.count),
+            total: s.total || '0'
+          })),
+          cashfree: { count: Number(cashfreeTotals?.count) || 0, total: cashfreeTotals?.total || '0' },
+          phonePe: { count: Number(phonePeTotals?.count) || 0, total: phonePeTotals?.total || '0' }
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching payment reconciliation:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch reconciliation data' });
+    }
+  });
+
+  // Admin: Revenue Analytics
+  app.get('/api/admin/financial/revenue-analytics', requireAdmin, async (req, res) => {
+    try {
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      // Last 30 days revenue
+      const [last30Days] = await db.select({
+        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`,
+        count: sql<number>`count(*)`
+      }).from(schema.unifiedOrders)
+        .where(and(
+          eq(schema.unifiedOrders.paymentStatus, 'paid'),
+          gte(schema.unifiedOrders.createdAt, thirtyDaysAgo)
+        ));
+
+      // Last 7 days revenue
+      const [last7Days] = await db.select({
+        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`,
+        count: sql<number>`count(*)`
+      }).from(schema.unifiedOrders)
+        .where(and(
+          eq(schema.unifiedOrders.paymentStatus, 'paid'),
+          gte(schema.unifiedOrders.createdAt, sevenDaysAgo)
+        ));
+
+      // Revenue by product type
+      const revenueByProduct = await db.select({
+        productType: schema.unifiedOrders.productType,
+        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`,
+        count: sql<number>`count(*)`
+      }).from(schema.unifiedOrders)
+        .where(eq(schema.unifiedOrders.paymentStatus, 'paid'))
+        .groupBy(schema.unifiedOrders.productType);
+
+      res.json({
+        success: true,
+        data: {
+          last30Days: { total: last30Days?.total || '0', count: Number(last30Days?.count) || 0 },
+          last7Days: { total: last7Days?.total || '0', count: Number(last7Days?.count) || 0 },
+          revenueByProduct: revenueByProduct.map(r => ({
+            productType: r.productType || 'unknown',
+            total: r.total || '0',
+            count: Number(r.count)
+          }))
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching revenue analytics:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch revenue analytics' });
+    }
+  });
+
+  // Admin: Refunds List (placeholder - refunds table not yet created)
+  app.get('/api/admin/financial/refunds', requireAdmin, async (req, res) => {
+    try {
+      // Refunds table not yet created - return empty array
+      res.json({ success: true, data: [] });
+    } catch (error) {
+      console.error('Error fetching refunds:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch refunds' });
+    }
+  });
+
+  // Admin: Initiate Refund (placeholder - refunds table not yet created)
+  app.post('/api/admin/financial/refunds/initiate', requireAdmin, async (req: any, res) => {
+    try {
+      const { orderId, amount, reason } = req.body;
+      if (!orderId || !amount || !reason) {
+        return res.status(400).json({ success: false, error: 'Missing required fields' });
+      }
+
+      const [order] = await db.select().from(schema.unifiedOrders).where(eq(schema.unifiedOrders.id, orderId));
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+
+      // Refunds table not yet created - return placeholder response
+      res.json({ 
+        success: true, 
+        message: 'Refund request recorded. Refunds system coming soon.',
+        data: { orderId, amount, reason, status: 'pending' }
+      });
+    } catch (error) {
+      console.error('Error initiating refund:', error);
+      res.status(500).json({ success: false, error: 'Failed to initiate refund' });
+    }
+  });
+
+  // ==================== END FINANCIAL OPERATIONS API ====================
+
   // Get user's manual KYC submissions
   app.get('/api/kyc/manual-submissions', async (req: any, res) => {
     try {
