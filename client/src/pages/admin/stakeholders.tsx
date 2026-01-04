@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Users, 
@@ -57,6 +57,23 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { insertPartnerSchema, insertAgentSchema, insertSupplierSchema } from "@shared/schema";
+
+function buildUrl(base: string, params: Record<string, any>): string {
+  const url = new URL(base, window.location.origin);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.append(key, String(value));
+    }
+  });
+  return url.pathname + url.search;
+}
+
+interface StakeholderStats {
+  clients: { total: number; growth: number };
+  partners: { total: number; growth: number };
+  agents: { total: number; growth: number };
+  suppliers: { total: number; growth: number };
+}
 
 type StakeholderType = "clients" | "partners" | "agents" | "suppliers";
 
@@ -147,24 +164,74 @@ export default function StakeholdersPage() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [deletingItem, setDeletingItem] = useState<{ id: string; type: StakeholderType; name: string } | null>(null);
 
-  // Fetch stakeholders based on active tab
+  const queryParams = useMemo(() => ({
+    search: searchQuery || undefined,
+    status: statusFilter === "all" ? undefined : statusFilter,
+    page: currentPage,
+    limit: pageLimit,
+  }), [searchQuery, statusFilter, currentPage, pageLimit]);
+
+  const { data: statsData, isLoading: loadingStats, refetch: refetchStats } = useQuery<{ success: boolean; data: StakeholderStats }>({
+    queryKey: ['/api/admin/stakeholders/stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/stakeholders/stats', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
+  });
+
+  const stats = statsData?.data || {
+    clients: { total: 0, growth: 0 },
+    partners: { total: 0, growth: 0 },
+    agents: { total: 0, growth: 0 },
+    suppliers: { total: 0, growth: 0 },
+  };
+
   const { data: clientsData, isLoading: loadingClients, refetch: refetchClients } = useQuery<any>({
-    queryKey: ["/api/admin/users", { search: searchQuery, status: statusFilter === "all" ? undefined : statusFilter, page: currentPage, limit: pageLimit }],
+    queryKey: ['/api/admin/users', queryParams],
+    queryFn: async () => {
+      const url = buildUrl('/api/admin/users', queryParams);
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch clients');
+      const data = await res.json();
+      return { data: data.users || [], total: data.pagination?.total || 0 };
+    },
     enabled: activeTab === "clients",
   });
 
   const { data: partnersData, isLoading: loadingPartners, refetch: refetchPartners } = useQuery<any>({
-    queryKey: ["/api/admin/partners", { search: searchQuery, status: statusFilter === "all" ? undefined : statusFilter, page: currentPage, limit: pageLimit }],
+    queryKey: ['/api/admin/partners', queryParams],
+    queryFn: async () => {
+      const url = buildUrl('/api/admin/partners', queryParams);
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch partners');
+      const json = await res.json();
+      return json.data || { data: [], total: 0 };
+    },
     enabled: activeTab === "partners",
   });
 
   const { data: agentsData, isLoading: loadingAgents, refetch: refetchAgents } = useQuery<any>({
-    queryKey: ["/api/admin/agents", { search: searchQuery, status: statusFilter === "all" ? undefined : statusFilter, page: currentPage, limit: pageLimit }],
+    queryKey: ['/api/admin/agents', queryParams],
+    queryFn: async () => {
+      const url = buildUrl('/api/admin/agents', queryParams);
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch agents');
+      const json = await res.json();
+      return json.data || { data: [], total: 0 };
+    },
     enabled: activeTab === "agents",
   });
 
   const { data: suppliersData, isLoading: loadingSuppiers, refetch: refetchSuppliers } = useQuery<any>({
-    queryKey: ["/api/admin/suppliers", { search: searchQuery, status: statusFilter === "all" ? undefined : statusFilter, page: currentPage, limit: pageLimit }],
+    queryKey: ['/api/admin/suppliers', queryParams],
+    queryFn: async () => {
+      const url = buildUrl('/api/admin/suppliers', queryParams);
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch suppliers');
+      const json = await res.json();
+      return json.data || { data: [], total: 0 };
+    },
     enabled: activeTab === "suppliers",
   });
 
@@ -326,6 +393,7 @@ export default function StakeholdersPage() {
   };
 
   const handleRefresh = () => {
+    refetchStats();
     switch (activeTab) {
       case "clients": refetchClients(); break;
       case "partners": refetchPartners(); break;
@@ -549,11 +617,11 @@ export default function StakeholdersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {clientsData?.total || 0}
+              {loadingStats ? '...' : stats.clients.total}
             </div>
-            <p className="text-xs text-green-600 flex items-center mt-1">
-              <TrendingUp className="h-3 w-3 mr-1" />
-              12% from last month
+            <p className={`text-xs flex items-center mt-1 ${stats.clients.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stats.clients.growth >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+              {Math.abs(stats.clients.growth)}% from last month
             </p>
           </CardContent>
         </Card>
@@ -567,11 +635,11 @@ export default function StakeholdersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {partnersData?.total || 0}
+              {loadingStats ? '...' : stats.partners.total}
             </div>
-            <p className="text-xs text-green-600 flex items-center mt-1">
-              <TrendingUp className="h-3 w-3 mr-1" />
-              8% from last month
+            <p className={`text-xs flex items-center mt-1 ${stats.partners.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stats.partners.growth >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+              {Math.abs(stats.partners.growth)}% from last month
             </p>
           </CardContent>
         </Card>
@@ -585,11 +653,11 @@ export default function StakeholdersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {agentsData?.total || 0}
+              {loadingStats ? '...' : stats.agents.total}
             </div>
-            <p className="text-xs text-red-600 flex items-center mt-1">
-              <TrendingDown className="h-3 w-3 mr-1" />
-              3% from last month
+            <p className={`text-xs flex items-center mt-1 ${stats.agents.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stats.agents.growth >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+              {Math.abs(stats.agents.growth)}% from last month
             </p>
           </CardContent>
         </Card>
@@ -603,11 +671,11 @@ export default function StakeholdersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {suppliersData?.total || 0}
+              {loadingStats ? '...' : stats.suppliers.total}
             </div>
-            <p className="text-xs text-green-600 flex items-center mt-1">
-              <TrendingUp className="h-3 w-3 mr-1" />
-              5% from last month
+            <p className={`text-xs flex items-center mt-1 ${stats.suppliers.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stats.suppliers.growth >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+              {Math.abs(stats.suppliers.growth)}% from last month
             </p>
           </CardContent>
         </Card>

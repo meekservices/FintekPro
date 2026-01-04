@@ -1,6 +1,6 @@
 import { Router, type Express } from 'express';
 import { db } from './db';
-import { partners, agents, suppliers, insertPartnerSchema, insertAgentSchema, insertSupplierSchema } from '@shared/schema';
+import { partners, agents, suppliers, users, insertPartnerSchema, insertAgentSchema, insertSupplierSchema } from '@shared/schema';
 import { eq, ilike, or, sql, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { apiResponse } from './utils/responses';
@@ -20,6 +20,72 @@ const requireAdmin = (req: any, res: any, next: any) => {
 
   next();
 };
+
+// ===================================
+// STAKEHOLDER STATS ROUTE
+// ===================================
+
+// GET /api/admin/stakeholders/stats - Get summary stats for all stakeholder types
+router.get('/api/admin/stakeholders/stats', requireAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const { lt } = await import('drizzle-orm');
+
+    // Get total counts
+    const [{ count: clientsTotal }] = await db.select({ count: sql<number>`count(*)` }).from(users);
+    const [{ count: partnersTotal }] = await db.select({ count: sql<number>`count(*)` }).from(partners);
+    const [{ count: agentsTotal }] = await db.select({ count: sql<number>`count(*)` }).from(agents);
+    const [{ count: suppliersTotal }] = await db.select({ count: sql<number>`count(*)` }).from(suppliers);
+
+    // Get counts from last month for growth calculation (records that existed before oneMonthAgo)
+    const [{ count: clientsLastMonth }] = await db.select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(lt(users.createdAt, oneMonthAgo));
+    
+    const [{ count: partnersLastMonth }] = await db.select({ count: sql<number>`count(*)` })
+      .from(partners)
+      .where(lt(partners.createdAt, oneMonthAgo));
+    
+    const [{ count: agentsLastMonth }] = await db.select({ count: sql<number>`count(*)` })
+      .from(agents)
+      .where(lt(agents.createdAt, oneMonthAgo));
+    
+    const [{ count: suppliersLastMonth }] = await db.select({ count: sql<number>`count(*)` })
+      .from(suppliers)
+      .where(lt(suppliers.createdAt, oneMonthAgo));
+
+    // Calculate growth percentages (new records added in the last month)
+    const calculateGrowth = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - previous) / previous) * 100);
+    };
+
+    const stats = {
+      clients: {
+        total: Number(clientsTotal),
+        growth: calculateGrowth(Number(clientsTotal), Number(clientsLastMonth)),
+      },
+      partners: {
+        total: Number(partnersTotal),
+        growth: calculateGrowth(Number(partnersTotal), Number(partnersLastMonth)),
+      },
+      agents: {
+        total: Number(agentsTotal),
+        growth: calculateGrowth(Number(agentsTotal), Number(agentsLastMonth)),
+      },
+      suppliers: {
+        total: Number(suppliersTotal),
+        growth: calculateGrowth(Number(suppliersTotal), Number(suppliersLastMonth)),
+      },
+    };
+
+    return apiResponse.success(res, stats);
+  } catch (error: any) {
+    console.error('Error fetching stakeholder stats:', error);
+    return apiResponse.error(res, 'Failed to fetch stakeholder stats', error.message);
+  }
+});
 
 // ===================================
 // PARTNER ROUTES
