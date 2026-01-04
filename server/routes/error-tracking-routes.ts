@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { errorTrackingService } from "../services/error-tracking-service";
 import { errorWebhookService } from "../services/error-webhook-service";
 import { errorSpikeDetectionService } from "../services/error-spike-detection-service";
+import { errorDigestService } from "../services/error-digest-service";
 import { errorIngestionSchema } from "../../shared/schema";
 import { z } from "zod";
 
@@ -14,6 +15,19 @@ router.post("/ingest", async (req: Request, res: Response) => {
     const ipAddress = req.ip || req.socket.remoteAddress || undefined;
     
     const error = await errorTrackingService.ingestError(validatedData, ipAddress);
+    
+    // Send critical alert for critical/error severity
+    if (validatedData.severity === 'critical' || validatedData.severity === 'error') {
+      errorDigestService.sendCriticalAlert({
+        id: error.id,
+        errorCode: validatedData.errorCode,
+        severity: validatedData.severity,
+        module: validatedData.context.module,
+        message: validatedData.message,
+        stackTrace: validatedData.stack,
+        transactionId: validatedData.context.transactionId
+      }).catch(err => console.error('[ErrorDigest] Critical alert failed:', err));
+    }
     
     res.status(201).json({
       success: true,
@@ -328,6 +342,39 @@ router.get("/export", async (req: Request, res: Response) => {
     });
 
     const errors = result.errors;
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    if (format === 'json') {
+      const jsonExport = {
+        exportedAt: new Date().toISOString(),
+        filters: { severity, status, module, errorCode, dateFrom, dateTo },
+        totalErrors: errors.length,
+        errors: errors.map(err => ({
+          id: err.id,
+          errorCode: err.errorCode,
+          severity: err.severity,
+          status: err.status,
+          module: err.module,
+          source: err.source,
+          message: err.message,
+          stackTrace: err.stackTrace,
+          transactionId: err.transactionId,
+          panMasked: err.panMasked,
+          clientId: err.clientId,
+          agentId: err.agentId,
+          occurrenceCount: err.occurrenceCount,
+          firstOccurrence: err.firstOccurrence,
+          lastOccurrence: err.lastOccurrence,
+          createdAt: err.createdAt,
+          aiAnalysis: err.aiAnalysis
+        }))
+      };
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename=errors_export_${dateStr}.json`);
+      res.send(JSON.stringify(jsonExport, null, 2));
+      return;
+    }
     
     const csvHeaders = [
       'ID', 'Error Code', 'Severity', 'Status', 'Module', 'Source',
@@ -354,7 +401,7 @@ router.get("/export", async (req: Request, res: Response) => {
     const csvContent = [csvHeaders, ...csvRows].join('\n');
     
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=errors_export_${new Date().toISOString().split('T')[0]}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=errors_export_${dateStr}.csv`);
     res.send(csvContent);
   } catch (err) {
     console.error("Error exporting errors:", err);
@@ -532,6 +579,59 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Error updating error status:", err);
     res.status(500).json({ error: "Failed to update error status" });
+  }
+});
+
+router.post("/digest/generate", async (req: Request, res: Response) => {
+  try {
+    const digest = await errorDigestService.generateDailyDigest();
+    
+    if (!digest) {
+      return res.json({ success: true, message: "No errors to report", digest: null });
+    }
+    
+    res.json({ success: true, digest });
+  } catch (err) {
+    console.error("Error generating digest:", err);
+    res.status(500).json({ error: "Failed to generate digest" });
+  }
+});
+
+router.post("/digest/send", async (req: Request, res: Response) => {
+  try {
+    const digest = await errorDigestService.generateDailyDigest();
+    
+    if (!digest) {
+      return res.json({ success: true, message: "No errors to report - email not sent" });
+    }
+    
+    const sent = await errorDigestService.sendDigestEmail(digest);
+    
+    res.json({ 
+      success: sent, 
+      message: sent ? "Digest email sent to admins" : "Failed to send digest email",
+      digest 
+    });
+  } catch (err) {
+    console.error("Error sending digest:", err);
+    res.status(500).json({ error: "Failed to send digest" });
+  }
+});
+
+router.post("/critical-alert", async (req: Request, res: Response) => {
+  try {
+    const { error } = req.body;
+    
+    if (!error) {
+      return res.status(400).json({ error: "Error object required" });
+    }
+    
+    await errorDigestService.sendCriticalAlert(error);
+    
+    res.json({ success: true, message: "Critical alert sent" });
+  } catch (err) {
+    console.error("Error sending critical alert:", err);
+    res.status(500).json({ error: "Failed to send critical alert" });
   }
 });
 

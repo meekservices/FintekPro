@@ -684,10 +684,30 @@ export default function ErrorCommandCenter() {
             <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">Error Command Center</h1>
             <p className="text-muted-foreground">Real-time error monitoring and resolution dashboard</p>
           </div>
-          <Button onClick={() => refetchErrors()} variant="outline" data-testid="button-refresh">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <a 
+              href="/api/errors/export?format=csv" 
+              download
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+              data-testid="button-export-csv"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </a>
+            <a 
+              href="/api/errors/export?format=json" 
+              download
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+              data-testid="button-export-json"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Export JSON
+            </a>
+            <Button onClick={() => refetchErrors()} variant="outline" data-testid="button-refresh">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {(criticalErrors?.length ?? 0) > 0 && (

@@ -68,7 +68,8 @@ import {
   Cog,
   Package,
   CheckCircle,
-  UserCheck
+  UserCheck,
+  Bug
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -190,9 +191,9 @@ const navCategories: NavCategory[] = [
     title: "System & Settings",
     icon: Cog,
     items: [
+      { title: "Error Command Center", href: "/admin/error-command-center", icon: Bug, description: "Production error tracking" },
       { title: "AI Insights", href: "/admin/ai-insights", icon: Lightbulb, description: "AI-powered trends" },
-      { title: "Production Readiness", href: "/admin/production-readiness", icon: ShieldCheck,
-  Shield, description: "Service status" },
+      { title: "Production Readiness", href: "/admin/production-readiness", icon: ShieldCheck, description: "Service status" },
       { title: "System Health", href: "/admin/system-health", icon: Activity, description: "Performance monitoring" },
       { title: "Revenue Analytics", href: "/admin/revenue-analytics", icon: TrendingUp, description: "Revenue & commissions" },
       { title: "User Activity", href: "/admin/user-activity", icon: Activity, description: "User journey tracking" },

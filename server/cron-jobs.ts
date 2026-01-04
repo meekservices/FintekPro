@@ -6,6 +6,7 @@ import { stockSyncScheduler } from './services/stock-sync-scheduler';
 import { getProbe42AnalyticsService } from './services/probe42-analytics-service';
 import { ckycSlaEscalationService } from './services/ckyc-sla-escalation-service';
 import { auditIntegrityChecker } from './services/audit-integrity-checker';
+import { errorDigestService } from './services/error-digest-service';
 import { db } from './db';
 import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -565,6 +566,19 @@ export function initializeCronJobs(): void {
       console.error('[CRON] KYC reminder job failed:', error.message);
     }
   });
+
+  // Error Digest Job - Run daily at 8 AM IST (2:30 AM UTC)
+  // Sends AI-powered daily error summary to admin users
+  cron.schedule('30 2 * * *', async () => {
+    console.log('[CRON] Starting daily error digest...');
+    try {
+      await errorDigestService.runDailyDigest();
+      console.log('[CRON] Daily error digest completed');
+    } catch (error: any) {
+      console.error('[CRON] Error digest job failed:', error.message);
+    }
+  });
+  console.log('📊 [ErrorDigest] Daily error digest scheduled (8:00 AM IST)');
 
   stockSyncScheduler.initialize();
 
