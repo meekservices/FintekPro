@@ -1263,15 +1263,47 @@ router.delete("/api/agent/appointments/:id", requireAuth, async (req, res) => {
 // Get clients for appointment selector
 router.get("/api/agent/clients", requireAuth, async (req, res) => {
   try {
-    // Return mock clients for now - in production, fetch from database
-    const clients = [
-      { id: '1', firstName: 'Rajesh', lastName: 'Sharma', email: 'rajesh@email.com', mobile: '9876543210', panNumber: 'ABCDE1234F', kycStatus: 'enhanced', isActive: true, clientCategory: 'hni' },
-      { id: '2', firstName: 'Priya', lastName: 'Patel', email: 'priya@email.com', mobile: '9876543211', panNumber: 'FGHIJ5678K', kycStatus: 'basic', isActive: true, clientCategory: 'retail' },
-      { id: '3', firstName: 'Amit', lastName: 'Kumar', email: 'amit@email.com', mobile: '9876543212', panNumber: 'KLMNO9012P', kycStatus: 'pending', isActive: false, clientCategory: 'retail' },
-      { id: '4', firstName: 'Sunita', lastName: 'Reddy', email: 'sunita@email.com', mobile: '9876543213', panNumber: 'PQRST3456Q', kycStatus: 'enhanced', isActive: true, clientCategory: 'shni' },
-      { id: '5', firstName: 'Vikram', lastName: 'Singh', email: 'vikram@email.com', mobile: '9876543214', panNumber: 'UVWXY7890R', kycStatus: 'accredited', isActive: true, clientCategory: 'bhni' },
-      { id: '6', firstName: 'Meera', lastName: 'Gupta', email: 'meera@email.com', mobile: '9876543215', panNumber: 'ZABCD1234S', kycStatus: 'basic', isActive: true, clientCategory: 'corporate' },
-    ];
+    const { users } = await import("@shared/schema");
+    const { db } = await import("./db");
+    const { eq, sql } = await import("drizzle-orm");
+    
+    const agentUser = await storage.getUser((req as any).user?.id);
+    if (!agentUser) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    
+    // Fetch real clients assigned to this agent from the database
+    // Clients are users with agentId matching and 'client' role in their roles array
+    const clientsData = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        mobile: users.mobile,
+        panNumber: users.panNumber,
+        kycStatus: users.kycStatus,
+        isActive: users.isActive,
+        clientCategory: users.clientCategory,
+      })
+      .from(users)
+      .where(
+        sql`${users.agentId} = ${agentUser.id} AND 'client' = ANY(${users.roles})`
+      )
+      .limit(100);
+    
+    // Map to expected format
+    const clients = clientsData.map(client => ({
+      id: client.id,
+      firstName: client.firstName || '',
+      lastName: client.lastName || '',
+      email: client.email || '',
+      mobile: client.mobile || '',
+      panNumber: client.panNumber || '',
+      kycStatus: client.kycStatus || 'pending',
+      isActive: client.isActive ?? true,
+      clientCategory: client.clientCategory || 'retail',
+    }));
     
     res.json(clients);
   } catch (error) {

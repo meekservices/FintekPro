@@ -73,19 +73,48 @@ export function registerPartnerPortalRoutes(app: Express): void {
 
   // Basic user authentication middleware for investment proposals
   const authenticateUser = async (req: any, res: any, next: any) => {
-    // For now, add a basic check. In a real app, this would verify JWT tokens or sessions
+    // First check if user is authenticated via passport session
+    if (req.isAuthenticated?.() && req.user) {
+      return next();
+    }
+    
+    // Fallback: Check authorization header for basic auth or token
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: "Authentication required" });
     }
     
-    // Mock user for demo purposes - in production, verify the token
-    req.user = {
-      id: "demo-user-1",
-      role: "client",
-      email: "demo@fintekpro.com"
-    };
-    next();
+    try {
+      // Try basic auth format (email:password base64 encoded)
+      if (authHeader.startsWith('Basic ')) {
+        const [email, password] = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+        const { storage } = await import("../../storage");
+        const user = await storage.getUserByEmail(email);
+        
+        if (!user) {
+          return res.status(401).json({ error: "Invalid credentials" });
+        }
+        
+        // Verify password
+        const bcrypt = await import("bcryptjs");
+        const isValid = await bcrypt.compare(password, user.password);
+        if (!isValid) {
+          return res.status(401).json({ error: "Invalid credentials" });
+        }
+        
+        req.user = {
+          id: user.id,
+          role: user.roles?.[0] || "client",
+          email: user.email
+        };
+        return next();
+      }
+      
+      return res.status(401).json({ error: "Invalid authentication format" });
+    } catch (error) {
+      console.error("Authentication error:", error);
+      return res.status(401).json({ error: "Authentication failed" });
+    }
   };
 
   // Partner Dashboard

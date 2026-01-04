@@ -7,9 +7,11 @@ import {
   agentPortfolioOutcomes,
   inspectionEvidence,
   agentComplianceDocRepository,
-  agentOverrideAuditLog
+  agentOverrideAuditLog,
+  users,
+  portfolioHoldings
 } from "@shared/schema";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, or, isNotNull, sum } from "drizzle-orm";
 import { createAppError, AppErrorCode } from "../utils/error-types";
 
 const router = Router();
@@ -25,38 +27,131 @@ router.get("/api/agent/client-context/:clientId", requireAuth, async (req, res) 
   try {
     const { clientId } = req.params;
     
-    const mockContext = {
-      clientId,
-      clientName: "Sample Client",
-      riskProfile: "Moderate",
-      timeHorizon: 5,
-      liquidityNeeds: "Medium",
-      kycTier: "Enhanced",
-      existingPortfolio: {
-        equity: 45,
-        debt: 35,
-        alternatives: 10,
-        cash: 10,
-      },
-      totalAum: 1500000,
+    // Fetch real client data from database
+    const [client] = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        riskProfile: users.riskProfile,
+        investmentHorizon: users.investmentHorizon,
+        liquidityNeeds: users.liquidityNeeds,
+        kycStatus: users.kycStatus,
+      })
+      .from(users)
+      .where(eq(users.id, clientId))
+      .limit(1);
+    
+    if (!client) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+    
+    // Fetch portfolio holdings to calculate allocation with proper numeric casting
+    const holdingsRaw = await db
+      .select({
+        assetClass: portfolioHoldings.assetClass,
+        currentValue: sql<string>`COALESCE(CAST(${portfolioHoldings.currentValue} AS NUMERIC), 0)::text`,
+      })
+      .from(portfolioHoldings)
+      .where(eq(portfolioHoldings.userId, clientId));
+    
+    // Explicitly convert string values to numbers
+    const holdings = holdingsRaw.map(h => ({
+      assetClass: h.assetClass,
+      currentValue: Number(h.currentValue) || 0,
+    }));
+    
+    // Calculate portfolio allocation
+    const totalValue = holdings.reduce((acc, h) => acc + h.currentValue, 0);
+    const allocation: Record<string, number> = { equity: 0, debt: 0, alternatives: 0, cash: 0 };
+    
+    holdings.forEach(h => {
+      const assetClass = (h.assetClass || 'equity').toLowerCase();
+      const value = h.currentValue || 0;
+      const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
+      
+      if (assetClass.includes('equity') || assetClass.includes('stock')) {
+        allocation.equity += percentage;
+      } else if (assetClass.includes('debt') || assetClass.includes('bond') || assetClass.includes('fixed')) {
+        allocation.debt += percentage;
+      } else if (assetClass.includes('alternative') || assetClass.includes('aif') || assetClass.includes('pms')) {
+        allocation.alternatives += percentage;
+      } else {
+        allocation.cash += percentage;
+      }
+    });
+    
+    // Map investment horizon to years
+    const horizonMap: Record<string, number> = {
+      'short_term': 2,
+      'medium_term': 5,
+      'long_term': 10,
+      'short': 2,
+      'medium': 5,
+      'long': 10,
     };
     
-    res.json(mockContext);
+    const context = {
+      clientId,
+      clientName: `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Unknown Client',
+      riskProfile: client.riskProfile || 'Moderate',
+      timeHorizon: horizonMap[client.investmentHorizon || 'medium'] || 5,
+      liquidityNeeds: client.liquidityNeeds || 'Medium',
+      kycTier: client.kycStatus || 'Basic',
+      existingPortfolio: {
+        equity: Math.round(allocation.equity),
+        debt: Math.round(allocation.debt),
+        alternatives: Math.round(allocation.alternatives),
+        cash: Math.round(allocation.cash),
+      },
+      totalAum: totalValue,
+    };
+    
+    res.json(context);
   } catch (error: any) {
+    console.error("Get client context error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 router.get("/api/agent/clients", requireAuth, async (req, res) => {
   try {
-    const mockClients = [
-      { id: "client-1", name: "Rajesh Kumar", email: "rajesh@example.com", riskProfile: "Aggressive", kycTier: "Enhanced", totalAum: 2500000, lastActivity: "2025-12-26" },
-      { id: "client-2", name: "Priya Sharma", email: "priya@example.com", riskProfile: "Moderate", kycTier: "Basic", totalAum: 800000, lastActivity: "2025-12-25" },
-      { id: "client-3", name: "Amit Patel", email: "amit@example.com", riskProfile: "Conservative", kycTier: "Accredited", totalAum: 5000000, lastActivity: "2025-12-24" },
-    ];
+    const agentId = (req.user as any)?.id;
     
-    res.json(mockClients);
+    // Fetch real clients assigned to this agent with AUM in a single query using LEFT JOIN
+    const clientsWithAumRaw = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        riskProfile: users.riskProfile,
+        kycStatus: users.kycStatus,
+        updatedAt: users.updatedAt,
+        totalAum: sql<string>`COALESCE(SUM(CAST(${portfolioHoldings.currentValue} AS NUMERIC)), 0)::text`,
+      })
+      .from(users)
+      .leftJoin(portfolioHoldings, eq(portfolioHoldings.userId, users.id))
+      .where(
+        sql`${users.agentId} = ${agentId} AND 'client' = ANY(${users.roles})`
+      )
+      .groupBy(users.id, users.firstName, users.lastName, users.email, users.riskProfile, users.kycStatus, users.updatedAt)
+      .limit(100);
+    
+    // Map to expected format with explicit number coercion
+    const clients = clientsWithAumRaw.map(client => ({
+      id: client.id,
+      name: `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Unknown',
+      email: client.email || '',
+      riskProfile: client.riskProfile || 'Moderate',
+      kycTier: client.kycStatus || 'Basic',
+      totalAum: Number(client.totalAum) || 0,
+      lastActivity: client.updatedAt?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+    }));
+    
+    res.json(clients);
   } catch (error: any) {
+    console.error("Get clients error:", error);
     res.status(500).json({ error: error.message });
   }
 });
