@@ -15,6 +15,7 @@ import { registerLoanRoutes, registerLoanProcessingRoutes, registerLoanCompariso
 import { registerPreIPORoutes } from './routes/pre-ipo';
 import { registerCartRoutes } from './routes/cart';
 import { registerDLMRoutes } from './routes/dlm-routes';
+import knowledgeHubRoutes from './routes/knowledge-hub-routes';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 
@@ -544,6 +545,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const agentProspectWizardRoutes = (await import("./routes/agent-prospect-wizard")).default;
   app.use("/api/agent-wizard", agentProspectWizardRoutes);
   console.log("✅ Agent Prospect Wizard routes registered");
+
+  // Knowledge Hub Routes
+  app.use("/api/knowledge-hub", knowledgeHubRoutes);
+  console.log("✅ Knowledge Hub routes registered");
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {

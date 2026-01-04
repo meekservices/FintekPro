@@ -35,7 +35,11 @@ import {
   DollarSign,
   Clock,
   Trophy,
-  GraduationCap
+  GraduationCap,
+  BookOpen,
+  Lightbulb,
+  Shield,
+  FileCheck
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -104,6 +108,17 @@ const agentNavCategories: NavCategory[] = [
       { title: "E-Sign", href: "/agent/esign", icon: FileSignature, description: "Electronic signatures" },
       { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
       { title: "Demo Progress", href: "/agent/demo-progress", icon: TrendingUp, description: "Track demos" },
+    ]
+  },
+  {
+    title: "Knowledge Hub",
+    icon: BookOpen,
+    items: [
+      { title: "Knowledge Hub", href: "/agent/knowledge-hub", icon: BookOpen, description: "Market briefs & insights" },
+      { title: "Market Brief", href: "/agent/knowledge-hub/market-brief", icon: TrendingUp, description: "Daily market intelligence" },
+      { title: "Product Cards", href: "/agent/knowledge-hub/products", icon: FileCheck, description: "Product knowledge" },
+      { title: "Client Explanations", href: "/agent/knowledge-hub/explanations", icon: Lightbulb, description: "Explanation templates" },
+      { title: "My Certifications", href: "/agent/knowledge-hub/certifications", icon: Shield, description: "Certification tracking" },
     ]
   },
   {

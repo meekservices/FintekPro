@@ -132,6 +132,11 @@ import AgentProposalsPage from "@/pages/agent-proposals";
 import AgentClientAcquisitionPage from "@/pages/agent-client-acquisition";
 import AgentDerivatives from "@/pages/agent-derivatives";
 import AgentTaxCasesPage from "@/pages/agent-tax-cases";
+import AgentKnowledgeHub from "@/pages/agent-knowledge-hub";
+import AgentKnowledgeMarketBrief from "@/pages/agent-knowledge-market-brief";
+import AgentKnowledgeProducts from "@/pages/agent-knowledge-products";
+import AgentKnowledgeExplanations from "@/pages/agent-knowledge-explanations";
+import AgentKnowledgeCertifications from "@/pages/agent-knowledge-certifications";
 const AgentInvestmentAdvisory = lazy(() => import("@/pages/agent-investment-advisory"));
 const AgentBondRecommendations = lazy(() => import("@/pages/agent-bond-recommendations"));
 const AgentStockAI = lazy(() => import("@/pages/agent-stock-ai"));
@@ -1368,6 +1373,41 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentTaxCasesPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub">
+        {() => (
+          <AgentLayout>
+            <AgentKnowledgeHub />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub/market-brief">
+        {() => (
+          <AgentLayout>
+            <AgentKnowledgeMarketBrief />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub/products">
+        {() => (
+          <AgentLayout>
+            <AgentKnowledgeProducts />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub/explanations">
+        {() => (
+          <AgentLayout>
+            <AgentKnowledgeExplanations />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub/certifications">
+        {() => (
+          <AgentLayout>
+            <AgentKnowledgeCertifications />
           </AgentLayout>
         )}
       </Route>

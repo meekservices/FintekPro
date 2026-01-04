@@ -24040,3 +24040,343 @@ export const themePreferences = pgTable("theme_preferences", {
 
 export const insertThemePreferencesSchema = createInsertSchema(themePreferences).omit({ id: true, updatedAt: true });
 export type ThemePreferences = typeof themePreferences.$inferSelect;
+
+// ==========================================
+// AGENT KNOWLEDGE HUB MODULE
+// ==========================================
+
+// Daily AI Market Briefs
+export const marketBriefs = pgTable("market_briefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Brief Content
+  date: date("date").notNull(),
+  region: varchar("region", { length: 20 }).default("india").notNull(), // india, global
+  
+  // AI-Generated Sections (SEBI-safe, no predictions)
+  marketSnapshot: text("market_snapshot").notNull(),
+  whatChanged: text("what_changed").notNull(),
+  keyRisks: text("key_risks"),
+  opportunityAreas: text("opportunity_areas"),
+  portfolioImpact: text("portfolio_impact"),
+  complianceNote: text("compliance_note"),
+  
+  // Raw Data Sources
+  dataSourcesUsed: jsonb("data_sources_used").default([]), // [{source: "NSE", timestamp: "..."}]
+  
+  // Approval Workflow
+  status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, pending_review, approved, published, rejected
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  publishedAt: timestamp("published_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Versioning
+  version: integer("version").default(1).notNull(),
+  previousVersionId: varchar("previous_version_id"),
+  
+  // Disclaimer
+  disclaimerVersionId: varchar("disclaimer_version_id"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mb_date").on(table.date),
+  index("idx_mb_region").on(table.region),
+  index("idx_mb_status").on(table.status),
+]);
+
+export const insertMarketBriefSchema = createInsertSchema(marketBriefs).omit({ id: true, createdAt: true, updatedAt: true });
+export type MarketBrief = typeof marketBriefs.$inferSelect;
+
+// Product Knowledge Cards
+export const productKnowledge = pgTable("product_knowledge", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Product Identification
+  productType: varchar("product_type", { length: 50 }).notNull(), // mutual_fund, stock, bond, etf, aif, pms, ncd, global_etf
+  productCategory: varchar("product_category", { length: 50 }), // equity, debt, hybrid, commodity, etc.
+  productSubCategory: varchar("product_sub_category", { length: 50 }),
+  
+  // Content
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  keyFeatures: jsonb("key_features").default([]), // [{feature: "...", explanation: "..."}]
+  
+  // Risk & Suitability
+  riskProfile: varchar("risk_profile", { length: 20 }).notNull(), // low, moderate, high, very_high
+  timeHorizon: varchar("time_horizon", { length: 30 }), // short_term, medium_term, long_term
+  suitabilityRules: jsonb("suitability_rules").default([]), // [{rule: "...", applicableTo: "..."}]
+  
+  // When NOT to recommend (critical for compliance)
+  contraindications: jsonb("contraindications").default([]), // [{scenario: "...", reason: "..."}]
+  
+  // Compliance
+  complianceTags: jsonb("compliance_tags").default([]), // ["SEBI_REGISTERED", "HIGH_RISK_DISCLOSURE", etc.]
+  regulatoryNotes: text("regulatory_notes"),
+  
+  // Certification Level (optional, informational only)
+  suggestedCertLevel: varchar("suggested_cert_level", { length: 5 }), // L0, L1, L2, L3
+  
+  // Workflow
+  status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, pending_review, published, archived
+  createdBy: varchar("created_by").references(() => users.id),
+  lastEditedBy: varchar("last_edited_by").references(() => users.id),
+  publishedBy: varchar("published_by").references(() => users.id),
+  publishedAt: timestamp("published_at"),
+  
+  // Versioning
+  version: integer("version").default(1).notNull(),
+  editHistory: jsonb("edit_history").default([]), // [{userId, timestamp, changes}]
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_pk_type").on(table.productType),
+  index("idx_pk_category").on(table.productCategory),
+  index("idx_pk_risk").on(table.riskProfile),
+  index("idx_pk_status").on(table.status),
+]);
+
+export const insertProductKnowledgeSchema = createInsertSchema(productKnowledge).omit({ id: true, createdAt: true, updatedAt: true });
+export type ProductKnowledge = typeof productKnowledge.$inferSelect;
+// Certification Quizzes (Optional)
+export const certificationQuizzes = pgTable("certification_quizzes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Quiz Info
+  certificationLevel: varchar("certification_level", { length: 5 }).notNull(), // L0, L1, L2, L3
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  
+  // Questions
+  questions: jsonb("questions").default([]).notNull(), // [{id, question, options: [], correctAnswer, type: "mcq"|"case_study", points}]
+  
+  // Configuration
+  passingScore: integer("passing_score").default(70).notNull(),
+  timeLimitMinutes: integer("time_limit_minutes").default(30),
+  maxAttempts: integer("max_attempts").default(3),
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_cq_level").on(table.certificationLevel),
+]);
+
+export const insertCertificationQuizSchema = createInsertSchema(certificationQuizzes).omit({ id: true, createdAt: true, updatedAt: true });
+export type CertificationQuiz = typeof certificationQuizzes.$inferSelect;
+
+// Quiz Attempts
+export const quizAttempts = pgTable("quiz_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quizId: varchar("quiz_id").references(() => certificationQuizzes.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  
+  // Attempt Details
+  answers: jsonb("answers").default([]), // [{questionId, selectedAnswer, isCorrect}]
+  score: integer("score").notNull(),
+  passed: boolean("passed").notNull(),
+  timeTakenSeconds: integer("time_taken_seconds"),
+  
+  attemptNumber: integer("attempt_number").default(1).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_qa_quiz").on(table.quizId),
+  index("idx_qa_agent").on(table.agentId),
+]);
+
+export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({ id: true, createdAt: true });
+export type QuizAttempt = typeof quizAttempts.$inferSelect;
+
+// Client Explanation Templates
+export const explanationTemplates = pgTable("explanation_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Template Info
+  category: varchar("category", { length: 50 }).notNull(), // market_movement, product_explanation, risk_disclosure, suitability_rationale, alternatives_rejected
+  title: varchar("title", { length: 255 }).notNull(),
+  
+  // Template Structure (SEBI-compliant)
+  whatIsHappening: text("what_is_happening").notNull(),
+  whyItMatters: text("why_it_matters").notNull(),
+  clientImpact: text("client_impact"),
+  risks: text("risks"),
+  whatIsNotClaimed: text("what_is_not_claimed"), // Critical disclaimer section
+  
+  // Versions
+  technicalVersion: text("technical_version"),
+  simpleVersion: text("simple_version"),
+  
+  // Applicability
+  applicableProducts: jsonb("applicable_products").default([]), // ["mutual_fund", "stock"]
+  applicableScenarios: jsonb("applicable_scenarios").default([]), // ["market_crash", "bull_run"]
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("active").notNull(),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_et_category").on(table.category),
+  index("idx_et_status").on(table.status),
+]);
+
+export const insertExplanationTemplateSchema = createInsertSchema(explanationTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type ExplanationTemplate = typeof explanationTemplates.$inferSelect;
+
+// Knowledge Hub Audit Logs (Immutable, SEBI-Compliant)
+export const knowledgeAuditLogs = pgTable("knowledge_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Actor
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  userRole: varchar("user_role", { length: 30 }).notNull(),
+  
+  // Event Type
+  eventType: varchar("event_type", { length: 50 }).notNull(), // brief_viewed, knowledge_accessed, explanation_shared, certification_updated, disclaimer_acknowledged
+  
+  // Context
+  resourceType: varchar("resource_type", { length: 50 }), // market_brief, product_knowledge, explanation_template
+  resourceId: varchar("resource_id"),
+  
+  // Client Context (if applicable)
+  clientId: varchar("client_id").references(() => users.id),
+  clientName: varchar("client_name", { length: 255 }),
+  
+  // Content Snapshot (for audit trail)
+  contentId: varchar("content_id"),
+  contentVersion: integer("content_version"),
+  disclaimerVersionHash: varchar("disclaimer_version_hash", { length: 64 }),
+  
+  // Action Details
+  actionDetails: jsonb("action_details").default({}), // Additional context
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  // Immutability
+  recordHash: varchar("record_hash", { length: 64 }), // SHA-256 of record for integrity
+  previousRecordHash: varchar("previous_record_hash", { length: 64 }), // Chain verification
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kal_user").on(table.userId),
+  index("idx_kal_event").on(table.eventType),
+  index("idx_kal_resource").on(table.resourceType, table.resourceId),
+  index("idx_kal_client").on(table.clientId),
+  index("idx_kal_date").on(table.createdAt),
+]);
+
+export const insertKnowledgeAuditLogSchema = createInsertSchema(knowledgeAuditLogs).omit({ id: true, createdAt: true });
+export type KnowledgeAuditLog = typeof knowledgeAuditLogs.$inferSelect;
+
+// Knowledge Disclaimers (Versioned)
+export const knowledgeDisclaimers = pgTable("knowledge_disclaimers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Disclaimer Info
+  name: varchar("name", { length: 100 }).notNull(),
+  category: varchar("category", { length: 50 }).notNull(), // general, market_brief, product, recommendation
+  
+  // Content
+  content: text("content").notNull(),
+  shortContent: text("short_content"), // For inline display
+  
+  // Versioning
+  version: integer("version").default(1).notNull(),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(), // SHA-256 for verification
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  effectiveFrom: timestamp("effective_from").defaultNow().notNull(),
+  effectiveUntil: timestamp("effective_until"),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_kd_category").on(table.category),
+  index("idx_kd_active").on(table.isActive),
+  index("idx_kd_effective").on(table.effectiveFrom),
+]);
+
+export const insertKnowledgeDisclaimerSchema = createInsertSchema(knowledgeDisclaimers).omit({ id: true, createdAt: true });
+export type KnowledgeDisclaimer = typeof knowledgeDisclaimers.$inferSelect;
+
+// Asset Class Insights (Curated by Admin)
+export const assetClassInsights = pgTable("asset_class_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Asset Class
+  assetClass: varchar("asset_class", { length: 50 }).notNull(), // mutual_funds, stocks, bonds, ncds, global_etfs, aif_pms
+  
+  // Content
+  title: varchar("title", { length: 255 }).notNull(),
+  summary: text("summary").notNull(),
+  detailedContent: text("detailed_content"),
+  
+  // Key Metrics (Real-time or cached)
+  keyMetrics: jsonb("key_metrics").default({}), // {avgReturn: 12.5, volatility: "medium", ...}
+  
+  // Trends
+  currentTrends: jsonb("current_trends").default([]), // [{trend: "...", impact: "positive/negative"}]
+  
+  // Related Products
+  featuredProducts: jsonb("featured_products").default([]), // [{productId, productName, reason}]
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("draft").notNull(),
+  publishedAt: timestamp("published_at"),
+  
+  // Ordering
+  displayOrder: integer("display_order").default(0),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_aci_class").on(table.assetClass),
+  index("idx_aci_status").on(table.status),
+  index("idx_aci_order").on(table.displayOrder),
+]);
+
+export const insertAssetClassInsightSchema = createInsertSchema(assetClassInsights).omit({ id: true, createdAt: true, updatedAt: true });
+export type AssetClassInsight = typeof assetClassInsights.$inferSelect;
+
+// Knowledge Hub Feature Flags
+export const knowledgeHubConfig = pgTable("knowledge_hub_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Feature Flags
+  isEnabled: boolean("is_enabled").default(true).notNull(),
+  enabledForRoles: jsonb("enabled_for_roles").default(["agent", "partner"]),
+  
+  // Market Brief Settings
+  marketBriefEnabled: boolean("market_brief_enabled").default(true),
+  marketBriefAutoPublish: boolean("market_brief_auto_publish").default(false),
+  marketBriefGenerationTime: varchar("market_brief_generation_time", { length: 5 }).default("06:00"), // IST
+  
+  // Certification Settings (Non-restrictive)
+  certificationEnabled: boolean("certification_enabled").default(true),
+  certificationRequired: boolean("certification_required").default(false), // Always false per user request
+  
+  // Sharing Settings
+  sharingEnabled: boolean("sharing_enabled").default(true),
+  shareRateLimit: integer("share_rate_limit").default(50), // Per hour
+  
+  // AI Settings
+  aiExplanationEnabled: boolean("ai_explanation_enabled").default(true),
+  aiGenerationRateLimit: integer("ai_generation_rate_limit").default(100), // Per day per agent
+  
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => []);
+
+export const insertKnowledgeHubConfigSchema = createInsertSchema(knowledgeHubConfig).omit({ id: true, updatedAt: true });
+export type KnowledgeHubConfig = typeof knowledgeHubConfig.$inferSelect;
