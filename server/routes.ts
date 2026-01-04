@@ -25214,6 +25214,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== END FINANCIAL OPERATIONS API ====================
 
+  // ==================== DUPLICATE ACCOUNTS API ====================
+
+  // Admin: Get duplicate accounts
+  app.get('/api/admin/duplicates', requireAdmin, async (req, res) => {
+    try {
+      // Find duplicate emails
+      const emailDuplicates = await db.execute<{
+        email: string;
+        count: number;
+      }>(sql`
+        SELECT email, COUNT(*) as count 
+        FROM users 
+        WHERE email IS NOT NULL AND email != ''
+        GROUP BY email 
+        HAVING COUNT(*) > 1
+        ORDER BY count DESC
+        LIMIT 50
+      `);
+
+      // Find duplicate mobiles
+      const mobileDuplicates = await db.execute<{
+        mobile: string;
+        count: number;
+      }>(sql`
+        SELECT mobile, COUNT(*) as count 
+        FROM users 
+        WHERE mobile IS NOT NULL AND mobile != ''
+        GROUP BY mobile 
+        HAVING COUNT(*) > 1
+        ORDER BY count DESC
+        LIMIT 50
+      `);
+
+      // Get users for each duplicate email
+      const duplicateEmails = await Promise.all(
+        emailDuplicates.rows.map(async (dup) => {
+          const users = await db.select({
+            id: schema.users.id,
+            userId: schema.users.userId,
+            email: schema.users.email,
+            mobile: schema.users.mobile,
+            firstName: schema.users.firstName,
+            middleName: schema.users.middleName,
+            lastName: schema.users.lastName,
+            createdAt: schema.users.createdAt,
+            roles: schema.users.roles,
+            isActive: schema.users.isActive,
+          }).from(schema.users).where(eq(schema.users.email, dup.email));
+          
+          return {
+            email: dup.email,
+            count: Number(dup.count),
+            users: users.map(u => ({
+              id: u.id,
+              userId: u.userId || u.id,
+              email: u.email || '',
+              mobile: u.mobile || '',
+              firstName: u.firstName || '',
+              middleName: u.middleName,
+              lastName: u.lastName || '',
+              createdAt: u.createdAt?.toISOString() || '',
+              role: (u.roles as string[])?.[0] || 'user',
+              isActive: u.isActive ?? true,
+            })),
+          };
+        })
+      );
+
+      // Get users for each duplicate mobile
+      const duplicateMobiles = await Promise.all(
+        mobileDuplicates.rows.map(async (dup) => {
+          const users = await db.select({
+            id: schema.users.id,
+            userId: schema.users.userId,
+            email: schema.users.email,
+            mobile: schema.users.mobile,
+            firstName: schema.users.firstName,
+            middleName: schema.users.middleName,
+            lastName: schema.users.lastName,
+            createdAt: schema.users.createdAt,
+            roles: schema.users.roles,
+            isActive: schema.users.isActive,
+          }).from(schema.users).where(eq(schema.users.mobile, dup.mobile));
+          
+          return {
+            mobile: dup.mobile,
+            count: Number(dup.count),
+            users: users.map(u => ({
+              id: u.id,
+              userId: u.userId || u.id,
+              email: u.email || '',
+              mobile: u.mobile || '',
+              firstName: u.firstName || '',
+              middleName: u.middleName,
+              lastName: u.lastName || '',
+              createdAt: u.createdAt?.toISOString() || '',
+              role: (u.roles as string[])?.[0] || 'user',
+              isActive: u.isActive ?? true,
+            })),
+          };
+        })
+      );
+
+      // Calculate affected accounts
+      const affectedUserIds = new Set<string>();
+      duplicateEmails.forEach(de => de.users.forEach(u => affectedUserIds.add(u.id)));
+      duplicateMobiles.forEach(dm => dm.users.forEach(u => affectedUserIds.add(u.id)));
+
+      res.json({
+        success: true,
+        data: {
+          duplicateEmails,
+          duplicateMobiles,
+          summary: {
+            totalDuplicateEmails: duplicateEmails.length,
+            totalDuplicateMobiles: duplicateMobiles.length,
+            totalAffectedAccounts: affectedUserIds.size,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching duplicates:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch duplicate accounts' });
+    }
+  });
+
+  // Admin: Get duplicate stats summary
+  app.get('/api/admin/duplicate-stats', requireAdmin, async (req, res) => {
+    try {
+      // Count duplicate emails
+      const [emailStats] = await db.execute<{ count: number }>(sql`
+        SELECT COUNT(*) as count FROM (
+          SELECT email FROM users 
+          WHERE email IS NOT NULL AND email != ''
+          GROUP BY email 
+          HAVING COUNT(*) > 1
+        ) as dups
+      `);
+
+      // Count duplicate mobiles
+      const [mobileStats] = await db.execute<{ count: number }>(sql`
+        SELECT COUNT(*) as count FROM (
+          SELECT mobile FROM users 
+          WHERE mobile IS NOT NULL AND mobile != ''
+          GROUP BY mobile 
+          HAVING COUNT(*) > 1
+        ) as dups
+      `);
+
+      // Count affected users
+      const [affectedStats] = await db.execute<{ count: number }>(sql`
+        SELECT COUNT(DISTINCT id) as count FROM users
+        WHERE email IN (
+          SELECT email FROM users 
+          WHERE email IS NOT NULL AND email != ''
+          GROUP BY email 
+          HAVING COUNT(*) > 1
+        ) OR mobile IN (
+          SELECT mobile FROM users 
+          WHERE mobile IS NOT NULL AND mobile != ''
+          GROUP BY mobile 
+          HAVING COUNT(*) > 1
+        )
+      `);
+
+      res.json({
+        success: true,
+        data: {
+          totalDuplicateEmails: Number(emailStats?.count) || 0,
+          totalDuplicateMobiles: Number(mobileStats?.count) || 0,
+          totalAffectedAccounts: Number(affectedStats?.count) || 0,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching duplicate stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch duplicate stats' });
+    }
+  });
+
+  // ==================== END DUPLICATE ACCOUNTS API ====================
+
   // Get user's manual KYC submissions
   app.get('/api/kyc/manual-submissions', async (req: any, res) => {
     try {
