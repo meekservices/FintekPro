@@ -86,6 +86,16 @@ interface ComplianceAlert {
   status: string;
 }
 
+function buildUrl(baseUrl: string, params: Record<string, any>): string {
+  const url = new URL(baseUrl, window.location.origin);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  return url.toString();
+}
+
 export default function KycCompliancePage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,17 +117,31 @@ export default function KycCompliancePage() {
 
   // Fetch KYC submissions
   const { data: submissionsResponse, refetch: refetchSubmissions, isLoading: isLoadingSubmissions } = useQuery<{ success: boolean; data: KycSubmission[]; pagination: { total: number; limit: number; offset: number; hasMore: boolean } }>({
-    queryKey: ["/api/admin/kyc/submissions", { 
-      status: statusFilter === "all" ? undefined : statusFilter,
-      tier: tierFilter === "all" ? undefined : tierFilter,
-      search: searchQuery || undefined
-    }],
+    queryKey: ["/api/admin/kyc/submissions", statusFilter, tierFilter, searchQuery],
+    queryFn: async () => {
+      const url = buildUrl('/api/admin/kyc/submissions', {
+        status: statusFilter === "all" ? undefined : statusFilter,
+        tier: tierFilter === "all" ? undefined : tierFilter,
+        search: searchQuery || undefined
+      });
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch submissions');
+      return res.json();
+    },
     enabled: activeTab === "submissions",
   });
 
   // Fetch compliance alerts
-  const { data: alertsResponse, refetch: refetchAlerts } = useQuery<{ success: boolean; data: ComplianceAlert[]; pagination?: { total: number } }>({
-    queryKey: ["/api/admin/compliance/alerts", { status: statusFilter === "all" ? undefined : statusFilter }],
+  const { data: alertsResponse, refetch: refetchAlerts } = useQuery<{ alerts: ComplianceAlert[]; total: number; unresolved: number }>({
+    queryKey: ["/api/admin/compliance/alerts", statusFilter],
+    queryFn: async () => {
+      const url = buildUrl('/api/admin/compliance/alerts', {
+        resolved: statusFilter === "resolved" ? "true" : statusFilter === "unresolved" ? "false" : undefined
+      });
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch alerts');
+      return res.json();
+    },
     enabled: activeTab === "alerts",
   });
 
@@ -168,7 +192,7 @@ export default function KycCompliancePage() {
   };
 
   const submissions = submissionsResponse?.data || [];
-  const alerts = alertsResponse?.data || [];
+  const alerts = alertsResponse?.alerts || [];
 
   const kycColumns: Column<KycSubmission>[] = useMemo(() => [
     {

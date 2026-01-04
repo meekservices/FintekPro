@@ -24738,6 +24738,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: KYC Dashboard Stats
+  app.get('/api/admin/kyc/dashboard', requireAdmin, async (req, res) => {
+    try {
+      const { eq, sql, and, gte, lte } = await import('drizzle-orm');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Get pending KYC count
+      const [{ count: pendingCount }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.manualKycSubmissions)
+        .where(eq(schema.manualKycSubmissions.status, 'pending'));
+
+      // Get approved today count
+      const [{ count: approvedToday }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.manualKycSubmissions)
+        .where(and(
+          eq(schema.manualKycSubmissions.status, 'approved'),
+          gte(schema.manualKycSubmissions.reviewedAt, today),
+          lte(schema.manualKycSubmissions.reviewedAt, tomorrow)
+        ));
+
+      // Get rejected today count
+      const [{ count: rejectedToday }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.manualKycSubmissions)
+        .where(and(
+          eq(schema.manualKycSubmissions.status, 'rejected'),
+          gte(schema.manualKycSubmissions.reviewedAt, today),
+          lte(schema.manualKycSubmissions.reviewedAt, tomorrow)
+        ));
+
+      // Get pending documents count
+      const [{ count: pendingDocs }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.manualKycDocuments)
+        .where(eq(schema.manualKycDocuments.verificationStatus, 'pending'));
+
+      // Get active alerts from compliance monitor
+      const alerts = complianceMonitor.getAlerts(false);
+
+      // Get KYC tier counts from users
+      const [{ count: tier1Count }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.users)
+        .where(eq(schema.users.kycTier, 'tier1'));
+
+      const [{ count: tier2Count }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.users)
+        .where(eq(schema.users.kycTier, 'tier2'));
+
+      const [{ count: tier3Count }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.users)
+        .where(eq(schema.users.kycTier, 'tier3'));
+
+      res.json({
+        success: true,
+        data: {
+          pendingKyc: Number(pendingCount) || 0,
+          approvedToday: Number(approvedToday) || 0,
+          rejectedToday: Number(rejectedToday) || 0,
+          pendingDocuments: Number(pendingDocs) || 0,
+          activeAlerts: alerts?.length || 0,
+          tier1Count: Number(tier1Count) || 0,
+          tier2Count: Number(tier2Count) || 0,
+          tier3Count: Number(tier3Count) || 0
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching KYC dashboard stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch dashboard stats' });
+    }
+  });
+
+  // Admin: KYC Submissions (formatted for compliance page)
+  app.get('/api/admin/kyc/submissions', requireAdmin, async (req, res) => {
+    try {
+      const { status, tier, search, limit = '50', offset = '0' } = req.query;
+      const { eq, sql, like, or } = await import('drizzle-orm');
+
+      let query = db.select({
+        id: schema.manualKycSubmissions.id,
+        userId: schema.manualKycSubmissions.userId,
+        userName: schema.manualKycSubmissions.fullName,
+        userEmail: schema.manualKycSubmissions.email,
+        type: schema.manualKycSubmissions.applicantType,
+        tier: sql<string>`'tier1'`,
+        status: schema.manualKycSubmissions.status,
+        submittedAt: schema.manualKycSubmissions.createdAt,
+        reviewedAt: schema.manualKycSubmissions.reviewedAt,
+        reviewedBy: schema.manualKycSubmissions.reviewedBy,
+      }).from(schema.manualKycSubmissions);
+
+      const conditions: any[] = [];
+
+      if (status && status !== 'all') {
+        conditions.push(eq(schema.manualKycSubmissions.status, status as string));
+      }
+
+      if (search) {
+        conditions.push(or(
+          like(schema.manualKycSubmissions.fullName, `%${search}%`),
+          like(schema.manualKycSubmissions.email, `%${search}%`),
+          like(schema.manualKycSubmissions.panNumber, `%${search}%`)
+        ));
+      }
+
+      if (conditions.length > 0) {
+        const { and } = await import('drizzle-orm');
+        query = query.where(and(...conditions)) as any;
+      }
+
+      const limitNum = parseInt(limit as string);
+      const offsetNum = parseInt(offset as string);
+      
+      const submissions = await query.limit(limitNum).offset(offsetNum);
+
+      // Get total count
+      const [{ count: total }] = await db.select({ count: sql<number>`count(*)` })
+        .from(schema.manualKycSubmissions);
+
+      res.json({
+        success: true,
+        data: submissions.map(s => ({
+          ...s,
+          submittedAt: s.submittedAt?.toISOString() || null,
+          reviewedAt: s.reviewedAt?.toISOString() || null,
+        })),
+        pagination: {
+          total: Number(total),
+          limit: limitNum,
+          offset: offsetNum,
+          hasMore: offsetNum + limitNum < Number(total)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching KYC submissions:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch submissions' });
+    }
+  });
+
   // Get user's manual KYC submissions
   app.get('/api/kyc/manual-submissions', async (req: any, res) => {
     try {
