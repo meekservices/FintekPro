@@ -60,21 +60,18 @@ interface ApiAgent {
   fullName: string;
   email: string;
   phone: string;
+  employeeId: string;
+  agentType: string;
   status: string;
-  totalClientsAssigned: number;
-  activeClientsCount: number;
-  totalCommissionsEarned: string;
-  totalCommissionsPaid: string;
-  pendingCommissions: string;
-  customerSatisfactionRating: string | null;
-  totalTicketsHandled: number;
-  updatedAt: string;
+  isActive: boolean;
+  activeClients: number;
+  totalRevenue: string;
   createdAt: string;
 }
 
-function getLastActiveText(updatedAt: string): string {
+function getLastActiveText(createdAt: string): string {
   const now = new Date();
-  const updated = new Date(updatedAt);
+  const updated = new Date(createdAt);
   const diffMs = now.getTime() - updated.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
@@ -88,32 +85,29 @@ function getLastActiveText(updatedAt: string): string {
 }
 
 function transformApiAgentToAgentData(agent: ApiAgent): AgentData {
-  const commissions = parseFloat(agent.totalCommissionsEarned || "0");
-  const pendingComm = parseFloat(agent.pendingCommissions || "0");
-  const totalClients = agent.totalClientsAssigned || 0;
-  const activeClients = agent.activeClientsCount || 0;
+  const totalRevenue = parseFloat(agent.totalRevenue || "0");
+  const activeClients = agent.activeClients || 0;
   
-  const conversionRate = totalClients > 0 ? (activeClients / totalClients) * 100 : 
-    (agent.customerSatisfactionRating ? parseFloat(agent.customerSatisfactionRating) * 20 : 50);
+  const conversionRate = activeClients > 0 ? Math.min(100, 50 + activeClients * 5) : 50;
   
   let trend: "up" | "down" | "stable" = "stable";
-  if (pendingComm > commissions * 0.2) trend = "up";
-  else if (activeClients === 0 && totalClients > 0) trend = "down";
+  if (totalRevenue > 100000) trend = "up";
+  else if (activeClients === 0) trend = "down";
   
   let status: "active" | "inactive" | "warning" = "active";
-  if (agent.status === "inactive") status = "inactive";
+  if (!agent.isActive || agent.status === "inactive") status = "inactive";
   else if (agent.status === "on_leave" || agent.status === "warning") status = "warning";
   
   return {
     id: agent.id,
-    name: agent.fullName,
-    aum: commissions * 100,
-    revenueMTD: commissions + pendingComm,
-    clients: totalClients,
+    name: agent.fullName || "Unknown Agent",
+    aum: totalRevenue * 10,
+    revenueMTD: totalRevenue,
+    clients: activeClients,
     conversionRate: Math.min(100, Math.max(0, conversionRate)),
     trend,
     status,
-    lastActive: getLastActiveText(agent.updatedAt)
+    lastActive: getLastActiveText(agent.createdAt)
   };
 }
 
@@ -135,7 +129,7 @@ export default function AgentPerformanceDashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [performanceFilter, setPerformanceFilter] = useState("all");
 
-  const { data: agentsResponse, isLoading, refetch } = useQuery<{ agents: ApiAgent[] }>({
+  const { data: agentsResponse, isLoading, refetch } = useQuery<{ success: boolean; data: { data: ApiAgent[]; total: number } }>({
     queryKey: ["/api/admin/agents"],
     queryFn: async () => {
       const response = await apiRequest("/api/admin/agents");
@@ -143,7 +137,7 @@ export default function AgentPerformanceDashboard() {
     }
   });
 
-  const agents: AgentData[] = (agentsResponse?.agents || []).map(transformApiAgentToAgentData);
+  const agents: AgentData[] = (agentsResponse?.data?.data || []).map(transformApiAgentToAgentData);
   
   const revenueByAgentData = agents.slice(0, 8).map(agent => ({
     name: agent.name.split(" ")[0],
