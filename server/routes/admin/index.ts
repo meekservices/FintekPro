@@ -522,7 +522,7 @@ export function registerAdminPanelRoutes(app: Express): void {
   app.get("/api/admin/pending-orders/count", requireAdmin, async (req, res) => {
     try {
       const unlistedDealsResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM unlisted_deals WHERE status IN ('pending', 'pending_verification', 'processing')`);
-      const bondOrdersResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM bond_orders WHERE status = 'pending' OR status = 'submitted'`);
+      const bondOrdersResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM bond_orders WHERE order_status = 'pending' OR order_status = 'submitted'`);
 
       res.json({
         unlistedPending: Number(unlistedDealsResult.rows[0]?.count || 0),
