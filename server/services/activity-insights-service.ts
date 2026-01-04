@@ -4,7 +4,7 @@ import {
   kycAuditLogs, storeAuditLogs, aiAuditLogs, agentComplianceAuditLogs,
   knowledgeAuditLogs, bondMarketplaceAuditLogs, bondOrders, unlistedDeals
 } from "@shared/schema";
-import { eq, sql, desc, gte, and, count, lt, isNotNull } from "drizzle-orm";
+import { eq, sql, desc, gte, and, count, lt, isNotNull, isNull, or, notInArray } from "drizzle-orm";
 import { aiService } from "./ai-service";
 
 interface ActivityMetrics {
@@ -82,12 +82,11 @@ class ActivityInsightsService {
         lt(users.lastLoginAt, thirtyDaysAgo),
         eq(users.isActive, true)
       )),
-      db.select({ count: count() }).from(users).where(and(
-        eq(users.isActive, true),
-        sql`${users.kycStatus} IS NULL OR ${users.kycStatus} NOT IN ('verified', 'approved')`
-      )),
+      db.select({ count: count() }).from(users).where(
+        sql`"is_active" = true AND ("kyc_status" IS NULL OR "kyc_status" NOT IN ('verified', 'approved'))`
+      ),
       db.select({ count: count() }).from(bondOrders).where(eq(bondOrders.orderStatus, 'pending')),
-      db.select({ count: count() }).from(unlistedDeals).where(eq(unlistedDeals.dealStatus, 'pending'))
+      db.select({ count: count() }).from(unlistedDeals).where(eq(unlistedDeals.status, 'pending'))
     ]);
 
     const errorsByModule = await db.select({
@@ -179,15 +178,17 @@ IMPORTANT:
 - For pending orders (${metrics.revenue.pendingOrders}), suggest conversion tactics
 - For high-error modules, suggest specific fixes`;
 
-      const response = await aiService.generateContent(prompt);
+      const aiResponse = await aiService.chat([
+        { role: 'user', content: prompt }
+      ], { model: 'gemini-2.0-flash-exp', maxTokens: 2000 });
       
-      if (!response) {
+      if (!aiResponse?.content) {
         console.error('[ActivityInsights] No AI response received');
         return this.getDefaultInsights(metrics);
       }
 
       try {
-        const jsonMatch = response.match(/\[[\s\S]*\]/);
+        const jsonMatch = aiResponse.content.match(/\[[\s\S]*\]/);
         if (!jsonMatch) {
           console.error('[ActivityInsights] Could not parse AI response as JSON');
           return this.getDefaultInsights(metrics);
@@ -238,11 +239,11 @@ IMPORTANT:
       });
     }
 
-    if (metrics.users.incompleteKyc > 10) {
+    if (metrics.users.incompleteKyc > 0) {
       insights.push({
         id: `insight-kyc-${Date.now()}`,
         category: 'revenue',
-        priority: 'high',
+        priority: metrics.users.incompleteKyc > 10 ? 'high' : 'medium',
         title: `${metrics.users.incompleteKyc} Users with Incomplete KYC`,
         description: `These users started registration but haven't completed KYC verification, blocking them from trading.`,
         suggestedAction: 'Send reminder emails with KYC completion incentives.',
@@ -252,7 +253,7 @@ IMPORTANT:
       });
     }
 
-    if (metrics.users.dormant30Days > 5) {
+    if (metrics.users.dormant30Days > 0) {
       insights.push({
         id: `insight-dormant-${Date.now()}`,
         category: 'engagement',
@@ -289,6 +290,20 @@ IMPORTANT:
         description: `These modules have unusually high error rates that may affect user experience.`,
         suggestedAction: 'Review error logs and deploy fixes for these modules.',
         estimatedImpact: 'Improved reliability and user satisfaction',
+        actionType: 'manual',
+        createdAt: new Date()
+      });
+    }
+
+    if (insights.length === 0) {
+      insights.push({
+        id: `insight-status-${Date.now()}`,
+        category: 'engagement',
+        priority: 'low',
+        title: 'Platform Operating Normally',
+        description: `Current metrics show healthy platform activity: ${metrics.users.activeToday} active users today, ${metrics.users.newThisWeek} new users this week.`,
+        suggestedAction: 'Continue monitoring for optimization opportunities.',
+        estimatedImpact: 'Maintain operational excellence',
         actionType: 'manual',
         createdAt: new Date()
       });
