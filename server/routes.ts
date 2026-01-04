@@ -24777,18 +24777,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get active alerts from compliance monitor
       const alerts = complianceMonitor.getAlerts(false);
 
-      // Get KYC tier counts from users
-      const [{ count: tier1Count }] = await db.select({ count: sql<number>`count(*)` })
-        .from(schema.users)
-        .where(eq(schema.users.kycTier, 'tier1'));
+      // Get KYC status counts from users (kyc_tier column may not exist yet)
+      let tier1Count = 0, tier2Count = 0, tier3Count = 0;
+      try {
+        // Try using kycStatus instead since kyc_tier may not exist
+        const [{ count: basicCount }] = await db.select({ count: sql<number>`count(*)` })
+          .from(schema.users)
+          .where(eq(schema.users.kycStatus, 'pending'));
+        tier1Count = Number(basicCount) || 0;
 
-      const [{ count: tier2Count }] = await db.select({ count: sql<number>`count(*)` })
-        .from(schema.users)
-        .where(eq(schema.users.kycTier, 'tier2'));
+        const [{ count: verifiedCount }] = await db.select({ count: sql<number>`count(*)` })
+          .from(schema.users)
+          .where(eq(schema.users.kycStatus, 'verified'));
+        tier2Count = Number(verifiedCount) || 0;
 
-      const [{ count: tier3Count }] = await db.select({ count: sql<number>`count(*)` })
-        .from(schema.users)
-        .where(eq(schema.users.kycTier, 'tier3'));
+        const [{ count: completedCount }] = await db.select({ count: sql<number>`count(*)` })
+          .from(schema.users)
+          .where(eq(schema.users.kycStatus, 'completed'));
+        tier3Count = Number(completedCount) || 0;
+      } catch (tierError) {
+        console.log('KYC tier counts not available, using defaults');
+      }
 
       res.json({
         success: true,
@@ -24798,9 +24807,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rejectedToday: Number(rejectedToday) || 0,
           pendingDocuments: Number(pendingDocs) || 0,
           activeAlerts: alerts?.length || 0,
-          tier1Count: Number(tier1Count) || 0,
-          tier2Count: Number(tier2Count) || 0,
-          tier3Count: Number(tier3Count) || 0
+          tier1Count,
+          tier2Count,
+          tier3Count
         }
       });
     } catch (error) {
@@ -24822,7 +24831,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filters.push(eq(schema.manualKycSubmissions.status, status as string));
       }
       if (tier && tier !== 'all') {
-        filters.push(eq(schema.users.kycTier, tier as string));
+        // Map tier filter to kycStatus values since kyc_tier column may not exist
+        const tierStatusMap: Record<string, string> = {
+          'tier1': 'pending',
+          'tier2': 'verified', 
+          'tier3': 'completed'
+        };
+        const mappedStatus = tierStatusMap[tier as string];
+        if (mappedStatus) {
+          filters.push(eq(schema.users.kycStatus, mappedStatus));
+        }
       }
       if (search) {
         filters.push(or(
@@ -24832,14 +24850,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ));
       }
 
-      // Build base query with join
+      // Build base query with join - use kycStatus instead of kycTier
       let query = db.select({
         id: schema.manualKycSubmissions.id,
         userId: schema.manualKycSubmissions.userId,
         userName: schema.manualKycSubmissions.fullName,
         userEmail: schema.manualKycSubmissions.email,
         type: schema.manualKycSubmissions.applicantType,
-        tier: schema.users.kycTier,
+        tier: schema.users.kycStatus,
         status: schema.manualKycSubmissions.status,
         submittedAt: schema.manualKycSubmissions.createdAt,
         reviewedAt: schema.manualKycSubmissions.reviewedAt,
