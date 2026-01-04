@@ -118,8 +118,8 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     
-    // Fetch real clients assigned to this agent with AUM in a single query using LEFT JOIN
-    const clientsWithAumRaw = await db
+    // First fetch clients assigned to this agent
+    const clientsData = await db
       .select({
         id: users.id,
         firstName: users.firstName,
@@ -128,24 +128,40 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
         riskProfile: users.riskProfile,
         kycStatus: users.kycStatus,
         updatedAt: users.updatedAt,
-        totalAum: sql<string>`COALESCE(SUM(CAST(${portfolioHoldings.currentValue} AS NUMERIC)), 0)::text`,
       })
       .from(users)
-      .leftJoin(portfolioHoldings, eq(portfolioHoldings.userId, users.id))
       .where(
         sql`${users.agentId} = ${agentId} AND 'client' = ANY(${users.roles})`
       )
-      .groupBy(users.id, users.firstName, users.lastName, users.email, users.riskProfile, users.kycStatus, users.updatedAt)
       .limit(100);
     
-    // Map to expected format with explicit number coercion
-    const clients = clientsWithAumRaw.map(client => ({
+    // If no clients, return empty array
+    if (clientsData.length === 0) {
+      return res.json([]);
+    }
+    
+    // Fetch AUM for all clients in one query using subquery
+    const clientIds = clientsData.map(c => c.id);
+    const aumResults = await db
+      .select({
+        userId: portfolioHoldings.userId,
+        totalAum: sql<string>`COALESCE(SUM(CAST(current_value AS NUMERIC)), 0)::text`,
+      })
+      .from(portfolioHoldings)
+      .where(sql`${portfolioHoldings.userId} = ANY(ARRAY[${sql.join(clientIds.map(id => sql`${id}`), sql`, `)}]::text[])`)
+      .groupBy(portfolioHoldings.userId);
+    
+    // Create AUM lookup map
+    const aumMap = new Map(aumResults.map(r => [r.userId, Number(r.totalAum) || 0]));
+    
+    // Map to expected format with AUM from lookup
+    const clients = clientsData.map(client => ({
       id: client.id,
       name: `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Unknown',
       email: client.email || '',
       riskProfile: client.riskProfile || 'Moderate',
       kycTier: client.kycStatus || 'Basic',
-      totalAum: Number(client.totalAum) || 0,
+      totalAum: aumMap.get(client.id) || 0,
       lastActivity: client.updatedAt?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
     }));
     

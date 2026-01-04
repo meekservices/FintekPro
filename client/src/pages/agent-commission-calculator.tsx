@@ -59,11 +59,34 @@ export default function AgentCommissionCalculator() {
   const [tenure, setTenure] = useState<string>("12");
   const [scenarios, setScenarios] = useState<ScenarioItem[]>([]);
 
-  const { data: commissionRates } = useQuery<CommissionRate[]>({
+  const { data: commissionRatesResponse } = useQuery<{ rates: Record<string, { trailPercent: number; upfrontPercent: number; minInvestment: number; description: string }> }>({
     queryKey: ['/api/agent/commission-rates']
   });
 
-  const rates = commissionRates || defaultCommissionRates;
+  // Transform API response from object format to array format
+  const rates = useMemo(() => {
+    if (!commissionRatesResponse?.rates) {
+      return defaultCommissionRates;
+    }
+    
+    const productTypeMapping: Record<string, string> = {
+      'mutual_funds': 'Mutual Funds',
+      'bonds': 'Bonds',
+      'insurance': 'Insurance',
+      'unlisted_stocks': 'Unlisted Stocks',
+      'reits': 'REITs',
+    };
+    
+    const transformed: CommissionRate[] = Object.entries(commissionRatesResponse.rates).map(([key, value]) => ({
+      productType: productTypeMapping[key] || key,
+      trailCommission: value.trailPercent || 0,
+      upfrontCommission: value.upfrontPercent || 0,
+      minInvestment: value.minInvestment || 0,
+      description: value.description || '',
+    }));
+    
+    return transformed.length > 0 ? transformed : defaultCommissionRates;
+  }, [commissionRatesResponse]);
 
   const formatCurrency = (value: number) => {
     if (value >= 10000000) {
