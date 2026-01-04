@@ -72,12 +72,16 @@ interface Client {
   mobile?: string;
 }
 
-const MEETING_TYPE_CONFIG = {
+const MEETING_TYPE_CONFIG: Record<string, { label: string; icon: any; color: string; textColor: string; bgLight: string }> = {
   call: { label: 'Call', icon: Phone, color: 'bg-blue-500', textColor: 'text-blue-400', bgLight: 'bg-blue-500/20' },
   video_call: { label: 'Video Call', icon: Video, color: 'bg-purple-500', textColor: 'text-purple-400', bgLight: 'bg-purple-500/20' },
   in_person: { label: 'In-Person', icon: User, color: 'bg-emerald-500', textColor: 'text-emerald-400', bgLight: 'bg-emerald-500/20' },
   office_visit: { label: 'Office Visit', icon: Building, color: 'bg-amber-500', textColor: 'text-amber-400', bgLight: 'bg-amber-500/20' },
 };
+
+const DEFAULT_MEETING_CONFIG = { label: 'Meeting', icon: CalendarIcon, color: 'bg-slate-500', textColor: 'text-slate-400', bgLight: 'bg-slate-500/20' };
+
+const getMeetingConfig = (meetingType: string) => MEETING_TYPE_CONFIG[meetingType] || DEFAULT_MEETING_CONFIG;
 
 const REMINDER_OPTIONS = [
   { value: 'none', label: 'No reminder' },
@@ -116,7 +120,7 @@ DTSTART:${formatICSDate(startDate)}
 DTEND:${formatICSDate(endDate)}
 SUMMARY:${appointment.title}
 DESCRIPTION:${appointment.description || ''}${appointment.agenda ? '\\nAgenda: ' + appointment.agenda : ''}
-LOCATION:${appointment.locationDetails || MEETING_TYPE_CONFIG[appointment.meetingType].label}
+LOCATION:${appointment.locationDetails || getMeetingConfig(appointment.meetingType).label}
 END:VEVENT
 END:VCALENDAR`;
 
@@ -386,7 +390,7 @@ export default function AgentCalendar() {
                 </div>
                 <div className="space-y-1">
                   {dayAppointments.slice(0, 3).map(apt => {
-                    const config = MEETING_TYPE_CONFIG[apt.meetingType];
+                    const config = getMeetingConfig(apt.meetingType);
                     return (
                       <div
                         key={apt.id}
@@ -443,7 +447,7 @@ export default function AgentCalendar() {
                     className="p-1 border-l border-slate-700 min-h-[50px] hover:bg-slate-800/30 cursor-pointer"
                   >
                     {dayAppointments.map(apt => {
-                      const config = MEETING_TYPE_CONFIG[apt.meetingType];
+                      const config = getMeetingConfig(apt.meetingType);
                       return (
                         <div
                           key={apt.id}
@@ -543,7 +547,7 @@ export default function AgentCalendar() {
                   ) : (
                     <div className="space-y-3">
                       {todayAppointments.map(apt => {
-                        const config = MEETING_TYPE_CONFIG[apt.meetingType];
+                        const config = getMeetingConfig(apt.meetingType);
                         const Icon = config.icon;
                         return (
                           <div
@@ -589,7 +593,7 @@ export default function AgentCalendar() {
                   ) : (
                     <div className="space-y-3">
                       {upcomingAppointments.slice(0, 8).map(apt => {
-                        const config = MEETING_TYPE_CONFIG[apt.meetingType];
+                        const config = getMeetingConfig(apt.meetingType);
                         return (
                           <div
                             key={apt.id}
@@ -796,7 +800,7 @@ export default function AgentCalendar() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {(() => {
-                      const config = MEETING_TYPE_CONFIG[selectedAppointment.meetingType];
+                      const config = getMeetingConfig(selectedAppointment.meetingType);
                       const Icon = config.icon;
                       return (
                         <div className={`p-2 rounded-lg ${config.bgLight}`}>
@@ -807,8 +811,8 @@ export default function AgentCalendar() {
                     <div>
                       <DialogTitle>{selectedAppointment.title}</DialogTitle>
                       <div className="flex items-center gap-2 mt-1">
-                        <Badge className={`${MEETING_TYPE_CONFIG[selectedAppointment.meetingType].bgLight} ${MEETING_TYPE_CONFIG[selectedAppointment.meetingType].textColor} border-0`}>
-                          {MEETING_TYPE_CONFIG[selectedAppointment.meetingType].label}
+                        <Badge className={`${getMeetingConfig(selectedAppointment.meetingType).bgLight} ${getMeetingConfig(selectedAppointment.meetingType).textColor} border-0`}>
+                          {getMeetingConfig(selectedAppointment.meetingType).label}
                         </Badge>
                         {selectedAppointment.status === 'completed' && (
                           <Badge className="bg-green-500/20 text-green-400 border-0">Completed</Badge>
