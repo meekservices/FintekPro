@@ -25344,7 +25344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/duplicate-stats', requireAdmin, async (req, res) => {
     try {
       // Count duplicate emails
-      const [emailStats] = await db.execute<{ count: number }>(sql`
+      const emailResult = await db.execute<{ count: string }>(sql`
         SELECT COUNT(*) as count FROM (
           SELECT email FROM users 
           WHERE email IS NOT NULL AND email != ''
@@ -25352,9 +25352,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           HAVING COUNT(*) > 1
         ) as dups
       `);
+      const emailCount = Number(emailResult.rows[0]?.count) || 0;
 
       // Count duplicate mobiles
-      const [mobileStats] = await db.execute<{ count: number }>(sql`
+      const mobileResult = await db.execute<{ count: string }>(sql`
         SELECT COUNT(*) as count FROM (
           SELECT mobile FROM users 
           WHERE mobile IS NOT NULL AND mobile != ''
@@ -25362,9 +25363,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           HAVING COUNT(*) > 1
         ) as dups
       `);
+      const mobileCount = Number(mobileResult.rows[0]?.count) || 0;
 
       // Count affected users
-      const [affectedStats] = await db.execute<{ count: number }>(sql`
+      const affectedResult = await db.execute<{ count: string }>(sql`
         SELECT COUNT(DISTINCT id) as count FROM users
         WHERE email IN (
           SELECT email FROM users 
@@ -25378,13 +25380,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           HAVING COUNT(*) > 1
         )
       `);
+      const affectedCount = Number(affectedResult.rows[0]?.count) || 0;
 
       res.json({
         success: true,
         data: {
-          totalDuplicateEmails: Number(emailStats?.count) || 0,
-          totalDuplicateMobiles: Number(mobileStats?.count) || 0,
-          totalAffectedAccounts: Number(affectedStats?.count) || 0,
+          totalDuplicates: emailCount + mobileCount,
+          totalDuplicateEmails: emailCount,
+          totalDuplicateMobiles: mobileCount,
+          totalAffectedAccounts: affectedCount,
+          highRisk: 0,
+          mediumRisk: 0,
+          lowRisk: 0,
+          autoMergeRecommended: 0,
         },
       });
     } catch (error) {
