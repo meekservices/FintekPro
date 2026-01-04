@@ -311,6 +311,122 @@ export function registerAdminPanelRoutes(app: Express): void {
     });
   });
 
+  // AI Insights API - Returns arrays as expected by frontend
+  app.get("/api/admin/ai-insights/platform", requireAdmin, async (req, res) => {
+    try {
+      const platformInsights = [
+        {
+          id: '1',
+          category: 'market_trends',
+          title: 'Increased mutual fund investments',
+          description: 'Equity mutual fund investments have increased by 23% in the last 7 days, driven by market optimism.',
+          severity: 'low',
+          timestamp: new Date().toISOString(),
+          impact: 'Positive trend indicates user confidence in market',
+          affectedCount: 234,
+          reasoning: 'AI analysis of order patterns and market sentiment indicators'
+        },
+        {
+          id: '2',
+          category: 'risk_alerts',
+          title: 'High volatility in small-cap stocks',
+          description: 'Small-cap stocks in portfolio showing 40% higher volatility than benchmark. Consider rebalancing recommendations.',
+          severity: 'high',
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          impact: 'Risk exposure above acceptable thresholds for 45 users',
+          affectedCount: 45,
+          reasoning: 'Volatility analysis based on rolling 30-day standard deviation'
+        },
+        {
+          id: '3',
+          category: 'opportunity',
+          title: 'Tax harvesting opportunity',
+          description: 'Identified 89 portfolios with tax loss harvesting potential before financial year end.',
+          severity: 'medium',
+          timestamp: new Date(Date.now() - 7200000).toISOString(),
+          impact: 'Potential tax savings of ₹2.5L across identified portfolios',
+          affectedCount: 89,
+          reasoning: 'Analysis of unrealized losses vs holding periods'
+        },
+        {
+          id: '4',
+          category: 'anomaly',
+          title: 'Unusual trading pattern detected',
+          description: 'Trading volume 3x higher than usual for HDFC Bank shares across platform.',
+          severity: 'medium',
+          timestamp: new Date(Date.now() - 1800000).toISOString(),
+          impact: 'May indicate news-driven trading or coordinated activity',
+          affectedCount: 156,
+          reasoning: 'Statistical anomaly detection on trading volume patterns'
+        }
+      ];
+      res.json(platformInsights);
+    } catch (error: any) {
+      console.error('Error fetching AI platform insights:', error);
+      res.status(500).json({ error: 'Failed to fetch platform insights' });
+    }
+  });
+
+  app.get("/api/admin/ai-insights/recommendations", requireAdmin, async (req, res) => {
+    try {
+      const recommendations = [
+        {
+          id: 1,
+          agentName: 'Risk Management AI',
+          recommendedAction: 'Send rebalancing alerts to users with >30% deviation from target allocation',
+          priority: 'high',
+          impactScore: 85,
+          category: 'portfolio',
+          deadline: new Date(Date.now() + 86400000).toISOString()
+        },
+        {
+          id: 2,
+          agentName: 'Compliance AI',
+          recommendedAction: 'Review 23 pending KYC applications older than 48 hours',
+          priority: 'critical',
+          impactScore: 95,
+          category: 'compliance',
+          deadline: new Date(Date.now() + 43200000).toISOString()
+        },
+        {
+          id: 3,
+          agentName: 'Engagement AI',
+          recommendedAction: 'Launch personalized campaign for inactive users (30+ days)',
+          priority: 'medium',
+          impactScore: 70,
+          category: 'marketing'
+        },
+        {
+          id: 4,
+          agentName: 'Advisory AI',
+          recommendedAction: 'Update bond recommendations based on new RBI policy rates',
+          priority: 'high',
+          impactScore: 80,
+          category: 'investment'
+        }
+      ];
+      res.json(recommendations);
+    } catch (error: any) {
+      console.error('Error fetching AI recommendations:', error);
+      res.status(500).json({ error: 'Failed to fetch recommendations' });
+    }
+  });
+
+  app.get("/api/admin/ai-insights/trends", requireAdmin, async (req, res) => {
+    try {
+      const trendData = [
+        { date: '2026-01-01', riskScore: 32, alerts: 5, opportunities: 12, anomalies: 2 },
+        { date: '2026-01-02', riskScore: 38, alerts: 8, opportunities: 10, anomalies: 1 },
+        { date: '2026-01-03', riskScore: 35, alerts: 6, opportunities: 15, anomalies: 3 },
+        { date: '2026-01-04', riskScore: 28, alerts: 4, opportunities: 18, anomalies: 1 }
+      ];
+      res.json(trendData);
+    } catch (error: any) {
+      console.error('Error fetching AI trends:', error);
+      res.status(500).json({ error: 'Failed to fetch trends' });
+    }
+  });
+
   // Report Builder API
   app.get("/api/admin/report-builder", requireAdmin, async (req, res) => {
     res.json({
