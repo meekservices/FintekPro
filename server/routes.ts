@@ -27,7 +27,7 @@ declare global {
     }
   }
 }
-import { sql, eq, and, or, like, desc, asc, count, inArray } from "drizzle-orm";
+import { sql, eq, and, or, like, desc, asc, count, inArray, gte, lte, lt } from "drizzle-orm";
 import { db } from "./db";
 import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
@@ -24741,7 +24741,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: KYC Dashboard Stats
   app.get('/api/admin/kyc/dashboard', requireAdmin, async (req, res) => {
     try {
-      const { eq, sql, and, gte, lte } = await import('drizzle-orm');
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
@@ -24814,53 +24813,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/kyc/submissions', requireAdmin, async (req, res) => {
     try {
       const { status, tier, search, limit = '50', offset = '0' } = req.query;
-      const { eq, sql, like, or } = await import('drizzle-orm');
+      const limitNum = parseInt(limit as string);
+      const offsetNum = parseInt(offset as string);
 
-      let query = db.select({
-        id: schema.manualKycSubmissions.id,
-        userId: schema.manualKycSubmissions.userId,
-        userName: schema.manualKycSubmissions.fullName,
-        userEmail: schema.manualKycSubmissions.email,
-        type: schema.manualKycSubmissions.applicantType,
-        tier: sql<string>`'tier1'`,
-        status: schema.manualKycSubmissions.status,
-        submittedAt: schema.manualKycSubmissions.createdAt,
-        reviewedAt: schema.manualKycSubmissions.reviewedAt,
-        reviewedBy: schema.manualKycSubmissions.reviewedBy,
-      }).from(schema.manualKycSubmissions);
-
-      const conditions: any[] = [];
-
+      // Build filters array conditionally
+      const filters: any[] = [];
       if (status && status !== 'all') {
-        conditions.push(eq(schema.manualKycSubmissions.status, status as string));
+        filters.push(eq(schema.manualKycSubmissions.status, status as string));
       }
-
+      if (tier && tier !== 'all') {
+        filters.push(eq(schema.users.kycTier, tier as string));
+      }
       if (search) {
-        conditions.push(or(
+        filters.push(or(
           like(schema.manualKycSubmissions.fullName, `%${search}%`),
           like(schema.manualKycSubmissions.email, `%${search}%`),
           like(schema.manualKycSubmissions.panNumber, `%${search}%`)
         ));
       }
 
-      if (conditions.length > 0) {
-        const { and } = await import('drizzle-orm');
-        query = query.where(and(...conditions)) as any;
+      // Build base query with join
+      let query = db.select({
+        id: schema.manualKycSubmissions.id,
+        userId: schema.manualKycSubmissions.userId,
+        userName: schema.manualKycSubmissions.fullName,
+        userEmail: schema.manualKycSubmissions.email,
+        type: schema.manualKycSubmissions.applicantType,
+        tier: schema.users.kycTier,
+        status: schema.manualKycSubmissions.status,
+        submittedAt: schema.manualKycSubmissions.createdAt,
+        reviewedAt: schema.manualKycSubmissions.reviewedAt,
+        reviewedBy: schema.manualKycSubmissions.reviewedBy,
+      })
+        .from(schema.manualKycSubmissions)
+        .leftJoin(schema.users, eq(schema.manualKycSubmissions.userId, schema.users.id));
+
+      // Apply filters only if we have any
+      if (filters.length > 0) {
+        query = query.where(filters.length === 1 ? filters[0] : and(...filters)) as any;
       }
 
-      const limitNum = parseInt(limit as string);
-      const offsetNum = parseInt(offset as string);
-      
       const submissions = await query.limit(limitNum).offset(offsetNum);
 
-      // Get total count
-      const [{ count: total }] = await db.select({ count: sql<number>`count(*)` })
-        .from(schema.manualKycSubmissions);
+      // Get total count with same filters
+      let countQuery = db.select({ count: sql<number>`count(*)` })
+        .from(schema.manualKycSubmissions)
+        .leftJoin(schema.users, eq(schema.manualKycSubmissions.userId, schema.users.id));
+
+      if (filters.length > 0) {
+        countQuery = countQuery.where(filters.length === 1 ? filters[0] : and(...filters)) as any;
+      }
+
+      const [{ count: total }] = await countQuery;
 
       res.json({
         success: true,
         data: submissions.map(s => ({
           ...s,
+          tier: s.tier || 'tier1',
           submittedAt: s.submittedAt?.toISOString() || null,
           reviewedAt: s.reviewedAt?.toISOString() || null,
         })),
