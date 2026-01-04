@@ -493,6 +493,238 @@ function WebhookAlertingSettings() {
   );
 }
 
+interface AIInsight {
+  id: string;
+  category: 'performance' | 'abuse' | 'revenue' | 'engagement' | 'security';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  suggestedAction: string;
+  estimatedImpact: string;
+  actionType?: 'email' | 'notification' | 'config' | 'manual';
+  createdAt: string;
+}
+
+const PRIORITY_COLORS: Record<string, string> = {
+  critical: "bg-red-500",
+  high: "bg-orange-500",
+  medium: "bg-yellow-500",
+  low: "bg-blue-500"
+};
+
+const CATEGORY_ICONS: Record<string, any> = {
+  performance: Zap,
+  abuse: Shield,
+  revenue: TrendingUp,
+  engagement: Users,
+  security: Shield
+};
+
+function AIInsightsPanel() {
+  const { toast } = useToast();
+  
+  const { data: insightsData, isLoading, refetch } = useQuery<{ 
+    success: boolean; 
+    insights: AIInsight[]; 
+    lastAnalysis: string;
+    fromCache: boolean;
+  }>({
+    queryKey: ['/api/activity-centre/insights'],
+    refetchInterval: 5 * 60 * 1000,
+  });
+
+  const { data: metricsData } = useQuery<{
+    success: boolean;
+    metrics: {
+      errors: { total: number; critical: number; trend: string };
+      users: { activeToday: number; newThisWeek: number; dormant30Days: number; incompleteKyc: number };
+      revenue: { pendingOrders: number; abandonedCarts: number };
+      security: { failedLogins: number; rateLimitViolations: number };
+    };
+  }>({
+    queryKey: ['/api/activity-centre/metrics'],
+    refetchInterval: 60000,
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: () => apiRequest('/api/activity-centre/insights/refresh', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/activity-centre/insights'] });
+      toast({ title: "Insights refreshed", description: "AI has generated new recommendations." });
+    },
+    onError: () => {
+      toast({ title: "Refresh failed", description: "Could not generate new insights.", variant: "destructive" });
+    }
+  });
+
+  const insights = insightsData?.insights || [];
+  const metrics = metricsData?.metrics;
+
+  const getPriorityBadge = (priority: string) => {
+    const variants: Record<string, "destructive" | "secondary" | "outline" | "default"> = {
+      critical: "destructive",
+      high: "destructive",
+      medium: "secondary",
+      low: "outline"
+    };
+    return variants[priority] || "outline";
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      performance: "text-purple-500",
+      abuse: "text-red-500",
+      revenue: "text-green-500",
+      engagement: "text-blue-500",
+      security: "text-orange-500"
+    };
+    return colors[category] || "text-gray-500";
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">AI-Powered Insights</h2>
+          <p className="text-sm text-muted-foreground">
+            {insightsData?.lastAnalysis 
+              ? `Last analyzed: ${formatDistanceToNow(new Date(insightsData.lastAnalysis))} ago`
+              : "Analyzing platform activity..."}
+            {insightsData?.fromCache && " (cached)"}
+          </p>
+        </div>
+        <Button 
+          onClick={() => refreshMutation.mutate()} 
+          disabled={refreshMutation.isPending}
+          variant="outline"
+          data-testid="button-refresh-insights"
+        >
+          {refreshMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          Refresh Insights
+        </Button>
+      </div>
+
+      {metrics && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Active Users Today</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics.users.activeToday}</div>
+              <p className="text-xs text-muted-foreground">{metrics.users.newThisWeek} new this week</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Incomplete KYC</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-500">{metrics.users.incompleteKyc}</div>
+              <p className="text-xs text-muted-foreground">Potential revenue blocked</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Dormant Users (30d)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-500">{metrics.users.dormant30Days}</div>
+              <p className="text-xs text-muted-foreground">Re-engagement opportunity</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Orders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-500">{metrics.revenue.pendingOrders}</div>
+              <p className="text-xs text-muted-foreground">Awaiting completion</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-yellow-500" />
+            Actionable Recommendations
+          </CardTitle>
+          <CardDescription>
+            AI-generated suggestions to improve performance, revenue, and engagement
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-24" />)}
+            </div>
+          ) : insights.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium">No insights available</p>
+              <p className="text-sm">Click "Refresh Insights" to generate AI recommendations</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {insights.map((insight) => {
+                const IconComponent = CATEGORY_ICONS[insight.category] || Zap;
+                return (
+                  <div 
+                    key={insight.id} 
+                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    data-testid={`insight-${insight.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg bg-muted ${getCategoryColor(insight.category)}`}>
+                          <IconComponent className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium">{insight.title}</h4>
+                            <Badge variant={getPriorityBadge(insight.priority)} className="text-xs">
+                              {insight.priority}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {insight.category}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">{insight.description}</p>
+                          <div className="flex items-center gap-4 text-xs">
+                            <span className="flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                              <span className="font-medium">Action:</span> {insight.suggestedAction}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-xs text-green-600 font-medium">
+                            Expected Impact: {insight.estimatedImpact}
+                          </div>
+                        </div>
+                      </div>
+                      {insight.actionType === 'email' && (
+                        <Button size="sm" variant="outline" className="shrink-0">
+                          <MessageSquareWarning className="h-4 w-4 mr-1" />
+                          Send Campaign
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 interface SupportReportData {
   success: boolean;
   errorId: string;
@@ -530,7 +762,7 @@ interface SupportReportData {
   };
 }
 
-export default function ErrorCommandCenter() {
+export default function ActivityCentre() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedError, setSelectedError] = useState<ErrorEntry | null>(null);
@@ -681,8 +913,8 @@ export default function ErrorCommandCenter() {
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">Error Command Center</h1>
-            <p className="text-muted-foreground">Real-time error monitoring and resolution dashboard</p>
+            <h1 className="text-3xl font-bold tracking-tight" data-testid="text-page-title">Activity Centre</h1>
+            <p className="text-muted-foreground">AI-powered activity insights, error monitoring & performance analytics</p>
           </div>
           <div className="flex items-center gap-2">
             <a 
@@ -771,6 +1003,10 @@ export default function ErrorCommandCenter() {
             <TabsTrigger value="webhooks" className="gap-2">
               <Globe className="h-4 w-4" />
               Alerting
+            </TabsTrigger>
+            <TabsTrigger value="ai-insights" className="gap-2">
+              <Zap className="h-4 w-4" />
+              AI Insights
             </TabsTrigger>
           </ScrollableTabsList>
 
@@ -1132,6 +1368,10 @@ export default function ErrorCommandCenter() {
 
           <TabsContent value="webhooks" className="space-y-4">
             <WebhookAlertingSettings />
+          </TabsContent>
+
+          <TabsContent value="ai-insights" className="space-y-4">
+            <AIInsightsPanel />
           </TabsContent>
         </Tabs>
 

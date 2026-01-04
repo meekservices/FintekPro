@@ -91,7 +91,7 @@ import FinancialOperationsPage from "@/pages/admin/financial-operations";
 import APIConfiguration from "@/pages/admin/api-configuration";
 import ProductionReadiness from "@/pages/admin/production-readiness";
 import ReplitSuggestions from "@/pages/admin/replit-suggestions";
-import ErrorCommandCenter from "@/pages/admin/error-command-center";
+import ActivityCentre from "@/pages/admin/activity-centre";
 import CkycDeferredDashboard from "@/pages/admin/ckyc-deferred-dashboard";
 const ZohoDashboardPage = lazy(() => import("@/pages/admin/zoho-dashboard"));
 const ZohoConnectionsPage = lazy(() => import("@/pages/admin/zoho-connections"));
@@ -1142,7 +1142,7 @@ function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
-      <Route path="/admin/error-command-center" component={ErrorCommandCenter} />
+      <Route path="/admin/activity-centre" component={ActivityCentre} />
       <Route component={NotFound} />
     </Switch>
   );

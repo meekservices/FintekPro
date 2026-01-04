@@ -191,7 +191,7 @@ const navCategories: NavCategory[] = [
     title: "System & Settings",
     icon: Cog,
     items: [
-      { title: "Error Command Center", href: "/admin/error-command-center", icon: Bug, description: "Production error tracking" },
+      { title: "Activity Centre", href: "/admin/activity-centre", icon: Activity, description: "AI-powered activity insights" },
       { title: "AI Insights", href: "/admin/ai-insights", icon: Lightbulb, description: "AI-powered trends" },
       { title: "Production Readiness", href: "/admin/production-readiness", icon: ShieldCheck, description: "Service status" },
       { title: "System Health", href: "/admin/system-health", icon: Activity, description: "Performance monitoring" },

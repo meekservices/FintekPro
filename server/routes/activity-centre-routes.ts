@@ -1,0 +1,83 @@
+import { Router } from "express";
+import { activityInsightsService } from "../services/activity-insights-service";
+
+const router = Router();
+
+router.get("/metrics", async (req, res) => {
+  try {
+    const metrics = await activityInsightsService.getActivityMetrics();
+    res.json({ success: true, metrics });
+  } catch (error) {
+    console.error("[ActivityCentre] Error fetching metrics:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch metrics" });
+  }
+});
+
+router.get("/insights", async (req, res) => {
+  try {
+    const cached = activityInsightsService.getCachedInsights();
+    const lastAnalysis = activityInsightsService.getLastAnalysisTime();
+    
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const needsRefresh = !lastAnalysis || lastAnalysis < fiveMinutesAgo;
+    
+    if (needsRefresh || cached.length === 0) {
+      const metrics = await activityInsightsService.getActivityMetrics();
+      const insights = await activityInsightsService.generateAIInsights(metrics);
+      res.json({ 
+        success: true, 
+        insights, 
+        lastAnalysis: activityInsightsService.getLastAnalysisTime(),
+        fromCache: false 
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        insights: cached, 
+        lastAnalysis,
+        fromCache: true 
+      });
+    }
+  } catch (error) {
+    console.error("[ActivityCentre] Error generating insights:", error);
+    res.status(500).json({ success: false, message: "Failed to generate insights" });
+  }
+});
+
+router.post("/insights/refresh", async (req, res) => {
+  try {
+    const metrics = await activityInsightsService.getActivityMetrics();
+    const insights = await activityInsightsService.generateAIInsights(metrics);
+    res.json({ 
+      success: true, 
+      insights, 
+      lastAnalysis: activityInsightsService.getLastAnalysisTime() 
+    });
+  } catch (error) {
+    console.error("[ActivityCentre] Error refreshing insights:", error);
+    res.status(500).json({ success: false, message: "Failed to refresh insights" });
+  }
+});
+
+router.get("/activity", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const activity = await activityInsightsService.getRecentActivity(limit);
+    res.json({ success: true, activity });
+  } catch (error) {
+    console.error("[ActivityCentre] Error fetching activity:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch activity" });
+  }
+});
+
+router.get("/security-alerts", async (req, res) => {
+  try {
+    const alerts = await activityInsightsService.getSecurityAlerts();
+    res.json({ success: true, alerts });
+  } catch (error) {
+    console.error("[ActivityCentre] Error fetching security alerts:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch security alerts" });
+  }
+});
+
+export default router;
