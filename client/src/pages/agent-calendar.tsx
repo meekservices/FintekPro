@@ -81,7 +81,7 @@ const MEETING_TYPE_CONFIG: Record<string, { label: string; icon: any; color: str
 
 const DEFAULT_MEETING_CONFIG = { label: 'Meeting', icon: CalendarIcon, color: 'bg-slate-500', textColor: 'text-slate-400', bgLight: 'bg-slate-500/20' };
 
-const getMeetingConfig = (meetingType: string) => MEETING_TYPE_CONFIG[meetingType] || DEFAULT_MEETING_CONFIG;
+const getMeetingConfig = (meetingType?: string) => (meetingType && MEETING_TYPE_CONFIG[meetingType]) || DEFAULT_MEETING_CONFIG;
 
 const REMINDER_OPTIONS = [
   { value: 'none', label: 'No reminder' },

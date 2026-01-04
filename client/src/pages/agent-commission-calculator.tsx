@@ -114,7 +114,8 @@ export default function AgentCommissionCalculator() {
     setAum(rawValue);
   };
 
-  const currentRate = rates.find(r => r.productType === productType) || rates[0];
+  const ratesArray = Array.isArray(rates) ? rates : defaultCommissionRates;
+  const currentRate = ratesArray.find(r => r.productType === productType) || ratesArray[0] || defaultCommissionRates[0];
   const aumNumber = parseInt(aum) || 0;
   const tenureMonths = parseInt(tenure) || 12;
 

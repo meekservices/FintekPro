@@ -209,7 +209,7 @@ export function OfflineActionMessage({
     },
   };
 
-  const config = messages[action];
+  const config = messages[action] || messages.queued;
   const Icon = config.icon;
 
   return (
