@@ -24927,16 +24927,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate total revenue
       const revenueResult = await db.select({ 
-        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)` 
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)` 
       }).from(schema.unifiedOrders)
-        .where(eq(schema.unifiedOrders.paymentStatus, 'paid'));
+        .where(eq(schema.unifiedOrders.paymentStatus, 'completed'));
 
       // Today's revenue
       const todayRevenueResult = await db.select({ 
-        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)` 
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)` 
       }).from(schema.unifiedOrders)
         .where(and(
-          eq(schema.unifiedOrders.paymentStatus, 'paid'),
+          eq(schema.unifiedOrders.paymentStatus, 'completed'),
           gte(schema.unifiedOrders.createdAt, today)
         ));
 
@@ -24951,7 +24951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productTypeCounts = await db.select({
         productType: schema.unifiedOrders.productType,
         count: sql<number>`count(*)`,
-        revenue: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`
+        revenue: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`
       }).from(schema.unifiedOrders)
         .groupBy(schema.unifiedOrders.productType);
 
@@ -25089,7 +25089,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderPaymentStats = await db.select({
         paymentStatus: schema.unifiedOrders.paymentStatus,
         count: sql<number>`count(*)`,
-        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`
       }).from(schema.unifiedOrders).groupBy(schema.unifiedOrders.paymentStatus);
 
       // Get Cashfree totals
@@ -25131,31 +25131,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Last 30 days revenue
       const [last30Days] = await db.select({
-        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`,
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`,
         count: sql<number>`count(*)`
       }).from(schema.unifiedOrders)
         .where(and(
-          eq(schema.unifiedOrders.paymentStatus, 'paid'),
+          eq(schema.unifiedOrders.paymentStatus, 'completed'),
           gte(schema.unifiedOrders.createdAt, thirtyDaysAgo)
         ));
 
       // Last 7 days revenue
       const [last7Days] = await db.select({
-        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`,
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`,
         count: sql<number>`count(*)`
       }).from(schema.unifiedOrders)
         .where(and(
-          eq(schema.unifiedOrders.paymentStatus, 'paid'),
+          eq(schema.unifiedOrders.paymentStatus, 'completed'),
           gte(schema.unifiedOrders.createdAt, sevenDaysAgo)
         ));
 
       // Revenue by product type
       const revenueByProduct = await db.select({
         productType: schema.unifiedOrders.productType,
-        total: sql<string>`COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0)`,
+        total: sql<string>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`,
         count: sql<number>`count(*)`
       }).from(schema.unifiedOrders)
-        .where(eq(schema.unifiedOrders.paymentStatus, 'paid'))
+        .where(eq(schema.unifiedOrders.paymentStatus, 'completed'))
         .groupBy(schema.unifiedOrders.productType);
 
       res.json({
