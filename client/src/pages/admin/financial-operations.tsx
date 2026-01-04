@@ -36,7 +36,7 @@ type Order = {
   status: string;
   paymentStatus: string;
   executionStatus: string;
-  totalAmount: string;
+  amount: string;
   paymentGateway: string;
   createdAt: string;
 };
@@ -204,7 +204,8 @@ export default function FinancialOperations() {
   const revenue = revenueResponse?.data;
   const refunds = refundsResponse?.data || [];
 
-  const formatCurrency = (amount: string | number) => {
+  const formatCurrency = (amount: string | number | undefined | null) => {
+    if (amount === undefined || amount === null) return '₹0.00';
     return `₹${parseFloat(amount.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
@@ -361,7 +362,7 @@ export default function FinancialOperations() {
                         <TableRow key={order.id}>
                           <TableCell className="font-medium">{order.orderNumber}</TableCell>
                           <TableCell className="capitalize">{order.productType}</TableCell>
-                          <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
+                          <TableCell>{formatCurrency(order.amount)}</TableCell>
                           <TableCell>{getStatusBadge(order.status)}</TableCell>
                           <TableCell>{getStatusBadge(order.paymentStatus)}</TableCell>
                           <TableCell>{formatDate(order.createdAt)}</TableCell>
@@ -471,7 +472,7 @@ export default function FinancialOperations() {
                         <TableCell className="font-medium">{order.orderNumber}</TableCell>
                         <TableCell>{order.userId}</TableCell>
                         <TableCell className="capitalize">{order.productType}</TableCell>
-                        <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
+                        <TableCell>{formatCurrency(order.amount)}</TableCell>
                         <TableCell>{getStatusBadge(order.status)}</TableCell>
                         <TableCell>{getStatusBadge(order.paymentStatus)}</TableCell>
                         <TableCell className="capitalize">{order.paymentGateway || '-'}</TableCell>
@@ -493,7 +494,7 @@ export default function FinancialOperations() {
                                 onClick={() => {
                                   setRefundOrder(order);
                                   refundForm.reset({
-                                    amount: order.totalAmount,
+                                    amount: order.amount,
                                     reason: "",
                                   });
                                   setRefundDialogOpen(true);
@@ -762,7 +763,7 @@ export default function FinancialOperations() {
                 </div>
                 <div>
                   <Label>Total Amount</Label>
-                  <p className="font-medium">{formatCurrency(selectedOrder.totalAmount)}</p>
+                  <p className="font-medium">{formatCurrency(selectedOrder.amount)}</p>
                 </div>
                 <div>
                   <Label>Status</Label>
