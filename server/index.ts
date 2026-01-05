@@ -539,5 +539,10 @@ app.use((req, res, next) => {
     } catch (error) {
       logger.serviceError('Unlisted Marketplace Cron', 'Failed to initialize cron jobs', error instanceof Error ? error : undefined);
     }
+    
+    // Seed default store categories if not present
+    storage.seedDefaultStoreCategories().catch(error => {
+      console.error('❌ Failed to seed store categories:', error);
+    });
   });
 })();
