@@ -23,6 +23,26 @@ const orderSchema = z.object({
   lrsDeclaration: z.boolean(),
 });
 
+// Get user positions
+router.get("/positions", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    res.json({
+      positions: [
+        { symbol: 'AAPL', name: 'Apple Inc', quantity: 10, avgPrice: 175.50, currentPrice: 182.30, gainLoss: 68, gainLossPercent: 3.87, currency: 'USD' },
+        { symbol: 'GOOGL', name: 'Alphabet Inc', quantity: 5, avgPrice: 138.20, currentPrice: 141.50, gainLoss: 16.50, gainLossPercent: 2.39, currency: 'USD' },
+        { symbol: 'MSFT', name: 'Microsoft Corp', quantity: 8, avgPrice: 365.00, currentPrice: 378.90, gainLoss: 111.20, gainLossPercent: 3.81, currency: 'USD' }
+      ],
+      totalValueUSD: 5250.80,
+      totalValueINR: 437566.80,
+      totalGainLossUSD: 195.70,
+      totalGainLossPercent: 3.87
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.get("/feature-flags", async (req, res) => {
   try {
     const flags = await usTradingService.getFeatureFlags();
