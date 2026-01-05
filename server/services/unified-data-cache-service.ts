@@ -505,28 +505,26 @@ export class UnifiedDataCacheService {
     };
   }> {
     try {
-      const now = new Date().toISOString();
-      
       const [companyCount, verificationStats, financialsStats, marketDataStats, apiStats] = await Promise.all([
         db.execute(`SELECT COUNT(*) as count FROM company_master_cache`),
         db.execute(`
           SELECT 
             COUNT(*) as total,
-            COUNT(*) FILTER (WHERE expires_at <= $1) as expired
+            COUNT(*) FILTER (WHERE expires_at <= NOW()) as expired
           FROM verification_cache
-        `, [now]),
+        `),
         db.execute(`
           SELECT 
             COUNT(*) as total,
-            COUNT(*) FILTER (WHERE expires_at <= $1) as expired
+            COUNT(*) FILTER (WHERE expires_at <= NOW()) as expired
           FROM company_financials_cache
-        `, [now]),
+        `),
         db.execute(`
           SELECT 
             COUNT(*) as total,
-            COUNT(*) FILTER (WHERE expires_at <= $1) as expired
+            COUNT(*) FILTER (WHERE expires_at <= NOW()) as expired
           FROM market_data_cache
-        `, [now]),
+        `),
         db.execute(`
           SELECT 
             COUNT(*) as total_calls,
