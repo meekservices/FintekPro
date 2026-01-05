@@ -24380,3 +24380,276 @@ export const knowledgeHubConfig = pgTable("knowledge_hub_config", {
 
 export const insertKnowledgeHubConfigSchema = createInsertSchema(knowledgeHubConfig).omit({ id: true, updatedAt: true });
 export type KnowledgeHubConfig = typeof knowledgeHubConfig.$inferSelect;
+
+// ===================================================================
+// DATA CACHING SYSTEM - Operational Cost Optimization
+// ===================================================================
+
+// Company Master Cache - Permanent storage for static company identifiers
+// TTL: Indefinite (CIN, PAN, GSTIN rarely change)
+export const companyMasterCache = pgTable("company_master_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Primary Identifiers (never expire)
+  cin: varchar("cin", { length: 21 }).unique(), // Corporate Identity Number
+  pan: varchar("pan", { length: 10 }), // Permanent Account Number
+  gstin: varchar("gstin", { length: 15 }), // GST Number
+  tan: varchar("tan", { length: 10 }), // Tax Deduction Number
+  
+  // Company Details
+  companyName: varchar("company_name", { length: 500 }).notNull(),
+  companyStatus: varchar("company_status", { length: 50 }),
+  companyClass: varchar("company_class", { length: 100 }),
+  companyCategory: varchar("company_category", { length: 100 }),
+  companySubCategory: varchar("company_sub_category", { length: 100 }),
+  
+  // Registration Info
+  dateOfIncorporation: date("date_of_incorporation"),
+  registrationNumber: varchar("registration_number", { length: 50 }),
+  rocState: varchar("roc_state", { length: 50 }),
+  registeredAddress: text("registered_address"),
+  
+  // Capital Structure
+  authorizedCapital: numeric("authorized_capital"),
+  paidUpCapital: numeric("paid_up_capital"),
+  
+  // Directors (stored as JSON, refreshed quarterly)
+  directors: jsonb("directors").default([]),
+  
+  // Source & Audit
+  dataSource: varchar("data_source", { length: 50 }).notNull(), // probe42, sandbox, mca
+  sourceReferenceId: varchar("source_reference_id", { length: 100 }),
+  
+  // Timestamps
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  lastVerifiedAt: timestamp("last_verified_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_cmc_cin").on(table.cin),
+  index("idx_cmc_pan").on(table.pan),
+  index("idx_cmc_gstin").on(table.gstin),
+  index("idx_cmc_name").on(table.companyName),
+]);
+
+export const insertCompanyMasterCacheSchema = createInsertSchema(companyMasterCache).omit({ id: true, createdAt: true });
+export type CompanyMasterCache = typeof companyMasterCache.$inferSelect;
+export type InsertCompanyMasterCache = typeof companyMasterCache.$inferInsert;
+
+// Verification Cache - 24-month TTL for KYC verification results
+// Covers: PAN, Aadhaar, GSTIN, Bank Account verifications
+export const verificationCache = pgTable("verification_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Identifier (hashed for privacy in some cases)
+  verificationType: varchar("verification_type", { length: 50 }).notNull(), // pan, aadhaar, gstin, bank_account, tan
+  identifierHash: varchar("identifier_hash", { length: 64 }).notNull(), // SHA-256 hash of PAN/Aadhaar
+  identifierMasked: varchar("identifier_masked", { length: 50 }), // e.g., ABCD****1234
+  
+  // Verification Result
+  verified: boolean("verified").notNull(),
+  verificationStatus: varchar("verification_status", { length: 50 }), // VALID, INVALID, PENDING
+  registeredName: varchar("registered_name", { length: 500 }),
+  nameMatchScore: integer("name_match_score"),
+  
+  // Additional Data (type-specific)
+  additionalData: jsonb("additional_data").default({}),
+  
+  // Provider Info
+  provider: varchar("provider", { length: 50 }).notNull(), // cashfree, sandbox, truthscreen
+  providerReferenceId: varchar("provider_reference_id", { length: 100 }),
+  
+  // TTL Management (24 months for KYC per SEBI norms)
+  verifiedAt: timestamp("verified_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(), // Default: verifiedAt + 24 months
+  
+  // Audit
+  requestedBy: varchar("requested_by").references(() => users.id),
+  requestContext: varchar("request_context", { length: 100 }), // kyc_onboarding, periodic_refresh
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_vc_type_hash").on(table.verificationType, table.identifierHash),
+  index("idx_vc_expires").on(table.expiresAt),
+  index("idx_vc_provider").on(table.provider),
+]);
+
+export const insertVerificationCacheSchema = createInsertSchema(verificationCache).omit({ id: true, createdAt: true });
+export type VerificationCache = typeof verificationCache.$inferSelect;
+export type InsertVerificationCache = typeof verificationCache.$inferInsert;
+
+// Company Financials Cache - 120-day TTL for quarterly financial data
+export const companyFinancialsCache = pgTable("company_financials_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Company Reference
+  companyId: varchar("company_id").references(() => companyMasterCache.id),
+  cin: varchar("cin", { length: 21 }).notNull(),
+  
+  // Financial Period
+  financialYear: varchar("financial_year", { length: 10 }).notNull(), // e.g., 2024-25
+  quarter: varchar("quarter", { length: 5 }), // Q1, Q2, Q3, Q4, or null for annual
+  periodStart: date("period_start"),
+  periodEnd: date("period_end"),
+  
+  // Income Statement (in lakhs)
+  revenue: numeric("revenue"),
+  ebitda: numeric("ebitda"),
+  ebit: numeric("ebit"),
+  pbt: numeric("pbt"),
+  pat: numeric("pat"),
+  netProfit: numeric("net_profit"),
+  
+  // Balance Sheet
+  totalAssets: numeric("total_assets"),
+  totalLiabilities: numeric("total_liabilities"),
+  networth: numeric("networth"),
+  shareCapital: numeric("share_capital"),
+  reserves: numeric("reserves"),
+  
+  // Debt
+  totalDebt: numeric("total_debt"),
+  longTermDebt: numeric("long_term_debt"),
+  shortTermDebt: numeric("short_term_debt"),
+  
+  // Cash Flow
+  operatingCashFlow: numeric("operating_cash_flow"),
+  investingCashFlow: numeric("investing_cash_flow"),
+  financingCashFlow: numeric("financing_cash_flow"),
+  freeCashFlow: numeric("free_cash_flow"),
+  
+  // Ratios
+  ratios: jsonb("ratios").default({}), // PE, PB, ROE, ROCE, etc.
+  
+  // Source & Audit
+  dataSource: varchar("data_source", { length: 50 }).notNull(),
+  
+  // TTL: 120 days (quarterly refresh cycle)
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_cfc_cin").on(table.cin),
+  index("idx_cfc_fy_q").on(table.financialYear, table.quarter),
+  index("idx_cfc_expires").on(table.expiresAt),
+]);
+
+export const insertCompanyFinancialsCacheSchema = createInsertSchema(companyFinancialsCache).omit({ id: true, createdAt: true });
+export type CompanyFinancialsCache = typeof companyFinancialsCache.$inferSelect;
+export type InsertCompanyFinancialsCache = typeof companyFinancialsCache.$inferInsert;
+
+// Market Data Cache - Tiered TTLs (15s quotes, 5m indices, 24h NAVs)
+export const marketDataCache = pgTable("market_data_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Identifier
+  symbol: varchar("symbol", { length: 50 }).notNull(),
+  exchange: varchar("exchange", { length: 20 }), // NSE, BSE, MCX
+  dataType: varchar("data_type", { length: 30 }).notNull(), // quote, index, nav, eod_price
+  
+  // Price Data
+  lastPrice: numeric("last_price"),
+  previousClose: numeric("previous_close"),
+  open: numeric("open"),
+  high: numeric("high"),
+  low: numeric("low"),
+  volume: bigint("volume", { mode: "number" }),
+  
+  // Change
+  change: numeric("change"),
+  changePercent: numeric("change_percent"),
+  
+  // Additional Data
+  additionalData: jsonb("additional_data").default({}),
+  
+  // Source
+  provider: varchar("provider", { length: 50 }).notNull(), // finnhub, nse, bse, amfi
+  
+  // TTL based on dataType
+  // quote: 15 seconds, index: 5 minutes, nav: 24 hours, eod_price: 24 hours
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mdc_symbol_type").on(table.symbol, table.dataType),
+  index("idx_mdc_expires").on(table.expiresAt),
+  index("idx_mdc_provider").on(table.provider),
+]);
+
+export const insertMarketDataCacheSchema = createInsertSchema(marketDataCache).omit({ id: true, createdAt: true });
+export type MarketDataCache = typeof marketDataCache.$inferSelect;
+export type InsertMarketDataCache = typeof marketDataCache.$inferInsert;
+
+// API Usage Tracking - For cost monitoring and optimization
+export const apiUsageTracking = pgTable("api_usage_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // API Details
+  provider: varchar("provider", { length: 50 }).notNull(), // probe42, sandbox, cashfree, finnhub
+  endpoint: varchar("endpoint", { length: 200 }).notNull(),
+  method: varchar("method", { length: 10 }).default("GET"),
+  
+  // Request Info
+  requestParams: jsonb("request_params").default({}),
+  
+  // Cache Performance
+  cacheHit: boolean("cache_hit").default(false),
+  cacheKey: varchar("cache_key", { length: 200 }),
+  
+  // Cost Tracking
+  estimatedCostInr: numeric("estimated_cost_inr"), // Estimated cost per call
+  
+  // Response
+  responseStatus: integer("response_status"),
+  responseTimeMs: integer("response_time_ms"),
+  
+  // Context
+  requestedBy: varchar("requested_by").references(() => users.id),
+  requestContext: varchar("request_context", { length: 100 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_aut_provider").on(table.provider),
+  index("idx_aut_date").on(table.createdAt),
+  index("idx_aut_cache").on(table.cacheHit),
+]);
+
+export const insertApiUsageTrackingSchema = createInsertSchema(apiUsageTracking).omit({ id: true, createdAt: true });
+export type ApiUsageTracking = typeof apiUsageTracking.$inferSelect;
+export type InsertApiUsageTracking = typeof apiUsageTracking.$inferInsert;
+
+// Cache Refresh Schedule - For managing scheduled data refresh jobs
+export const cacheRefreshSchedule = pgTable("cache_refresh_schedule", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Schedule Type
+  cacheType: varchar("cache_type", { length: 50 }).notNull(), // company_master, verification, financials, market_data
+  refreshFrequency: varchar("refresh_frequency", { length: 30 }).notNull(), // realtime, hourly, daily, weekly, quarterly, annual
+  
+  // Cron Expression (for scheduled jobs)
+  cronExpression: varchar("cron_expression", { length: 50 }),
+  
+  // Last Run
+  lastRunAt: timestamp("last_run_at"),
+  lastRunStatus: varchar("last_run_status", { length: 20 }), // success, failed, partial
+  lastRunRecordsProcessed: integer("last_run_records_processed"),
+  lastRunErrors: jsonb("last_run_errors").default([]),
+  
+  // Next Run
+  nextRunAt: timestamp("next_run_at"),
+  
+  // Configuration
+  isEnabled: boolean("is_enabled").default(true),
+  priority: integer("priority").default(5), // 1=highest, 10=lowest
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_crs_type").on(table.cacheType),
+  index("idx_crs_next").on(table.nextRunAt),
+]);
+
+export const insertCacheRefreshScheduleSchema = createInsertSchema(cacheRefreshSchedule).omit({ id: true, createdAt: true, updatedAt: true });
+export type CacheRefreshSchedule = typeof cacheRefreshSchedule.$inferSelect;
+export type InsertCacheRefreshSchedule = typeof cacheRefreshSchedule.$inferInsert;
