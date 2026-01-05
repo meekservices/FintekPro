@@ -296,10 +296,6 @@ class ZohoMeetingService {
       const response = await axios.get(apiUrl, {
         headers: {
           Authorization: `Zoho-oauthtoken ${token}`,
-        },
-        params: {
-          fromIndex: 0,
-          limit: 1
         }
       });
 
