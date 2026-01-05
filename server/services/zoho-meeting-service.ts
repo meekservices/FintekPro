@@ -283,22 +283,27 @@ class ZohoMeetingService {
     }
 
     try {
+      console.log("[Zoho Meeting] Testing connection - refreshing token...");
       const token = await this.refreshAccessToken();
-      const zsoid = process.env.ZOHO_ZSOID || "";
+      console.log("[Zoho Meeting] Token refreshed successfully");
       
-      const response = await axios.get(
-        `https://meeting.zoho.in/api/v2/${zsoid}/sessions.json`,
-        {
-          headers: {
-            Authorization: `Zoho-oauthtoken ${token}`,
-          },
-          params: {
-            fromIndex: 0,
-            limit: 1
-          }
+      const zsoid = process.env.ZOHO_ZSOID || "";
+      console.log(`[Zoho Meeting] ZSOID: ${zsoid ? zsoid : 'NOT SET'}`);
+      
+      const apiUrl = `https://meeting.zoho.in/api/v2/${zsoid}/sessions.json`;
+      console.log(`[Zoho Meeting] Testing API URL: ${apiUrl}`);
+      
+      const response = await axios.get(apiUrl, {
+        headers: {
+          Authorization: `Zoho-oauthtoken ${token}`,
+        },
+        params: {
+          fromIndex: 0,
+          limit: 1
         }
-      );
+      });
 
+      console.log("[Zoho Meeting] API call successful");
       return {
         success: true,
         message: "Zoho Meeting credentials verified successfully",
@@ -310,11 +315,16 @@ class ZohoMeetingService {
       };
     } catch (error: any) {
       const errorDetails = error.response?.data || error.message;
-      console.error("Zoho Meeting test failed:", errorDetails);
+      const statusCode = error.response?.status;
+      console.error(`[Zoho Meeting] Test failed (HTTP ${statusCode}):`, typeof errorDetails === 'string' ? errorDetails.substring(0, 200) : errorDetails);
       return {
         success: false,
         message: "Failed to verify Zoho Meeting credentials",
-        details: errorDetails
+        details: {
+          error: typeof errorDetails === 'string' ? 'HTML error page returned - likely invalid ZSOID or API endpoint' : errorDetails,
+          statusCode,
+          zsoid: process.env.ZOHO_ZSOID || 'NOT SET'
+        }
       };
     }
   }
