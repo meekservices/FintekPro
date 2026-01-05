@@ -148,6 +148,7 @@ import AgentTasks from "@/pages/agent-tasks";
 import AgentReportsHub from "@/pages/agent-reports-hub";
 import AgentDemoProgress from "@/pages/agent-demo-progress";
 import AgentPortfolioReportBuilder from "@/pages/agent-portfolio-report-builder";
+import AgentSampleReport from "@/pages/agent-sample-report";
 import AgentDemoProposalBuilder from "@/pages/agent-demo-proposal-builder";
 import AgentLeaderboard from "@/pages/agent-leaderboard";
 import AgentCommissionCalculator from "@/pages/agent-commission-calculator";
@@ -1452,6 +1453,13 @@ function AgentRoutes() {
         {() => (
           <AgentLayout>
             <AgentPortfolioReportBuilder />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/sample-report">
+        {() => (
+          <AgentLayout>
+            <AgentSampleReport />
           </AgentLayout>
         )}
       </Route>
