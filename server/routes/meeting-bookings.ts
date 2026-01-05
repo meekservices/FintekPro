@@ -21,6 +21,55 @@ router.get("/test-zoho-connection", async (req, res) => {
   }
 });
 
+router.get("/zoho-oauth-url", async (req, res) => {
+  try {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const redirectUri = `${baseUrl}/api/meetings/zoho-oauth-callback`;
+    const oauthUrl = zohoMeetingService.getOAuthUrl(redirectUri);
+    res.json({ 
+      success: true, 
+      oauthUrl,
+      instructions: "Visit the URL to authorize Zoho Meeting. After authorization, copy the refresh token from the callback response and update ZOHO_REFRESH_TOKEN secret."
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error generating OAuth URL",
+      details: error.message
+    });
+  }
+});
+
+router.get("/zoho-oauth-callback", async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Missing authorization code" 
+      });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const redirectUri = `${baseUrl}/api/meetings/zoho-oauth-callback`;
+    
+    const tokens = await zohoMeetingService.exchangeCodeForTokens(code, redirectUri);
+    
+    res.json({
+      success: true,
+      message: "Authorization successful! Copy the refresh_token below and update your ZOHO_REFRESH_TOKEN secret.",
+      refresh_token: tokens.refresh_token,
+      access_token_expires_in: tokens.expires_in
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error exchanging code for tokens",
+      details: error.response?.data || error.message
+    });
+  }
+});
+
 // POST /api/meetings/schedule - Alias for agent-book endpoint (agents schedule meetings with clients)
 router.post("/schedule", async (req, res) => {
   try {
