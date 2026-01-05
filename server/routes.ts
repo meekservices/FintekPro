@@ -164,6 +164,8 @@ import aiRebalancingRoutes from "./routes/ai-rebalancing-routes";
 import unifiedProposalsRoutes from "./routes/unified-proposals-routes";
 import globalAdvisoryRoutes from "./routes/global-advisory";
 import feeModeRoutes from "./routes/fee-mode";
+import cacheAdminRoutes from "./routes/cache-admin";
+import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -530,6 +532,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CKYC Provider Configuration Routes
   app.use("/api/admin/ckyc", requireAdmin, ckycProviderRoutes);
   console.log("✅ CKYC Provider Configuration routes registered");
+
+  // Cache Admin Routes (Data Caching & Cost Optimization)
+  app.use("/api/admin/cache", requireAdmin, cacheAdminRoutes);
+  cacheCleanupScheduler.initialize();
+  console.log("✅ Cache Admin routes registered");
 
   // Global Advisory Routes (EPIC 1 & 2)
   app.use("/api/global-advisory", globalAdvisoryRoutes);
