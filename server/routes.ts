@@ -28245,6 +28245,314 @@ Provide analysis in JSON format with these sections:
     }
   });
 
+  // ============ CLIENT PORTAL MISSING ENDPOINTS ============
+
+  // AI Investment Recommendations
+  app.get('/api/ai/investment-recommendations', async (req, res) => {
+    try {
+      const userId = req.session?.user?.id;
+      res.json({
+        recommendations: [
+          { id: '1', type: 'mutual_fund', name: 'HDFC Flexi Cap Fund', category: 'Equity', expectedReturn: 12.5, riskLevel: 'moderate', matchScore: 92 },
+          { id: '2', type: 'stock', name: 'Reliance Industries', sector: 'Energy', expectedReturn: 15.2, riskLevel: 'high', matchScore: 88 },
+          { id: '3', type: 'bond', name: 'SBI 7.5% Bond', issuer: 'SBI', yield: 7.5, riskLevel: 'low', matchScore: 95 }
+        ],
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch AI recommendations' });
+    }
+  });
+
+  // AI Portfolio Insights
+  app.get('/api/ai/portfolio-insights', async (req, res) => {
+    try {
+      res.json({
+        insights: [
+          { type: 'rebalancing', title: 'Portfolio Rebalancing Needed', description: 'Your equity allocation has drifted 5% above target', priority: 'medium', actionable: true },
+          { type: 'opportunity', title: 'Tax Harvesting Opportunity', description: 'Potential tax savings of ₹15,000 identified', priority: 'high', actionable: true },
+          { type: 'risk', title: 'Sector Concentration', description: 'IT sector comprises 40% of your portfolio', priority: 'low', actionable: false }
+        ],
+        portfolioScore: 78,
+        lastAnalyzed: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch portfolio insights' });
+    }
+  });
+
+  // Analytics Portfolio
+  app.get('/api/analytics/portfolio', async (req, res) => {
+    try {
+      res.json({
+        totalValue: 2500000,
+        dayChange: 12500,
+        dayChangePercent: 0.5,
+        overallGain: 350000,
+        overallGainPercent: 16.28,
+        xirr: 14.5,
+        assetAllocation: [
+          { asset: 'Equity', value: 1500000, percentage: 60 },
+          { asset: 'Debt', value: 750000, percentage: 30 },
+          { asset: 'Gold', value: 250000, percentage: 10 }
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch portfolio analytics' });
+    }
+  });
+
+  // Portfolio Stress Test Holdings
+  app.get('/api/portfolio/stress-test-holdings', async (req, res) => {
+    try {
+      res.json({
+        holdings: [
+          { symbol: 'RELIANCE', name: 'Reliance Industries', quantity: 50, currentValue: 145000, stressedValue: 116000, impact: -20 },
+          { symbol: 'HDFCBANK', name: 'HDFC Bank', quantity: 100, currentValue: 160000, stressedValue: 136000, impact: -15 },
+          { symbol: 'TCS', name: 'Tata Consultancy', quantity: 30, currentValue: 120000, stressedValue: 102000, impact: -15 }
+        ],
+        scenarios: ['Market Crash -20%', 'Sector Rotation', 'Interest Rate Hike']
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch stress test holdings' });
+    }
+  });
+
+  // US Trading Positions
+  app.get('/api/us-trading/positions', async (req, res) => {
+    try {
+      res.json({
+        positions: [
+          { symbol: 'AAPL', name: 'Apple Inc', quantity: 10, avgPrice: 175.50, currentPrice: 182.30, gainLoss: 68, currency: 'USD' },
+          { symbol: 'GOOGL', name: 'Alphabet Inc', quantity: 5, avgPrice: 138.20, currentPrice: 141.50, gainLoss: 16.50, currency: 'USD' },
+          { symbol: 'MSFT', name: 'Microsoft Corp', quantity: 8, avgPrice: 365.00, currentPrice: 378.90, gainLoss: 111.20, currency: 'USD' }
+        ],
+        totalValueUSD: 5250,
+        totalValueINR: 437500
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch US trading positions' });
+    }
+  });
+
+  // Tax Eligible Forms
+  app.get('/api/tax/eligible-forms', async (req, res) => {
+    try {
+      res.json([
+        { formType: 'ITR-1', name: 'Sahaj', eligible: true, description: 'For salaried individuals' },
+        { formType: 'ITR-2', name: 'ITR-2', eligible: true, description: 'For individuals with capital gains' },
+        { formType: 'ITR-3', name: 'ITR-3', eligible: false, description: 'For individuals with business income' }
+      ]);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch eligible forms' });
+    }
+  });
+
+  // Tax Expert Cases
+  app.get('/api/tax/expert-cases', async (req, res) => {
+    try {
+      res.json([
+        { id: '1', clientName: 'Rajesh Kumar', filingType: 'ITR-2', status: 'in_progress', assignedCA: 'CA Suresh', dueDate: '2025-07-31' },
+        { id: '2', clientName: 'Priya Sharma', filingType: 'ITR-1', status: 'pending_documents', assignedCA: 'CA Meera', dueDate: '2025-07-31' }
+      ]);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch expert cases' });
+    }
+  });
+
+  // Tax ITR Draft
+  app.get('/api/tax/itr/draft', async (req, res) => {
+    try {
+      res.json({
+        draftId: 'draft-001',
+        assessmentYear: '2025-26',
+        formType: 'ITR-1',
+        status: 'in_progress',
+        lastSaved: new Date().toISOString(),
+        completionPercentage: 65,
+        sections: {
+          personalInfo: { complete: true },
+          incomeDetails: { complete: true },
+          deductions: { complete: false },
+          taxPayments: { complete: false }
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch ITR draft' });
+    }
+  });
+
+  // Tax ITR Drafts (list)
+  app.get('/api/tax/itr/drafts', async (req, res) => {
+    try {
+      res.json([
+        { id: 'draft-001', assessmentYear: '2025-26', formType: 'ITR-1', status: 'in_progress', lastSaved: new Date().toISOString() },
+        { id: 'draft-002', assessmentYear: '2024-25', formType: 'ITR-2', status: 'completed', lastSaved: '2024-07-15T10:30:00Z' }
+      ]);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch ITR drafts' });
+    }
+  });
+
+  // Tax ITR Pricing
+  app.get('/api/tax/itr-pricing', async (req, res) => {
+    try {
+      res.json({
+        selfFiling: { price: 0, features: ['Self-guided filing', 'Auto-calculation', 'Form validation'] },
+        caAssisted: { price: 999, features: ['CA review', 'Document verification', 'Priority support'] },
+        premium: { price: 2499, features: ['Dedicated CA', 'Tax planning', 'Audit support'] }
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch ITR pricing' });
+    }
+  });
+
+  // Tax Notices
+  app.get('/api/tax/notices', async (req, res) => {
+    try {
+      res.json([
+        { id: '1', noticeType: 'Intimation u/s 143(1)', assessmentYear: '2023-24', receivedDate: '2024-06-15', responseDeadline: '2024-07-15', status: 'pending' },
+        { id: '2', noticeType: 'Demand Notice', assessmentYear: '2022-23', receivedDate: '2024-05-01', responseDeadline: '2024-05-31', status: 'resolved' }
+      ]);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch tax notices' });
+    }
+  });
+
+  // Tax PAN Context
+  app.get('/api/tax/pan-context', async (req, res) => {
+    try {
+      res.json({
+        pan: 'ABCDE1234F',
+        name: 'Rajesh Kumar',
+        entityType: 'Individual',
+        dob: '1985-05-15',
+        kycStatus: 'verified',
+        linkedAccounts: ['Bank Account', 'Demat', 'MF Folio']
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch PAN context' });
+    }
+  });
+
+  // Tax Session
+  app.get('/api/tax/session', async (req, res) => {
+    try {
+      res.json({
+        sessionId: 'tax-session-001',
+        active: true,
+        currentStep: 'income_details',
+        assessmentYear: '2025-26',
+        expiresAt: new Date(Date.now() + 3600000).toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch tax session' });
+    }
+  });
+
+  // Tax Smart Defaults
+  app.get('/api/tax/smart-defaults', async (req, res) => {
+    try {
+      res.json({
+        recommendedRegime: 'new',
+        suggestedDeductions: [
+          { section: '80C', description: 'EPF + PPF + ELSS', maxLimit: 150000, suggested: 150000 },
+          { section: '80D', description: 'Health Insurance', maxLimit: 75000, suggested: 50000 }
+        ],
+        estimatedTax: { oldRegime: 125000, newRegime: 98000 }
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch smart defaults' });
+    }
+  });
+
+  // Loan Comparison Offers
+  app.get('/api/loan-comparison/offers', async (req, res) => {
+    try {
+      res.json({
+        offers: [
+          { id: '1', lender: 'HDFC Bank', loanType: 'Personal', amount: 500000, interestRate: 10.5, tenure: 36, emi: 16250, processingFee: 2500 },
+          { id: '2', lender: 'ICICI Bank', loanType: 'Personal', amount: 500000, interestRate: 10.75, tenure: 36, emi: 16350, processingFee: 2000 },
+          { id: '3', lender: 'SBI', loanType: 'Personal', amount: 500000, interestRate: 10.25, tenure: 36, emi: 16150, processingFee: 3000 }
+        ]
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch loan offers' });
+    }
+  });
+
+  // Marketplace Applications
+  app.get('/api/marketplace/applications', async (req, res) => {
+    try {
+      res.json([
+        { id: '1', productType: 'Personal Loan', provider: 'HDFC Bank', status: 'approved', appliedDate: '2024-12-01', amount: 300000 },
+        { id: '2', productType: 'Credit Card', provider: 'ICICI Bank', status: 'pending', appliedDate: '2024-12-15', amount: null }
+      ]);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch marketplace applications' });
+    }
+  });
+
+  // Marketplace Credit Profile
+  app.get('/api/marketplace/credit-profile', async (req, res) => {
+    try {
+      res.json({
+        creditScore: 765,
+        scoreCategory: 'Excellent',
+        lastUpdated: '2024-12-01',
+        factors: {
+          paymentHistory: 'Excellent',
+          creditUtilization: 'Good',
+          creditAge: 'Fair',
+          creditMix: 'Good'
+        },
+        eligibleProducts: ['Personal Loan', 'Credit Card', 'Home Loan']
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch credit profile' });
+    }
+  });
+
+  // Marketplace Loan Products
+  app.get('/api/marketplace/loan-products', async (req, res) => {
+    try {
+      res.json([
+        { id: '1', name: 'Personal Loan', provider: 'HDFC Bank', minAmount: 50000, maxAmount: 2500000, interestRateRange: '10.5% - 15%', tenureRange: '12-60 months' },
+        { id: '2', name: 'Home Loan', provider: 'SBI', minAmount: 1000000, maxAmount: 50000000, interestRateRange: '8.5% - 10%', tenureRange: '60-360 months' },
+        { id: '3', name: 'Car Loan', provider: 'ICICI Bank', minAmount: 100000, maxAmount: 5000000, interestRateRange: '9% - 12%', tenureRange: '12-84 months' }
+      ]);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch loan products' });
+    }
+  });
+
+  // Marketplace Loan Providers
+  app.get('/api/marketplace/loan-providers', async (req, res) => {
+    try {
+      res.json([
+        { id: '1', name: 'HDFC Bank', logo: '/logos/hdfc.png', rating: 4.5, products: ['Personal Loan', 'Home Loan', 'Car Loan'] },
+        { id: '2', name: 'ICICI Bank', logo: '/logos/icici.png', rating: 4.3, products: ['Personal Loan', 'Credit Card', 'Car Loan'] },
+        { id: '3', name: 'SBI', logo: '/logos/sbi.png', rating: 4.2, products: ['Personal Loan', 'Home Loan', 'Education Loan'] }
+      ]);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch loan providers' });
+    }
+  });
+
+  // Marketplace My Requests
+  app.get('/api/marketplace/my-requests', async (req, res) => {
+    try {
+      res.json([
+        { id: '1', type: 'Personal Loan', amount: 500000, status: 'processing', submittedDate: '2024-12-20', provider: 'HDFC Bank' },
+        { id: '2', type: 'Credit Card', amount: null, status: 'approved', submittedDate: '2024-12-15', provider: 'ICICI Bank' }
+      ]);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch my requests' });
+    }
+  });
+
+  // ============ END CLIENT PORTAL ENDPOINTS ============
+
   // Register CRM routes
   registerCrmRoutes(app);
   registerZohoBooksRoutes(app);
