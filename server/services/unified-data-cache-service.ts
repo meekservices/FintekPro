@@ -590,6 +590,44 @@ export class UnifiedDataCacheService {
       throw error;
     }
   }
+  
+  async getApiUsageBreakdown(days: number = 30): Promise<any[]> {
+    try {
+      const result = await db.execute(`
+        SELECT 
+          provider,
+          COUNT(*) as total_calls,
+          COUNT(*) FILTER (WHERE cache_hit = true) as cache_hits,
+          COUNT(*) FILTER (WHERE cache_hit = false) as api_calls,
+          ROUND(100.0 * COUNT(*) FILTER (WHERE cache_hit = true) / NULLIF(COUNT(*), 0), 2) as hit_rate_percent,
+          COALESCE(SUM(estimated_cost_inr), 0) as total_cost,
+          COALESCE(SUM(CASE WHEN cache_hit = true THEN estimated_cost_inr ELSE 0 END), 0) as saved_cost
+        FROM api_usage_tracking
+        WHERE created_at > NOW() - INTERVAL '${days} days'
+        GROUP BY provider
+        ORDER BY total_calls DESC
+      `);
+      
+      return result.rows || [];
+    } catch (error) {
+      console.error('Error fetching API usage breakdown:', error);
+      return [];
+    }
+  }
+  
+  async getRefreshSchedules(): Promise<any[]> {
+    try {
+      const result = await db.execute(`
+        SELECT * FROM cache_refresh_schedule
+        ORDER BY priority ASC
+      `);
+      
+      return result.rows || [];
+    } catch (error) {
+      console.error('Error fetching refresh schedules:', error);
+      return [];
+    }
+  }
 }
 
 // Singleton instance
