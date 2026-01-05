@@ -8,14 +8,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, RadialBarChart, RadialBar
 } from "recharts";
 import {
-  ArrowUpRight, ArrowDownRight, TrendingUp, Target, AlertTriangle, CheckCircle, Lightbulb, Download, Share2, FileText, Briefcase, PiggyBank, Shield, Star, Clock, User, Building2, Wallet, BarChart3, Activity
+  ArrowUpRight, ArrowDownRight, TrendingUp, Target, AlertTriangle, CheckCircle, Lightbulb, Download, Share2, FileText, Briefcase, PiggyBank, Shield, Star, Clock, User, Building2, Wallet, BarChart3, Activity, Settings, Loader2
 } from "lucide-react";
 import { useLocation } from "wouter";
+import jsPDF from "jspdf";
 
 const formatCurrency = (value: number) => {
   if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)} Cr`;
@@ -27,6 +31,11 @@ const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#6B7280', '#EF4444', '#8B5CF6'
 
 export default function AgentSampleReport() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState('1Y');
+  const [selectedBenchmark, setSelectedBenchmark] = useState('nifty50');
+  const [showAgentDetails, setShowAgentDetails] = useState(true);
   const [selectedSections, setSelectedSections] = useState({
     portfolioSnapshot: true,
     assetAllocation: true,
@@ -41,6 +50,150 @@ export default function AgentSampleReport() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/portfolio-reports/sample'],
   });
+
+  const generatePDF = async (report: any) => {
+    setIsGeneratingPdf(true);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let yPos = 20;
+
+      doc.setFontSize(20);
+      doc.setTextColor(79, 70, 229);
+      doc.text('Portfolio Analysis Report', pageWidth / 2, yPos, { align: 'center' });
+      yPos += 10;
+
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated on ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 15;
+
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.text('Client Information', 14, yPos);
+      yPos += 8;
+      doc.setFontSize(10);
+      doc.text(`Name: ${report.client.name}`, 14, yPos);
+      yPos += 6;
+      doc.text(`PAN: ${report.client.pan}`, 14, yPos);
+      yPos += 6;
+      doc.text(`Risk Profile: ${report.client.riskProfile}`, 14, yPos);
+      yPos += 12;
+
+      if (selectedSections.portfolioSnapshot) {
+        doc.setFontSize(14);
+        doc.setTextColor(79, 70, 229);
+        doc.text('Portfolio Summary', 14, yPos);
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text(`Total Value: ${formatCurrency(report.portfolio.totalValue)}`, 14, yPos);
+        yPos += 6;
+        doc.text(`Overall Gain: ${formatCurrency(report.portfolio.overallGain)} (${report.portfolio.overallGainPercent}%)`, 14, yPos);
+        yPos += 6;
+        doc.text(`XIRR: ${report.portfolio.xirr}%`, 14, yPos);
+        yPos += 6;
+        doc.text(`Risk Score: ${report.riskMetrics.riskScore}/100 (${report.riskMetrics.riskCategory})`, 14, yPos);
+        yPos += 12;
+      }
+
+      if (selectedSections.assetAllocation) {
+        doc.setFontSize(14);
+        doc.setTextColor(79, 70, 229);
+        doc.text('Asset Allocation', 14, yPos);
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        report.assetAllocation.current.forEach((item: any) => {
+          doc.text(`${item.asset}: ${item.percentage}% (${formatCurrency(item.value)})`, 14, yPos);
+          yPos += 6;
+        });
+        yPos += 6;
+      }
+
+      if (selectedSections.topHoldings) {
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.setTextColor(79, 70, 229);
+        doc.text('Top Holdings', 14, yPos);
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        report.topHoldings.slice(0, 5).forEach((holding: any, idx: number) => {
+          doc.text(`${idx + 1}. ${holding.name} - ${formatCurrency(holding.value)} (${holding.percentage}%)`, 14, yPos);
+          yPos += 6;
+        });
+        yPos += 6;
+      }
+
+      if (selectedSections.goals) {
+        if (yPos > 220) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.setTextColor(79, 70, 229);
+        doc.text('Financial Goals', 14, yPos);
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        report.goals.forEach((goal: any) => {
+          doc.text(`${goal.name}: ${goal.progress}% complete (${goal.onTrack ? 'On Track' : 'Off Track'})`, 14, yPos);
+          yPos += 6;
+        });
+        yPos += 6;
+      }
+
+      if (selectedSections.freshInvestments) {
+        if (yPos > 200) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.setTextColor(79, 70, 229);
+        doc.text('Fresh Investment Recommendations', 14, yPos);
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text(`Investable Surplus: ${formatCurrency(report.freshInvestments.investableSurplus)}`, 14, yPos);
+        yPos += 8;
+        doc.text('Lumpsum:', 14, yPos);
+        yPos += 6;
+        report.freshInvestments.lumpsumRecommendations.forEach((fund: any) => {
+          doc.text(`  - ${fund.name} (${fund.matchScore}% match)`, 14, yPos);
+          yPos += 5;
+        });
+        yPos += 4;
+        doc.text('SIP:', 14, yPos);
+        yPos += 6;
+        report.freshInvestments.sipRecommendations.forEach((fund: any) => {
+          doc.text(`  - ${fund.name} @ ${formatCurrency(fund.suggestedSIP)}/mo`, 14, yPos);
+          yPos += 5;
+        });
+        yPos += 6;
+      }
+
+      doc.addPage();
+      yPos = 20;
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text('Disclaimers:', 14, yPos);
+      yPos += 6;
+      report.disclaimers.forEach((disclaimer: string) => {
+        const lines = doc.splitTextToSize(`• ${disclaimer}`, pageWidth - 28);
+        doc.text(lines, 14, yPos);
+        yPos += lines.length * 4 + 2;
+      });
+
+      if (showAgentDetails) {
+        yPos += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text(`Prepared by: ${report.agent.name} (${report.agent.code})`, 14, yPos);
+      }
+
+      doc.save(`Portfolio_Report_${report.client.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast({ title: 'PDF Downloaded', description: 'Your portfolio report has been saved.' });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to generate PDF', variant: 'destructive' });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -73,11 +226,96 @@ export default function AgentSampleReport() {
             <p className="text-gray-500 dark:text-gray-400 mt-1">Sample Report - {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
           <div className="flex gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" data-testid="button-customize">
+                  <Settings className="h-4 w-4 mr-2" /> Customize
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Report Customization</SheetTitle>
+                  <SheetDescription>Configure which sections to include and display options</SheetDescription>
+                </SheetHeader>
+                <div className="mt-6 space-y-6">
+                  <div>
+                    <h4 className="font-medium mb-3">Sections to Include</h4>
+                    <div className="space-y-3">
+                      {Object.entries(selectedSections).map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between">
+                          <Label htmlFor={key} className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
+                          <Switch
+                            id={key}
+                            checked={value}
+                            onCheckedChange={(checked) => setSelectedSections(prev => ({ ...prev, [key]: checked }))}
+                            data-testid={`switch-section-${key}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Separator />
+                  <div>
+                    <h4 className="font-medium mb-3">Time Period</h4>
+                    <Select value={selectedTimePeriod} onValueChange={setSelectedTimePeriod}>
+                      <SelectTrigger data-testid="select-time-period">
+                        <SelectValue placeholder="Select time period" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1M">1 Month</SelectItem>
+                        <SelectItem value="3M">3 Months</SelectItem>
+                        <SelectItem value="6M">6 Months</SelectItem>
+                        <SelectItem value="1Y">1 Year</SelectItem>
+                        <SelectItem value="3Y">3 Years</SelectItem>
+                        <SelectItem value="5Y">5 Years</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-3">Benchmark</h4>
+                    <Select value={selectedBenchmark} onValueChange={setSelectedBenchmark}>
+                      <SelectTrigger data-testid="select-benchmark">
+                        <SelectValue placeholder="Select benchmark" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nifty50">NIFTY 50 TRI</SelectItem>
+                        <SelectItem value="sensex">BSE SENSEX TRI</SelectItem>
+                        <SelectItem value="nifty100">NIFTY 100</SelectItem>
+                        <SelectItem value="nifty_midcap">NIFTY Midcap 150</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Separator />
+                  <div>
+                    <h4 className="font-medium mb-3">Branding</h4>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="showAgent">Show Agent Details</Label>
+                      <Switch
+                        id="showAgent"
+                        checked={showAgentDetails}
+                        onCheckedChange={setShowAgentDetails}
+                        data-testid="switch-show-agent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
             <Button variant="outline" size="sm" data-testid="button-share">
               <Share2 className="h-4 w-4 mr-2" /> Share
             </Button>
-            <Button size="sm" data-testid="button-download">
-              <Download className="h-4 w-4 mr-2" /> Download PDF
+            <Button 
+              size="sm" 
+              data-testid="button-download"
+              onClick={() => generatePDF(report)}
+              disabled={isGeneratingPdf}
+            >
+              {isGeneratingPdf ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {isGeneratingPdf ? 'Generating...' : 'Download PDF'}
             </Button>
           </div>
         </div>
