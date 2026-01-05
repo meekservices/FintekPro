@@ -312,9 +312,9 @@ export function registerRoleRoutes(app: Express) {
   app.get('/api/agent/ca-list', async (req: any, res: Response) => {
     try {
       res.json([
-        { id: 'ca-1', name: 'CA Suresh Agarwal', specialization: 'Individual ITR, Capital Gains', activeCase: 12 },
-        { id: 'ca-2', name: 'CA Meera Joshi', specialization: 'Business ITR, GST', activeCase: 8 },
-        { id: 'ca-3', name: 'CA Rahul Mehta', specialization: 'Corporate Tax, Audit', activeCase: 15 }
+        { id: 'ca-1', name: 'CA Suresh Agarwal', specialization: 'Individual ITR, Capital Gains', activeCases: 12 },
+        { id: 'ca-2', name: 'CA Meera Joshi', specialization: 'Business ITR, GST', activeCases: 8 },
+        { id: 'ca-3', name: 'CA Rahul Mehta', specialization: 'Corporate Tax, Audit', activeCases: 15 }
       ]);
     } catch (error: any) {
       res.status(500).json({ success: false, message: 'Failed to fetch CA list', error: error.message });
