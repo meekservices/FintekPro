@@ -75,20 +75,30 @@ app.use(cors({
       "http://partner.localhost:5000",
     ];
     
-    // Allow Replit domains (*.replit.dev, *.repl.co, *.replit.app)
-    if (!origin || 
-        allowedOrigins.includes(origin) ||
+    // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Allow Replit domains (*.replit.dev, *.repl.co, *.replit.app, *.picard.replit.dev)
+    if (allowedOrigins.includes(origin) ||
         origin.endsWith('.replit.dev') ||
         origin.endsWith('.repl.co') ||
-        origin.endsWith('.replit.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+        origin.endsWith('.replit.app') ||
+        origin.includes('.picard.replit.dev') ||
+        origin.includes('.worf.replit.dev')) {
+      return callback(null, true);
     }
+    
+    // In production, log blocked origins for debugging but don't throw
+    if (process.env.NODE_ENV === 'production') {
+      console.warn(`[CORS] Blocked request from origin: ${origin}`);
+    }
+    callback(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "Cache-Control"]
 }));
 
 // Rate limiting with proper proxy configuration
