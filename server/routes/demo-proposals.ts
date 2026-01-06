@@ -450,13 +450,20 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
     let clientData = { fullName: 'Valued Client', email: '' };
     if (clientId) {
       const client = await db
-        .select({ fullName: users.name, email: users.email, phone: users.phone })
+        .select({ 
+          firstName: users.firstName, 
+          lastName: users.lastName, 
+          email: users.email 
+        })
         .from(users)
-        .where(eq(users.id, Number(clientId)))
+        .where(eq(users.id, String(clientId)))
         .limit(1);
       if (client.length > 0) {
+        const fullName = [client[0].firstName, client[0].lastName]
+          .filter(Boolean)
+          .join(' ') || 'Valued Client';
         clientData = {
-          fullName: client[0].fullName || 'Valued Client',
+          fullName,
           email: client[0].email || '',
         };
       }

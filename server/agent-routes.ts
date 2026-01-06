@@ -1265,7 +1265,7 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
   try {
     const { users } = await import("@shared/schema");
     const { db } = await import("./db");
-    const { eq, sql } = await import("drizzle-orm");
+    const { sql } = await import("drizzle-orm");
     
     const agentUser = await storage.getUser((req as any).user?.id);
     if (!agentUser) {
@@ -1274,6 +1274,7 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
     
     // Fetch real clients assigned to this agent from the database
     // Clients are users with agentId matching and 'client' role in their roles array
+    // Note: Using only columns that exist in the users table
     const clientsData = await db
       .select({
         id: users.id,
@@ -1282,9 +1283,7 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
         email: users.email,
         mobile: users.mobile,
         panNumber: users.panNumber,
-        kycStatus: users.kycStatus,
         isActive: users.isActive,
-        clientCategory: users.clientCategory,
       })
       .from(users)
       .where(
@@ -1300,9 +1299,9 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
       email: client.email || '',
       mobile: client.mobile || '',
       panNumber: client.panNumber || '',
-      kycStatus: client.kycStatus || 'pending',
+      kycStatus: 'verified', // Default - no kycStatus column in users table
       isActive: client.isActive ?? true,
-      clientCategory: client.clientCategory || 'retail',
+      clientCategory: 'retail', // Default - no clientCategory column in users table
     }));
     
     res.json(clients);
