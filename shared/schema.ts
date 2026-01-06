@@ -2195,6 +2195,9 @@ export const zohoConnections = pgTable("zoho_connections", {
   // Metadata
   createdBy: varchar("created_by").references(() => users.id),
   isProduction: boolean("is_production").default(false),
+  isDefault: boolean("is_default").default(false), // Default connection for CRM sync
+  isMaster: boolean("is_master").default(false), // Master agent connection - all sub-agents sync through this
+  masterAgentId: varchar("master_agent_id"), // Agent ID this connection belongs to
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -2215,6 +2218,10 @@ export const zohoEntityMappings = pgTable("zoho_entity_mappings", {
   zohoModule: varchar("zoho_module").notNull(), // 'Contacts', 'Vendors', 'Tickets'
   zohoRecordId: varchar("zoho_record_id").notNull(),
   zohoRecordData: jsonb("zoho_record_data"), // Cached Zoho record snapshot
+  
+  // Hierarchical Sync - Parent record linkage for agent-client hierarchy
+  parentZohoRecordId: varchar("parent_zoho_record_id"), // Links to master agent's Zoho Account
+  owningAgentId: varchar("owning_agent_id"), // FintekPro agent who owns/acquired this entity
   
   // Sync Status
   syncDirection: varchar("sync_direction").default("bidirectional"), // bidirectional, zoho_to_fintekpro, fintekpro_to_zoho
