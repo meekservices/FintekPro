@@ -27549,27 +27549,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .returning();
       
-      // Sync prospect to Zoho CRM as Lead with agent attribution
+      // Sync prospect to Zoho CRM as Lead with agent attribution (using master connection resolver)
       try {
         const { ZohoCRMService } = await import("./zoho/services/crm");
-        const { zohoConnections } = await import("@shared/schema");
+        const { ZohoConnectionResolver } = await import("./zoho/connection-resolver");
         
-        const [connection] = await db
-          .select()
-          .from(zohoConnections)
-          .where(eq(zohoConnections.isDefault, true))
-          .limit(1);
+        const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
         
         if (connection) {
-          const zohoCRM = new ZohoCRMService(connection.id, connection.dataCenter || 'com');
+          const zohoCRM = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
           await zohoCRM.syncProspectToLead({
             name,
             email: email || undefined,
             phone: mobile || undefined,
             agentId,
+            prospectId: newClient.id,
             notes: `Client Type: ${clientType || 'individual'}, Risk Profile: ${indicativeRiskProfile || 'Not assessed'}`
           });
-          console.log(`✅ Prospect ${name} synced to Zoho CRM as Lead`);
+          console.log(`✅ Prospect ${name} synced to Zoho CRM as Lead (via ${connection.isMaster ? 'master' : 'agent'} connection)`);
+        } else {
+          console.log(`ℹ️ No Zoho connection configured - skipping CRM sync for prospect ${name}`);
         }
       } catch (zohoError) {
         console.warn("Zoho CRM prospect sync failed (non-blocking):", zohoError);
@@ -27579,6 +27578,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error creating prospect client:', error);
       res.status(500).json({ message: 'Failed to create prospect client' });
+    }
+  });
+
+  // GET /api/agent/prospect-clients/all - Get all prospects for the agent (without pagination)
+  app.get("/api/agent/prospect-clients/all", requireAgent, async (req: any, res) => {
+    try {
+      const agentId = req.user.id;
+      
+      const clients = await db
+        .select()
+        .from(prospectClients)
+        .where(eq(prospectClients.agentId, agentId))
+        .orderBy(desc(prospectClients.createdAt));
+      
+      res.json({ prospects: clients });
+    } catch (error) {
+      console.error('Error fetching all prospect clients:', error);
+      res.status(500).json({ message: 'Failed to fetch prospect clients' });
     }
   });
 

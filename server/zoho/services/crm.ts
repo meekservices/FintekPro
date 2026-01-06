@@ -637,15 +637,18 @@ export class ZohoCRMService {
   }
 
   /**
-   * Sync client/prospect to Zoho CRM with agent attribution
+   * Sync client/prospect to Zoho CRM with agent attribution and hierarchical tracking
+   * Links the prospect to the owning agent and optionally to a master agent's account
    */
   async syncProspectToLead(prospectData: {
     name: string;
     email?: string;
     phone?: string;
     agentId: string;
+    prospectId?: string;
     portfolioValue?: number;
     notes?: string;
+    masterAgentZohoAccountId?: string;
   }): Promise<string> {
     const nameParts = prospectData.name.split(' ');
     const firstName = nameParts[0] || 'Prospect';
@@ -669,11 +672,31 @@ export class ZohoCRMService {
       Lead_Source: 'Agent Referral',
       Lead_Status: 'Prospect',
       Industry: 'Individual',
-      Description: `Referred by Agent: ${agent?.fullName || 'Unknown'}\nPortfolio Value: ₹${prospectData.portfolioValue?.toLocaleString() || 'N/A'}\n${prospectData.notes || ''}`,
+      Description: `Referred by Agent: ${agent?.fullName || 'Unknown'} (ID: ${prospectData.agentId})\nPortfolio Value: ₹${prospectData.portfolioValue?.toLocaleString() || 'N/A'}\n${prospectData.notes || ''}`,
       Tag: ['FintekPro Prospect', 'Agent Referral', agent?.fullName || 'Direct']
     };
 
-    return await this.createLead(leadData);
+    const zohoRecordId = await this.createLead(leadData);
+
+    // Create entity mapping with hierarchical tracking
+    if (zohoRecordId && prospectData.prospectId) {
+      await db.insert(zohoEntityMappings).values({
+        connectionId: this.connectionId,
+        fintekproEntityType: 'prospect',
+        fintekproEntityId: prospectData.prospectId,
+        zohoService: 'CRM',
+        zohoModule: 'Leads',
+        zohoRecordId,
+        zohoRecordData: { id: zohoRecordId, name: prospectData.name },
+        parentZohoRecordId: prospectData.masterAgentZohoAccountId || null,
+        owningAgentId: prospectData.agentId,
+        syncDirection: 'to_zoho',
+        lastSyncedAt: new Date(),
+        syncStatus: 'synced'
+      });
+    }
+
+    return zohoRecordId;
   }
 
   /**
