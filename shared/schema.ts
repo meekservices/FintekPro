@@ -12302,6 +12302,11 @@ export const unlistedCompanies = pgTable("unlisted_companies", {
   probe42CompanyId: varchar("probe42_company_id"),
   lastSyncedAt: timestamp("last_synced_at"),
   
+  // Identity Confidence (Epic 1 - Financial Data Enrichment)
+  identityConfidence: decimal("identity_confidence", { precision: 3, scale: 2 }), // 0.00 to 1.00
+  identityStatus: varchar("identity_status").default("review"), // active, review, blocked
+  probe42RawResponse: jsonb("probe42_raw_response"), // Raw API response for audit
+  
   // Company Status
   status: varchar("status").default("active").notNull(), // active, inactive, delisted
   listingStage: varchar("listing_stage"), // unlisted, pre_ipo, growth, mature
@@ -12415,6 +12420,13 @@ export const companyFinancials = pgTable("company_financials", {
   // Source & Metadata
   dataSource: varchar("data_source").default("probe42"), // probe42, manual, company_filing
   verified: boolean("verified").default(false),
+  
+  // Data Usage Flags (Epic 8 - AI & Advisory Guardrails)
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }), // 0.00 to 1.00
+  aiAllowed: boolean("ai_allowed").default(true), // Can AI use this data?
+  lockedForAdvisory: boolean("locked_for_advisory").default(false), // Post-disclosure lock
+  executionAllowed: boolean("execution_allowed").default(true), // Can execute trades based on this?
+  dataQualityScore: integer("data_quality_score"), // 0-100 composite score
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -12467,6 +12479,101 @@ export const companyRatios = pgTable("company_ratios", {
   index("idx_company_ratios_company").on(table.companyId),
   index("idx_company_ratios_fy").on(table.financialYear),
 ]);
+
+// ============================================================
+// FINANCIAL DATA ENRICHMENT TABLES (Epics 2, 3, 5, 6)
+// Multi-source identity mapping and audit logging for SEBI compliance
+// ============================================================
+
+// Company External Mapping - Maps FintekPro companies to external data sources
+export const companyExternalMapping = pgTable("company_external_mapping", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  
+  // External Source Information
+  source: varchar("source").notNull(), // FINNHUB, SIMFIN, YAHOO, PROBE42, MCA
+  externalId: varchar("external_id").notNull(), // External system's company ID
+  externalSymbol: varchar("external_symbol"), // Trading symbol if applicable
+  
+  // Match Quality
+  matchMethod: varchar("match_method").notNull(), // ISIN, CIN, SYMBOL, NAME, MANUAL
+  matchScore: decimal("match_score", { precision: 3, scale: 2 }), // 0.00 to 1.00
+  matchVerified: boolean("match_verified").default(false),
+  
+  // Locking (prevents auto-updates after verification)
+  locked: boolean("locked").default(false),
+  lockedAt: timestamp("locked_at"),
+  lockedBy: varchar("locked_by").references(() => users.id),
+  lockReason: text("lock_reason"),
+  
+  // Verification
+  verifiedBy: varchar("verified_by"), // SYSTEM, ADMIN
+  verifiedAt: timestamp("verified_at"),
+  verifiedByUserId: varchar("verified_by_user_id").references(() => users.id),
+  
+  // Metadata
+  lastFetchedAt: timestamp("last_fetched_at"),
+  fetchSuccessCount: integer("fetch_success_count").default(0),
+  fetchFailureCount: integer("fetch_failure_count").default(0),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_company_external_mapping_company").on(table.companyId),
+  index("idx_company_external_mapping_source").on(table.source),
+  index("idx_company_external_mapping_external").on(table.source, table.externalId),
+]);
+
+// Financial Audit Log - SEBI-compliant provenance tracking for every financial number
+export const financialAuditLog = pgTable("financial_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  
+  // What was changed/retrieved
+  metric: varchar("metric").notNull(), // revenue, ebitda, pat, total_assets, etc.
+  metricValue: decimal("metric_value", { precision: 20, scale: 2 }),
+  metricValueText: text("metric_value_text"), // For non-numeric values
+  previousValue: decimal("previous_value", { precision: 20, scale: 2 }),
+  financialYear: varchar("financial_year").notNull(),
+  period: varchar("period"), // Q1, Q2, Q3, Q4, ANNUAL
+  currency: varchar("currency").default("INR"),
+  
+  // Source Information
+  source: varchar("source").notNull(), // PROBE42, FINNHUB, SIMFIN, YAHOO, MANUAL, MCA
+  sourceResponseId: varchar("source_response_id"), // Reference to raw API response
+  probe42Reference: varchar("probe42_reference"), // Probe42 company ID for traceability
+  
+  // Confidence & Quality
+  confidenceScore: decimal("confidence_score", { precision: 3, scale: 2 }), // 0.00 to 1.00
+  dataQualityFlags: jsonb("data_quality_flags").default([]), // Array of flags: ESTIMATED, RESTATED, AUDITED
+  
+  // Usage Tracking (for "Why This Number?" API)
+  usedIn: varchar("used_in"), // AI, REPORT, ADVISORY, DISPLAY, TRADE_EXECUTION
+  usedAt: timestamp("used_at"),
+  usedByUserId: varchar("used_by_user_id").references(() => users.id),
+  
+  // Action Type
+  actionType: varchar("action_type").notNull(), // FETCH, UPDATE, OVERRIDE, DELETE, MERGE
+  actionBy: varchar("action_by"), // SYSTEM, ADMIN, USER
+  actionByUserId: varchar("action_by_user_id").references(() => users.id),
+  actionReason: text("action_reason"), // Mandatory for overrides
+  
+  // Immutability
+  hashPrevious: varchar("hash_previous"), // SHA-256 hash of previous record for chain verification
+  hashCurrent: varchar("hash_current"), // SHA-256 hash of this record
+  
+  // Metadata
+  retrievedAt: timestamp("retrieved_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_financial_audit_log_company").on(table.companyId),
+  index("idx_financial_audit_log_metric").on(table.metric),
+  index("idx_financial_audit_log_source").on(table.source),
+  index("idx_financial_audit_log_fy").on(table.financialYear),
+  index("idx_financial_audit_log_action").on(table.actionType),
+  index("idx_financial_audit_log_timestamp").on(table.createdAt),
+]);
+
 
 // Unlisted Price History table
 export const unlistedPriceHistory = pgTable("unlisted_price_history", {
@@ -12707,6 +12814,22 @@ export const insertCompanyRatiosSchema = createInsertSchema(companyRatios).omit(
 });
 export type CompanyRatios = typeof companyRatios.$inferSelect;
 export type InsertCompanyRatios = z.infer<typeof insertCompanyRatiosSchema>;
+
+// Insert schemas for Financial Data Enrichment tables
+export const insertCompanyExternalMappingSchema = createInsertSchema(companyExternalMapping).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CompanyExternalMapping = typeof companyExternalMapping.$inferSelect;
+export type InsertCompanyExternalMapping = z.infer<typeof insertCompanyExternalMappingSchema>;
+
+export const insertFinancialAuditLogSchema = createInsertSchema(financialAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type FinancialAuditLog = typeof financialAuditLog.$inferSelect;
+export type InsertFinancialAuditLog = z.infer<typeof insertFinancialAuditLogSchema>;
 
 export const insertUnlistedPriceHistorySchema = createInsertSchema(unlistedPriceHistory).omit({
   id: true,
