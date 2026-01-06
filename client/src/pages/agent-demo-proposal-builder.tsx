@@ -68,13 +68,16 @@ interface Client {
   type: 'client' | 'prospect';
 }
 
-interface Prospect {
+interface ProspectClient {
   id: string;
+  agentId: string;
   name: string;
   email?: string;
   mobile?: string;
   pan?: string;
+  clientType: string;
   indicativeRiskProfile?: string;
+  state: 'prospect' | 'onboarded' | 'active_client';
 }
 
 interface ProposalConfig {
@@ -303,7 +306,7 @@ export default function AgentDemoProposalBuilder() {
   });
 
   const { data: prospectsData, isLoading: prospectsLoading } = useQuery({
-    queryKey: ['/api/agent-prospect-wizard/prospects'],
+    queryKey: ['/api/agent/prospect-clients'],
   });
 
   const { data: proposalsData, isLoading: proposalsLoading } = useQuery<{ proposals: ProspectProposal[]; stats: ProposalStats }>({
@@ -620,9 +623,9 @@ export default function AgentDemoProposalBuilder() {
     type: 'client' as const
   }));
   
-  const prospects: Client[] = ((prospectsData as any)?.prospects || []).map((p: Prospect) => ({
+  const prospects: Client[] = ((prospectsData as any)?.prospects || []).map((p: ProspectClient) => ({
     id: p.id,
-    fullName: p.name,
+    fullName: p.name || 'Unnamed Prospect',
     email: p.email || '',
     phone: p.mobile || '',
     riskProfile: p.indicativeRiskProfile,
