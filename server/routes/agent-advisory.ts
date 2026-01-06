@@ -656,6 +656,9 @@ export function registerAgentAdvisoryRoutes(app: Express) {
         .select({
           id: investmentProposals.id,
           clientId: investmentProposals.clientId,
+          title: investmentProposals.title,
+          description: investmentProposals.description,
+          isDemo: investmentProposals.isDemo,
           status: investmentProposals.status,
           investmentAmount: investmentProposals.totalInvestmentAmount,
           createdAt: investmentProposals.createdAt,
@@ -669,11 +672,37 @@ export function registerAgentAdvisoryRoutes(app: Express) {
 
       const proposalsWithDetails = await Promise.all(
         proposals.map(async (proposal: any) => {
-          const [client] = await db
-            .select({ firstName: users.firstName, lastName: users.lastName })
-            .from(users)
-            .where(eq(users.id, proposal.clientId))
-            .limit(1);
+          let clientName = 'Unknown';
+          
+          // Try to get client from users table
+          if (proposal.clientId) {
+            const [client] = await db
+              .select({ firstName: users.firstName, lastName: users.lastName, name: users.name })
+              .from(users)
+              .where(eq(users.id, proposal.clientId))
+              .limit(1);
+            
+            if (client) {
+              clientName = client.name || `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Unknown';
+            }
+          }
+          
+          // Fallback: Extract name from title patterns like "Investment Proposal - Name" or "Investment Proposal for Name"
+          if (clientName === 'Unknown' && proposal.title) {
+            // Try pattern: "... - Name" or "... – Name" (em-dash or hyphen)
+            const dashMatch = proposal.title.match(/[-–—]\s*(.+?)$/);
+            if (dashMatch && dashMatch[1] && dashMatch[1].trim().length > 0) {
+              clientName = dashMatch[1].trim();
+            } else {
+              // Try pattern: "... for Name"
+              const forMatch = proposal.title.match(/for\s+(.+?)(?:\s*-|\s*$)/i);
+              if (forMatch && forMatch[1]) {
+                clientName = forMatch[1].trim();
+              } else if (proposal.isDemo) {
+                clientName = 'Demo Proposal';
+              }
+            }
+          }
 
           const [session] = await db
             .select({ sessionPurpose: advisorySessions.sessionPurpose, workflowState: advisorySessions.workflowState })
@@ -690,7 +719,7 @@ export function registerAgentAdvisoryRoutes(app: Express) {
 
           return {
             ...proposal,
-            clientName: client ? `${client.firstName} ${client.lastName}` : 'Unknown',
+            clientName,
             sessionPurpose: session?.sessionPurpose,
             workflowState: session?.workflowState || 'draft',
             suitabilityPassed: true,

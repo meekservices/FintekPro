@@ -1,9 +1,10 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
-import { investmentProposals, users } from "@shared/schema";
+import { investmentProposals, users, prospectProposals } from "@shared/schema";
 import { eq, and, desc, sql, count, sum, isNotNull } from "drizzle-orm";
 import { generateProposalPDF } from "../services/reports/proposal-pdf-renderer";
 import { z } from "zod";
+import { nanoid } from "nanoid";
 
 const proposalConfigSchema = z.object({
   clientId: z.string().optional(),
@@ -476,30 +477,58 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
     const base64 = pdfBuffer.toString('base64');
     const pdfUrl = `data:application/pdf;base64,${base64}`;
 
-    // Create proposal record in database
-    const id = `PROP-${Date.now()}`;
+    // Create proposal record in prospect_proposals for display in proposals list
+    const shareToken = nanoid(12);
+    const referralCode = `REF-${nanoid(8)}`;
     const targetAmount = Number(config.investmentGoals.targetAmount) || 0;
-    const formattedAmount = targetAmount.toFixed(2);
-    await db.insert(investmentProposals).values({
-      id,
-      clientId: clientId ? String(clientId) : null,
-      agentId: agentId || null,
-      title: proposalName || 'Investment Proposal',
-      description: `${config.investmentGoals.primaryGoal} proposal`,
-      proposalSource: 'proposal_builder',
-      totalInvestmentAmount: formattedAmount,
-      recommendations: [],
-      status: 'pending',
-      isDemo: true,
-      demoViewCount: 0,
+    
+    // Get agent info
+    const agentInfo = await db
+      .select({ name: users.name, email: users.email, phone: users.phone })
+      .from(users)
+      .where(eq(users.id, agentId))
+      .limit(1);
+    
+    const agent = agentInfo[0] || { name: 'Agent', email: '', phone: '' };
+    
+    // Build recommendations array from config
+    const recommendations = [
+      { productType: 'Equity', productName: 'Diversified Equity Fund', recommendedAmount: targetAmount * (config.assetAllocation.equity / 100), allocationPercentage: config.assetAllocation.equity, investmentType: 'sip', selectionReason: 'Equity allocation for growth' },
+      { productType: 'Debt', productName: 'Corporate Bond Fund', recommendedAmount: targetAmount * (config.assetAllocation.debt / 100), allocationPercentage: config.assetAllocation.debt, investmentType: 'lumpsum', selectionReason: 'Debt allocation for stability' },
+      { productType: 'Gold', productName: 'Gold ETF', recommendedAmount: targetAmount * (config.assetAllocation.gold / 100), allocationPercentage: config.assetAllocation.gold, investmentType: 'lumpsum', selectionReason: 'Gold allocation for hedge' },
+    ].filter(r => r.allocationPercentage > 0);
+    
+    const proposalTitle = proposalName || `Investment Proposal - ${clientData.fullName}`;
+    
+    const [proposal] = await db.insert(prospectProposals).values({
+      shareToken,
+      agentId,
+      agentName: agent.name,
+      agentEmail: agent.email || undefined,
+      agentMobile: agent.phone || undefined,
+      prospectName: clientData.fullName,
+      prospectEmail: clientData.email || undefined,
+      proposalType: 'fresh_investment',
+      proposalTitle,
+      executiveSummary: `Personalized investment strategy for ${config.investmentGoals.primaryGoal} with ${config.riskProfile.category} risk profile.`,
+      recommendations,
+      totalInvestmentAmount: targetAmount.toFixed(2),
+      projectedReturns: '12.00',
+      projectedValue: (targetAmount * 1.5).toFixed(2),
+      targetAllocation: config.assetAllocation,
+      investmentGoals: config.investmentGoals,
+      referralCode,
+      status: 'draft',
+      viewCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
+    }).returning();
 
     res.json({ 
       success: true, 
       pdfUrl,
-      proposalId: id,
+      proposalId: proposal.id,
+      shareToken: proposal.shareToken,
       message: 'Proposal PDF generated successfully'
     });
   } catch (error: any) {
