@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -7,6 +7,13 @@ declare module 'jspdf' {
     lastAutoTable: { finalY: number };
   }
 }
+
+// Apply autoTable plugin to jsPDF
+const applyAutoTable = (doc: jsPDF) => {
+  if (typeof (doc as any).autoTable !== 'function') {
+    autoTable(doc, { body: [] }); // Initialize plugin
+  }
+};
 
 interface ProposalConfig {
   clientId: string;
@@ -85,6 +92,9 @@ export class ProposalPDFRenderer {
       unit: 'mm',
       format: 'a4',
     });
+    
+    // Initialize autoTable plugin by calling it with empty body
+    autoTable(this.pdf, { body: [] });
     
     this.pageWidth = this.pdf.internal.pageSize.getWidth();
     this.pageHeight = this.pdf.internal.pageSize.getHeight();
@@ -255,7 +265,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       this.formatCurrency((config.investmentGoals.targetAmount * a.value) / 100),
     ]);
 
-    this.pdf.autoTable({
+    autoTable(this.pdf, {
       startY: this.currentY,
       head: [['Asset Class', 'Allocation', 'Description', 'Target Value']],
       body: allocationRows,
@@ -264,7 +274,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       margin: { left: this.margin, right: this.margin },
     });
 
-    this.currentY = this.pdf.lastAutoTable.finalY + 20;
+    this.currentY = (this.pdf as any).lastAutoTable.finalY + 20;
 
     this.pdf.setFont('helvetica', 'bold');
     this.pdf.text('Allocation Rationale:', this.margin, this.currentY);
@@ -285,7 +295,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       ['Risk Tolerance:', config.riskProfile.tolerance],
     ];
 
-    this.pdf.autoTable({
+    autoTable(this.pdf, {
       startY: this.currentY,
       body: riskData,
       theme: 'plain',
@@ -296,7 +306,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       },
     });
 
-    this.currentY = this.pdf.lastAutoTable.finalY + 15;
+    this.currentY = (this.pdf as any).lastAutoTable.finalY + 15;
 
     this.pdf.setFont('helvetica', 'bold');
     this.pdf.text('Risk Profile Implications:', this.margin, this.currentY);
@@ -340,7 +350,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
 
     const recommendations = this.getRecommendations(config);
 
-    this.pdf.autoTable({
+    autoTable(this.pdf, {
       startY: this.currentY,
       head: [['Category', 'Recommended Instruments', 'Allocation', 'Risk Level']],
       body: recommendations.map(r => [r.category, r.instruments, r.allocation, r.risk]),
@@ -349,7 +359,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       margin: { left: this.margin, right: this.margin },
     });
 
-    this.currentY = this.pdf.lastAutoTable.finalY + 15;
+    this.currentY = (this.pdf as any).lastAutoTable.finalY + 15;
 
     this.pdf.setFont('helvetica', 'italic');
     this.pdf.setFontSize(9);
@@ -380,7 +390,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       ]);
     }
 
-    this.pdf.autoTable({
+    autoTable(this.pdf, {
       startY: this.currentY,
       head: [['Period', 'Annual Investment', 'Projected Value', 'Cumulative Return']],
       body: projections,
@@ -389,7 +399,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       margin: { left: this.margin, right: this.margin },
     });
 
-    this.currentY = this.pdf.lastAutoTable.finalY + 15;
+    this.currentY = (this.pdf as any).lastAutoTable.finalY + 15;
 
     this.pdf.setFont('helvetica', 'bold');
     this.pdf.text('Assumptions:', this.margin, this.currentY);
@@ -421,7 +431,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       ['Expense Ratio', 'Percentage', 'Varies by fund', 'Daily (deducted from NAV)'],
     ];
 
-    this.pdf.autoTable({
+    autoTable(this.pdf, {
       startY: this.currentY,
       head: [fees[0]],
       body: fees.slice(1),
@@ -430,7 +440,7 @@ Our recommended asset allocation is designed to balance growth potential with ri
       margin: { left: this.margin, right: this.margin },
     });
 
-    this.currentY = this.pdf.lastAutoTable.finalY + 15;
+    this.currentY = (this.pdf as any).lastAutoTable.finalY + 15;
 
     this.pdf.setFont('helvetica', 'normal');
     this.pdf.setFontSize(10);
