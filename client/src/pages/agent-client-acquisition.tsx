@@ -48,8 +48,21 @@ import {
   Info,
   ChevronRight,
   FileUp,
-  Scale
+  Scale,
+  Wand2,
+  ChevronDown,
+  FolderSearch,
+  PlusCircle,
+  Layers
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ProspectClient {
   id: string;
@@ -301,10 +314,58 @@ export default function AgentClientAcquisitionPage() {
           <h1 className="text-2xl font-bold">Client Acquisition</h1>
           <p className="text-muted-foreground">Manage prospect pipeline and convert to active clients</p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)} data-testid="btn-add-prospect">
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add Prospect
-        </Button>
+        <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" data-testid="btn-smart-proposal">
+                <Wand2 className="h-4 w-4 mr-2" />
+                Create Smart Proposal
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Choose Proposal Type</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                className="cursor-pointer py-3" 
+                data-testid="menu-analyze-existing"
+                onSelect={() => navigate("/agent/prospect-wizard")}
+              >
+                <FolderSearch className="h-4 w-4 mr-3 text-blue-600" />
+                <div>
+                  <p className="font-medium">Analyze Existing Portfolio</p>
+                  <p className="text-xs text-muted-foreground">Import holdings & get AI rebalancing advice</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="cursor-pointer py-3" 
+                data-testid="menu-fresh-investment"
+                onSelect={() => navigate("/agent/prospect-wizard?mode=fresh")}
+              >
+                <PlusCircle className="h-4 w-4 mr-3 text-green-600" />
+                <div>
+                  <p className="font-medium">Fresh Investment Proposal</p>
+                  <p className="text-xs text-muted-foreground">AI recommendations for new investments</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="cursor-pointer py-3" 
+                data-testid="menu-combined"
+                onSelect={() => navigate("/agent/prospect-wizard?mode=combined")}
+              >
+                <Layers className="h-4 w-4 mr-3 text-purple-600" />
+                <div>
+                  <p className="font-medium">Combined Proposal</p>
+                  <p className="text-xs text-muted-foreground">Analyze existing + suggest fresh investments</p>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={() => setShowAddDialog(true)} data-testid="btn-add-prospect">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Prospect
+          </Button>
+        </div>
       </div>
 
       <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
@@ -314,6 +375,45 @@ export default function AgentClientAcquisitionPage() {
           The analysis and proposals shared are advisory in nature. Final investment decisions are made by the client with your assistance as a licensed agent.
         </AlertDescription>
       </Alert>
+
+      <Card className="border-2 border-dashed border-indigo-200 dark:border-indigo-800 bg-gradient-to-r from-slate-50 to-indigo-50 dark:from-slate-950 dark:to-indigo-950">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="h-5 w-5 text-indigo-600" />
+            <h3 className="font-semibold text-sm">How to Create AI-Powered Proposals</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+              <div>
+                <p className="font-medium text-sm">Add Prospect</p>
+                <p className="text-xs text-muted-foreground">Click "Add Prospect" with name & PAN</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+              <div>
+                <p className="font-medium text-sm">Import/Enter Portfolio</p>
+                <p className="text-xs text-muted-foreground">Fetch via PAN or manually add holdings</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+              <div>
+                <p className="font-medium text-sm">AI Analysis</p>
+                <p className="text-xs text-muted-foreground">Get asset allocation, risk & gap analysis</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">4</div>
+              <div>
+                <p className="font-medium text-sm">Generate Proposal</p>
+                <p className="text-xs text-muted-foreground">Share PDF with rebalancing + fresh ideas</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
@@ -545,53 +645,100 @@ export default function AgentClientAcquisitionPage() {
         </TabsContent>
 
         <TabsContent value="analysis" className="space-y-4">
-          <Card>
+          <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 border-indigo-200 dark:border-indigo-800">
             <CardHeader>
-              <CardTitle>Portfolio Analysis Engine</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Wand2 className="h-5 w-5 text-indigo-600" />
+                AI Portfolio Analysis & Proposal Wizard
+              </CardTitle>
               <CardDescription>
-                AI-powered analysis of prospect portfolios to identify gaps and opportunities
+                Choose your workflow to create personalized investment proposals for prospects
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border-dashed">
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all hover:border-blue-400 group h-full"
+                  onClick={() => navigate("/agent/prospect-wizard")}
+                  data-testid="card-analyze-existing"
+                >
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Asset Allocation</CardTitle>
+                    <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <FolderSearch className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <CardTitle className="text-base">Analyze Existing Portfolio</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-center h-32 text-muted-foreground">
-                      <PieChart className="h-16 w-16 opacity-30" />
-                    </div>
-                    <p className="text-sm text-center text-muted-foreground">
-                      Select a prospect to view allocation breakdown
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Import client's current holdings and get AI-powered rebalancing recommendations
                     </p>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Manual entry or bulk import</li>
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Asset allocation analysis</li>
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Risk assessment & gaps</li>
+                    </ul>
                   </CardContent>
+                  <CardFooter>
+                    <Button variant="ghost" className="w-full group-hover:bg-blue-50 dark:group-hover:bg-blue-900">
+                      Start Analysis <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardFooter>
                 </Card>
-                <Card className="border-dashed">
+
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all hover:border-green-400 group h-full"
+                  onClick={() => navigate("/agent/prospect-wizard?mode=fresh")}
+                  data-testid="card-fresh-investment"
+                >
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Concentration Risk</CardTitle>
+                    <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <PlusCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                    <CardTitle className="text-base">Fresh Investment Proposal</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-center h-32 text-muted-foreground">
-                      <AlertCircle className="h-16 w-16 opacity-30" />
-                    </div>
-                    <p className="text-sm text-center text-muted-foreground">
-                      Risk analysis and alerts will appear here
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Create AI-powered investment recommendations for new capital deployment
                     </p>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Risk profiling</li>
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Goal-based recommendations</li>
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Diversified allocation</li>
+                    </ul>
                   </CardContent>
+                  <CardFooter>
+                    <Button variant="ghost" className="w-full group-hover:bg-green-50 dark:group-hover:bg-green-900">
+                      Create Proposal <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardFooter>
                 </Card>
-                <Card className="border-dashed">
+
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all hover:border-purple-400 group h-full"
+                  onClick={() => navigate("/agent/prospect-wizard?mode=combined")}
+                  data-testid="card-combined"
+                >
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Gap Analysis</CardTitle>
+                    <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <Layers className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <CardTitle className="text-base">Combined Proposal</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-center h-32 text-muted-foreground">
-                      <Target className="h-16 w-16 opacity-30" />
-                    </div>
-                    <p className="text-sm text-center text-muted-foreground">
-                      Missing asset classes and recommendations
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Full analysis: rebalance existing + recommend new investments together
                     </p>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Portfolio optimization</li>
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Fresh investment suggestions</li>
+                      <li className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Consolidated proposal PDF</li>
+                    </ul>
                   </CardContent>
+                  <CardFooter>
+                    <Button variant="ghost" className="w-full group-hover:bg-purple-50 dark:group-hover:bg-purple-900">
+                      Full Proposal <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </CardFooter>
                 </Card>
               </div>
             </CardContent>
