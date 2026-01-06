@@ -166,6 +166,7 @@ import globalAdvisoryRoutes from "./routes/global-advisory";
 import feeModeRoutes from "./routes/fee-mode";
 import cacheAdminRoutes from "./routes/cache-admin";
 import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
+import exchangeFilingsRoutes from "./routes/exchange-filings-routes";
 
 // Tax Calculation Request Validation Schemas
 const calculateCapitalGainsSchema = z.object({
@@ -535,6 +536,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Cache Admin Routes (Data Caching & Cost Optimization)
   app.use("/api/admin/cache", requireAdmin, cacheAdminRoutes);
+  app.use("/api/admin/exchange-filings", requireAdmin, exchangeFilingsRoutes);
+  console.log("✅ Exchange Filings routes registered (admin-only)");
   cacheCleanupScheduler.initialize();
   console.log("✅ Cache Admin routes registered");
 

@@ -9,9 +9,11 @@
 
 import { probe42Service } from './probe42-service';
 import { finnhubService } from './finnhub-service';
+import { exchangeFilingsService } from './exchange-filings-service';
+import { xbrlParserService } from './xbrl-parser-service';
 import { ExternalServiceError } from '../utils/errors';
 
-export type DataSource = 'probe42' | 'finnhub' | 'yahoo' | 'manual' | 'mca';
+export type DataSource = 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'manual' | 'mca';
 
 export interface MetricValue {
   value: number | string | null;
@@ -81,7 +83,7 @@ export interface EnrichmentConfig {
 }
 
 const DEFAULT_CONFIG: EnrichmentConfig = {
-  sourcePriority: ['probe42', 'finnhub', 'yahoo'],
+  sourcePriority: ['nse_bse', 'probe42', 'finnhub', 'yahoo'],
   minConfidenceThreshold: 0.6,
   allowMixedSources: true,
   aiAllowed: true,
@@ -107,6 +109,7 @@ class DataEnrichmentService {
 
   getSourceConfidence(source: DataSource): number {
     const confidenceMap: Record<DataSource, number> = {
+      nse_bse: 0.98,
       probe42: 0.95,
       mca: 0.90,
       finnhub: 0.75,
@@ -114,6 +117,56 @@ class DataEnrichmentService {
       manual: 0.50,
     };
     return confidenceMap[source] ?? 0.5;
+  }
+
+  async fetchFromNSEBSE(
+    companyId: string,
+    symbol?: string,
+    financialYear?: string
+  ): Promise<{
+    metrics: Record<string, MetricValue>;
+    filingId?: string;
+    confidence: number;
+  }> {
+    const { db } = await import('../db');
+    const { sql } = await import('drizzle-orm');
+    
+    const metrics: Record<string, MetricValue> = {};
+    
+    try {
+      const result = await db.execute(sql`
+        SELECT eal.*, ef.document_url
+        FROM exchange_financial_audit_log eal
+        LEFT JOIN exchange_filings ef ON eal.filing_id = ef.id
+        WHERE eal.company_id = ${companyId}
+          AND eal.is_approved = true
+          AND (${financialYear}::text IS NULL OR eal.financial_year = ${financialYear})
+        ORDER BY eal.created_at DESC
+      `);
+
+      const rows = result.rows as any[];
+      
+      for (const row of rows) {
+        if (!metrics[row.metric]) {
+          metrics[row.metric] = {
+            value: parseFloat(row.metric_value) || null,
+            source: 'nse_bse',
+            retrievedAt: new Date(row.created_at),
+            confidenceScore: parseFloat(row.extraction_confidence) || 0.95,
+          };
+        }
+      }
+
+      const filingId = rows[0]?.filing_id;
+      const avgConfidence = rows.length > 0
+        ? rows.reduce((sum, r) => sum + (parseFloat(r.extraction_confidence) || 0.95), 0) / rows.length
+        : 0;
+
+      return { metrics, filingId, confidence: avgConfidence };
+    } catch (error: any) {
+      console.error(`[DataEnrichment] NSE/BSE fetch error: ${error.message}`);
+      return { metrics: {}, confidence: 0 };
+    }
   }
 
   private generateHash(data: any): string {
@@ -190,6 +243,48 @@ class DataEnrichmentService {
 
     const collectedMetrics: Map<string, MetricValue[]> = new Map();
 
+    // NSE/BSE - Highest Priority Source (0.98 confidence)
+    try {
+      auditTrail.push({
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+        action: 'fetch',
+        source: 'nse_bse',
+        reason: 'Fetching authoritative data from NSE/BSE exchange filings',
+      });
+
+      const nseBseResult = await this.fetchFromNSEBSE(companyId, company.symbol || undefined, financialYear);
+      
+      if (Object.keys(nseBseResult.metrics).length > 0) {
+        enriched.sources.push('nse_bse');
+        
+        for (const [key, value] of Object.entries(nseBseResult.metrics)) {
+          const existing = collectedMetrics.get(key) || [];
+          existing.push(value);
+          collectedMetrics.set(key, existing);
+        }
+
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'nse_bse',
+          confidence: nseBseResult.confidence,
+          reason: `Fetched ${Object.keys(nseBseResult.metrics).length} metrics from exchange filings`,
+        });
+      }
+    } catch (error: any) {
+      console.error(`[DataEnrichment] NSE/BSE fetch failed: ${error.message}`);
+      auditTrail.push({
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+        action: 'fetch',
+        source: 'nse_bse',
+        reason: `Fetch failed: ${error.message}`,
+      });
+    }
+
+    // Probe42 - Second Priority
     if (company.probe42CompanyId) {
       try {
         auditTrail.push({

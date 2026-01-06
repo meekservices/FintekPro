@@ -274,6 +274,7 @@ import RiskProfilingPage from "@/pages/risk-profiling";
 import RiskQuestionnaireBuilder from "@/pages/admin/risk-questionnaire-builder";
 import RiskComplianceExport from "@/pages/admin/risk-compliance-export";
 import AdminAadhaarConfig from "@/pages/admin-aadhaar-config";
+import ExchangeFilingsAdmin from "@/pages/admin/exchange-filings";
 import AdminApiUsage from "@/pages/admin-api-usage";
 import AdminAiRecommendationTracking from "@/pages/admin-ai-recommendation-tracking";
 import AdminReportsHub from "@/pages/admin/reports-hub";
@@ -1144,6 +1145,13 @@ function AdminRoutes() {
         )}
       </Route>
       <Route path="/admin/activity-centre" component={ActivityCentre} />
+      <Route path="/admin/exchange-filings">
+        {() => (
+          <AdminLayout>
+            <ExchangeFilingsAdmin />
+          </AdminLayout>
+        )}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
