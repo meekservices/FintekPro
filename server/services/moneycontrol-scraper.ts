@@ -1,7 +1,10 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { storage } from '../storage';
-import type { InsertUnlistedPriceHistory } from '@shared/schema';
+import type { InsertUnlistedPriceHistory, InsertUnlistedCompany } from '@shared/schema';
+import { nsdlISINService } from './nsdl-isin-service';
+import { mcaService } from './mca-service';
+import { probe42Service } from './probe42-service';
 
 export interface MoneyControlCompany {
   name: string;
@@ -332,6 +335,265 @@ class MoneyControlScraperService {
       console.error(`[MoneyControl] Error searching ISIN: ${error.message}`);
       return { isin: null, matchedName: null, matchScore: 0, price: null };
     }
+  }
+
+  /**
+   * IDENTITY ENRICHMENT FLOW
+   * For unmatched MoneyControl companies:
+   * 1. Use ISIN to lookup CIN via NSDL/MCA/Probe42
+   * 2. Get full company profile (legal name, PAN, address, etc.)
+   * 3. Create new unlisted company with enriched data
+   * 4. Set initial price at 97% of MoneyControl price
+   */
+  async enrichAndCreateFromMoneyControl(mcCompany: MoneyControlCompany): Promise<{
+    success: boolean;
+    companyId?: string;
+    companyName?: string;
+    cin?: string;
+    enrichmentSource?: string;
+    initialPrice?: number;
+    error?: string;
+  }> {
+    console.log(`\n[MC Enrichment] Starting enrichment for: ${mcCompany.name} (ISIN: ${mcCompany.isin})`);
+
+    try {
+      // Step 1: Validate ISIN format
+      if (!mcCompany.isin || !mcCompany.isin.match(/^IN[E0][A-Z0-9]{9}$/)) {
+        return {
+          success: false,
+          error: `Invalid ISIN format: ${mcCompany.isin}`,
+        };
+      }
+
+      // Step 2: Check if company already exists by ISIN
+      const existingCompanies = await storage.getAllUnlistedCompanies({});
+      const existingByISIN = existingCompanies.find(
+        c => c.isin?.toUpperCase() === mcCompany.isin.toUpperCase()
+      );
+      
+      if (existingByISIN) {
+        console.log(`[MC Enrichment] Company already exists: ${existingByISIN.name}`);
+        return {
+          success: true,
+          companyId: existingByISIN.id,
+          companyName: existingByISIN.name,
+          cin: existingByISIN.cin || undefined,
+          enrichmentSource: 'existing',
+        };
+      }
+
+      // Step 3: Lookup CIN using ISIN
+      console.log(`[MC Enrichment] Looking up CIN for ISIN: ${mcCompany.isin}`);
+      const cinLookup = await nsdlISINService.lookupCINByISIN(mcCompany.isin);
+      
+      let cin: string | null = null;
+      let legalName: string | null = null;
+      let pan: string | null = null;
+      let registeredAddress: string | null = null;
+      let incorporationDate: string | null = null;
+      let authorizedCapital: string | null = null;
+      let paidUpCapital: string | null = null;
+      let status: string = 'active';
+      let enrichmentSource = 'moneycontrol_only';
+
+      if (cinLookup) {
+        cin = cinLookup.cin;
+        legalName = cinLookup.companyName;
+        enrichmentSource = cinLookup.source;
+        
+        if (cinLookup.additionalData) {
+          pan = cinLookup.additionalData.pan || null;
+          registeredAddress = cinLookup.additionalData.registeredAddress || null;
+          incorporationDate = cinLookup.additionalData.incorporationDate || null;
+          authorizedCapital = cinLookup.additionalData.authorizedCapital || null;
+          paidUpCapital = cinLookup.additionalData.paidUpCapital || null;
+          status = cinLookup.additionalData.status || 'active';
+        }
+        
+        console.log(`[MC Enrichment] Found CIN: ${cin}, Legal Name: ${legalName}`);
+      } else {
+        // Try direct MCA search by company name
+        console.log(`[MC Enrichment] CIN lookup failed, trying MCA by name: ${mcCompany.name}`);
+        const mcaResult = await mcaService.getCINByCompanyName(mcCompany.name);
+        
+        if (mcaResult) {
+          cin = mcaResult.cin;
+          legalName = mcaResult.officialName;
+          enrichmentSource = 'mca_name_search';
+          
+          // Get full MCA data
+          const fullMCA = await mcaService.getCompanyByCIN(cin);
+          if (fullMCA) {
+            pan = fullMCA.pan || null;
+            registeredAddress = fullMCA.registeredAddress || null;
+            incorporationDate = fullMCA.incorporationDate || null;
+            authorizedCapital = fullMCA.authorizedCapital || null;
+            paidUpCapital = fullMCA.paidUpCapital || null;
+            status = fullMCA.status || 'active';
+          }
+          console.log(`[MC Enrichment] Found via MCA search: ${cin}`);
+        }
+      }
+
+      // Step 4: Calculate initial selling price (97% of MoneyControl price)
+      const DISCOUNT_FACTOR = 0.97; // 3% below MoneyControl price
+      const initialPrice = Math.round(mcCompany.price * DISCOUNT_FACTOR * 100) / 100;
+      
+      console.log(`[MC Enrichment] Setting initial price: ₹${initialPrice} (97% of MC ₹${mcCompany.price})`);
+
+      // Step 5: Create the unlisted company
+      const companyData: InsertUnlistedCompany = {
+        name: mcCompany.name,
+        companyName: legalName || mcCompany.name,
+        legalName: legalName || null,
+        cin: cin || null,
+        isin: mcCompany.isin,
+        pan: pan,
+        status: status.toLowerCase().includes('active') ? 'active' : 'inactive',
+        currentPrice: initialPrice.toString(),
+        previousClose: mcCompany.previousClose?.toString() || null,
+        priceChangePercent: mcCompany.changePercent?.toString() || null,
+        registeredAddress: registeredAddress,
+        incorporationDate: incorporationDate,
+        authorizedCapital: authorizedCapital,
+        paidUpCapital: paidUpCapital,
+        dataSource: 'moneycontrol',
+        lastPriceUpdate: new Date(),
+        isVerified: false, // Needs admin verification
+        tradingEnabled: cin ? true : false, // Only enable trading if CIN found
+      };
+
+      const newCompany = await storage.createUnlistedCompany(companyData);
+      
+      console.log(`[MC Enrichment] Created company: ${newCompany.id} - ${newCompany.name}`);
+
+      // Step 6: Record initial price in history
+      const priceHistoryData: InsertUnlistedPriceHistory = {
+        companyId: newCompany.id,
+        date: new Date(),
+        price: initialPrice.toString(),
+        sourceType: 'MONEYCONTROL',
+        notes: `Initial price from MoneyControl (97% of ₹${mcCompany.price}). Enrichment source: ${enrichmentSource}`,
+      };
+      
+      await storage.upsertPriceHistory(priceHistoryData);
+
+      return {
+        success: true,
+        companyId: newCompany.id,
+        companyName: newCompany.name,
+        cin: cin || undefined,
+        enrichmentSource,
+        initialPrice,
+      };
+
+    } catch (error: any) {
+      console.error(`[MC Enrichment] Error:`, error);
+      return {
+        success: false,
+        error: error.message || 'Unknown error during enrichment',
+      };
+    }
+  }
+
+  /**
+   * Process all unmatched companies from MoneyControl import
+   * Enriches identity and creates new companies
+   */
+  async processUnmatchedCompanies(dryRun: boolean = false): Promise<{
+    total: number;
+    enriched: number;
+    created: number;
+    failed: number;
+    results: {
+      name: string;
+      isin: string;
+      success: boolean;
+      companyId?: string;
+      cin?: string;
+      source?: string;
+      error?: string;
+    }[];
+  }> {
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`[MC Import] Starting unmatched company processing (dryRun: ${dryRun})`);
+    console.log(`${'='.repeat(60)}\n`);
+
+    const importResult = await this.matchAndImportPrices(true); // Always dry run first to get unmatched
+    const unmatched = importResult.unmatchedCompanies;
+
+    const result = {
+      total: unmatched.length,
+      enriched: 0,
+      created: 0,
+      failed: 0,
+      results: [] as {
+        name: string;
+        isin: string;
+        success: boolean;
+        companyId?: string;
+        cin?: string;
+        source?: string;
+        error?: string;
+      }[],
+    };
+
+    console.log(`[MC Import] Found ${unmatched.length} unmatched companies to process`);
+
+    for (const mcCompany of unmatched) {
+      if (dryRun) {
+        // In dry run, just check if we can enrich
+        const cinLookup = await nsdlISINService.lookupCINByISIN(mcCompany.isin);
+        result.results.push({
+          name: mcCompany.name,
+          isin: mcCompany.isin,
+          success: cinLookup !== null,
+          cin: cinLookup?.cin,
+          source: cinLookup?.source,
+          error: cinLookup ? undefined : 'CIN lookup failed',
+        });
+        if (cinLookup) result.enriched++;
+        else result.failed++;
+      } else {
+        // Actually create the company
+        const enrichResult = await this.enrichAndCreateFromMoneyControl({
+          ...mcCompany,
+          change: 0,
+          changePercent: 0,
+          previousClose: mcCompany.price,
+        });
+        
+        result.results.push({
+          name: mcCompany.name,
+          isin: mcCompany.isin,
+          success: enrichResult.success,
+          companyId: enrichResult.companyId,
+          cin: enrichResult.cin,
+          source: enrichResult.enrichmentSource,
+          error: enrichResult.error,
+        });
+
+        if (enrichResult.success) {
+          result.enriched++;
+          if (enrichResult.companyId) result.created++;
+        } else {
+          result.failed++;
+        }
+
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`[MC Import] Processing complete`);
+    console.log(`  Total: ${result.total}`);
+    console.log(`  Enriched: ${result.enriched}`);
+    console.log(`  Created: ${result.created}`);
+    console.log(`  Failed: ${result.failed}`);
+    console.log(`${'='.repeat(60)}\n`);
+
+    return result;
   }
 }
 

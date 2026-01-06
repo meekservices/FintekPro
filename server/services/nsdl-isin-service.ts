@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { mcaService } from './mca-service';
+import { probe42Service } from './probe42-service';
 
 interface ISINRecord {
   isin: string;
@@ -388,6 +390,156 @@ class NSDLISINService {
     }
     
     return 'corporate_bond';
+  }
+
+  /**
+   * ISIN to CIN Lookup - Maps ISIN to Company Identification Number
+   * 
+   * Flow:
+   * 1. Try to get issuer name from NSDL registry
+   * 2. Use issuer name to search MCA for CIN
+   * 3. Fallback to Probe42 search if MCA doesn't find it
+   * 
+   * @param isin - Indian ISIN (12 character alphanumeric starting with INE)
+   * @returns Company identity data including CIN, or null if not found
+   */
+  async lookupCINByISIN(isin: string): Promise<{
+    cin: string;
+    companyName: string;
+    isin: string;
+    source: 'nsdl_mca' | 'nsdl_probe42' | 'mca_direct' | 'probe42_direct';
+    confidence: number;
+    additionalData?: {
+      status?: string;
+      registeredAddress?: string;
+      incorporationDate?: string;
+      authorizedCapital?: string;
+      paidUpCapital?: string;
+      pan?: string;
+    };
+  } | null> {
+    const normalizedISIN = isin.toUpperCase().trim();
+    
+    // Validate ISIN format (Indian ISINs start with INE or IN0)
+    if (!normalizedISIN.match(/^IN[E0][A-Z0-9]{9}$/)) {
+      console.log(`[NSDL ISIN] Invalid ISIN format: ${isin}`);
+      return null;
+    }
+
+    console.log(`[NSDL ISIN] Looking up CIN for ISIN: ${normalizedISIN}`);
+
+    // Step 1: Try to get issuer name from NSDL registry
+    let issuerName: string | null = null;
+    try {
+      const nsdlRecord = await this.lookupByISIN(normalizedISIN);
+      if (nsdlRecord) {
+        issuerName = nsdlRecord.issuerName;
+        console.log(`[NSDL ISIN] Found issuer in NSDL: ${issuerName}`);
+      }
+    } catch (error) {
+      console.log(`[NSDL ISIN] NSDL lookup failed, continuing with other sources`);
+    }
+
+    // Step 2: Try MCA search if we have issuer name
+    if (issuerName) {
+      try {
+        const mcaResult = await mcaService.getCINByCompanyName(issuerName);
+        if (mcaResult) {
+          console.log(`[NSDL ISIN] Found CIN via MCA: ${mcaResult.cin}`);
+          
+          // Get full company data from MCA
+          const fullData = await mcaService.getCompanyByCIN(mcaResult.cin);
+          
+          return {
+            cin: mcaResult.cin,
+            companyName: mcaResult.officialName,
+            isin: normalizedISIN,
+            source: 'nsdl_mca',
+            confidence: 0.95,
+            additionalData: fullData ? {
+              status: fullData.status,
+              registeredAddress: fullData.registeredAddress,
+              incorporationDate: fullData.incorporationDate,
+              authorizedCapital: fullData.authorizedCapital,
+              paidUpCapital: fullData.paidUpCapital,
+              pan: fullData.pan,
+            } : undefined,
+          };
+        }
+      } catch (error) {
+        console.log(`[NSDL ISIN] MCA search failed for "${issuerName}"`);
+      }
+
+      // Step 3: Try Probe42 search if MCA didn't find it
+      try {
+        const probe42Results = await probe42Service.searchCompanyByNameOrCIN(issuerName);
+        if (probe42Results.length > 0) {
+          const bestMatch = probe42Results[0];
+          console.log(`[NSDL ISIN] Found CIN via Probe42: ${bestMatch.cin}`);
+          
+          return {
+            cin: bestMatch.cin,
+            companyName: bestMatch.name,
+            isin: normalizedISIN,
+            source: 'nsdl_probe42',
+            confidence: 0.90,
+            additionalData: {
+              status: bestMatch.status,
+            },
+          };
+        }
+      } catch (error) {
+        console.log(`[NSDL ISIN] Probe42 search failed for "${issuerName}"`);
+      }
+    }
+
+    // Step 4: If no issuer name from NSDL, try extracting company hint from ISIN pattern
+    // Some ISINs have company identifiers embedded - limited success rate
+    console.log(`[NSDL ISIN] Could not find CIN for ISIN: ${normalizedISIN}`);
+    return null;
+  }
+
+  /**
+   * Batch ISIN to CIN lookup for multiple ISINs
+   * Used for MoneyControl bulk import
+   */
+  async batchLookupCINByISIN(isins: string[]): Promise<Map<string, {
+    cin: string;
+    companyName: string;
+    source: string;
+    confidence: number;
+  } | null>> {
+    const results = new Map<string, {
+      cin: string;
+      companyName: string;
+      source: string;
+      confidence: number;
+    } | null>();
+
+    console.log(`[NSDL ISIN] Batch lookup for ${isins.length} ISINs`);
+
+    for (const isin of isins) {
+      try {
+        const result = await this.lookupCINByISIN(isin);
+        results.set(isin, result ? {
+          cin: result.cin,
+          companyName: result.companyName,
+          source: result.source,
+          confidence: result.confidence,
+        } : null);
+        
+        // Rate limiting - small delay between lookups
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`[NSDL ISIN] Error looking up ${isin}:`, error);
+        results.set(isin, null);
+      }
+    }
+
+    const found = Array.from(results.values()).filter(v => v !== null).length;
+    console.log(`[NSDL ISIN] Batch complete: ${found}/${isins.length} CINs found`);
+
+    return results;
   }
 }
 

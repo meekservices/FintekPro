@@ -12792,6 +12792,145 @@ export const insertUnlistedCompanySchema = createInsertSchema(unlistedCompanies)
 export type UnlistedCompany = typeof unlistedCompanies.$inferSelect;
 export type InsertUnlistedCompany = z.infer<typeof insertUnlistedCompanySchema>;
 
+// ==================== REGULATORY COMPLIANCE TABLES ====================
+
+/**
+ * Investor Tracking for 200 Investor Limit (Companies Act Section 42)
+ * Tracks unique investors per company per financial year
+ * Private placement cannot exceed 200 investors in a FY
+ */
+export const unlistedInvestorTracking = pgTable("unlisted_investor_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  financialYear: varchar("financial_year", { length: 10 }).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  userPan: varchar("user_pan", { length: 10 }),
+  firstTransactionDate: timestamp("first_transaction_date").notNull(),
+  lastTransactionDate: timestamp("last_transaction_date"),
+  totalInvestmentValue: decimal("total_investment_value", { precision: 20, scale: 2 }).default("0"),
+  totalSharesAcquired: integer("total_shares_acquired").default(0),
+  isPrivatePlacement: boolean("is_private_placement").default(false),
+  sourceOfFundsVerified: boolean("source_of_funds_verified").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_investor_tracking_company_fy").on(table.companyId, table.financialYear),
+  index("idx_investor_tracking_user").on(table.userId),
+]);
+
+/**
+ * Share Lock-In Tracking (6-month rule for private placements)
+ * Securities from private placement cannot be sold within 6 months
+ */
+export const unlistedShareLockIn = pgTable("unlisted_share_lockin", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  acquisitionDate: timestamp("acquisition_date").notNull(),
+  lockInEndDate: timestamp("lockin_end_date").notNull(),
+  sharesLocked: integer("shares_locked").notNull(),
+  sharesRemaining: integer("shares_remaining").notNull(),
+  acquisitionType: varchar("acquisition_type", { length: 50 }).notNull(),
+  acquisitionPrice: decimal("acquisition_price", { precision: 20, scale: 2 }),
+  transactionId: varchar("transaction_id"),
+  isActive: boolean("is_active").default(true),
+  releaseNotes: text("release_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_lockin_company_user").on(table.companyId, table.userId),
+  index("idx_lockin_enddate").on(table.lockInEndDate),
+  index("idx_lockin_active").on(table.isActive),
+]);
+
+/**
+ * Company Status Monitoring Log (MCA status changes)
+ * Tracks when companies transition from unlisted to listed
+ */
+export const unlistedCompanyStatusLog = pgTable("unlisted_company_status_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id).notNull(),
+  previousStatus: varchar("previous_status", { length: 50 }),
+  newStatus: varchar("new_status", { length: 50 }).notNull(),
+  statusSource: varchar("status_source", { length: 50 }).notNull(),
+  listingDate: timestamp("listing_date"),
+  exchangeSymbol: varchar("exchange_symbol", { length: 20 }),
+  exchangeName: varchar("exchange_name", { length: 10 }),
+  tradingSuspendedAt: timestamp("trading_suspended_at"),
+  suspensionReason: text("suspension_reason"),
+  adminUserId: varchar("admin_user_id").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_status_log_company").on(table.companyId),
+  index("idx_status_log_date").on(table.createdAt),
+]);
+
+/**
+ * STR (Suspicious Transaction Report) Flags
+ * For FIU-IND reporting compliance
+ */
+export const unlistedSTRFlags = pgTable("unlisted_str_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dealId: varchar("deal_id"),
+  userId: varchar("user_id").references(() => users.id),
+  companyId: varchar("company_id").references(() => unlistedCompanies.id),
+  flagType: varchar("flag_type", { length: 50 }).notNull(),
+  severity: varchar("severity", { length: 20 }).notNull(),
+  transactionAmount: decimal("transaction_amount", { precision: 20, scale: 2 }),
+  flagReason: text("flag_reason").notNull(),
+  detectionMethod: varchar("detection_method", { length: 50 }),
+  relatedTransactions: jsonb("related_transactions"),
+  strReportId: varchar("str_report_id"),
+  strFiledAt: timestamp("str_filed_at"),
+  strDueDate: timestamp("str_due_date"),
+  status: varchar("status", { length: 30 }).default("pending"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_str_status").on(table.status),
+  index("idx_str_severity").on(table.severity),
+  index("idx_str_user").on(table.userId),
+  index("idx_str_due_date").on(table.strDueDate),
+]);
+
+export const insertUnlistedInvestorTrackingSchema = createInsertSchema(unlistedInvestorTracking).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UnlistedInvestorTracking = typeof unlistedInvestorTracking.$inferSelect;
+export type InsertUnlistedInvestorTracking = z.infer<typeof insertUnlistedInvestorTrackingSchema>;
+
+export const insertUnlistedShareLockInSchema = createInsertSchema(unlistedShareLockIn).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UnlistedShareLockIn = typeof unlistedShareLockIn.$inferSelect;
+export type InsertUnlistedShareLockIn = z.infer<typeof insertUnlistedShareLockInSchema>;
+
+export const insertUnlistedCompanyStatusLogSchema = createInsertSchema(unlistedCompanyStatusLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type UnlistedCompanyStatusLog = typeof unlistedCompanyStatusLog.$inferSelect;
+export type InsertUnlistedCompanyStatusLog = z.infer<typeof insertUnlistedCompanyStatusLogSchema>;
+
+export const insertUnlistedSTRFlagsSchema = createInsertSchema(unlistedSTRFlags).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UnlistedSTRFlags = typeof unlistedSTRFlags.$inferSelect;
+export type InsertUnlistedSTRFlags = z.infer<typeof insertUnlistedSTRFlagsSchema>;
+
+// ==================== END REGULATORY COMPLIANCE TABLES ====================
+
+
 export const insertUnlistedAuditLogSchema = createInsertSchema(unlistedAuditLog).omit({
   id: true,
   createdAt: true,

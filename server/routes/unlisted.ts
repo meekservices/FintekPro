@@ -7142,6 +7142,7 @@ router.get('/admin/regulatory/events', requireAuth, requireAdmin, async (req: Re
 // ===================================================================
 
 import { aiUnlistedRecommendationService, type UnlistedStockAsset } from '../services/ai-unlisted-recommendation-service';
+import { regulatoryComplianceService } from '../services/unlisted-regulatory-compliance-service';
 
 /**
  * GET /api/unlisted/ai-recommendations
@@ -7229,5 +7230,160 @@ router.get('/ai-recommendations', async (req: Request, res: Response) => {
     return apiResponse.serverError(res, 'Failed to fetch AI recommendations');
   }
 });
+
+// ==================== REGULATORY COMPLIANCE API ROUTES ====================
+
+/**
+ * GET /api/unlisted/admin/compliance/overview
+ * Get regulatory compliance overview for admin dashboard
+ */
+router.get('/admin/compliance/overview', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const overview = await regulatoryComplianceService.getComplianceOverview();
+    return apiResponse.success(res, {
+      message: 'Regulatory compliance overview retrieved',
+      data: overview,
+    });
+  } catch (error: any) {
+    console.error('[RegCompliance] Error fetching overview:', error);
+    return apiResponse.serverError(res, 'Failed to fetch compliance overview');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/compliance/investor-count/:companyId
+ * Get investor count for a specific company
+ */
+router.get('/admin/compliance/investor-count/:companyId', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const data = await regulatoryComplianceService.getInvestorCount(companyId);
+    return apiResponse.success(res, {
+      message: 'Investor count retrieved',
+      data,
+    });
+  } catch (error: any) {
+    console.error('[RegCompliance] Error fetching investor count:', error);
+    return apiResponse.serverError(res, 'Failed to fetch investor count');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/compliance/check-investor-limit
+ * Check if a transaction would exceed the 200 investor limit
+ */
+router.post('/admin/compliance/check-investor-limit', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId, userId } = req.body;
+    
+    if (!companyId || !userId) {
+      return apiResponse.badRequest(res, 'companyId and userId are required');
+    }
+    
+    const result = await regulatoryComplianceService.checkInvestorLimit(companyId, userId);
+    return apiResponse.success(res, {
+      message: 'Investor limit check completed',
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[RegCompliance] Error checking investor limit:', error);
+    return apiResponse.serverError(res, 'Failed to check investor limit');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/compliance/str-flags
+ * Get pending STR flags for admin review
+ */
+router.get('/admin/compliance/str-flags', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const data = await regulatoryComplianceService.getPendingSTRFlags();
+    return apiResponse.success(res, {
+      message: 'STR flags retrieved',
+      data,
+    });
+  } catch (error: any) {
+    console.error('[RegCompliance] Error fetching STR flags:', error);
+    return apiResponse.serverError(res, 'Failed to fetch STR flags');
+  }
+});
+
+/**
+ * POST /api/unlisted/compliance/check-lockin
+ * Check if shares can be sold (lock-in check)
+ * User can only check their own lock-in status
+ */
+router.post('/compliance/check-lockin', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { companyId, sharesToSell } = req.body;
+    const userId = (req as any).user?.id;
+    
+    if (!userId) {
+      return apiResponse.unauthorized(res, 'Authentication required');
+    }
+    
+    if (!companyId || !sharesToSell) {
+      return apiResponse.badRequest(res, 'companyId and sharesToSell are required');
+    }
+    
+    const result = await regulatoryComplianceService.checkLockInStatus(companyId, userId, sharesToSell);
+    return apiResponse.success(res, {
+      message: 'Lock-in check completed',
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[RegCompliance] Error checking lock-in:', error);
+    return apiResponse.serverError(res, 'Failed to check lock-in status');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/compliance/check-company-status
+ * Check company listing status from MCA
+ */
+router.post('/admin/compliance/check-company-status', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.body;
+    
+    if (!companyId) {
+      return apiResponse.badRequest(res, 'companyId is required');
+    }
+    
+    const result = await regulatoryComplianceService.checkCompanyListingStatus(companyId);
+    return apiResponse.success(res, {
+      message: 'Company status check completed',
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[RegCompliance] Error checking company status:', error);
+    return apiResponse.serverError(res, 'Failed to check company status');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/compliance/verify-source-of-funds
+ * Mark source of funds as verified for a user
+ */
+router.post('/admin/compliance/verify-source-of-funds', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { companyId, userId } = req.body;
+    const adminId = (req as any).user?.id || 'admin';
+    
+    if (!companyId || !userId) {
+      return apiResponse.badRequest(res, 'companyId and userId are required');
+    }
+    
+    const result = await regulatoryComplianceService.markSourceOfFundsVerified(companyId, userId, adminId);
+    return apiResponse.success(res, {
+      message: result.success ? 'Source of funds verified successfully' : 'Failed to verify source of funds',
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[RegCompliance] Error verifying source of funds:', error);
+    return apiResponse.serverError(res, 'Failed to verify source of funds');
+  }
+});
+
+// ==================== END REGULATORY COMPLIANCE API ROUTES ====================
 
 export default router;
