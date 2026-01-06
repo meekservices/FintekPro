@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
 import { 
   TrendingUp, 
   Target, 
@@ -23,7 +25,9 @@ import {
   Wallet,
   Calendar,
   User,
-  ExternalLink
+  ExternalLink,
+  Download,
+  Loader2
 } from "lucide-react";
 
 interface ProposalData {
@@ -70,6 +74,8 @@ export default function PublicProposalPage() {
   const params = useParams();
   const shareToken = params.shareToken;
   const [onboardingLink, setOnboardingLink] = useState("");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const { toast } = useToast();
 
   const { data, isLoading, error } = useQuery<{ proposal: ProposalData; onboardingLink: string }>({
     queryKey: ["/api/public/proposal", shareToken],
@@ -102,6 +108,178 @@ export default function PublicProposalPage() {
     trackClickMutation.mutate();
     if (onboardingLink) {
       window.location.href = onboardingLink;
+    }
+  };
+
+  const generatePDF = async () => {
+    if (!data?.proposal) return;
+    
+    setIsGeneratingPdf(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const proposal = data.proposal;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 20;
+      let yPos = 20;
+
+      pdf.setFillColor(79, 70, 229);
+      pdf.rect(0, 0, pageWidth, 40, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(24);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('FintekPro', margin, 25);
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Investment Proposal', pageWidth - margin - 40, 25);
+      
+      yPos = 55;
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(proposal.proposalTitle || 'Investment Proposal', margin, yPos);
+      
+      if (proposal.executiveSummary) {
+        yPos += 12;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 100, 100);
+        const summaryLines = pdf.splitTextToSize(proposal.executiveSummary, pageWidth - (margin * 2));
+        pdf.text(summaryLines, margin, yPos);
+        yPos += summaryLines.length * 5 + 10;
+      }
+      
+      yPos += 5;
+      pdf.setFillColor(245, 245, 245);
+      pdf.rect(margin, yPos, pageWidth - (margin * 2), 30, 'F');
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      
+      const colWidth = (pageWidth - (margin * 2)) / 3;
+      
+      pdf.text('Total Investment', margin + 5, yPos + 10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.text(`₹${parseFloat(proposal.totalInvestmentAmount || '0').toLocaleString('en-IN')}`, margin + 5, yPos + 20);
+      
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Expected Returns', margin + colWidth + 5, yPos + 10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.setTextColor(34, 197, 94);
+      pdf.text(`${proposal.projectedReturns || '12'}% p.a.`, margin + colWidth + 5, yPos + 20);
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Projected Value (5Y)', margin + (colWidth * 2) + 5, yPos + 10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.setTextColor(147, 51, 234);
+      pdf.text(`₹${parseFloat(proposal.projectedValue || '0').toLocaleString('en-IN')}`, margin + (colWidth * 2) + 5, yPos + 20);
+      
+      yPos += 45;
+      
+      const recommendations = proposal.recommendations || [];
+      if (recommendations.length > 0) {
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Investment Recommendations', margin, yPos);
+        yPos += 10;
+        
+        recommendations.forEach((rec: any, index: number) => {
+          if (yPos > 260) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          
+          pdf.setFillColor(250, 250, 250);
+          pdf.rect(margin, yPos, pageWidth - (margin * 2), 25, 'F');
+          
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(rec.productName || rec.name || `Investment ${index + 1}`, margin + 5, yPos + 8);
+          
+          pdf.setFontSize(9);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(100, 100, 100);
+          const amount = rec.suggestedAmount || rec.amount || 0;
+          pdf.text(`Amount: ₹${parseFloat(amount).toLocaleString('en-IN')}`, margin + 5, yPos + 18);
+          
+          if (rec.expectedReturn || rec.returns) {
+            pdf.text(`Expected: ${rec.expectedReturn || rec.returns}`, margin + 80, yPos + 18);
+          }
+          
+          yPos += 30;
+        });
+      }
+      
+      if (proposal.agentName || proposal.agentEmail) {
+        if (yPos > 240) {
+          pdf.addPage();
+          yPos = 20;
+        }
+        
+        yPos += 10;
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Your Financial Advisor', margin, yPos);
+        yPos += 8;
+        
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        if (proposal.agentName) {
+          pdf.text(proposal.agentName, margin, yPos);
+          yPos += 6;
+        }
+        if (proposal.agentEmail) {
+          pdf.text(`Email: ${proposal.agentEmail}`, margin, yPos);
+          yPos += 6;
+        }
+        if (proposal.agentMobile) {
+          pdf.text(`Mobile: ${proposal.agentMobile}`, margin, yPos);
+        }
+      }
+      
+      const pageCount = pdf.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(
+          'This proposal is for informational purposes only. Past performance is not indicative of future results.',
+          margin, 
+          pdf.internal.pageSize.getHeight() - 10
+        );
+        pdf.text(
+          `Generated on ${new Date().toLocaleDateString('en-IN')} | Page ${i} of ${pageCount}`,
+          pageWidth - margin - 50,
+          pdf.internal.pageSize.getHeight() - 10
+        );
+      }
+      
+      pdf.save(`Investment_Proposal_${proposal.id || shareToken}.pdf`);
+      
+      toast({
+        title: "PDF Downloaded",
+        description: "Your investment proposal has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Download Failed",
+        description: "Unable to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -149,13 +327,28 @@ export default function PublicProposalPage() {
             </div>
             <span className="font-bold text-xl text-gray-900 dark:text-white">FintekPro</span>
           </div>
-          <Button 
-            className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md"
-            onClick={handleGetStarted}
-            data-testid="btn-get-started-header"
-          >
-            Get Started <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline"
+              onClick={generatePDF}
+              disabled={isGeneratingPdf}
+              data-testid="btn-download-pdf"
+            >
+              {isGeneratingPdf ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Download PDF
+            </Button>
+            <Button 
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-md"
+              onClick={handleGetStarted}
+              data-testid="btn-get-started-header"
+            >
+              Get Started <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         </div>
       </header>
 

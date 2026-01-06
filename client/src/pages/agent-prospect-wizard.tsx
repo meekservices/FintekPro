@@ -21,8 +21,9 @@ import {
   User, ArrowRight, ArrowLeft, Check, Target, PieChart, Scale, 
   TrendingUp, TrendingDown, Sparkles, Share2, Mail, MessageSquare, 
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
-  IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users
+  IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download
 } from "lucide-react";
+import jsPDF from "jspdf";
 
 interface PortfolioHolding {
   productType: string;
@@ -176,6 +177,199 @@ export default function AgentProspectWizard() {
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
   const [proposal, setProposal] = useState<CombinedProposal | null>(null);
   const [prospectId, setProspectId] = useState<string | null>(urlProspectId);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const generateProposalPDF = () => {
+    if (!proposal || !analysis) return;
+    
+    setIsGeneratingPdf(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 20;
+      let yPos = 20;
+
+      pdf.setFillColor(79, 70, 229);
+      pdf.rect(0, 0, pageWidth, 40, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(24);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('FintekPro', margin, 25);
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Investment Proposal', pageWidth - margin - 40, 25);
+      
+      yPos = 55;
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`Investment Proposal for ${prospectData.name}`, margin, yPos);
+      
+      if (proposal.executiveSummary) {
+        yPos += 12;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 100, 100);
+        const summaryLines = pdf.splitTextToSize(proposal.executiveSummary, pageWidth - (margin * 2));
+        pdf.text(summaryLines, margin, yPos);
+        yPos += summaryLines.length * 5 + 10;
+      }
+      
+      yPos += 5;
+      pdf.setFillColor(245, 245, 245);
+      pdf.rect(margin, yPos, pageWidth - (margin * 2), 35, 'F');
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      
+      const colWidth = (pageWidth - (margin * 2)) / 4;
+      
+      pdf.text('Total Sell', margin + 5, yPos + 10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.setTextColor(220, 38, 38);
+      pdf.text(formatCurrency(proposal.totalSellAmount), margin + 5, yPos + 20);
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Total Buy', margin + colWidth + 5, yPos + 10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.setTextColor(34, 197, 94);
+      pdf.text(formatCurrency(proposal.totalBuyAmount), margin + colWidth + 5, yPos + 20);
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Net Investment', margin + (colWidth * 2) + 5, yPos + 10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.text(formatCurrency(proposal.netInvestmentRequired), margin + (colWidth * 2) + 5, yPos + 20);
+      
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Projected Value', margin + (colWidth * 3) + 5, yPos + 10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.setTextColor(79, 70, 229);
+      pdf.text(formatCurrency(proposal.projectedValue), margin + (colWidth * 3) + 5, yPos + 20);
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(proposal.projectedReturn, margin + (colWidth * 3) + 5, yPos + 28);
+      
+      yPos += 50;
+      
+      if (proposal.rebalancing && proposal.rebalancing.length > 0) {
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Rebalancing Recommendations', margin, yPos);
+        yPos += 10;
+        
+        proposal.rebalancing.forEach((rec) => {
+          if (yPos > 260) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          
+          pdf.setFillColor(250, 250, 250);
+          pdf.rect(margin, yPos, pageWidth - (margin * 2), 20, 'F');
+          
+          const actionColor = rec.action === 'SELL' ? [220, 38, 38] : rec.action === 'BUY' ? [34, 197, 94] : [245, 158, 11];
+          pdf.setFillColor(actionColor[0], actionColor[1], actionColor[2]);
+          pdf.rect(margin, yPos, 3, 20, 'F');
+          
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(`${rec.action}: ${rec.productName}`, margin + 8, yPos + 8);
+          
+          pdf.setFontSize(9);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(100, 100, 100);
+          const changeText = rec.changeAmount < 0 ? `-${formatCurrency(Math.abs(rec.changeAmount))}` : `+${formatCurrency(rec.changeAmount)}`;
+          pdf.text(changeText, margin + 8, yPos + 16);
+          
+          yPos += 25;
+        });
+      }
+      
+      if (proposal.freshInvestments && proposal.freshInvestments.length > 0) {
+        yPos += 5;
+        if (yPos > 240) {
+          pdf.addPage();
+          yPos = 20;
+        }
+        
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Fresh Investment Suggestions', margin, yPos);
+        yPos += 10;
+        
+        proposal.freshInvestments.forEach((inv) => {
+          if (yPos > 260) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          
+          pdf.setFillColor(250, 250, 250);
+          pdf.rect(margin, yPos, pageWidth - (margin * 2), 25, 'F');
+          pdf.setFillColor(79, 70, 229);
+          pdf.rect(margin, yPos, 3, 25, 'F');
+          
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(inv.productName, margin + 8, yPos + 8);
+          
+          pdf.setFontSize(9);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(`${formatCurrency(inv.suggestedAmount)} | ${inv.expectedReturn} | Match: ${inv.matchScore}%`, margin + 8, yPos + 18);
+          
+          yPos += 30;
+        });
+      }
+      
+      const pageCount = pdf.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(
+          'This proposal is for informational purposes only. Please consult your financial advisor.',
+          margin, 
+          pdf.internal.pageSize.getHeight() - 10
+        );
+        pdf.text(
+          `Generated on ${new Date().toLocaleDateString('en-IN')} | Page ${i} of ${pageCount}`,
+          pageWidth - margin - 50,
+          pdf.internal.pageSize.getHeight() - 10
+        );
+      }
+      
+      pdf.save(`Proposal_${prospectData.name.replace(/\s+/g, '_')}_${proposal.proposalId}.pdf`);
+      
+      toast({
+        title: "PDF Downloaded",
+        description: "Investment proposal has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Download Failed",
+        description: "Unable to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const { data: existingProspectsData, isLoading: loadingProspects } = useQuery<{ success: boolean; prospects: ExistingProspect[] }>({
     queryKey: ["/api/agent-wizard/prospects"],
@@ -954,9 +1148,24 @@ export default function AgentProspectWizard() {
                 <CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-500" /> Proposal Ready!</CardTitle>
                 <CardDescription>Investment proposal for {prospectData.name}</CardDescription>
               </div>
-              <Button onClick={() => setShowShareDialog(true)} data-testid="share-proposal-btn">
-                <Share2 className="h-4 w-4 mr-2" /> Share with Client
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={generateProposalPDF}
+                  disabled={isGeneratingPdf}
+                  data-testid="download-pdf-btn"
+                >
+                  {isGeneratingPdf ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Download PDF
+                </Button>
+                <Button onClick={() => setShowShareDialog(true)} data-testid="share-proposal-btn">
+                  <Share2 className="h-4 w-4 mr-2" /> Share with Client
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
