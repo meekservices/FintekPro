@@ -1,7 +1,8 @@
 /**
  * Data Enrichment Orchestrator Service
  * Handles multi-source financial data enrichment with:
- * - Priority-based source selection (Probe42 > Finnhub > Yahoo)
+ * - Priority-based source selection for Indian market:
+ *   Probe42 (0.98) → MCA (0.95) → NSE/BSE (0.90) → Finnhub (0.75) → Yahoo (0.65)
  * - Metric-level source merging
  * - SEBI-compliant audit logging
  * - AI guardrails for data usage
@@ -11,6 +12,7 @@ import { probe42Service } from './probe42-service';
 import { finnhubService } from './finnhub-service';
 import { exchangeFilingsService } from './exchange-filings-service';
 import { xbrlParserService } from './xbrl-parser-service';
+import { mcaService } from './mca-service';
 import { ExternalServiceError } from '../utils/errors';
 
 export type DataSource = 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'manual' | 'mca';
@@ -83,7 +85,8 @@ export interface EnrichmentConfig {
 }
 
 const DEFAULT_CONFIG: EnrichmentConfig = {
-  sourcePriority: ['nse_bse', 'probe42', 'finnhub', 'yahoo'],
+  // Indian market priority: Probe42 (primary) → MCA → NSE/BSE → Finnhub → Yahoo
+  sourcePriority: ['probe42', 'mca', 'nse_bse', 'finnhub', 'yahoo'],
   minConfidenceThreshold: 0.6,
   allowMixedSources: true,
   aiAllowed: true,
@@ -108,13 +111,14 @@ class DataEnrichmentService {
   }
 
   getSourceConfidence(source: DataSource): number {
+    // Indian market confidence scores - Probe42 is primary source for unlisted companies
     const confidenceMap: Record<DataSource, number> = {
-      nse_bse: 0.98,
-      probe42: 0.95,
-      mca: 0.90,
-      finnhub: 0.75,
-      yahoo: 0.65,
-      manual: 0.50,
+      probe42: 0.98,   // Primary source for Indian unlisted companies
+      mca: 0.95,       // Ministry of Corporate Affairs - official government source
+      nse_bse: 0.90,   // Exchange filings (only for listed/partially listed)
+      finnhub: 0.75,   // Limited Indian coverage
+      yahoo: 0.65,     // Some Indian stocks via .NS/.BO suffix
+      manual: 0.50,    // Manual overrides
     };
     return confidenceMap[source] ?? 0.5;
   }
@@ -208,6 +212,309 @@ class DataEnrichmentService {
     }
   }
 
+  /**
+   * Fetch financial data from MCA (Ministry of Corporate Affairs) via Sandbox API
+   * Second fallback after Probe42 for Indian unlisted companies
+   */
+  async fetchFromMCA(
+    companyId: string,
+    cin?: string
+  ): Promise<{
+    metrics: Record<string, MetricValue>;
+    confidence: number;
+  }> {
+    const metrics: Record<string, MetricValue> = {};
+    const now = new Date();
+    
+    if (!cin) {
+      console.log(`[DataEnrichment] No CIN provided for MCA fetch, skipping`);
+      return { metrics: {}, confidence: 0 };
+    }
+
+    // Helper to normalize values that may come as strings from API
+    const toNumber = (val: any): number => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') {
+        const cleaned = val.replace(/[,\s]/g, '');
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return 0;
+    };
+
+    try {
+      console.log(`[DataEnrichment] Fetching MCA data for CIN: ${cin}`);
+      const mcaData = await mcaService.getCompanyByCIN(cin);
+      
+      if (!mcaData) {
+        console.log(`[DataEnrichment] No MCA data found for CIN: ${cin}`);
+        return { metrics: {}, confidence: 0 };
+      }
+
+      // Extract financial metrics from MCA data
+      const confidenceScore = this.getSourceConfidence('mca');
+      
+      // Normalize capital values (API may return strings)
+      const paidUpCapital = toNumber(mcaData.paidUpCapital);
+      const authorizedCapital = toNumber(mcaData.authorizedCapital);
+      
+      // Paid-up capital and authorized capital are key financial indicators
+      if (paidUpCapital > 0) {
+        metrics['paidUpCapital'] = {
+          value: paidUpCapital,
+          source: 'mca',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+      
+      if (authorizedCapital > 0) {
+        metrics['authorizedCapital'] = {
+          value: authorizedCapital,
+          source: 'mca',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      // Calculate networth proxy from paid-up capital (simplified)
+      if (paidUpCapital > 0) {
+        metrics['networth'] = {
+          value: paidUpCapital,
+          source: 'mca',
+          retrievedAt: now,
+          confidenceScore: confidenceScore * 0.8, // Lower confidence for derived metric
+        };
+      }
+
+      // Extract debt information from charges if available
+      if (mcaData.charges && mcaData.charges.length > 0) {
+        const activeCharges = mcaData.charges.filter(c => 
+          c.status && c.status.toLowerCase() !== 'closed' && c.status.toLowerCase() !== 'satisfied'
+        );
+        const totalDebt = activeCharges.reduce((sum, c) => sum + toNumber(c.chargeAmount), 0);
+        
+        if (totalDebt > 0) {
+          metrics['totalDebt'] = {
+            value: totalDebt,
+            source: 'mca',
+            retrievedAt: now,
+            confidenceScore: confidenceScore * 0.7, // Lower confidence for charge-based estimate
+          };
+          
+          // Calculate debt-equity ratio
+          if (paidUpCapital > 0) {
+            metrics['debtEquity'] = {
+              value: Number((totalDebt / paidUpCapital).toFixed(2)),
+              source: 'mca',
+              retrievedAt: now,
+              confidenceScore: confidenceScore * 0.6,
+            };
+          }
+        }
+      }
+
+      const metricsCount = Object.keys(metrics).length;
+      if (metricsCount > 0) {
+        console.log(`[DataEnrichment] Fetched ${metricsCount} metrics from MCA for ${cin}`);
+      } else {
+        console.log(`[DataEnrichment] MCA data found but no usable metrics for ${cin} (capital values may be zero or invalid)`);
+      }
+      
+      return { 
+        metrics, 
+        confidence: metricsCount > 0 ? confidenceScore : 0 
+      };
+    } catch (error: any) {
+      console.error(`[DataEnrichment] MCA fetch error: ${error.message}`);
+      return { metrics: {}, confidence: 0 };
+    }
+  }
+
+  /**
+   * Fetch financial data from Yahoo Finance for Indian stocks
+   * Uses .NS (NSE) or .BO (BSE) suffix for Indian market symbols
+   */
+  async fetchFromYahoo(
+    companyId: string,
+    symbol?: string,
+    isin?: string
+  ): Promise<{
+    metrics: Record<string, MetricValue>;
+    confidence: number;
+  }> {
+    const metrics: Record<string, MetricValue> = {};
+    const now = new Date();
+    
+    if (!symbol && !isin) {
+      console.log(`[DataEnrichment] No symbol or ISIN for Yahoo fetch, skipping`);
+      return { metrics: {}, confidence: 0 };
+    }
+
+    try {
+      const yahooFinance = await import('yahoo-finance2').then(m => m.default);
+      
+      // Try NSE suffix first, then BSE
+      const symbolsToTry = symbol 
+        ? [`${symbol}.NS`, `${symbol}.BO`, symbol]
+        : [];
+      
+      let quote: any = null;
+      let usedSymbol = '';
+      
+      for (const sym of symbolsToTry) {
+        try {
+          console.log(`[DataEnrichment] Trying Yahoo Finance with symbol: ${sym}`);
+          quote = await yahooFinance.quote(sym);
+          if (quote) {
+            usedSymbol = sym;
+            break;
+          }
+        } catch (e: any) {
+          console.log(`[DataEnrichment] Yahoo symbol ${sym} not found, trying next...`);
+        }
+      }
+
+      if (!quote) {
+        console.log(`[DataEnrichment] No Yahoo data found for ${symbol}`);
+        return { metrics: {}, confidence: 0 };
+      }
+
+      const confidenceScore = this.getSourceConfidence('yahoo');
+
+      // Extract available metrics from Yahoo quote
+      if (quote.trailingPE) {
+        metrics['peRatio'] = {
+          value: quote.trailingPE,
+          source: 'yahoo',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (quote.priceToBook) {
+        metrics['pbRatio'] = {
+          value: quote.priceToBook,
+          source: 'yahoo',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (quote.returnOnEquity) {
+        metrics['roe'] = {
+          value: quote.returnOnEquity * 100, // Convert to percentage
+          source: 'yahoo',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (quote.debtToEquity) {
+        metrics['debtEquity'] = {
+          value: quote.debtToEquity,
+          source: 'yahoo',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (quote.currentRatio) {
+        metrics['currentRatio'] = {
+          value: quote.currentRatio,
+          source: 'yahoo',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (quote.profitMargins) {
+        metrics['marginPat'] = {
+          value: quote.profitMargins * 100, // Convert to percentage
+          source: 'yahoo',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (quote.operatingMargins) {
+        metrics['marginEbitda'] = {
+          value: quote.operatingMargins * 100, // Convert to percentage
+          source: 'yahoo',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      // Try to get more detailed financials
+      try {
+        const quoteSummary = await yahooFinance.quoteSummary(usedSymbol, { 
+          modules: ['financialData', 'defaultKeyStatistics'] 
+        });
+        
+        if (quoteSummary?.financialData) {
+          const fd = quoteSummary.financialData;
+          
+          if (fd.totalRevenue) {
+            metrics['revenue'] = {
+              value: fd.totalRevenue,
+              source: 'yahoo',
+              retrievedAt: now,
+              confidenceScore,
+            };
+          }
+          
+          if (fd.ebitda) {
+            metrics['ebitda'] = {
+              value: fd.ebitda,
+              source: 'yahoo',
+              retrievedAt: now,
+              confidenceScore,
+            };
+          }
+          
+          if (fd.freeCashflow) {
+            metrics['freeCashFlow'] = {
+              value: fd.freeCashflow,
+              source: 'yahoo',
+              retrievedAt: now,
+              confidenceScore,
+            };
+          }
+          
+          if (fd.operatingCashflow) {
+            metrics['operatingCashFlow'] = {
+              value: fd.operatingCashflow,
+              source: 'yahoo',
+              retrievedAt: now,
+              confidenceScore,
+            };
+          }
+
+          if (fd.totalDebt) {
+            metrics['totalDebt'] = {
+              value: fd.totalDebt,
+              source: 'yahoo',
+              retrievedAt: now,
+              confidenceScore,
+            };
+          }
+        }
+      } catch (summaryError: any) {
+        console.log(`[DataEnrichment] Yahoo quoteSummary failed: ${summaryError.message}`);
+      }
+
+      console.log(`[DataEnrichment] Fetched ${Object.keys(metrics).length} metrics from Yahoo for ${usedSymbol}`);
+      return { 
+        metrics, 
+        confidence: Object.keys(metrics).length > 0 ? confidenceScore : 0 
+      };
+    } catch (error: any) {
+      console.error(`[DataEnrichment] Yahoo fetch error: ${error.message}`);
+      return { metrics: {}, confidence: 0 };
+    }
+  }
+
   private generateHash(data: any): string {
     const str = JSON.stringify(data);
     let hash = 0;
@@ -282,48 +589,13 @@ class DataEnrichmentService {
 
     const collectedMetrics: Map<string, MetricValue[]> = new Map();
 
-    // NSE/BSE - Highest Priority Source (0.98 confidence)
-    try {
-      auditTrail.push({
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
-        action: 'fetch',
-        source: 'nse_bse',
-        reason: 'Fetching authoritative data from NSE/BSE exchange filings',
-      });
+    // ============================================================
+    // INDIAN MARKET FALLBACK CHAIN
+    // Priority: Probe42 → MCA → NSE/BSE → Finnhub → Yahoo
+    // ============================================================
 
-      const nseBseResult = await this.fetchFromNSEBSE(companyId, company.symbol || undefined, financialYear);
-      
-      if (Object.keys(nseBseResult.metrics).length > 0) {
-        enriched.sources.push('nse_bse');
-        
-        for (const [key, value] of Object.entries(nseBseResult.metrics)) {
-          const existing = collectedMetrics.get(key) || [];
-          existing.push(value);
-          collectedMetrics.set(key, existing);
-        }
-
-        auditTrail.push({
-          id: crypto.randomUUID(),
-          timestamp: new Date(),
-          action: 'fetch',
-          source: 'nse_bse',
-          confidence: nseBseResult.confidence,
-          reason: `Fetched ${Object.keys(nseBseResult.metrics).length} metrics from exchange filings`,
-        });
-      }
-    } catch (error: any) {
-      console.error(`[DataEnrichment] NSE/BSE fetch failed: ${error.message}`);
-      auditTrail.push({
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
-        action: 'fetch',
-        source: 'nse_bse',
-        reason: `Fetch failed: ${error.message}`,
-      });
-    }
-
-    // Probe42 - Second Priority
+    // 1. PROBE42 - Primary Source (0.98 confidence)
+    // Best source for Indian unlisted companies with comprehensive financials
     if (company.probe42CompanyId) {
       try {
         auditTrail.push({
@@ -331,7 +603,7 @@ class DataEnrichmentService {
           timestamp: new Date(),
           action: 'fetch',
           source: 'probe42',
-          reason: 'Fetching primary data from Probe42',
+          reason: 'Fetching primary data from Probe42 (Indian market primary source)',
         });
 
         const financials = await probe42Service.getCompanyFinancials(company.probe42CompanyId, 1);
@@ -366,6 +638,15 @@ class DataEnrichmentService {
               collectedMetrics.set(key, existing);
             }
           }
+
+          auditTrail.push({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            action: 'fetch',
+            source: 'probe42',
+            confidence: this.getSourceConfidence('probe42'),
+            reason: `Fetched ${Object.keys(probe42Metrics).filter(k => probe42Metrics[k] !== undefined).length} metrics from Probe42`,
+          });
         }
       } catch (error: any) {
         console.error(`[DataEnrichment] Probe42 fetch failed: ${error.message}`);
@@ -379,6 +660,94 @@ class DataEnrichmentService {
       }
     }
 
+    // 2. MCA - Secondary Source (0.95 confidence)
+    // Ministry of Corporate Affairs - official government source for all Indian companies
+    if (company.cin) {
+      try {
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'mca',
+          reason: 'Fetching MCA data (Ministry of Corporate Affairs - government source)',
+        });
+
+        const mcaResult = await this.fetchFromMCA(companyId, company.cin);
+        
+        if (Object.keys(mcaResult.metrics).length > 0) {
+          enriched.sources.push('mca');
+          
+          for (const [key, value] of Object.entries(mcaResult.metrics)) {
+            const existing = collectedMetrics.get(key) || [];
+            existing.push(value);
+            collectedMetrics.set(key, existing);
+          }
+
+          auditTrail.push({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            action: 'fetch',
+            source: 'mca',
+            confidence: mcaResult.confidence,
+            reason: `Fetched ${Object.keys(mcaResult.metrics).length} metrics from MCA`,
+          });
+        }
+      } catch (error: any) {
+        console.error(`[DataEnrichment] MCA fetch failed: ${error.message}`);
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'mca',
+          reason: `Fetch failed: ${error.message}`,
+        });
+      }
+    }
+
+    // 3. NSE/BSE - Tertiary Source (0.90 confidence)
+    // Exchange filings (only for listed or partially listed companies)
+    try {
+      auditTrail.push({
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+        action: 'fetch',
+        source: 'nse_bse',
+        reason: 'Fetching data from NSE/BSE exchange filings',
+      });
+
+      const nseBseResult = await this.fetchFromNSEBSE(companyId, company.symbol || undefined, financialYear);
+      
+      if (Object.keys(nseBseResult.metrics).length > 0) {
+        enriched.sources.push('nse_bse');
+        
+        for (const [key, value] of Object.entries(nseBseResult.metrics)) {
+          const existing = collectedMetrics.get(key) || [];
+          existing.push(value);
+          collectedMetrics.set(key, existing);
+        }
+
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'nse_bse',
+          confidence: nseBseResult.confidence,
+          reason: `Fetched ${Object.keys(nseBseResult.metrics).length} metrics from exchange filings`,
+        });
+      }
+    } catch (error: any) {
+      console.error(`[DataEnrichment] NSE/BSE fetch failed: ${error.message}`);
+      auditTrail.push({
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+        action: 'fetch',
+        source: 'nse_bse',
+        reason: `Fetch failed: ${error.message}`,
+      });
+    }
+
+    // 4. FINNHUB - Fourth Source (0.75 confidence)
+    // Limited Indian coverage but good for listed stocks with international presence
     if (options.externalSymbols?.finnhub && finnhubService.isReady()) {
       try {
         auditTrail.push({
@@ -416,12 +785,76 @@ class DataEnrichmentService {
               collectedMetrics.set(key, existing);
             }
           }
+
+          auditTrail.push({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            action: 'fetch',
+            source: 'finnhub',
+            confidence: this.getSourceConfidence('finnhub'),
+            reason: `Fetched ${Object.keys(finnhubMetrics).filter(k => finnhubMetrics[k] !== undefined).length} metrics from Finnhub`,
+          });
         }
       } catch (error: any) {
         console.error(`[DataEnrichment] Finnhub fetch failed: ${error.message}`);
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'finnhub',
+          reason: `Fetch failed: ${error.message}`,
+        });
       }
     }
 
+    // 5. YAHOO FINANCE - Last Resort (0.65 confidence)
+    // Uses .NS (NSE) or .BO (BSE) suffix for Indian stocks
+    if (company.symbol || options.externalSymbols?.yahoo) {
+      try {
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'yahoo',
+          reason: 'Fetching fallback data from Yahoo Finance (Indian market .NS/.BO)',
+        });
+
+        const yahooSymbol = options.externalSymbols?.yahoo || company.symbol;
+        const yahooResult = await this.fetchFromYahoo(companyId, yahooSymbol, company.isin);
+        
+        if (Object.keys(yahooResult.metrics).length > 0) {
+          enriched.sources.push('yahoo');
+          
+          for (const [key, value] of Object.entries(yahooResult.metrics)) {
+            const existing = collectedMetrics.get(key) || [];
+            existing.push(value);
+            collectedMetrics.set(key, existing);
+          }
+
+          auditTrail.push({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            action: 'fetch',
+            source: 'yahoo',
+            confidence: yahooResult.confidence,
+            reason: `Fetched ${Object.keys(yahooResult.metrics).length} metrics from Yahoo Finance`,
+          });
+        }
+      } catch (error: any) {
+        console.error(`[DataEnrichment] Yahoo fetch failed: ${error.message}`);
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'yahoo',
+          reason: `Fetch failed: ${error.message}`,
+        });
+      }
+    }
+
+    // ============================================================
+    // MERGE METRICS BY PRIORITY
+    // ============================================================
     for (const [metricName, values] of collectedMetrics.entries()) {
       if (values.length === 0) continue;
 
