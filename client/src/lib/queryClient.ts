@@ -1,9 +1,42 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { notifySessionExpired } from "@/contexts/session-context";
 
-const EXCLUDED_401_ENDPOINTS = ["/api/user"];
+const EXCLUDED_401_ENDPOINTS = [
+  "/api/user",
+  "/api/cart",
+  "/api/unified-cart",
+  "/api/user/preferences",
+  "/api/kyc/notification-status"
+];
+
+let wasEverAuthenticated = false;
+
+export function markUserAuthenticated() {
+  wasEverAuthenticated = true;
+  try {
+    sessionStorage.setItem('fintekpro_was_authenticated', 'true');
+  } catch (e) {}
+}
+
+export function checkWasAuthenticated(): boolean {
+  if (wasEverAuthenticated) return true;
+  try {
+    wasEverAuthenticated = sessionStorage.getItem('fintekpro_was_authenticated') === 'true';
+  } catch (e) {}
+  return wasEverAuthenticated;
+}
+
+export function clearAuthenticationFlag() {
+  wasEverAuthenticated = false;
+  try {
+    sessionStorage.removeItem('fintekpro_was_authenticated');
+  } catch (e) {}
+}
 
 function shouldTriggerSessionExpired(url: string): boolean {
+  if (!checkWasAuthenticated()) {
+    return false;
+  }
   return !EXCLUDED_401_ENDPOINTS.some(endpoint => url.includes(endpoint));
 }
 
