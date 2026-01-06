@@ -19,6 +19,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
+import { useSession } from "@/contexts/session-context";
 import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users } from "lucide-react";
 
 const loginSchema = z.object({
@@ -66,6 +67,7 @@ export default function AuthPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const { isAdminPortal } = useSubdomain();
   const { toast } = useToast();
+  const { clearSessionExpired } = useSession();
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -348,6 +350,7 @@ export default function AuthPage() {
       queryClient.setQueryData(["/api/user"], data);
       setOtpDialogOpen(false);
       otpForm.reset();
+      clearSessionExpired();
       toast({
         title: "Login successful",
         description: "Welcome back!",
@@ -581,6 +584,7 @@ export default function AuthPage() {
   const handleContinueSession = () => {
     setSessionConflictOpen(false);
     setPendingLoginData(null);
+    clearSessionExpired();
     
     // Redirect to dashboard
     toast({

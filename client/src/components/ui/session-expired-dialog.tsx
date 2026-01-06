@@ -25,7 +25,6 @@ export function SessionExpiredDialog() {
       <AlertDialogContent
         data-testid="dialog-session-expired"
         onEscapeKeyDown={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
       >
         <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-2">
