@@ -24776,3 +24776,110 @@ export const cacheRefreshSchedule = pgTable("cache_refresh_schedule", {
 export const insertCacheRefreshScheduleSchema = createInsertSchema(cacheRefreshSchedule).omit({ id: true, createdAt: true, updatedAt: true });
 export type CacheRefreshSchedule = typeof cacheRefreshSchedule.$inferSelect;
 export type InsertCacheRefreshSchedule = typeof cacheRefreshSchedule.$inferInsert;
+
+// ===================================================================
+// NSE/BSE FILINGS INGESTION SYSTEM
+// ===================================================================
+
+// Exchange Filing Sources - Registry of NSE/BSE data sources
+export const exchangeFilingSources = pgTable("exchange_filing_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceId: varchar("source_id").notNull().unique(), // NSE | BSE
+  sourceName: varchar("source_name").notNull(),
+  baseUrl: varchar("base_url").notNull(),
+  apiEndpoint: varchar("api_endpoint"),
+  supportedDocumentTypes: jsonb("supported_document_types").default(['PDF', 'XBRL', 'XLS']),
+  active: boolean("active").default(true),
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
+  lastFetchAt: timestamp("last_fetch_at"),
+  fetchSuccessCount: integer("fetch_success_count").default(0),
+  fetchFailureCount: integer("fetch_failure_count").default(0),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertExchangeFilingSourceSchema = createInsertSchema(exchangeFilingSources).omit({ id: true, createdAt: true, updatedAt: true });
+export type ExchangeFilingSource = typeof exchangeFilingSources.$inferSelect;
+export type InsertExchangeFilingSource = typeof exchangeFilingSources.$inferInsert;
+
+// Exchange Filings - Filing metadata from NSE/BSE
+export const exchangeFilings = pgTable("exchange_filings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fintekproCompanyId: varchar("fintekpro_company_id").references(() => unlistedCompanies.id),
+  exchange: varchar("exchange").notNull(), // NSE | BSE
+  symbol: varchar("symbol"),
+  companyName: varchar("company_name").notNull(),
+  filingType: varchar("filing_type").notNull(), // QUARTERLY | ANNUAL | HALF_YEARLY
+  financialType: varchar("financial_type").default("STANDALONE"), // STANDALONE | CONSOLIDATED
+  documentUrl: varchar("document_url").notNull(),
+  documentHash: varchar("document_hash"), // SHA256 for dedup
+  filingDate: date("filing_date").notNull(),
+  periodStart: date("period_start"),
+  periodEnd: date("period_end"),
+  financialYear: varchar("financial_year"),
+  quarter: varchar("quarter"), // Q1 | Q2 | Q3 | Q4
+  documentType: varchar("document_type"), // XBRL | PDF | XLS | SCANNED_PDF
+  fileSizeBytes: integer("file_size_bytes"),
+  isProcessed: boolean("is_processed").default(false),
+  processingStatus: varchar("processing_status").default("pending"), // pending | processing | completed | failed | needs_review
+  processingError: text("processing_error"),
+  extractionConfidence: numeric("extraction_confidence"),
+  ingestedAt: timestamp("ingested_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ef_company").on(table.fintekproCompanyId),
+  index("idx_ef_exchange").on(table.exchange),
+  index("idx_ef_hash").on(table.documentHash),
+  index("idx_ef_date").on(table.filingDate),
+  index("idx_ef_status").on(table.processingStatus),
+]);
+
+export const insertExchangeFilingSchema = createInsertSchema(exchangeFilings).omit({ id: true, createdAt: true, updatedAt: true, ingestedAt: true });
+export type ExchangeFiling = typeof exchangeFilings.$inferSelect;
+export type InsertExchangeFiling = typeof exchangeFilings.$inferInsert;
+
+// Exchange Financial Audit Log - SEBI-compliant provenance tracking
+export const exchangeFinancialAuditLog = pgTable("exchange_financial_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => unlistedCompanies.id),
+  filingId: varchar("filing_id").references(() => exchangeFilings.id),
+  exchange: varchar("exchange").notNull(), // NSE | BSE
+  metric: varchar("metric").notNull(), // revenue | ebitda | pat | eps | total_assets | etc.
+  metricValue: numeric("metric_value"),
+  metricValueText: text("metric_value_text"),
+  previousValue: numeric("previous_value"),
+  financialYear: varchar("financial_year").notNull(),
+  period: varchar("period"), // Q1 | Q2 | Q3 | Q4 | ANNUAL
+  periodEnd: date("period_end"),
+  currency: varchar("currency").default("INR"),
+  documentUrl: varchar("document_url"),
+  documentHash: varchar("document_hash"),
+  extractionMethod: varchar("extraction_method").notNull(), // XBRL | EXCEL | PDF_TABLE | OCR
+  extractionConfidence: numeric("extraction_confidence"),
+  extractedBy: varchar("extracted_by").notNull(), // AUTO | ADMIN
+  extractionSource: varchar("extraction_source"), // raw cell reference or XBRL tag
+  isManualOverride: boolean("is_manual_override").default(false),
+  overrideReason: text("override_reason"),
+  overrideBy: varchar("override_by"),
+  overrideAt: timestamp("override_at"),
+  isApproved: boolean("is_approved").default(false),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  hashPrevious: varchar("hash_previous"),
+  hashCurrent: varchar("hash_current"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_efa_company").on(table.companyId),
+  index("idx_efa_filing").on(table.filingId),
+  index("idx_efa_metric").on(table.metric),
+  index("idx_efa_fy").on(table.financialYear),
+  index("idx_efa_exchange").on(table.exchange),
+  index("idx_efa_created").on(table.createdAt),
+]);
+
+export const insertExchangeFinancialAuditLogSchema = createInsertSchema(exchangeFinancialAuditLog).omit({ id: true, createdAt: true });
+export type ExchangeFinancialAuditLog = typeof exchangeFinancialAuditLog.$inferSelect;
+export type InsertExchangeFinancialAuditLog = typeof exchangeFinancialAuditLog.$inferInsert;
