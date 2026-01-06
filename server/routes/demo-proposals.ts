@@ -435,6 +435,10 @@ agentDemoRouter.get("/stats", async (req: Request, res: Response) => {
 agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
   try {
     const agentId = (req as any).user?.id;
+    
+    if (!agentId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
 
     // Validate request body
     const validationResult = generatePdfRequestSchema.safeParse(req.body);

@@ -29,7 +29,7 @@ declare global {
 }
 import { sql, eq, and, or, like, desc, asc, count, inArray, gte, lte, lt } from "drizzle-orm";
 import { db } from "./db";
-import { setupAuth as setupReplitAuth } from "./replitAuth";
+import { setupAuth as setupReplitAuth, isAuthenticated } from "./replitAuth";
 import { setupAuth as setupLocalAuth } from "./auth";
 import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, storeProductInquiries, storeTransactionLogs, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, mutualFunds, mutualFundAmcs, prospectClients, proposalInteractions, proposalApprovals, insertProspectClientSchema, insertProposalInteractionSchema, insertProposalApprovalSchema, prospectProposals } from "@shared/schema";
 import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
@@ -481,7 +481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/unified-cart", unifiedCartRoutes);
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
   app.use("/api/admin/demo-proposals", requireAdmin, demoProposalsRoutes);
-  app.use("/api/agent/demo-proposals", agentDemoRouter);
+  app.use("/api/agent/demo-proposals", isAuthenticated, agentDemoRouter);
   app.use("/api/admin/exchange-sync", requireAdmin, exchangeStockSyncRoutes);
   // AI Proposal Engine Routes
   app.use("/api/ai-proposals", aiProposalRoutes);
