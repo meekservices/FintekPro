@@ -299,6 +299,7 @@ import PortfolioGoals from "@/pages/portfolio-goals";
 import PortfolioRetirement from "@/pages/portfolio-retirement";
 import PortfolioAIInsights from "@/pages/portfolio-ai-insights";
 import PortfolioRebalancing from "@/pages/portfolio-rebalancing";
+import PortfolioImport from "@/pages/portfolio-import";
 import TrackerPortfolioReport from "@/pages/tracker-portfolio-report";
 import AgentExternalPortfolios from "@/pages/agent-external-portfolios";
 
@@ -314,6 +315,7 @@ function UserProtectedRoutes() {
         <Route path="/portfolio/retirement" component={PortfolioRetirement} />
         <Route path="/portfolio/ai-insights" component={PortfolioAIInsights} />
         <Route path="/portfolio/rebalancing" component={PortfolioRebalancing} />
+        <Route path="/portfolio/import" component={PortfolioImport} />
         <Route path="/portfolio-stress-test" component={PortfolioStressTest} />
         <Route path="/dividend-calendar" component={DividendCalendar} />
         <Route path="/tax-loss-harvesting" component={TaxLossHarvesting} />

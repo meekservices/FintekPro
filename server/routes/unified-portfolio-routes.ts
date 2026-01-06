@@ -411,4 +411,115 @@ router.post('/api/agent/initiate-cob', requireAuth, requireRole('admin', 'agent'
   }
 });
 
+const wealthyImportSchema = z.object({
+  url: z.string().url().refine(
+    (url) => url.includes('reports.wealthy.in') && url.includes('token='),
+    { message: 'Invalid Wealthy.in URL. Expected format: https://reports.wealthy.in/?token=...' }
+  ),
+  replaceExisting: z.boolean().optional().default(false),
+});
+
+router.post('/api/portfolio/import-wealthy', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { url, replaceExisting } = wealthyImportSchema.parse(req.body);
+
+    const { wealthyImportService } = await import('../services/wealthy-import-service');
+
+    console.log(`[Wealthy Import] Fetching portfolio for user ${userId}`);
+    const portfolio = await wealthyImportService.fetchAndParsePortfolio(url);
+
+    if (portfolio.holdings.length === 0) {
+      return res.status(400).json({
+        error: 'No holdings found in the portfolio',
+        message: 'The Wealthy.in report did not contain any mutual fund holdings.',
+      });
+    }
+
+    if (replaceExisting) {
+      const deleted = await db.delete(externalHoldings).where(
+        and(
+          eq(externalHoldings.userId, userId),
+          eq(externalHoldings.source, 'WEALTHY_IN')
+        )
+      );
+      console.log(`[Wealthy Import] Deleted existing holdings for user ${userId}`);
+    }
+
+    const result = await wealthyImportService.importToExternalHoldings(userId, portfolio);
+
+    console.log(`[Wealthy Import] Imported ${result.imported} holdings for user ${userId}`);
+
+    res.json({
+      success: true,
+      investor: portfolio.investor,
+      summary: portfolio.summary,
+      imported: result.imported,
+      skipped: result.skipped,
+      holdings: result.holdings,
+    });
+  } catch (error: any) {
+    console.error('[Wealthy Import] Error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    res.status(500).json({ error: error.message || 'Failed to import portfolio' });
+  }
+});
+
+router.get('/api/portfolio/external-holdings', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const source = req.query.source as string | undefined;
+    
+    let holdings;
+    if (source) {
+      holdings = await db.select()
+        .from(externalHoldings)
+        .where(and(
+          eq(externalHoldings.userId, userId),
+          eq(externalHoldings.source, source)
+        ))
+        .orderBy(desc(externalHoldings.lastSyncedAt));
+    } else {
+      holdings = await db.select()
+        .from(externalHoldings)
+        .where(eq(externalHoldings.userId, userId))
+        .orderBy(desc(externalHoldings.lastSyncedAt));
+    }
+
+    const totalInvested = holdings.reduce((sum, h) => {
+      const qty = parseFloat(h.quantity?.toString() || '0');
+      const avgPrice = parseFloat(h.avgPrice?.toString() || '0');
+      return sum + (qty * avgPrice);
+    }, 0);
+
+    const totalCurrentValue = holdings.reduce((sum, h) => {
+      return sum + parseFloat(h.currentValue?.toString() || '0');
+    }, 0);
+
+    res.json({
+      holdings,
+      summary: {
+        totalHoldings: holdings.length,
+        totalInvested,
+        totalCurrentValue,
+        gainLoss: totalCurrentValue - totalInvested,
+        gainLossPercent: totalInvested > 0 ? ((totalCurrentValue - totalInvested) / totalInvested) * 100 : 0,
+      },
+    });
+  } catch (error: any) {
+    console.error('[External Holdings] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
