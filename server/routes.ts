@@ -314,20 +314,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Basic user authentication middleware
+  // Basic user authentication middleware - uses session auth
   const authenticateUser = async (req: any, res: any, next: any) => {
+    // Check if user is authenticated via session (Passport.js)
+    if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+      return next();
+    }
+    
+    // Fallback: check Authorization header for API calls
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: "Authentication required" });
     }
     
-    // Mock user for demo purposes - in production, verify the token
-    req.user = {
-      id: "demo-user-1",
-      role: "client",
-      email: "demo@fintekpro.com"
-    };
-    next();
+    // For API token auth, verify against session or reject
+    return res.status(401).json({ error: "Please sign in to access this resource" });
   };
 
   // Helper function to check if user has any of the specified roles
@@ -1975,10 +1976,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/recommendations/portfolio/:portfolioId/rebalance", async (req, res) => {
+  app.get("/api/recommendations/portfolio/:portfolioId/rebalance", async (req: any, res) => {
     try {
       const { portfolioId } = req.params;
-      const userId = "demo-user-1"; // Replace with actual user ID from auth
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       
       const goals = await storage.getFinancialGoals(userId);
       const recommendations = await storage.generatePortfolioRebalanceRecommendations(portfolioId, goals);
@@ -7362,10 +7367,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== Portfolio Comparison API =====
-  app.post("/api/portfolios/compare", async (req, res) => {
+  app.post("/api/portfolios/compare", async (req: any, res) => {
     try {
       const { portfolioIds, timePeriod = "1Y", benchmarkIndex = "NIFTY_50", comparisonType = "comprehensive" } = req.body;
-      const userId = req.user?.id || 'demo-user-1';
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
 
       if (!portfolioIds || !Array.isArray(portfolioIds) || portfolioIds.length < 2) {
         return res.status(400).json({ 
@@ -9274,7 +9283,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/ai/portfolios/:portfolioId/rebalancing-recommendations", requireAuth, async (req, res) => {
     try {
       const { portfolioId } = req.params;
-      const userId = (req as any).user?.id || "demo-user-1";
+      const userId = (req as any).user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       
       // Get portfolio data and verify ownership
       const portfolio = await storage.getPortfolio(portfolioId);
@@ -9282,8 +9295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Portfolio not found" });
       }
       
-      // Verify portfolio ownership (for non-demo users)
-      if (userId !== "demo-user-1" && portfolio.userId !== userId) {
+      // Verify portfolio ownership
+      if (portfolio.userId !== userId) {
         return res.status(403).json({ error: "Access denied: Portfolio not owned by user" });
       }
       
@@ -9367,7 +9380,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { portfolioId } = req.params;
       const { additionalCapital = 0 } = req.body;
-      const userId = (req as any).user?.id || "demo-user-1";
+      const userId = (req as any).user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       
       // Validate request body
       const bodySchema = z.object({
@@ -9383,8 +9400,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Portfolio not found" });
       }
       
-      // Verify portfolio ownership (for non-demo users)
-      if (userId !== "demo-user-1" && portfolio.userId !== userId) {
+      // Verify portfolio ownership
+      if (portfolio.userId !== userId) {
         return res.status(403).json({ error: "Access denied: Portfolio not owned by user" });
       }
       
