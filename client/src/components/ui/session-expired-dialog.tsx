@@ -1,4 +1,3 @@
-import { useLocation } from "wouter";
 import { LogIn, AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
@@ -12,12 +11,10 @@ import {
 import { useSession } from "@/contexts/session-context";
 
 export function SessionExpiredDialog() {
-  const { isSessionExpired, clearSessionExpired } = useSession();
-  const [, setLocation] = useLocation();
+  const { isSessionExpired, handleLogoutAndRedirect } = useSession();
 
   const handleSignIn = () => {
-    clearSessionExpired();
-    setLocation("/auth");
+    handleLogoutAndRedirect();
   };
 
   return (
