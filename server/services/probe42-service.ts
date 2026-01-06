@@ -940,6 +940,280 @@ class Probe42Service {
       return { ...result, error: error.message };
     }
   }
+
+  // ===================================================================
+  // IDENTITY CONFIDENCE ENGINE
+  // ===================================================================
+
+  /**
+   * Compute identity confidence score for a company based on available identifiers
+   * Formula: CIN (+0.3) + ISIN (+0.3) + Legal Name Completeness (+0.2) + PAN (+0.2) = max 1.0
+   * Returns score and breakdown for transparency
+   */
+  computeIdentityConfidence(company: {
+    cin?: string | null;
+    isin?: string | null;
+    companyName?: string | null;
+    legalName?: string | null;
+    pan?: string | null;
+  }): {
+    score: number;
+    status: 'high' | 'medium' | 'review' | 'blocked';
+    breakdown: {
+      cin: { present: boolean; score: number };
+      isin: { present: boolean; score: number };
+      legalName: { present: boolean; quality: 'complete' | 'partial' | 'missing'; score: number };
+      pan: { present: boolean; score: number };
+    };
+    enrichmentAllowed: boolean;
+    enrichmentBlockReason?: string;
+  } {
+    const breakdown = {
+      cin: { present: false, score: 0, valid: false },
+      isin: { present: false, score: 0, valid: false },
+      legalName: { present: false, quality: 'missing' as 'complete' | 'partial' | 'missing', score: 0 },
+      pan: { present: false, score: 0, valid: false },
+    };
+
+    // CIN validation (21 character alphanumeric for Indian companies)
+    // Only award full 0.3 for valid CIN format - no partial credit for malformed
+    if (company.cin && /^[A-Z]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/.test(company.cin)) {
+      breakdown.cin = { present: true, score: 0.3, valid: true };
+    } else if (company.cin && company.cin.length > 0) {
+      breakdown.cin = { present: true, score: 0, valid: false };
+    }
+
+    // ISIN validation (12 character international format: 2 letters + 9 alphanumeric + 1 check digit)
+    // Only award full 0.3 for valid ISIN format - no partial credit for malformed
+    if (company.isin && /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(company.isin)) {
+      breakdown.isin = { present: true, score: 0.3, valid: true };
+    } else if (company.isin && company.isin.length > 0) {
+      breakdown.isin = { present: true, score: 0, valid: false };
+    }
+
+    // Legal name completeness (prefer legalName over companyName)
+    // Award 0.2 for complete legal name with entity suffix, 0 otherwise
+    const nameToCheck = company.legalName || company.companyName;
+    if (nameToCheck) {
+      const wordCount = nameToCheck.trim().split(/\s+/).length;
+      const hasLegalSuffix = /\b(pvt|private|ltd|limited|llp|inc|corp|plc)\b/i.test(nameToCheck);
+      
+      if (wordCount >= 2 && hasLegalSuffix) {
+        breakdown.legalName = { present: true, quality: 'complete', score: 0.2 };
+      } else {
+        breakdown.legalName = { present: true, quality: 'partial', score: 0 };
+      }
+    }
+
+    // PAN validation (10 character: 5 letters + 4 digits + 1 letter)
+    // Only award full 0.2 for valid PAN format - no partial credit for malformed
+    if (company.pan && /^[A-Z]{5}\d{4}[A-Z]$/.test(company.pan)) {
+      breakdown.pan = { present: true, score: 0.2, valid: true };
+    } else if (company.pan && company.pan.length > 0) {
+      breakdown.pan = { present: true, score: 0, valid: false };
+    }
+
+    // Calculate total score
+    const score = Number((
+      breakdown.cin.score +
+      breakdown.isin.score +
+      breakdown.legalName.score +
+      breakdown.pan.score
+    ).toFixed(2));
+
+    // Determine status based on score thresholds
+    let status: 'high' | 'medium' | 'review' | 'blocked';
+    if (score >= 0.80) {
+      status = 'high';
+    } else if (score >= 0.60) {
+      status = 'medium';
+    } else if (score >= 0.40) {
+      status = 'review';
+    } else {
+      status = 'blocked';
+    }
+
+    // Enrichment is blocked if confidence < 0.80
+    const enrichmentAllowed = score >= 0.80;
+    const missingItems: string[] = [];
+    if (breakdown.cin.score === 0) missingItems.push('Valid CIN (+30%)');
+    if (breakdown.isin.score === 0) missingItems.push('Valid ISIN (+30%)');
+    if (breakdown.legalName.score === 0) missingItems.push('Complete Legal Name (+20%)');
+    if (breakdown.pan.score === 0) missingItems.push('Valid PAN (+20%)');
+    
+    const enrichmentBlockReason = !enrichmentAllowed
+      ? `Identity confidence ${(score * 100).toFixed(0)}% is below 80% threshold. Provide: ${missingItems.join(', ')}`
+      : undefined;
+
+    console.log(`[IdentityConfidence] Computed score ${score} (${status}) for company. Enrichment: ${enrichmentAllowed ? 'ALLOWED' : 'BLOCKED'}`);
+
+    return {
+      score,
+      status,
+      breakdown,
+      enrichmentAllowed,
+      enrichmentBlockReason,
+    };
+  }
+
+  /**
+   * Check if a company can be enriched with external data
+   * Returns detailed eligibility status with actionable feedback
+   */
+  async checkEnrichmentEligibility(companyId: string): Promise<{
+    eligible: boolean;
+    confidenceScore: number;
+    status: 'high' | 'medium' | 'review' | 'blocked';
+    breakdown: {
+      cin: { present: boolean; score: number };
+      isin: { present: boolean; score: number };
+      legalName: { present: boolean; quality: string; score: number };
+      pan: { present: boolean; score: number };
+    };
+    suggestions: string[];
+    canOverride: boolean;
+  }> {
+    const { storage } = await import('../storage');
+    
+    const company = await storage.getUnlistedCompanyById(companyId);
+    if (!company) {
+      throw new ValidationError('Company not found');
+    }
+
+    const confidence = this.computeIdentityConfidence({
+      cin: company.cin,
+      isin: company.isin,
+      companyName: company.companyName,
+      legalName: company.legalName,
+      pan: company.pan,
+    });
+
+    // Generate actionable suggestions for improving confidence
+    const suggestions: string[] = [];
+    if (!confidence.breakdown.cin.present) {
+      suggestions.push('Add CIN (Corporate Identity Number) - adds +30% confidence');
+    }
+    if (!confidence.breakdown.isin.present) {
+      suggestions.push('Add ISIN (International Securities Identification Number) - adds +30% confidence');
+    }
+    if (confidence.breakdown.legalName.quality !== 'complete') {
+      suggestions.push('Ensure legal name includes entity type suffix (Pvt Ltd, Limited, LLP) - adds up to +20% confidence');
+    }
+    if (!confidence.breakdown.pan.present) {
+      suggestions.push('Add PAN (Permanent Account Number) - adds +20% confidence');
+    }
+
+    // Admin can override for medium confidence (0.60-0.79) companies
+    const canOverride = confidence.status === 'medium';
+
+    return {
+      eligible: confidence.enrichmentAllowed,
+      confidenceScore: confidence.score,
+      status: confidence.status,
+      breakdown: confidence.breakdown,
+      suggestions,
+      canOverride,
+    };
+  }
+
+  /**
+   * Update company identity confidence in database after computing
+   * Returns updated company with new confidence values
+   */
+  async updateCompanyIdentityConfidence(companyId: string): Promise<{
+    success: boolean;
+    score: number;
+    status: string;
+    error?: string;
+  }> {
+    const { storage } = await import('../storage');
+    
+    try {
+      const company = await storage.getUnlistedCompanyById(companyId);
+      if (!company) {
+        return { success: false, score: 0, status: 'blocked', error: 'Company not found' };
+      }
+
+      const confidence = this.computeIdentityConfidence({
+        cin: company.cin,
+        isin: company.isin,
+        companyName: company.companyName,
+        legalName: company.legalName,
+        pan: company.pan,
+      });
+
+      // Update company with computed confidence
+      await storage.updateUnlistedCompany(companyId, {
+        identityConfidence: confidence.score.toString(),
+        identityStatus: confidence.status,
+      });
+
+      console.log(`[IdentityConfidence] Updated company ${companyId}: score=${confidence.score}, status=${confidence.status}`);
+
+      return {
+        success: true,
+        score: confidence.score,
+        status: confidence.status,
+      };
+    } catch (error: any) {
+      console.error(`[IdentityConfidence] Failed to update company ${companyId}: ${error.message}`);
+      return {
+        success: false,
+        score: 0,
+        status: 'blocked',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Batch update identity confidence for all companies
+   * Used by cron jobs for periodic confidence recalculation
+   */
+  async batchUpdateIdentityConfidence(limit: number = 100): Promise<{
+    processed: number;
+    updated: number;
+    errors: number;
+    details: Array<{ companyId: string; score: number; status: string; error?: string }>;
+  }> {
+    const { storage } = await import('../storage');
+    
+    const result = {
+      processed: 0,
+      updated: 0,
+      errors: 0,
+      details: [] as Array<{ companyId: string; score: number; status: string; error?: string }>,
+    };
+
+    try {
+      const companies = await storage.getAllUnlistedCompanies();
+      const toProcess = companies.slice(0, limit);
+
+      for (const company of toProcess) {
+        result.processed++;
+        const updateResult = await this.updateCompanyIdentityConfidence(company.id);
+        
+        if (updateResult.success) {
+          result.updated++;
+        } else {
+          result.errors++;
+        }
+        
+        result.details.push({
+          companyId: company.id,
+          score: updateResult.score,
+          status: updateResult.status,
+          error: updateResult.error,
+        });
+      }
+
+      console.log(`[IdentityConfidence] Batch update complete: ${result.updated}/${result.processed} updated, ${result.errors} errors`);
+      return result;
+    } catch (error: any) {
+      console.error(`[IdentityConfidence] Batch update failed: ${error.message}`);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

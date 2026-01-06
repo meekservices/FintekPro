@@ -44,6 +44,7 @@ import {
 import { requireLevel2 } from '../middleware/kyc-level-gate';
 import { requireAuth } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
+import { dataEnrichmentService } from '../services/data-enrichment-service';
 
 // Admin middleware for unlisted marketplace admin routes
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -4203,6 +4204,200 @@ router.get('/admin/companies/:id/data-quality', async (req: Request, res: Respon
   } catch (error: any) {
     console.error('Error fetching data quality:', error);
     return apiResponse.serverError(res, 'Failed to fetch data quality');
+  }
+});
+
+// ===================================================================
+// DATA ENRICHMENT & PROVENANCE API ("Why This Number?")
+// ===================================================================
+
+/**
+ * GET /api/unlisted/admin/companies/:id/identity-confidence
+ * Get identity confidence score and breakdown (Admin only)
+ * Shows how confidence is computed: CIN (+0.3), ISIN (+0.3), Legal Name (+0.2), PAN (+0.2)
+ */
+router.get('/admin/companies/:id/identity-confidence', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const eligibility = await probe42Service.checkEnrichmentEligibility(id);
+    
+    return apiResponse.success(res, {
+      companyId: id,
+      confidenceScore: eligibility.confidenceScore,
+      status: eligibility.status,
+      enrichmentEligible: eligibility.eligible,
+      breakdown: eligibility.breakdown,
+      suggestions: eligibility.suggestions,
+      canOverride: eligibility.canOverride,
+    });
+  } catch (error: any) {
+    console.error('Error fetching identity confidence:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to fetch identity confidence');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/companies/:id/identity-confidence/recalculate
+ * Recalculate and update identity confidence for a company (Admin only)
+ */
+router.post('/admin/companies/:id/identity-confidence/recalculate', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await probe42Service.updateCompanyIdentityConfidence(id);
+    
+    if (!result.success) {
+      return apiResponse.badRequest(res, result.error || 'Failed to recalculate');
+    }
+    
+    return apiResponse.success(res, {
+      companyId: id,
+      newScore: result.score,
+      newStatus: result.status,
+      message: 'Identity confidence recalculated successfully',
+    });
+  } catch (error: any) {
+    console.error('Error recalculating identity confidence:', error);
+    return apiResponse.serverError(res, 'Failed to recalculate identity confidence');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/identity-confidence/batch-update
+ * Batch update identity confidence for multiple companies (Admin only)
+ */
+router.post('/admin/identity-confidence/batch-update', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { limit = 100 } = req.body;
+    
+    const result = await probe42Service.batchUpdateIdentityConfidence(limit);
+    
+    return apiResponse.success(res, {
+      processed: result.processed,
+      updated: result.updated,
+      errors: result.errors,
+      summary: `Updated ${result.updated}/${result.processed} companies`,
+    });
+  } catch (error: any) {
+    console.error('Error batch updating identity confidence:', error);
+    return apiResponse.serverError(res, 'Failed to batch update identity confidence');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/companies/:id/enrich
+ * Trigger data enrichment for a company from multiple sources (Admin only)
+ */
+router.post('/admin/companies/:id/enrich', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { financialYear, externalSymbols, forceRefresh } = req.body;
+    
+    const currentYear = new Date().getFullYear();
+    const fy = financialYear || `FY${currentYear - 1}-${currentYear.toString().slice(-2)}`;
+    
+    const enriched = await dataEnrichmentService.enrichCompanyFinancials(id, fy, {
+      externalSymbols,
+      forceRefresh,
+    });
+    
+    return apiResponse.success(res, {
+      companyId: id,
+      financialYear: fy,
+      sources: enriched.sources,
+      metricsEnriched: Object.keys(enriched.metrics).length,
+      overallConfidence: enriched.overallConfidence,
+      auditEntriesCreated: enriched.auditTrail.length,
+      metrics: enriched.metrics,
+    });
+  } catch (error: any) {
+    console.error('Error enriching company:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to enrich company data');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/companies/:id/financials/:metric/provenance
+ * "Why This Number?" API - Get full provenance and audit trail for a specific metric (Admin only)
+ * Returns source, retrieval time, confidence, and override history
+ */
+router.get('/admin/companies/:id/financials/:metric/provenance', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id, metric } = req.params;
+    const { financialYear } = req.query;
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const provenance = await dataEnrichmentService.getMetricProvenance(
+      id,
+      metric,
+      financialYear as string | undefined
+    );
+    
+    const usageFlags = await dataEnrichmentService.getDataUsageFlags(
+      id,
+      financialYear as string || `FY${new Date().getFullYear() - 1}-${new Date().getFullYear().toString().slice(-2)}`
+    );
+    
+    return apiResponse.success(res, {
+      companyId: id,
+      companyName: company.companyName,
+      metric: provenance.metric,
+      currentValue: provenance.currentValue,
+      history: provenance.history,
+      sourceBreakdown: provenance.sourceBreakdown,
+      usageFlags: {
+        aiAllowed: usageFlags.aiAllowed,
+        executionAllowed: usageFlags.executionAllowed,
+        lockedForAdvisory: usageFlags.lockedForAdvisory,
+        confidenceScore: usageFlags.confidenceScore,
+        dataQualityScore: usageFlags.dataQualityScore,
+        blockReasons: usageFlags.blockReasons,
+      },
+      whyThisNumber: {
+        explanation: provenance.currentValue 
+          ? `This ${metric} value of ${provenance.currentValue.value} was sourced from ${provenance.currentValue.source} on ${provenance.currentValue.retrievedAt.toISOString()} with ${(provenance.currentValue.confidenceScore * 100).toFixed(0)}% confidence.`
+          : `No value currently recorded for ${metric}.`,
+        sourcePriority: dataEnrichmentService.getSourcePriority(),
+        totalHistoricalRecords: provenance.history.length,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching metric provenance:', error);
+    return apiResponse.serverError(res, 'Failed to fetch metric provenance');
+  }
+});
+
+/**
+ * GET /api/unlisted/admin/companies/:id/data-usage-flags
+ * Get AI and execution guardrails for a company's data (Admin only)
+ */
+router.get('/admin/companies/:id/data-usage-flags', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { financialYear } = req.query;
+    
+    const fy = financialYear as string || `FY${new Date().getFullYear() - 1}-${new Date().getFullYear().toString().slice(-2)}`;
+    
+    const flags = await dataEnrichmentService.getDataUsageFlags(id, fy);
+    
+    return apiResponse.success(res, {
+      companyId: id,
+      financialYear: fy,
+      ...flags,
+      recommendation: flags.executionAllowed 
+        ? 'Data suitable for trading and advisory' 
+        : flags.aiAllowed 
+          ? 'Data suitable for AI analysis only, not for trading'
+          : 'Data quality too low for any automated use',
+    });
+  } catch (error: any) {
+    console.error('Error fetching data usage flags:', error);
+    return apiResponse.serverError(res, 'Failed to fetch data usage flags');
   }
 });
 
