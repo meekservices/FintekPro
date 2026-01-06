@@ -482,7 +482,7 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
     const formattedAmount = targetAmount.toFixed(2);
     await db.insert(investmentProposals).values({
       id,
-      clientId: clientId ? Number(clientId) : null,
+      clientId: clientId ? String(clientId) : null,
       agentId: agentId || null,
       title: proposalName || 'Investment Proposal',
       description: `${config.investmentGoals.primaryGoal} proposal`,
