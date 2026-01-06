@@ -261,7 +261,7 @@ export default function AgentReportsHub() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-slate-400 text-sm">Generated This Month</p>
-                  <p className="text-2xl font-bold text-white">{GENERATED_REPORTS.length}</p>
+                  <p className="text-2xl font-bold text-white">{generatedReports.length}</p>
                 </div>
                 <div className="p-2 bg-emerald-500/20 rounded-lg">
                   <FileDown className="h-5 w-5 text-emerald-400" />
@@ -274,7 +274,7 @@ export default function AgentReportsHub() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-slate-400 text-sm">Sent to Clients</p>
-                  <p className="text-2xl font-bold text-white">{GENERATED_REPORTS.filter(r => r.status === 'sent').length}</p>
+                  <p className="text-2xl font-bold text-white">{generatedReports.filter(r => r.status === 'sent').length}</p>
                 </div>
                 <div className="p-2 bg-purple-500/20 rounded-lg">
                   <Send className="h-5 w-5 text-purple-400" />
@@ -287,7 +287,7 @@ export default function AgentReportsHub() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-slate-400 text-sm">Ready to Send</p>
-                  <p className="text-2xl font-bold text-white">{GENERATED_REPORTS.filter(r => r.status === 'ready').length}</p>
+                  <p className="text-2xl font-bold text-white">{generatedReports.filter(r => r.status === 'ready').length}</p>
                 </div>
                 <div className="p-2 bg-amber-500/20 rounded-lg">
                   <Clock className="h-5 w-5 text-amber-400" />
