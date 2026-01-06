@@ -128,7 +128,7 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
-        riskProfile: users.riskProfile,
+        riskCategory: users.riskCategory,
         kycStatus: users.kycStatus,
         updatedAt: users.updatedAt,
       })
@@ -164,7 +164,7 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
       id: client.id,
       name: `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'Unknown',
       email: client.email || '',
-      riskProfile: client.riskProfile || 'Moderate',
+      riskProfile: client.riskCategory || 'moderate',
       kycTier: client.kycStatus || 'Basic',
       totalAum: aumMap.get(client.id) || 0,
       lastActivity: client.updatedAt?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
