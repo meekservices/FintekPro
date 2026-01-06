@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -60,11 +60,21 @@ import {
 } from "lucide-react";
 
 interface Client {
-  id: number;
+  id: number | string;
   fullName: string;
   email: string;
   phone?: string;
   riskProfile?: string;
+  type: 'client' | 'prospect';
+}
+
+interface Prospect {
+  id: string;
+  name: string;
+  email?: string;
+  mobile?: string;
+  pan?: string;
+  indicativeRiskProfile?: string;
 }
 
 interface ProposalConfig {
@@ -288,8 +298,12 @@ export default function AgentDemoProposalBuilder() {
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
-  const { data: clientsData, isLoading: clientsLoading } = useQuery({
-    queryKey: ['/api/users'],
+  const { data: managedClientsData, isLoading: clientsLoading } = useQuery({
+    queryKey: ['/api/agent/clients'],
+  });
+
+  const { data: prospectsData, isLoading: prospectsLoading } = useQuery({
+    queryKey: ['/api/agent-prospect-wizard/prospects'],
   });
 
   const { data: proposalsData, isLoading: proposalsLoading } = useQuery<{ proposals: ProspectProposal[]; stats: ProposalStats }>({
@@ -593,7 +607,30 @@ export default function AgentDemoProposalBuilder() {
   };
 
   const allocationTotal = Object.values(config.assetAllocation).reduce((a, b) => a + b, 0);
-  const clients = (clientsData as any)?.users || (clientsData as any) || [];
+  
+  // Combine managed clients and prospects into unified list
+  // API returns { success: true, data: clients } or array directly
+  const clientsArray = (managedClientsData as any)?.data || (managedClientsData as any)?.clients || (Array.isArray(managedClientsData) ? managedClientsData : []);
+  const managedClients: Client[] = clientsArray.map((c: any) => ({
+    id: c.id,
+    fullName: c.fullName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name || 'Unknown',
+    email: c.email || c.emailAddress || '',
+    phone: c.phone || c.mobile || c.mobileNumber || '',
+    riskProfile: c.riskProfile,
+    type: 'client' as const
+  }));
+  
+  const prospects: Client[] = ((prospectsData as any)?.prospects || []).map((p: Prospect) => ({
+    id: p.id,
+    fullName: p.name,
+    email: p.email || '',
+    phone: p.mobile || '',
+    riskProfile: p.indicativeRiskProfile,
+    type: 'prospect' as const
+  }));
+  
+  const clients = [...managedClients, ...prospects];
+  const isLoadingContacts = clientsLoading || prospectsLoading;
 
   const formatCurrency = (value: number) => {
     if (value >= 10000000) {
@@ -672,14 +709,14 @@ export default function AgentDemoProposalBuilder() {
                   <div className="space-y-6">
                     <div>
                       <h2 className="text-xl font-semibold mb-4">Select Prospect or Client</h2>
-                      {clientsLoading ? (
+                      {isLoadingContacts ? (
                         <div className="flex items-center justify-center py-12">
                           <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                         </div>
                       ) : (
                         <div className="space-y-4">
                           <div>
-                            <Label className="mb-2 block">Client</Label>
+                            <Label className="mb-2 block">Select from your managed clients or prospects</Label>
                             <Select 
                               value={selectedClient?.id?.toString() || ''} 
                               onValueChange={(val) => {
@@ -691,28 +728,58 @@ export default function AgentDemoProposalBuilder() {
                                 <SelectValue placeholder="Select a client or prospect" />
                               </SelectTrigger>
                               <SelectContent>
-                                {Array.isArray(clients) && clients.map((client: Client) => (
-                                  <SelectItem key={client.id} value={client.id.toString()}>
-                                    <div className="flex items-center gap-2">
-                                      <User className="h-4 w-4" />
-                                      <span>{client.fullName}</span>
-                                      {client.email && <span className="text-muted-foreground text-sm">({client.email})</span>}
-                                    </div>
-                                  </SelectItem>
-                                ))}
+                                {managedClients.length > 0 && (
+                                  <SelectGroup>
+                                    <SelectLabel className="text-xs font-semibold text-blue-600">Managed Clients</SelectLabel>
+                                    {managedClients.map((client: Client) => (
+                                      <SelectItem key={`client-${client.id}`} value={client.id.toString()}>
+                                        <div className="flex items-center gap-2">
+                                          <User className="h-4 w-4 text-blue-600" />
+                                          <span>{client.fullName}</span>
+                                          {client.email && <span className="text-muted-foreground text-sm">({client.email})</span>}
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                )}
+                                {prospects.length > 0 && (
+                                  <SelectGroup>
+                                    <SelectLabel className="text-xs font-semibold text-orange-600">Prospects</SelectLabel>
+                                    {prospects.map((prospect: Client) => (
+                                      <SelectItem key={`prospect-${prospect.id}`} value={prospect.id.toString()}>
+                                        <div className="flex items-center gap-2">
+                                          <User className="h-4 w-4 text-orange-600" />
+                                          <span>{prospect.fullName}</span>
+                                          {prospect.email && <span className="text-muted-foreground text-sm">({prospect.email})</span>}
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                )}
+                                {clients.length === 0 && (
+                                  <div className="p-4 text-center text-muted-foreground">
+                                    <p>No clients or prospects found.</p>
+                                    <p className="text-sm mt-1">Add prospects from Client Acquisition page.</p>
+                                  </div>
+                                )}
                               </SelectContent>
                             </Select>
                           </div>
 
                           {selectedClient && (
-                            <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200">
+                            <Card className={`${selectedClient.type === 'client' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200' : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200'}`}>
                               <CardContent className="p-4">
                                 <div className="flex items-start gap-4">
-                                  <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-xl font-bold">
+                                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-xl font-bold ${selectedClient.type === 'client' ? 'bg-blue-600' : 'bg-orange-600'}`}>
                                     {selectedClient.fullName.charAt(0)}
                                   </div>
                                   <div className="flex-1">
-                                    <h4 className="font-semibold text-lg">{selectedClient.fullName}</h4>
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-semibold text-lg">{selectedClient.fullName}</h4>
+                                      <Badge variant="secondary" className={selectedClient.type === 'client' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}>
+                                        {selectedClient.type === 'client' ? 'Client' : 'Prospect'}
+                                      </Badge>
+                                    </div>
                                     <div className="flex items-center gap-4 text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                                       {selectedClient.email && (
                                         <span className="flex items-center gap-1">
