@@ -678,22 +678,53 @@ export class ZohoCRMService {
 
     const zohoRecordId = await this.createLead(leadData);
 
-    // Create entity mapping with hierarchical tracking
+    // Create or update entity mapping with hierarchical tracking (upsert pattern)
     if (zohoRecordId && prospectData.prospectId) {
-      await db.insert(zohoEntityMappings).values({
-        connectionId: this.connectionId,
-        fintekproEntityType: 'prospect',
-        fintekproEntityId: prospectData.prospectId,
-        zohoService: 'CRM',
-        zohoModule: 'Leads',
-        zohoRecordId,
-        zohoRecordData: { id: zohoRecordId, name: prospectData.name },
-        parentZohoRecordId: prospectData.masterAgentZohoAccountId || null,
-        owningAgentId: prospectData.agentId,
-        syncDirection: 'to_zoho',
-        lastSyncedAt: new Date(),
-        syncStatus: 'synced'
-      });
+      // Check for existing mapping to avoid duplicates
+      const [existingMapping] = await db
+        .select()
+        .from(zohoEntityMappings)
+        .where(
+          and(
+            eq(zohoEntityMappings.connectionId, this.connectionId),
+            eq(zohoEntityMappings.fintekproEntityType, 'prospect'),
+            eq(zohoEntityMappings.fintekproEntityId, prospectData.prospectId),
+            eq(zohoEntityMappings.zohoModule, 'Leads')
+          )
+        )
+        .limit(1);
+
+      if (existingMapping) {
+        // Update existing mapping
+        await db
+          .update(zohoEntityMappings)
+          .set({
+            zohoRecordId,
+            zohoRecordData: { id: zohoRecordId, name: prospectData.name },
+            parentZohoRecordId: prospectData.masterAgentZohoAccountId || existingMapping.parentZohoRecordId,
+            owningAgentId: prospectData.agentId,
+            lastSyncedAt: new Date(),
+            syncStatus: 'synced',
+            updatedAt: new Date()
+          })
+          .where(eq(zohoEntityMappings.id, existingMapping.id));
+      } else {
+        // Create new mapping
+        await db.insert(zohoEntityMappings).values({
+          connectionId: this.connectionId,
+          fintekproEntityType: 'prospect',
+          fintekproEntityId: prospectData.prospectId,
+          zohoService: 'CRM',
+          zohoModule: 'Leads',
+          zohoRecordId,
+          zohoRecordData: { id: zohoRecordId, name: prospectData.name },
+          parentZohoRecordId: prospectData.masterAgentZohoAccountId || null,
+          owningAgentId: prospectData.agentId,
+          syncDirection: 'to_zoho',
+          lastSyncedAt: new Date(),
+          syncStatus: 'synced'
+        });
+      }
     }
 
     return zohoRecordId;

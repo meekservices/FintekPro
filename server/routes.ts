@@ -27557,6 +27557,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
         
         if (connection) {
+          // Get the master agent's Zoho Account ID for hierarchical linking
+          const masterAgentZohoAccountId = await ZohoConnectionResolver.getMasterAgentZohoAccountId(connection.connectionId);
+          
           const zohoCRM = new ZohoCRMService(connection.connectionId, connection.zohoDataCenter);
           await zohoCRM.syncProspectToLead({
             name,
@@ -27564,9 +27567,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             phone: mobile || undefined,
             agentId,
             prospectId: newClient.id,
+            masterAgentZohoAccountId: masterAgentZohoAccountId || undefined,
             notes: `Client Type: ${clientType || 'individual'}, Risk Profile: ${indicativeRiskProfile || 'Not assessed'}`
           });
-          console.log(`✅ Prospect ${name} synced to Zoho CRM as Lead (via ${connection.isMaster ? 'master' : 'agent'} connection)`);
+          console.log(`✅ Prospect ${name} synced to Zoho CRM as Lead (via ${connection.isMaster ? 'master' : 'agent'} connection, parent: ${masterAgentZohoAccountId || 'none'})`);
         } else {
           console.log(`ℹ️ No Zoho connection configured - skipping CRM sync for prospect ${name}`);
         }

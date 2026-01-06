@@ -163,4 +163,83 @@ export class ZohoConnectionResolver {
       return false;
     }
   }
+
+  /**
+   * Get the master agent's Zoho Account ID for hierarchical linking.
+   * This is used to set the parentZohoRecordId when syncing clients/prospects.
+   * 
+   * Looks for the Zoho Account mapping associated with the master connection
+   * (the connection with isMaster=true), or falls back to the first partner
+   * account if no specific master is configured.
+   */
+  static async getMasterAgentZohoAccountId(connectionId: string): Promise<string | null> {
+    try {
+      const { zohoEntityMappings } = await import('@shared/schema');
+      
+      // First, check if this connection is a master connection
+      const [connection] = await db
+        .select()
+        .from(zohoConnections)
+        .where(eq(zohoConnections.id, connectionId))
+        .limit(1);
+
+      if (!connection) {
+        return null;
+      }
+
+      // If this is the master connection and has a masterAgentId, 
+      // find that specific agent's Zoho Account
+      if (connection.isMaster && connection.masterAgentId) {
+        const [masterAgentMapping] = await db
+          .select()
+          .from(zohoEntityMappings)
+          .where(
+            and(
+              eq(zohoEntityMappings.connectionId, connectionId),
+              eq(zohoEntityMappings.fintekproEntityType, 'partner'),
+              eq(zohoEntityMappings.zohoModule, 'Accounts'),
+              eq(zohoEntityMappings.fintekproEntityId, connection.masterAgentId)
+            )
+          )
+          .limit(1);
+
+        if (masterAgentMapping) {
+          return masterAgentMapping.zohoRecordId;
+        }
+      }
+
+      // Fallback: Find the master connection's first partner account
+      const [masterConnection] = await db
+        .select()
+        .from(zohoConnections)
+        .where(
+          and(
+            eq(zohoConnections.isMaster, true),
+            eq(zohoConnections.status, 'active')
+          )
+        )
+        .limit(1);
+
+      if (masterConnection) {
+        const [masterMapping] = await db
+          .select()
+          .from(zohoEntityMappings)
+          .where(
+            and(
+              eq(zohoEntityMappings.connectionId, masterConnection.id),
+              eq(zohoEntityMappings.fintekproEntityType, 'partner'),
+              eq(zohoEntityMappings.zohoModule, 'Accounts')
+            )
+          )
+          .limit(1);
+
+        return masterMapping?.zohoRecordId || null;
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('ZohoConnectionResolver: Error getting master agent Zoho Account ID:', error);
+      return null;
+    }
+  }
 }
