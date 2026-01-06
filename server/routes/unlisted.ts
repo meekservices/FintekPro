@@ -4318,6 +4318,77 @@ router.post('/admin/companies/:id/enrich', requireAdmin, async (req: Request, re
 });
 
 /**
+ * GET /api/unlisted/admin/companies/:id/test-enrichment
+ * Test endpoint to verify the data enrichment fallback chain is working (Admin only)
+ * Returns detailed logs of which sources were attempted and their results
+ * This is a dry-run that logs the fallback chain without persisting changes
+ */
+router.get('/admin/companies/:id/test-enrichment', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    console.log(`\n========================================`);
+    console.log(`[TEST ENRICHMENT] Starting test for: ${company.name}`);
+    console.log(`  Company ID: ${id}`);
+    console.log(`  CIN: ${company.cin || 'NOT SET'}`);
+    console.log(`  ISIN: ${company.isin || 'NOT SET'}`);
+    console.log(`  Probe42 ID: ${company.probe42CompanyId || 'NOT SET'}`);
+    console.log(`========================================\n`);
+    
+    const currentYear = new Date().getFullYear();
+    const fy = `FY${currentYear - 1}-${currentYear.toString().slice(-2)}`;
+    
+    const enriched = await dataEnrichmentService.enrichCompanyFinancials(id, fy, {
+      forceRefresh: true,
+    });
+    
+    const sourcesAttempted = enriched.auditTrail
+      .filter(a => a.action === 'fetch')
+      .map(a => ({
+        source: a.source,
+        success: a.confidence !== undefined && a.confidence > 0,
+        reason: a.reason,
+        confidence: a.confidence,
+      }));
+    
+    console.log(`\n========================================`);
+    console.log(`[TEST ENRICHMENT] Results for: ${company.name}`);
+    console.log(`  Sources used: ${enriched.sources.join(', ') || 'NONE'}`);
+    console.log(`  Metrics fetched: ${Object.keys(enriched.metrics).length}`);
+    console.log(`  Overall confidence: ${(enriched.overallConfidence * 100).toFixed(1)}%`);
+    console.log(`  Audit trail entries: ${enriched.auditTrail.length}`);
+    console.log(`========================================\n`);
+    
+    return apiResponse.success(res, {
+      company: {
+        id: company.id,
+        name: company.name,
+        cin: company.cin,
+        isin: company.isin,
+        probe42CompanyId: company.probe42CompanyId,
+      },
+      financialYear: fy,
+      fallbackChainOrder: ['probe42', 'mca', 'nse_bse', 'finnhub', 'yahoo'],
+      sourcesAttempted,
+      sourcesSucceeded: enriched.sources,
+      metricsCollected: Object.keys(enriched.metrics),
+      metrics: enriched.metrics,
+      overallConfidence: enriched.overallConfidence,
+      auditTrail: enriched.auditTrail,
+      testStatus: enriched.sources.length > 0 ? 'SUCCESS' : 'NO_DATA_SOURCES',
+    });
+  } catch (error: any) {
+    console.error('[TEST ENRICHMENT] Error:', error);
+    return apiResponse.serverError(res, error.message || 'Test enrichment failed');
+  }
+});
+
+/**
  * GET /api/unlisted/admin/companies/:id/financials/:metric/provenance
  * "Why This Number?" API - Get full provenance and audit trail for a specific metric (Admin only)
  * Returns source, retrieval time, confidence, and override history
