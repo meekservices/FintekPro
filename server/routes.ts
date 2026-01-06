@@ -27475,7 +27475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(and(eq(prospectClients.agentId, agentId), eq(prospectClients.state, 'active_client')));
       
       res.json({
-        clients,
+        prospects: clients,
         stats: {
           total: Number(totalCount?.count || 0),
           prospects: Number(prospectCount?.count || 0),
