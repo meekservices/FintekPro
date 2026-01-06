@@ -581,6 +581,41 @@ class ExchangeFilingsService {
 
     return result;
   }
+
+  async getSources(): Promise<Array<{
+    id: string;
+    sourceId: string;
+    sourceName: string;
+    baseUrl: string;
+    active: boolean;
+    rateLimitPerMinute: number;
+    lastFetchAt: Date | null;
+    fetchSuccessCount: number;
+    fetchFailureCount: number;
+  }>> {
+    const { db } = await import('../db');
+    const { sql } = await import('drizzle-orm');
+
+    const result = await db.execute(sql`
+      SELECT id, source_id, source_name, base_url, active, 
+             rate_limit_per_minute, last_fetch_at,
+             fetch_success_count, fetch_failure_count
+      FROM exchange_filing_sources
+      ORDER BY source_id
+    `);
+
+    return (result.rows as any[]).map(row => ({
+      id: row.id,
+      sourceId: row.source_id,
+      sourceName: row.source_name,
+      baseUrl: row.base_url,
+      active: row.active,
+      rateLimitPerMinute: row.rate_limit_per_minute || 60,
+      lastFetchAt: row.last_fetch_at,
+      fetchSuccessCount: row.fetch_success_count || 0,
+      fetchFailureCount: row.fetch_failure_count || 0,
+    }));
+  }
 }
 
 export const exchangeFilingsService = new ExchangeFilingsService();

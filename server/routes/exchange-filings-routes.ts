@@ -45,6 +45,20 @@ router.get('/health', async (req, res) => {
   }
 });
 
+router.get('/sources', async (req, res) => {
+  try {
+    const sources = await exchangeFilingsService.getSources();
+    res.json({
+      success: true,
+      data: sources,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('[FilingsAPI] Sources error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.post('/fetch', async (req, res) => {
   try {
     const { exchange, symbol, fromDate, toDate } = req.body;
