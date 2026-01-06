@@ -9,7 +9,8 @@ import {
   agentComplianceDocRepository,
   agentOverrideAuditLog,
   users,
-  portfolioHoldings
+  portfolioHoldings,
+  portfolios
 } from "@shared/schema";
 import { eq, and, desc, gte, lte, sql, or, isNotNull, sum } from "drizzle-orm";
 import { createAppError, AppErrorCode } from "../utils/error-types";
@@ -47,13 +48,15 @@ router.get("/api/agent/client-context/:clientId", requireAuth, async (req, res) 
     }
     
     // Fetch portfolio holdings to calculate allocation with proper numeric casting
+    // Join with portfolios table since portfolioHoldings doesn't have userId directly
     const holdingsRaw = await db
       .select({
         assetClass: portfolioHoldings.assetClass,
-        currentValue: sql<string>`COALESCE(CAST(${portfolioHoldings.currentValue} AS NUMERIC), 0)::text`,
+        currentValue: sql<string>`COALESCE(CAST(${portfolioHoldings.avgPrice} * ${portfolioHoldings.quantity} AS NUMERIC), 0)::text`,
       })
       .from(portfolioHoldings)
-      .where(eq(portfolioHoldings.userId, clientId));
+      .innerJoin(portfolios, eq(portfolioHoldings.portfolioId, portfolios.id))
+      .where(eq(portfolios.userId, clientId));
     
     // Explicitly convert string values to numbers
     const holdings = holdingsRaw.map(h => ({
@@ -141,15 +144,17 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
     }
     
     // Fetch AUM for all clients in one query using subquery
+    // Join with portfolios table since portfolioHoldings doesn't have userId directly
     const clientIds = clientsData.map(c => c.id);
     const aumResults = await db
       .select({
-        userId: portfolioHoldings.userId,
-        totalAum: sql<string>`COALESCE(SUM(CAST(current_value AS NUMERIC)), 0)::text`,
+        userId: portfolios.userId,
+        totalAum: sql<string>`COALESCE(SUM(CAST(${portfolioHoldings.avgPrice} * ${portfolioHoldings.quantity} AS NUMERIC)), 0)::text`,
       })
       .from(portfolioHoldings)
-      .where(sql`${portfolioHoldings.userId} = ANY(ARRAY[${sql.join(clientIds.map(id => sql`${id}`), sql`, `)}]::text[])`)
-      .groupBy(portfolioHoldings.userId);
+      .innerJoin(portfolios, eq(portfolioHoldings.portfolioId, portfolios.id))
+      .where(sql`${portfolios.userId} = ANY(ARRAY[${sql.join(clientIds.map(id => sql`${id}`), sql`, `)}]::text[])`)
+      .groupBy(portfolios.userId);
     
     // Create AUM lookup map
     const aumMap = new Map(aumResults.map(r => [r.userId, Number(r.totalAum) || 0]));
