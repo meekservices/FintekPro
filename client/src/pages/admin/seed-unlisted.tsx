@@ -241,6 +241,7 @@ export default function SeedUnlistedPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
   const [syncingCompanies, setSyncingCompanies] = useState<Set<string>>(new Set());
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
   
   // Unified search state
   const [unifiedSearchQuery, setUnifiedSearchQuery] = useState("");
@@ -582,36 +583,51 @@ export default function SeedUnlistedPage() {
   };
 
   const handleSyncSuggestion = async (suggestion: ReconciliationSuggestion) => {
+    if (isBulkSyncing) return;
+    
     const isin = suggestion.externalCompany.isin;
     setSyncingCompanies(prev => new Set(prev).add(isin));
     
     try {
-      const response = await apiRequest('/api/unlisted/admin/reconciliation/sync', {
+      const response = await fetch('/api/unlisted/admin/reconciliation/sync-batch', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
-          company: {
+          companies: [{
             ...suggestion.externalCompany,
             scrapedAt: typeof suggestion.externalCompany.scrapedAt === 'string' 
               ? suggestion.externalCompany.scrapedAt 
               : new Date().toISOString()
-          }
+          }]
         })
       });
       
-      toast({
-        title: 'Company synced',
-        description: `${suggestion.externalCompany.name} has been added to FintekPro`
-      });
+      const result = await response.json();
       
-      setSelectedSuggestions(prev => {
-        const next = new Set(prev);
-        next.delete(isin);
-        return next;
-      });
-      
-      await queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
-      await queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'] });
-      await refetchReconciliation();
+      if (response.ok && result.success && result.data?.success?.length > 0) {
+        toast({
+          title: 'Company synced',
+          description: `${suggestion.externalCompany.name} has been added to FintekPro`
+        });
+        
+        setSelectedSuggestions(prev => {
+          const next = new Set(prev);
+          next.delete(isin);
+          return next;
+        });
+        
+        queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'] });
+        refetchReconciliation();
+      } else {
+        const errorMsg = result.data?.failed?.[0]?.reason || result.message || 'Failed to sync company';
+        toast({
+          title: 'Sync failed',
+          description: errorMsg,
+          variant: 'destructive'
+        });
+      }
     } catch (error: any) {
       toast({
         title: 'Sync failed',
@@ -628,51 +644,82 @@ export default function SeedUnlistedPage() {
   };
 
   const handleBulkSync = async () => {
+    if (isBulkSyncing) return;
+    
     const toSync = reconciliationData?.suggestions.filter(s => selectedSuggestions.has(s.externalCompany.isin)) || [];
     if (toSync.length === 0) return;
 
-    let successCount = 0;
-    let failCount = 0;
+    setIsBulkSyncing(true);
+    const allIsins = toSync.map(s => s.externalCompany.isin);
+    setSyncingCompanies(new Set(allIsins));
     
-    for (const suggestion of toSync) {
-      const isin = suggestion.externalCompany.isin;
-      setSyncingCompanies(prev => new Set(prev).add(isin));
+    let totalSuccess = 0;
+    let totalFailed = 0;
+    const failedIsins = new Set<string>();
+    
+    try {
+      const BATCH_SIZE = 25;
+      const batches: typeof toSync[] = [];
+      for (let i = 0; i < toSync.length; i += BATCH_SIZE) {
+        batches.push(toSync.slice(i, i + BATCH_SIZE));
+      }
       
-      try {
-        await apiRequest('/api/unlisted/admin/reconciliation/sync', {
-          method: 'POST',
-          body: JSON.stringify({ 
-            company: {
-              ...suggestion.externalCompany,
-              scrapedAt: typeof suggestion.externalCompany.scrapedAt === 'string' 
-                ? suggestion.externalCompany.scrapedAt 
-                : new Date().toISOString()
-            }
-          })
+      for (const batch of batches) {
+        const companies = batch.map(s => ({
+          ...s.externalCompany,
+          scrapedAt: typeof s.externalCompany.scrapedAt === 'string' 
+            ? s.externalCompany.scrapedAt 
+            : new Date().toISOString()
+        }));
+        
+        try {
+          const response = await fetch('/api/unlisted/admin/reconciliation/sync-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ companies })
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok && result.success && result.data) {
+            totalSuccess += result.data.success?.length || 0;
+            totalFailed += result.data.failed?.length || 0;
+            result.data.failed?.forEach((f: any) => failedIsins.add(f.isin || f.name));
+          } else {
+            totalFailed += batch.length;
+            batch.forEach(s => failedIsins.add(s.externalCompany.isin));
+          }
+        } catch {
+          totalFailed += batch.length;
+          batch.forEach(s => failedIsins.add(s.externalCompany.isin));
+        }
+      }
+      
+      if (failedIsins.size > 0) {
+        setSelectedSuggestions(failedIsins);
+        toast({
+          title: 'Bulk sync partially completed',
+          description: `${totalSuccess} companies synced. ${totalFailed} failed - they remain selected for review.`,
+          variant: 'destructive'
         });
-        successCount++;
-      } catch (error) {
-        failCount++;
-      } finally {
-        setSyncingCompanies(prev => {
-          const next = new Set(prev);
-          next.delete(isin);
-          return next;
+      } else {
+        setSelectedSuggestions(new Set());
+        toast({
+          title: 'Bulk sync completed',
+          description: `${totalSuccess} companies synced successfully`
         });
       }
+    } finally {
+      setIsBulkSyncing(false);
+      setSyncingCompanies(new Set());
+      
+      if (totalSuccess > 0) {
+        queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'] });
+        refetchReconciliation();
+      }
     }
-    
-    setSelectedSuggestions(new Set());
-    
-    toast({
-      title: 'Bulk sync completed',
-      description: `${successCount} companies synced${failCount > 0 ? `, ${failCount} failed` : ''}`,
-      variant: failCount > 0 ? 'destructive' : 'default'
-    });
-    
-    await queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/companies'] });
-    await queryClient.invalidateQueries({ queryKey: ['/api/unlisted/admin/reconciliation/moneycontrol'] });
-    await refetchReconciliation();
   };
 
   const toggleSuggestionSelect = (isin: string) => {
@@ -1523,10 +1570,15 @@ export default function SeedUnlistedPage() {
                     size="sm"
                     className="bg-orange-600 hover:bg-orange-700 text-white"
                     onClick={handleBulkSync}
+                    disabled={isBulkSyncing}
                     data-testid="button-bulk-sync"
                   >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add {selectedSuggestions.size} Selected
+                    {isBulkSyncing ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4 mr-1" />
+                    )}
+                    {isBulkSyncing ? 'Syncing...' : `Add ${selectedSuggestions.size} Selected`}
                   </Button>
                 )}
               </div>
@@ -1605,7 +1657,7 @@ export default function SeedUnlistedPage() {
                         variant="outline"
                         className="text-orange-400 border-orange-500/50"
                         onClick={() => handleSyncSuggestion(suggestion)}
-                        disabled={syncingCompanies.has(suggestion.externalCompany.isin)}
+                        disabled={isBulkSyncing || syncingCompanies.has(suggestion.externalCompany.isin)}
                         data-testid={`button-sync-${suggestion.externalCompany.isin}`}
                       >
                         {syncingCompanies.has(suggestion.externalCompany.isin) ? (
