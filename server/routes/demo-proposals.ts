@@ -488,12 +488,14 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
     
     // Get agent info
     const agentInfo = await db
-      .select({ name: users.name, email: users.email, phone: users.phone })
+      .select({ firstName: users.firstName, lastName: users.lastName, email: users.email, mobile: users.mobile })
       .from(users)
       .where(eq(users.id, agentId))
       .limit(1);
     
-    const agent = agentInfo[0] || { name: 'Agent', email: '', phone: '' };
+    const agentData = agentInfo[0];
+    const agentName = agentData ? [agentData.firstName, agentData.lastName].filter(Boolean).join(' ') || 'Agent' : 'Agent';
+    const agent = { name: agentName, email: agentData?.email || '', mobile: agentData?.mobile || '' };
     
     // Build recommendations array from config
     const recommendations = [
@@ -509,7 +511,7 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
       agentId,
       agentName: agent.name,
       agentEmail: agent.email || undefined,
-      agentMobile: agent.phone || undefined,
+      agentMobile: agent.mobile || undefined,
       prospectName: clientData.fullName,
       prospectEmail: clientData.email || undefined,
       proposalType: 'fresh_investment',
