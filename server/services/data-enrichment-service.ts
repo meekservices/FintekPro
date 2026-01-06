@@ -128,12 +128,51 @@ class DataEnrichmentService {
     filingId?: string;
     confidence: number;
   }> {
-    const { db } = await import('../db');
-    const { sql } = await import('drizzle-orm');
-    
     const metrics: Record<string, MetricValue> = {};
     
     try {
+      const { db } = await import('../db');
+      const { sql } = await import('drizzle-orm');
+      
+      const pendingFilings = await db.execute(sql`
+        SELECT * FROM exchange_filings 
+        WHERE processing_status = 'pending'
+          AND document_type = 'XBRL'
+          AND (fintekpro_company_id = ${companyId} OR symbol = ${symbol || ''})
+        ORDER BY filing_date DESC
+        LIMIT 5
+      `);
+
+      for (const filing of pendingFilings.rows as any[]) {
+        console.log(`[DataEnrichment] Processing XBRL filing ${filing.id} for ${companyId}`);
+        try {
+          const parseResult = await xbrlParserService.parseFromUrl(filing.document_url);
+          
+          if (parseResult.success) {
+            await xbrlParserService.extractAndPersistMetrics(filing.id, companyId, parseResult);
+            await exchangeFilingsService.updateFilingStatus(
+              filing.id, 
+              'completed', 
+              undefined, 
+              parseResult.overallConfidence
+            );
+          } else {
+            await exchangeFilingsService.updateFilingStatus(
+              filing.id, 
+              'failed', 
+              'XBRL parsing failed - no metrics extracted'
+            );
+          }
+        } catch (parseError: any) {
+          console.error(`[DataEnrichment] XBRL parsing error for ${filing.id}: ${parseError.message}`);
+          await exchangeFilingsService.updateFilingStatus(
+            filing.id, 
+            'failed', 
+            `Parse error: ${parseError.message?.slice(0, 100)}`
+          );
+        }
+      }
+      
       const result = await db.execute(sql`
         SELECT eal.*, ef.document_url
         FROM exchange_financial_audit_log eal

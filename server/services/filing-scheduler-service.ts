@@ -125,16 +125,51 @@ class FilingSchedulerService {
     this.intervalIds.clear();
   }
 
-  private acquireLock(jobId: string): string | null {
+  private getAdvisoryLockKey(jobId: string): number {
+    let hash = 0;
+    const str = `filing_scheduler_${jobId}`;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash) % 2147483647;
+  }
+
+  private async acquireLock(jobId: string): Promise<string | null> {
     const existing = JOB_LOCKS.get(jobId);
     const now = new Date();
     
     if (existing && existing.expiresAt > now) {
-      console.log(`[FilingScheduler] Job ${jobId} locked until ${existing.expiresAt}`);
+      console.log(`[FilingScheduler] Job ${jobId} locked in-memory until ${existing.expiresAt}`);
       return null;
     }
 
     const lockId = crypto.randomUUID();
+    const advisoryKey = this.getAdvisoryLockKey(jobId);
+    let advisoryLockAcquired = false;
+    
+    try {
+      const { db } = await import('../db');
+      const { sql } = await import('drizzle-orm');
+      
+      const result = await db.execute(sql`
+        SELECT pg_try_advisory_lock(${advisoryKey}) as acquired
+      `);
+
+      const acquired = (result.rows[0] as any)?.acquired;
+      if (!acquired) {
+        console.log(`[FilingScheduler] Job ${jobId} locked by another instance (advisory lock ${advisoryKey})`);
+        return null;
+      }
+      
+      advisoryLockAcquired = true;
+      console.log(`[FilingScheduler] Acquired advisory lock ${advisoryKey} for job ${jobId}`);
+    } catch (error: any) {
+      console.log(`[FilingScheduler] Advisory lock DB error, denying lock: ${error.message}`);
+      return null;
+    }
+
     JOB_LOCKS.set(jobId, {
       lockId,
       acquiredAt: now,
@@ -144,10 +179,26 @@ class FilingSchedulerService {
     return lockId;
   }
 
-  private releaseLock(jobId: string, lockId: string): boolean {
+  private async releaseLock(jobId: string, lockId: string): Promise<boolean> {
     const existing = JOB_LOCKS.get(jobId);
     if (existing && existing.lockId === lockId) {
       JOB_LOCKS.delete(jobId);
+      
+      const advisoryKey = this.getAdvisoryLockKey(jobId);
+      
+      try {
+        const { db } = await import('../db');
+        const { sql } = await import('drizzle-orm');
+        
+        await db.execute(sql`
+          SELECT pg_advisory_unlock(${advisoryKey})
+        `);
+        
+        console.log(`[FilingScheduler] Released advisory lock ${advisoryKey} for job ${jobId}`);
+      } catch (error: any) {
+        console.log(`[FilingScheduler] Advisory unlock failed: ${error.message}`);
+      }
+      
       return true;
     }
     return false;
@@ -173,7 +224,7 @@ class FilingSchedulerService {
       throw new Error(`Job not found: ${jobId}`);
     }
 
-    const lockId = this.acquireLock(jobId);
+    const lockId = await this.acquireLock(jobId);
     if (!lockId) {
       console.log(`[FilingScheduler] Job ${jobId} is already running, skipping`);
       return {
@@ -236,7 +287,7 @@ class FilingSchedulerService {
       result.endTime = new Date();
       this.runningJobs.delete(jobId);
       job.isRunning = false;
-      this.releaseLock(jobId, lockId);
+      await this.releaseLock(jobId, lockId);
     }
 
     return result;

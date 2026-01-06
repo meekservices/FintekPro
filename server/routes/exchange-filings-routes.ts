@@ -320,18 +320,38 @@ router.post('/:filingId/metrics/:metricId/approve', async (req, res) => {
     const { filingId, metricId } = req.params;
     const { approvedBy, justification } = req.body;
 
-    if (!approvedBy || !justification) {
+    if (!approvedBy || typeof approvedBy !== 'string' || approvedBy.trim().length < 3) {
       return res.status(400).json({
         success: false,
-        error: 'approvedBy and justification are required for SEBI compliance',
+        error: 'approvedBy must be a valid identifier (minimum 3 characters) for SEBI compliance',
       });
     }
+
+    if (!justification || typeof justification !== 'string' || justification.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'justification must be at least 10 characters for SEBI compliance audit trail',
+      });
+    }
+
+    const existing = await db.execute(sql`
+      SELECT hash_current FROM exchange_financial_audit_log
+      WHERE id = ${metricId} AND filing_id = ${filingId}
+    `);
+    const previousHash = (existing.rows[0] as any)?.hash_current || null;
+
+    const hashData = `${metricId}|${approvedBy.trim()}|${justification.trim()}|${new Date().toISOString()}`;
+    const crypto = await import('crypto');
+    const auditHash = crypto.createHash('sha256').update(hashData).digest('hex').slice(0, 16);
 
     await db.execute(sql`
       UPDATE exchange_financial_audit_log
       SET is_approved = true,
-          approved_by = ${approvedBy},
-          approved_at = NOW()
+          approved_by = ${approvedBy.trim()},
+          approved_at = NOW(),
+          approval_justification = ${justification.trim()},
+          hash_previous = hash_current,
+          hash_current = ${auditHash}
       WHERE id = ${metricId} AND filing_id = ${filingId}
     `);
 
@@ -351,17 +371,24 @@ router.post('/:filingId/metrics/:metricId/override', async (req, res) => {
     const { filingId, metricId } = req.params;
     const { newValue, overrideBy, reason } = req.body;
 
-    if (!overrideBy || !reason) {
+    if (!overrideBy || typeof overrideBy !== 'string' || overrideBy.trim().length < 3) {
       return res.status(400).json({
         success: false,
-        error: 'overrideBy and reason are required for SEBI compliance',
+        error: 'overrideBy must be a valid identifier (minimum 3 characters) for SEBI compliance',
       });
     }
 
-    if (reason.length < 20) {
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 20) {
       return res.status(400).json({
         success: false,
-        error: 'Override reason must be at least 20 characters for audit trail',
+        error: 'Override reason must be at least 20 characters for SEBI audit trail',
+      });
+    }
+
+    if (newValue === undefined || newValue === null || newValue === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'newValue is required for override operation',
       });
     }
 
@@ -376,25 +403,32 @@ router.post('/:filingId/metrics/:metricId/override', async (req, res) => {
 
     const metric = existing.rows[0] as any;
 
+    const crypto = await import('crypto');
+    const hashData = `${metricId}|${metric.metric_value}|${newValue}|${overrideBy.trim()}|${reason.trim()}|${new Date().toISOString()}`;
+    const auditHash = crypto.createHash('sha256').update(hashData).digest('hex').slice(0, 16);
+
     await db.execute(sql`
       UPDATE exchange_financial_audit_log
       SET previous_value = metric_value,
           metric_value = ${newValue?.toString()},
           is_manual_override = true,
-          override_reason = ${reason},
-          override_by = ${overrideBy},
-          override_at = NOW()
+          override_reason = ${reason.trim()},
+          override_by = ${overrideBy.trim()},
+          override_at = NOW(),
+          hash_previous = hash_current,
+          hash_current = ${auditHash}
       WHERE id = ${metricId}
     `);
 
     res.json({
       success: true,
-      message: 'Metric overridden with audit trail',
+      message: 'Metric overridden with immutable audit trail',
       data: {
         previousValue: metric.metric_value,
         newValue,
-        overrideBy,
-        reason,
+        overrideBy: overrideBy.trim(),
+        reason: reason.trim(),
+        auditHash,
       },
       timestamp: new Date().toISOString(),
     });
