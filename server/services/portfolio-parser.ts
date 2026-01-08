@@ -299,15 +299,23 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
     }
     
     // Detect fund name - must meet these criteria:
-    // 1. Contains "Fund" keyword (all MF names have this)
+    // 1. Contains "Fund" keyword OR other MF patterns (Asset Allocation, FOF, etc.)
     // 2. Does NOT start with category prefix (Equity|Debt|Hybrid)
     // 3. Does NOT contain rupee symbol
     // 4. Is not just a plan type like "(G)" alone
+    // 5. Is not a false positive like "Mutual Fund Report"
+    const hasFundKeyword = line.includes('Fund') || 
+                           line.includes('Asset Allocation') || 
+                           line.includes('(FOF)') ||
+                           line.includes('Savings');
+    
     const isFundName = (
-      line.includes('Fund') &&
+      hasFundKeyword &&
       !line.match(/^(Equity|Debt|Hybrid)\s*\|/i) &&
       !line.includes('₹') &&
       !line.match(/^(Invested|Current|Returns|NAV)/i) &&
+      !line.match(/^Mutual Fund Report$/i) && // Skip false positive
+      !line.includes('fund portfolio') &&
       line.length > 15 // Real fund names are longer
     );
     
@@ -320,23 +328,32 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
       
       // Check if fund name is split across 2 lines
       // Pattern: "ICICI Pru Dynamic Asset Allocation" on line 1, "Active FOF-Reg (G)" on line 2
+      // Pattern: "Invesco India Technology Fund -" on line 1, "Direct (G)" on line 2
+      // Pattern: "HDFC Retirement Savings Fund-" on line 1, "Hybrid Equity (G)" on line 2
       let fullName = line;
-      const isPartialName = (
-        !line.includes('(G)') && 
-        !line.includes('(IDCW)') && 
-        !line.match(/\(Growth\)|\(Dividend\)/i) &&
-        line.endsWith('-') // Ends with hyphen = definitely continues
-      ) || (
-        // Next line looks like a continuation (contains plan type)
+      const needsContinuation = (
+        // Ends with hyphen = definitely continues
+        line.endsWith('-') ||
+        // Doesn't have a plan type suffix = needs continuation
+        (!line.includes('(G)') && 
+         !line.includes('(IDCW)') && 
+         !line.match(/\(Growth\)|\(Dividend\)/i))
+      );
+      
+      // Check if next line looks like a continuation
+      const nextLineIsContinuation = (
         nextLine && 
         !nextLine.match(/^(Equity|Debt|Hybrid)\s*\|/i) &&
         !nextLine.includes('₹') &&
         !nextLine.includes('Invested') &&
-        (nextLine.includes('(G)') || nextLine.includes('(IDCW)') || 
-         nextLine.match(/^(Direct|Regular|Active|Growth|Dividend)/i))
+        nextLine.length < 40 && // Continuation lines are usually short
+        (nextLine.includes('(G)') || 
+         nextLine.includes('(IDCW)') || 
+         nextLine.includes('(FOF)') ||
+         nextLine.match(/^(Direct|Regular|Active|Growth|Dividend|Hybrid)/i))
       );
       
-      if (isPartialName && nextLine) {
+      if (needsContinuation && nextLineIsContinuation) {
         fullName = line + ' ' + nextLine;
         i++; // Skip the next line since we've consumed it
       }
