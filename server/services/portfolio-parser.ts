@@ -1,5 +1,7 @@
 import * as cheerio from 'cheerio';
-import * as pdfParseModule from 'pdf-parse';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 export interface ImportedHolding {
   id?: string;
@@ -369,8 +371,6 @@ function calculateAllocation(holdings: ImportedHolding[]): ImportedAllocation {
 
 export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promise<ParseResult> {
   try {
-    // pdf-parse exports the function as default but doesn't have named exports in ESM
-    const pdfParse = (pdfParseModule as any).default || pdfParseModule;
     const pdfData = await pdfParse(buffer);
     const text = pdfData.text;
     
