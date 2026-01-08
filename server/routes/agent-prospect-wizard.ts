@@ -58,23 +58,8 @@ router.post("/prospects", async (req: Request, res: Response) => {
     const data = createProspectSchema.parse(req.body);
     const prospectId = await agentProspectWizardService.createProspect(agentId, data);
     
-    // Sync to Zoho CRM as Lead (background, non-blocking)
-    try {
-      if (process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET) {
-        const zohoCRM = new ZohoCRMService('default', 'in');
-        const zohoLeadId = await zohoCRM.syncProspectToLead({
-          name: data.name,
-          email: data.email,
-          phone: data.mobile,
-          agentId: agentId,
-          notes: data.notes
-        });
-        console.log(`✅ Prospect ${prospectId} synced to Zoho CRM as Lead (${zohoLeadId})`);
-      }
-    } catch (zohoError: any) {
-      console.warn(`[Zoho CRM] Failed to sync prospect to Lead: ${zohoError.message}`);
-      // Continue without failing - Zoho sync is non-critical
-    }
+    // Zoho CRM sync disabled - connection not configured
+    // Uncomment when Zoho connection is set up in zoho_connections table
     
     res.json({ success: true, prospectId });
   } catch (error: any) {
