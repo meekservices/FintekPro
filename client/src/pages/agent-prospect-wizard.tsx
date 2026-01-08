@@ -246,6 +246,31 @@ export default function AgentProspectWizard() {
     });
   }, [customAllocations]);
   
+  // Auto-reset PMS/AIF allocations when eligibility changes
+  useEffect(() => {
+    const MIN_PMS = 5000000;
+    const MIN_AIF = 10000000;
+    
+    setCustomAllocations(prev => {
+      let updated = { ...prev };
+      let changed = false;
+      
+      // Reset PMS if ineligible and currently has allocation
+      if (totalPortfolioValue < MIN_PMS && prev.pms > 0) {
+        updated.pms = 0;
+        changed = true;
+      }
+      
+      // Reset AIF if ineligible and currently has allocation
+      if (totalPortfolioValue < MIN_AIF && prev.aif > 0) {
+        updated.aif = 0;
+        changed = true;
+      }
+      
+      return changed ? updated : prev;
+    });
+  }, [totalPortfolioValue]);
+  
   // Portfolio Import State
   const [importMode, setImportMode] = useState<'manual' | 'upload' | 'url'>('manual');
   const [importUrl, setImportUrl] = useState('');
