@@ -203,6 +203,109 @@ function parseMFCentralFormat(text: string): ImportedHolding[] {
   return holdings;
 }
 
+function parseWealthyPDFFormat(text: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  
+  let currentFund: any = null;
+  let fundIndex = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const nextLine = lines[i + 1] || '';
+    const prevLine = lines[i - 1] || '';
+    
+    // Skip navigation and headers
+    if (line.includes('Sync Info') || line.includes('More') || 
+        line.includes('https://') || line.includes('Portfolio Overview') ||
+        line.includes('MUTUAL FUNDS') || line.includes('Holding Analysis') ||
+        line.match(/^\d+\/\d+\/\d+/) || line.length < 3) {
+      continue;
+    }
+    
+    // Detect fund name - contains "Fund" or "(G)" or "(IDCW)" etc.
+    // and doesn't contain rupee values or column headers
+    const isFundName = (
+      (line.includes('Fund') || line.includes('(G)') || line.includes('(IDCW)') || 
+       line.match(/\(Growth\)|\(Dividend\)/i)) &&
+      !line.includes('₹') &&
+      !line.match(/^Invested|^Current|^Returns|^NAV/i) &&
+      line.length > 10 &&
+      line.length < 80
+    );
+    
+    if (isFundName) {
+      // Save previous fund if valid
+      if (currentFund && currentFund.name && currentFund.currentValue > 0) {
+        holdings.push(currentFund);
+      }
+      
+      // Check if fund name is split across lines (next line continues the name)
+      let fullName = line;
+      if (nextLine && !nextLine.includes('₹') && !nextLine.match(/^(Equity|Debt|Hybrid)/i) &&
+          !nextLine.includes('Invested') && nextLine.length < 30 &&
+          (nextLine.includes('(G)') || nextLine.includes('(IDCW)') || nextLine.includes('Direct') || nextLine.includes('Regular'))) {
+        fullName = line + ' ' + nextLine;
+        i++; // Skip the next line since we've consumed it
+      }
+      
+      currentFund = {
+        id: `wealthy-pdf-${Date.now()}-${fundIndex++}`,
+        name: fullName.replace(/\s+/g, ' ').trim(),
+        assetType: 'mutual_fund' as const,
+        quantity: 1,
+        currentValue: 0,
+        investedValue: 0,
+        broker: 'Wealthy.in',
+        confidenceScore: 85
+      };
+      continue;
+    }
+    
+    // Look for value lines: ₹ XX,XXX ₹ YY,YYY ZZ.ZZ%
+    // Wealthy PDF format: "₹ 10,000 ₹ 10,169 1.31%"
+    const valuePattern = /₹\s*([\d,]+)\s*₹\s*([\d,]+)\s*([\-\d\.]+)\s*%/;
+    const valueMatch = line.match(valuePattern);
+    
+    if (valueMatch && currentFund) {
+      const [, invested, current, returns] = valueMatch;
+      currentFund.investedValue = parseFloat(invested.replace(/,/g, ''));
+      currentFund.currentValue = parseFloat(current.replace(/,/g, ''));
+      currentFund.unrealizedGainPercent = parseFloat(returns);
+      currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
+      continue;
+    }
+    
+    // Alternative pattern: values on separate tokens (some PDF extractions)
+    // "₹ 2,99,985 ₹ 3,32,577 8.92%"
+    const altValuePattern = /₹\s*([\d,]+)\s+₹\s*([\d,]+)\s+([\-\d\.]+)\s*%?/;
+    const altMatch = line.match(altValuePattern);
+    
+    if (altMatch && currentFund && currentFund.currentValue === 0) {
+      const [, invested, current, returns] = altMatch;
+      currentFund.investedValue = parseFloat(invested.replace(/,/g, ''));
+      currentFund.currentValue = parseFloat(current.replace(/,/g, ''));
+      currentFund.unrealizedGainPercent = parseFloat(returns);
+      currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
+      continue;
+    }
+    
+    // Detect category
+    if (currentFund && line.match(/^(Equity|Debt|Hybrid)\s*\|/i)) {
+      if (line.includes('Equity')) currentFund.category = 'equity';
+      else if (line.includes('Debt')) currentFund.category = 'debt';
+      else if (line.includes('Hybrid')) currentFund.category = 'hybrid';
+    }
+  }
+  
+  // Don't forget the last fund
+  if (currentFund && currentFund.name && currentFund.currentValue > 0) {
+    holdings.push(currentFund);
+  }
+  
+  return holdings;
+}
+
 function parseGenericFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const lines = text.split('\n');
@@ -273,7 +376,9 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const { broker, confidence } = detectBroker(text);
     let holdings: ImportedHolding[] = [];
     
-    if (broker === 'Zerodha') {
+    if (broker === 'Wealthy.in') {
+      holdings = parseWealthyPDFFormat(text);
+    } else if (broker === 'Zerodha') {
       holdings = parseZerodhaFormat(text);
     } else if (broker === 'Groww') {
       holdings = parseGrowwFormat(text);
@@ -281,6 +386,12 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       holdings = parseMFCentralFormat(text);
     }
     
+    // If no holdings found with specific parser, try Wealthy format (common PDF format)
+    if (holdings.length === 0) {
+      holdings = parseWealthyPDFFormat(text);
+    }
+    
+    // If still no holdings, try generic format
     if (holdings.length === 0) {
       holdings = parseGenericFormat(text);
     }
