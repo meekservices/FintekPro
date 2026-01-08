@@ -377,7 +377,7 @@ class AgentProspectWizardService {
       recommendations: [...rebalancing, ...freshInvestments],
       totalInvestmentAmount: String(netInvestmentRequired),
       projectedValue: String(Math.round(projectedValue)),
-      projectedReturns: `${avgReturn}%`,
+      projectedReturns: String(avgReturn),
       riskProfile: riskProfile.riskTolerance,
       investmentGoals: { goal: riskProfile.primaryGoal, horizon: riskProfile.investmentHorizon },
       executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile),
