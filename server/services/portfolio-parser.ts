@@ -352,62 +352,117 @@ export async function parseURLPortfolio(html: string, url: string): Promise<Pars
 
 function parseWealthyHTML($: cheerio.CheerioAPI): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
+  const bodyText = $('body').text();
   
-  // First, try to extract embedded JSON data (common in SPAs)
-  $('script').each((i, elem) => {
-    const scriptContent = $(elem).html() || '';
+  // Wealthy.in has a specific pattern for each fund:
+  // Fund Name followed by category, then Invested/Current/Returns values
+  
+  // Pattern to match fund blocks with their details
+  // Look for fund names followed by category and financial values
+  const fundPattern = /([A-Z][A-Za-z\s\-\(\)]+(?:Fund|Growth|IDCW|Plan|Direct|Regular)[^\n]*)\s*(?:Equity|Debt|Hybrid)\s*\|\s*(?:Growth|Dividend|IDCW)\s*\|[^\n]*\s*Invested\s*₹\s*([\d,]+)\s*Current\s*₹\s*([\d,]+)\s*Returns\s*([\-\d\.]+)%\s*(?:\*\*Folio:\*\*\s*(\d+[\/\d]*)|Folio[:\s]*(\d+[\/\d]*))?/gi;
+  
+  let match;
+  let index = 0;
+  
+  while ((match = fundPattern.exec(bodyText)) !== null) {
+    const name = match[1].trim();
+    const invested = parseFloat(match[2].replace(/,/g, ''));
+    const current = parseFloat(match[3].replace(/,/g, ''));
+    const returns = parseFloat(match[4]);
+    const folio = match[5] || match[6] || '';
     
-    // Look for common patterns where initial state/data is embedded
-    const patterns = [
-      /__INITIAL_STATE__\s*=\s*({.*?});/s,
-      /__PRELOADED_STATE__\s*=\s*({.*?});/s,
-      /window\.data\s*=\s*({.*?});/s,
-      /portfolioData\s*=\s*({.*?});/s,
-      /"holdings"\s*:\s*(\[.*?\])/s,
-      /"funds"\s*:\s*(\[.*?\])/s,
-      /"investments"\s*:\s*(\[.*?\])/s
-    ];
+    if (name && current > 0) {
+      // Determine asset type from name/context
+      let assetType: 'equity' | 'mutual_fund' | 'etf' | 'bond' | 'gold' | 'fd' | 'other' = 'mutual_fund';
+      const nameLower = name.toLowerCase();
+      if (nameLower.includes('equity') || nameLower.includes('flexi') || nameLower.includes('contra')) {
+        assetType = 'mutual_fund'; // Equity MF
+      }
+      
+      holdings.push({
+        id: `wealthy-${Date.now()}-${index}`,
+        name: name.replace(/\s+/g, ' ').trim(),
+        assetType,
+        quantity: 1,
+        currentValue: current,
+        investedValue: invested,
+        unrealizedGain: current - invested,
+        unrealizedGainPercent: returns,
+        folioNumber: folio,
+        broker: 'Wealthy.in',
+        confidenceScore: 90
+      });
+      index++;
+    }
+  }
+  
+  // If regex didn't work, try a simpler text-based approach
+  if (holdings.length === 0) {
+    // Split by common fund name patterns and extract details
+    const lines = bodyText.split('\n').filter(l => l.trim());
+    let currentFund: any = null;
     
-    for (const pattern of patterns) {
-      const match = scriptContent.match(pattern);
-      if (match && match[1]) {
-        try {
-          const data = JSON.parse(match[1]);
-          const extractedHoldings = extractHoldingsFromJSON(data, 'Wealthy.in');
-          if (extractedHoldings.length > 0) {
-            holdings.push(...extractedHoldings);
-            return false; // break each loop
-          }
-        } catch (e) {
-          // Continue trying other patterns
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Check if this is a fund name (contains "Fund" and typical fund indicators)
+      if ((line.includes('Fund') || line.includes('(G)') || line.includes('(IDCW)')) && 
+          !line.includes('₹') && line.length > 10 && line.length < 100) {
+        
+        // Save previous fund if exists
+        if (currentFund && currentFund.name && currentFund.currentValue > 0) {
+          holdings.push(currentFund);
+        }
+        
+        currentFund = {
+          id: `wealthy-${Date.now()}-${holdings.length}`,
+          name: line.replace(/\s+/g, ' ').trim(),
+          assetType: 'mutual_fund' as const,
+          quantity: 1,
+          currentValue: 0,
+          broker: 'Wealthy.in',
+          confidenceScore: 80
+        };
+      }
+      
+      // Extract values from subsequent lines
+      if (currentFund) {
+        // Match "Invested ₹ X,XXX" pattern
+        const investedMatch = line.match(/Invested\s*₹\s*([\d,]+)/i);
+        if (investedMatch) {
+          currentFund.investedValue = parseFloat(investedMatch[1].replace(/,/g, ''));
+        }
+        
+        // Match "Current ₹ X,XXX" pattern  
+        const currentMatch = line.match(/Current\s*₹\s*([\d,]+)/i);
+        if (currentMatch) {
+          currentFund.currentValue = parseFloat(currentMatch[1].replace(/,/g, ''));
+        }
+        
+        // Match "Returns X.XX%" pattern
+        const returnsMatch = line.match(/Returns\s*([\-\d\.]+)%/i);
+        if (returnsMatch) {
+          currentFund.unrealizedGainPercent = parseFloat(returnsMatch[1]);
+        }
+        
+        // Match "Folio: XXXXX" pattern
+        const folioMatch = line.match(/Folio[:\s]*(\d+[\/\d]*)/i);
+        if (folioMatch) {
+          currentFund.folioNumber = folioMatch[1];
         }
       }
     }
-  });
-  
-  if (holdings.length > 0) return holdings;
-  
-  // Fallback: Try CSS selector based extraction
-  $('[class*="fund"], [class*="holding"], [class*="scheme"], [class*="investment"]').each((i, elem) => {
-    const name = $(elem).find('[class*="name"], [class*="title"], [class*="scheme"]').first().text().trim();
-    const valueText = $(elem).find('[class*="value"], [class*="amount"], [class*="current"]').first().text().trim();
-    const unitsText = $(elem).find('[class*="unit"], [class*="qty"], [class*="nav"]').first().text().trim();
     
-    if (name && name.length > 3 && valueText) {
-      const value = parseFloat(valueText.replace(/[₹,\s]/g, ''));
-      const units = parseFloat(unitsText.replace(/[,\s]/g, '')) || 1;
-      
-      if (value > 0) {
-        holdings.push({
-          id: `holding-${Date.now()}-${i}`,
-          name,
-          assetType: 'mutual_fund',
-          quantity: units,
-          currentValue: value,
-          broker: 'Wealthy.in',
-          confidenceScore: 75
-        });
-      }
+    // Don't forget the last fund
+    if (currentFund && currentFund.name && currentFund.currentValue > 0) {
+      holdings.push(currentFund);
+    }
+  }
+  
+  // Calculate unrealized gain if we have invested and current values
+  holdings.forEach(h => {
+    if (h.investedValue && h.currentValue && !h.unrealizedGain) {
+      h.unrealizedGain = h.currentValue - h.investedValue;
     }
   });
   
