@@ -212,7 +212,7 @@ export default function AgentClientAcquisitionPage() {
 
   const handleContinueToWizard = () => {
     if (createdProspectId) {
-      navigate(`/agent/prospect-wizard?prospectId=${createdProspectId}`);
+      navigate(`/agent-prospect-wizard?prospectId=${createdProspectId}`);
     }
     handleCloseAddDialog();
   };
@@ -329,7 +329,7 @@ export default function AgentClientAcquisitionPage() {
               <DropdownMenuItem 
                 className="cursor-pointer py-3" 
                 data-testid="menu-analyze-existing"
-                onSelect={() => navigate("/agent/prospect-wizard")}
+                onSelect={() => navigate("/agent-prospect-wizard")}
               >
                 <FolderSearch className="h-4 w-4 mr-3 text-blue-600" />
                 <div>
@@ -340,7 +340,7 @@ export default function AgentClientAcquisitionPage() {
               <DropdownMenuItem 
                 className="cursor-pointer py-3" 
                 data-testid="menu-fresh-investment"
-                onSelect={() => navigate("/agent/prospect-wizard?mode=fresh")}
+                onSelect={() => navigate("/agent-prospect-wizard?mode=fresh")}
               >
                 <PlusCircle className="h-4 w-4 mr-3 text-green-600" />
                 <div>
@@ -351,7 +351,7 @@ export default function AgentClientAcquisitionPage() {
               <DropdownMenuItem 
                 className="cursor-pointer py-3" 
                 data-testid="menu-combined"
-                onSelect={() => navigate("/agent/prospect-wizard?mode=combined")}
+                onSelect={() => navigate("/agent-prospect-wizard?mode=combined")}
               >
                 <Layers className="h-4 w-4 mr-3 text-purple-600" />
                 <div>
@@ -659,7 +659,7 @@ export default function AgentClientAcquisitionPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card 
                   className="cursor-pointer hover:shadow-lg transition-all hover:border-blue-400 group h-full"
-                  onClick={() => navigate("/agent/prospect-wizard")}
+                  onClick={() => navigate("/agent-prospect-wizard")}
                   data-testid="card-analyze-existing"
                 >
                   <CardHeader className="pb-2">
@@ -687,7 +687,7 @@ export default function AgentClientAcquisitionPage() {
 
                 <Card 
                   className="cursor-pointer hover:shadow-lg transition-all hover:border-green-400 group h-full"
-                  onClick={() => navigate("/agent/prospect-wizard?mode=fresh")}
+                  onClick={() => navigate("/agent-prospect-wizard?mode=fresh")}
                   data-testid="card-fresh-investment"
                 >
                   <CardHeader className="pb-2">
@@ -715,7 +715,7 @@ export default function AgentClientAcquisitionPage() {
 
                 <Card 
                   className="cursor-pointer hover:shadow-lg transition-all hover:border-purple-400 group h-full"
-                  onClick={() => navigate("/agent/prospect-wizard?mode=combined")}
+                  onClick={() => navigate("/agent-prospect-wizard?mode=combined")}
                   data-testid="card-combined"
                 >
                   <CardHeader className="pb-2">
