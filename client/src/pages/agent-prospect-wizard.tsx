@@ -17,12 +17,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
 import { 
   User, ArrowRight, ArrowLeft, Check, Target, PieChart, Scale, 
   TrendingUp, TrendingDown, Sparkles, Share2, Mail, MessageSquare, 
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
   IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
-  Upload, Link, FileText, AlertCircle
+  Upload, Link, FileText, AlertCircle, Settings2
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -118,6 +120,22 @@ const GOAL_OPTIONS = [
   { value: "emergency_fund", label: "Emergency Fund" }
 ];
 
+const PRODUCT_CATEGORY_OPTIONS = [
+  { id: 'equity', label: 'Equity Mutual Funds', description: 'Large cap, mid cap, small cap, flexi cap funds', defaultSelected: true },
+  { id: 'debt', label: 'Debt Mutual Funds', description: 'Corporate bonds, government securities, short duration', defaultSelected: true },
+  { id: 'hybrid', label: 'Hybrid Funds', description: 'Balanced advantage, aggressive hybrid, multi-asset', defaultSelected: true },
+  { id: 'gold_fof', label: 'Gold FOF', description: 'Gold Fund of Funds for portfolio hedging', defaultSelected: true },
+  { id: 'silver_fof', label: 'Silver FOF', description: 'Silver ETF Fund of Funds', defaultSelected: false },
+  { id: 'index_fund', label: 'Index Funds', description: 'Passive funds tracking Nifty, Sensex indices', defaultSelected: true },
+];
+
+const DEFAULT_ALLOCATIONS = {
+  conservative: { equity: 25, debt: 45, hybrid: 15, gold: 10, silver: 0, index: 5 },
+  moderate: { equity: 40, debt: 25, hybrid: 15, gold: 10, silver: 0, index: 10 },
+  aggressive: { equity: 55, debt: 10, hybrid: 10, gold: 10, silver: 5, index: 10 },
+  very_aggressive: { equity: 65, debt: 5, hybrid: 5, gold: 10, silver: 5, index: 10 }
+};
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -174,6 +192,14 @@ export default function AgentProspectWizard() {
 
   const [freshInvestmentAmount, setFreshInvestmentAmount] = useState(0);
   const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
+  
+  // Asset Allocation & Category Selection State
+  const [customAllocations, setCustomAllocations] = useState<{
+    equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
+  }>(DEFAULT_ALLOCATIONS.moderate);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
+  );
   
   // Portfolio Import State
   const [importMode, setImportMode] = useState<'manual' | 'upload' | 'url'>('manual');
@@ -426,6 +452,10 @@ export default function AgentProspectWizard() {
     }
   }, [urlProspectId, existingProspects]);
 
+  useEffect(() => {
+    setCustomAllocations(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance]);
+  }, [riskProfile.riskTolerance]);
+
   const createProspectMutation = useMutation({
     mutationFn: async (data: typeof prospectData) => {
       const res = await apiRequest("/api/agent-wizard/prospects", {
@@ -563,7 +593,7 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success) {
         setRebalancing(data.suggestions);
-        setCurrentStep(5);
+        setCurrentStep(6);
       }
     }
   });
@@ -582,7 +612,7 @@ export default function AgentProspectWizard() {
     onSuccess: (data) => {
       if (data.success) {
         setFreshInvestments(data.suggestions);
-        setCurrentStep(6);
+        setCurrentStep(7);
       }
     }
   });
@@ -596,7 +626,9 @@ export default function AgentProspectWizard() {
           prospectData,
           holdings,
           riskProfile,
-          freshInvestmentAmount
+          freshInvestmentAmount,
+          customAllocations,
+          selectedCategories
         })
       });
     },
@@ -604,7 +636,7 @@ export default function AgentProspectWizard() {
       if (data.success) {
         setProposal(data.proposal);
         toast({ title: "Proposal Generated", description: "Investment proposal ready to share!" });
-        setCurrentStep(7);
+        setCurrentStep(8);
       }
     }
   });
@@ -649,9 +681,10 @@ export default function AgentProspectWizard() {
     { num: 2, title: "Risk Profile", icon: Target },
     { num: 3, title: "Portfolio", icon: PieChart },
     { num: 4, title: "Analysis", icon: Sparkles },
-    { num: 5, title: "Rebalance", icon: Scale },
-    { num: 6, title: "Fresh Invest", icon: TrendingUp },
-    { num: 7, title: "Share", icon: Share2 }
+    { num: 5, title: "Allocation", icon: Settings2 },
+    { num: 6, title: "Rebalance", icon: Scale },
+    { num: 7, title: "Fresh Invest", icon: TrendingUp },
+    { num: 8, title: "Share", icon: Share2 }
   ];
 
   return (
@@ -1263,8 +1296,212 @@ export default function AgentProspectWizard() {
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
+              onClick={() => setCurrentStep(5)}
+              data-testid="to-allocation-btn"
+            >
+              <Settings2 className="h-4 w-4 mr-2" /> Configure Allocations
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {currentStep === 5 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5" /> Asset Allocation & Category Selection</CardTitle>
+            <CardDescription>Customize target allocations and select product categories for {prospectData.name}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Target Asset Allocation</h3>
+                <p className="text-sm text-muted-foreground">Adjust allocation percentages based on client needs</p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setCustomAllocations(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance])}
+                data-testid="use-default-allocations-btn"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" /> Use Default Allocations
+              </Button>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                {[
+                  { key: 'equity', label: 'Equity', color: 'bg-blue-500' },
+                  { key: 'debt', label: 'Debt', color: 'bg-green-500' },
+                  { key: 'hybrid', label: 'Hybrid', color: 'bg-purple-500' },
+                  { key: 'gold', label: 'Gold', color: 'bg-yellow-500' },
+                  { key: 'silver', label: 'Silver', color: 'bg-gray-400' },
+                  { key: 'index', label: 'Index', color: 'bg-indigo-500' }
+                ].map(({ key, label, color }) => (
+                  <div key={key} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${color}`}></div>
+                        {label}
+                      </Label>
+                      <span className="text-sm font-medium w-12 text-right">
+                        {customAllocations[key as keyof typeof customAllocations]}%
+                      </span>
+                    </div>
+                    <Slider
+                      value={[customAllocations[key as keyof typeof customAllocations]]}
+                      onValueChange={([value]) => {
+                        setCustomAllocations(prev => ({ ...prev, [key]: value }));
+                      }}
+                      max={100}
+                      step={5}
+                      className="w-full"
+                      data-testid={`slider-${key}`}
+                    />
+                  </div>
+                ))}
+                
+                <div className="pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">Total Allocation</span>
+                    <span className={`font-bold ${
+                      Object.values(customAllocations).reduce((a, b) => a + b, 0) === 100 
+                        ? 'text-green-600' 
+                        : 'text-amber-600'
+                    }`}>
+                      {Object.values(customAllocations).reduce((a, b) => a + b, 0)}%
+                    </span>
+                  </div>
+                  {Object.values(customAllocations).reduce((a, b) => a + b, 0) !== 100 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Allocation should sum to 100%. Currently {Object.values(customAllocations).reduce((a, b) => a + b, 0) > 100 ? 'over' : 'under'} by{' '}
+                      {Math.abs(Object.values(customAllocations).reduce((a, b) => a + b, 0) - 100)}%
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <h4 className="text-sm font-medium mb-3">Allocation Breakdown</h4>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'equity', label: 'Equity', color: 'bg-blue-500' },
+                      { key: 'debt', label: 'Debt', color: 'bg-green-500' },
+                      { key: 'hybrid', label: 'Hybrid', color: 'bg-purple-500' },
+                      { key: 'gold', label: 'Gold', color: 'bg-yellow-500' },
+                      { key: 'silver', label: 'Silver', color: 'bg-gray-400' },
+                      { key: 'index', label: 'Index', color: 'bg-indigo-500' }
+                    ].map(({ key, label, color }) => {
+                      const value = customAllocations[key as keyof typeof customAllocations];
+                      if (value === 0) return null;
+                      return (
+                        <div key={key} className="flex items-center gap-2">
+                          <div className={`h-4 rounded ${color}`} style={{ width: `${Math.max(value * 2, 8)}px` }}></div>
+                          <span className="text-sm">{label}: {value}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-4 flex h-8 rounded-lg overflow-hidden">
+                    {[
+                      { key: 'equity', color: 'bg-blue-500' },
+                      { key: 'debt', color: 'bg-green-500' },
+                      { key: 'hybrid', color: 'bg-purple-500' },
+                      { key: 'gold', color: 'bg-yellow-500' },
+                      { key: 'silver', color: 'bg-gray-400' },
+                      { key: 'index', color: 'bg-indigo-500' }
+                    ].map(({ key, color }) => {
+                      const value = customAllocations[key as keyof typeof customAllocations];
+                      if (value === 0) return null;
+                      return (
+                        <div 
+                          key={key} 
+                          className={`${color} transition-all duration-300`} 
+                          style={{ width: `${value}%` }}
+                          title={`${key}: ${value}%`}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <h4 className="text-sm font-medium mb-3">Default for {riskProfile.riskTolerance.replace('_', ' ')} Profile</h4>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    {Object.entries(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance]).map(([key, value]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="capitalize text-muted-foreground">{key}:</span>
+                        <span className="font-medium">{value}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium">Product Categories</h3>
+                <p className="text-sm text-muted-foreground">Select which product categories to include in recommendations</p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-3">
+                {PRODUCT_CATEGORY_OPTIONS.map(category => (
+                  <div 
+                    key={category.id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      selectedCategories.includes(category.id) 
+                        ? 'border-primary bg-primary/5' 
+                        : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => {
+                      setSelectedCategories(prev => 
+                        prev.includes(category.id)
+                          ? prev.filter(c => c !== category.id)
+                          : [...prev, category.id]
+                      );
+                    }}
+                    data-testid={`category-${category.id}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Checkbox 
+                        checked={selectedCategories.includes(category.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedCategories(prev => 
+                            checked 
+                              ? [...prev, category.id]
+                              : prev.filter(c => c !== category.id)
+                          );
+                        }}
+                        className="mt-0.5"
+                      />
+                      <div>
+                        <p className="font-medium text-sm">{category.label}</p>
+                        <p className="text-xs text-muted-foreground">{category.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {selectedCategories.length === 0 && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4 inline mr-2" />
+                  Please select at least one product category for recommendations
+                </div>
+              )}
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(4)} data-testid="back-to-analysis-btn">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Button 
               onClick={() => getRebalancingMutation.mutate()}
-              disabled={getRebalancingMutation.isPending}
+              disabled={getRebalancingMutation.isPending || selectedCategories.length === 0}
               data-testid="get-rebalancing-btn"
             >
               {getRebalancingMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -1274,7 +1511,7 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 5 && (
+      {currentStep === 6 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Scale className="h-5 w-5" /> Rebalancing Recommendations</CardTitle>
@@ -1319,7 +1556,7 @@ export default function AgentProspectWizard() {
             )}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(4)} data-testid="back-to-analysis-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-allocation-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -1334,7 +1571,7 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 6 && (
+      {currentStep === 7 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Fresh Investment Suggestions</CardTitle>
@@ -1372,7 +1609,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(5)} data-testid="back-to-rebalance-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-rebalance-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button 
@@ -1387,7 +1624,7 @@ export default function AgentProspectWizard() {
         </Card>
       )}
 
-      {currentStep === 7 && proposal && (
+      {currentStep === 8 && proposal && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -1470,7 +1707,7 @@ export default function AgentProspectWizard() {
             </div>
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(6)} data-testid="back-to-fresh-invest-btn">
+            <Button variant="outline" onClick={() => setCurrentStep(7)} data-testid="back-to-fresh-invest-btn">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <Button variant="outline" onClick={() => window.open(`/proposal/${proposal.shareToken}`, '_blank')} data-testid="preview-proposal-btn">

@@ -35,6 +35,15 @@ const portfolioHoldingSchema = z.object({
   category: z.string().optional()
 });
 
+const customAllocationsSchema = z.object({
+  equity: z.number().min(0).max(100),
+  debt: z.number().min(0).max(100),
+  hybrid: z.number().min(0).max(100),
+  gold: z.number().min(0).max(100),
+  silver: z.number().min(0).max(100).optional(),
+  index: z.number().min(0).max(100).optional()
+});
+
 const generateProposalSchema = z.object({
   prospectId: z.string(),
   prospectData: z.object({
@@ -45,7 +54,9 @@ const generateProposalSchema = z.object({
   }),
   holdings: z.array(portfolioHoldingSchema),
   riskProfile: riskProfileSchema,
-  freshInvestmentAmount: z.number().min(0)
+  freshInvestmentAmount: z.number().min(0),
+  customAllocations: customAllocationsSchema.optional(),
+  selectedCategories: z.array(z.string()).optional()
 });
 
 router.post("/prospects", async (req: Request, res: Response) => {
@@ -195,14 +206,17 @@ router.post("/fresh-investment-suggestions", async (req: Request, res: Response)
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const { riskProfile, investmentAmount, existingHoldings } = req.body;
+    const { riskProfile, investmentAmount, existingHoldings, customAllocations, selectedCategories } = req.body;
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
     const parsedHoldings = existingHoldings ? z.array(portfolioHoldingSchema).parse(existingHoldings) : [];
+    const parsedAllocations = customAllocations ? customAllocationsSchema.parse(customAllocations) : undefined;
     
     const suggestions = await agentProspectWizardService.generateFreshInvestmentSuggestions(
       parsedRiskProfile,
       investmentAmount || 0,
-      parsedHoldings
+      parsedHoldings,
+      parsedAllocations,
+      selectedCategories
     );
     res.json({ success: true, suggestions });
   } catch (error: any) {
@@ -226,7 +240,9 @@ router.post("/generate-proposal", async (req: Request, res: Response) => {
       data.prospectData,
       data.holdings,
       data.riskProfile,
-      data.freshInvestmentAmount
+      data.freshInvestmentAmount,
+      data.customAllocations,
+      data.selectedCategories
     );
     
     res.json({ success: true, proposal });
