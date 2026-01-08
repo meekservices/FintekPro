@@ -18830,6 +18830,64 @@ export const insertProspectClientSchema = createInsertSchema(prospectClients).om
 export type ProspectClient = typeof prospectClients.$inferSelect;
 export type InsertProspectClient = z.infer<typeof insertProspectClientSchema>;
 
+// ============ PORTFOLIO IMPORT TYPES ============
+
+export const portfolioHoldingSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  isin: z.string().optional(),
+  symbol: z.string().optional(),
+  assetType: z.enum(['equity', 'mutual_fund', 'etf', 'bond', 'gold', 'fd', 'other']),
+  quantity: z.number(),
+  averageCost: z.number().optional(),
+  currentValue: z.number(),
+  currentNav: z.number().optional(),
+  investedValue: z.number().optional(),
+  unrealizedGain: z.number().optional(),
+  unrealizedGainPercent: z.number().optional(),
+  folioNumber: z.string().optional(),
+  broker: z.string().optional(),
+  confidenceScore: z.number().min(0).max(100).optional(),
+});
+
+export type PortfolioHolding = z.infer<typeof portfolioHoldingSchema>;
+
+export const portfolioAllocationSchema = z.object({
+  equity: z.number().default(0),
+  debt: z.number().default(0),
+  gold: z.number().default(0),
+  cash: z.number().default(0),
+  others: z.number().default(0),
+});
+
+export type PortfolioAllocation = z.infer<typeof portfolioAllocationSchema>;
+
+export const portfolioSnapshotSchema = z.object({
+  holdings: z.array(portfolioHoldingSchema),
+  totalInvestedValue: z.number(),
+  totalCurrentValue: z.number(),
+  totalUnrealizedGain: z.number().optional(),
+  allocation: portfolioAllocationSchema.optional(),
+  sourceType: z.enum(['pdf_upload', 'url_import', 'manual_entry', 'api_fetch']),
+  sourceName: z.string().optional(),
+  sourceUrl: z.string().optional(),
+  fileName: z.string().optional(),
+  capturedAt: z.string(),
+  parsingStatus: z.enum(['pending', 'parsing', 'completed', 'failed', 'needs_review']),
+  parsingErrors: z.array(z.string()).optional(),
+  confidenceScore: z.number().min(0).max(100).optional(),
+  brokerDetected: z.string().optional(),
+});
+
+export type PortfolioSnapshot = z.infer<typeof portfolioSnapshotSchema>;
+
+export const portfolioImportRequestSchema = z.object({
+  sourceType: z.enum(['pdf_upload', 'url_import']),
+  url: z.string().url().optional(),
+});
+
+export type PortfolioImportRequest = z.infer<typeof portfolioImportRequestSchema>;
+
 // ============ PROPOSAL INTERACTIONS ============
 // Client questions, agent responses, and revision tracking
 
