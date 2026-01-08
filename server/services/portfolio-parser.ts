@@ -304,19 +304,29 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
     // 3. Does NOT contain rupee symbol
     // 4. Is not just a plan type like "(G)" alone
     // 5. Is not a false positive like "Mutual Fund Report"
+    // 6. Also detect AMC names where "Fund" appears on next line (e.g., "Nippon India" + "Services Fund (G)")
     const hasFundKeyword = line.includes('Fund') || 
                            line.includes('Asset Allocation') || 
                            line.includes('(FOF)') ||
                            line.includes('Savings');
     
+    // Check if this line is an AMC prefix with "Fund" on the next line
+    // Common patterns: "Nippon India" + "Services Fund (G)", "HDFC" + "Manufacturing Fund"
+    const amcPrefixes = ['Nippon India', 'HDFC', 'ICICI Pru', 'SBI', 'Axis', 'Kotak', 'Aditya Birla', 
+                         'UTI', 'Tata', 'Franklin', 'DSP', 'Mirae', 'Motilal', 'Invesco', 'Bandhan',
+                         'Sundaram', 'Canara', 'PGIM', 'Edelweiss', 'L&T', 'Mahindra', 'Quant', 'JM'];
+    const isAmcPrefix = amcPrefixes.some(prefix => line.startsWith(prefix)) &&
+                        nextLine && nextLine.includes('Fund') && 
+                        (nextLine.includes('(G)') || nextLine.includes('(IDCW)'));
+    
     const isFundName = (
-      hasFundKeyword &&
+      (hasFundKeyword || isAmcPrefix) &&
       !line.match(/^(Equity|Debt|Hybrid)\s*\|/i) &&
       !line.includes('₹') &&
       !line.match(/^(Invested|Current|Returns|NAV)/i) &&
       !line.match(/^Mutual Fund Report$/i) && // Skip false positive
       !line.includes('fund portfolio') &&
-      line.length > 15 // Real fund names are longer
+      (line.length > 15 || isAmcPrefix) // AMC prefix lines can be shorter
     );
     
     if (isFundName) {
@@ -330,10 +340,13 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
       // Pattern: "ICICI Pru Dynamic Asset Allocation" on line 1, "Active FOF-Reg (G)" on line 2
       // Pattern: "Invesco India Technology Fund -" on line 1, "Direct (G)" on line 2
       // Pattern: "HDFC Retirement Savings Fund-" on line 1, "Hybrid Equity (G)" on line 2
+      // Pattern: "Nippon India" on line 1, "Services Fund (G)" on line 2
       let fullName = line;
       const needsContinuation = (
         // Ends with hyphen = definitely continues
         line.endsWith('-') ||
+        // Is an AMC prefix pattern
+        isAmcPrefix ||
         // Doesn't have a plan type suffix = needs continuation
         (!line.includes('(G)') && 
          !line.includes('(IDCW)') && 
@@ -346,11 +359,12 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
         !nextLine.match(/^(Equity|Debt|Hybrid)\s*\|/i) &&
         !nextLine.includes('₹') &&
         !nextLine.includes('Invested') &&
-        nextLine.length < 40 && // Continuation lines are usually short
+        nextLine.length < 50 && // Continuation lines are usually short (increased for patterns like "Services Fund (G)")
         (nextLine.includes('(G)') || 
          nextLine.includes('(IDCW)') || 
          nextLine.includes('(FOF)') ||
-         nextLine.match(/^(Direct|Regular|Active|Growth|Dividend|Hybrid)/i))
+         nextLine.includes('Fund') || // For AMC prefix patterns
+         nextLine.match(/^(Direct|Regular|Active|Growth|Dividend|Hybrid|Services)/i))
       );
       
       if (needsContinuation && nextLineIsContinuation) {
