@@ -201,6 +201,33 @@ export default function AgentProspectWizard() {
     PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
   );
   
+  // Auto-sync selectedCategories when customAllocations change
+  useEffect(() => {
+    const allocationToCategoryMap: Record<string, string> = {
+      equity: 'equity',
+      debt: 'debt', 
+      hybrid: 'hybrid',
+      gold: 'gold_fof',
+      silver: 'silver_fof',
+      index: 'index_fund'
+    };
+    
+    setSelectedCategories(prev => {
+      const newCategories = new Set(prev);
+      
+      Object.entries(allocationToCategoryMap).forEach(([allocationKey, categoryId]) => {
+        const allocationValue = customAllocations[allocationKey as keyof typeof customAllocations];
+        if (allocationValue > 0) {
+          newCategories.add(categoryId);
+        } else {
+          newCategories.delete(categoryId);
+        }
+      });
+      
+      return Array.from(newCategories);
+    });
+  }, [customAllocations]);
+  
   // Portfolio Import State
   const [importMode, setImportMode] = useState<'manual' | 'upload' | 'url'>('manual');
   const [importUrl, setImportUrl] = useState('');
