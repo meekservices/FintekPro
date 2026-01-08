@@ -652,23 +652,25 @@ export function registerAgentAdvisoryRoutes(app: Express) {
     try {
       const agentId = (req.user as any).id;
       
-      const proposals = await db
-        .select({
-          id: investmentProposals.id,
-          clientId: investmentProposals.clientId,
-          title: investmentProposals.title,
-          description: investmentProposals.description,
-          isDemo: investmentProposals.isDemo,
-          status: investmentProposals.status,
-          investmentAmount: investmentProposals.totalInvestmentAmount,
-          createdAt: investmentProposals.createdAt,
-          updatedAt: investmentProposals.updatedAt,
-          expiresAt: investmentProposals.validUntil
-        })
+      const rawProposals = await db
+        .select()
         .from(investmentProposals)
         .where(eq(investmentProposals.agentId, agentId))
         .orderBy(desc(investmentProposals.createdAt))
         .limit(100);
+
+      const proposals = rawProposals.map((p: any) => ({
+        id: p.id,
+        clientId: p.clientId,
+        title: p.title,
+        description: p.description,
+        isDemo: p.isDemo,
+        status: p.status,
+        investmentAmount: p.totalInvestmentAmount,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        expiresAt: p.validUntil
+      }));
 
       const proposalsWithDetails = await Promise.all(
         proposals.map(async (proposal: any) => {
