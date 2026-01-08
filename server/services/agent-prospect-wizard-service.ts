@@ -224,6 +224,52 @@ const FUND_RECOMMENDATIONS_BY_CATEGORY = {
       { name: 'True North AIF - Category II', amc: 'True North', category: 'AIF - Private Equity', returns1Y: '32.0', returns3Y: '35.5', returns5Y: '34.0', risk: 'Very High', productType: 'aif', minInvestment: 10000000 },
       { name: 'Multiples PE AIF - Category II', amc: 'Multiples', category: 'AIF - Growth Equity', returns1Y: '30.5', returns3Y: '33.8', returns5Y: '32.0', risk: 'Very High', productType: 'aif', minInvestment: 10000000 },
     ]
+  },
+  listed_stocks: {
+    conservative: [
+      { name: 'Reliance Industries Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap', returns1Y: '12.5', returns3Y: '18.2', returns5Y: '16.8', risk: 'Moderate', productType: 'stock', ticker: 'RELIANCE' },
+      { name: 'HDFC Bank Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Banking', returns1Y: '8.2', returns3Y: '12.5', returns5Y: '11.8', risk: 'Moderate', productType: 'stock', ticker: 'HDFCBANK' },
+      { name: 'Tata Consultancy Services Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap IT', returns1Y: '15.5', returns3Y: '14.8', returns5Y: '18.2', risk: 'Moderate', productType: 'stock', ticker: 'TCS' },
+    ],
+    moderate: [
+      { name: 'Infosys Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap IT', returns1Y: '14.2', returns3Y: '16.5', returns5Y: '17.8', risk: 'Moderate', productType: 'stock', ticker: 'INFY' },
+      { name: 'ICICI Bank Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Banking', returns1Y: '18.5', returns3Y: '22.8', returns5Y: '20.5', risk: 'Moderate', productType: 'stock', ticker: 'ICICIBANK' },
+      { name: 'Bharti Airtel Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Telecom', returns1Y: '35.2', returns3Y: '28.5', returns5Y: '22.0', risk: 'Moderately High', productType: 'stock', ticker: 'BHARTIARTL' },
+      { name: 'Larsen & Toubro Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Infrastructure', returns1Y: '25.8', returns3Y: '32.5', returns5Y: '28.0', risk: 'Moderately High', productType: 'stock', ticker: 'LT' },
+    ],
+    aggressive: [
+      { name: 'Bajaj Finance Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap NBFC', returns1Y: '22.5', returns3Y: '28.2', returns5Y: '32.5', risk: 'High', productType: 'stock', ticker: 'BAJFINANCE' },
+      { name: 'Tata Motors Ltd', amc: 'NSE/BSE', category: 'Stock - Large Cap Auto', returns1Y: '45.2', returns3Y: '52.8', returns5Y: '35.0', risk: 'High', productType: 'stock', ticker: 'TATAMOTORS' },
+      { name: 'SBI Cards Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap Financial', returns1Y: '18.5', returns3Y: '22.0', returns5Y: '24.5', risk: 'High', productType: 'stock', ticker: 'SBICARD' },
+      { name: 'Persistent Systems Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap IT', returns1Y: '38.5', returns3Y: '45.2', returns5Y: '42.0', risk: 'High', productType: 'stock', ticker: 'PERSISTENT' },
+    ],
+    very_aggressive: [
+      { name: 'Zomato Ltd', amc: 'NSE/BSE', category: 'Stock - New Age Tech', returns1Y: '85.2', returns3Y: '45.0', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'ZOMATO' },
+      { name: 'Paytm (One97 Communications)', amc: 'NSE/BSE', category: 'Stock - Fintech', returns1Y: '-25.5', returns3Y: '-15.0', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'PAYTM' },
+      { name: 'Tata Elxsi Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap IT Services', returns1Y: '28.5', returns3Y: '48.2', returns5Y: '55.0', risk: 'Very High', productType: 'stock', ticker: 'TATAELXSI' },
+      { name: 'Dixon Technologies Ltd', amc: 'NSE/BSE', category: 'Stock - Mid Cap Electronics', returns1Y: '65.2', returns3Y: '72.5', returns5Y: '85.0', risk: 'Very High', productType: 'stock', ticker: 'DIXON' },
+      { name: 'Happiest Minds Technologies', amc: 'NSE/BSE', category: 'Stock - Small Cap IT', returns1Y: '32.5', returns3Y: '38.0', returns5Y: 'N/A', risk: 'Very High', productType: 'stock', ticker: 'HAPPSTMNDS' },
+    ]
+  },
+  unlisted_stocks: {
+    conservative: [
+      { name: 'NSE India Ltd', amc: 'Unlisted', category: 'Unlisted - Exchange', returns1Y: '18.5', returns3Y: '22.0', returns5Y: '25.5', risk: 'Moderate', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+    ],
+    moderate: [
+      { name: 'HDB Financial Services Ltd', amc: 'Unlisted', category: 'Unlisted - NBFC', returns1Y: '15.2', returns3Y: '18.5', returns5Y: '20.0', risk: 'Moderate', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Tata Technologies Ltd', amc: 'Unlisted', category: 'Unlisted - Engineering', returns1Y: '25.5', returns3Y: '28.0', returns5Y: '32.5', risk: 'Moderately High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+    ],
+    aggressive: [
+      { name: 'Swiggy (Bundl Technologies)', amc: 'Unlisted', category: 'Unlisted - Food Tech', returns1Y: '35.2', returns3Y: '42.0', returns5Y: '48.5', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'PhonePe (PhonePe Pvt Ltd)', amc: 'Unlisted', category: 'Unlisted - Fintech', returns1Y: '28.5', returns3Y: '35.0', returns5Y: '42.0', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Lenskart Solutions Pvt Ltd', amc: 'Unlisted', category: 'Unlisted - E-commerce', returns1Y: '32.0', returns3Y: '38.5', returns5Y: '45.0', risk: 'High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+    ],
+    very_aggressive: [
+      { name: 'OfBusiness (OFB Tech Pvt Ltd)', amc: 'Unlisted', category: 'Unlisted - B2B Commerce', returns1Y: '42.5', returns3Y: '55.0', returns5Y: '65.0', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Pine Labs Pvt Ltd', amc: 'Unlisted', category: 'Unlisted - Payment Tech', returns1Y: '38.2', returns3Y: '48.5', returns5Y: '58.0', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'Pharmeasy (API Holdings)', amc: 'Unlisted', category: 'Unlisted - Health Tech', returns1Y: '-15.0', returns3Y: '25.0', returns5Y: '35.0', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+      { name: 'ixigo (Le Travenues Technology)', amc: 'Unlisted', category: 'Unlisted - Travel Tech', returns1Y: '45.0', returns3Y: '52.0', returns5Y: '48.5', risk: 'Very High', productType: 'unlisted_stock', requiresEnhancedKYC: true },
+    ]
   }
 };
 
@@ -275,6 +321,8 @@ export const PRODUCT_CATEGORIES = [
   { id: 'invit', label: 'InvITs', description: 'IndiGrid, IRB, PowerGrid infrastructure trusts' },
   { id: 'bonds', label: 'Corporate Bonds/NCDs', description: 'Direct corporate bonds, NCDs, G-Secs' },
   { id: 'mld', label: 'MLDs', description: 'Market Linked Debentures for tax-efficient returns' },
+  { id: 'listed_stocks', label: 'Listed Stocks', description: 'Direct equity in NSE/BSE listed companies' },
+  { id: 'unlisted_stocks', label: 'Unlisted Stocks', description: 'Pre-IPO & private company shares (Enhanced KYC required)', requiresEnhancedKYC: true },
   { id: 'pms', label: 'PMS', description: 'Portfolio Management Services (Min ₹50L)', minInvestment: 5000000 },
   { id: 'aif', label: 'AIF', description: 'Alternative Investment Funds (Min ₹1Cr)', minInvestment: 10000000 },
 ];
@@ -282,12 +330,12 @@ export const PRODUCT_CATEGORIES = [
 // Export for API access
 export { FUND_RECOMMENDATIONS_BY_CATEGORY };
 
-// Target allocations by risk profile (expanded with new asset classes)
+// Target allocations by risk profile (expanded with new asset classes including stocks)
 const TARGET_ALLOCATIONS = {
-  conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0 },
-  moderate: { equity: 30, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0 },
-  aggressive: { equity: 40, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 },
-  very_aggressive: { equity: 45, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 }
+  conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0 },
+  moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0 },
+  aggressive: { equity: 32, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 7, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 12, unlisted_stocks: 6, pms: 0, aif: 0 },
+  very_aggressive: { equity: 30, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 8, international: 8, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 15, unlisted_stocks: 10, pms: 0, aif: 0 }
 };
 
 export interface ProspectPortfolioHolding {
@@ -840,6 +888,13 @@ class AgentProspectWizardService {
       if (category.includes('index') || name.includes('index') || 
           name.includes('nifty') || name.includes('sensex')) return 'index';
       
+      // Check for listed stocks
+      if (type === 'stock' || type === 'equity' || type === 'share') return 'listed_stocks';
+      
+      // Check for unlisted stocks
+      if (type === 'unlisted_stock' || type === 'unlisted' || name.includes('unlisted') || 
+          name.includes('pre-ipo') || category.includes('unlisted')) return 'unlisted_stocks';
+      
       // Check for debt mutual funds
       if (type === 'fd' || 
           category.includes('debt') || category.includes('liquid') || 
@@ -893,8 +948,8 @@ class AgentProspectWizardService {
     // Calculate total portfolio after fresh investment
     const totalPortfolioValue = totalValue + freshInvestmentAmount;
     
-    // Calculate target values and compare with current (expanded categories)
-    const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index', 'international', 'reit', 'invit', 'bonds', 'mld', 'pms', 'aif'];
+    // Calculate target values and compare with current (expanded categories including stocks)
+    const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index', 'international', 'reit', 'invit', 'bonds', 'mld', 'listed_stocks', 'unlisted_stocks', 'pms', 'aif'];
     
     categories.forEach(category => {
       const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
@@ -995,7 +1050,8 @@ class AgentProspectWizardService {
     existingHoldings: ProspectPortfolioHolding[],
     customAllocations?: { 
       equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number;
-      international?: number; reit?: number; invit?: number; bonds?: number; mld?: number; pms?: number; aif?: number;
+      international?: number; reit?: number; invit?: number; bonds?: number; mld?: number;
+      listed_stocks?: number; unlisted_stocks?: number; pms?: number; aif?: number;
     },
     selectedCategories?: string[]
   ): Promise<FreshInvestmentSuggestion[]> {
@@ -1009,15 +1065,16 @@ class AgentProspectWizardService {
     const MIN_PMS = 5000000; // ₹50 Lakhs
     const MIN_AIF = 10000000; // ₹1 Crore
     
-    // Default allocations based on risk profile (expanded with new asset classes)
+    // Default allocations based on risk profile (expanded with stocks)
     const defaultAllocations: Record<string, { 
       equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
-      international: number; reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
+      international: number; reit: number; invit: number; bonds: number; mld: number; 
+      listed_stocks: number; unlisted_stocks: number; pms: number; aif: number;
     }> = {
-      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0 },
-      moderate: { equity: 30, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0 },
-      aggressive: { equity: 40, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 },
-      very_aggressive: { equity: 45, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 }
+      conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0 },
+      moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0 },
+      aggressive: { equity: 32, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 7, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 12, unlisted_stocks: 6, pms: 0, aif: 0 },
+      very_aggressive: { equity: 30, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 8, international: 8, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 15, unlisted_stocks: 10, pms: 0, aif: 0 }
     };
     
     // Use custom allocations if provided and has non-zero values, otherwise use defaults
@@ -1025,7 +1082,9 @@ class AgentProspectWizardService {
       (customAllocations.equity > 0 || customAllocations.debt > 0 || customAllocations.hybrid > 0 || 
        customAllocations.gold > 0 || (customAllocations.silver || 0) > 0 || (customAllocations.index || 0) > 0 ||
        (customAllocations.international || 0) > 0 || (customAllocations.reit || 0) > 0 || (customAllocations.invit || 0) > 0 ||
-       (customAllocations.bonds || 0) > 0 || (customAllocations.mld || 0) > 0 || (customAllocations.pms || 0) > 0 || (customAllocations.aif || 0) > 0);
+       (customAllocations.bonds || 0) > 0 || (customAllocations.mld || 0) > 0 || 
+       (customAllocations.listed_stocks || 0) > 0 || (customAllocations.unlisted_stocks || 0) > 0 ||
+       (customAllocations.pms || 0) > 0 || (customAllocations.aif || 0) > 0);
     
     const allocations = hasValidCustomAllocations 
       ? { ...defaultAllocations.moderate, ...customAllocations }
@@ -1052,7 +1111,7 @@ class AgentProspectWizardService {
     
     console.log('[Agent Wizard] Using categories:', categories, 'Custom:', hasValidCategories);
     
-    // Map allocation keys to category keys (expanded)
+    // Map allocation keys to category keys (expanded with stocks)
     const allocationToCategory: Record<string, string> = {
       equity: 'equity',
       debt: 'debt',
@@ -1065,6 +1124,8 @@ class AgentProspectWizardService {
       invit: 'invit',
       bonds: 'bonds',
       mld: 'mld',
+      listed_stocks: 'listed_stocks',
+      unlisted_stocks: 'unlisted_stocks',
       pms: 'pms',
       aif: 'aif'
     };
@@ -1081,6 +1142,8 @@ class AgentProspectWizardService {
       invit: 'invit',
       bonds: 'bonds',
       mld: 'mld',
+      listed_stocks: 'listed_stocks',
+      unlisted_stocks: 'unlisted_stocks',
       pms: 'pms',
       aif: 'aif'
     };
