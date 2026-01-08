@@ -863,24 +863,33 @@ export default function AgentProspectWizard() {
                 onValueChange={(v: any) => setRiskProfile({ ...riskProfile, investmentHorizon: v })}
                 className="grid grid-cols-3 gap-3"
               >
-                <Label htmlFor="short_term" className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer ${riskProfile.investmentHorizon === 'short_term' ? 'border-primary bg-primary/5' : ''}`}>
-                  <RadioGroupItem value="short_term" id="short_term" className="sr-only" />
+                <div 
+                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'short_term' })}
+                  className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'short_term' ? 'border-primary bg-primary/5' : ''}`}
+                  data-testid="horizon-short-term"
+                >
                   <Clock className="h-6 w-6 mb-1" />
-                  <span>Short Term</span>
+                  <span className="font-medium">Short Term</span>
                   <span className="text-xs text-muted-foreground">&lt; 3 years</span>
-                </Label>
-                <Label htmlFor="medium_term" className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer ${riskProfile.investmentHorizon === 'medium_term' ? 'border-primary bg-primary/5' : ''}`}>
-                  <RadioGroupItem value="medium_term" id="medium_term" className="sr-only" />
+                </div>
+                <div 
+                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'medium_term' })}
+                  className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'medium_term' ? 'border-primary bg-primary/5' : ''}`}
+                  data-testid="horizon-medium-term"
+                >
                   <Clock className="h-6 w-6 mb-1" />
-                  <span>Medium Term</span>
+                  <span className="font-medium">Medium Term</span>
                   <span className="text-xs text-muted-foreground">3-7 years</span>
-                </Label>
-                <Label htmlFor="long_term" className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer ${riskProfile.investmentHorizon === 'long_term' ? 'border-primary bg-primary/5' : ''}`}>
-                  <RadioGroupItem value="long_term" id="long_term" className="sr-only" />
+                </div>
+                <div 
+                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'long_term' })}
+                  className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'long_term' ? 'border-primary bg-primary/5' : ''}`}
+                  data-testid="horizon-long-term"
+                >
                   <Clock className="h-6 w-6 mb-1" />
-                  <span>Long Term</span>
+                  <span className="font-medium">Long Term</span>
                   <span className="text-xs text-muted-foreground">7+ years</span>
-                </Label>
+                </div>
               </RadioGroup>
             </div>
 
