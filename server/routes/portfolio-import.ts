@@ -156,17 +156,31 @@ router.post(
         })
         .where(eq(prospectClients.id, prospectId));
       
+      // Build the success message based on import results
+      let message = '';
+      if (parseResult.success) {
+        if (parseResult.unimportedCount && parseResult.unimportedCount > 0) {
+          message = `Imported ${parseResult.importedCount} of ${parseResult.expectedCount} holdings from ${parseResult.brokerDetected || 'portfolio'}. ${parseResult.unimportedCount} fund(s) could not be imported automatically.`;
+        } else {
+          message = `Successfully parsed ${parseResult.holdings.length} holdings from ${parseResult.brokerDetected || 'portfolio'}`;
+        }
+      } else {
+        message = 'Portfolio uploaded but parsing needs review';
+      }
+      
       res.json({
         success: true,
-        message: parseResult.success 
-          ? `Successfully parsed ${parseResult.holdings.length} holdings from ${parseResult.brokerDetected || 'portfolio'}`
-          : 'Portfolio uploaded but parsing needs review',
+        message,
         portfolio: snapshot,
         holdings: snapshot.holdings, // For frontend compatibility
         holdingsCount: parseResult.holdings.length,
         brokerDetected: parseResult.brokerDetected,
         confidenceScore: parseResult.confidenceScore,
-        needsReview: snapshot.parsingStatus === 'needs_review',
+        needsReview: snapshot.parsingStatus === 'needs_review' || parseResult.needsManualReview,
+        expectedCount: parseResult.expectedCount,
+        importedCount: parseResult.importedCount,
+        unimportedCount: parseResult.unimportedCount,
+        needsManualEntry: parseResult.needsManualReview,
         errors: parseResult.errors
       });
     } catch (error: any) {

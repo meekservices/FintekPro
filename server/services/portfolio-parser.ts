@@ -51,6 +51,10 @@ interface ParseResult {
   confidenceScore: number;
   errors: string[];
   rawText?: string;
+  expectedCount?: number;
+  importedCount?: number;
+  unimportedCount?: number;
+  needsManualReview?: boolean;
 }
 
 const BROKER_PATTERNS: Record<string, { name: string; patterns: RegExp[] }> = {
@@ -208,18 +212,6 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
-  // Debug: Log first 60 lines to understand structure
-  console.log('[Wealthy Parser] First 60 lines:', lines.slice(0, 60));
-  
-  // Debug: Print ALL lines to find missing fund patterns
-  console.log('[Wealthy Parser] ===== ALL LINES =====');
-  lines.forEach((line, idx) => {
-    if (line.includes('Nippon') || line.includes('Services') || 
-        line.includes('Bharat') || line.includes('Consumption')) {
-      console.log(`[LINE ${idx}]: "${line}" | next: "${lines[idx+1] || 'END'}"`);
-    }
-  });
-  console.log('[Wealthy Parser] ===== END ALL LINES =====');
   
   let currentFund: any = null;
   let fundIndex = 0;
@@ -329,11 +321,6 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
     const isAmcPrefix = matchingPrefix &&
                         nextLine && nextLine.includes('Fund') && 
                         (nextLine.includes('(G)') || nextLine.includes('(IDCW)'));
-    
-    // Debug: Log lines around Nippon India for troubleshooting
-    if (line.includes('Nippon') || line.includes('Services')) {
-      console.log(`[DEBUG] Line ${i}: "${line}" | nextLine: "${nextLine}" | matchingPrefix: ${matchingPrefix} | isAmcPrefix: ${isAmcPrefix}`);
-    }
     
     const isFundName = (
       (hasFundKeyword || isAmcPrefix) &&
@@ -489,6 +476,10 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
     const { broker, confidence } = detectBroker(text);
     let holdings: ImportedHolding[] = [];
     
+    // Extract expected fund count from PDF header (e.g., "MUTUAL FUNDS (25)")
+    const expectedCountMatch = text.match(/MUTUAL FUNDS\s*\((\d+)\)/i);
+    const expectedCount = expectedCountMatch ? parseInt(expectedCountMatch[1], 10) : undefined;
+    
     if (broker === 'Wealthy.in') {
       holdings = parseWealthyPDFFormat(text);
     } else if (broker === 'Zerodha') {
@@ -509,6 +500,24 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       holdings = parseGenericFormat(text);
     }
     
+    const importedCount = holdings.length;
+    const unimportedCount = expectedCount ? Math.max(0, expectedCount - importedCount) : 0;
+    const needsManualReview = unimportedCount > 0;
+    
+    // Build error messages
+    const errors: string[] = [];
+    if (holdings.length === 0) {
+      errors.push('Could not extract holdings from PDF. Please verify the format.');
+    }
+    
+    // Log and track unimported funds
+    if (needsManualReview && expectedCount) {
+      const errorMsg = `${unimportedCount} of ${expectedCount} funds could not be imported automatically. Please review and add missing funds manually.`;
+      errors.push(errorMsg);
+      console.warn(`[Portfolio Parser] ALERT: ${errorMsg} (File: ${fileName}, Broker: ${broker})`);
+      console.warn(`[Portfolio Parser] Imported funds: ${holdings.map(h => h.name).join(', ')}`);
+    }
+    
     const avgConfidence = holdings.length > 0 
       ? holdings.reduce((sum, h) => sum + (h.confidenceScore || 50), 0) / holdings.length
       : 30;
@@ -518,8 +527,12 @@ export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promi
       holdings,
       brokerDetected: broker,
       confidenceScore: Math.round(avgConfidence),
-      errors: holdings.length === 0 ? ['Could not extract holdings from PDF. Please verify the format.'] : [],
-      rawText: text.substring(0, 2000)
+      errors,
+      rawText: text.substring(0, 2000),
+      expectedCount,
+      importedCount,
+      unimportedCount,
+      needsManualReview
     };
   } catch (error: any) {
     return {

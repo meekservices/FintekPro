@@ -467,10 +467,20 @@ export default function AgentProspectWizard() {
             category: h.category
           }));
           setHoldings(prev => [...prev, ...mappedHoldings]);
-          toast({ 
-            title: "Portfolio Imported", 
-            description: `Detected ${data.brokerDetected || 'portfolio'}: ${data.holdings.length} holdings imported with ${data.confidenceScore}% confidence.` 
-          });
+          
+          // Show appropriate toast based on whether all funds were imported
+          if (data.unimportedCount && data.unimportedCount > 0) {
+            toast({ 
+              title: "Partial Import - Manual Entry Needed", 
+              description: `Imported ${data.importedCount} of ${data.expectedCount} holdings. ${data.unimportedCount} fund(s) need manual entry.`,
+              variant: "default"
+            });
+          } else {
+            toast({ 
+              title: "Portfolio Imported", 
+              description: `Detected ${data.brokerDetected || 'portfolio'}: ${data.holdings.length} holdings imported with ${data.confidenceScore}% confidence.` 
+            });
+          }
         }
       } else {
         toast({ title: "Import Failed", description: data.error || "Could not parse portfolio file.", variant: "destructive" });
@@ -982,16 +992,36 @@ export default function AgentProspectWizard() {
                   </Button>
                 </label>
                 {importResult && (
-                  <div className={`mt-4 p-3 rounded-lg text-sm ${importResult.success ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'}`}>
-                    {importResult.success ? (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        Detected {importResult.brokerDetected} • {importResult.holdings.length} holdings • {importResult.confidenceScore}% confidence
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4" />
-                        {importResult.errors?.[0] || 'Failed to parse portfolio'}
+                  <div className="mt-4 space-y-2">
+                    {/* Success/Failure Message */}
+                    <div className={`p-3 rounded-lg text-sm ${importResult.success ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'}`}>
+                      {importResult.success ? (
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          Detected {importResult.brokerDetected} • {importResult.holdings?.length || 0} holdings • {importResult.confidenceScore}% confidence
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4" />
+                          {importResult.errors?.[0] || 'Failed to parse portfolio'}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Alert for unimported funds */}
+                    {importResult.unimportedCount && importResult.unimportedCount > 0 && (
+                      <div className="p-3 rounded-lg text-sm bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-medium">
+                              {importResult.unimportedCount} of {importResult.expectedCount} funds could not be imported
+                            </div>
+                            <div className="text-xs mt-1 opacity-80">
+                              Please use "Manual Entry" below to add the missing holdings. Check the original PDF for fund names and values.
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
