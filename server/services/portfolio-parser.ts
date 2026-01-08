@@ -208,13 +208,17 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
+  // Debug: Log first 50 lines to understand structure
+  console.log('[Wealthy Parser] First 50 lines:', lines.slice(0, 50));
+  
   let currentFund: any = null;
   let fundIndex = 0;
+  let pendingValues: { invested: number; current: number; returns: number } | null = null;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const nextLine = lines[i + 1] || '';
-    const prevLine = lines[i - 1] || '';
+    const nextNextLine = lines[i + 2] || '';
     
     // Skip navigation and headers
     if (line.includes('Sync Info') || line.includes('More') || 
@@ -239,6 +243,7 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
       // Save previous fund if valid
       if (currentFund && currentFund.name && currentFund.currentValue > 0) {
         holdings.push(currentFund);
+        console.log(`[Wealthy Parser] Added fund: ${currentFund.name} = ₹${currentFund.currentValue}`);
       }
       
       // Check if fund name is split across lines (next line continues the name)
@@ -260,35 +265,54 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
         broker: 'Wealthy.in',
         confidenceScore: 85
       };
+      console.log(`[Wealthy Parser] Found fund #${fundIndex}: ${currentFund.name}`);
       continue;
     }
     
-    // Look for value lines: ₹ XX,XXX ₹ YY,YYY ZZ.ZZ%
-    // Wealthy PDF format: "₹ 10,000 ₹ 10,169 1.31%"
-    const valuePattern = /₹\s*([\d,]+)\s*₹\s*([\d,]+)\s*([\-\d\.]+)\s*%/;
-    const valueMatch = line.match(valuePattern);
+    // Look for value lines with multiple patterns
+    // Pattern 1: "₹ XX,XXX ₹ YY,YYY ZZ.ZZ%" (rupee symbol)
+    // Pattern 2: "Rs XX,XXX Rs YY,YYY ZZ.ZZ%" (Rs prefix)
+    // Pattern 3: Just numbers with comma separators for Indian format
     
-    if (valueMatch && currentFund) {
-      const [, invested, current, returns] = valueMatch;
-      currentFund.investedValue = parseFloat(invested.replace(/,/g, ''));
-      currentFund.currentValue = parseFloat(current.replace(/,/g, ''));
-      currentFund.unrealizedGainPercent = parseFloat(returns);
-      currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
-      continue;
+    const valuePatterns = [
+      /₹\s*([\d,]+)\s*₹\s*([\d,]+)\s*([\-\d\.]+)\s*%/,          // ₹ format
+      /Rs\.?\s*([\d,]+)\s*Rs\.?\s*([\d,]+)\s*([\-\d\.]+)\s*%/i, // Rs format
+      /\b([\d,]{4,})\s+([\d,]{4,})\s+([\-\d\.]+)\s*%/,          // Plain numbers with %
+    ];
+    
+    for (const pattern of valuePatterns) {
+      const valueMatch = line.match(pattern);
+      if (valueMatch && currentFund && currentFund.currentValue === 0) {
+        const [, invested, current, returns] = valueMatch;
+        currentFund.investedValue = parseFloat(invested.replace(/,/g, ''));
+        currentFund.currentValue = parseFloat(current.replace(/,/g, ''));
+        currentFund.unrealizedGainPercent = parseFloat(returns);
+        currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
+        console.log(`[Wealthy Parser] Values for ${currentFund.name}: invested=${currentFund.investedValue}, current=${currentFund.currentValue}`);
+        break;
+      }
     }
     
-    // Alternative pattern: values on separate tokens (some PDF extractions)
-    // "₹ 2,99,985 ₹ 3,32,577 8.92%"
-    const altValuePattern = /₹\s*([\d,]+)\s+₹\s*([\d,]+)\s+([\-\d\.]+)\s*%?/;
-    const altMatch = line.match(altValuePattern);
-    
-    if (altMatch && currentFund && currentFund.currentValue === 0) {
-      const [, invested, current, returns] = altMatch;
-      currentFund.investedValue = parseFloat(invested.replace(/,/g, ''));
-      currentFund.currentValue = parseFloat(current.replace(/,/g, ''));
-      currentFund.unrealizedGainPercent = parseFloat(returns);
-      currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
-      continue;
+    // Pattern for values on separate lines (PDF text extraction quirk)
+    // Sometimes values appear as: "₹ 1,00,000" on one line, "₹ 1,10,000" on next, "10.00%" on next
+    if (currentFund && currentFund.currentValue === 0) {
+      const singleValueMatch = line.match(/^₹?\s*([\d,]{4,})$/);
+      const percentMatch = line.match(/^([\-\d\.]+)\s*%$/);
+      
+      if (singleValueMatch && !pendingValues) {
+        // This might be the invested value, look for current value on next line
+        const nextValueMatch = nextLine.match(/^₹?\s*([\d,]{4,})$/);
+        const nextPercentMatch = nextNextLine.match(/^([\-\d\.]+)\s*%$/);
+        
+        if (nextValueMatch && nextPercentMatch) {
+          currentFund.investedValue = parseFloat(singleValueMatch[1].replace(/,/g, ''));
+          currentFund.currentValue = parseFloat(nextValueMatch[1].replace(/,/g, ''));
+          currentFund.unrealizedGainPercent = parseFloat(nextPercentMatch[1]);
+          currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
+          console.log(`[Wealthy Parser] Multi-line values for ${currentFund.name}: invested=${currentFund.investedValue}, current=${currentFund.currentValue}`);
+          i += 2; // Skip the consumed lines
+        }
+      }
     }
     
     // Detect category
@@ -302,8 +326,10 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
   // Don't forget the last fund
   if (currentFund && currentFund.name && currentFund.currentValue > 0) {
     holdings.push(currentFund);
+    console.log(`[Wealthy Parser] Added last fund: ${currentFund.name} = ₹${currentFund.currentValue}`);
   }
   
+  console.log(`[Wealthy Parser] Total holdings found: ${holdings.length}`);
   return holdings;
 }
 
