@@ -611,20 +611,33 @@ class DataEnrichmentService {
           discoveredCIN = cinLookup.cin;
           console.log(`[DataEnrichment] Discovered CIN ${discoveredCIN} from ISIN ${company.isin} (via ${cinLookup.source}, confidence: ${cinLookup.confidence})`);
           
-          // Persist the discovered CIN to the company record
-          await storage.updateUnlistedCompany(companyId, {
-            cin: discoveredCIN,
-            lastSyncedAt: new Date(),
-          });
-          
-          auditTrail.push({
-            id: crypto.randomUUID(),
-            timestamp: new Date(),
-            action: 'fetch',
-            source: 'mca',
-            confidence: cinLookup.confidence,
-            reason: `Discovered and persisted CIN ${discoveredCIN} from ISIN via ${cinLookup.source}`,
-          });
+          // Try to persist the discovered CIN to the company record (may fail if duplicate)
+          try {
+            await storage.updateUnlistedCompany(companyId, {
+              cin: discoveredCIN,
+              lastSyncedAt: new Date(),
+            });
+            
+            auditTrail.push({
+              id: crypto.randomUUID(),
+              timestamp: new Date(),
+              action: 'fetch',
+              source: 'mca',
+              confidence: cinLookup.confidence,
+              reason: `Discovered and persisted CIN ${discoveredCIN} from ISIN via ${cinLookup.source}`,
+            });
+          } catch (saveError: any) {
+            // If CIN already exists for another company, log it but continue with enrichment
+            console.log(`[DataEnrichment] Could not save discovered CIN (may be duplicate): ${saveError.message}`);
+            auditTrail.push({
+              id: crypto.randomUUID(),
+              timestamp: new Date(),
+              action: 'fetch',
+              source: 'mca',
+              confidence: cinLookup.confidence,
+              reason: `Discovered CIN ${discoveredCIN} from ISIN but couldn't persist (${saveError.message}) - will still use for enrichment`,
+            });
+          }
         } else {
           // NSDL lookup failed, try MCA name search as fallback
           console.log(`[DataEnrichment] NSDL lookup failed, trying MCA name search for: ${company.companyName || company.name}`);
