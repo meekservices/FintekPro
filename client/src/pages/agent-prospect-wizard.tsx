@@ -858,41 +858,30 @@ export default function AgentProspectWizard() {
 
             <div className="space-y-3">
               <Label className="text-base font-medium">Investment Horizon</Label>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log('Short term clicked');
-                    setRiskProfile({ ...riskProfile, investmentHorizon: 'short_term' });
-                  }}
-                  className={`flex flex-col items-center p-3 border-2 rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'short_term' ? 'border-primary bg-primary/5' : 'border-gray-200'}`}
-                  data-testid="horizon-short-term"
-                >
-                  <Clock className="h-6 w-6 mb-1" />
-                  <span className="font-medium">Short Term</span>
-                  <span className="text-xs text-muted-foreground">&lt; 3 years</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'medium_term' })}
-                  className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'medium_term' ? 'border-primary bg-primary/5' : ''}`}
-                  data-testid="horizon-medium-term"
-                >
-                  <Clock className="h-6 w-6 mb-1" />
-                  <span className="font-medium">Medium Term</span>
-                  <span className="text-xs text-muted-foreground">3-7 years</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'long_term' })}
-                  className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'long_term' ? 'border-primary bg-primary/5' : ''}`}
-                  data-testid="horizon-long-term"
-                >
-                  <Clock className="h-6 w-6 mb-1" />
-                  <span className="font-medium">Long Term</span>
-                  <span className="text-xs text-muted-foreground">7+ years</span>
-                </button>
-              </div>
+              <RadioGroup 
+                value={riskProfile.investmentHorizon}
+                onValueChange={(v: any) => setRiskProfile({ ...riskProfile, investmentHorizon: v })}
+                className="grid grid-cols-3 gap-3"
+              >
+                {[
+                  { value: 'short_term', label: 'Short Term', desc: '< 3 years' },
+                  { value: 'medium_term', label: 'Medium Term', desc: '3-7 years' },
+                  { value: 'long_term', label: 'Long Term', desc: '7+ years' }
+                ].map(horizon => (
+                  <Label 
+                    key={horizon.value} 
+                    htmlFor={`horizon_${horizon.value}`} 
+                    className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === horizon.value ? 'border-primary bg-primary/5' : ''}`}
+                    data-testid={`horizon-${horizon.value.replace('_', '-')}`}
+                  >
+                    <RadioGroupItem value={horizon.value} id={`horizon_${horizon.value}`} />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{horizon.label}</span>
+                      <span className="text-xs text-muted-foreground">{horizon.desc}</span>
+                    </div>
+                  </Label>
+                ))}
+              </RadioGroup>
             </div>
 
             <div className="space-y-2">
