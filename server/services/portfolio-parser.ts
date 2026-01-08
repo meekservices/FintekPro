@@ -368,8 +368,8 @@ function calculateAllocation(holdings: ImportedHolding[]): ImportedAllocation {
 
 export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promise<ParseResult> {
   try {
-    const pdfParseModule = await import('pdf-parse');
-    const pdfParse = pdfParseModule.default || pdfParseModule;
+    // Use require for pdf-parse as dynamic import has issues
+    const pdfParse = require('pdf-parse');
     const pdfData = await pdfParse(buffer);
     const text = pdfData.text;
     
