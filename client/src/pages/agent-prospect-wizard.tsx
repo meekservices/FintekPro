@@ -861,8 +861,11 @@ export default function AgentProspectWizard() {
               <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
-                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'short_term' })}
-                  className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'short_term' ? 'border-primary bg-primary/5' : ''}`}
+                  onClick={() => {
+                    console.log('Short term clicked');
+                    setRiskProfile({ ...riskProfile, investmentHorizon: 'short_term' });
+                  }}
+                  className={`flex flex-col items-center p-3 border-2 rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'short_term' ? 'border-primary bg-primary/5' : 'border-gray-200'}`}
                   data-testid="horizon-short-term"
                 >
                   <Clock className="h-6 w-6 mb-1" />
