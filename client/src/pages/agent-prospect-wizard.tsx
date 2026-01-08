@@ -863,33 +863,36 @@ export default function AgentProspectWizard() {
                 onValueChange={(v: any) => setRiskProfile({ ...riskProfile, investmentHorizon: v })}
                 className="grid grid-cols-3 gap-3"
               >
-                <div 
-                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'short_term' })}
+                <Label 
+                  htmlFor="horizon_short" 
                   className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'short_term' ? 'border-primary bg-primary/5' : ''}`}
                   data-testid="horizon-short-term"
                 >
+                  <RadioGroupItem value="short_term" id="horizon_short" className="sr-only" />
                   <Clock className="h-6 w-6 mb-1" />
                   <span className="font-medium">Short Term</span>
                   <span className="text-xs text-muted-foreground">&lt; 3 years</span>
-                </div>
-                <div 
-                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'medium_term' })}
+                </Label>
+                <Label 
+                  htmlFor="horizon_medium" 
                   className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'medium_term' ? 'border-primary bg-primary/5' : ''}`}
                   data-testid="horizon-medium-term"
                 >
+                  <RadioGroupItem value="medium_term" id="horizon_medium" className="sr-only" />
                   <Clock className="h-6 w-6 mb-1" />
                   <span className="font-medium">Medium Term</span>
                   <span className="text-xs text-muted-foreground">3-7 years</span>
-                </div>
-                <div 
-                  onClick={() => setRiskProfile({ ...riskProfile, investmentHorizon: 'long_term' })}
+                </Label>
+                <Label 
+                  htmlFor="horizon_long" 
                   className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted ${riskProfile.investmentHorizon === 'long_term' ? 'border-primary bg-primary/5' : ''}`}
                   data-testid="horizon-long-term"
                 >
+                  <RadioGroupItem value="long_term" id="horizon_long" className="sr-only" />
                   <Clock className="h-6 w-6 mb-1" />
                   <span className="font-medium">Long Term</span>
                   <span className="text-xs text-muted-foreground">7+ years</span>
-                </div>
+                </Label>
               </RadioGroup>
             </div>
 
