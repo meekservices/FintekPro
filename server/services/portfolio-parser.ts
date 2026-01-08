@@ -208,56 +208,145 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   
-  // Debug: Log first 50 lines to understand structure
-  console.log('[Wealthy Parser] First 50 lines:', lines.slice(0, 50));
+  // Debug: Log first 60 lines to understand structure
+  console.log('[Wealthy Parser] First 60 lines:', lines.slice(0, 60));
   
   let currentFund: any = null;
   let fundIndex = 0;
-  let pendingValues: { invested: number; current: number; returns: number } | null = null;
+  
+  // State machine for value collection
+  let expectingInvestedValue = false;
+  let expectingCurrentValue = false;
+  let expectingReturns = false;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const nextLine = lines[i + 1] || '';
-    const nextNextLine = lines[i + 2] || '';
     
-    // Skip navigation and headers
-    if (line.includes('Sync Info') || line.includes('More') || 
+    // Skip navigation, headers, and page markers
+    if (line.includes('Sync Info') || line === 'More' || 
         line.includes('https://') || line.includes('Portfolio Overview') ||
-        line.includes('MUTUAL FUNDS') || line.includes('Holding Analysis') ||
-        line.match(/^\d+\/\d+\/\d+/) || line.length < 3) {
+        line.match(/^MUTUAL FUNDS \(\d+\)/) || line.includes('Holding Analysis') ||
+        line.match(/^\d+\/\d+\/\d+/) || line.length < 3 ||
+        line.match(/^-- \d+ of \d+ --$/) || line === 'Hello' ||
+        line.includes('Wealth Manager') || line.includes('Here is an analysis') ||
+        line.includes('fund portfolio') || line.includes('manager will walk')) {
       continue;
     }
     
-    // Detect fund name - contains "Fund" or "(G)" or "(IDCW)" etc.
-    // and doesn't contain rupee values or column headers
+    // Skip standalone category lines - they contain "| Growth |" or "| Dividend |" etc.
+    // These are NOT fund names even if they contain "Fund" in the subcategory
+    if (line.match(/^(Equity|Debt|Hybrid)\s*\|/i)) {
+      // Set category for current fund if available
+      if (currentFund) {
+        if (line.includes('Equity')) currentFund.category = 'equity';
+        else if (line.includes('Debt')) currentFund.category = 'debt';
+        else if (line.includes('Hybrid')) currentFund.category = 'hybrid';
+      }
+      continue;
+    }
+    
+    // Detect "Invested" label - next line will have the value
+    if (line === 'Invested') {
+      expectingInvestedValue = true;
+      continue;
+    }
+    
+    // Detect "Current" label - next line will have the value
+    if (line === 'Current') {
+      expectingCurrentValue = true;
+      continue;
+    }
+    
+    // Detect "Returns" label - next line will have the percentage
+    if (line === 'Returns') {
+      expectingReturns = true;
+      continue;
+    }
+    
+    // Capture invested value
+    if (expectingInvestedValue && currentFund) {
+      const valueMatch = line.match(/₹\s*([\d,]+)/);
+      if (valueMatch) {
+        currentFund.investedValue = parseFloat(valueMatch[1].replace(/,/g, ''));
+        console.log(`[Wealthy Parser] Invested value for ${currentFund.name}: ₹${currentFund.investedValue}`);
+      }
+      expectingInvestedValue = false;
+      continue;
+    }
+    
+    // Capture current value
+    if (expectingCurrentValue && currentFund) {
+      const valueMatch = line.match(/₹\s*([\d,]+)/);
+      if (valueMatch) {
+        currentFund.currentValue = parseFloat(valueMatch[1].replace(/,/g, ''));
+        console.log(`[Wealthy Parser] Current value for ${currentFund.name}: ₹${currentFund.currentValue}`);
+      }
+      expectingCurrentValue = false;
+      continue;
+    }
+    
+    // Capture returns percentage
+    if (expectingReturns && currentFund) {
+      const percentMatch = line.match(/([\-\d\.]+)\s*%/);
+      if (percentMatch) {
+        currentFund.unrealizedGainPercent = parseFloat(percentMatch[1]);
+        currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
+        console.log(`[Wealthy Parser] Returns for ${currentFund.name}: ${currentFund.unrealizedGainPercent}%`);
+      }
+      expectingReturns = false;
+      continue;
+    }
+    
+    // Detect fund name - must meet these criteria:
+    // 1. Contains "Fund" keyword (all MF names have this)
+    // 2. Does NOT start with category prefix (Equity|Debt|Hybrid)
+    // 3. Does NOT contain rupee symbol
+    // 4. Is not just a plan type like "(G)" alone
     const isFundName = (
-      (line.includes('Fund') || line.includes('(G)') || line.includes('(IDCW)') || 
-       line.match(/\(Growth\)|\(Dividend\)/i)) &&
+      line.includes('Fund') &&
+      !line.match(/^(Equity|Debt|Hybrid)\s*\|/i) &&
       !line.includes('₹') &&
-      !line.match(/^Invested|^Current|^Returns|^NAV/i) &&
-      line.length > 10 &&
-      line.length < 80
+      !line.match(/^(Invested|Current|Returns|NAV)/i) &&
+      line.length > 15 // Real fund names are longer
     );
     
     if (isFundName) {
-      // Save previous fund if valid
+      // Save previous fund if valid (has both name and currentValue)
       if (currentFund && currentFund.name && currentFund.currentValue > 0) {
         holdings.push(currentFund);
-        console.log(`[Wealthy Parser] Added fund: ${currentFund.name} = ₹${currentFund.currentValue}`);
+        console.log(`[Wealthy Parser] ✓ Added fund: ${currentFund.name} = ₹${currentFund.currentValue}`);
       }
       
-      // Check if fund name is split across lines (next line continues the name)
+      // Check if fund name is split across 2 lines
+      // Pattern: "ICICI Pru Dynamic Asset Allocation" on line 1, "Active FOF-Reg (G)" on line 2
       let fullName = line;
-      if (nextLine && !nextLine.includes('₹') && !nextLine.match(/^(Equity|Debt|Hybrid)/i) &&
-          !nextLine.includes('Invested') && nextLine.length < 30 &&
-          (nextLine.includes('(G)') || nextLine.includes('(IDCW)') || nextLine.includes('Direct') || nextLine.includes('Regular'))) {
+      const isPartialName = (
+        !line.includes('(G)') && 
+        !line.includes('(IDCW)') && 
+        !line.match(/\(Growth\)|\(Dividend\)/i) &&
+        line.endsWith('-') // Ends with hyphen = definitely continues
+      ) || (
+        // Next line looks like a continuation (contains plan type)
+        nextLine && 
+        !nextLine.match(/^(Equity|Debt|Hybrid)\s*\|/i) &&
+        !nextLine.includes('₹') &&
+        !nextLine.includes('Invested') &&
+        (nextLine.includes('(G)') || nextLine.includes('(IDCW)') || 
+         nextLine.match(/^(Direct|Regular|Active|Growth|Dividend)/i))
+      );
+      
+      if (isPartialName && nextLine) {
         fullName = line + ' ' + nextLine;
         i++; // Skip the next line since we've consumed it
       }
       
+      // Clean up the fund name
+      fullName = fullName.replace(/\s+/g, ' ').trim();
+      
       currentFund = {
         id: `wealthy-pdf-${Date.now()}-${fundIndex++}`,
-        name: fullName.replace(/\s+/g, ' ').trim(),
+        name: fullName,
         assetType: 'mutual_fund' as const,
         quantity: 1,
         currentValue: 0,
@@ -268,65 +357,12 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
       console.log(`[Wealthy Parser] Found fund #${fundIndex}: ${currentFund.name}`);
       continue;
     }
-    
-    // Look for value lines with multiple patterns
-    // Pattern 1: "₹ XX,XXX ₹ YY,YYY ZZ.ZZ%" (rupee symbol)
-    // Pattern 2: "Rs XX,XXX Rs YY,YYY ZZ.ZZ%" (Rs prefix)
-    // Pattern 3: Just numbers with comma separators for Indian format
-    
-    const valuePatterns = [
-      /₹\s*([\d,]+)\s*₹\s*([\d,]+)\s*([\-\d\.]+)\s*%/,          // ₹ format
-      /Rs\.?\s*([\d,]+)\s*Rs\.?\s*([\d,]+)\s*([\-\d\.]+)\s*%/i, // Rs format
-      /\b([\d,]{4,})\s+([\d,]{4,})\s+([\-\d\.]+)\s*%/,          // Plain numbers with %
-    ];
-    
-    for (const pattern of valuePatterns) {
-      const valueMatch = line.match(pattern);
-      if (valueMatch && currentFund && currentFund.currentValue === 0) {
-        const [, invested, current, returns] = valueMatch;
-        currentFund.investedValue = parseFloat(invested.replace(/,/g, ''));
-        currentFund.currentValue = parseFloat(current.replace(/,/g, ''));
-        currentFund.unrealizedGainPercent = parseFloat(returns);
-        currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
-        console.log(`[Wealthy Parser] Values for ${currentFund.name}: invested=${currentFund.investedValue}, current=${currentFund.currentValue}`);
-        break;
-      }
-    }
-    
-    // Pattern for values on separate lines (PDF text extraction quirk)
-    // Sometimes values appear as: "₹ 1,00,000" on one line, "₹ 1,10,000" on next, "10.00%" on next
-    if (currentFund && currentFund.currentValue === 0) {
-      const singleValueMatch = line.match(/^₹?\s*([\d,]{4,})$/);
-      const percentMatch = line.match(/^([\-\d\.]+)\s*%$/);
-      
-      if (singleValueMatch && !pendingValues) {
-        // This might be the invested value, look for current value on next line
-        const nextValueMatch = nextLine.match(/^₹?\s*([\d,]{4,})$/);
-        const nextPercentMatch = nextNextLine.match(/^([\-\d\.]+)\s*%$/);
-        
-        if (nextValueMatch && nextPercentMatch) {
-          currentFund.investedValue = parseFloat(singleValueMatch[1].replace(/,/g, ''));
-          currentFund.currentValue = parseFloat(nextValueMatch[1].replace(/,/g, ''));
-          currentFund.unrealizedGainPercent = parseFloat(nextPercentMatch[1]);
-          currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
-          console.log(`[Wealthy Parser] Multi-line values for ${currentFund.name}: invested=${currentFund.investedValue}, current=${currentFund.currentValue}`);
-          i += 2; // Skip the consumed lines
-        }
-      }
-    }
-    
-    // Detect category
-    if (currentFund && line.match(/^(Equity|Debt|Hybrid)\s*\|/i)) {
-      if (line.includes('Equity')) currentFund.category = 'equity';
-      else if (line.includes('Debt')) currentFund.category = 'debt';
-      else if (line.includes('Hybrid')) currentFund.category = 'hybrid';
-    }
   }
   
   // Don't forget the last fund
   if (currentFund && currentFund.name && currentFund.currentValue > 0) {
     holdings.push(currentFund);
-    console.log(`[Wealthy Parser] Added last fund: ${currentFund.name} = ₹${currentFund.currentValue}`);
+    console.log(`[Wealthy Parser] ✓ Added last fund: ${currentFund.name} = ₹${currentFund.currentValue}`);
   }
   
   console.log(`[Wealthy Parser] Total holdings found: ${holdings.length}`);
