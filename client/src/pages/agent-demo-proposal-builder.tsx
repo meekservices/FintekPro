@@ -298,6 +298,25 @@ export default function AgentDemoProposalBuilder() {
   const [selectedProposal, setSelectedProposal] = useState<ProspectProposal | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  
+  // Portfolio comparison state
+  interface PortfolioHolding {
+    name: string;
+    assetType: string;
+    currentValue: number;
+    units?: number;
+    category?: string;
+  }
+  interface ProspectPortfolio {
+    holdings: PortfolioHolding[];
+    allocation: { equity: number; debt: number; gold: number; cash: number; others: number };
+    totalValue: number;
+    source: string;
+    brokerDetected?: string;
+    importedAt?: string;
+  }
+  const [prospectPortfolio, setProspectPortfolio] = useState<ProspectPortfolio | null>(null);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -443,6 +462,36 @@ export default function AgentDemoProposalBuilder() {
           clientName: selectedClient.fullName,
         },
       }));
+    }
+  }, [selectedClient]);
+
+  // Fetch portfolio when a prospect is selected
+  const fetchProspectPortfolio = async (prospectId: string) => {
+    setPortfolioLoading(true);
+    try {
+      const res = await fetch(`/api/agent/prospects/${prospectId}/portfolio`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.portfolio) {
+          setProspectPortfolio(data.portfolio);
+        } else {
+          setProspectPortfolio(null);
+        }
+      } else {
+        setProspectPortfolio(null);
+      }
+    } catch (err) {
+      setProspectPortfolio(null);
+    } finally {
+      setPortfolioLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedClient?.type === 'prospect' && selectedClient?.id) {
+      fetchProspectPortfolio(selectedClient.id.toString());
+    } else {
+      setProspectPortfolio(null);
     }
   }, [selectedClient]);
 
@@ -1035,6 +1084,66 @@ export default function AgentDemoProposalBuilder() {
                             })}
                           </div>
                         </Card>
+
+                        {/* Portfolio Comparison Section */}
+                        {selectedClient?.type === 'prospect' && (
+                          <Card className="p-4 mt-4">
+                            <h3 className="font-semibold mb-3 flex items-center gap-2">
+                              <BarChart3 className="h-4 w-4" />
+                              Current vs Recommended
+                            </h3>
+                            {portfolioLoading ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                <span className="ml-2 text-sm text-muted-foreground">Loading portfolio...</span>
+                              </div>
+                            ) : prospectPortfolio ? (
+                              <div className="space-y-3">
+                                <div className="text-xs text-muted-foreground mb-2">
+                                  Source: {prospectPortfolio.brokerDetected || prospectPortfolio.source}
+                                  {prospectPortfolio.totalValue > 0 && ` • ${formatCurrency(prospectPortfolio.totalValue)}`}
+                                </div>
+                                <div className="space-y-2">
+                                  {Object.entries({
+                                    Equity: { current: prospectPortfolio.allocation?.equity || 0, recommended: config.assetAllocation.equity, color: 'bg-blue-500' },
+                                    Debt: { current: prospectPortfolio.allocation?.debt || 0, recommended: config.assetAllocation.debt, color: 'bg-green-500' },
+                                    Gold: { current: prospectPortfolio.allocation?.gold || 0, recommended: config.assetAllocation.gold, color: 'bg-yellow-500' },
+                                    Cash: { current: prospectPortfolio.allocation?.cash || 0, recommended: config.assetAllocation.cash, color: 'bg-gray-500' },
+                                  }).map(([name, { current, recommended, color }]) => {
+                                    const diff = recommended - current;
+                                    return (
+                                      <div key={name} className="text-sm">
+                                        <div className="flex justify-between mb-1">
+                                          <span className="flex items-center gap-1">
+                                            <div className={`w-2 h-2 rounded-full ${color}`} />
+                                            {name}
+                                          </span>
+                                          <span className={diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : ''}>
+                                            {current}% → {recommended}%
+                                            {diff !== 0 && <span className="ml-1">({diff > 0 ? '+' : ''}{diff}%)</span>}
+                                          </span>
+                                        </div>
+                                        <div className="flex gap-1 h-2">
+                                          <div className={`${color} opacity-40 rounded-l`} style={{ width: `${current}%` }} title={`Current: ${current}%`} />
+                                          <div className={`${color} rounded-r`} style={{ width: `${recommended}%` }} title={`Recommended: ${recommended}%`} />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <div className="pt-2 border-t text-xs text-muted-foreground">
+                                  <span className="opacity-50">■</span> Current &nbsp;
+                                  <span>■</span> Recommended
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-3 text-sm text-muted-foreground">
+                                <p>No portfolio imported for this prospect.</p>
+                                <p className="text-xs mt-1">Import via Prospect Wizard to see comparison.</p>
+                              </div>
+                            )}
+                          </Card>
+                        )}
                       </div>
                     </div>
                   </div>

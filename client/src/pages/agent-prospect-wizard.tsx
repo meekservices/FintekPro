@@ -21,7 +21,8 @@ import {
   User, ArrowRight, ArrowLeft, Check, Target, PieChart, Scale, 
   TrendingUp, TrendingDown, Sparkles, Share2, Mail, MessageSquare, 
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
-  IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download
+  IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
+  Upload, Link, FileText, AlertCircle
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -173,6 +174,17 @@ export default function AgentProspectWizard() {
 
   const [freshInvestmentAmount, setFreshInvestmentAmount] = useState(0);
   const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
+  
+  // Portfolio Import State
+  const [importMode, setImportMode] = useState<'manual' | 'upload' | 'url'>('manual');
+  const [importUrl, setImportUrl] = useState('');
+  const [importResult, setImportResult] = useState<{
+    success: boolean;
+    holdings: any[];
+    brokerDetected: string | null;
+    confidenceScore: number;
+    errors: string[];
+  } | null>(null);
   const [rebalancing, setRebalancing] = useState<RebalanceRecommendation[]>([]);
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
   const [proposal, setProposal] = useState<CombinedProposal | null>(null);
@@ -427,6 +439,81 @@ export default function AgentProspectWizard() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create prospect.", variant: "destructive" });
+    }
+  });
+
+  // Portfolio upload mutation
+  const uploadPortfolioMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('portfolio', file);
+      const res = await fetch(`/api/agent/prospects/${prospectId}/portfolio/upload`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setImportResult(data);
+        if (data.holdings && data.holdings.length > 0) {
+          const mappedHoldings: PortfolioHolding[] = data.holdings.map((h: any) => ({
+            productType: h.assetType || 'mutual_fund',
+            productName: h.name,
+            quantity: h.units || 1,
+            currentValue: h.currentValue,
+            isin: h.isin,
+            category: h.category
+          }));
+          setHoldings(prev => [...prev, ...mappedHoldings]);
+          toast({ 
+            title: "Portfolio Imported", 
+            description: `Detected ${data.brokerDetected || 'portfolio'}: ${data.holdings.length} holdings imported with ${data.confidenceScore}% confidence.` 
+          });
+        }
+      } else {
+        toast({ title: "Import Failed", description: data.error || "Could not parse portfolio file.", variant: "destructive" });
+      }
+    },
+    onError: () => {
+      toast({ title: "Upload Error", description: "Failed to upload portfolio file.", variant: "destructive" });
+    }
+  });
+
+  // Portfolio URL import mutation
+  const importUrlMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const res = await apiRequest(`/api/agent/prospects/${prospectId}/portfolio/import-url`, {
+        method: 'POST',
+        body: JSON.stringify({ portfolioUrl: url })
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setImportResult(data);
+        if (data.holdings && data.holdings.length > 0) {
+          const mappedHoldings: PortfolioHolding[] = data.holdings.map((h: any) => ({
+            productType: h.assetType || 'mutual_fund',
+            productName: h.name,
+            quantity: h.units || 1,
+            currentValue: h.currentValue,
+            isin: h.isin,
+            category: h.category
+          }));
+          setHoldings(prev => [...prev, ...mappedHoldings]);
+          toast({ 
+            title: "Portfolio Imported", 
+            description: `${data.holdings.length} holdings imported from ${data.brokerDetected || 'URL'}.` 
+          });
+        }
+      } else {
+        toast({ title: "Import Failed", description: data.error || "Could not parse portfolio from URL.", variant: "destructive" });
+      }
+    },
+    onError: () => {
+      toast({ title: "URL Import Error", description: "Failed to import from URL.", variant: "destructive" });
     }
   });
 
@@ -826,9 +913,132 @@ export default function AgentProspectWizard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><PieChart className="h-5 w-5" /> Current Portfolio</CardTitle>
-            <CardDescription>Enter existing investments for analysis</CardDescription>
+            <CardDescription>Import or manually enter existing investments for analysis</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Import Mode Selection */}
+            <div className="flex gap-2 flex-wrap">
+              <Button 
+                variant={importMode === 'manual' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setImportMode('manual')}
+                data-testid="mode-manual-btn"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Manual Entry
+              </Button>
+              <Button 
+                variant={importMode === 'upload' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setImportMode('upload')}
+                data-testid="mode-upload-btn"
+              >
+                <Upload className="h-4 w-4 mr-1" /> Upload PDF
+              </Button>
+              <Button 
+                variant={importMode === 'url' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setImportMode('url')}
+                data-testid="mode-url-btn"
+              >
+                <Link className="h-4 w-4 mr-1" /> Import from URL
+              </Button>
+            </div>
+
+            {/* Upload PDF Section */}
+            {importMode === 'upload' && (
+              <div className="border-2 border-dashed rounded-lg p-6 text-center bg-muted/20">
+                <FileText className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground mb-3">
+                  Upload a portfolio statement PDF from Zerodha, Groww, ICICI Direct, HDFC Securities, Kotak, or other brokers
+                </p>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  id="portfolio-upload"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && prospectId) {
+                      uploadPortfolioMutation.mutate(file);
+                    } else if (!prospectId) {
+                      toast({ title: "Error", description: "Please create prospect first.", variant: "destructive" });
+                    }
+                  }}
+                  data-testid="portfolio-file-input"
+                />
+                <label htmlFor="portfolio-upload">
+                  <Button 
+                    variant="secondary" 
+                    disabled={uploadPortfolioMutation.isPending || !prospectId}
+                    asChild
+                  >
+                    <span>
+                      {uploadPortfolioMutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing...</>
+                      ) : (
+                        <><Upload className="h-4 w-4 mr-2" /> Choose PDF File</>
+                      )}
+                    </span>
+                  </Button>
+                </label>
+                {importResult && (
+                  <div className={`mt-4 p-3 rounded-lg text-sm ${importResult.success ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'}`}>
+                    {importResult.success ? (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Detected {importResult.brokerDetected} • {importResult.holdings.length} holdings • {importResult.confidenceScore}% confidence
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        {importResult.errors?.[0] || 'Failed to parse portfolio'}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* URL Import Section */}
+            {importMode === 'url' && (
+              <div className="border rounded-lg p-4 bg-muted/20">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Import portfolio from Wealthy.in, MF Central, or other supported platforms
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://wealthy.in/share/portfolio/..."
+                    value={importUrl}
+                    onChange={(e) => setImportUrl(e.target.value)}
+                    className="flex-1"
+                    data-testid="portfolio-url-input"
+                  />
+                  <Button
+                    onClick={() => {
+                      if (importUrl && prospectId) {
+                        importUrlMutation.mutate(importUrl);
+                      } else if (!prospectId) {
+                        toast({ title: "Error", description: "Please create prospect first.", variant: "destructive" });
+                      }
+                    }}
+                    disabled={importUrlMutation.isPending || !importUrl || !prospectId}
+                    data-testid="import-url-btn"
+                  >
+                    {importUrlMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importing...</>
+                    ) : (
+                      <><Download className="h-4 w-4 mr-2" /> Import</>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Supported: Wealthy.in public share links, MF Central export URLs
+                </p>
+              </div>
+            )}
+
+            {/* Manual Entry Section */}
+            {importMode === 'manual' && (
             <div className="grid md:grid-cols-5 gap-3 items-end p-4 bg-muted/30 rounded-lg">
               <div className="space-y-2">
                 <Label>Product Type</Label>
@@ -866,7 +1076,9 @@ export default function AgentProspectWizard() {
                 <Plus className="h-4 w-4 mr-1" /> Add
               </Button>
             </div>
+            )}
 
+            {/* Holdings Table - Always visible */}
             {holdings.length > 0 ? (
               <Table>
                 <TableHeader>

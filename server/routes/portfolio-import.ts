@@ -27,7 +27,7 @@ const upload = multer({
 router.post(
   '/prospects/:prospectId/portfolio/upload',
   isAuthenticated,
-  upload.single('file'),
+  upload.single('portfolio'),
   async (req: Request, res: Response) => {
     try {
       const { prospectId } = req.params;
@@ -96,6 +96,7 @@ router.post(
           ? `Successfully parsed ${parseResult.holdings.length} holdings from ${parseResult.brokerDetected || 'portfolio'}`
           : 'Portfolio uploaded but parsing needs review',
         portfolio: snapshot,
+        holdings: snapshot.holdings, // For frontend compatibility
         holdingsCount: parseResult.holdings.length,
         brokerDetected: parseResult.brokerDetected,
         confidenceScore: parseResult.confidenceScore,
@@ -115,25 +116,26 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { prospectId } = req.params;
-      const { url } = req.body;
+      const { url, portfolioUrl } = req.body;
+      const importUrl = url || portfolioUrl; // Accept both for compatibility
       const agentId = req.user?.id;
       
       if (!agentId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
       
-      if (!url) {
+      if (!importUrl) {
         return res.status(400).json({ error: 'URL is required' });
       }
       
       try {
-        new URL(url);
+        new URL(importUrl);
       } catch {
         return res.status(400).json({ error: 'Invalid URL format' });
       }
       
       const blockedDomains = ['localhost', '127.0.0.1', '0.0.0.0', '::1'];
-      const urlObj = new URL(url);
+      const urlObj = new URL(importUrl);
       if (blockedDomains.some(d => urlObj.hostname.includes(d))) {
         return res.status(400).json({ error: 'Invalid URL - local addresses not allowed' });
       }
@@ -151,7 +153,7 @@ router.post(
         return res.status(404).json({ error: 'Prospect not found' });
       }
       
-      const response = await fetch(url, {
+      const response = await fetch(importUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         },
@@ -163,13 +165,13 @@ router.post(
       }
       
       const html = await response.text();
-      const parseResult = await parseURLPortfolio(html, url);
+      const parseResult = await parseURLPortfolio(html, importUrl);
       
       const snapshot = createPortfolioSnapshot(
         parseResult.holdings,
         'url_import',
         {
-          sourceUrl: url,
+          sourceUrl: importUrl,
           sourceName: parseResult.brokerDetected || urlObj.hostname,
           brokerDetected: parseResult.brokerDetected || undefined,
           confidenceScore: parseResult.confidenceScore,
@@ -206,6 +208,7 @@ router.post(
           ? `Successfully imported ${parseResult.holdings.length} holdings from ${parseResult.brokerDetected || urlObj.hostname}`
           : 'URL imported but parsing needs review',
         portfolio: snapshot,
+        holdings: snapshot.holdings, // For frontend compatibility
         holdingsCount: parseResult.holdings.length,
         brokerDetected: parseResult.brokerDetected,
         confidenceScore: parseResult.confidenceScore,
@@ -249,15 +252,56 @@ router.get(
         return res.status(404).json({ error: 'Prospect not found' });
       }
       
-      const hasUploadedPortfolio = prospect.uploadedPortfolio && 
-        (prospect.uploadedPortfolio as any).parsedHoldings?.length > 0;
-      const hasFetchedPortfolio = prospect.fetchedPortfolio && 
-        (prospect.fetchedPortfolio as any).holdings?.length > 0;
+      const uploaded = prospect.uploadedPortfolio as any;
+      const fetched = prospect.fetchedPortfolio as any;
+      
+      const hasUploadedPortfolio = uploaded?.parsedHoldings?.length > 0;
+      const hasFetchedPortfolio = fetched?.holdings?.length > 0;
+      
+      // Merge portfolios into a unified format for the frontend
+      let portfolio = null;
+      if (hasUploadedPortfolio || hasFetchedPortfolio) {
+        const holdings = hasUploadedPortfolio 
+          ? uploaded.parsedHoldings.map((h: any) => ({
+              name: h.name,
+              assetType: h.type || 'equity',
+              currentValue: h.value,
+              units: h.quantity
+            }))
+          : fetched?.holdings?.map((h: any) => ({
+              name: h.name,
+              assetType: h.type || 'equity',
+              currentValue: h.currentValue,
+              units: h.quantity,
+              isin: h.isin,
+              symbol: h.symbol
+            })) || [];
+        
+        const allocation = hasUploadedPortfolio 
+          ? uploaded.allocation 
+          : fetched?.allocation || { equity: 0, debt: 0, gold: 0, cash: 0, others: 0 };
+        
+        const totalValue = hasUploadedPortfolio 
+          ? (uploaded.totalValue || 0) 
+          : (fetched?.totalValue || 0);
+        
+        portfolio = {
+          holdings,
+          allocation,
+          totalValue,
+          source: hasUploadedPortfolio ? 'pdf_upload' : 'url_import',
+          brokerDetected: hasUploadedPortfolio ? uploaded.brokerDetected : fetched?.source,
+          importedAt: hasUploadedPortfolio ? uploaded.uploadedAt : fetched?.fetchedAt,
+          confidenceScore: hasUploadedPortfolio ? uploaded.confidenceScore : fetched?.confidenceScore
+        };
+      }
       
       res.json({
+        success: true,
         prospectId: prospect.id,
         prospectName: prospect.name,
         hasPortfolio: hasUploadedPortfolio || hasFetchedPortfolio,
+        portfolio,
         uploadedPortfolio: prospect.uploadedPortfolio || null,
         fetchedPortfolio: prospect.fetchedPortfolio || null
       });
