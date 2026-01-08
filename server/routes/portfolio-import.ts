@@ -9,6 +9,40 @@ import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot } from '.
 
 const router = Router();
 
+// Helper function to normalize asset type strings
+function normalizeAssetType(type: string | undefined): string {
+  if (!type) return 'equity';
+  const normalized = type.toLowerCase().trim();
+  if (normalized.includes('equity') || normalized.includes('stock')) return 'equity';
+  if (normalized.includes('debt') || normalized.includes('bond') || normalized.includes('fixed')) return 'debt';
+  if (normalized.includes('gold') || normalized.includes('commodity')) return 'gold';
+  if (normalized.includes('cash') || normalized.includes('liquid') || normalized.includes('money')) return 'cash';
+  if (normalized.includes('mutual') || normalized.includes('fund')) return 'mutual_fund';
+  return 'others';
+}
+
+// Helper function to derive allocation from holdings
+function deriveAllocation(holdings: any[]): Record<string, number> {
+  const allocation: Record<string, number> = { equity: 0, debt: 0, gold: 0, cash: 0, others: 0 };
+  const total = holdings.reduce((sum: number, h: any) => sum + (h.currentValue || 0), 0);
+  
+  if (total === 0) return allocation;
+  
+  holdings.forEach((h: any) => {
+    const value = h.currentValue || 0;
+    const type = h.assetType || 'others';
+    const key = ['equity', 'debt', 'gold', 'cash'].includes(type) ? type : 'others';
+    allocation[key] = (allocation[key] || 0) + (value / total) * 100;
+  });
+  
+  // Round to 2 decimal places
+  Object.keys(allocation).forEach(key => {
+    allocation[key] = Math.round(allocation[key] * 100) / 100;
+  });
+  
+  return allocation;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -261,29 +295,48 @@ router.get(
       // Merge portfolios into a unified format for the frontend
       let portfolio = null;
       if (hasUploadedPortfolio || hasFetchedPortfolio) {
+        // Normalize holdings from either source with complete field set
         const holdings = hasUploadedPortfolio 
-          ? uploaded.parsedHoldings.map((h: any) => ({
-              name: h.name,
-              assetType: h.type || 'equity',
-              currentValue: h.value,
-              units: h.quantity
+          ? uploaded.parsedHoldings.map((h: any, idx: number) => ({
+              id: `h-${idx}`,
+              name: h.name || 'Unknown',
+              symbol: h.symbol || '',
+              isin: h.isin || '',
+              assetType: normalizeAssetType(h.type),
+              currentValue: parseFloat(h.value) || 0,
+              units: parseFloat(h.quantity) || 0,
+              avgPrice: h.avgPrice || null,
+              returns: h.returns || null
             }))
-          : fetched?.holdings?.map((h: any) => ({
-              name: h.name,
-              assetType: h.type || 'equity',
-              currentValue: h.currentValue,
-              units: h.quantity,
-              isin: h.isin,
-              symbol: h.symbol
+          : fetched?.holdings?.map((h: any, idx: number) => ({
+              id: `h-${idx}`,
+              name: h.name || 'Unknown',
+              symbol: h.symbol || '',
+              isin: h.isin || '',
+              assetType: normalizeAssetType(h.type),
+              currentValue: parseFloat(h.currentValue) || 0,
+              units: parseFloat(h.quantity) || 0,
+              avgPrice: h.avgPrice || null,
+              returns: h.returns || null
             })) || [];
         
-        const allocation = hasUploadedPortfolio 
+        // Get allocation or derive from holdings
+        let allocation = hasUploadedPortfolio 
           ? uploaded.allocation 
-          : fetched?.allocation || { equity: 0, debt: 0, gold: 0, cash: 0, others: 0 };
+          : fetched?.allocation;
         
-        const totalValue = hasUploadedPortfolio 
+        if (!allocation || Object.keys(allocation).length === 0) {
+          allocation = deriveAllocation(holdings);
+        }
+        
+        // Calculate totalValue from holdings if not set
+        let totalValue = hasUploadedPortfolio 
           ? (uploaded.totalValue || 0) 
           : (fetched?.totalValue || 0);
+        
+        if (!totalValue && holdings.length > 0) {
+          totalValue = holdings.reduce((sum: number, h: any) => sum + (h.currentValue || 0), 0);
+        }
         
         portfolio = {
           holdings,
@@ -292,7 +345,9 @@ router.get(
           source: hasUploadedPortfolio ? 'pdf_upload' : 'url_import',
           brokerDetected: hasUploadedPortfolio ? uploaded.brokerDetected : fetched?.source,
           importedAt: hasUploadedPortfolio ? uploaded.uploadedAt : fetched?.fetchedAt,
-          confidenceScore: hasUploadedPortfolio ? uploaded.confidenceScore : fetched?.confidenceScore
+          confidenceScore: hasUploadedPortfolio ? uploaded.confidenceScore : fetched?.confidenceScore,
+          parsingStatus: hasUploadedPortfolio ? uploaded.parsingStatus : fetched?.parsingStatus,
+          fileName: hasUploadedPortfolio ? uploaded.fileName : undefined
         };
       }
       
