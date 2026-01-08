@@ -1379,6 +1379,13 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/agent-prospect-wizard">
+        {() => (
+          <AgentLayout>
+            <AgentProspectWizard />
+          </AgentLayout>
+        )}
+      </Route>
       <Route path="/agent/treasury">
         {() => (
           <AgentLayout>
