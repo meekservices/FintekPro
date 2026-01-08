@@ -11,34 +11,34 @@ import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 
-// Real mutual fund recommendations based on risk profile
+// Real mutual fund recommendations based on risk profile - Using Regular plans for agent advisory
 const REAL_FUND_RECOMMENDATIONS = {
   conservative: [
-    { name: 'HDFC Balanced Advantage Fund - Direct (G)', amc: 'HDFC', category: 'Hybrid', returns1Y: '12.5', returns3Y: '14.2', returns5Y: '13.8', risk: 'Moderate' },
-    { name: 'ICICI Pru Corporate Bond Fund - Direct (G)', amc: 'ICICI Prudential', category: 'Debt', returns1Y: '7.8', returns3Y: '8.2', returns5Y: '8.5', risk: 'Low' },
-    { name: 'SBI Magnum Medium Duration Fund - Direct (G)', amc: 'SBI', category: 'Debt', returns1Y: '7.2', returns3Y: '7.8', returns5Y: '8.1', risk: 'Low' },
-    { name: 'Axis Banking & PSU Debt Fund - Direct (G)', amc: 'Axis', category: 'Debt', returns1Y: '7.5', returns3Y: '7.9', returns5Y: '8.0', risk: 'Low' },
+    { name: 'HDFC Balanced Advantage Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid', returns1Y: '11.8', returns3Y: '13.5', returns5Y: '13.1', risk: 'Moderate' },
+    { name: 'ICICI Pru Corporate Bond Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Debt', returns1Y: '7.2', returns3Y: '7.6', returns5Y: '7.9', risk: 'Low' },
+    { name: 'SBI Magnum Medium Duration Fund - Regular (G)', amc: 'SBI', category: 'Debt', returns1Y: '6.8', returns3Y: '7.2', returns5Y: '7.5', risk: 'Low' },
+    { name: 'Axis Banking & PSU Debt Fund - Regular (G)', amc: 'Axis', category: 'Debt', returns1Y: '7.0', returns3Y: '7.4', returns5Y: '7.5', risk: 'Low' },
   ],
   moderate: [
-    { name: 'Parag Parikh Flexi Cap Fund - Direct (G)', amc: 'PPFAS', category: 'Equity - Flexi Cap', returns1Y: '18.5', returns3Y: '20.2', returns5Y: '19.8', risk: 'Moderately High' },
-    { name: 'Mirae Asset Large Cap Fund - Direct (G)', amc: 'Mirae Asset', category: 'Equity - Large Cap', returns1Y: '15.2', returns3Y: '16.8', returns5Y: '16.2', risk: 'Moderate' },
-    { name: 'Kotak Emerging Equity Fund - Direct (G)', amc: 'Kotak', category: 'Equity - Mid Cap', returns1Y: '22.5', returns3Y: '24.1', returns5Y: '21.8', risk: 'High' },
-    { name: 'HDFC Hybrid Equity Fund - Direct (G)', amc: 'HDFC', category: 'Hybrid', returns1Y: '14.8', returns3Y: '15.5', returns5Y: '14.2', risk: 'Moderate' },
-    { name: 'SBI Corporate Bond Fund - Direct (G)', amc: 'SBI', category: 'Debt', returns1Y: '7.6', returns3Y: '8.0', returns5Y: '8.2', risk: 'Low' },
+    { name: 'Parag Parikh Flexi Cap Fund - Regular (G)', amc: 'PPFAS', category: 'Equity - Flexi Cap', returns1Y: '17.2', returns3Y: '18.8', returns5Y: '18.5', risk: 'Moderately High' },
+    { name: 'Mirae Asset Large Cap Fund - Regular (G)', amc: 'Mirae Asset', category: 'Equity - Large Cap', returns1Y: '14.5', returns3Y: '15.8', returns5Y: '15.2', risk: 'Moderate' },
+    { name: 'Kotak Emerging Equity Fund - Regular (G)', amc: 'Kotak', category: 'Equity - Mid Cap', returns1Y: '21.2', returns3Y: '22.8', returns5Y: '20.5', risk: 'High' },
+    { name: 'HDFC Hybrid Equity Fund - Regular (G)', amc: 'HDFC', category: 'Hybrid', returns1Y: '14.0', returns3Y: '14.8', returns5Y: '13.5', risk: 'Moderate' },
+    { name: 'SBI Corporate Bond Fund - Regular (G)', amc: 'SBI', category: 'Debt', returns1Y: '7.1', returns3Y: '7.5', returns5Y: '7.8', risk: 'Low' },
   ],
   aggressive: [
-    { name: 'Quant Small Cap Fund - Direct (G)', amc: 'Quant', category: 'Equity - Small Cap', returns1Y: '28.5', returns3Y: '35.2', returns5Y: '32.1', risk: 'Very High' },
-    { name: 'Nippon India Small Cap Fund - Direct (G)', amc: 'Nippon India', category: 'Equity - Small Cap', returns1Y: '26.8', returns3Y: '32.5', returns5Y: '28.9', risk: 'Very High' },
-    { name: 'Axis Midcap Fund - Direct (G)', amc: 'Axis', category: 'Equity - Mid Cap', returns1Y: '20.5', returns3Y: '22.8', returns5Y: '21.5', risk: 'High' },
-    { name: 'HDFC Flexi Cap Fund - Direct (G)', amc: 'HDFC', category: 'Equity - Flexi Cap', returns1Y: '16.8', returns3Y: '18.5', returns5Y: '17.2', risk: 'Moderately High' },
-    { name: 'UTI Nifty 50 Index Fund - Direct (G)', amc: 'UTI', category: 'Index Fund', returns1Y: '14.2', returns3Y: '15.8', returns5Y: '14.5', risk: 'Moderate' },
+    { name: 'Quant Small Cap Fund - Regular (G)', amc: 'Quant', category: 'Equity - Small Cap', returns1Y: '27.2', returns3Y: '33.5', returns5Y: '30.8', risk: 'Very High' },
+    { name: 'Nippon India Small Cap Fund - Regular (G)', amc: 'Nippon India', category: 'Equity - Small Cap', returns1Y: '25.5', returns3Y: '31.2', returns5Y: '27.5', risk: 'Very High' },
+    { name: 'Axis Midcap Fund - Regular (G)', amc: 'Axis', category: 'Equity - Mid Cap', returns1Y: '19.2', returns3Y: '21.5', returns5Y: '20.2', risk: 'High' },
+    { name: 'HDFC Flexi Cap Fund - Regular (G)', amc: 'HDFC', category: 'Equity - Flexi Cap', returns1Y: '15.8', returns3Y: '17.2', returns5Y: '16.1', risk: 'Moderately High' },
+    { name: 'UTI Nifty 50 Index Fund - Regular (G)', amc: 'UTI', category: 'Index Fund', returns1Y: '13.5', returns3Y: '14.8', returns5Y: '13.8', risk: 'Moderate' },
   ],
   very_aggressive: [
-    { name: 'Quant Active Fund - Direct (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: '32.5', returns3Y: '38.2', returns5Y: '35.8', risk: 'Very High' },
-    { name: 'Tata Small Cap Fund - Direct (G)', amc: 'Tata', category: 'Equity - Small Cap', returns1Y: '30.2', returns3Y: '36.5', returns5Y: '33.2', risk: 'Very High' },
-    { name: 'SBI Small Cap Fund - Direct (G)', amc: 'SBI', category: 'Equity - Small Cap', returns1Y: '28.8', returns3Y: '34.2', returns5Y: '30.5', risk: 'Very High' },
-    { name: 'Motilal Oswal Midcap Fund - Direct (G)', amc: 'Motilal Oswal', category: 'Equity - Mid Cap', returns1Y: '24.5', returns3Y: '28.8', returns5Y: '25.2', risk: 'High' },
-    { name: 'ICICI Pru Technology Fund - Direct (G)', amc: 'ICICI Prudential', category: 'Sectoral - Technology', returns1Y: '22.5', returns3Y: '26.2', returns5Y: '24.8', risk: 'Very High' },
+    { name: 'Quant Active Fund - Regular (G)', amc: 'Quant', category: 'Equity - Multi Cap', returns1Y: '31.2', returns3Y: '36.5', returns5Y: '34.2', risk: 'Very High' },
+    { name: 'Tata Small Cap Fund - Regular (G)', amc: 'Tata', category: 'Equity - Small Cap', returns1Y: '28.8', returns3Y: '34.8', returns5Y: '31.5', risk: 'Very High' },
+    { name: 'SBI Small Cap Fund - Regular (G)', amc: 'SBI', category: 'Equity - Small Cap', returns1Y: '27.5', returns3Y: '32.8', returns5Y: '29.2', risk: 'Very High' },
+    { name: 'Motilal Oswal Midcap Fund - Regular (G)', amc: 'Motilal Oswal', category: 'Equity - Mid Cap', returns1Y: '23.2', returns3Y: '27.5', returns5Y: '24.0', risk: 'High' },
+    { name: 'ICICI Pru Technology Fund - Regular (G)', amc: 'ICICI Prudential', category: 'Sectoral - Technology', returns1Y: '21.2', returns3Y: '24.8', returns5Y: '23.5', risk: 'Very High' },
   ]
 };
 
