@@ -211,6 +211,16 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
   // Debug: Log first 60 lines to understand structure
   console.log('[Wealthy Parser] First 60 lines:', lines.slice(0, 60));
   
+  // Debug: Print ALL lines to find missing fund patterns
+  console.log('[Wealthy Parser] ===== ALL LINES =====');
+  lines.forEach((line, idx) => {
+    if (line.includes('Nippon') || line.includes('Services') || 
+        line.includes('Bharat') || line.includes('Consumption')) {
+      console.log(`[LINE ${idx}]: "${line}" | next: "${lines[idx+1] || 'END'}"`);
+    }
+  });
+  console.log('[Wealthy Parser] ===== END ALL LINES =====');
+  
   let currentFund: any = null;
   let fundIndex = 0;
   
