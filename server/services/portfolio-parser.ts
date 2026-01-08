@@ -354,117 +354,111 @@ function parseWealthyHTML($: cheerio.CheerioAPI): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const bodyText = $('body').text();
   
-  // Wealthy.in has a specific pattern for each fund:
-  // Fund Name followed by category, then Invested/Current/Returns values
+  // Use a robust line-by-line approach that handles:
+  // - Fund names starting with numbers (e.g., "360 ONE Focused Fund")
+  // - Special characters like &, ', etc.
+  // - Alphanumeric folio numbers
   
-  // Pattern to match fund blocks with their details
-  // Look for fund names followed by category and financial values
-  const fundPattern = /([A-Z][A-Za-z\s\-\(\)]+(?:Fund|Growth|IDCW|Plan|Direct|Regular)[^\n]*)\s*(?:Equity|Debt|Hybrid)\s*\|\s*(?:Growth|Dividend|IDCW)\s*\|[^\n]*\s*Invested\s*₹\s*([\d,]+)\s*Current\s*₹\s*([\d,]+)\s*Returns\s*([\-\d\.]+)%\s*(?:\*\*Folio:\*\*\s*(\d+[\/\d]*)|Folio[:\s]*(\d+[\/\d]*))?/gi;
+  const lines = bodyText.split('\n').map(l => l.trim()).filter(l => l);
+  let currentFund: any = null;
+  let fundIndex = 0;
   
-  let match;
-  let index = 0;
+  // Pattern to detect fund names - allows numbers, letters, special chars
+  // Must contain "Fund" or end with "(G)" or "(IDCW)" or similar
+  const fundNamePattern = /^[\d\s]*[A-Za-z0-9][\w\s\-\(\)&'\.]+(?:Fund|Scheme|\(G\)|\(IDCW\)|\(Growth\)|\(Dividend\))[\s\-\(\)A-Za-z0-9]*$/i;
   
-  while ((match = fundPattern.exec(bodyText)) !== null) {
-    const name = match[1].trim();
-    const invested = parseFloat(match[2].replace(/,/g, ''));
-    const current = parseFloat(match[3].replace(/,/g, ''));
-    const returns = parseFloat(match[4]);
-    const folio = match[5] || match[6] || '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     
-    if (name && current > 0) {
-      // Determine asset type from name/context
-      let assetType: 'equity' | 'mutual_fund' | 'etf' | 'bond' | 'gold' | 'fd' | 'other' = 'mutual_fund';
-      const nameLower = name.toLowerCase();
-      if (nameLower.includes('equity') || nameLower.includes('flexi') || nameLower.includes('contra')) {
-        assetType = 'mutual_fund'; // Equity MF
+    // Skip header lines and navigation
+    if (line.includes('Portfolio Overview') || line.includes('Holding Analysis') || 
+        line.includes('MUTUAL FUNDS') || line.length < 5) {
+      continue;
+    }
+    
+    // Check if this line looks like a fund name
+    const isFundName = (
+      (line.includes('Fund') || line.includes('(G)') || line.includes('(IDCW)') || 
+       line.includes('Growth') || line.includes('Dividend')) &&
+      !line.includes('₹') && 
+      !line.includes('Invested') && 
+      !line.includes('Current') && 
+      !line.includes('Returns') &&
+      !line.includes('Folio') &&
+      !line.includes('Category') &&
+      !line.includes('NAV') &&
+      line.length > 15 && 
+      line.length < 120
+    );
+    
+    if (isFundName) {
+      // Save previous fund if it has valid data
+      if (currentFund && currentFund.name && currentFund.currentValue > 0) {
+        // Calculate gain if not set
+        if (currentFund.investedValue && !currentFund.unrealizedGain) {
+          currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
+        }
+        holdings.push(currentFund);
       }
       
-      holdings.push({
-        id: `wealthy-${Date.now()}-${index}`,
-        name: name.replace(/\s+/g, ' ').trim(),
-        assetType,
+      // Start new fund
+      currentFund = {
+        id: `wealthy-${Date.now()}-${fundIndex++}`,
+        name: line.replace(/\s+/g, ' ').trim(),
+        assetType: 'mutual_fund' as const,
         quantity: 1,
-        currentValue: current,
-        investedValue: invested,
-        unrealizedGain: current - invested,
-        unrealizedGainPercent: returns,
-        folioNumber: folio,
+        currentValue: 0,
+        investedValue: 0,
         broker: 'Wealthy.in',
-        confidenceScore: 90
-      });
-      index++;
+        confidenceScore: 85
+      };
+      continue;
+    }
+    
+    // Extract financial values for current fund
+    if (currentFund) {
+      // Match "Invested₹ X,XX,XXX" or "Invested ₹ X,XX,XXX" patterns (supports lakhs format)
+      const investedMatch = line.match(/Invested\s*₹?\s*([\d,]+)/i);
+      if (investedMatch && !currentFund.investedValue) {
+        currentFund.investedValue = parseFloat(investedMatch[1].replace(/,/g, ''));
+      }
+      
+      // Match "Current₹ X,XX,XXX" or "Current ₹ X,XX,XXX" patterns
+      const currentMatch = line.match(/Current\s*₹?\s*([\d,]+)/i);
+      if (currentMatch && !currentFund.currentValue) {
+        currentFund.currentValue = parseFloat(currentMatch[1].replace(/,/g, ''));
+      }
+      
+      // Match "Returns X.XX%" or "Returns -X.XX%" patterns
+      const returnsMatch = line.match(/Returns\s*([\-\d\.]+)\s*%/i);
+      if (returnsMatch) {
+        currentFund.unrealizedGainPercent = parseFloat(returnsMatch[1]);
+      }
+      
+      // Match "Folio: XXXXX" or "**Folio:** XXXXX" - allows alphanumeric folio numbers
+      const folioMatch = line.match(/Folio[:\s\*]*\s*([\w\/\-]+)/i);
+      if (folioMatch && !currentFund.folioNumber) {
+        currentFund.folioNumber = folioMatch[1].trim();
+      }
+      
+      // Detect asset category from category line (Equity | Growth | Sectoral)
+      if (line.includes('Equity') && line.includes('|')) {
+        currentFund.category = 'equity';
+      } else if (line.includes('Debt') && line.includes('|')) {
+        currentFund.category = 'debt';
+      } else if (line.includes('Hybrid') && line.includes('|')) {
+        currentFund.category = 'hybrid';
+      }
     }
   }
   
-  // If regex didn't work, try a simpler text-based approach
-  if (holdings.length === 0) {
-    // Split by common fund name patterns and extract details
-    const lines = bodyText.split('\n').filter(l => l.trim());
-    let currentFund: any = null;
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      
-      // Check if this is a fund name (contains "Fund" and typical fund indicators)
-      if ((line.includes('Fund') || line.includes('(G)') || line.includes('(IDCW)')) && 
-          !line.includes('₹') && line.length > 10 && line.length < 100) {
-        
-        // Save previous fund if exists
-        if (currentFund && currentFund.name && currentFund.currentValue > 0) {
-          holdings.push(currentFund);
-        }
-        
-        currentFund = {
-          id: `wealthy-${Date.now()}-${holdings.length}`,
-          name: line.replace(/\s+/g, ' ').trim(),
-          assetType: 'mutual_fund' as const,
-          quantity: 1,
-          currentValue: 0,
-          broker: 'Wealthy.in',
-          confidenceScore: 80
-        };
-      }
-      
-      // Extract values from subsequent lines
-      if (currentFund) {
-        // Match "Invested ₹ X,XXX" pattern
-        const investedMatch = line.match(/Invested\s*₹\s*([\d,]+)/i);
-        if (investedMatch) {
-          currentFund.investedValue = parseFloat(investedMatch[1].replace(/,/g, ''));
-        }
-        
-        // Match "Current ₹ X,XXX" pattern  
-        const currentMatch = line.match(/Current\s*₹\s*([\d,]+)/i);
-        if (currentMatch) {
-          currentFund.currentValue = parseFloat(currentMatch[1].replace(/,/g, ''));
-        }
-        
-        // Match "Returns X.XX%" pattern
-        const returnsMatch = line.match(/Returns\s*([\-\d\.]+)%/i);
-        if (returnsMatch) {
-          currentFund.unrealizedGainPercent = parseFloat(returnsMatch[1]);
-        }
-        
-        // Match "Folio: XXXXX" pattern
-        const folioMatch = line.match(/Folio[:\s]*(\d+[\/\d]*)/i);
-        if (folioMatch) {
-          currentFund.folioNumber = folioMatch[1];
-        }
-      }
+  // Don't forget the last fund
+  if (currentFund && currentFund.name && currentFund.currentValue > 0) {
+    if (currentFund.investedValue && !currentFund.unrealizedGain) {
+      currentFund.unrealizedGain = currentFund.currentValue - currentFund.investedValue;
     }
-    
-    // Don't forget the last fund
-    if (currentFund && currentFund.name && currentFund.currentValue > 0) {
-      holdings.push(currentFund);
-    }
+    holdings.push(currentFund);
   }
-  
-  // Calculate unrealized gain if we have invested and current values
-  holdings.forEach(h => {
-    if (h.investedValue && h.currentValue && !h.unrealizedGain) {
-      h.unrealizedGain = h.currentValue - h.investedValue;
-    }
-  });
   
   return holdings;
 }
