@@ -127,13 +127,20 @@ const PRODUCT_CATEGORY_OPTIONS = [
   { id: 'gold_fof', label: 'Gold FOF', description: 'Gold Fund of Funds for portfolio hedging', defaultSelected: true },
   { id: 'silver_fof', label: 'Silver FOF', description: 'Silver ETF Fund of Funds', defaultSelected: false },
   { id: 'index_fund', label: 'Index Funds', description: 'Passive funds tracking Nifty, Sensex indices', defaultSelected: true },
+  { id: 'international', label: 'International FOF', description: 'US equity, global tech, emerging markets funds', defaultSelected: false },
+  { id: 'reit', label: 'REITs', description: 'Embassy, Mindspace, Brookfield real estate trusts', defaultSelected: false },
+  { id: 'invit', label: 'InvITs', description: 'IndiGrid, IRB, PowerGrid infrastructure trusts', defaultSelected: false },
+  { id: 'bonds', label: 'Corporate Bonds/NCDs', description: 'Direct corporate bonds, NCDs, G-Secs', defaultSelected: false },
+  { id: 'mld', label: 'MLDs', description: 'Market Linked Debentures for tax-efficient returns', defaultSelected: false },
+  { id: 'pms', label: 'PMS', description: 'Portfolio Management Services (Min ₹50L)', defaultSelected: false, minInvestment: 5000000 },
+  { id: 'aif', label: 'AIF', description: 'Alternative Investment Funds (Min ₹1Cr)', defaultSelected: false, minInvestment: 10000000 },
 ];
 
 const DEFAULT_ALLOCATIONS = {
-  conservative: { equity: 25, debt: 45, hybrid: 15, gold: 10, silver: 0, index: 5 },
-  moderate: { equity: 40, debt: 25, hybrid: 15, gold: 10, silver: 0, index: 10 },
-  aggressive: { equity: 55, debt: 10, hybrid: 10, gold: 10, silver: 5, index: 10 },
-  very_aggressive: { equity: 65, debt: 5, hybrid: 5, gold: 10, silver: 5, index: 10 }
+  conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0 },
+  moderate: { equity: 30, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0 },
+  aggressive: { equity: 40, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 },
+  very_aggressive: { equity: 45, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 }
 };
 
 const formatCurrency = (amount: number) => {
@@ -196,10 +203,14 @@ export default function AgentProspectWizard() {
   // Asset Allocation & Category Selection State
   const [customAllocations, setCustomAllocations] = useState<{
     equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
+    international: number; reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
   }>(DEFAULT_ALLOCATIONS.moderate);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
   );
+  
+  // Calculate total portfolio value for eligibility checks
+  const totalPortfolioValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0) + freshInvestmentAmount;
   
   // Auto-sync selectedCategories when customAllocations change
   useEffect(() => {
@@ -209,7 +220,14 @@ export default function AgentProspectWizard() {
       hybrid: 'hybrid',
       gold: 'gold_fof',
       silver: 'silver_fof',
-      index: 'index_fund'
+      index: 'index_fund',
+      international: 'international',
+      reit: 'reit',
+      invit: 'invit',
+      bonds: 'bonds',
+      mld: 'mld',
+      pms: 'pms',
+      aif: 'aif'
     };
     
     setSelectedCategories(prev => {
@@ -700,8 +718,6 @@ export default function AgentProspectWizard() {
   const removeHolding = (index: number) => {
     setHoldings(holdings.filter((_, i) => i !== index));
   };
-
-  const totalPortfolioValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
 
   const steps = [
     { num: 1, title: "Add Prospect", icon: User },

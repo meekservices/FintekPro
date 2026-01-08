@@ -114,6 +114,116 @@ const FUND_RECOMMENDATIONS_BY_CATEGORY = {
     very_aggressive: [
       { name: 'Nippon India Nifty Smallcap 250 Index Fund - Regular (G)', amc: 'Nippon India', category: 'Index Fund - Small Cap', returns1Y: '32.5', returns3Y: '26.8', returns5Y: '21.5', risk: 'Very High' },
     ]
+  },
+  international: {
+    conservative: [
+      { name: 'Motilal Oswal Nasdaq 100 FOF - Regular (G)', amc: 'Motilal Oswal', category: 'FOF - International', returns1Y: '18.5', returns3Y: '16.2', returns5Y: '18.8', risk: 'High' },
+    ],
+    moderate: [
+      { name: 'PGIM India Global Equity Opp Fund - Regular (G)', amc: 'PGIM India', category: 'FOF - International', returns1Y: '22.5', returns3Y: '18.8', returns5Y: '20.2', risk: 'High' },
+      { name: 'Franklin India Feeder - Franklin US Opp Fund - Regular (G)', amc: 'Franklin', category: 'FOF - International', returns1Y: '19.2', returns3Y: '17.5', returns5Y: '18.5', risk: 'High' },
+    ],
+    aggressive: [
+      { name: 'Nippon India US Equity Opp Fund - Regular (G)', amc: 'Nippon India', category: 'FOF - International', returns1Y: '24.8', returns3Y: '20.5', returns5Y: '22.0', risk: 'High' },
+      { name: 'Kotak Nasdaq 100 FOF - Regular (G)', amc: 'Kotak', category: 'FOF - International', returns1Y: '20.2', returns3Y: '17.8', returns5Y: '19.5', risk: 'High' },
+    ],
+    very_aggressive: [
+      { name: 'Edelweiss Greater China Equity Off-shore Fund - Regular (G)', amc: 'Edelweiss', category: 'FOF - International', returns1Y: '28.5', returns3Y: '22.8', returns5Y: '24.5', risk: 'Very High' },
+      { name: 'DSP Global Innovation FOF - Regular (G)', amc: 'DSP', category: 'FOF - International', returns1Y: '26.2', returns3Y: '21.5', returns5Y: '23.0', risk: 'Very High' },
+    ]
+  },
+  reit: {
+    conservative: [
+      { name: 'Embassy Office Parks REIT', amc: 'Embassy Group', category: 'REIT - Office', returns1Y: '8.5', returns3Y: '9.2', returns5Y: '10.5', risk: 'Moderate', productType: 'reit' },
+    ],
+    moderate: [
+      { name: 'Mindspace Business Parks REIT', amc: 'K Raheja Corp', category: 'REIT - Office', returns1Y: '9.2', returns3Y: '10.1', returns5Y: '11.2', risk: 'Moderate', productType: 'reit' },
+      { name: 'Brookfield India Real Estate Trust', amc: 'Brookfield', category: 'REIT - Office', returns1Y: '8.8', returns3Y: '9.5', returns5Y: '10.8', risk: 'Moderate', productType: 'reit' },
+    ],
+    aggressive: [
+      { name: 'Nexus Select Trust REIT', amc: 'Blackstone', category: 'REIT - Retail', returns1Y: '10.5', returns3Y: '11.2', returns5Y: '12.5', risk: 'Moderately High', productType: 'reit' },
+    ],
+    very_aggressive: [
+      { name: 'Embassy Office Parks REIT', amc: 'Embassy Group', category: 'REIT - Office', returns1Y: '8.5', returns3Y: '9.2', returns5Y: '10.5', risk: 'Moderate', productType: 'reit' },
+    ]
+  },
+  invit: {
+    conservative: [
+      { name: 'IndiGrid InvIT', amc: 'IndiGrid', category: 'InvIT - Power Transmission', returns1Y: '10.2', returns3Y: '11.5', returns5Y: '12.0', risk: 'Low', productType: 'invit' },
+    ],
+    moderate: [
+      { name: 'PowerGrid Infrastructure Investment Trust', amc: 'PGCIL', category: 'InvIT - Power Transmission', returns1Y: '11.5', returns3Y: '12.2', returns5Y: '12.8', risk: 'Low', productType: 'invit' },
+      { name: 'India Grid Trust', amc: 'Sterlite Power', category: 'InvIT - Power Transmission', returns1Y: '10.8', returns3Y: '11.8', returns5Y: '12.3', risk: 'Low', productType: 'invit' },
+    ],
+    aggressive: [
+      { name: 'IRB InvIT Fund', amc: 'IRB Infrastructure', category: 'InvIT - Roads', returns1Y: '12.5', returns3Y: '13.2', returns5Y: '14.0', risk: 'Moderate', productType: 'invit' },
+    ],
+    very_aggressive: [
+      { name: 'National Highways Infra Trust', amc: 'NHAI', category: 'InvIT - Roads', returns1Y: '11.8', returns3Y: '12.5', returns5Y: '13.2', risk: 'Moderate', productType: 'invit' },
+    ]
+  },
+  bonds: {
+    conservative: [
+      { name: 'REC Limited NCD - 7.5% 2028', amc: 'REC', category: 'Corporate Bond - PSU', returns1Y: '7.5', returns3Y: '7.5', returns5Y: '7.5', risk: 'Low', productType: 'bond' },
+      { name: 'NHAI 54EC Bonds', amc: 'NHAI', category: 'Tax-Free Bond', returns1Y: '5.25', returns3Y: '5.25', returns5Y: '5.25', risk: 'Very Low', productType: 'bond' },
+    ],
+    moderate: [
+      { name: 'PFC Limited NCD - 7.75% 2029', amc: 'PFC', category: 'Corporate Bond - PSU', returns1Y: '7.75', returns3Y: '7.75', returns5Y: '7.75', risk: 'Low', productType: 'bond' },
+      { name: 'HDFC Ltd NCD - 8.0% 2027', amc: 'HDFC', category: 'Corporate Bond - NBFC', returns1Y: '8.0', returns3Y: '8.0', returns5Y: '8.0', risk: 'Low', productType: 'bond' },
+    ],
+    aggressive: [
+      { name: 'Tata Capital NCD - 8.25% 2028', amc: 'Tata Capital', category: 'Corporate Bond - NBFC', returns1Y: '8.25', returns3Y: '8.25', returns5Y: '8.25', risk: 'Moderate', productType: 'bond' },
+    ],
+    very_aggressive: [
+      { name: 'Shriram Transport Finance NCD - 9.0% 2027', amc: 'Shriram Transport', category: 'Corporate Bond - NBFC', returns1Y: '9.0', returns3Y: '9.0', returns5Y: '9.0', risk: 'Moderate', productType: 'bond' },
+    ]
+  },
+  mld: {
+    conservative: [
+      { name: 'HDFC MLD - Principal Protected Nifty Linked', amc: 'HDFC', category: 'MLD - Principal Protected', returns1Y: '9.5', returns3Y: '10.2', returns5Y: '10.8', risk: 'Low', productType: 'mld' },
+    ],
+    moderate: [
+      { name: 'ICICI Securities MLD - Equity Linked', amc: 'ICICI Securities', category: 'MLD - Equity Linked', returns1Y: '11.2', returns3Y: '12.5', returns5Y: '13.0', risk: 'Moderate', productType: 'mld' },
+      { name: 'Kotak Mahindra MLD - Multi Asset', amc: 'Kotak', category: 'MLD - Multi Asset', returns1Y: '10.8', returns3Y: '11.8', returns5Y: '12.5', risk: 'Moderate', productType: 'mld' },
+    ],
+    aggressive: [
+      { name: 'JM Financial MLD - Nifty Booster', amc: 'JM Financial', category: 'MLD - Nifty Linked', returns1Y: '13.5', returns3Y: '14.2', returns5Y: '14.8', risk: 'Moderately High', productType: 'mld' },
+    ],
+    very_aggressive: [
+      { name: 'Axis Securities MLD - Aggressive Growth', amc: 'Axis Securities', category: 'MLD - Equity Linked', returns1Y: '15.2', returns3Y: '16.0', returns5Y: '16.5', risk: 'High', productType: 'mld' },
+    ]
+  },
+  pms: {
+    conservative: [
+      { name: 'HDFC AMC PMS - Balanced', amc: 'HDFC AMC', category: 'PMS - Balanced', returns1Y: '12.5', returns3Y: '14.2', returns5Y: '13.8', risk: 'Moderate', productType: 'pms', minInvestment: 5000000 },
+    ],
+    moderate: [
+      { name: 'Motilal Oswal PMS - Value Strategy', amc: 'Motilal Oswal', category: 'PMS - Value', returns1Y: '18.5', returns3Y: '20.2', returns5Y: '18.8', risk: 'Moderately High', productType: 'pms', minInvestment: 5000000 },
+      { name: 'Kotak PMS - Special Situations', amc: 'Kotak', category: 'PMS - Special Situations', returns1Y: '22.5', returns3Y: '24.8', returns5Y: '22.0', risk: 'High', productType: 'pms', minInvestment: 5000000 },
+    ],
+    aggressive: [
+      { name: 'ASK Investment PMS - Growth Portfolio', amc: 'ASK Investment', category: 'PMS - Growth', returns1Y: '25.2', returns3Y: '28.5', returns5Y: '26.0', risk: 'High', productType: 'pms', minInvestment: 5000000 },
+    ],
+    very_aggressive: [
+      { name: 'Marcellus PMS - Consistent Compounders', amc: 'Marcellus', category: 'PMS - Quality', returns1Y: '28.5', returns3Y: '32.0', returns5Y: '30.5', risk: 'High', productType: 'pms', minInvestment: 5000000 },
+      { name: 'Alchemy Capital PMS - High Growth', amc: 'Alchemy Capital', category: 'PMS - High Growth', returns1Y: '32.0', returns3Y: '35.5', returns5Y: '33.0', risk: 'Very High', productType: 'pms', minInvestment: 5000000 },
+    ]
+  },
+  aif: {
+    conservative: [
+      { name: 'ICICI Prudential Credit AIF - Category II', amc: 'ICICI Prudential', category: 'AIF - Credit', returns1Y: '11.5', returns3Y: '12.8', returns5Y: '12.0', risk: 'Moderate', productType: 'aif', minInvestment: 10000000 },
+    ],
+    moderate: [
+      { name: 'Kotak Special Situations AIF - Category II', amc: 'Kotak', category: 'AIF - Special Situations', returns1Y: '16.5', returns3Y: '18.2', returns5Y: '17.5', risk: 'Moderately High', productType: 'aif', minInvestment: 10000000 },
+      { name: 'HDFC Ventures AIF - Category II', amc: 'HDFC', category: 'AIF - Growth', returns1Y: '18.2', returns3Y: '20.5', returns5Y: '19.0', risk: 'High', productType: 'aif', minInvestment: 10000000 },
+    ],
+    aggressive: [
+      { name: 'Edelweiss Pre-IPO AIF - Category I', amc: 'Edelweiss', category: 'AIF - Pre-IPO', returns1Y: '25.5', returns3Y: '28.0', returns5Y: '26.5', risk: 'High', productType: 'aif', minInvestment: 10000000 },
+    ],
+    very_aggressive: [
+      { name: 'True North AIF - Category II', amc: 'True North', category: 'AIF - Private Equity', returns1Y: '32.0', returns3Y: '35.5', returns5Y: '34.0', risk: 'Very High', productType: 'aif', minInvestment: 10000000 },
+      { name: 'Multiples PE AIF - Category II', amc: 'Multiples', category: 'AIF - Growth Equity', returns1Y: '30.5', returns3Y: '33.8', returns5Y: '32.0', risk: 'Very High', productType: 'aif', minInvestment: 10000000 },
+    ]
   }
 };
 
@@ -160,17 +270,24 @@ export const PRODUCT_CATEGORIES = [
   { id: 'gold_fof', label: 'Gold FOF', description: 'Gold Fund of Funds for portfolio hedging' },
   { id: 'silver_fof', label: 'Silver FOF', description: 'Silver ETF Fund of Funds' },
   { id: 'index_fund', label: 'Index Funds', description: 'Passive funds tracking Nifty, Sensex indices' },
+  { id: 'international', label: 'International FOF', description: 'US equity, global tech, emerging markets funds' },
+  { id: 'reit', label: 'REITs', description: 'Embassy, Mindspace, Brookfield real estate trusts' },
+  { id: 'invit', label: 'InvITs', description: 'IndiGrid, IRB, PowerGrid infrastructure trusts' },
+  { id: 'bonds', label: 'Corporate Bonds/NCDs', description: 'Direct corporate bonds, NCDs, G-Secs' },
+  { id: 'mld', label: 'MLDs', description: 'Market Linked Debentures for tax-efficient returns' },
+  { id: 'pms', label: 'PMS', description: 'Portfolio Management Services (Min ₹50L)', minInvestment: 5000000 },
+  { id: 'aif', label: 'AIF', description: 'Alternative Investment Funds (Min ₹1Cr)', minInvestment: 10000000 },
 ];
 
 // Export for API access
 export { FUND_RECOMMENDATIONS_BY_CATEGORY };
 
-// Target allocations by risk profile
+// Target allocations by risk profile (expanded with new asset classes)
 const TARGET_ALLOCATIONS = {
-  conservative: { equity: 30, debt: 50, hybrid: 15, gold: 5 },
-  moderate: { equity: 50, debt: 30, hybrid: 15, gold: 5 },
-  aggressive: { equity: 70, debt: 15, hybrid: 10, gold: 5 },
-  very_aggressive: { equity: 85, debt: 5, hybrid: 5, gold: 5 }
+  conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0 },
+  moderate: { equity: 30, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0 },
+  aggressive: { equity: 40, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 },
+  very_aggressive: { equity: 45, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 }
 };
 
 export interface ProspectPortfolioHolding {
@@ -654,7 +771,10 @@ class AgentProspectWizardService {
     holdings: ProspectPortfolioHolding[], 
     riskProfile: ProspectRiskProfile,
     analysis: PortfolioAnalysis,
-    customAllocations?: { equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number },
+    customAllocations?: { 
+      equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number;
+      international?: number; reit?: number; invit?: number; bonds?: number; mld?: number; pms?: number; aif?: number;
+    },
     freshInvestmentAmount: number = 0
   ): RebalanceRecommendation[] {
     const recommendations: RebalanceRecommendation[] = [];
@@ -664,12 +784,15 @@ class AgentProspectWizardService {
       return recommendations;
     }
     
-    // Default allocations by risk profile
-    const defaultAllocations: Record<string, { equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number }> = {
-      conservative: { equity: 25, debt: 45, hybrid: 15, gold: 10, silver: 0, index: 5 },
-      moderate: { equity: 40, debt: 25, hybrid: 15, gold: 10, silver: 0, index: 10 },
-      aggressive: { equity: 55, debt: 10, hybrid: 10, gold: 10, silver: 5, index: 10 },
-      very_aggressive: { equity: 65, debt: 5, hybrid: 5, gold: 10, silver: 5, index: 10 }
+    // Default allocations by risk profile (expanded with new asset classes)
+    const defaultAllocations: Record<string, { 
+      equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
+      international: number; reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
+    }> = {
+      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0 },
+      moderate: { equity: 30, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0 },
+      aggressive: { equity: 40, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 },
+      very_aggressive: { equity: 45, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 }
     };
     
     // Use custom allocations if provided
@@ -681,13 +804,31 @@ class AgentProspectWizardService {
     console.log('[Rebalancing] Target allocations:', JSON.stringify(targetAllocations));
     console.log('[Rebalancing] Current portfolio value:', totalValue);
     
-    // Map holdings to asset categories
+    // Map holdings to asset categories (expanded)
     const categorizeHolding = (h: ProspectPortfolioHolding): string => {
       const type = h.productType?.toLowerCase() || '';
       const name = h.productName?.toLowerCase() || '';
       const category = h.category?.toLowerCase() || '';
       
-      // Check for gold/silver first
+      // Check for PMS/AIF first (specific product types)
+      if (type === 'pms') return 'pms';
+      if (type === 'aif') return 'aif';
+      
+      // Check for REITs/InvITs
+      if (type === 'reit' || name.includes('reit') || category.includes('reit')) return 'reit';
+      if (type === 'invit' || name.includes('invit') || name.includes('infra trust')) return 'invit';
+      
+      // Check for MLDs
+      if (type === 'mld' || name.includes('mld') || name.includes('market linked')) return 'mld';
+      
+      // Check for direct bonds/NCDs
+      if (type === 'ncd' || name.includes('ncd') || (type === 'bond' && !category.includes('fund'))) return 'bonds';
+      
+      // Check for international funds
+      if (category.includes('international') || category.includes('global') || 
+          name.includes('nasdaq') || name.includes('us equity') || name.includes('global')) return 'international';
+      
+      // Check for gold/silver
       if (name.includes('gold') || category.includes('gold')) return 'gold';
       if (name.includes('silver') || category.includes('silver')) return 'silver';
       
@@ -699,8 +840,8 @@ class AgentProspectWizardService {
       if (category.includes('index') || name.includes('index') || 
           name.includes('nifty') || name.includes('sensex')) return 'index';
       
-      // Check for debt
-      if (type === 'bond' || type === 'fd' || type === 'debt' ||
+      // Check for debt mutual funds
+      if (type === 'fd' || 
           category.includes('debt') || category.includes('liquid') || 
           category.includes('gilt') || category.includes('money market')) return 'debt';
       
@@ -720,7 +861,7 @@ class AgentProspectWizardService {
       return 'others';
     };
     
-    // Calculate current allocation by category
+    // Calculate current allocation by category (expanded)
     const currentByCategory: Record<string, { value: number; holdings: ProspectPortfolioHolding[] }> = {
       equity: { value: 0, holdings: [] },
       debt: { value: 0, holdings: [] },
@@ -728,6 +869,13 @@ class AgentProspectWizardService {
       gold: { value: 0, holdings: [] },
       silver: { value: 0, holdings: [] },
       index: { value: 0, holdings: [] },
+      international: { value: 0, holdings: [] },
+      reit: { value: 0, holdings: [] },
+      invit: { value: 0, holdings: [] },
+      bonds: { value: 0, holdings: [] },
+      mld: { value: 0, holdings: [] },
+      pms: { value: 0, holdings: [] },
+      aif: { value: 0, holdings: [] },
       others: { value: 0, holdings: [] }
     };
     
@@ -745,8 +893,8 @@ class AgentProspectWizardService {
     // Calculate total portfolio after fresh investment
     const totalPortfolioValue = totalValue + freshInvestmentAmount;
     
-    // Calculate target values and compare with current
-    const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index'];
+    // Calculate target values and compare with current (expanded categories)
+    const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index', 'international', 'reit', 'invit', 'bonds', 'mld', 'pms', 'aif'];
     
     categories.forEach(category => {
       const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
@@ -845,29 +993,56 @@ class AgentProspectWizardService {
     riskProfile: ProspectRiskProfile,
     investmentAmount: number,
     existingHoldings: ProspectPortfolioHolding[],
-    customAllocations?: { equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number },
+    customAllocations?: { 
+      equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number;
+      international?: number; reit?: number; invit?: number; bonds?: number; mld?: number; pms?: number; aif?: number;
+    },
     selectedCategories?: string[]
   ): Promise<FreshInvestmentSuggestion[]> {
     const suggestions: FreshInvestmentSuggestion[] = [];
     
-    // Default allocations based on risk profile
-    const defaultAllocations: Record<string, { equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number }> = {
-      conservative: { equity: 25, debt: 45, hybrid: 15, gold: 10, silver: 0, index: 5 },
-      moderate: { equity: 40, debt: 25, hybrid: 15, gold: 10, silver: 0, index: 10 },
-      aggressive: { equity: 55, debt: 10, hybrid: 10, gold: 10, silver: 5, index: 10 },
-      very_aggressive: { equity: 65, debt: 5, hybrid: 5, gold: 10, silver: 5, index: 10 }
+    // Calculate total portfolio value for eligibility checks
+    const existingPortfolioValue = existingHoldings.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+    const totalPortfolioValue = existingPortfolioValue + investmentAmount;
+    
+    // Minimum investment thresholds
+    const MIN_PMS = 5000000; // ₹50 Lakhs
+    const MIN_AIF = 10000000; // ₹1 Crore
+    
+    // Default allocations based on risk profile (expanded with new asset classes)
+    const defaultAllocations: Record<string, { 
+      equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
+      international: number; reit: number; invit: number; bonds: number; mld: number; pms: number; aif: number;
+    }> = {
+      conservative: { equity: 20, debt: 35, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, pms: 0, aif: 0 },
+      moderate: { equity: 30, debt: 20, hybrid: 12, gold: 8, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, pms: 0, aif: 0 },
+      aggressive: { equity: 40, debt: 8, hybrid: 8, gold: 6, silver: 3, index: 10, international: 8, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 },
+      very_aggressive: { equity: 45, debt: 5, hybrid: 5, gold: 5, silver: 3, index: 10, international: 10, reit: 5, invit: 5, bonds: 4, mld: 3, pms: 0, aif: 0 }
     };
     
     // Use custom allocations if provided and has non-zero values, otherwise use defaults
     const hasValidCustomAllocations = customAllocations && 
       (customAllocations.equity > 0 || customAllocations.debt > 0 || customAllocations.hybrid > 0 || 
-       customAllocations.gold > 0 || (customAllocations.silver || 0) > 0 || (customAllocations.index || 0) > 0);
+       customAllocations.gold > 0 || (customAllocations.silver || 0) > 0 || (customAllocations.index || 0) > 0 ||
+       (customAllocations.international || 0) > 0 || (customAllocations.reit || 0) > 0 || (customAllocations.invit || 0) > 0 ||
+       (customAllocations.bonds || 0) > 0 || (customAllocations.mld || 0) > 0 || (customAllocations.pms || 0) > 0 || (customAllocations.aif || 0) > 0);
     
     const allocations = hasValidCustomAllocations 
       ? { ...defaultAllocations.moderate, ...customAllocations }
       : defaultAllocations[riskProfile.riskTolerance] || defaultAllocations.moderate;
     
+    // Apply eligibility checks for PMS and AIF
+    if (totalPortfolioValue < MIN_PMS && allocations.pms > 0) {
+      console.log(`[Agent Wizard] PMS allocation removed - portfolio value ${totalPortfolioValue} < min ${MIN_PMS}`);
+      allocations.pms = 0;
+    }
+    if (totalPortfolioValue < MIN_AIF && allocations.aif > 0) {
+      console.log(`[Agent Wizard] AIF allocation removed - portfolio value ${totalPortfolioValue} < min ${MIN_AIF}`);
+      allocations.aif = 0;
+    }
+    
     console.log('[Agent Wizard] Using allocations:', JSON.stringify(allocations), 'Custom:', hasValidCustomAllocations);
+    console.log('[Agent Wizard] Total portfolio value:', totalPortfolioValue, 'PMS eligible:', totalPortfolioValue >= MIN_PMS, 'AIF eligible:', totalPortfolioValue >= MIN_AIF);
     
     // Use selected categories if provided with items, otherwise default to main categories
     const hasValidCategories = selectedCategories && selectedCategories.length > 0;
@@ -877,14 +1052,21 @@ class AgentProspectWizardService {
     
     console.log('[Agent Wizard] Using categories:', categories, 'Custom:', hasValidCategories);
     
-    // Map allocation keys to category keys
+    // Map allocation keys to category keys (expanded)
     const allocationToCategory: Record<string, string> = {
       equity: 'equity',
       debt: 'debt',
       hybrid: 'hybrid',
       gold: 'gold_fof',
       silver: 'silver_fof',
-      index: 'index_fund'
+      index: 'index_fund',
+      international: 'international',
+      reit: 'reit',
+      invit: 'invit',
+      bonds: 'bonds',
+      mld: 'mld',
+      pms: 'pms',
+      aif: 'aif'
     };
     
     const categoryToAllocation: Record<string, string> = {
@@ -893,7 +1075,14 @@ class AgentProspectWizardService {
       hybrid: 'hybrid',
       gold_fof: 'gold',
       silver_fof: 'silver',
-      index_fund: 'index'
+      index_fund: 'index',
+      international: 'international',
+      reit: 'reit',
+      invit: 'invit',
+      bonds: 'bonds',
+      mld: 'mld',
+      pms: 'pms',
+      aif: 'aif'
     };
     
     // Filter allocations to only include selected categories
