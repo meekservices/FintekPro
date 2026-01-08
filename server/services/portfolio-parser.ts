@@ -1,10 +1,51 @@
-import pdfParse from 'pdf-parse';
 import * as cheerio from 'cheerio';
-import type { PortfolioHolding, PortfolioSnapshot, PortfolioAllocation } from '@shared/schema';
+
+export interface ImportedHolding {
+  id?: string;
+  name: string;
+  isin?: string;
+  symbol?: string;
+  assetType: 'equity' | 'mutual_fund' | 'etf' | 'bond' | 'gold' | 'fd' | 'other';
+  quantity: number;
+  averageCost?: number;
+  currentValue: number;
+  currentNav?: number;
+  investedValue?: number;
+  unrealizedGain?: number;
+  unrealizedGainPercent?: number;
+  folioNumber?: string;
+  broker?: string;
+  confidenceScore?: number;
+}
+
+export interface ImportedAllocation {
+  equity: number;
+  debt: number;
+  gold: number;
+  cash: number;
+  others: number;
+}
+
+export interface ImportedPortfolioSnapshot {
+  holdings: ImportedHolding[];
+  totalInvestedValue: number;
+  totalCurrentValue: number;
+  totalUnrealizedGain?: number;
+  allocation?: ImportedAllocation;
+  sourceType: 'pdf_upload' | 'url_import' | 'manual_entry' | 'api_fetch';
+  sourceName?: string;
+  sourceUrl?: string;
+  fileName?: string;
+  capturedAt: string;
+  parsingStatus: 'pending' | 'parsing' | 'completed' | 'failed' | 'needs_review';
+  parsingErrors?: string[];
+  confidenceScore?: number;
+  brokerDetected?: string;
+}
 
 interface ParseResult {
   success: boolean;
-  holdings: PortfolioHolding[];
+  holdings: ImportedHolding[];
   brokerDetected: string | null;
   confidenceScore: number;
   errors: string[];
@@ -61,8 +102,8 @@ function detectBroker(text: string): { broker: string | null; confidence: number
   return { broker: null, confidence: 50 };
 }
 
-function parseZerodhaFormat(text: string): PortfolioHolding[] {
-  const holdings: PortfolioHolding[] = [];
+function parseZerodhaFormat(text: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
   const lines = text.split('\n');
   
   const holdingPattern = /([A-Z][A-Z0-9&\-\s]{2,30})\s+(\d+(?:,\d+)*(?:\.\d+)?)\s+₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)\s+₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)/;
@@ -95,8 +136,8 @@ function parseZerodhaFormat(text: string): PortfolioHolding[] {
   return holdings;
 }
 
-function parseGrowwFormat(text: string): PortfolioHolding[] {
-  const holdings: PortfolioHolding[] = [];
+function parseGrowwFormat(text: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
   const lines = text.split('\n');
   
   const mfPattern = /([A-Za-z\s\-]+(?:Fund|Scheme)[A-Za-z\s\-]*)\s+(\d+(?:\.\d+)?)\s+units?\s+₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)/i;
@@ -136,8 +177,8 @@ function parseGrowwFormat(text: string): PortfolioHolding[] {
   return holdings;
 }
 
-function parseMFCentralFormat(text: string): PortfolioHolding[] {
-  const holdings: PortfolioHolding[] = [];
+function parseMFCentralFormat(text: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
   const lines = text.split('\n');
   
   const mfPattern = /([A-Za-z0-9\s\-&]+(?:Fund|Scheme|Plan|Growth|IDCW)[A-Za-z0-9\s\-&]*)\s+(?:Folio[:\s]*)?(\d+)\s+(\d+(?:\.\d+)?)\s+₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)/i;
@@ -162,8 +203,8 @@ function parseMFCentralFormat(text: string): PortfolioHolding[] {
   return holdings;
 }
 
-function parseGenericFormat(text: string): PortfolioHolding[] {
-  const holdings: PortfolioHolding[] = [];
+function parseGenericFormat(text: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
   const lines = text.split('\n');
   
   const valuePattern = /([A-Za-z][A-Za-z0-9\s\-&\.]{3,40})\s+(\d+(?:,\d+)*(?:\.\d+)?)\s+(?:units?|shares?|qty)?\s*₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)/i;
@@ -192,7 +233,7 @@ function parseGenericFormat(text: string): PortfolioHolding[] {
   return holdings;
 }
 
-function calculateAllocation(holdings: PortfolioHolding[]): PortfolioAllocation {
+function calculateAllocation(holdings: ImportedHolding[]): ImportedAllocation {
   let equity = 0, debt = 0, gold = 0, others = 0;
   const total = holdings.reduce((sum, h) => sum + h.currentValue, 0);
   
@@ -224,11 +265,13 @@ function calculateAllocation(holdings: PortfolioHolding[]): PortfolioAllocation 
 
 export async function parsePDFPortfolio(buffer: Buffer, fileName: string): Promise<ParseResult> {
   try {
+    const pdfParseModule = await import('pdf-parse');
+    const pdfParse = pdfParseModule.default || pdfParseModule;
     const pdfData = await pdfParse(buffer);
     const text = pdfData.text;
     
     const { broker, confidence } = detectBroker(text);
-    let holdings: PortfolioHolding[] = [];
+    let holdings: ImportedHolding[] = [];
     
     if (broker === 'Zerodha') {
       holdings = parseZerodhaFormat(text);
@@ -271,7 +314,7 @@ export async function parseURLPortfolio(html: string, url: string): Promise<Pars
     const text = $('body').text();
     
     const { broker, confidence } = detectBroker(url + ' ' + text);
-    let holdings: PortfolioHolding[] = [];
+    let holdings: ImportedHolding[] = [];
     
     if (url.includes('wealthy.in')) {
       holdings = parseWealthyHTML($);
@@ -307,8 +350,8 @@ export async function parseURLPortfolio(html: string, url: string): Promise<Pars
   }
 }
 
-function parseWealthyHTML($: cheerio.CheerioAPI): PortfolioHolding[] {
-  const holdings: PortfolioHolding[] = [];
+function parseWealthyHTML($: cheerio.CheerioAPI): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
   
   $('[class*="fund"], [class*="holding"], [class*="scheme"]').each((i, elem) => {
     const name = $(elem).find('[class*="name"], [class*="title"]').first().text().trim();
@@ -336,8 +379,8 @@ function parseWealthyHTML($: cheerio.CheerioAPI): PortfolioHolding[] {
   return holdings;
 }
 
-function parseGrowwHTML($: cheerio.CheerioAPI): PortfolioHolding[] {
-  const holdings: PortfolioHolding[] = [];
+function parseGrowwHTML($: cheerio.CheerioAPI): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
   
   $('[class*="stock"], [class*="fund"], [class*="holding"]').each((i, elem) => {
     const name = $(elem).find('[class*="name"]').first().text().trim();
@@ -362,8 +405,8 @@ function parseGrowwHTML($: cheerio.CheerioAPI): PortfolioHolding[] {
   return holdings;
 }
 
-function parseGenericHTML($: cheerio.CheerioAPI): PortfolioHolding[] {
-  const holdings: PortfolioHolding[] = [];
+function parseGenericHTML($: cheerio.CheerioAPI): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
   
   $('table tr').each((i, row) => {
     if (i === 0) return;
@@ -391,7 +434,7 @@ function parseGenericHTML($: cheerio.CheerioAPI): PortfolioHolding[] {
 }
 
 export function createPortfolioSnapshot(
-  holdings: PortfolioHolding[],
+  holdings: ImportedHolding[],
   sourceType: 'pdf_upload' | 'url_import' | 'manual_entry' | 'api_fetch',
   options: {
     fileName?: string;
@@ -401,7 +444,7 @@ export function createPortfolioSnapshot(
     confidenceScore?: number;
     errors?: string[];
   }
-): PortfolioSnapshot {
+): ImportedPortfolioSnapshot {
   const totalCurrentValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
   const totalInvestedValue = holdings.reduce((sum, h) => sum + (h.investedValue || h.currentValue), 0);
   const allocation = calculateAllocation(holdings);

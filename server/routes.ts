@@ -129,6 +129,7 @@ import investableSurplusRoutes from "./routes/investable-surplus-routes";
 import riskSuitabilityRoutes from "./routes/risk-suitability-routes";
 import returnForecastingRoutes from "./routes/return-forecasting-routes";
 import assetAllocationRoutes from "./routes/asset-allocation-routes";
+import portfolioImportRoutes from "./routes/portfolio-import";
 import treasuryRoutes from "./routes/treasury-routes";
 import proposalExecutionRoutes from "./routes/proposal-execution-routes";
 import explainabilityRoutes from "./routes/explainability-routes";
@@ -482,6 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
   app.use("/api/admin/demo-proposals", requireAdmin, demoProposalsRoutes);
   app.use("/api/agent/demo-proposals", isAuthenticated, agentDemoRouter);
+  app.use("/api/agent", portfolioImportRoutes);
   app.use("/api/admin/exchange-sync", requireAdmin, exchangeStockSyncRoutes);
   // AI Proposal Engine Routes
   app.use("/api/ai-proposals", aiProposalRoutes);
