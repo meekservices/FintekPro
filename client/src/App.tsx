@@ -263,6 +263,7 @@ import PartnerAgentDashboard from "@/pages/partner-agent-dashboard";
 import PartnerCAManagement from "@/pages/partner-ca-management";
 import AgentPayoutDashboard from "@/pages/agent-payout-dashboard";
 import AdminPayoutManagement from "@/pages/admin-payout-management";
+import AdminMappingRequests from "@/pages/admin-mapping-requests";
 import FreshInvestmentDiscovery from "@/pages/fresh-investment-discovery";
 import TDSCompliance from "@/pages/tds-compliance";
 import AIProposalsPage from "@/pages/ai-proposals";
@@ -849,6 +850,13 @@ function AdminRoutes() {
         {() => (
           <AdminLayout>
             <AdminPayoutManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mapping-requests">
+        {() => (
+          <AdminLayout>
+            <AdminMappingRequests />
           </AdminLayout>
         )}
       </Route>

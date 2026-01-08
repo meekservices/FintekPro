@@ -531,9 +531,61 @@ export default function AgentProspectWizard() {
     setCustomAllocations(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance]);
   }, [riskProfile.riskTolerance]);
 
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+    isDuplicate: boolean;
+    duplicateType?: 'existing_client' | 'existing_prospect';
+    existingRecord?: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      mobile?: string | null;
+      pan?: string | null;
+      currentAgentId?: string | null;
+      currentAgentName?: string | null;
+    };
+    message?: string;
+    canRequestMapping?: boolean;
+  } | null>(null);
+
   const createProspectMutation = useMutation({
     mutationFn: async (data: typeof prospectData) => {
       const res = await apiRequest("/api/agent-wizard/prospects", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      if (!res.ok && result.isDuplicate) {
+        throw { isDuplicate: true, ...result };
+      }
+      return result;
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setDuplicateInfo(null);
+        setProspectId(data.prospectId);
+        toast({ title: "Prospect Created", description: "Prospect profile saved successfully." });
+        setCurrentStep(2);
+      }
+    },
+    onError: (error: any) => {
+      if (error?.isDuplicate) {
+        setDuplicateInfo(error);
+        if (error.duplicateType === 'existing_prospect') {
+          toast({ 
+            title: "Duplicate Prospect", 
+            description: error.message || "This prospect already exists.", 
+            variant: "destructive" 
+          });
+        }
+      } else {
+        toast({ title: "Error", description: "Failed to create prospect.", variant: "destructive" });
+      }
+    }
+  });
+
+  const requestMappingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("/api/agent-wizard/request-mapping", {
         method: "POST",
         body: JSON.stringify(data)
       });
@@ -541,13 +593,15 @@ export default function AgentProspectWizard() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        setProspectId(data.prospectId);
-        toast({ title: "Prospect Created", description: "Prospect profile saved successfully." });
-        setCurrentStep(2);
+        setDuplicateInfo(null);
+        toast({ 
+          title: "Request Submitted", 
+          description: data.message || "Your mapping request has been sent to admin for approval." 
+        });
       }
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to create prospect.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to submit mapping request.", variant: "destructive" });
     }
   });
 
@@ -926,6 +980,78 @@ export default function AgentProspectWizard() {
                     data-testid="prospect-notes-input"
                   />
                 </div>
+
+                {duplicateInfo && (
+                  <div className={`mt-4 p-4 rounded-lg border ${
+                    duplicateInfo.duplicateType === 'existing_client' 
+                      ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800' 
+                      : 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800'
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                        duplicateInfo.duplicateType === 'existing_client' ? 'text-amber-600' : 'text-red-600'
+                      }`} />
+                      <div className="flex-1">
+                        <h4 className={`font-medium ${
+                          duplicateInfo.duplicateType === 'existing_client' ? 'text-amber-800 dark:text-amber-200' : 'text-red-800 dark:text-red-200'
+                        }`}>
+                          {duplicateInfo.duplicateType === 'existing_client' ? 'Client Already Exists' : 'Duplicate Prospect'}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {duplicateInfo.message}
+                        </p>
+                        {duplicateInfo.existingRecord && (
+                          <div className="mt-2 text-sm space-y-1">
+                            {duplicateInfo.existingRecord.name && (
+                              <p><span className="font-medium">Name:</span> {duplicateInfo.existingRecord.name}</p>
+                            )}
+                            {duplicateInfo.existingRecord.email && (
+                              <p><span className="font-medium">Email:</span> {duplicateInfo.existingRecord.email}</p>
+                            )}
+                            {duplicateInfo.existingRecord.pan && (
+                              <p><span className="font-medium">PAN:</span> {duplicateInfo.existingRecord.pan}</p>
+                            )}
+                            {duplicateInfo.existingRecord.currentAgentName && (
+                              <p><span className="font-medium">Current Agent:</span> {duplicateInfo.existingRecord.currentAgentName}</p>
+                            )}
+                          </div>
+                        )}
+                        <div className="mt-3 flex gap-2">
+                          {duplicateInfo.canRequestMapping && (
+                            <Button
+                              size="sm"
+                              onClick={() => requestMappingMutation.mutate({
+                                clientId: duplicateInfo.existingRecord?.id,
+                                pan: duplicateInfo.existingRecord?.pan,
+                                email: duplicateInfo.existingRecord?.email,
+                                mobile: duplicateInfo.existingRecord?.mobile,
+                                name: duplicateInfo.existingRecord?.name,
+                                currentAgentId: duplicateInfo.existingRecord?.currentAgentId,
+                                currentAgentName: duplicateInfo.existingRecord?.currentAgentName,
+                                reason: 'Agent requested client mapping from prospect wizard'
+                              })}
+                              disabled={requestMappingMutation.isPending}
+                              data-testid="request-mapping-btn"
+                            >
+                              {requestMappingMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : null}
+                              Request Mapping Approval
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setDuplicateInfo(null)}
+                            data-testid="dismiss-duplicate-btn"
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -942,7 +1068,7 @@ export default function AgentProspectWizard() {
             ) : (
               <Button 
                 onClick={() => createProspectMutation.mutate(prospectData)}
-                disabled={!prospectData.name || createProspectMutation.isPending}
+                disabled={!prospectData.name || createProspectMutation.isPending || duplicateInfo?.isDuplicate}
                 data-testid="create-prospect-btn"
               >
                 {createProspectMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}

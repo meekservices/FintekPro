@@ -5,9 +5,10 @@ import {
   prospectProposalEvents,
   InsertProspectClient,
   users,
-  onboardingInvitations
+  onboardingInvitations,
+  agentClientMappingRequests
 } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 
@@ -448,10 +449,228 @@ export interface CombinedProposal {
   portfolioComparison?: PortfolioComparison;
 }
 
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  duplicateType?: 'existing_client' | 'existing_prospect';
+  existingRecord?: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    mobile?: string | null;
+    pan?: string | null;
+    currentAgentId?: string | null;
+    currentAgentName?: string | null;
+  };
+  message?: string;
+  canRequestMapping?: boolean;
+}
+
 class AgentProspectWizardService {
-  async createProspect(agentId: string, data: Omit<InsertProspectClient, 'agentId'>): Promise<string> {
+  // Check for existing client in users table by PAN, email, or mobile
+  async checkForExistingClient(pan?: string, email?: string, mobile?: string): Promise<DuplicateCheckResult> {
+    if (!pan && !email && !mobile) {
+      return { isDuplicate: false };
+    }
+
+    // Build conditions for matching
+    const conditions = [];
+    if (pan) conditions.push(eq(users.panNumber, pan.toUpperCase()));
+    if (email) conditions.push(eq(users.email, email.toLowerCase()));
+    if (mobile) {
+      // Normalize mobile (remove spaces, +91, etc.)
+      const normalizedMobile = mobile.replace(/[\s\-+]/g, '').replace(/^91/, '');
+      conditions.push(eq(users.mobile, normalizedMobile));
+      conditions.push(eq(users.mobile, `+91${normalizedMobile}`));
+      conditions.push(eq(users.mobile, mobile));
+    }
+
+    if (conditions.length === 0) {
+      return { isDuplicate: false };
+    }
+
+    // Check users table for existing client
+    const [existingUser] = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      mobile: users.mobile,
+      panNumber: users.panNumber,
+      agentId: users.agentId,
+    })
+    .from(users)
+    .where(or(...conditions))
+    .limit(1);
+
+    if (existingUser) {
+      // Get current agent name if assigned
+      let currentAgentName = null;
+      if (existingUser.agentId) {
+        const [agent] = await db.select({ firstName: users.firstName, lastName: users.lastName })
+          .from(users)
+          .where(eq(users.id, existingUser.agentId))
+          .limit(1);
+        if (agent) {
+          currentAgentName = [agent.firstName, agent.lastName].filter(Boolean).join(' ');
+        }
+      }
+
+      return {
+        isDuplicate: true,
+        duplicateType: 'existing_client',
+        existingRecord: {
+          id: existingUser.id,
+          name: [existingUser.firstName, existingUser.lastName].filter(Boolean).join(' ') || null,
+          email: existingUser.email,
+          mobile: existingUser.mobile,
+          pan: existingUser.panNumber,
+          currentAgentId: existingUser.agentId,
+          currentAgentName
+        },
+        message: existingUser.agentId 
+          ? 'This person is already a client assigned to another agent. You can request admin approval to map them to your portfolio.'
+          : 'This person is already registered as a client. You can request admin approval to become their assigned agent.',
+        canRequestMapping: true
+      };
+    }
+
+    return { isDuplicate: false };
+  }
+
+  // Check for existing prospect under this agent
+  async checkForExistingProspect(agentId: string, pan?: string, email?: string, mobile?: string): Promise<DuplicateCheckResult> {
+    if (!pan && !email && !mobile) {
+      return { isDuplicate: false };
+    }
+
+    const conditions = [];
+    if (pan) conditions.push(eq(prospectClients.pan, pan.toUpperCase()));
+    if (email) conditions.push(eq(prospectClients.email, email.toLowerCase()));
+    if (mobile) {
+      const normalizedMobile = mobile.replace(/[\s\-+]/g, '').replace(/^91/, '');
+      conditions.push(eq(prospectClients.mobile, normalizedMobile));
+      conditions.push(eq(prospectClients.mobile, `+91${normalizedMobile}`));
+      conditions.push(eq(prospectClients.mobile, mobile));
+    }
+
+    if (conditions.length === 0) {
+      return { isDuplicate: false };
+    }
+
+    const [existingProspect] = await db.select()
+      .from(prospectClients)
+      .where(and(eq(prospectClients.agentId, agentId), or(...conditions)))
+      .limit(1);
+
+    if (existingProspect) {
+      return {
+        isDuplicate: true,
+        duplicateType: 'existing_prospect',
+        existingRecord: {
+          id: existingProspect.id,
+          name: existingProspect.name,
+          email: existingProspect.email,
+          mobile: existingProspect.mobile,
+          pan: existingProspect.pan
+        },
+        message: 'You already have this person as a prospect. Please use the existing record.',
+        canRequestMapping: false
+      };
+    }
+
+    return { isDuplicate: false };
+  }
+
+  // Request mapping approval from admin
+  async requestClientMapping(agentId: string, agentName: string, clientData: {
+    clientId?: string;
+    pan?: string;
+    email?: string;
+    mobile?: string;
+    name?: string;
+    currentAgentId?: string;
+    currentAgentName?: string;
+    reason?: string;
+  }): Promise<{ requestId: string; message: string }> {
+    const [request] = await db.insert(agentClientMappingRequests).values({
+      agentId,
+      agentName,
+      clientId: clientData.clientId,
+      clientPan: clientData.pan?.toUpperCase(),
+      clientEmail: clientData.email?.toLowerCase(),
+      clientMobile: clientData.mobile,
+      clientName: clientData.name,
+      currentAgentId: clientData.currentAgentId,
+      currentAgentName: clientData.currentAgentName,
+      requestReason: clientData.reason || 'Agent requested client mapping',
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning({ id: agentClientMappingRequests.id });
+
+    return {
+      requestId: request.id,
+      message: 'Your request has been submitted to admin for approval. You will be notified once it is processed.'
+    };
+  }
+
+  // Get pending mapping requests for admin
+  async getPendingMappingRequests() {
+    return db.select()
+      .from(agentClientMappingRequests)
+      .where(eq(agentClientMappingRequests.status, 'pending'))
+      .orderBy(desc(agentClientMappingRequests.createdAt));
+  }
+
+  // Admin approve/reject mapping request
+  async processMappingRequest(requestId: string, action: 'approve' | 'reject', adminId: string, rejectionReason?: string) {
+    const [request] = await db.select()
+      .from(agentClientMappingRequests)
+      .where(eq(agentClientMappingRequests.id, requestId))
+      .limit(1);
+
+    if (!request) {
+      throw new Error('Mapping request not found');
+    }
+
+    if (action === 'approve' && request.clientId) {
+      // Update client's assigned agent in users table
+      await db.update(users)
+        .set({ agentId: request.agentId })
+        .where(eq(users.id, request.clientId));
+    }
+
+    await db.update(agentClientMappingRequests)
+      .set({
+        status: action === 'approve' ? 'approved' : 'rejected',
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+        rejectionReason: action === 'reject' ? rejectionReason : null,
+        updatedAt: new Date()
+      })
+      .where(eq(agentClientMappingRequests.id, requestId));
+
+    return { success: true, message: `Request ${action}d successfully` };
+  }
+
+  async createProspect(agentId: string, data: Omit<InsertProspectClient, 'agentId'>): Promise<string | DuplicateCheckResult> {
+    // Step 1: Check for existing client in the system
+    const clientCheck = await this.checkForExistingClient(data.pan || undefined, data.email || undefined, data.mobile || undefined);
+    if (clientCheck.isDuplicate) {
+      return clientCheck;
+    }
+
+    // Step 2: Check for duplicate prospect under this agent
+    const prospectCheck = await this.checkForExistingProspect(agentId, data.pan || undefined, data.email || undefined, data.mobile || undefined);
+    if (prospectCheck.isDuplicate) {
+      return prospectCheck;
+    }
+
+    // Step 3: Create the prospect
     const [prospect] = await db.insert(prospectClients).values({
       ...data,
+      pan: data.pan?.toUpperCase(),
+      email: data.email?.toLowerCase(),
       agentId,
       state: 'prospect',
       createdAt: new Date(),

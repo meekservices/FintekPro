@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { agentProspectWizardService, ProspectPortfolioHolding, ProspectRiskProfile } from "../services/agent-prospect-wizard-service";
+import { agentProspectWizardService, ProspectPortfolioHolding, ProspectRiskProfile, DuplicateCheckResult } from "../services/agent-prospect-wizard-service";
 import { z } from "zod";
 import { ZohoCRMService } from "../zoho/services/crm";
 
@@ -67,14 +67,95 @@ router.post("/prospects", async (req: Request, res: Response) => {
     }
 
     const data = createProspectSchema.parse(req.body);
-    const prospectId = await agentProspectWizardService.createProspect(agentId, data);
+    const result = await agentProspectWizardService.createProspect(agentId, data);
+    
+    // Check if result is a duplicate check response
+    if (typeof result === 'object' && 'isDuplicate' in result) {
+      const duplicateResult = result as DuplicateCheckResult;
+      return res.status(409).json({
+        success: false,
+        isDuplicate: true,
+        duplicateType: duplicateResult.duplicateType,
+        existingRecord: duplicateResult.existingRecord,
+        message: duplicateResult.message,
+        canRequestMapping: duplicateResult.canRequestMapping
+      });
+    }
     
     // Zoho CRM sync disabled - connection not configured
     // Uncomment when Zoho connection is set up in zoho_connections table
     
-    res.json({ success: true, prospectId });
+    res.json({ success: true, prospectId: result });
   } catch (error: any) {
     console.error("[Agent Wizard] Error creating prospect:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// Request client mapping (agent endpoint)
+router.post("/request-mapping", async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).user?.id;
+    const user = (req as any).user;
+    if (!agentId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { clientId, pan, email, mobile, name, currentAgentId, currentAgentName, reason } = req.body;
+    const agentName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
+    
+    const result = await agentProspectWizardService.requestClientMapping(agentId, agentName, {
+      clientId,
+      pan,
+      email,
+      mobile,
+      name,
+      currentAgentId,
+      currentAgentName,
+      reason
+    });
+    
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error requesting mapping:", error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// Admin: Get pending mapping requests
+router.get("/admin/mapping-requests", async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.roles?.includes('admin') && !user?.roles?.includes('superadmin')) {
+      return res.status(403).json({ success: false, message: "Admin access required" });
+    }
+
+    const requests = await agentProspectWizardService.getPendingMappingRequests();
+    res.json({ success: true, requests });
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error fetching mapping requests:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Admin: Approve/reject mapping request
+router.post("/admin/mapping-requests/:id/:action", async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.roles?.includes('admin') && !user?.roles?.includes('superadmin')) {
+      return res.status(403).json({ success: false, message: "Admin access required" });
+    }
+
+    const { id, action } = req.params;
+    if (action !== 'approve' && action !== 'reject') {
+      return res.status(400).json({ success: false, message: "Invalid action" });
+    }
+
+    const { rejectionReason } = req.body;
+    const result = await agentProspectWizardService.processMappingRequest(id, action, user.id, rejectionReason);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[Agent Wizard] Error processing mapping request:", error);
     res.status(400).json({ success: false, message: error.message });
   }
 });

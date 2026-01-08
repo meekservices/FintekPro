@@ -25087,3 +25087,52 @@ export const exchangeFinancialAuditLog = pgTable("exchange_financial_audit_log",
 export const insertExchangeFinancialAuditLogSchema = createInsertSchema(exchangeFinancialAuditLog).omit({ id: true, createdAt: true });
 export type ExchangeFinancialAuditLog = typeof exchangeFinancialAuditLog.$inferSelect;
 export type InsertExchangeFinancialAuditLog = typeof exchangeFinancialAuditLog.$inferInsert;
+
+// Agent Client Mapping Requests - Admin approval for agent-client assignments
+export const agentClientMappingRequests = pgTable("agent_client_mapping_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent making the request
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  agentName: varchar("agent_name"),
+  
+  // Client/User being requested for mapping
+  clientId: varchar("client_id").references(() => users.id),
+  
+  // Identification details used for matching
+  clientPan: varchar("client_pan"),
+  clientEmail: varchar("client_email"),
+  clientMobile: varchar("client_mobile"),
+  clientName: varchar("client_name"),
+  
+  // Current assignment (if any)
+  currentAgentId: varchar("current_agent_id").references(() => users.id),
+  currentAgentName: varchar("current_agent_name"),
+  
+  // Request status
+  status: varchar("status").notNull().default("pending"), // pending, approved, rejected
+  
+  // Request metadata
+  requestReason: text("request_reason"),
+  
+  // Admin action
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Notification tracking
+  agentNotifiedAt: timestamp("agent_notified_at"),
+  
+  // Audit fields
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mapping_requests_agent").on(table.agentId),
+  index("idx_mapping_requests_client").on(table.clientId),
+  index("idx_mapping_requests_status").on(table.status),
+  index("idx_mapping_requests_pan").on(table.clientPan),
+]);
+
+export const insertAgentClientMappingRequestSchema = createInsertSchema(agentClientMappingRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export type AgentClientMappingRequest = typeof agentClientMappingRequests.$inferSelect;
+export type InsertAgentClientMappingRequest = z.infer<typeof insertAgentClientMappingRequestSchema>;
