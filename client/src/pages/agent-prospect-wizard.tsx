@@ -1372,20 +1372,38 @@ export default function AgentProspectWizard() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
                 {[
                   { key: 'equity', label: 'Equity', color: 'bg-blue-500' },
                   { key: 'debt', label: 'Debt', color: 'bg-green-500' },
                   { key: 'hybrid', label: 'Hybrid', color: 'bg-purple-500' },
                   { key: 'gold', label: 'Gold', color: 'bg-yellow-500' },
                   { key: 'silver', label: 'Silver', color: 'bg-gray-400' },
-                  { key: 'index', label: 'Index', color: 'bg-indigo-500' }
-                ].map(({ key, label, color }) => (
+                  { key: 'index', label: 'Index', color: 'bg-indigo-500' },
+                  { key: 'international', label: 'International', color: 'bg-cyan-500' },
+                  { key: 'reit', label: 'REITs', color: 'bg-orange-500' },
+                  { key: 'invit', label: 'InvITs', color: 'bg-teal-500' },
+                  { key: 'bonds', label: 'Bonds/NCDs', color: 'bg-emerald-600' },
+                  { key: 'mld', label: 'MLDs', color: 'bg-pink-500' },
+                  { key: 'pms', label: 'PMS', color: 'bg-violet-600', minInvestment: 5000000 },
+                  { key: 'aif', label: 'AIF', color: 'bg-rose-600', minInvestment: 10000000 }
+                ].map(({ key, label, color, minInvestment }) => {
+                  const isEligible = !minInvestment || totalPortfolioValue >= minInvestment;
+                  const eligibilityMessage = minInvestment && !isEligible 
+                    ? `Requires min ${formatCurrency(minInvestment)} portfolio`
+                    : undefined;
+                  
+                  return (
                   <div key={key} className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${color}`}></div>
+                      <Label className={`flex items-center gap-2 ${!isEligible ? 'text-muted-foreground' : ''}`}>
+                        <div className={`w-3 h-3 rounded-full ${color} ${!isEligible ? 'opacity-40' : ''}`}></div>
                         {label}
+                        {!isEligible && (
+                          <span className="text-xs text-amber-600 ml-1" title={eligibilityMessage}>
+                            (Ineligible)
+                          </span>
+                        )}
                       </Label>
                       <span className="text-sm font-medium w-12 text-right">
                         {customAllocations[key as keyof typeof customAllocations]}%
@@ -1394,15 +1412,22 @@ export default function AgentProspectWizard() {
                     <Slider
                       value={[customAllocations[key as keyof typeof customAllocations]]}
                       onValueChange={([value]) => {
-                        setCustomAllocations(prev => ({ ...prev, [key]: value }));
+                        if (isEligible) {
+                          setCustomAllocations(prev => ({ ...prev, [key]: value }));
+                        }
                       }}
                       max={100}
                       step={5}
-                      className="w-full"
+                      disabled={!isEligible}
+                      className={`w-full ${!isEligible ? 'opacity-50 cursor-not-allowed' : ''}`}
                       data-testid={`slider-${key}`}
                     />
+                    {eligibilityMessage && (
+                      <p className="text-xs text-amber-600">{eligibilityMessage}</p>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
                 
                 <div className="pt-2 border-t">
                   <div className="flex items-center justify-between">
@@ -1425,7 +1450,7 @@ export default function AgentProspectWizard() {
               </div>
 
               <div className="space-y-4">
-                <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="p-4 bg-muted/30 rounded-lg max-h-[350px] overflow-y-auto">
                   <h4 className="text-sm font-medium mb-3">Allocation Breakdown</h4>
                   <div className="space-y-2">
                     {[
@@ -1434,7 +1459,14 @@ export default function AgentProspectWizard() {
                       { key: 'hybrid', label: 'Hybrid', color: 'bg-purple-500' },
                       { key: 'gold', label: 'Gold', color: 'bg-yellow-500' },
                       { key: 'silver', label: 'Silver', color: 'bg-gray-400' },
-                      { key: 'index', label: 'Index', color: 'bg-indigo-500' }
+                      { key: 'index', label: 'Index', color: 'bg-indigo-500' },
+                      { key: 'international', label: 'International', color: 'bg-cyan-500' },
+                      { key: 'reit', label: 'REITs', color: 'bg-orange-500' },
+                      { key: 'invit', label: 'InvITs', color: 'bg-teal-500' },
+                      { key: 'bonds', label: 'Bonds', color: 'bg-emerald-600' },
+                      { key: 'mld', label: 'MLDs', color: 'bg-pink-500' },
+                      { key: 'pms', label: 'PMS', color: 'bg-violet-600' },
+                      { key: 'aif', label: 'AIF', color: 'bg-rose-600' }
                     ].map(({ key, label, color }) => {
                       const value = customAllocations[key as keyof typeof customAllocations];
                       if (value === 0) return null;
@@ -1453,7 +1485,14 @@ export default function AgentProspectWizard() {
                       { key: 'hybrid', color: 'bg-purple-500' },
                       { key: 'gold', color: 'bg-yellow-500' },
                       { key: 'silver', color: 'bg-gray-400' },
-                      { key: 'index', color: 'bg-indigo-500' }
+                      { key: 'index', color: 'bg-indigo-500' },
+                      { key: 'international', color: 'bg-cyan-500' },
+                      { key: 'reit', color: 'bg-orange-500' },
+                      { key: 'invit', color: 'bg-teal-500' },
+                      { key: 'bonds', color: 'bg-emerald-600' },
+                      { key: 'mld', color: 'bg-pink-500' },
+                      { key: 'pms', color: 'bg-violet-600' },
+                      { key: 'aif', color: 'bg-rose-600' }
                     ].map(({ key, color }) => {
                       const value = customAllocations[key as keyof typeof customAllocations];
                       if (value === 0) return null;
