@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { 
   TrendingUp, 
+  TrendingDown,
   Target, 
   PieChart, 
   ArrowRight, 
@@ -27,7 +28,11 @@ import {
   User,
   ExternalLink,
   Download,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Lightbulb,
+  Award,
+  AlertCircle
 } from "lucide-react";
 
 interface ProposalData {
@@ -48,6 +53,39 @@ interface ProposalData {
   agentEmail?: string;
   validUntil?: string;
   createdAt: string;
+}
+
+interface PortfolioAnalysis {
+  totalValue: number;
+  assetAllocation: Record<string, { value: number; percentage: number }>;
+  riskScore: number;
+  diversificationScore: number;
+  recommendations: Array<{ type: 'warning' | 'suggestion' | 'opportunity'; message: string; action?: string }>;
+  topPerformers: Array<{ productType: string; productName: string; quantity: number; currentValue: number; category?: string }>;
+  underperformers: Array<{ productType: string; productName: string; quantity: number; currentValue: number; category?: string }>;
+}
+
+function parseAnalysis(analysisStr?: string): PortfolioAnalysis | null {
+  if (!analysisStr) return null;
+  try {
+    return JSON.parse(analysisStr);
+  } catch {
+    return null;
+  }
+}
+
+function getRiskLabel(score: number): { label: string; color: string } {
+  if (score <= 30) return { label: 'Low Risk', color: 'text-green-600' };
+  if (score <= 50) return { label: 'Moderate Risk', color: 'text-yellow-600' };
+  if (score <= 70) return { label: 'High Risk', color: 'text-orange-600' };
+  return { label: 'Very High Risk', color: 'text-red-600' };
+}
+
+function getDiversificationLabel(score: number): { label: string; color: string } {
+  if (score >= 70) return { label: 'Well Diversified', color: 'text-green-600' };
+  if (score >= 50) return { label: 'Moderately Diversified', color: 'text-yellow-600' };
+  if (score >= 30) return { label: 'Under-Diversified', color: 'text-orange-600' };
+  return { label: 'Poorly Diversified', color: 'text-red-600' };
 }
 
 const GOAL_TYPE_LABELS: Record<string, string> = {
@@ -184,8 +222,112 @@ export default function PublicProposalPage() {
       
       yPos += 45;
       
+      // Portfolio Analysis Section
+      const pdfAnalysis = parseAnalysis(proposal.currentAnalysis);
+      if (pdfAnalysis) {
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Portfolio Health Analysis', margin, yPos);
+        yPos += 12;
+        
+        // Risk and Diversification Scores
+        pdf.setFillColor(245, 245, 245);
+        pdf.rect(margin, yPos, (pageWidth - (margin * 2)) / 2 - 5, 25, 'F');
+        pdf.rect(margin + (pageWidth - (margin * 2)) / 2 + 5, yPos, (pageWidth - (margin * 2)) / 2 - 5, 25, 'F');
+        
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 100, 100);
+        pdf.text('Risk Score', margin + 5, yPos + 8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(pdfAnalysis.riskScore > 70 ? 220 : pdfAnalysis.riskScore > 50 ? 234 : 34, 
+                        pdfAnalysis.riskScore > 70 ? 38 : pdfAnalysis.riskScore > 50 ? 179 : 197, 
+                        pdfAnalysis.riskScore > 70 ? 38 : pdfAnalysis.riskScore > 50 ? 8 : 94);
+        pdf.text(`${pdfAnalysis.riskScore}/100`, margin + 5, yPos + 18);
+        
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 100, 100);
+        pdf.text('Diversification Score', margin + (pageWidth - (margin * 2)) / 2 + 10, yPos + 8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(pdfAnalysis.diversificationScore >= 70 ? 34 : pdfAnalysis.diversificationScore >= 50 ? 234 : 220, 
+                        pdfAnalysis.diversificationScore >= 70 ? 197 : pdfAnalysis.diversificationScore >= 50 ? 179 : 38, 
+                        pdfAnalysis.diversificationScore >= 70 ? 94 : pdfAnalysis.diversificationScore >= 50 ? 8 : 38);
+        pdf.text(`${pdfAnalysis.diversificationScore}/100`, margin + (pageWidth - (margin * 2)) / 2 + 10, yPos + 18);
+        
+        yPos += 35;
+        
+        // Key Insights
+        if (pdfAnalysis.recommendations && pdfAnalysis.recommendations.length > 0) {
+          if (yPos > 240) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          
+          pdf.setTextColor(0, 0, 0);
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Key Insights', margin, yPos);
+          yPos += 8;
+          
+          pdfAnalysis.recommendations.forEach((insight) => {
+            if (yPos > 270) {
+              pdf.addPage();
+              yPos = 20;
+            }
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(100, 100, 100);
+            const icon = insight.type === 'warning' ? '⚠' : insight.type === 'opportunity' ? '✓' : '💡';
+            const insightLines = pdf.splitTextToSize(`${icon} ${insight.message}`, pageWidth - (margin * 2) - 10);
+            pdf.text(insightLines, margin + 5, yPos);
+            yPos += insightLines.length * 4 + 4;
+          });
+          
+          yPos += 10;
+        }
+        
+        // Top Performers
+        if (pdfAnalysis.topPerformers && pdfAnalysis.topPerformers.length > 0) {
+          if (yPos > 220) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          
+          pdf.setTextColor(0, 0, 0);
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Top Performing Holdings', margin, yPos);
+          yPos += 8;
+          
+          pdfAnalysis.topPerformers.slice(0, 3).forEach((holding) => {
+            if (yPos > 270) {
+              pdf.addPage();
+              yPos = 20;
+            }
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(34, 197, 94);
+            pdf.text(`▲ ${holding.productName}`, margin + 5, yPos);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`₹${holding.currentValue.toLocaleString('en-IN')}`, pageWidth - margin - 30, yPos);
+            yPos += 6;
+          });
+          
+          yPos += 10;
+        }
+      }
+      
       const recommendations = proposal.recommendations || [];
       if (recommendations.length > 0) {
+        if (yPos > 200) {
+          pdf.addPage();
+          yPos = 20;
+        }
+        
         pdf.setTextColor(0, 0, 0);
         pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
@@ -214,6 +356,11 @@ export default function PublicProposalPage() {
           
           if (rec.expectedReturn || rec.returns) {
             pdf.text(`Expected: ${rec.expectedReturn || rec.returns}`, margin + 80, yPos + 18);
+          }
+          
+          // Add AMC and category info
+          if (rec.amc || rec.category) {
+            pdf.text(`${rec.amc || ''} ${rec.category ? '• ' + rec.category : ''}`, pageWidth - margin - 60, yPos + 18);
           }
           
           yPos += 30;
@@ -315,6 +462,7 @@ export default function PublicProposalPage() {
   const proposal = data.proposal;
   const recommendations = proposal.recommendations || [];
   const targetAllocation = proposal.targetAllocation || {};
+  const analysis = parseAnalysis(proposal.currentAnalysis);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -452,19 +600,215 @@ export default function PublicProposalPage() {
           </Card>
         )}
 
-        {/* Current Analysis */}
-        {proposal.currentAnalysis && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-indigo-600" />
-                Analysis
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground dark:text-muted-foreground">{proposal.currentAnalysis}</p>
-            </CardContent>
-          </Card>
+        {/* Portfolio Analysis Section */}
+        {analysis && (
+          <>
+            {/* Portfolio Health Scores */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-600" />
+                  Portfolio Health Analysis
+                </CardTitle>
+                <CardDescription>
+                  Comprehensive analysis of your current portfolio
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Risk Score */}
+                  <div className="bg-muted/50 dark:bg-muted/30 rounded-xl p-6" data-testid="card-risk-score">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5 text-orange-500" />
+                        <span className="font-medium">Risk Score</span>
+                      </div>
+                      <span className={`font-bold ${getRiskLabel(analysis.riskScore).color}`} data-testid="text-risk-score-value">
+                        {analysis.riskScore}/100
+                      </span>
+                    </div>
+                    <Progress value={analysis.riskScore} className="h-3 mb-2" data-testid="progress-risk-score" />
+                    <p className={`text-sm font-medium ${getRiskLabel(analysis.riskScore).color}`} data-testid="text-risk-score-label">
+                      {getRiskLabel(analysis.riskScore).label}
+                    </p>
+                  </div>
+
+                  {/* Diversification Score */}
+                  <div className="bg-muted/50 dark:bg-muted/30 rounded-xl p-6" data-testid="card-diversification-score">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <PieChart className="w-5 h-5 text-blue-500" />
+                        <span className="font-medium">Diversification Score</span>
+                      </div>
+                      <span className={`font-bold ${getDiversificationLabel(analysis.diversificationScore).color}`} data-testid="text-diversification-score-value">
+                        {analysis.diversificationScore}/100
+                      </span>
+                    </div>
+                    <Progress value={analysis.diversificationScore} className="h-3 mb-2" data-testid="progress-diversification-score" />
+                    <p className={`text-sm font-medium ${getDiversificationLabel(analysis.diversificationScore).color}`} data-testid="text-diversification-score-label">
+                      {getDiversificationLabel(analysis.diversificationScore).label}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Asset Allocation Breakdown */}
+                {Object.keys(analysis.assetAllocation).length > 0 && (
+                  <div className="mt-6" data-testid="section-asset-allocation">
+                    <h4 className="font-medium mb-4">Current Asset Allocation</h4>
+                    <div className="space-y-3">
+                      {Object.entries(analysis.assetAllocation).map(([asset, data]) => (
+                        <div key={asset} className="flex items-center gap-4" data-testid={`row-allocation-${asset}`}>
+                          <div className="w-32 text-sm font-medium capitalize" data-testid={`text-allocation-name-${asset}`}>{asset.replace('_', ' ')}</div>
+                          <div className="flex-1">
+                            <Progress value={data.percentage} className="h-2" />
+                          </div>
+                          <div className="w-24 text-right text-sm">
+                            <span className="font-medium" data-testid={`text-allocation-percent-${asset}`}>{data.percentage.toFixed(1)}%</span>
+                            <span className="text-muted-foreground ml-2" data-testid={`text-allocation-value-${asset}`}>
+                              (₹{data.value.toLocaleString('en-IN')})
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Key Insights / Recommendations */}
+            {analysis.recommendations && analysis.recommendations.length > 0 && (
+              <Card className="mb-8" data-testid="card-key-insights">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lightbulb className="w-5 h-5 text-amber-500" />
+                    Key Insights & Action Items
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {analysis.recommendations.map((rec, idx) => (
+                      <div
+                        key={idx}
+                        data-testid={`card-insight-${idx}`}
+                        className={`flex items-start gap-3 p-4 rounded-lg ${
+                          rec.type === 'warning'
+                            ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                            : rec.type === 'opportunity'
+                            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                            : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                        }`}
+                      >
+                        {rec.type === 'warning' ? (
+                          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        ) : rec.type === 'opportunity' ? (
+                          <TrendingUp className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <Lightbulb className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white" data-testid={`text-insight-message-${idx}`}>{rec.message}</p>
+                          {rec.action && (
+                            <Badge variant="outline" className="mt-2" data-testid={`badge-insight-action-${idx}`}>
+                              Recommended: {rec.action}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Top Performers */}
+            {analysis.topPerformers && analysis.topPerformers.length > 0 && (
+              <Card className="mb-8" data-testid="card-top-performers">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-green-600" />
+                    Top Performing Holdings
+                  </CardTitle>
+                  <CardDescription>Your best performing investments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fund Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Current Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analysis.topPerformers.map((holding, idx) => (
+                        <TableRow key={idx} data-testid={`row-top-performer-${idx}`}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="w-4 h-4 text-green-500" />
+                              <span data-testid={`text-top-performer-name-${idx}`}>{holding.productName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize" data-testid={`badge-top-performer-category-${idx}`}>
+                              {holding.category || holding.productType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium text-green-600" data-testid={`text-top-performer-value-${idx}`}>
+                            ₹{holding.currentValue.toLocaleString('en-IN')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Underperformers */}
+            {analysis.underperformers && analysis.underperformers.length > 0 && (
+              <Card className="mb-8" data-testid="card-underperformers">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                    Holdings Requiring Attention
+                  </CardTitle>
+                  <CardDescription>Consider reviewing these investments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fund Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Current Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analysis.underperformers.map((holding, idx) => (
+                        <TableRow key={idx} data-testid={`row-underperformer-${idx}`}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <TrendingDown className="w-4 h-4 text-amber-500" />
+                              <span data-testid={`text-underperformer-name-${idx}`}>{holding.productName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize" data-testid={`badge-underperformer-category-${idx}`}>
+                              {holding.category || holding.productType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium text-amber-600" data-testid={`text-underperformer-value-${idx}`}>
+                            ₹{holding.currentValue.toLocaleString('en-IN')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
 
         {/* Target Allocation */}
