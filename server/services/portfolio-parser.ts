@@ -313,6 +313,36 @@ export async function parseURLPortfolio(html: string, url: string): Promise<Pars
     const $ = cheerio.load(html);
     const text = $('body').text();
     
+    // Check for expired/invalid link indicators
+    const expiredIndicators = [
+      'link has expired',
+      'token expired',
+      'session expired',
+      'please login',
+      'sign in',
+      'invalid token',
+      'unauthorized',
+      'access denied',
+      'link is no longer valid',
+      'report not found',
+      'page not found',
+      '404',
+      'error occurred'
+    ];
+    
+    const lowerText = text.toLowerCase();
+    const isExpiredLink = expiredIndicators.some(indicator => lowerText.includes(indicator));
+    
+    if (isExpiredLink) {
+      return {
+        success: false,
+        holdings: [],
+        brokerDetected: url.includes('wealthy.in') ? 'Wealthy.in' : null,
+        confidenceScore: 0,
+        errors: ['The report link has expired or is no longer valid. Please generate a fresh link from your broker platform and use it immediately.']
+      };
+    }
+    
     const { broker, confidence } = detectBroker(url + ' ' + text);
     let holdings: ImportedHolding[] = [];
     
@@ -332,12 +362,18 @@ export async function parseURLPortfolio(html: string, url: string): Promise<Pars
       ? holdings.reduce((sum, h) => sum + (h.confidenceScore || 50), 0) / holdings.length
       : 30;
     
+    // Provide specific guidance if no holdings found
+    let errorMessage = 'Could not extract holdings from URL. Please verify the link.';
+    if (url.includes('wealthy.in') && holdings.length === 0) {
+      errorMessage = 'Could not extract holdings. Wealthy.in links expire quickly. Please generate a fresh report link and use it within 5 minutes, or save the page as HTML and upload it.';
+    }
+    
     return {
       success: holdings.length > 0,
       holdings,
       brokerDetected: broker,
       confidenceScore: Math.round(avgConfidence),
-      errors: holdings.length === 0 ? ['Could not extract holdings from URL. Please verify the link.'] : []
+      errors: holdings.length === 0 ? [errorMessage] : []
     };
   } catch (error: any) {
     return {
