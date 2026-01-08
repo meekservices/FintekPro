@@ -353,12 +353,47 @@ export async function parseURLPortfolio(html: string, url: string): Promise<Pars
 function parseWealthyHTML($: cheerio.CheerioAPI): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   
-  $('[class*="fund"], [class*="holding"], [class*="scheme"]').each((i, elem) => {
-    const name = $(elem).find('[class*="name"], [class*="title"]').first().text().trim();
-    const valueText = $(elem).find('[class*="value"], [class*="amount"]').first().text().trim();
-    const unitsText = $(elem).find('[class*="unit"], [class*="qty"]').first().text().trim();
+  // First, try to extract embedded JSON data (common in SPAs)
+  $('script').each((i, elem) => {
+    const scriptContent = $(elem).html() || '';
     
-    if (name && valueText) {
+    // Look for common patterns where initial state/data is embedded
+    const patterns = [
+      /__INITIAL_STATE__\s*=\s*({.*?});/s,
+      /__PRELOADED_STATE__\s*=\s*({.*?});/s,
+      /window\.data\s*=\s*({.*?});/s,
+      /portfolioData\s*=\s*({.*?});/s,
+      /"holdings"\s*:\s*(\[.*?\])/s,
+      /"funds"\s*:\s*(\[.*?\])/s,
+      /"investments"\s*:\s*(\[.*?\])/s
+    ];
+    
+    for (const pattern of patterns) {
+      const match = scriptContent.match(pattern);
+      if (match && match[1]) {
+        try {
+          const data = JSON.parse(match[1]);
+          const extractedHoldings = extractHoldingsFromJSON(data, 'Wealthy.in');
+          if (extractedHoldings.length > 0) {
+            holdings.push(...extractedHoldings);
+            return false; // break each loop
+          }
+        } catch (e) {
+          // Continue trying other patterns
+        }
+      }
+    }
+  });
+  
+  if (holdings.length > 0) return holdings;
+  
+  // Fallback: Try CSS selector based extraction
+  $('[class*="fund"], [class*="holding"], [class*="scheme"], [class*="investment"]').each((i, elem) => {
+    const name = $(elem).find('[class*="name"], [class*="title"], [class*="scheme"]').first().text().trim();
+    const valueText = $(elem).find('[class*="value"], [class*="amount"], [class*="current"]').first().text().trim();
+    const unitsText = $(elem).find('[class*="unit"], [class*="qty"], [class*="nav"]').first().text().trim();
+    
+    if (name && name.length > 3 && valueText) {
       const value = parseFloat(valueText.replace(/[₹,\s]/g, ''));
       const units = parseFloat(unitsText.replace(/[,\s]/g, '')) || 1;
       
@@ -375,6 +410,53 @@ function parseWealthyHTML($: cheerio.CheerioAPI): ImportedHolding[] {
       }
     }
   });
+  
+  return holdings;
+}
+
+function extractHoldingsFromJSON(data: any, broker: string): ImportedHolding[] {
+  const holdings: ImportedHolding[] = [];
+  
+  // Handle various JSON structures
+  const possibleArrays = [
+    data.holdings,
+    data.funds,
+    data.investments,
+    data.portfolio?.holdings,
+    data.data?.holdings,
+    data.mutualFunds,
+    data.schemes,
+    Array.isArray(data) ? data : null
+  ].filter(Boolean);
+  
+  for (const arr of possibleArrays) {
+    if (!Array.isArray(arr)) continue;
+    
+    for (let i = 0; i < arr.length; i++) {
+      const item = arr[i];
+      const name = item.schemeName || item.fundName || item.name || item.scheme_name || '';
+      const value = item.currentValue || item.current_value || item.marketValue || item.value || 0;
+      const units = item.units || item.quantity || item.nav_units || 1;
+      const invested = item.investedValue || item.invested_value || item.cost || value;
+      
+      if (name && value > 0) {
+        holdings.push({
+          id: `holding-${Date.now()}-${i}`,
+          name: name.trim(),
+          assetType: 'mutual_fund',
+          quantity: typeof units === 'number' ? units : parseFloat(units) || 1,
+          currentValue: typeof value === 'number' ? value : parseFloat(value) || 0,
+          investedValue: typeof invested === 'number' ? invested : parseFloat(invested) || undefined,
+          isin: item.isin || item.ISIN,
+          folioNumber: item.folioNumber || item.folio,
+          broker,
+          confidenceScore: 85
+        });
+      }
+    }
+    
+    if (holdings.length > 0) break;
+  }
   
   return holdings;
 }
