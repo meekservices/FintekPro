@@ -544,7 +544,13 @@ export default function AgentProspectWizard() {
         setAnalysis(data.analysis);
         toast({ title: "Analysis Complete", description: "Portfolio analyzed successfully." });
         setCurrentStep(4);
+      } else {
+        toast({ title: "Analysis Failed", description: data.error || "Could not analyze portfolio.", variant: "destructive" });
       }
+    },
+    onError: (error) => {
+      console.error("Portfolio analysis error:", error);
+      toast({ title: "Analysis Error", description: "Failed to analyze portfolio. Please try again.", variant: "destructive" });
     }
   });
 
