@@ -533,11 +533,10 @@ export default function AgentProspectWizard() {
 
   const analyzePortfolioMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("/api/agent-wizard/analyze-portfolio", {
+      return await apiRequest("/api/agent-wizard/analyze-portfolio", {
         method: "POST",
         body: JSON.stringify({ holdings, riskProfile })
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -556,11 +555,10 @@ export default function AgentProspectWizard() {
 
   const getRebalancingMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("/api/agent-wizard/rebalancing-suggestions", {
+      return await apiRequest("/api/agent-wizard/rebalancing-suggestions", {
         method: "POST",
         body: JSON.stringify({ holdings, riskProfile, analysis })
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -572,7 +570,7 @@ export default function AgentProspectWizard() {
 
   const getFreshInvestmentsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("/api/agent-wizard/fresh-investment-suggestions", {
+      return await apiRequest("/api/agent-wizard/fresh-investment-suggestions", {
         method: "POST",
         body: JSON.stringify({ 
           riskProfile, 
@@ -580,7 +578,6 @@ export default function AgentProspectWizard() {
           existingHoldings: holdings 
         })
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -592,7 +589,7 @@ export default function AgentProspectWizard() {
 
   const generateProposalMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("/api/agent-wizard/generate-proposal", {
+      return await apiRequest("/api/agent-wizard/generate-proposal", {
         method: "POST",
         body: JSON.stringify({
           prospectId,
@@ -602,7 +599,6 @@ export default function AgentProspectWizard() {
           freshInvestmentAmount
         })
       });
-      return res.json();
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -616,11 +612,10 @@ export default function AgentProspectWizard() {
   const shareProposalMutation = useMutation({
     mutationFn: async (channel: 'email' | 'whatsapp' | 'sms') => {
       if (!proposal) return;
-      const res = await apiRequest(`/api/agent-wizard/proposals/${proposal.proposalId}/share`, {
+      return await apiRequest(`/api/agent-wizard/proposals/${proposal.proposalId}/share`, {
         method: "POST",
         body: JSON.stringify({ channel })
       });
-      return res.json();
     },
     onSuccess: (data, channel) => {
       if (data.success) {
