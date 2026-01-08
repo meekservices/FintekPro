@@ -315,9 +315,15 @@ function parseWealthyPDFFormat(text: string): ImportedHolding[] {
     const amcPrefixes = ['Nippon India', 'HDFC', 'ICICI Pru', 'SBI', 'Axis', 'Kotak', 'Aditya Birla', 
                          'UTI', 'Tata', 'Franklin', 'DSP', 'Mirae', 'Motilal', 'Invesco', 'Bandhan',
                          'Sundaram', 'Canara', 'PGIM', 'Edelweiss', 'L&T', 'Mahindra', 'Quant', 'JM'];
-    const isAmcPrefix = amcPrefixes.some(prefix => line.startsWith(prefix)) &&
+    const matchingPrefix = amcPrefixes.find(prefix => line.startsWith(prefix));
+    const isAmcPrefix = matchingPrefix &&
                         nextLine && nextLine.includes('Fund') && 
                         (nextLine.includes('(G)') || nextLine.includes('(IDCW)'));
+    
+    // Debug: Log lines around Nippon India for troubleshooting
+    if (line.includes('Nippon') || line.includes('Services')) {
+      console.log(`[DEBUG] Line ${i}: "${line}" | nextLine: "${nextLine}" | matchingPrefix: ${matchingPrefix} | isAmcPrefix: ${isAmcPrefix}`);
+    }
     
     const isFundName = (
       (hasFundKeyword || isAmcPrefix) &&
