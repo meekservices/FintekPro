@@ -4743,6 +4743,40 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
       results.push({ source: 'probe42', status: 'error', error: p42Error.message });
     }
     
+    // Also run multi-source data enrichment with forceRefresh to bypass identity confidence check
+    // This ensures MCA fallback is used when CIN/ISIN are present but no Probe42 mapping exists
+    try {
+      const currentYear = new Date().getFullYear();
+      const fy = `FY${currentYear - 1}-${currentYear.toString().slice(-2)}`;
+      
+      const enriched = await dataEnrichmentService.enrichCompanyFinancials(companyId, fy, {
+        forceRefresh: true,
+      });
+      
+      if (enriched.sources.length > 0) {
+        results.push({
+          source: 'data_enrichment',
+          status: 'success',
+          data: {
+            sources: enriched.sources,
+            metricsEnriched: Object.keys(enriched.metrics).length,
+            overallConfidence: enriched.overallConfidence,
+          }
+        });
+      } else {
+        const blockReason = enriched.auditTrail.find(a => a.action === 'block')?.reason;
+        const bypassReason = enriched.auditTrail.find(a => a.action === 'bypass')?.reason;
+        results.push({
+          source: 'data_enrichment',
+          status: 'no_data',
+          data: { reason: blockReason || bypassReason || 'No metrics fetched' }
+        });
+      }
+    } catch (enrichError: any) {
+      console.log('[Refresh] Data enrichment error:', enrichError.message);
+      results.push({ source: 'data_enrichment', status: 'error', error: enrichError.message });
+    }
+    
     return apiResponse.success(res, {
       message: 'Company data refresh completed',
       companyId,

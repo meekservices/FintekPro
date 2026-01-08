@@ -555,7 +555,12 @@ class DataEnrichmentService {
       pan: company.pan,
     });
 
-    if (!confidence.enrichmentAllowed) {
+    // Allow admin-triggered fetches (forceRefresh) to bypass identity check when CIN or ISIN is present
+    // This enables MCA fallback for companies without Probe42 mapping
+    const hasValidIdentifier = !!(company.cin || company.isin);
+    const allowBypass = options.forceRefresh && hasValidIdentifier;
+
+    if (!confidence.enrichmentAllowed && !allowBypass) {
       auditTrail.push({
         id: crypto.randomUUID(),
         timestamp: now,
@@ -574,6 +579,16 @@ class DataEnrichmentService {
         metrics: {},
         auditTrail,
       };
+    }
+
+    if (allowBypass && !confidence.enrichmentAllowed) {
+      auditTrail.push({
+        id: crypto.randomUUID(),
+        timestamp: now,
+        action: 'bypass',
+        source: 'admin',
+        reason: `Admin-triggered enrichment bypass: CIN=${company.cin || 'N/A'}, ISIN=${company.isin || 'N/A'}`,
+      });
     }
 
     const enriched: EnrichedFinancials = {
