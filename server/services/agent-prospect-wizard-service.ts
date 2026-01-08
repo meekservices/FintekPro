@@ -231,6 +231,42 @@ export interface FreshInvestmentSuggestion {
   highlights: string[];
 }
 
+export interface PortfolioMetrics {
+  totalValue: number;
+  expectedReturn: number;
+  volatility: number | null;
+  beta: number | null;
+  alpha: number | null;
+  sharpeRatio: number | null;
+  treynorRatio: number | null;
+  sortinoRatio: number | null;
+  informationRatio: number | null;
+  maxDrawdown: number | null;
+  diversificationScore: number;
+  riskScore: number;
+  assetAllocation: {
+    equity: number;
+    debt: number;
+    hybrid: number;
+    gold: number;
+    silver: number;
+    others: number;
+  };
+}
+
+export interface PortfolioComparison {
+  currentPortfolio: PortfolioMetrics;
+  proposedPortfolio: PortfolioMetrics;
+  improvements: {
+    metric: string;
+    current: number | null;
+    proposed: number | null;
+    change: number | null;
+    interpretation: string;
+    isImprovement: boolean;
+  }[];
+}
+
 export interface CombinedProposal {
   prospectId: string;
   proposalId: string;
@@ -244,6 +280,7 @@ export interface CombinedProposal {
   projectedValue: number;
   projectedReturn: string;
   executiveSummary: string;
+  portfolioComparison?: PortfolioComparison;
 }
 
 class AgentProspectWizardService {
@@ -354,6 +391,262 @@ class AgentProspectWizardService {
       recommendations,
       topPerformers: sortedByValue.slice(0, 3),
       underperformers: sortedByValue.slice(-3).reverse()
+    };
+  }
+
+  // Risk-adjusted metrics calculation methods
+  private calculateVolatility(holdings: ProspectPortfolioHolding[]): number | null {
+    if (holdings.length === 0) return null;
+    // Estimate volatility based on asset allocation
+    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+    let weightedVolatility = 0;
+    
+    holdings.forEach(h => {
+      const weight = h.currentValue / totalValue;
+      const category = (h.category || h.productType || '').toLowerCase();
+      // Asset class volatility estimates (annualized)
+      let assetVolatility = 15; // default
+      if (category.includes('small') || category.includes('micro')) assetVolatility = 28;
+      else if (category.includes('mid')) assetVolatility = 22;
+      else if (category.includes('large') || category.includes('blue')) assetVolatility = 16;
+      else if (category.includes('debt') || category.includes('bond')) assetVolatility = 5;
+      else if (category.includes('gold') || category.includes('silver')) assetVolatility = 18;
+      else if (category.includes('hybrid')) assetVolatility = 12;
+      else if (category.includes('liquid') || category.includes('money')) assetVolatility = 2;
+      
+      weightedVolatility += weight * assetVolatility;
+    });
+    
+    return weightedVolatility;
+  }
+
+  private calculateBeta(holdings: ProspectPortfolioHolding[]): number | null {
+    if (holdings.length === 0) return null;
+    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+    let weightedBeta = 0;
+    
+    holdings.forEach(h => {
+      const weight = h.currentValue / totalValue;
+      const category = (h.category || h.productType || '').toLowerCase();
+      // Asset class beta estimates
+      let assetBeta = 1.0;
+      if (category.includes('small')) assetBeta = 1.3;
+      else if (category.includes('mid')) assetBeta = 1.15;
+      else if (category.includes('large')) assetBeta = 0.95;
+      else if (category.includes('debt') || category.includes('bond')) assetBeta = 0.15;
+      else if (category.includes('gold')) assetBeta = 0.0; // Gold has near-zero correlation
+      else if (category.includes('silver')) assetBeta = 0.1;
+      else if (category.includes('hybrid')) assetBeta = 0.65;
+      else if (category.includes('index')) assetBeta = 1.0;
+      
+      weightedBeta += weight * assetBeta;
+    });
+    
+    return weightedBeta;
+  }
+
+  private calculateAlpha(portfolioReturn: number, beta: number | null, marketReturn: number = 12): number | null {
+    if (beta === null) return null;
+    const riskFreeRate = 6; // India 10Y G-Sec benchmark
+    const expectedReturn = riskFreeRate + beta * (marketReturn - riskFreeRate);
+    return portfolioReturn - expectedReturn;
+  }
+
+  private calculateSharpeRatio(returns: number, volatility: number | null): number | null {
+    if (!volatility || volatility === 0) return null;
+    const riskFreeRate = 6;
+    return (returns - riskFreeRate) / volatility;
+  }
+
+  private calculateTreynorRatio(portfolioReturn: number, beta: number | null): number | null {
+    if (beta === null || beta === 0) return null;
+    const riskFreeRate = 6;
+    return (portfolioReturn - riskFreeRate) / beta;
+  }
+
+  private calculateSortinoRatio(portfolioReturn: number, holdings: ProspectPortfolioHolding[]): number | null {
+    // Estimate downside deviation from volatility and asset mix
+    const volatility = this.calculateVolatility(holdings);
+    if (!volatility) return null;
+    
+    // Downside deviation is typically 60-80% of total volatility for diversified portfolios
+    const downsideDeviation = volatility * 0.7;
+    if (downsideDeviation === 0) return null;
+    
+    const targetReturn = 6;
+    return (portfolioReturn - targetReturn) / downsideDeviation;
+  }
+
+  private calculateInformationRatio(portfolioReturn: number, benchmarkReturn: number = 12, beta: number | null): number | null {
+    if (beta === null) return null;
+    // Tracking error approximation
+    const marketVolatility = 15;
+    const trackingError = Math.abs(1 - beta) * marketVolatility + 2;
+    if (trackingError === 0) return null;
+    return (portfolioReturn - benchmarkReturn) / trackingError;
+  }
+
+  private calculateMaxDrawdown(beta: number | null, volatility: number | null): number | null {
+    if (beta === null || volatility === null) return null;
+    // Estimated max drawdown: volatility * beta * 2 (rule of thumb)
+    return Math.min(volatility * Math.max(beta, 0.5) * 2, 50);
+  }
+
+  private calculateAssetAllocationBreakdown(holdings: ProspectPortfolioHolding[]): PortfolioMetrics['assetAllocation'] {
+    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+    const allocation = { equity: 0, debt: 0, hybrid: 0, gold: 0, silver: 0, others: 0 };
+    
+    if (totalValue === 0) return allocation;
+    
+    holdings.forEach(h => {
+      const weight = (h.currentValue / totalValue) * 100;
+      const category = (h.category || h.productType || '').toLowerCase();
+      
+      if (category.includes('equity') || category.includes('small') || category.includes('mid') || 
+          category.includes('large') || category.includes('flexi') || category.includes('multi')) {
+        allocation.equity += weight;
+      } else if (category.includes('debt') || category.includes('bond') || category.includes('liquid') || 
+                 category.includes('money') || category.includes('corporate') || category.includes('gilt')) {
+        allocation.debt += weight;
+      } else if (category.includes('hybrid') || category.includes('balanced') || category.includes('multi-asset')) {
+        allocation.hybrid += weight;
+      } else if (category.includes('gold')) {
+        allocation.gold += weight;
+      } else if (category.includes('silver')) {
+        allocation.silver += weight;
+      } else {
+        allocation.others += weight;
+      }
+    });
+    
+    return allocation;
+  }
+
+  calculatePortfolioMetrics(holdings: ProspectPortfolioHolding[], expectedReturn: number): PortfolioMetrics {
+    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+    const volatility = this.calculateVolatility(holdings);
+    const beta = this.calculateBeta(holdings);
+    const alpha = this.calculateAlpha(expectedReturn, beta);
+    const sharpeRatio = this.calculateSharpeRatio(expectedReturn, volatility);
+    const treynorRatio = this.calculateTreynorRatio(expectedReturn, beta);
+    const sortinoRatio = this.calculateSortinoRatio(expectedReturn, holdings);
+    const informationRatio = this.calculateInformationRatio(expectedReturn, 12, beta);
+    const maxDrawdown = this.calculateMaxDrawdown(beta, volatility);
+    const assetAllocation = this.calculateAssetAllocationBreakdown(holdings);
+    
+    const numAssetClasses = Object.values(assetAllocation).filter(v => v > 5).length;
+    const diversificationScore = Math.min(100, numAssetClasses * 15 + holdings.length * 3 + 20);
+    
+    const equityWeight = assetAllocation.equity + assetAllocation.hybrid * 0.6;
+    const riskScore = Math.min(100, Math.max(0, 30 + equityWeight * 0.7));
+    
+    return {
+      totalValue,
+      expectedReturn,
+      volatility,
+      beta,
+      alpha,
+      sharpeRatio,
+      treynorRatio,
+      sortinoRatio,
+      informationRatio,
+      maxDrawdown,
+      diversificationScore,
+      riskScore,
+      assetAllocation
+    };
+  }
+
+  calculateProposedPortfolioMetrics(
+    freshInvestments: FreshInvestmentSuggestion[], 
+    riskProfile: ProspectRiskProfile
+  ): PortfolioMetrics {
+    // Convert fresh investments to pseudo-holdings for metric calculation
+    const pseudoHoldings: ProspectPortfolioHolding[] = freshInvestments.map(inv => ({
+      productType: inv.productType,
+      productName: inv.productName,
+      quantity: 1,
+      currentValue: inv.suggestedAmount,
+      category: (inv as any).category || inv.productType
+    }));
+    
+    // Calculate weighted expected return
+    const totalAmount = freshInvestments.reduce((sum, inv) => sum + inv.suggestedAmount, 0);
+    let weightedReturn = 0;
+    freshInvestments.forEach(inv => {
+      const returnVal = parseFloat(inv.expectedReturn.replace('%', '')) || 12;
+      weightedReturn += (inv.suggestedAmount / totalAmount) * returnVal;
+    });
+    
+    return this.calculatePortfolioMetrics(pseudoHoldings, weightedReturn);
+  }
+
+  generatePortfolioComparison(
+    holdings: ProspectPortfolioHolding[],
+    freshInvestments: FreshInvestmentSuggestion[],
+    riskProfile: ProspectRiskProfile
+  ): PortfolioComparison {
+    // Calculate current portfolio expected return based on category
+    const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
+    let currentExpectedReturn = 10; // Default assumption
+    
+    // Estimate based on asset mix
+    holdings.forEach(h => {
+      const weight = h.currentValue / totalValue;
+      const category = (h.category || '').toLowerCase();
+      let assetReturn = 10;
+      if (category.includes('small')) assetReturn = 18;
+      else if (category.includes('mid')) assetReturn = 15;
+      else if (category.includes('large') || category.includes('equity')) assetReturn = 12;
+      else if (category.includes('debt') || category.includes('bond')) assetReturn = 7;
+      else if (category.includes('gold') || category.includes('silver')) assetReturn = 10;
+      else if (category.includes('hybrid')) assetReturn = 11;
+      currentExpectedReturn = currentExpectedReturn * (1 - weight) + assetReturn * weight;
+    });
+    
+    const currentMetrics = this.calculatePortfolioMetrics(holdings, currentExpectedReturn);
+    const proposedMetrics = this.calculateProposedPortfolioMetrics(freshInvestments, riskProfile);
+    
+    // Generate improvement analysis
+    const improvements: PortfolioComparison['improvements'] = [];
+    
+    const addImprovement = (
+      metric: string, 
+      current: number | null, 
+      proposed: number | null, 
+      higherIsBetter: boolean,
+      interpretation: string
+    ) => {
+      const change = (current !== null && proposed !== null) ? proposed - current : null;
+      const isImprovement = change !== null ? (higherIsBetter ? change > 0 : change < 0) : false;
+      improvements.push({ metric, current, proposed, change, interpretation, isImprovement });
+    };
+    
+    addImprovement('Expected Return (%)', currentMetrics.expectedReturn, proposedMetrics.expectedReturn, true,
+      'Higher returns mean more wealth creation over time');
+    addImprovement('Alpha (Jensen\'s)', currentMetrics.alpha, proposedMetrics.alpha, true,
+      'Positive alpha indicates outperformance vs the market');
+    addImprovement('Beta', currentMetrics.beta, proposedMetrics.beta, false,
+      'Lower beta means less sensitivity to market swings');
+    addImprovement('Sharpe Ratio', currentMetrics.sharpeRatio, proposedMetrics.sharpeRatio, true,
+      'Higher Sharpe means better risk-adjusted returns');
+    addImprovement('Treynor Ratio', currentMetrics.treynorRatio, proposedMetrics.treynorRatio, true,
+      'Higher Treynor means better return per unit of market risk');
+    addImprovement('Sortino Ratio', currentMetrics.sortinoRatio, proposedMetrics.sortinoRatio, true,
+      'Higher Sortino means better return for downside risk taken');
+    addImprovement('Information Ratio', currentMetrics.informationRatio, proposedMetrics.informationRatio, true,
+      'Higher IR indicates consistent outperformance vs benchmark');
+    addImprovement('Max Drawdown (%)', currentMetrics.maxDrawdown, proposedMetrics.maxDrawdown, false,
+      'Lower drawdown means smaller potential losses in bad markets');
+    addImprovement('Volatility (%)', currentMetrics.volatility, proposedMetrics.volatility, false,
+      'Lower volatility means more stable returns');
+    addImprovement('Diversification Score', currentMetrics.diversificationScore, proposedMetrics.diversificationScore, true,
+      'Higher score means better spread across asset classes');
+    
+    return {
+      currentPortfolio: currentMetrics,
+      proposedPortfolio: proposedMetrics,
+      improvements
     };
   }
 
@@ -689,6 +982,11 @@ class AgentProspectWizardService {
     // Get target allocation based on risk profile
     const targetAllocation = TARGET_ALLOCATIONS[riskProfile.riskTolerance] || TARGET_ALLOCATIONS.moderate;
     
+    // Generate portfolio comparison with risk-adjusted metrics
+    const portfolioComparison = holdings.length > 0 && freshInvestments.length > 0
+      ? this.generatePortfolioComparison(holdings, freshInvestments, riskProfile)
+      : undefined;
+    
     const [proposal] = await db.insert(prospectProposals).values({
       shareToken,
       agentId,
@@ -700,7 +998,7 @@ class AgentProspectWizardService {
       proposalTitle: `Investment Proposal for ${prospectData.name}`,
       clientType: 'individual',
       samplePortfolio: holdings,
-      currentAnalysis: JSON.stringify(analysis),
+      currentAnalysis: JSON.stringify({ ...analysis, portfolioComparison }),
       recommendations: [...rebalancing, ...freshInvestments],
       totalInvestmentAmount: String(netInvestmentRequired),
       projectedValue: String(Math.round(projectedValue)),
@@ -736,7 +1034,8 @@ class AgentProspectWizardService {
       netInvestmentRequired,
       projectedValue: Math.round(projectedValue),
       projectedReturn: `${avgReturn}% p.a.`,
-      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile)
+      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile),
+      portfolioComparison
     };
   }
 

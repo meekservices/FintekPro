@@ -55,6 +55,42 @@ interface ProposalData {
   createdAt: string;
 }
 
+interface PortfolioMetrics {
+  totalValue: number;
+  expectedReturn: number;
+  volatility: number | null;
+  beta: number | null;
+  alpha: number | null;
+  sharpeRatio: number | null;
+  treynorRatio: number | null;
+  sortinoRatio: number | null;
+  informationRatio: number | null;
+  maxDrawdown: number | null;
+  diversificationScore: number;
+  riskScore: number;
+  assetAllocation: {
+    equity: number;
+    debt: number;
+    hybrid: number;
+    gold: number;
+    silver: number;
+    others: number;
+  };
+}
+
+interface PortfolioComparison {
+  currentPortfolio: PortfolioMetrics;
+  proposedPortfolio: PortfolioMetrics;
+  improvements: Array<{
+    metric: string;
+    current: number | null;
+    proposed: number | null;
+    change: number | null;
+    interpretation: string;
+    isImprovement: boolean;
+  }>;
+}
+
 interface PortfolioAnalysis {
   totalValue: number;
   assetAllocation: Record<string, { value: number; percentage: number }>;
@@ -63,6 +99,7 @@ interface PortfolioAnalysis {
   recommendations: Array<{ type: 'warning' | 'suggestion' | 'opportunity'; message: string; action?: string }>;
   topPerformers: Array<{ productType: string; productName: string; quantity: number; currentValue: number; category?: string }>;
   underperformers: Array<{ productType: string; productName: string; quantity: number; currentValue: number; category?: string }>;
+  portfolioComparison?: PortfolioComparison;
 }
 
 function parseAnalysis(analysisStr?: string): PortfolioAnalysis | null {
@@ -805,6 +842,187 @@ export default function PublicProposalPage() {
                       ))}
                     </TableBody>
                   </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Portfolio Comparison Section - Current vs Proposed */}
+            {analysis.portfolioComparison && (
+              <Card className="mb-8" data-testid="card-portfolio-comparison">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-indigo-600" />
+                    Portfolio Comparison: Current vs Proposed
+                  </CardTitle>
+                  <CardDescription>
+                    See how our recommended portfolio compares to your current holdings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border">
+                      <h4 className="font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        Current Portfolio
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Expected Return</p>
+                          <p className="text-lg font-bold">{analysis.portfolioComparison.currentPortfolio.expectedReturn.toFixed(1)}%</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Risk Score</p>
+                          <p className="text-lg font-bold">{analysis.portfolioComparison.currentPortfolio.riskScore.toFixed(0)}/100</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                      <h4 className="font-medium text-green-700 dark:text-green-400 mb-3 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4" />
+                        Proposed Portfolio
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-green-600 dark:text-green-400">Expected Return</p>
+                          <p className="text-lg font-bold text-green-700 dark:text-green-300">{analysis.portfolioComparison.proposedPortfolio.expectedReturn.toFixed(1)}%</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-green-600 dark:text-green-400">Risk Score</p>
+                          <p className="text-lg font-bold text-green-700 dark:text-green-300">{analysis.portfolioComparison.proposedPortfolio.riskScore.toFixed(0)}/100</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Metrics Comparison Table */}
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Metric</TableHead>
+                          <TableHead className="text-center">Current</TableHead>
+                          <TableHead className="text-center">Proposed</TableHead>
+                          <TableHead className="text-center">Change</TableHead>
+                          <TableHead className="hidden md:table-cell">What This Means</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {analysis.portfolioComparison.improvements.map((item, idx) => (
+                          <TableRow key={idx} data-testid={`row-comparison-${idx}`}>
+                            <TableCell className="font-medium">{item.metric}</TableCell>
+                            <TableCell className="text-center">
+                              {item.current !== null ? item.current.toFixed(2) : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-center font-medium">
+                              {item.proposed !== null ? item.proposed.toFixed(2) : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.change !== null ? (
+                                <span className={`flex items-center justify-center gap-1 font-medium ${
+                                  item.isImprovement ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {item.isImprovement ? (
+                                    <TrendingUp className="w-4 h-4" />
+                                  ) : (
+                                    <TrendingDown className="w-4 h-4" />
+                                  )}
+                                  {item.change > 0 ? '+' : ''}{item.change.toFixed(2)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                              {item.interpretation}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Asset Allocation Comparison */}
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-medium mb-4">Asset Allocation Shift</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">Current Allocation</p>
+                        <div className="space-y-2">
+                          {Object.entries(analysis.portfolioComparison.currentPortfolio.assetAllocation)
+                            .filter(([_, val]) => val > 0)
+                            .map(([asset, val]) => (
+                              <div key={asset} className="flex items-center gap-2">
+                                <span className="w-16 text-xs capitalize">{asset}</span>
+                                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className="bg-gray-500 h-2 rounded-full" 
+                                    style={{ width: `${Math.min(val, 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs w-12 text-right">{val.toFixed(0)}%</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 dark:text-green-400 mb-2">Proposed Allocation</p>
+                        <div className="space-y-2">
+                          {Object.entries(analysis.portfolioComparison.proposedPortfolio.assetAllocation)
+                            .filter(([_, val]) => val > 0)
+                            .map(([asset, val]) => (
+                              <div key={asset} className="flex items-center gap-2">
+                                <span className="w-16 text-xs capitalize">{asset}</span>
+                                <div className="flex-1 bg-green-100 dark:bg-green-900 rounded-full h-2">
+                                  <div 
+                                    className="bg-green-500 h-2 rounded-full" 
+                                    style={{ width: `${Math.min(val, 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs w-12 text-right text-green-600">{val.toFixed(0)}%</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Metrics Legend */}
+                  <div className="mt-6 pt-6 border-t">
+                    <details className="group">
+                      <summary className="cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                        <Lightbulb className="w-4 h-4" />
+                        Understanding the Metrics
+                        <span className="text-xs text-muted-foreground">(click to expand)</span>
+                      </summary>
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <p className="font-medium">Alpha (Jensen's Alpha)</p>
+                          <p className="text-muted-foreground">Measures excess returns compared to benchmark. Positive alpha means outperformance.</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <p className="font-medium">Beta</p>
+                          <p className="text-muted-foreground">Measures market sensitivity. Beta of 1 means same volatility as market, less than 1 is more stable.</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <p className="font-medium">Sharpe Ratio</p>
+                          <p className="text-muted-foreground">Risk-adjusted returns. Higher is better - measures return earned per unit of total risk.</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <p className="font-medium">Treynor Ratio</p>
+                          <p className="text-muted-foreground">Returns per unit of market risk (beta). Useful for comparing diversified portfolios.</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <p className="font-medium">Sortino Ratio</p>
+                          <p className="text-muted-foreground">Like Sharpe but only considers downside risk. Better for asymmetric return distributions.</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <p className="font-medium">Max Drawdown</p>
+                          <p className="text-muted-foreground">Maximum potential loss from peak to trough. Lower is better for capital preservation.</p>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
                 </CardContent>
               </Card>
             )}
