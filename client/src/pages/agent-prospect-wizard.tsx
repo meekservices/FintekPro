@@ -184,6 +184,10 @@ export default function AgentProspectWizard() {
     brokerDetected: string | null;
     confidenceScore: number;
     errors: string[];
+    expectedCount?: number;
+    importedCount?: number;
+    unimportedCount?: number;
+    needsManualReview?: boolean;
   } | null>(null);
   const [rebalancing, setRebalancing] = useState<RebalanceRecommendation[]>([]);
   const [freshInvestments, setFreshInvestments] = useState<FreshInvestmentSuggestion[]>([]);
