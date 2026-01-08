@@ -7,6 +7,13 @@ import { eq, and } from 'drizzle-orm';
 import { isAuthenticated } from '../replitAuth';
 import { parsePDFPortfolio, parseURLPortfolio, createPortfolioSnapshot } from '../services/portfolio-parser';
 
+// Helper function to detect if file is HTML
+function isHTMLFile(filename: string, mimetype: string): boolean {
+  const ext = filename.toLowerCase();
+  return ext.endsWith('.html') || ext.endsWith('.htm') || 
+         mimetype === 'text/html' || mimetype === 'application/xhtml+xml';
+}
+
 const router = Router();
 
 // Helper function to normalize asset type strings
@@ -49,11 +56,19 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedMimes = ['application/pdf', 'application/x-pdf'];
-    if (allowedMimes.includes(file.mimetype)) {
+    const allowedMimes = [
+      'application/pdf', 
+      'application/x-pdf',
+      'text/html',
+      'application/xhtml+xml'
+    ];
+    // Also check file extension for HTML files (some browsers send different mime types)
+    const isHtmlFile = file.originalname.toLowerCase().endsWith('.html') || 
+                       file.originalname.toLowerCase().endsWith('.htm');
+    if (allowedMimes.includes(file.mimetype) || isHtmlFile) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF files are allowed'));
+      cb(new Error('Only PDF and HTML files are allowed'));
     }
   }
 });
@@ -88,7 +103,24 @@ router.post(
         return res.status(404).json({ error: 'Prospect not found' });
       }
       
-      const parseResult = await parsePDFPortfolio(req.file.buffer, req.file.originalname);
+      // Detect if the file is HTML or PDF and parse accordingly
+      const isHTML = isHTMLFile(req.file.originalname, req.file.mimetype);
+      let parseResult;
+      
+      if (isHTML) {
+        // Parse HTML file using the URL parser logic
+        const htmlContent = req.file.buffer.toString('utf-8');
+        // Try to detect source URL from filename (e.g., Wealthy_timestamp.html)
+        const sourceUrl = req.file.originalname.toLowerCase().includes('wealthy') 
+          ? 'wealthy.in' 
+          : 'html_upload';
+        parseResult = await parseURLPortfolio(htmlContent, sourceUrl);
+      } else {
+        // Parse PDF file
+        parseResult = await parsePDFPortfolio(req.file.buffer, req.file.originalname);
+      }
+      
+      const fileType = isHTML ? 'html' : 'pdf';
       
       const snapshot = createPortfolioSnapshot(
         parseResult.holdings,
@@ -107,7 +139,7 @@ router.post(
           uploadedPortfolio: {
             uploadedAt: new Date().toISOString(),
             fileName: req.file.originalname,
-            fileType: 'pdf',
+            fileType: fileType,
             parsedHoldings: snapshot.holdings.map(h => ({
               name: h.name,
               quantity: h.quantity,
