@@ -13,6 +13,7 @@ import { finnhubService } from './finnhub-service';
 import { exchangeFilingsService } from './exchange-filings-service';
 import { xbrlParserService } from './xbrl-parser-service';
 import { mcaService } from './mca-service';
+import { nsdlISINService } from './nsdl-isin-service';
 import { ExternalServiceError } from '../utils/errors';
 
 export type DataSource = 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'manual' | 'mca';
@@ -591,6 +592,96 @@ class DataEnrichmentService {
       });
     }
 
+    // ISIN→CIN auto-discovery: If ISIN exists but CIN is missing, try to discover CIN
+    let discoveredCIN: string | null = null;
+    if (!company.cin && company.isin) {
+      try {
+        console.log(`[DataEnrichment] Attempting ISIN→CIN discovery for ${company.isin}`);
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'mca',
+          reason: `Attempting ISIN→CIN discovery via NSDL for ${company.isin}`,
+        });
+
+        const cinLookup = await nsdlISINService.lookupCINByISIN(company.isin);
+        
+        if (cinLookup.cin) {
+          discoveredCIN = cinLookup.cin;
+          console.log(`[DataEnrichment] Discovered CIN ${discoveredCIN} from ISIN ${company.isin} (via ${cinLookup.source}, confidence: ${cinLookup.confidence})`);
+          
+          // Persist the discovered CIN to the company record
+          await storage.updateUnlistedCompany(companyId, {
+            cin: discoveredCIN,
+            lastSyncedAt: new Date(),
+          });
+          
+          auditTrail.push({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            action: 'fetch',
+            source: 'mca',
+            confidence: cinLookup.confidence,
+            reason: `Discovered and persisted CIN ${discoveredCIN} from ISIN via ${cinLookup.source}`,
+          });
+        } else {
+          // NSDL lookup failed, try MCA name search as fallback
+          console.log(`[DataEnrichment] NSDL lookup failed, trying MCA name search for: ${company.companyName || company.name}`);
+          
+          try {
+            const companyName = company.companyName || company.name || '';
+            if (companyName && mcaService.isConfigured()) {
+              const mcaSearchResults = await mcaService.searchCompanyByName(companyName);
+              
+              if (mcaSearchResults.length > 0) {
+                // Take the best match (first result, highest confidence)
+                discoveredCIN = mcaSearchResults[0].cin;
+                console.log(`[DataEnrichment] Discovered CIN ${discoveredCIN} via MCA name search for "${companyName}"`);
+                
+                // Persist the discovered CIN
+                await storage.updateUnlistedCompany(companyId, {
+                  cin: discoveredCIN,
+                  lastSyncedAt: new Date(),
+                });
+                
+                auditTrail.push({
+                  id: crypto.randomUUID(),
+                  timestamp: new Date(),
+                  action: 'fetch',
+                  source: 'mca',
+                  confidence: 0.7,
+                  reason: `Discovered CIN ${discoveredCIN} via MCA name search for "${companyName}"`,
+                });
+              } else {
+                auditTrail.push({
+                  id: crypto.randomUUID(),
+                  timestamp: new Date(),
+                  action: 'fetch',
+                  source: 'mca',
+                  reason: `ISIN→CIN discovery failed: no matching CIN found for ${company.isin}, MCA name search also returned no results`,
+                });
+              }
+            }
+          } catch (mcaSearchError: any) {
+            console.log(`[DataEnrichment] MCA name search fallback failed: ${mcaSearchError.message}`);
+          }
+        }
+      } catch (isinError: any) {
+        console.error(`[DataEnrichment] ISIN→CIN discovery error: ${isinError.message}`);
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'mca',
+          reason: `ISIN→CIN discovery error: ${isinError.message}`,
+        });
+      }
+    }
+
+    // Use discovered CIN or existing CIN for subsequent lookups
+    const effectiveCIN = discoveredCIN || company.cin;
+
     const enriched: EnrichedFinancials = {
       companyId,
       financialYear,
@@ -677,17 +768,17 @@ class DataEnrichmentService {
 
     // 2. MCA - Secondary Source (0.95 confidence)
     // Ministry of Corporate Affairs - official government source for all Indian companies
-    if (company.cin) {
+    if (effectiveCIN) {
       try {
         auditTrail.push({
           id: crypto.randomUUID(),
           timestamp: new Date(),
           action: 'fetch',
           source: 'mca',
-          reason: 'Fetching MCA data (Ministry of Corporate Affairs - government source)',
+          reason: `Fetching MCA data (Ministry of Corporate Affairs) using CIN: ${effectiveCIN}`,
         });
 
-        const mcaResult = await this.fetchFromMCA(companyId, company.cin);
+        const mcaResult = await this.fetchFromMCA(companyId, effectiveCIN);
         
         if (Object.keys(mcaResult.metrics).length > 0) {
           enriched.sources.push('mca');
