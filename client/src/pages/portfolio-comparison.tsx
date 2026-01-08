@@ -44,6 +44,11 @@ interface PortfolioComparisonResult {
       beta: number;
       maxDrawdown: number;
       diversificationRatio: number;
+      treynorRatio: number;
+      sortinoRatio: number;
+      informationRatio: number;
+      downsideDeviation: number;
+      trackingError: number;
     };
     assetAllocation: {
       equity: number;
@@ -62,6 +67,8 @@ interface PortfolioComparisonResult {
     mostStable: string;
     highestSharpe: string;
     bestDiversified: string;
+    highestAlpha: string;
+    bestTreynor: string;
     correlationMatrix: number[][];
   };
   aiInsights: string;
@@ -316,37 +323,137 @@ function ComparisonResults({ comparison }: { comparison: PortfolioComparisonResu
           <Card>
             <CardHeader>
               <CardTitle>Risk Metrics Comparison</CardTitle>
+              <CardDescription>
+                Compare risk-adjusted performance metrics across portfolios. Higher values are better for ratios (except Beta &gt; 1 means higher market sensitivity).
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Portfolio</th>
-                      <th className="text-center p-2">Volatility</th>
-                      <th className="text-center p-2">Sharpe Ratio</th>
-                      <th className="text-center p-2">Alpha</th>
-                      <th className="text-center p-2">Beta</th>
-                      <th className="text-center p-2">Max Drawdown</th>
-                      <th className="text-center p-2">Risk Profile</th>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-2 font-semibold">Portfolio</th>
+                      <th className="text-center p-2">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold">Alpha</span>
+                          <span className="text-xs text-muted-foreground font-normal">Excess Return</span>
+                        </div>
+                      </th>
+                      <th className="text-center p-2">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold">Beta</span>
+                          <span className="text-xs text-muted-foreground font-normal">Market Sensitivity</span>
+                        </div>
+                      </th>
+                      <th className="text-center p-2">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold">Sharpe</span>
+                          <span className="text-xs text-muted-foreground font-normal">Risk-Adj Return</span>
+                        </div>
+                      </th>
+                      <th className="text-center p-2">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold">Treynor</span>
+                          <span className="text-xs text-muted-foreground font-normal">Return/Beta</span>
+                        </div>
+                      </th>
+                      <th className="text-center p-2">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold">Sortino</span>
+                          <span className="text-xs text-muted-foreground font-normal">Downside-Adj</span>
+                        </div>
+                      </th>
+                      <th className="text-center p-2">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold">Info Ratio</span>
+                          <span className="text-xs text-muted-foreground font-normal">Active Return</span>
+                        </div>
+                      </th>
+                      <th className="text-center p-2">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold">Max DD</span>
+                          <span className="text-xs text-muted-foreground font-normal">Worst Loss</span>
+                        </div>
+                      </th>
+                      <th className="text-center p-2">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold">Volatility</span>
+                          <span className="text-xs text-muted-foreground font-normal">Std Dev</span>
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {comparison.portfolios.map((portfolio) => (
-                      <tr key={portfolio.id} className="border-b">
+                      <tr key={portfolio.id} className="border-b hover:bg-muted/30">
                         <td className="p-2 font-medium">{portfolio.name}</td>
-                        <td className="text-center p-2">{portfolio.metrics.volatility.toFixed(2)}%</td>
-                        <td className="text-center p-2">{portfolio.metrics.sharpeRatio.toFixed(2)}</td>
-                        <td className="text-center p-2">{portfolio.metrics.alpha.toFixed(2)}</td>
-                        <td className="text-center p-2">{portfolio.metrics.beta.toFixed(2)}</td>
-                        <td className="text-center p-2 text-red-600">{portfolio.metrics.maxDrawdown.toFixed(2)}%</td>
-                        <td className={`text-center p-2 ${getRiskColor(portfolio.riskProfile)}`}>
-                          <Badge variant="outline">{portfolio.riskProfile}</Badge>
+                        <td className={`text-center p-2 font-medium ${(portfolio.metrics.alpha || 0) > 0 ? 'text-green-600' : (portfolio.metrics.alpha || 0) < 0 ? 'text-red-600' : ''}`}>
+                          {(portfolio.metrics.alpha || 0).toFixed(2)}%
+                        </td>
+                        <td className={`text-center p-2 ${(portfolio.metrics.beta || 1) > 1.2 ? 'text-orange-600' : (portfolio.metrics.beta || 1) < 0.8 ? 'text-blue-600' : ''}`}>
+                          {(portfolio.metrics.beta || 1).toFixed(2)}
+                        </td>
+                        <td className={`text-center p-2 font-medium ${(portfolio.metrics.sharpeRatio || 0) > 1 ? 'text-green-600' : (portfolio.metrics.sharpeRatio || 0) < 0.5 ? 'text-red-600' : ''}`}>
+                          {(portfolio.metrics.sharpeRatio || 0).toFixed(2)}
+                        </td>
+                        <td className={`text-center p-2 ${(portfolio.metrics.treynorRatio || 0) > 5 ? 'text-green-600' : ''}`}>
+                          {(portfolio.metrics.treynorRatio || 0).toFixed(2)}
+                        </td>
+                        <td className={`text-center p-2 ${portfolio.metrics.sortinoRatio != null && portfolio.metrics.sortinoRatio > 1.5 ? 'text-green-600' : ''}`}>
+                          {portfolio.metrics.sortinoRatio != null ? portfolio.metrics.sortinoRatio.toFixed(2) : 'N/A'}
+                        </td>
+                        <td className={`text-center p-2 ${(portfolio.metrics.informationRatio || 0) > 0.5 ? 'text-green-600' : ''}`}>
+                          {(portfolio.metrics.informationRatio || 0).toFixed(2)}
+                        </td>
+                        <td className="text-center p-2 text-red-600">
+                          -{(portfolio.metrics.maxDrawdown || 0).toFixed(1)}%
+                        </td>
+                        <td className="text-center p-2">
+                          {(portfolio.metrics.volatility || 0).toFixed(1)}%
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Metrics Legend */}
+              <div className="mt-6 p-4 bg-muted/30 rounded-lg">
+                <h4 className="font-semibold mb-3">Understanding the Metrics</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <span className="font-medium text-primary">Alpha (Jensen's)</span>
+                    <p className="text-muted-foreground">Excess returns over benchmark. Positive = outperforming market on risk-adjusted basis.</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-primary">Beta</span>
+                    <p className="text-muted-foreground">Market sensitivity. Beta=1 moves with market, &gt;1 more volatile, &lt;1 less volatile.</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-primary">Sharpe Ratio</span>
+                    <p className="text-muted-foreground">Return per unit of total risk. &gt;1 is good, &gt;2 is excellent.</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-primary">Treynor Ratio</span>
+                    <p className="text-muted-foreground">Return per unit of systematic risk (beta). Higher is better for diversified portfolios.</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-primary">Sortino Ratio</span>
+                    <p className="text-muted-foreground">Like Sharpe but only penalizes downside volatility. Better for asymmetric returns.</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-primary">Information Ratio</span>
+                    <p className="text-muted-foreground">Active return per tracking error. Measures manager skill vs benchmark.</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-primary">Max Drawdown</span>
+                    <p className="text-muted-foreground">Largest peak-to-trough decline. Worst-case historical loss.</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-primary">Volatility</span>
+                    <p className="text-muted-foreground">Standard deviation of returns. Higher = more price fluctuation.</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
