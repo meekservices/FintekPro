@@ -653,70 +653,190 @@ class AgentProspectWizardService {
   generateRebalancingRecommendations(
     holdings: ProspectPortfolioHolding[], 
     riskProfile: ProspectRiskProfile,
-    analysis: PortfolioAnalysis
+    analysis: PortfolioAnalysis,
+    customAllocations?: { equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number },
+    freshInvestmentAmount: number = 0
   ): RebalanceRecommendation[] {
     const recommendations: RebalanceRecommendation[] = [];
     const totalValue = analysis.totalValue;
     
-    const targetAllocations: Record<string, number> = {
-      conservative: { equity: 30, debt: 50, gold: 10, cash: 10 },
-      moderate: { equity: 50, debt: 35, gold: 10, cash: 5 },
-      aggressive: { equity: 70, debt: 20, gold: 5, cash: 5 },
-      very_aggressive: { equity: 85, debt: 10, gold: 5, cash: 0 }
-    }[riskProfile.riskTolerance] as any || { equity: 50, debt: 35, gold: 10, cash: 5 };
-
-    const currentEquity = (analysis.assetAllocation['equity']?.percentage || 0) +
-                         (analysis.assetAllocation['mutual_fund']?.percentage || 0) * 0.7;
-    const targetEquity = targetAllocations.equity;
-    
-    if (currentEquity > targetEquity + 10) {
-      const excessPercent = currentEquity - targetEquity;
-      const excessValue = (excessPercent / 100) * totalValue;
-      
-      const equityHoldings = holdings.filter(h => 
-        h.productType === 'equity' || h.productType === 'mutual_fund'
-      ).sort((a, b) => b.currentValue - a.currentValue);
-      
-      if (equityHoldings.length > 0) {
-        recommendations.push({
-          action: 'SELL',
-          productType: equityHoldings[0].productType,
-          productName: equityHoldings[0].productName,
-          currentValue: equityHoldings[0].currentValue,
-          suggestedValue: equityHoldings[0].currentValue - excessValue,
-          changeAmount: -excessValue,
-          rationale: `Reduce equity exposure from ${currentEquity.toFixed(0)}% to target ${targetEquity}% to align with ${riskProfile.riskTolerance} risk profile`,
-          priority: 'high',
-          taxImplications: 'LTCG may apply if held > 1 year'
-        });
-      }
-    } else if (currentEquity < targetEquity - 10) {
-      const deficitPercent = targetEquity - currentEquity;
-      const deficitValue = (deficitPercent / 100) * totalValue;
-      
-      recommendations.push({
-        action: 'BUY',
-        productType: 'mutual_fund',
-        productName: 'Diversified Equity Fund',
-        changeAmount: deficitValue,
-        rationale: `Increase equity allocation from ${currentEquity.toFixed(0)}% to target ${targetEquity}% for better growth potential`,
-        priority: 'medium'
-      });
+    if (totalValue === 0) {
+      return recommendations;
     }
-
+    
+    // Default allocations by risk profile
+    const defaultAllocations: Record<string, { equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number }> = {
+      conservative: { equity: 25, debt: 45, hybrid: 15, gold: 10, silver: 0, index: 5 },
+      moderate: { equity: 40, debt: 25, hybrid: 15, gold: 10, silver: 0, index: 10 },
+      aggressive: { equity: 55, debt: 10, hybrid: 10, gold: 10, silver: 5, index: 10 },
+      very_aggressive: { equity: 65, debt: 5, hybrid: 5, gold: 10, silver: 5, index: 10 }
+    };
+    
+    // Use custom allocations if provided
+    const targetAllocations = customAllocations && 
+      (customAllocations.equity > 0 || customAllocations.debt > 0 || customAllocations.hybrid > 0)
+      ? { ...defaultAllocations.moderate, ...customAllocations }
+      : defaultAllocations[riskProfile.riskTolerance] || defaultAllocations.moderate;
+    
+    console.log('[Rebalancing] Target allocations:', JSON.stringify(targetAllocations));
+    console.log('[Rebalancing] Current portfolio value:', totalValue);
+    
+    // Map holdings to asset categories
+    const categorizeHolding = (h: ProspectPortfolioHolding): string => {
+      const type = h.productType?.toLowerCase() || '';
+      const name = h.productName?.toLowerCase() || '';
+      const category = h.category?.toLowerCase() || '';
+      
+      // Check for gold/silver first
+      if (name.includes('gold') || category.includes('gold')) return 'gold';
+      if (name.includes('silver') || category.includes('silver')) return 'silver';
+      
+      // Check for hybrid
+      if (category.includes('hybrid') || category.includes('balanced') || 
+          name.includes('hybrid') || name.includes('balanced')) return 'hybrid';
+      
+      // Check for index funds
+      if (category.includes('index') || name.includes('index') || 
+          name.includes('nifty') || name.includes('sensex')) return 'index';
+      
+      // Check for debt
+      if (type === 'bond' || type === 'fd' || type === 'debt' ||
+          category.includes('debt') || category.includes('liquid') || 
+          category.includes('gilt') || category.includes('money market')) return 'debt';
+      
+      // Check for equity
+      if (type === 'equity' || type === 'stock' ||
+          category.includes('equity') || category.includes('large cap') || 
+          category.includes('mid cap') || category.includes('small cap') ||
+          category.includes('flexi cap') || category.includes('multi cap')) return 'equity';
+      
+      // For mutual funds, try to categorize based on name/category
+      if (type === 'mutual_fund' || type === 'mf') {
+        if (category.includes('debt') || name.includes('debt')) return 'debt';
+        if (category.includes('equity') || name.includes('equity')) return 'equity';
+        return 'equity'; // Default mutual funds to equity
+      }
+      
+      return 'others';
+    };
+    
+    // Calculate current allocation by category
+    const currentByCategory: Record<string, { value: number; holdings: ProspectPortfolioHolding[] }> = {
+      equity: { value: 0, holdings: [] },
+      debt: { value: 0, holdings: [] },
+      hybrid: { value: 0, holdings: [] },
+      gold: { value: 0, holdings: [] },
+      silver: { value: 0, holdings: [] },
+      index: { value: 0, holdings: [] },
+      others: { value: 0, holdings: [] }
+    };
+    
     holdings.forEach(h => {
-      if (!['equity', 'mutual_fund', 'bond', 'fd', 'gold', 'etf'].includes(h.productType)) {
-        recommendations.push({
-          action: 'SELL',
-          productType: h.productType,
-          productName: h.productName,
-          currentValue: h.currentValue,
-          changeAmount: -h.currentValue,
-          rationale: 'Non-standard asset. Consider switching to regulated products for better liquidity and transparency.',
-          priority: 'low'
+      const category = categorizeHolding(h);
+      if (!currentByCategory[category]) {
+        currentByCategory[category] = { value: 0, holdings: [] };
+      }
+      currentByCategory[category].value += h.currentValue;
+      currentByCategory[category].holdings.push(h);
+    });
+    
+    console.log('[Rebalancing] Current by category:', Object.entries(currentByCategory).map(([k, v]) => `${k}: ${v.value}`).join(', '));
+    
+    // Calculate total portfolio after fresh investment
+    const totalPortfolioValue = totalValue + freshInvestmentAmount;
+    
+    // Calculate target values and compare with current
+    const categories = ['equity', 'debt', 'hybrid', 'gold', 'silver', 'index'];
+    
+    categories.forEach(category => {
+      const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
+      const targetValue = (targetPercent / 100) * totalPortfolioValue;
+      const currentValue = currentByCategory[category]?.value || 0;
+      const currentPercent = (currentValue / totalValue) * 100;
+      
+      const difference = currentValue - targetValue;
+      const percentDiff = currentPercent - targetPercent;
+      
+      // Only generate sell if overweight by more than 5% AND the excess is significant (>5000)
+      if (percentDiff > 5 && difference > 5000) {
+        const holdingsToSell = currentByCategory[category]?.holdings || [];
+        
+        // Sort by value (largest first) for selling
+        holdingsToSell.sort((a, b) => b.currentValue - a.currentValue);
+        
+        let remainingToSell = difference;
+        
+        holdingsToSell.forEach(holding => {
+          if (remainingToSell <= 0) return;
+          
+          // Don't sell more than the holding value or what we need
+          const sellAmount = Math.min(holding.currentValue, remainingToSell);
+          
+          // Only suggest sell if it's a meaningful amount (>1000)
+          if (sellAmount > 1000) {
+            const isPartialSell = sellAmount < holding.currentValue;
+            
+            recommendations.push({
+              action: 'SELL',
+              productType: holding.productType,
+              productName: holding.productName,
+              currentValue: holding.currentValue,
+              suggestedValue: isPartialSell ? holding.currentValue - sellAmount : 0,
+              changeAmount: -sellAmount,
+              rationale: `Reduce ${category} allocation from ${currentPercent.toFixed(1)}% to target ${targetPercent}%. ${isPartialSell ? 'Partial redemption recommended.' : 'Full redemption recommended.'}`,
+              priority: percentDiff > 15 ? 'high' : 'medium',
+              taxImplications: category === 'equity' ? 'LTCG tax @12.5% if held >1 year, STCG @20% otherwise' : 
+                              category === 'debt' ? 'Taxed as per income slab' : undefined
+            });
+            
+            remainingToSell -= sellAmount;
+          }
         });
       }
     });
+    
+    // Handle non-standard/illiquid assets
+    holdings.forEach(h => {
+      const type = h.productType?.toLowerCase() || '';
+      if (!['equity', 'mutual_fund', 'mf', 'bond', 'fd', 'gold', 'etf', 'stock', 'debt'].includes(type)) {
+        // Check if we already have a recommendation for this holding
+        const existing = recommendations.find(r => r.productName === h.productName);
+        if (!existing && h.currentValue > 1000) {
+          recommendations.push({
+            action: 'SELL',
+            productType: h.productType,
+            productName: h.productName,
+            currentValue: h.currentValue,
+            changeAmount: -h.currentValue,
+            rationale: 'Consider switching to regulated products (mutual funds, bonds) for better liquidity, transparency, and professional management.',
+            priority: 'low',
+            taxImplications: 'Tax treatment depends on holding period and asset type'
+          });
+        }
+      }
+    });
+    
+    // Add SWITCH recommendations for underperformers (if analysis has them)
+    if (analysis.underperformers && analysis.underperformers.length > 0) {
+      analysis.underperformers.slice(0, 3).forEach(underperformer => {
+        // Check if not already in recommendations
+        const existing = recommendations.find(r => r.productName === underperformer.productName);
+        if (!existing && underperformer.currentValue > 5000) {
+          recommendations.push({
+            action: 'SWITCH',
+            productType: underperformer.productType,
+            productName: underperformer.productName,
+            currentValue: underperformer.currentValue,
+            changeAmount: 0, // Switch doesn't change total value
+            rationale: `Consider switching to a better-performing fund in the same category. This fund has underperformed relative to peers.`,
+            priority: 'medium'
+          });
+        }
+      });
+    }
+    
+    console.log('[Rebalancing] Generated', recommendations.length, 'recommendations:', 
+      recommendations.map(r => `${r.action}: ${r.productName} (${r.changeAmount})`).join(', '));
 
     return recommendations;
   }
@@ -938,7 +1058,13 @@ class AgentProspectWizardService {
     selectedCategories?: string[]
   ): Promise<CombinedProposal> {
     const analysis = this.analyzePortfolio(holdings, riskProfile);
-    const rebalancing = this.generateRebalancingRecommendations(holdings, riskProfile, analysis);
+    const rebalancing = this.generateRebalancingRecommendations(
+      holdings, 
+      riskProfile, 
+      analysis,
+      customAllocations,
+      freshInvestmentAmount
+    );
     const freshInvestments = await this.generateFreshInvestmentSuggestions(
       riskProfile, 
       freshInvestmentAmount, 
