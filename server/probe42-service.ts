@@ -267,8 +267,9 @@ export class Probe42Service {
       console.log('🔍 Probe42 v2 search request:', JSON.stringify(searchBody));
       const response = await this.client.post('/search-entities', searchBody);
       console.log('📦 Probe42 v2 search response status:', response.status);
+      console.log('📦 Probe42 v2 raw response:', JSON.stringify(response.data, null, 2));
       
-      const entities = response.data?.entities || response.data?.data || response.data || [];
+      const entities = response.data?.entities || response.data?.data || response.data?.results || response.data?.companies || response.data || [];
       
       let companies: CompanyBasicInfo[] = Array.isArray(entities) 
         ? entities.map((entity: any) => ({
