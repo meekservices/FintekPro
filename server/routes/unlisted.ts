@@ -4146,6 +4146,88 @@ router.get('/admin/companies/:id/financials', async (req: Request, res: Response
 });
 
 /**
+ * POST /api/unlisted/admin/companies/:id/financials
+ * Add manual financial data (Admin only - for when external APIs are unavailable)
+ */
+router.post('/admin/companies/:id/financials', async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.roles?.includes('admin')) {
+      return apiResponse.forbidden(res, 'Admin access required');
+    }
+    
+    const { id } = req.params;
+    const company = await storage.getUnlistedCompanyById(id);
+    
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    const { financialYear, revenue, ebitda, netProfit, pat, networth, totalAssets, totalDebt, paidUpCapital, reserves } = req.body;
+    
+    if (!financialYear) {
+      return apiResponse.badRequest(res, 'Financial year is required');
+    }
+    
+    // Check if financials already exist for this year
+    const existingFinancials = await storage.getCompanyFinancialsByYear(id, financialYear);
+    
+    let financials;
+    if (existingFinancials) {
+      // Update existing
+      financials = await storage.updateCompanyFinancials(existingFinancials.id, {
+        revenue: revenue ? String(revenue) : existingFinancials.revenue,
+        ebitda: ebitda ? String(ebitda) : existingFinancials.ebitda,
+        netProfit: netProfit ? String(netProfit) : existingFinancials.netProfit,
+        pat: pat ? String(pat) : existingFinancials.pat,
+        networth: networth ? String(networth) : existingFinancials.networth,
+        totalAssets: totalAssets ? String(totalAssets) : existingFinancials.totalAssets,
+        totalDebt: totalDebt ? String(totalDebt) : existingFinancials.totalDebt,
+        paidUpCapital: paidUpCapital ? String(paidUpCapital) : existingFinancials.paidUpCapital,
+        reserves: reserves ? String(reserves) : existingFinancials.reserves,
+        dataSource: 'manual_entry',
+      });
+    } else {
+      // Create new
+      financials = await storage.createCompanyFinancials({
+        companyId: id,
+        financialYear,
+        revenue: revenue ? String(revenue) : null,
+        ebitda: ebitda ? String(ebitda) : null,
+        netProfit: netProfit ? String(netProfit) : null,
+        pat: pat ? String(pat) : null,
+        networth: networth ? String(networth) : null,
+        totalAssets: totalAssets ? String(totalAssets) : null,
+        totalDebt: totalDebt ? String(totalDebt) : null,
+        paidUpCapital: paidUpCapital ? String(paidUpCapital) : null,
+        reserves: reserves ? String(reserves) : null,
+        dataSource: 'manual_entry',
+      });
+    }
+    
+    // Log the manual entry for audit
+    await storage.createUnlistedAuditLog({
+      companyId: id,
+      action: existingFinancials ? 'update_financials' : 'create_financials',
+      previousData: existingFinancials ? JSON.stringify(existingFinancials) : null,
+      newData: JSON.stringify(financials),
+      changedBy: req.user.id,
+      ipAddress: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown',
+    });
+    
+    console.log(`[ManualEntry] Admin ${req.user.id} added financials for ${company.name} (${financialYear})`);
+    
+    return apiResponse.success(res, { 
+      message: existingFinancials ? 'Financial data updated' : 'Financial data added',
+      financials 
+    });
+  } catch (error: any) {
+    console.error('Error adding manual financials:', error);
+    return apiResponse.serverError(res, 'Failed to add financial data');
+  }
+});
+
+/**
  * GET /api/unlisted/admin/companies/:id/ratios
  * Get company ratios (Admin only - bypasses KYC requirements)
  */

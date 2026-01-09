@@ -202,6 +202,17 @@ export default function UnlistedPreviewPage() {
   const hasAttemptedEnrichRef = useRef(false);
   const [manualCIN, setManualCIN] = useState('');
   const [isSavingCIN, setIsSavingCIN] = useState(false);
+  const [isManualFinancialsOpen, setIsManualFinancialsOpen] = useState(false);
+  const [isSavingFinancials, setIsSavingFinancials] = useState(false);
+  const [manualFinancials, setManualFinancials] = useState({
+    financialYear: 'FY2023-24',
+    revenue: '',
+    ebitda: '',
+    netProfit: '',
+    networth: '',
+    totalAssets: '',
+    totalDebt: '',
+  });
   
   const searchParams = new URLSearchParams(window.location.search);
   const buyPrice = searchParams.get('buyPrice') || '';
@@ -349,6 +360,56 @@ export default function UnlistedPreviewPage() {
       });
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleSaveManualFinancials = async () => {
+    if (!manualFinancials.financialYear) {
+      toast({ title: 'Financial year required', variant: 'destructive' });
+      return;
+    }
+    
+    setIsSavingFinancials(true);
+    try {
+      await apiRequest(`/api/unlisted/admin/companies/${id}/financials`, {
+        method: 'POST',
+        body: JSON.stringify({
+          financialYear: manualFinancials.financialYear,
+          revenue: manualFinancials.revenue ? parseFloat(manualFinancials.revenue) * 10000000 : null, // Convert Cr to actual value
+          ebitda: manualFinancials.ebitda ? parseFloat(manualFinancials.ebitda) * 10000000 : null,
+          netProfit: manualFinancials.netProfit ? parseFloat(manualFinancials.netProfit) * 10000000 : null,
+          networth: manualFinancials.networth ? parseFloat(manualFinancials.networth) * 10000000 : null,
+          totalAssets: manualFinancials.totalAssets ? parseFloat(manualFinancials.totalAssets) * 10000000 : null,
+          totalDebt: manualFinancials.totalDebt ? parseFloat(manualFinancials.totalDebt) * 10000000 : null,
+        }),
+      });
+      
+      await refetchFinancials();
+      await refetchDataQuality();
+      
+      toast({
+        title: 'Financial data saved',
+        description: `Added ${manualFinancials.financialYear} financials for ${company?.name}`,
+      });
+      
+      setIsManualFinancialsOpen(false);
+      setManualFinancials({
+        financialYear: 'FY2023-24',
+        revenue: '',
+        ebitda: '',
+        netProfit: '',
+        networth: '',
+        totalAssets: '',
+        totalDebt: '',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Failed to save',
+        description: error.message || 'Could not save financial data',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingFinancials(false);
     }
   };
 
@@ -814,21 +875,33 @@ export default function UnlistedPreviewPage() {
                   <div className="text-center">
                     <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
                     <p className="mb-3">No financial data available</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRefreshData}
-                      disabled={isRefreshing}
-                      className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
-                      data-testid="button-fetch-financial-data"
-                    >
-                      {isRefreshing ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                      )}
-                      Fetch Financial Data
-                    </Button>
+                    <div className="flex gap-2 justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefreshData}
+                        disabled={isRefreshing}
+                        className="text-blue-400 border-blue-500/50 hover:bg-blue-500/10"
+                        data-testid="button-fetch-financial-data"
+                      >
+                        {isRefreshing ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                        )}
+                        Fetch Data
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsManualFinancialsOpen(true)}
+                        className="text-green-400 border-green-500/50 hover:bg-green-500/10"
+                        data-testid="button-add-manual-financials"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Manually
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1583,6 +1656,134 @@ export default function UnlistedPreviewPage() {
       </div>
 
       <div className="h-20" />
+
+      {/* Manual Financials Dialog */}
+      <Dialog open={isManualFinancialsOpen} onOpenChange={setIsManualFinancialsOpen}>
+        <DialogContent className="bg-card border-border text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IndianRupee className="w-5 h-5 text-amber-400" />
+              Add Financial Data Manually
+            </DialogTitle>
+            <DialogDescription>
+              Enter financial data when external APIs are unavailable. All values in Crores (₹).
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label htmlFor="financialYear">Financial Year *</Label>
+                <Select 
+                  value={manualFinancials.financialYear} 
+                  onValueChange={(v) => setManualFinancials(f => ({ ...f, financialYear: v }))}
+                >
+                  <SelectTrigger className="bg-muted border-border">
+                    <SelectValue placeholder="Select FY" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FY2024-25">FY2024-25</SelectItem>
+                    <SelectItem value="FY2023-24">FY2023-24</SelectItem>
+                    <SelectItem value="FY2022-23">FY2022-23</SelectItem>
+                    <SelectItem value="FY2021-22">FY2021-22</SelectItem>
+                    <SelectItem value="FY2020-21">FY2020-21</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="revenue">Revenue (Cr)</Label>
+                <Input 
+                  id="revenue"
+                  type="number"
+                  placeholder="e.g., 500"
+                  value={manualFinancials.revenue}
+                  onChange={(e) => setManualFinancials(f => ({ ...f, revenue: e.target.value }))}
+                  className="bg-muted border-border"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="ebitda">EBITDA (Cr)</Label>
+                <Input 
+                  id="ebitda"
+                  type="number"
+                  placeholder="e.g., 100"
+                  value={manualFinancials.ebitda}
+                  onChange={(e) => setManualFinancials(f => ({ ...f, ebitda: e.target.value }))}
+                  className="bg-muted border-border"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="netProfit">Net Profit/PAT (Cr)</Label>
+                <Input 
+                  id="netProfit"
+                  type="number"
+                  placeholder="e.g., 50"
+                  value={manualFinancials.netProfit}
+                  onChange={(e) => setManualFinancials(f => ({ ...f, netProfit: e.target.value }))}
+                  className="bg-muted border-border"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="networth">Net Worth (Cr)</Label>
+                <Input 
+                  id="networth"
+                  type="number"
+                  placeholder="e.g., 200"
+                  value={manualFinancials.networth}
+                  onChange={(e) => setManualFinancials(f => ({ ...f, networth: e.target.value }))}
+                  className="bg-muted border-border"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="totalAssets">Total Assets (Cr)</Label>
+                <Input 
+                  id="totalAssets"
+                  type="number"
+                  placeholder="e.g., 800"
+                  value={manualFinancials.totalAssets}
+                  onChange={(e) => setManualFinancials(f => ({ ...f, totalAssets: e.target.value }))}
+                  className="bg-muted border-border"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="totalDebt">Total Debt (Cr)</Label>
+                <Input 
+                  id="totalDebt"
+                  type="number"
+                  placeholder="e.g., 150"
+                  value={manualFinancials.totalDebt}
+                  onChange={(e) => setManualFinancials(f => ({ ...f, totalDebt: e.target.value }))}
+                  className="bg-muted border-border"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsManualFinancialsOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveManualFinancials}
+              disabled={isSavingFinancials || !manualFinancials.financialYear}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSavingFinancials ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle className="w-4 h-4 mr-2" />
+              )}
+              Save Financials
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Peer Management Dialog */}
       <Dialog open={isPeerDialogOpen} onOpenChange={setIsPeerDialogOpen}>
