@@ -505,17 +505,24 @@ class AIGlobalAdvisoryService {
     const usdToInrRate = await currencyExchangeService.getExchangeRate('USD', 'INR');
     const buyRecommendations = recommendations.filter(r => r.recommendation === 'strong_buy' || r.recommendation === 'buy');
     
-    const totalSuitabilityScore = buyRecommendations.reduce((sum, r) => sum + (r.suitabilityScore || 70), 0) || 1;
+    const DEFAULT_SUITABILITY = 70;
+    const normalizedScores = buyRecommendations.map(r => r.suitabilityScore ?? DEFAULT_SUITABILITY);
+    const totalSuitabilityScore = normalizedScores.reduce((sum, score) => sum + score, 0);
+    const hasBuyRecommendations = buyRecommendations.length > 0 && totalSuitabilityScore > 0;
     
     let estimatedLrsUtilization = 0;
-    for (const r of buyRecommendations) {
-      const suitabilityWeight = (r.suitabilityScore || 70) / totalSuitabilityScore;
-      const weightedBudgetInr = globalBudgetInr * suitabilityWeight;
-      const estimatedInvestmentUsd = weightedBudgetInr / usdToInrRate;
-      estimatedLrsUtilization += estimatedInvestmentUsd;
-      
-      (r as any).suggestedAllocationInr = weightedBudgetInr;
-      (r as any).suggestedAllocationPct = suitabilityWeight * 100;
+    if (hasBuyRecommendations) {
+      for (let i = 0; i < buyRecommendations.length; i++) {
+        const r = buyRecommendations[i];
+        const score = normalizedScores[i];
+        const suitabilityWeight = score / totalSuitabilityScore;
+        const weightedBudgetInr = globalBudgetInr * suitabilityWeight;
+        const estimatedInvestmentUsd = weightedBudgetInr / usdToInrRate;
+        estimatedLrsUtilization += estimatedInvestmentUsd;
+        
+        (r as any).suggestedAllocationInr = Math.round(weightedBudgetInr);
+        (r as any).suggestedAllocationPct = Math.round(suitabilityWeight * 10000) / 100;
+      }
     }
 
     const LRS_ANNUAL_LIMIT = 250000;
