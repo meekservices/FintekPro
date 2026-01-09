@@ -27,14 +27,7 @@ import { smsMarketingService } from './services/sms-marketing-service';
 import { whatsAppMarketingService } from './services/whatsapp-marketing-service';
 import { getProbe42Service } from './probe42-service';
 import { apiResponse } from './utils/responses';
-
-// Helper to check if user is admin
-const requireAdmin = (req: any, res: Response, next: any) => {
-  if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-  next();
-};
+import { requireAdmin } from './middleware/roleMiddleware';
 
 export function registerMarketingRoutes(app: any) {
   
