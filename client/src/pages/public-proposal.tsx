@@ -145,6 +145,11 @@ const RISK_COLORS: Record<string, string> = {
   "Very High": "text-red-700 bg-red-50",
 };
 
+interface ProposalError extends Error {
+  status?: number;
+  errorType?: 'expired' | 'not_found' | 'unknown';
+}
+
 export default function PublicProposalPage() {
   const params = useParams();
   const shareToken = params.shareToken;
@@ -152,13 +157,16 @@ export default function PublicProposalPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { toast } = useToast();
 
-  const { data, isLoading, error } = useQuery<{ proposal: ProposalData; onboardingLink: string }>({
+  const { data, isLoading, error } = useQuery<{ proposal: ProposalData; onboardingLink: string }, ProposalError>({
     queryKey: ["/api/public/proposal", shareToken],
     queryFn: async () => {
       const res = await fetch(`/api/public/proposal/${shareToken}`);
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to load proposal");
+        const proposalError: ProposalError = new Error(err.error || "Failed to load proposal");
+        proposalError.status = res.status;
+        proposalError.errorType = res.status === 410 ? 'expired' : res.status === 404 ? 'not_found' : 'unknown';
+        throw proposalError;
       }
       return res.json();
     },
@@ -479,17 +487,37 @@ export default function PublicProposalPage() {
   }
 
   if (error || !data?.proposal) {
+    const proposalError = error as ProposalError;
+    const isExpired = proposalError?.errorType === 'expired';
+    const isNotFound = proposalError?.errorType === 'not_found';
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-8 h-8 text-red-600" />
+            <div className={`w-16 h-16 ${isExpired ? 'bg-amber-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+              {isExpired ? (
+                <Clock className="w-8 h-8 text-amber-600" />
+              ) : (
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              )}
             </div>
-            <h2 className="text-xl font-bold mb-2">Proposal Not Found</h2>
-            <p className="text-muted-foreground dark:text-muted-foreground">
-              {(error as Error)?.message || "This proposal may have expired or been removed."}
+            <h2 className="text-xl font-bold mb-2">
+              {isExpired ? 'Proposal Expired' : isNotFound ? 'Proposal Not Found' : 'Unable to Load Proposal'}
+            </h2>
+            <p className="text-muted-foreground dark:text-muted-foreground mb-4">
+              {isExpired 
+                ? "This investment proposal has expired. Please contact your financial advisor for an updated proposal."
+                : isNotFound 
+                  ? "We couldn't find this proposal. The link may be incorrect or the proposal may have been removed."
+                  : proposalError?.message || "Something went wrong. Please try again later."
+              }
             </p>
+            {(isExpired || isNotFound) && (
+              <p className="text-sm text-muted-foreground">
+                Need help? Contact support at <a href="mailto:support@fintekpro.com" className="text-indigo-600 hover:underline">support@fintekpro.com</a>
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
