@@ -181,6 +181,8 @@ class MCAService {
         {
           headers: {
             'Authorization': `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
         }
@@ -246,6 +248,8 @@ class MCAService {
         {
           headers: {
             'Authorization': `Bearer ${token}`,
+            'x-api-key': SANDBOX_API_KEY,
+            'x-api-version': '1.0',
             'Content-Type': 'application/json',
           },
         }
