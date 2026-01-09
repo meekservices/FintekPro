@@ -271,6 +271,113 @@ class NseIndiaProvider {
       throw error;
     }
   }
+
+  async fetchCorporateReports(symbol: string): Promise<{
+    quarterlyResults: any[];
+    announcements: any[];
+    boardMeetings: any[];
+    corporateActions: any[];
+    source: 'nse';
+    success: boolean;
+    error?: string;
+  }> {
+    const result = {
+      quarterlyResults: [] as any[],
+      announcements: [] as any[],
+      boardMeetings: [] as any[],
+      corporateActions: [] as any[],
+      source: 'nse' as const,
+      success: false,
+      error: undefined as string | undefined,
+    };
+
+    try {
+      await this.refreshCookies();
+      const normalizedSymbol = symbol.toUpperCase().trim();
+      
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Cookie': this.cookies,
+        'Referer': `https://www.nseindia.com/get-quotes/equity?symbol=${normalizedSymbol}`,
+      };
+
+      const [resultsRes, announcementsRes, boardMeetingsRes, actionsRes] = await Promise.allSettled([
+        fetch(`${this.baseUrl}/corporates/financial-results?index=equities&symbol=${normalizedSymbol}`, { headers }),
+        fetch(`${this.baseUrl}/corporates/announcements?index=equities&symbol=${normalizedSymbol}`, { headers }),
+        fetch(`${this.baseUrl}/corporates/boardMeetings?index=equities&symbol=${normalizedSymbol}`, { headers }),
+        fetch(`${this.baseUrl}/corporates/actions?index=equities&symbol=${normalizedSymbol}`, { headers }),
+      ]);
+
+      if (resultsRes.status === 'fulfilled' && resultsRes.value.ok) {
+        const data = await resultsRes.value.json();
+        const items = data?.results || data || [];
+        result.quarterlyResults = (Array.isArray(items) ? items : []).slice(0, 20).map((r: any) => ({
+          period: r.xbrl_per || r.period,
+          periodEnd: r.to_date || r.toDate,
+          revenue: this.parseNumber(r.income || r.totalIncome),
+          netProfit: this.parseNumber(r.netProfit || r.re_netProfit),
+          eps: this.parseNumber(r.eps || r.re_eps),
+          broadcastDate: r.broadcastDt || r.broadcast_dt,
+          consolidated: r.consolidated === 'true' || r.consolidated === true,
+        }));
+      }
+
+      if (announcementsRes.status === 'fulfilled' && announcementsRes.value.ok) {
+        const data = await announcementsRes.value.json();
+        const items = data?.announcements || data || [];
+        result.announcements = (Array.isArray(items) ? items : []).slice(0, 50).map((a: any) => ({
+          subject: a.desc || a.subject || a.sm_headline,
+          broadcastDate: a.an_dt || a.announceDate || a.broadcastDt,
+          category: a.attchmntFile ? 'attachment' : 'text',
+          attachmentLink: a.attchmntFile || null,
+        }));
+      }
+
+      if (boardMeetingsRes.status === 'fulfilled' && boardMeetingsRes.value.ok) {
+        const data = await boardMeetingsRes.value.json();
+        const items = data?.boardMeetings || data || [];
+        result.boardMeetings = (Array.isArray(items) ? items : []).slice(0, 20).map((m: any) => ({
+          meetingDate: m.bm_dt || m.meetingDate,
+          purpose: m.bm_purpose || m.purpose,
+          broadcastDate: m.an_dt || m.broadcastDt,
+        }));
+      }
+
+      if (actionsRes.status === 'fulfilled' && actionsRes.value.ok) {
+        const data = await actionsRes.value.json();
+        const items = data?.corporateActions || data || [];
+        result.corporateActions = (Array.isArray(items) ? items : []).slice(0, 20).map((c: any) => ({
+          actionType: c.series || c.subject || c.purpose,
+          exDate: c.exDate || c.ex_date,
+          recordDate: c.recordDate || c.record_dt,
+          bcStartDate: c.bcStartDate,
+          bcEndDate: c.bcEndDate,
+          purpose: c.subject || c.purpose,
+        }));
+      }
+
+      const totalItems = result.quarterlyResults.length + result.announcements.length + 
+                        result.boardMeetings.length + result.corporateActions.length;
+      result.success = totalItems > 0;
+      
+      console.log(`[NseIndiaProvider] Corporate reports for ${normalizedSymbol}: ${totalItems} total items`);
+      return result;
+    } catch (error: any) {
+      result.error = error.message;
+      console.warn(`⚠️ [NseIndiaProvider] Corporate reports error: ${error.message}`);
+      return result;
+    }
+  }
+
+  private parseNumber(value: any): number | null {
+    if (value === null || value === undefined || value === '' || value === '-') return null;
+    if (typeof value === 'number') return value;
+    const cleaned = String(value).replace(/,/g, '').replace(/[^\d.-]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? null : parsed;
+  }
 }
 
 class BseIndiaProvider {
@@ -404,7 +511,129 @@ class BseIndiaProvider {
       return null;
     }
   }
+
+  async fetchCorporateReports(symbol?: string, scripcode?: string): Promise<{
+    financialResults: any[];
+    announcements: any[];
+    corporateActions: any[];
+    shareholdingPattern: any[];
+    source: 'bse';
+    success: boolean;
+    error?: string;
+  }> {
+    const result = {
+      financialResults: [] as any[],
+      announcements: [] as any[],
+      corporateActions: [] as any[],
+      shareholdingPattern: [] as any[],
+      source: 'bse' as const,
+      success: false,
+      error: undefined as string | undefined,
+    };
+
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'application/json',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Referer': 'https://www.bseindia.com/',
+      'Origin': 'https://www.bseindia.com',
+    };
+
+    let resolvedScripcode = scripcode;
+
+    if (!resolvedScripcode && symbol) {
+      const normalizedSymbol = symbol.toUpperCase().trim();
+      try {
+        const searchResponse = await fetch(`${this.baseUrl}/Suggest/w?flag=1&query=${encodeURIComponent(normalizedSymbol)}`, { headers });
+        if (searchResponse.ok) {
+          const searchResults = await searchResponse.json();
+          if (Array.isArray(searchResults) && searchResults.length > 0) {
+            let match = searchResults.find((r: any) => (r.trdSym || '').toUpperCase().trim() === normalizedSymbol);
+            if (!match) {
+              match = searchResults.find((r: any) => {
+                const scripName = (r.scrip_nm || '').toUpperCase().trim();
+                return scripName.startsWith(normalizedSymbol) || scripName.includes(normalizedSymbol);
+              });
+            }
+            if (!match && searchResults.length === 1) match = searchResults[0];
+            if (match) {
+              resolvedScripcode = match.scrip_cd || match.scripcode;
+              console.log(`[BseIndiaProvider] Symbol ${normalizedSymbol} resolved to scripcode ${resolvedScripcode}`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[BseIndiaProvider] Symbol lookup failed`);
+      }
+    }
+
+    if (!resolvedScripcode) {
+      result.error = 'Could not resolve scripcode';
+      return result;
+    }
+
+    try {
+      const today = new Date();
+      const fromDate = new Date(today.getFullYear() - 2, 0, 1);
+      const fromDateStr = `${String(fromDate.getDate()).padStart(2, '0')}/${String(fromDate.getMonth() + 1).padStart(2, '0')}/${fromDate.getFullYear()}`;
+      const toDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+
+      const [financialsRes, actionsRes] = await Promise.allSettled([
+        fetch(`${this.baseUrl}/FinancialResults/w?scripcode=${resolvedScripcode}`, { headers }),
+        fetch(`${this.baseUrl}/CorporateActions/w?scripcode=${resolvedScripcode}&fromdt=${fromDateStr}&todt=${toDateStr}`, { headers }),
+      ]);
+
+      if (financialsRes.status === 'fulfilled' && financialsRes.value.ok) {
+        const data = await financialsRes.value.json();
+        const items = data?.Table || [];
+        result.financialResults = (Array.isArray(items) ? items : []).slice(0, 20).map((r: any) => ({
+          quarterEnded: r.QuarterEnd || r.qtr_end,
+          revenue: this.parseNumber(r.Revenue || r.Income),
+          netProfit: this.parseNumber(r.NetProfit || r.PAT),
+          eps: this.parseNumber(r.EPS),
+          ebitda: this.parseNumber(r.EBITDA),
+          broadcastDate: r.BroadcastDate || r.broadcast_dt,
+          consolidated: r.Consolidated === 'Y' || r.consolidated === true,
+        }));
+      }
+
+      if (actionsRes.status === 'fulfilled' && actionsRes.value.ok) {
+        const data = await actionsRes.value.json();
+        const items = data?.Table || [];
+        result.corporateActions = (Array.isArray(items) ? items : []).slice(0, 20).map((c: any) => ({
+          purpose: c.Purpose || c.purpose,
+          exDate: c.ExDate || c.ex_date,
+          recordDate: c.RecordDate || c.record_date,
+          bcStartDate: c.BCStartDate,
+          bcEndDate: c.BCEndDate,
+        }));
+      }
+
+      const totalItems = result.financialResults.length + result.announcements.length + result.corporateActions.length;
+      result.success = totalItems > 0;
+      
+      console.log(`[BseIndiaProvider] Corporate reports for scripcode ${resolvedScripcode}: ${totalItems} total items`);
+      return result;
+    } catch (error: any) {
+      result.error = error.message;
+      console.warn(`⚠️ [BseIndiaProvider] Corporate reports error: ${error.message}`);
+      return result;
+    }
+  }
+
+  private parseNumber(value: any): number | null {
+    if (value === null || value === undefined || value === '' || value === '-') return null;
+    if (typeof value === 'number') return value;
+    const cleaned = String(value).replace(/,/g, '').replace(/[^\d.-]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? null : parsed;
+  }
 }
+
+const nseIndiaProviderInstance = new NseIndiaProvider();
+const bseIndiaProviderInstance = new BseIndiaProvider();
+
+export { nseIndiaProviderInstance, bseIndiaProviderInstance };
 
 class MarketMoversCache {
   private cache: CacheEntry | null = null;

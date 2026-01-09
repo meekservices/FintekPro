@@ -15,6 +15,7 @@ import { xbrlParserService } from './xbrl-parser-service';
 import { mcaService } from './mca-service';
 import { nsdlISINService } from './nsdl-isin-service';
 import { ExternalServiceError } from '../utils/errors';
+import { nseIndiaProviderInstance, bseIndiaProviderInstance } from './market-movers-cache';
 
 export type DataSource = 'nse' | 'bse' | 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'manual' | 'mca';
 
@@ -1576,6 +1577,126 @@ class DataEnrichmentService {
       dataQualityScore,
       confidenceScore: confidence.score,
       blockReasons,
+    };
+  }
+
+  /**
+   * Fetch financial reports from NSE India
+   * Uses shared NseIndiaProvider for proper cookie management
+   */
+  async fetchNSEFinancialReports(symbol: string): Promise<{
+    quarterlyResults: any[];
+    announcements: any[];
+    boardMeetings: any[];
+    corporateActions: any[];
+    source: 'nse';
+    fetchedAt: Date;
+  }> {
+    console.log(`[DataEnrichment] Fetching NSE financial reports for ${symbol}`);
+    const providerResult = await nseIndiaProviderInstance.fetchCorporateReports(symbol);
+    
+    return {
+      quarterlyResults: providerResult.quarterlyResults,
+      announcements: providerResult.announcements,
+      boardMeetings: providerResult.boardMeetings,
+      corporateActions: providerResult.corporateActions,
+      source: 'nse',
+      fetchedAt: new Date(),
+    };
+  }
+
+  /**
+   * Fetch financial reports from BSE India
+   * Uses shared BseIndiaProvider for proper session management
+   */
+  async fetchBSEFinancialReports(symbol?: string, scripcode?: string): Promise<{
+    financialResults: any[];
+    announcements: any[];
+    corporateActions: any[];
+    shareholdingPattern: any[];
+    source: 'bse';
+    fetchedAt: Date;
+  }> {
+    console.log(`[DataEnrichment] Fetching BSE financial reports for ${symbol || scripcode}`);
+    const providerResult = await bseIndiaProviderInstance.fetchCorporateReports(symbol, scripcode);
+    
+    return {
+      financialResults: providerResult.financialResults,
+      announcements: providerResult.announcements,
+      corporateActions: providerResult.corporateActions,
+      shareholdingPattern: providerResult.shareholdingPattern,
+      source: 'bse',
+      fetchedAt: new Date(),
+    };
+  }
+
+  /**
+   * Fetch unified financial reports from both NSE and BSE
+   * Merges data from both sources with deduplication
+   */
+  async fetchUnifiedFinancialReports(symbol: string, scripcode?: string): Promise<{
+    quarterlyResults: any[];
+    announcements: any[];
+    boardMeetings: any[];
+    corporateActions: any[];
+    shareholdingPattern: any[];
+    sources: DataSource[];
+    fetchedAt: Date;
+    confidence: number;
+  }> {
+    console.log(`[DataEnrichment] Fetching unified financial reports for ${symbol}`);
+
+    const [nseData, bseData] = await Promise.allSettled([
+      this.fetchNSEFinancialReports(symbol),
+      this.fetchBSEFinancialReports(symbol, scripcode),
+    ]);
+
+    const sources: DataSource[] = [];
+    let nseResults = { quarterlyResults: [] as any[], announcements: [] as any[], boardMeetings: [] as any[], corporateActions: [] as any[] };
+    let bseResults = { financialResults: [] as any[], announcements: [] as any[], corporateActions: [] as any[], shareholdingPattern: [] as any[] };
+
+    if (nseData.status === 'fulfilled') {
+      nseResults = nseData.value;
+      if (nseResults.quarterlyResults.length > 0 || nseResults.announcements.length > 0) {
+        sources.push('nse');
+      }
+    }
+
+    if (bseData.status === 'fulfilled') {
+      bseResults = bseData.value;
+      if (bseResults.financialResults.length > 0 || bseResults.announcements.length > 0) {
+        sources.push('bse');
+      }
+    }
+
+    const mergedQuarterlyResults = [
+      ...nseResults.quarterlyResults.map(r => ({ ...r, source: 'nse' })),
+      ...bseResults.financialResults.map(r => ({ ...r, source: 'bse' })),
+    ];
+
+    const mergedAnnouncements = [
+      ...nseResults.announcements.map(a => ({ ...a, source: 'nse' })),
+      ...bseResults.announcements.map(a => ({ ...a, source: 'bse' })),
+    ].sort((a, b) => new Date(b.broadcastDate || b.newsDate || 0).getTime() - new Date(a.broadcastDate || a.newsDate || 0).getTime());
+
+    const mergedCorporateActions = [
+      ...nseResults.corporateActions.map(c => ({ ...c, source: 'nse' })),
+      ...bseResults.corporateActions.map(c => ({ ...c, source: 'bse' })),
+    ];
+
+    const confidence = sources.length === 2 ? 0.95 : sources.length === 1 ? 0.85 : 0;
+
+    console.log(`[DataEnrichment] Unified reports: ${mergedQuarterlyResults.length} results, ${mergedAnnouncements.length} announcements from ${sources.join(', ') || 'none'}`);
+
+    return {
+      quarterlyResults: mergedQuarterlyResults,
+      announcements: mergedAnnouncements.slice(0, 100),
+      boardMeetings: nseResults.boardMeetings,
+      corporateActions: mergedCorporateActions,
+      shareholdingPattern: bseResults.shareholdingPattern,
+      sources,
+      fetchedAt: new Date(),
+      confidence,
     };
   }
 }

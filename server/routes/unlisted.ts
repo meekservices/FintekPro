@@ -4555,6 +4555,38 @@ router.get('/admin/companies/:id/data-usage-flags', requireAdmin, async (req: Re
 });
 
 /**
+ * GET /api/unlisted/financial-reports/:symbol
+ * Fetch financial reports from NSE and BSE for any stock symbol
+ * Returns quarterly results, announcements, board meetings, corporate actions, shareholding pattern
+ */
+router.get('/financial-reports/:symbol', async (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const { scripcode, source } = req.query;
+    
+    if (!symbol) {
+      return apiResponse.badRequest(res, 'Stock symbol is required');
+    }
+
+    console.log(`[Financial Reports] Fetching reports for ${symbol}`);
+
+    if (source === 'nse') {
+      const nseReports = await dataEnrichmentService.fetchNSEFinancialReports(symbol);
+      return apiResponse.success(res, nseReports);
+    } else if (source === 'bse') {
+      const bseReports = await dataEnrichmentService.fetchBSEFinancialReports(symbol, scripcode as string | undefined);
+      return apiResponse.success(res, bseReports);
+    } else {
+      const unifiedReports = await dataEnrichmentService.fetchUnifiedFinancialReports(symbol, scripcode as string | undefined);
+      return apiResponse.success(res, unifiedReports);
+    }
+  } catch (error: any) {
+    console.error('Error fetching financial reports:', error);
+    return apiResponse.serverError(res, 'Failed to fetch financial reports');
+  }
+});
+
+/**
  * PUT /api/unlisted/admin/companies/:id/peers
  * Update listed peer companies for comparison (Admin only)
  */
