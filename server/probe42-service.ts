@@ -160,7 +160,7 @@ export class Probe42Service {
   /**
    * Search companies with financial filters
    */
-  async searchCompanies(filters: CompanySearchFilters): Promise<CompanyBasicInfo[]> {
+  async searchCompanies(filters: CompanySearchFilters): Promise<{ companies: CompanyBasicInfo[]; error?: string; available: boolean }> {
     try {
       const response = await this.client.get(`/${this.apiVersion}/companies`, {
         params: {
@@ -170,10 +170,38 @@ export class Probe42Service {
         }
       });
 
-      return response.data.companies || [];
-    } catch (error) {
-      console.error('❌ Probe42 search error:', error);
-      throw new Error('Failed to search companies via Probe42');
+      return { companies: response.data.companies || [], available: true };
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error?.message || 'Unknown error';
+      
+      console.error('❌ Probe42 search error:', { status, message });
+      
+      if (status === 404) {
+        return { 
+          companies: [], 
+          available: false, 
+          error: 'Probe42 company search endpoint not available. Please verify your API subscription includes company search access.' 
+        };
+      } else if (status === 401 || status === 403) {
+        return { 
+          companies: [], 
+          available: false, 
+          error: 'Probe42 API authentication failed. Please verify your API key is valid and active.' 
+        };
+      } else if (status === 429) {
+        return { 
+          companies: [], 
+          available: false, 
+          error: 'Probe42 API rate limit exceeded. Please try again later.' 
+        };
+      }
+      
+      return { 
+        companies: [], 
+        available: false, 
+        error: `Probe42 API error: ${message}` 
+      };
     }
   }
 
@@ -249,7 +277,7 @@ export class Probe42Service {
   /**
    * Find high-value leads based on financial criteria
    */
-  async findHighValueLeads(criteria: LeadScoringCriteria): Promise<CompanyBasicInfo[]> {
+  async findHighValueLeads(criteria: LeadScoringCriteria): Promise<{ companies: CompanyBasicInfo[]; error?: string; available: boolean }> {
     const filters: CompanySearchFilters = {
       minRevenue: criteria.minRevenue || 10000000, // ₹1 Cr minimum
       minProfit: criteria.minProfit || 1000000, // ₹10 Lakh minimum

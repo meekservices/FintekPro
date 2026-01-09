@@ -414,17 +414,73 @@ export function registerMarketingRoutes(app: any) {
   // ============================================================================
 
   /**
-   * Search companies via Probe42
+   * Search companies via Probe42 with graceful fallback to local database
    */
   app.post('/api/admin/marketing/leads/search', requireAdmin, async (req: any, res: Response) => {
     try {
       const probe42 = getProbe42Service();
-      const companies = await probe42.searchCompanies(req.body);
+      const result = await probe42.searchCompanies(req.body);
 
-      res.json({ companies, count: companies.length });
+      if (!result.available) {
+        const { nameStartsWith, city, state, minRevenue } = req.body;
+        const conditions: any[] = [];
+        
+        if (nameStartsWith) {
+          conditions.push(ilike(prospectLeads.companyName, `${nameStartsWith}%`));
+        }
+        if (city) {
+          conditions.push(ilike(prospectLeads.city, `%${city}%`));
+        }
+        if (state) {
+          conditions.push(ilike(prospectLeads.state, `%${state}%`));
+        }
+        if (minRevenue) {
+          conditions.push(gte(prospectLeads.annualRevenue, minRevenue.toString()));
+        }
+
+        const localLeads = await db
+          .select({
+            cin: prospectLeads.cin,
+            companyName: prospectLeads.companyName,
+            city: prospectLeads.city,
+            state: prospectLeads.state,
+            authorizedCapital: prospectLeads.authorizedCapital,
+            paidUpCapital: prospectLeads.paidUpCapital,
+            email: prospectLeads.primaryEmail,
+            phone: prospectLeads.primaryMobile
+          })
+          .from(prospectLeads)
+          .where(conditions.length > 0 ? and(...conditions) : sql`1=1`)
+          .limit(50);
+
+        return res.json({ 
+          companies: localLeads.map(l => ({
+            ...l,
+            authorizedCapital: l.authorizedCapital ? parseFloat(l.authorizedCapital) : null,
+            paidUpCapital: l.paidUpCapital ? parseFloat(l.paidUpCapital) : null
+          })),
+          count: localLeads.length, 
+          available: false,
+          usingFallback: true,
+          error: result.error,
+          fallbackMessage: 'Showing results from local database. Probe42 API is unavailable.'
+        });
+      }
+
+      res.json({ 
+        companies: result.companies, 
+        count: result.companies.length,
+        available: true 
+      });
     } catch (error) {
       console.error('Error searching companies:', error);
-      return apiResponse.serverError(res, 'Failed to search companies');
+      return res.json({ 
+        companies: [], 
+        count: 0, 
+        available: false,
+        error: 'Failed to connect to Probe42 API',
+        fallbackMessage: 'Probe42 API is currently unavailable. You can still create B2B leads manually in the Prospect Dashboard or import from Zoho CRM.'
+      });
     }
   });
 

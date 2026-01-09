@@ -47,6 +47,8 @@ export default function LeadProspecting() {
     queryKey: ['/api/admin/marketing/leads']
   });
 
+  const [apiError, setApiError] = useState<string | null>(null);
+  
   const searchCompaniesMutation = useMutation({
     mutationFn: async (filters: any) => {
       return apiRequest('/api/admin/marketing/leads/search', {
@@ -56,11 +58,31 @@ export default function LeadProspecting() {
     },
     onSuccess: (data: any) => {
       setSearchResults(data.companies || []);
-      toast({ title: `Found ${data.count || 0} companies` });
+      if (data.available === false) {
+        if (data.usingFallback && data.companies?.length > 0) {
+          setApiError(data.fallbackMessage || 'Showing local database results');
+          toast({ 
+            title: `Found ${data.count || 0} companies from local database`,
+            description: 'Probe42 is unavailable. Showing leads from your database instead.',
+          });
+        } else {
+          setApiError(data.error || 'Probe42 API unavailable');
+          toast({ 
+            title: 'Probe42 API Unavailable',
+            description: data.fallbackMessage || 'External company search is currently unavailable.',
+            variant: 'destructive'
+          });
+        }
+      } else {
+        setApiError(null);
+        toast({ title: `Found ${data.count || 0} companies` });
+      }
     },
     onError: () => {
+      setApiError('Failed to connect to search service');
       toast({ 
         title: 'Search failed',
+        description: 'Unable to connect to company search. Try again later or create leads manually.',
         variant: 'destructive'
       });
     }
@@ -216,6 +238,26 @@ export default function LeadProspecting() {
               {searchCompaniesMutation.isPending ? 'Searching...' : 'Search Companies'}
             </Button>
           </form>
+
+          {/* API Error Alert */}
+          {apiError && (
+            <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="text-amber-600 dark:text-amber-400 mt-0.5">
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-amber-800 dark:text-amber-200">Probe42 API Unavailable</h4>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{apiError}</p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                    You can still create B2B leads manually in the <a href="/admin/prospect-dashboard" className="underline font-medium hover:text-amber-800">Prospect Dashboard</a> or import from Zoho CRM.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Search Results */}
           {searchResults.length > 0 && (
