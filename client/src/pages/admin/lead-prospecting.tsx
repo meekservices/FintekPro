@@ -169,7 +169,7 @@ export default function LeadProspecting() {
                   placeholder="Enter company name prefix (e.g., Tata, Reliance)"
                   data-testid="input-company-name"
                 />
-                <p className="text-xs text-muted-foreground">Required: Enter at least 3 characters</p>
+                <p className="text-xs text-muted-foreground">Required: Enter at least 4 characters (e.g., "Tata", "Reliance")</p>
               </div>
 
               <div className="space-y-2">

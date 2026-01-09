@@ -245,6 +245,14 @@ export class Probe42Service {
         };
       }
 
+      if (filters.nameStartsWith && filters.nameStartsWith.length < 4) {
+        return {
+          companies: [],
+          available: true,
+          error: 'Company name must be at least 4 characters long.'
+        };
+      }
+
       const searchBody: any = {
         limit: Math.min((filters.limit || 50) * 2, 100)
       };
