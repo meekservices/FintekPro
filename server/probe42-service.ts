@@ -386,6 +386,13 @@ export class Probe42Service {
     return undefined;
   }
 
+  private extractPincodeFromAddress(address?: string): string | undefined {
+    if (!address) return undefined;
+    // Match 6-digit Indian pincode pattern
+    const pincodeMatch = address.match(/\b[1-9][0-9]{5}\b/);
+    return pincodeMatch ? pincodeMatch[0] : undefined;
+  }
+
   /**
    * Get basic company information by CIN (v2 API)
    * GET /entities/{identifier}/base-details
@@ -395,23 +402,27 @@ export class Probe42Service {
       const response = await this.client.get(`/entities/${cin}/base-details`);
       const data = response.data?.data || response.data;
       
+      // Log the full response to understand v2 structure
+      console.log(`📋 Probe42 v2 base-details raw response for ${cin}:`, JSON.stringify(data, null, 2));
+      
+      // v2 API field mapping (snake_case to camelCase)
       const baseDetails: CompanyDetails = {
         cin: data.cin || data.identifier || cin,
-        companyName: data.legal_name || data.legalName || data.companyName || data.name,
-        registrationNumber: data.registrationNumber || data.identifier || data.cin,
-        incorporationDate: data.dateOfIncorporation || data.date_of_incorporation || data.incorporationDate,
-        companyClass: data.companyClass || data.class,
-        companyCategory: data.companyCategory || data.category,
-        companySubCategory: data.companySubCategory,
-        authorizedCapital: data.authorizedCapital,
-        paidUpCapital: data.paidUpCapital,
-        registeredAddress: data.registeredAddress || data.address,
-        city: data.city,
-        state: data.state,
-        pincode: data.pincode,
-        email: data.email,
-        phone: data.phone,
-        website: data.website
+        companyName: data.legal_name || data.legalName || data.company_name || data.companyName || data.name,
+        registrationNumber: data.registration_number || data.registrationNumber || data.identifier || data.cin,
+        incorporationDate: data.date_of_incorporation || data.dateOfIncorporation || data.incorporationDate,
+        companyClass: data.company_class || data.companyClass || data.class,
+        companyCategory: data.company_category || data.companyCategory || data.category,
+        companySubCategory: data.company_sub_category || data.companySubCategory,
+        authorizedCapital: data.authorized_capital || data.authorizedCapital,
+        paidUpCapital: data.paid_up_capital || data.paidUpCapital,
+        registeredAddress: data.registered_address || data.registeredAddress || data.address || data.registered_office_address,
+        city: data.city || this.extractCityFromAddress(data.registered_address || data.registeredAddress || data.address),
+        state: data.state || this.extractStateFromAddress(data.registered_address || data.registeredAddress || data.address),
+        pincode: data.pincode || data.pin_code || this.extractPincodeFromAddress(data.registered_address || data.registeredAddress || data.address),
+        email: data.email || data.email_id || data.contact_email,
+        phone: data.phone || data.phone_number || data.contact_phone || data.mobile,
+        website: data.website || data.web_url
       };
 
       const [kycData, creditRatings, legalHistory, charges] = await Promise.allSettled([

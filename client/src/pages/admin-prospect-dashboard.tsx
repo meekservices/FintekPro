@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Users, UserPlus, Building2, Search, Filter, RefreshCw, Download, 
   TrendingUp, Target, ArrowRight, Loader2, CheckCircle2, AlertCircle,
-  UserCheck, Clock, Zap, BarChart3, Link2, Cloud, Eye, History
+  UserCheck, Clock, Zap, BarChart3, Link2, Cloud, Eye, History, Pencil
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -129,6 +129,8 @@ export default function AdminProspectDashboardPage() {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isZohoImportOpen, setIsZohoImportOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState<{ id: string; type: "b2b" | "individual" } | null>(null);
+  const [isEditLeadOpen, setIsEditLeadOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<B2BLead | null>(null);
 
   const { data: metrics, isLoading: loadingMetrics, refetch: refetchMetrics } = useQuery<ProspectMetrics>({
     queryKey: ["/api/admin/prospects/metrics"]
@@ -276,6 +278,31 @@ export default function AdminProspectDashboardPage() {
       toast({ title: "Import Failed", description: error.message, variant: "destructive" });
     }
   });
+
+  const updateLeadMutation = useMutation({
+    mutationFn: async (data: { id: string; updates: Partial<B2BLead> }) => {
+      const response = await apiRequest(`/api/admin/marketing/leads/${data.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data.updates)
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Lead updated successfully" });
+      setIsEditLeadOpen(false);
+      setEditingLead(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects"] });
+      refetchB2B();
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleEditLead = (lead: B2BLead) => {
+    setEditingLead(lead);
+    setIsEditLeadOpen(true);
+  };
 
   const handleSelectLead = (leadId: string, checked: boolean) => {
     if (checked) {
@@ -615,13 +642,24 @@ export default function AdminProspectDashboardPage() {
                             <Badge variant="outline">{lead.source}</Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => { setAssignTarget({ id: lead.id, type: "b2b" }); setIsAssignOpen(true); }}
-                            >
-                              <UserCheck className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditLead(lead)}
+                                title="Edit Lead"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => { setAssignTarget({ id: lead.id, type: "b2b" }); setIsAssignOpen(true); }}
+                                title="Assign Agent"
+                              >
+                                <UserCheck className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -810,6 +848,18 @@ export default function AdminProspectDashboardPage() {
         agents={agents}
         onSubmit={(module, agentId, maxRecords) => zohoImportMutation.mutate({ module, assignToAgent: agentId, maxRecords })}
         isPending={zohoImportMutation.isPending}
+      />
+
+      <EditLeadDialog
+        open={isEditLeadOpen}
+        onOpenChange={(open) => { setIsEditLeadOpen(open); if (!open) setEditingLead(null); }}
+        lead={editingLead}
+        onSubmit={(updates) => {
+          if (editingLead) {
+            updateLeadMutation.mutate({ id: editingLead.id, updates });
+          }
+        }}
+        isPending={updateLeadMutation.isPending}
       />
     </div>
   );
@@ -1256,6 +1306,225 @@ function ZohoImportDialog({ open, onOpenChange, agents, onSubmit, isPending }: {
           <Button onClick={() => onSubmit(module, agentId || undefined, maxRecords)} disabled={isPending}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Import
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  lead: B2BLead | null;
+  onSubmit: (updates: Partial<B2BLead>) => void;
+  isPending: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    companyName: "",
+    primaryEmail: "",
+    primaryMobile: "",
+    city: "",
+    state: "",
+    industrySegment: "",
+    leadQuality: "",
+    status: "",
+    notes: "",
+    website: "",
+    address: ""
+  });
+
+  // Update form when lead changes
+  useState(() => {
+    if (lead) {
+      setFormData({
+        companyName: lead.companyName || "",
+        primaryEmail: lead.primaryEmail || "",
+        primaryMobile: lead.primaryMobile || "",
+        city: lead.city || "",
+        state: lead.state || "",
+        industrySegment: lead.industrySegment || "",
+        leadQuality: lead.leadQuality || "",
+        status: lead.status || "",
+        notes: "",
+        website: "",
+        address: ""
+      });
+    }
+  });
+
+  // Reset form when dialog opens with new lead
+  if (lead && formData.companyName !== lead.companyName) {
+    setFormData({
+      companyName: lead.companyName || "",
+      primaryEmail: lead.primaryEmail || "",
+      primaryMobile: lead.primaryMobile || "",
+      city: lead.city || "",
+      state: lead.state || "",
+      industrySegment: lead.industrySegment || "",
+      leadQuality: lead.leadQuality || "",
+      status: lead.status || "",
+      notes: "",
+      website: "",
+      address: ""
+    });
+  }
+
+  const handleSubmit = () => {
+    const updates: any = {};
+    if (formData.companyName) updates.companyName = formData.companyName;
+    if (formData.primaryEmail) updates.primaryEmail = formData.primaryEmail;
+    if (formData.primaryMobile) updates.primaryMobile = formData.primaryMobile;
+    if (formData.city) updates.city = formData.city;
+    if (formData.state) updates.state = formData.state;
+    if (formData.industrySegment) updates.industrySegment = formData.industrySegment;
+    if (formData.leadQuality) updates.leadQuality = formData.leadQuality;
+    if (formData.status) updates.status = formData.status;
+    if (formData.website) updates.website = formData.website;
+    if (formData.address) updates.address = formData.address;
+    onSubmit(updates);
+  };
+
+  if (!lead) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-5 w-5" />
+            Edit Lead
+          </DialogTitle>
+          <DialogDescription>
+            Update contact and location information for this lead
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="edit-companyName">Company Name</Label>
+            <Input
+              id="edit-companyName"
+              value={formData.companyName}
+              onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+              placeholder="Company name"
+            />
+          </div>
+          
+          <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
+            CIN: {lead.cin || "Not available"}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-primaryEmail">Email</Label>
+              <Input
+                id="edit-primaryEmail"
+                type="email"
+                value={formData.primaryEmail}
+                onChange={(e) => setFormData({ ...formData, primaryEmail: e.target.value })}
+                placeholder="contact@company.com"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-primaryMobile">Phone</Label>
+              <Input
+                id="edit-primaryMobile"
+                value={formData.primaryMobile}
+                onChange={(e) => setFormData({ ...formData, primaryMobile: e.target.value })}
+                placeholder="+91 9876543210"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="edit-address">Address</Label>
+            <Textarea
+              id="edit-address"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="Full address"
+              rows={2}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-city">City</Label>
+              <Input
+                id="edit-city"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="Mumbai"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-state">State</Label>
+              <Input
+                id="edit-state"
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                placeholder="Maharashtra"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="edit-website">Website</Label>
+            <Input
+              id="edit-website"
+              value={formData.website}
+              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+              placeholder="https://company.com"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Lead Quality</Label>
+              <Select value={formData.leadQuality} onValueChange={(v) => setFormData({ ...formData, leadQuality: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select quality" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hot">Hot</SelectItem>
+                  <SelectItem value="warm">Warm</SelectItem>
+                  <SelectItem value="cold">Cold</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="qualified">Qualified</SelectItem>
+                  <SelectItem value="converted">Converted</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="on_hold">On Hold</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="edit-industrySegment">Industry Segment</Label>
+            <Input
+              id="edit-industrySegment"
+              value={formData.industrySegment}
+              onChange={(e) => setFormData({ ...formData, industrySegment: e.target.value })}
+              placeholder="e.g., Real Estate, Manufacturing"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Changes
           </Button>
         </DialogFooter>
       </DialogContent>
