@@ -370,11 +370,14 @@ class AIGlobalAdvisoryService {
   async getFilteredGlobalRecommendations(
     globalAdvisorySelections: Record<string, string[]>,
     riskLevel: 'conservative' | 'moderate' | 'aggressive' = 'moderate',
-    maxResultsPerCategory: number = 5
+    maxResultsPerCategory: number = 5,
+    priorLrsUtilizationUsd: number = 0,
+    globalBudgetInr: number = 500000
   ): Promise<{
     recommendations: GlobalRecommendation[];
     byMarket: Record<string, GlobalRecommendation[]>;
     byInstrument: Record<string, GlobalRecommendation[]>;
+    validationWarnings: string[];
     summary: {
       totalRecommendations: number;
       marketsIncluded: string[];
@@ -382,6 +385,8 @@ class AIGlobalAdvisoryService {
       estimatedLrsUtilization: number;
       lrsStatus: {
         estimatedUtilizationUsd: number;
+        priorUtilizationUsd: number;
+        totalUtilizationUsd: number;
         remainingLimitUsd: number;
         isWithinLimit: boolean;
         warningMessage?: string;
@@ -392,23 +397,42 @@ class AIGlobalAdvisoryService {
     const cached = this.recommendationCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp.getTime() < this.CACHE_TTL_MS) {
       const recommendations = cached.data;
-      return this.organizeRecommendations(recommendations, globalAdvisorySelections);
+      return this.organizeRecommendations(recommendations, globalAdvisorySelections, [], priorLrsUtilizationUsd, globalBudgetInr);
     }
 
     const allRecommendations: GlobalRecommendation[] = [];
     const symbolsToFetch: { symbol: string; market: string; instrumentType: string }[] = [];
+    const validationErrors: string[] = [];
+    const validMarkets = Object.keys(MARKET_SYMBOL_CATALOGUE);
+    const validInstruments = ['stocks', 'etfs', 'bonds', 'mutual_funds'];
 
     for (const [market, instrumentTypes] of Object.entries(globalAdvisorySelections)) {
+      if (!validMarkets.includes(market)) {
+        validationErrors.push(`Unknown market: ${market}`);
+        continue;
+      }
       if (!MARKET_SYMBOL_CATALOGUE[market]) continue;
 
       for (const instrumentType of instrumentTypes) {
+        if (!validInstruments.includes(instrumentType)) {
+          validationErrors.push(`Unknown instrument type: ${instrumentType} for market ${market}`);
+          continue;
+        }
         const symbols = MARKET_SYMBOL_CATALOGUE[market]?.[instrumentType] || [];
+        if (symbols.length === 0) {
+          validationErrors.push(`No symbols available for ${instrumentType} in ${market}`);
+          continue;
+        }
         const limitedSymbols = symbols.slice(0, maxResultsPerCategory);
         
         for (const symbol of limitedSymbols) {
           symbolsToFetch.push({ symbol, market, instrumentType });
         }
       }
+    }
+
+    if (validationErrors.length > 0) {
+      console.warn('[GlobalAdvisory] Validation warnings:', validationErrors);
     }
 
     const batchSize = 5;
@@ -433,16 +457,20 @@ class AIGlobalAdvisoryService {
     }
 
     this.recommendationCache.set(cacheKey, { data: allRecommendations, timestamp: new Date() });
-    return this.organizeRecommendations(allRecommendations, globalAdvisorySelections);
+    return this.organizeRecommendations(allRecommendations, globalAdvisorySelections, validationErrors, priorLrsUtilizationUsd, globalBudgetInr);
   }
 
-  private organizeRecommendations(
+  private async organizeRecommendations(
     recommendations: GlobalRecommendation[],
-    globalAdvisorySelections: Record<string, string[]>
-  ): {
+    globalAdvisorySelections: Record<string, string[]>,
+    validationErrors: string[] = [],
+    priorLrsUtilizationUsd: number = 0,
+    globalBudgetInr: number = 500000
+  ): Promise<{
     recommendations: GlobalRecommendation[];
     byMarket: Record<string, GlobalRecommendation[]>;
     byInstrument: Record<string, GlobalRecommendation[]>;
+    validationWarnings: string[];
     summary: {
       totalRecommendations: number;
       marketsIncluded: string[];
@@ -450,12 +478,14 @@ class AIGlobalAdvisoryService {
       estimatedLrsUtilization: number;
       lrsStatus: {
         estimatedUtilizationUsd: number;
+        priorUtilizationUsd: number;
+        totalUtilizationUsd: number;
         remainingLimitUsd: number;
         isWithinLimit: boolean;
         warningMessage?: string;
       };
     };
-  } {
+  }> {
     const byMarket: Record<string, GlobalRecommendation[]> = {};
     const byInstrument: Record<string, GlobalRecommendation[]> = {};
 
@@ -472,22 +502,27 @@ class AIGlobalAdvisoryService {
     const marketsIncluded = Object.keys(globalAdvisorySelections);
     const instrumentTypesIncluded = [...new Set(Object.values(globalAdvisorySelections).flat())];
 
-    const estimatedLrsUtilization = recommendations
-      .filter(r => r.recommendation === 'strong_buy' || r.recommendation === 'buy')
-      .reduce((sum, r) => {
-        const estimatedInvestmentUsd = r.currency === 'USD' 
-          ? r.currentPrice * 10 
-          : r.currentPrice * 10 / (r.currency === 'EUR' ? 0.92 : r.currency === 'GBP' ? 0.79 : r.currency === 'JPY' ? 150 : 1);
-        return sum + estimatedInvestmentUsd;
-      }, 0);
+    const usdToInrRate = await currencyExchangeService.getExchangeRate('USD', 'INR');
+    const buyRecommendations = recommendations.filter(r => r.recommendation === 'strong_buy' || r.recommendation === 'buy');
+    const totalBuyRecommendations = buyRecommendations.length || 1;
+    const perRecommendationBudgetInr = globalBudgetInr / totalBuyRecommendations;
+    
+    let estimatedLrsUtilization = 0;
+    for (const r of buyRecommendations) {
+      const estimatedInvestmentUsd = perRecommendationBudgetInr / usdToInrRate;
+      estimatedLrsUtilization += estimatedInvestmentUsd;
+    }
 
     const LRS_ANNUAL_LIMIT = 250000;
+    const totalUtilization = priorLrsUtilizationUsd + estimatedLrsUtilization;
     const lrsStatus = {
       estimatedUtilizationUsd: estimatedLrsUtilization,
-      remainingLimitUsd: Math.max(0, LRS_ANNUAL_LIMIT - estimatedLrsUtilization),
-      isWithinLimit: estimatedLrsUtilization <= LRS_ANNUAL_LIMIT,
-      warningMessage: estimatedLrsUtilization > LRS_ANNUAL_LIMIT * 0.8 
-        ? estimatedLrsUtilization > LRS_ANNUAL_LIMIT
+      priorUtilizationUsd: priorLrsUtilizationUsd,
+      totalUtilizationUsd: totalUtilization,
+      remainingLimitUsd: Math.max(0, LRS_ANNUAL_LIMIT - totalUtilization),
+      isWithinLimit: totalUtilization <= LRS_ANNUAL_LIMIT,
+      warningMessage: totalUtilization > LRS_ANNUAL_LIMIT * 0.8 
+        ? totalUtilization > LRS_ANNUAL_LIMIT
           ? `Estimated investment ($${Math.round(estimatedLrsUtilization).toLocaleString()}) exceeds annual LRS limit of $250,000. Consider phased investment.`
           : `Estimated investment is nearing LRS limit ($${Math.round(estimatedLrsUtilization).toLocaleString()} of $250,000 utilized).`
         : undefined,
@@ -497,6 +532,7 @@ class AIGlobalAdvisoryService {
       recommendations,
       byMarket,
       byInstrument,
+      validationWarnings: validationErrors,
       summary: {
         totalRecommendations: recommendations.length,
         marketsIncluded,

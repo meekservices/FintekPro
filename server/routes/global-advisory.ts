@@ -516,7 +516,7 @@ router.get("/advisory/instrument/:symbol", requireClientOrHigher, async (req: Re
 
 router.post("/advisory/filtered", requireClientOrHigher, async (req: Request, res: Response) => {
   try {
-    const { globalAdvisorySelections, riskLevel, maxResultsPerCategory } = req.body;
+    const { globalAdvisorySelections, riskLevel, maxResultsPerCategory, budgetInr, priorLrsUtilizationUsd } = req.body;
     
     if (!globalAdvisorySelections || typeof globalAdvisorySelections !== 'object') {
       return res.status(400).json({ 
@@ -525,10 +525,19 @@ router.post("/advisory/filtered", requireClientOrHigher, async (req: Request, re
       });
     }
 
+    const validatedBudget = typeof budgetInr === 'number' && budgetInr > 0 && budgetInr <= 500000000 
+      ? budgetInr 
+      : 500000;
+    const validatedPriorLrs = typeof priorLrsUtilizationUsd === 'number' && priorLrsUtilizationUsd >= 0 
+      ? priorLrsUtilizationUsd 
+      : 0;
+
     const result = await aiGlobalAdvisoryService.getFilteredGlobalRecommendations(
       globalAdvisorySelections,
       riskLevel || 'moderate',
-      maxResultsPerCategory || 5
+      maxResultsPerCategory || 5,
+      validatedPriorLrs,
+      validatedBudget
     );
 
     res.json({
@@ -536,10 +545,12 @@ router.post("/advisory/filtered", requireClientOrHigher, async (req: Request, re
       data: result.recommendations,
       byMarket: result.byMarket,
       byInstrument: result.byInstrument,
+      validationWarnings: result.validationWarnings,
       summary: result.summary,
       meta: {
         generatedAt: new Date(),
         lrsAnnualLimit: 250000,
+        budgetInr: validatedBudget,
       }
     });
   } catch (error: any) {
