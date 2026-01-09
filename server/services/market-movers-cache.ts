@@ -336,10 +336,15 @@ class MarketMoversCache {
   }
 
   private async initializeInBackground(): Promise<void> {
-    await this.initializeYahooCrumb();
+    // Try to refresh cache immediately with NSE (primary) - don't wait for Yahoo crumb
     await this.refreshCache();
     this.isInitialized = true;
     console.log('✅ [MarketMoversCache] Background initialization completed');
+    
+    // Initialize Yahoo crumb in background for fallback use
+    this.initializeYahooCrumb().catch(err => 
+      console.warn('⚠️ [MarketMoversCache] Yahoo crumb init failed (will use NSE):', err)
+    );
   }
 
   private isRateLimited(): boolean {
@@ -507,9 +512,24 @@ class MarketMoversCache {
       let stockQuotes: Stock[] = [];
       let successProvider: string | null = null;
 
-      if (!this.yahooRateLimited && !this.isRateLimited()) {
+      // Priority 1: NSE India (primary for Indian stocks - free and reliable)
+      if (this.nseProvider.isEnabled()) {
         try {
-          console.log('🔄 [MarketMoversCache] Trying Yahoo Finance...');
+          console.log('🔄 [MarketMoversCache] Trying NSE India (primary)...');
+          stockQuotes = await this.fetchFromNse();
+          successProvider = 'nse';
+          console.log(`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`);
+        } catch (nseError) {
+          console.warn('⚠️ [MarketMoversCache] NSE India failed:', nseError);
+          this.metrics.providers.nse.failureCount++;
+          this.metrics.providers.nse.lastFailure = Date.now();
+        }
+      }
+
+      // Priority 2: Yahoo Finance (secondary - may be rate limited)
+      if (stockQuotes.length === 0 && !this.yahooRateLimited && !this.isRateLimited()) {
+        try {
+          console.log('🔄 [MarketMoversCache] Trying Yahoo Finance fallback...');
           stockQuotes = await this.fetchFromYahoo();
           successProvider = 'yahoo';
           console.log(`✅ [MarketMoversCache] Yahoo Finance succeeded with ${stockQuotes.length} stocks`);
@@ -524,10 +544,11 @@ class MarketMoversCache {
             this.applyBackoff();
           }
         }
-      } else {
+      } else if (stockQuotes.length === 0) {
         console.log('⏸️ [MarketMoversCache] Skipping Yahoo Finance (rate limited)');
       }
 
+      // Priority 3: Finnhub (tertiary - limited Indian stock coverage on free tier)
       if (stockQuotes.length === 0 && this.finnhubProvider.isEnabled()) {
         try {
           console.log('🔄 [MarketMoversCache] Trying Finnhub fallback...');
@@ -538,19 +559,6 @@ class MarketMoversCache {
           console.warn('⚠️ [MarketMoversCache] Finnhub fallback failed:', finnhubError);
           this.metrics.providers.finnhub.failureCount++;
           this.metrics.providers.finnhub.lastFailure = Date.now();
-        }
-      }
-
-      if (stockQuotes.length === 0 && this.nseProvider.isEnabled()) {
-        try {
-          console.log('🔄 [MarketMoversCache] Trying NSE India fallback...');
-          stockQuotes = await this.fetchFromNse();
-          successProvider = 'nse';
-          console.log(`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`);
-        } catch (nseError) {
-          console.warn('⚠️ [MarketMoversCache] NSE India fallback failed:', nseError);
-          this.metrics.providers.nse.failureCount++;
-          this.metrics.providers.nse.lastFailure = Date.now();
         }
       }
 
