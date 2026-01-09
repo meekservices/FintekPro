@@ -414,15 +414,32 @@ export function registerMarketingRoutes(app: any) {
   // ============================================================================
 
   /**
-   * Search companies via Probe42 with graceful fallback to local database
+   * Search companies via Probe42 v2 with enrichment and financial filtering
+   * Uses searchAndEnrich for full v2 capabilities including financial gating
    */
   app.post('/api/admin/marketing/leads/search', requireAdmin, async (req: any, res: Response) => {
     try {
       const probe42 = getProbe42Service();
-      const result = await probe42.searchCompanies(req.body);
+      const { minRevenue, minProfit, probe42Score, minEbitda, riskLevel } = req.body;
+      
+      const hasFinancialFilters = minRevenue || minProfit || probe42Score || minEbitda || riskLevel;
+      
+      let result;
+      if (hasFinancialFilters) {
+        result = await probe42.searchAndEnrich(req.body);
+      } else {
+        const searchResult = await probe42.searchCompanies(req.body);
+        result = {
+          companies: searchResult.companies,
+          available: searchResult.available,
+          error: searchResult.error,
+          enrichedCount: 0,
+          filteredCount: searchResult.companies.length
+        };
+      }
 
       if (!result.available) {
-        const { nameStartsWith, city, state, minRevenue } = req.body;
+        const { nameStartsWith, city, state } = req.body;
         const conditions: any[] = [];
         
         if (nameStartsWith) {
@@ -470,7 +487,9 @@ export function registerMarketingRoutes(app: any) {
       res.json({ 
         companies: result.companies, 
         count: result.companies.length,
-        available: true 
+        available: true,
+        enrichedCount: hasFinancialFilters ? result.enrichedCount : undefined,
+        filteredCount: hasFinancialFilters ? result.filteredCount : undefined
       });
     } catch (error) {
       console.error('Error searching companies:', error);

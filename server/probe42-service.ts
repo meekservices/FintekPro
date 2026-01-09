@@ -14,6 +14,56 @@
 
 import axios, { AxiosInstance } from 'axios';
 
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+class LRUCache<T> {
+  private cache: Map<string, CacheEntry<T>> = new Map();
+  private maxSize: number;
+  private ttlMs: number;
+
+  constructor(maxSize: number = 100, ttlMinutes: number = 10) {
+    this.maxSize = maxSize;
+    this.ttlMs = ttlMinutes * 60 * 1000;
+  }
+
+  get(key: string): T | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+    
+    if (Date.now() - entry.timestamp > this.ttlMs) {
+      this.cache.delete(key);
+      return undefined;
+    }
+    
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    return entry.data;
+  }
+
+  set(key: string, data: T): void {
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey) this.cache.delete(firstKey);
+    }
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  has(key: string): boolean {
+    return this.get(key) !== undefined;
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
 interface Probe42Config {
   apiKey: string;
   apiVersion?: string;
@@ -145,9 +195,13 @@ interface LeadScoringCriteria {
 export class Probe42Service {
   private client: AxiosInstance;
   private apiKey: string;
+  private companyCache: LRUCache<CompanyDetails>;
+  private maxConcurrency: number = 3;
+  private activeCalls: number = 0;
 
   constructor(config: Probe42Config) {
     this.apiKey = config.apiKey;
+    this.companyCache = new LRUCache<CompanyDetails>(200, 15);
     
     this.client = axios.create({
       baseURL: config.baseUrl || PROBE42_V2_BASE_URL,
@@ -158,6 +212,18 @@ export class Probe42Service {
         'Content-Type': 'application/json'
       }
     });
+  }
+
+  private async withConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
+    while (this.activeCalls >= this.maxConcurrency) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    this.activeCalls++;
+    try {
+      return await fn();
+    } finally {
+      this.activeCalls--;
+    }
   }
 
   /**
@@ -546,20 +612,127 @@ export class Probe42Service {
   }
 
   /**
-   * Find high-value leads based on financial criteria
-   * Note: Probe42 v2 Search API only supports name-based search.
-   * Financial filters (revenue, profit, score) must be applied via 
-   * post-processing after fetching company details.
+   * Search and enrich companies with full v2 data including financial filtering
+   * This is the main orchestrator for lead prospecting with v2 API
    */
-  async findHighValueLeads(criteria: LeadScoringCriteria): Promise<{ companies: CompanyBasicInfo[]; error?: string; available: boolean }> {
+  async searchAndEnrich(filters: CompanySearchFilters): Promise<{ 
+    companies: CompanyDetails[]; 
+    error?: string; 
+    available: boolean;
+    enrichedCount: number;
+    filteredCount: number;
+  }> {
+    const searchResult = await this.searchCompanies(filters);
+    
+    if (!searchResult.available || searchResult.companies.length === 0) {
+      return { 
+        companies: [], 
+        available: searchResult.available, 
+        error: searchResult.error,
+        enrichedCount: 0,
+        filteredCount: 0
+      };
+    }
+
+    const maxEnrich = Math.min(searchResult.companies.length, 20);
+    const toEnrich = searchResult.companies.slice(0, maxEnrich);
+    
+    console.log(`🔄 Enriching ${toEnrich.length} companies with financial data...`);
+    
+    const enrichedCompanies: CompanyDetails[] = [];
+    const enrichPromises = toEnrich.map(company => 
+      this.withConcurrencyLimit(async () => {
+        const cached = this.companyCache.get(company.cin);
+        if (cached) {
+          console.log(`📦 Cache hit for ${company.cin}`);
+          return cached;
+        }
+        
+        const details = await this.getCompanyDetails(company.cin);
+        if (details) {
+          this.companyCache.set(company.cin, details);
+        }
+        return details;
+      })
+    );
+    
+    const results = await Promise.allSettled(enrichPromises);
+    
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        enrichedCompanies.push(result.value);
+      }
+    }
+    
+    console.log(`✅ Enriched ${enrichedCompanies.length} companies`);
+    
+    let filteredCompanies = enrichedCompanies;
+    
+    if (filters.minRevenue || filters.minProfit || filters.probe42Score || filters.minEbitda) {
+      filteredCompanies = enrichedCompanies.filter(company => {
+        const latestFinancial = company.financials?.[0];
+        
+        if (filters.minRevenue && (!latestFinancial || latestFinancial.revenue < filters.minRevenue)) {
+          return false;
+        }
+        if (filters.minProfit && (!latestFinancial || latestFinancial.netProfit < filters.minProfit)) {
+          return false;
+        }
+        if (filters.minEbitda && (!latestFinancial || (latestFinancial.ebitda || 0) < filters.minEbitda)) {
+          return false;
+        }
+        if (filters.probe42Score && (!company.probe42Score || company.probe42Score.score < filters.probe42Score)) {
+          return false;
+        }
+        
+        return true;
+      });
+      
+      console.log(`📊 Filtered to ${filteredCompanies.length} companies meeting financial criteria`);
+    }
+    
+    if (filters.riskLevel) {
+      filteredCompanies = filteredCompanies.filter(company => {
+        const score = company.probe42Score?.score || 0;
+        if (filters.riskLevel === 'low' && score < 4) return false;
+        if (filters.riskLevel === 'medium' && score < 3) return false;
+        return true;
+      });
+    }
+    
+    return { 
+      companies: filteredCompanies.slice(0, filters.limit || 50), 
+      available: true,
+      enrichedCount: enrichedCompanies.length,
+      filteredCount: filteredCompanies.length
+    };
+  }
+
+  /**
+   * Find high-value leads based on financial criteria using v2 enrichment
+   */
+  async findHighValueLeads(criteria: LeadScoringCriteria): Promise<{ companies: CompanyDetails[]; error?: string; available: boolean }> {
     const filters: CompanySearchFilters = {
-      limit: 100
+      minRevenue: criteria.minRevenue || 10000000,
+      minProfit: criteria.minProfit || 1000000,
+      probe42Score: criteria.minScore || 3,
+      limit: 50
     };
 
-    console.log('ℹ️ Probe42 v2: Financial filters (revenue, profit, score) require post-processing');
-    console.log('   Use getCompanyDetails() to fetch financial data for filtering');
+    if (criteria.maxRiskLevel === 'low') {
+      filters.riskLevel = 'low';
+    } else if (criteria.maxRiskLevel === 'medium') {
+      filters.riskLevel = 'medium';
+    }
 
-    return await this.searchCompanies(filters);
+    console.log('🔍 Finding high-value leads with v2 enrichment...');
+    const result = await this.searchAndEnrich(filters);
+    
+    return {
+      companies: result.companies,
+      error: result.error,
+      available: result.available
+    };
   }
 
   /**
