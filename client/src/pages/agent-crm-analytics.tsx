@@ -60,6 +60,7 @@ export default function AgentCrmAnalytics() {
 
   const { data: analytics, isLoading } = useQuery<CrmAnalytics>({
     queryKey: ["/api/crm/analytics/dashboard", { agentId: user?.id }],
+    enabled: !!user?.id,
     refetchInterval: 60000,
   });
 
