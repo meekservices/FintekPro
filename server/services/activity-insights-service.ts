@@ -61,80 +61,92 @@ class ActivityInsightsService {
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [
-      errorStats,
-      criticalErrors,
-      activeUsers,
-      newUsers,
-      dormantUsers,
-      incompleteKycUsers,
-      pendingBondOrders,
-      pendingUnlistedDeals
-    ] = await Promise.all([
-      db.select({ count: count() }).from(errorLedger).where(gte(errorLedger.createdAt, oneDayAgo)),
-      db.select({ count: count() }).from(errorLedger).where(and(
-        gte(errorLedger.createdAt, oneDayAgo),
-        eq(errorLedger.severity, 'critical')
-      )),
-      db.select({ count: count() }).from(users).where(gte(users.lastLoginAt, oneDayAgo)),
-      db.select({ count: count() }).from(users).where(gte(users.createdAt, oneWeekAgo)),
-      db.select({ count: count() }).from(users).where(and(
-        lt(users.lastLoginAt, thirtyDaysAgo),
-        eq(users.isActive, true)
-      )),
-      db.select({ count: count() }).from(users).where(
-        sql`"is_active" = true AND ("kyc_status" IS NULL OR "kyc_status" NOT IN ('verified', 'approved'))`
-      ),
-      db.select({ count: count() }).from(bondOrders).where(eq(bondOrders.orderStatus, 'pending')),
-      db.select({ count: count() }).from(unlistedDeals).where(eq(unlistedDeals.status, 'pending'))
-    ]);
+    try {
+      const [
+        errorStats,
+        criticalErrors,
+        activeUsers,
+        newUsers,
+        dormantUsers,
+        incompleteKycUsers,
+        pendingBondOrders,
+        pendingUnlistedDeals
+      ] = await Promise.all([
+        db.select({ count: count() }).from(errorLedger).where(gte(errorLedger.createdAt, oneDayAgo)).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(errorLedger).where(and(
+          gte(errorLedger.createdAt, oneDayAgo),
+          eq(errorLedger.severity, 'critical')
+        )).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(users).where(gte(users.lastLoginAt, oneDayAgo)).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(users).where(gte(users.createdAt, oneWeekAgo)).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(users).where(and(
+          lt(users.lastLoginAt, thirtyDaysAgo),
+          eq(users.isActive, true)
+        )).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(users).where(
+          sql`"is_active" = true AND ("kyc_status" IS NULL OR "kyc_status" NOT IN ('verified', 'approved'))`
+        ).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(bondOrders).where(eq(bondOrders.orderStatus, 'pending')).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(unlistedDeals).where(eq(unlistedDeals.status, 'pending')).catch(() => [{ count: 0 }])
+      ]);
 
-    const errorsByModule = await db.select({
-      module: errorLedger.module,
-      count: count()
-    })
-    .from(errorLedger)
-    .where(gte(errorLedger.createdAt, oneDayAgo))
-    .groupBy(errorLedger.module);
+      const errorsByModule = await db.select({
+        module: errorLedger.module,
+        count: count()
+      })
+      .from(errorLedger)
+      .where(gte(errorLedger.createdAt, oneDayAgo))
+      .groupBy(errorLedger.module)
+      .catch(() => []);
 
-    const moduleErrors: Record<string, number> = {};
-    errorsByModule.forEach(e => {
-      moduleErrors[e.module] = e.count;
-    });
+      const moduleErrors: Record<string, number> = {};
+      errorsByModule.forEach(e => {
+        moduleErrors[e.module] = e.count;
+      });
 
-    const highErrorModules = Object.entries(moduleErrors)
-      .filter(([_, count]) => count > 10)
-      .map(([module]) => module);
+      const highErrorModules = Object.entries(moduleErrors)
+        .filter(([_, count]) => count > 10)
+        .map(([module]) => module);
 
-    return {
-      errors: {
-        total: errorStats[0]?.count || 0,
-        critical: criticalErrors[0]?.count || 0,
-        byModule: moduleErrors,
-        trend: 'stable'
-      },
-      users: {
-        activeToday: activeUsers[0]?.count || 0,
-        newThisWeek: newUsers[0]?.count || 0,
-        dormant30Days: dormantUsers[0]?.count || 0,
-        incompleteKyc: incompleteKycUsers[0]?.count || 0
-      },
-      revenue: {
-        pendingOrders: (pendingBondOrders[0]?.count || 0) + (pendingUnlistedDeals[0]?.count || 0),
-        abandonedCarts: 0,
-        completedDeals: 0,
-        potentialRevenue: 0
-      },
-      security: {
-        failedLogins: 0,
-        rateLimitViolations: 0,
-        suspiciousActivity: 0
-      },
-      performance: {
-        slowEndpoints: [],
-        highErrorRateModules: highErrorModules
-      }
-    };
+      return {
+        errors: {
+          total: errorStats[0]?.count || 0,
+          critical: criticalErrors[0]?.count || 0,
+          byModule: moduleErrors,
+          trend: 'stable'
+        },
+        users: {
+          activeToday: activeUsers[0]?.count || 0,
+          newThisWeek: newUsers[0]?.count || 0,
+          dormant30Days: dormantUsers[0]?.count || 0,
+          incompleteKyc: incompleteKycUsers[0]?.count || 0
+        },
+        revenue: {
+          pendingOrders: (pendingBondOrders[0]?.count || 0) + (pendingUnlistedDeals[0]?.count || 0),
+          abandonedCarts: 0,
+          completedDeals: 0,
+          potentialRevenue: 0
+        },
+        security: {
+          failedLogins: 0,
+          rateLimitViolations: 0,
+          suspiciousActivity: 0
+        },
+        performance: {
+          slowEndpoints: [],
+          highErrorRateModules: highErrorModules
+        }
+      };
+    } catch (error: any) {
+      console.error("[ActivityInsights] Error fetching metrics:", error?.message || error);
+      return {
+        errors: { total: 0, critical: 0, byModule: {}, trend: 'stable' as const },
+        users: { activeToday: 0, newThisWeek: 0, dormant30Days: 0, incompleteKyc: 0 },
+        revenue: { pendingOrders: 0, abandonedCarts: 0, completedDeals: 0, potentialRevenue: 0 },
+        security: { failedLogins: 0, rateLimitViolations: 0, suspiciousActivity: 0 },
+        performance: { slowEndpoints: [], highErrorRateModules: [] }
+      };
+    }
   }
 
   async generateAIInsights(metrics: ActivityMetrics): Promise<AIInsight[]> {
