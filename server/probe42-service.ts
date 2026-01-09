@@ -876,6 +876,58 @@ export class Probe42Service {
   }
 }
 
+export interface NormalizedCompanyResult {
+  cin: string;
+  companyName: string;
+  registrationNumber: string;
+  incorporationDate?: string;
+  companyClass?: string;
+  companyCategory?: string;
+  companySubCategory?: string;
+  authorizedCapital?: number;
+  paidUpCapital?: number;
+  registeredAddress?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  revenue?: number;
+  netProfit?: number;
+  probe42Score?: number;
+}
+
+export function normalizeCompanyResult(company: CompanyBasicInfo | CompanyDetails): NormalizedCompanyResult {
+  const hasFinancials = 'financials' in company && Array.isArray((company as any).financials);
+  const hasScore = 'probe42Score' in company && (company as any).probe42Score;
+  
+  const latestFinancial = hasFinancials ? (company as CompanyDetails).financials?.[0] : undefined;
+  const scoreValue = hasScore ? (company as CompanyDetails).probe42Score?.score : undefined;
+  
+  return {
+    cin: company.cin,
+    companyName: company.companyName,
+    registrationNumber: company.registrationNumber || company.cin,
+    incorporationDate: company.incorporationDate,
+    companyClass: company.companyClass,
+    companyCategory: company.companyCategory,
+    companySubCategory: company.companySubCategory,
+    authorizedCapital: company.authorizedCapital,
+    paidUpCapital: company.paidUpCapital,
+    registeredAddress: company.registeredAddress,
+    city: company.city,
+    state: company.state,
+    pincode: company.pincode,
+    email: company.email,
+    phone: company.phone,
+    website: company.website,
+    revenue: latestFinancial?.revenue,
+    netProfit: latestFinancial?.netProfit,
+    probe42Score: scoreValue
+  };
+}
+
 // Singleton instance
 let probe42Service: Probe42Service | null = null;
 

@@ -25,7 +25,7 @@ import { getZohoCampaignsService } from './zoho-campaigns-service';
 import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
 import { smsMarketingService } from './services/sms-marketing-service';
 import { whatsAppMarketingService } from './services/whatsapp-marketing-service';
-import { getProbe42Service } from './probe42-service';
+import { getProbe42Service, normalizeCompanyResult } from './probe42-service';
 import { apiResponse } from './utils/responses';
 import { requireAdmin } from './middleware/roleMiddleware';
 
@@ -484,9 +484,11 @@ export function registerMarketingRoutes(app: any) {
         });
       }
 
+      const normalizedCompanies = result.companies.map((c: any) => normalizeCompanyResult(c));
+
       res.json({ 
-        companies: result.companies, 
-        count: result.companies.length,
+        companies: normalizedCompanies, 
+        count: normalizedCompanies.length,
         available: true,
         enrichedCount: hasFinancialFilters ? result.enrichedCount : undefined,
         filteredCount: hasFinancialFilters ? result.filteredCount : undefined
