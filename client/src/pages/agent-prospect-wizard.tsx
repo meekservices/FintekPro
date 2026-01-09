@@ -136,13 +136,14 @@ const PRODUCT_CATEGORY_OPTIONS = [
   { id: 'unlisted_stocks', label: 'Unlisted Stocks', description: 'Pre-IPO & private company shares (Enhanced KYC required)', defaultSelected: false, requiresEnhancedKYC: true },
   { id: 'pms', label: 'PMS', description: 'Portfolio Management Services (Min ₹50L)', defaultSelected: false, minInvestment: 5000000 },
   { id: 'aif', label: 'AIF', description: 'Alternative Investment Funds (Min ₹1Cr)', defaultSelected: false, minInvestment: 10000000 },
+  { id: 'global_advisory', label: 'Global Advisory', description: 'US, EU & Asian stocks, ETFs, bonds via LRS ($250K annual limit)', defaultSelected: false, requiresEnhancedKYC: true },
 ];
 
 const DEFAULT_ALLOCATIONS = {
-  conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0 },
-  moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0 },
-  aggressive: { equity: 32, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 7, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 12, unlisted_stocks: 6, pms: 0, aif: 0 },
-  very_aggressive: { equity: 30, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 8, international: 8, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 15, unlisted_stocks: 10, pms: 0, aif: 0 }
+  conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0 },
+  moderate: { equity: 25, debt: 18, hybrid: 10, gold: 7, silver: 0, index: 8, international: 5, reit: 5, invit: 5, bonds: 5, mld: 2, listed_stocks: 8, unlisted_stocks: 2, pms: 0, aif: 0, global_advisory: 0 },
+  aggressive: { equity: 30, debt: 6, hybrid: 6, gold: 5, silver: 2, index: 8, international: 5, reit: 5, invit: 5, bonds: 4, mld: 2, listed_stocks: 12, unlisted_stocks: 6, pms: 0, aif: 0, global_advisory: 4 },
+  very_aggressive: { equity: 28, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 8, international: 5, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 15, unlisted_stocks: 10, pms: 0, aif: 0, global_advisory: 5 }
 };
 
 const formatCurrency = (amount: number) => {
@@ -206,7 +207,7 @@ export default function AgentProspectWizard() {
   const [customAllocations, setCustomAllocations] = useState<{
     equity: number; debt: number; hybrid: number; gold: number; silver: number; index: number;
     international: number; reit: number; invit: number; bonds: number; mld: number; 
-    listed_stocks: number; unlisted_stocks: number; pms: number; aif: number;
+    listed_stocks: number; unlisted_stocks: number; pms: number; aif: number; global_advisory: number;
   }>(DEFAULT_ALLOCATIONS.moderate);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
@@ -232,7 +233,8 @@ export default function AgentProspectWizard() {
       listed_stocks: 'listed_stocks',
       unlisted_stocks: 'unlisted_stocks',
       pms: 'pms',
-      aif: 'aif'
+      aif: 'aif',
+      global_advisory: 'global_advisory'
     };
     
     setSelectedCategories(prev => {
@@ -1544,7 +1546,8 @@ export default function AgentProspectWizard() {
                   { key: 'listed_stocks', label: 'Listed Stocks', color: 'bg-sky-500' },
                   { key: 'unlisted_stocks', label: 'Unlisted Stocks', color: 'bg-amber-600', requiresEnhancedKYC: true },
                   { key: 'pms', label: 'PMS', color: 'bg-violet-600', minInvestment: 5000000 },
-                  { key: 'aif', label: 'AIF', color: 'bg-rose-600', minInvestment: 10000000 }
+                  { key: 'aif', label: 'AIF', color: 'bg-rose-600', minInvestment: 10000000 },
+                  { key: 'global_advisory', label: 'Global Advisory', color: 'bg-blue-700', requiresEnhancedKYC: true }
                 ].map(({ key, label, color, minInvestment, requiresEnhancedKYC }) => {
                   const isEligible = !minInvestment || totalPortfolioValue >= minInvestment;
                   const eligibilityMessage = minInvestment && !isEligible 
@@ -1626,7 +1629,8 @@ export default function AgentProspectWizard() {
                       { key: 'listed_stocks', label: 'Listed Stocks', color: 'bg-sky-500' },
                       { key: 'unlisted_stocks', label: 'Unlisted Stocks', color: 'bg-amber-600' },
                       { key: 'pms', label: 'PMS', color: 'bg-violet-600' },
-                      { key: 'aif', label: 'AIF', color: 'bg-rose-600' }
+                      { key: 'aif', label: 'AIF', color: 'bg-rose-600' },
+                      { key: 'global_advisory', label: 'Global Advisory', color: 'bg-blue-700' }
                     ].map(({ key, label, color }) => {
                       const value = customAllocations[key as keyof typeof customAllocations];
                       if (value === 0) return null;
@@ -1654,7 +1658,8 @@ export default function AgentProspectWizard() {
                       { key: 'listed_stocks', color: 'bg-sky-500' },
                       { key: 'unlisted_stocks', color: 'bg-amber-600' },
                       { key: 'pms', color: 'bg-violet-600' },
-                      { key: 'aif', color: 'bg-rose-600' }
+                      { key: 'aif', color: 'bg-rose-600' },
+                      { key: 'global_advisory', color: 'bg-blue-700' }
                     ].map(({ key, color }) => {
                       const value = customAllocations[key as keyof typeof customAllocations];
                       if (value === 0) return null;
