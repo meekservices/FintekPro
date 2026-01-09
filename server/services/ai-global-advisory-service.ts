@@ -161,9 +161,38 @@ class AIGlobalAdvisoryService {
     }
   }
 
+  private async fetchWithRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelayMs: number = 1000
+  ): Promise<T | null> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        const isRateLimited = error.message?.includes('Too Many Requests') || 
+                             error.message?.includes('429') ||
+                             error.message?.includes('rate limit');
+        
+        if (isRateLimited && attempt < maxRetries) {
+          const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+          console.log(`[GlobalAdvisory] Rate limited, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        if (attempt === maxRetries) {
+          console.error(`[GlobalAdvisory] Failed after ${maxRetries} retries: ${error.message}`);
+        }
+        throw error;
+      }
+    }
+    return null;
+  }
+
   async fetchGlobalInstrumentData(symbol: string): Promise<GlobalInstrumentData | null> {
     try {
-      const quote = await yahooFinance.quote(symbol);
+      const quote = await this.fetchWithRetry(() => yahooFinance.quote(symbol), 3, 2000);
       if (!quote) return null;
 
       const currency = quote.currency || 'USD';
