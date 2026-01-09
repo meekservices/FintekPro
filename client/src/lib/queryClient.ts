@@ -1,6 +1,31 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { notifySessionExpired } from "@/contexts/session-context";
 
+// CSRF Token Management
+let csrfToken: string | null = null;
+
+export async function fetchCsrfToken(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/csrf-token', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      csrfToken = data.csrfToken;
+      return csrfToken;
+    }
+  } catch (e) {
+    console.warn('Failed to fetch CSRF token');
+  }
+  return null;
+}
+
+export function getCsrfToken(): string | null {
+  return csrfToken;
+}
+
+export function clearCsrfToken(): void {
+  csrfToken = null;
+}
+
 const EXCLUDED_401_ENDPOINTS = [
   "/api/user",
   "/api/cart",
@@ -118,14 +143,42 @@ export async function apiRequest(
   
   // Don't send body for GET requests
   const shouldSendBody = method !== "GET" && body !== undefined;
+  const isMutatingRequest = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
   
-  const res = await fetch(url, {
+  // Build headers with CSRF token for mutating requests
+  const requestHeaders: Record<string, string> = {
+    ...(shouldSendBody ? { "Content-Type": "application/json" } : {}),
+    ...(headers as Record<string, string>),
+  };
+  
+  if (isMutatingRequest && csrfToken) {
+    requestHeaders['X-CSRF-Token'] = csrfToken;
+  }
+  
+  let res = await fetch(url, {
     method,
-    headers: shouldSendBody ? { "Content-Type": "application/json", ...headers } : headers,
+    headers: requestHeaders,
     body: shouldSendBody ? body : undefined,
     credentials: "include",
     ...restOptions,
   });
+
+  if (res.status === 403 && isMutatingRequest) {
+    const data = await res.clone().json().catch(() => ({}));
+    if (data.code === 'CSRF_TOKEN_REQUIRED') {
+      await fetchCsrfToken();
+      if (csrfToken) {
+        requestHeaders['X-CSRF-Token'] = csrfToken;
+        res = await fetch(url, {
+          method,
+          headers: requestHeaders,
+          body: shouldSendBody ? body : undefined,
+          credentials: "include",
+          ...restOptions,
+        });
+      }
+    }
+  }
 
   await throwIfResNotOk(res, url);
   

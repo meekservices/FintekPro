@@ -16,6 +16,7 @@ import { setupAuth as setupLocalAuth } from "./auth";
 import { subdomainDetection } from "./subdomain-middleware";
 import { initializeCronJobs } from "./cron-jobs";
 import { requestContextMiddleware } from "./middleware/request-context";
+import { randomBytes } from "crypto";
 import "./services/sms-service"; // Initialize SMS service
 
 const app = express();
@@ -168,6 +169,69 @@ app.use('/api/zoho/webhooks', express.json({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
+// CSRF Protection - Synchronizer Token Pattern
+const generateCsrfToken = (): string => randomBytes(32).toString('hex');
+
+// CSRF validation middleware (applied after session setup)
+const createCsrfProtection = () => (req: Request, res: Response, next: NextFunction) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+  
+  if (req.path.includes('/webhook') || req.path.includes('/webhooks')) {
+    return next();
+  }
+  
+  const publicRoutes = ['/api/login', '/api/register', '/api/auth', '/api/health', '/api/public', '/api/csrf-token'];
+  if (publicRoutes.some(route => req.path.startsWith(route))) {
+    return next();
+  }
+  
+  const origin = req.get('Origin');
+  const referer = req.get('Referer');
+  
+  if (origin || referer) {
+    const allowedOrigins = [
+      'https://fintekpro.com',
+      'https://www.fintekpro.com',
+      'https://admin.fintekpro.com',
+      'https://agent.fintekpro.com',
+      'https://partner.fintekpro.com',
+    ];
+    
+    const replitDomains = process.env.REPLIT_DOMAINS?.split(',').map(d => `https://${d.trim()}`) || [];
+    allowedOrigins.push(...replitDomains);
+    
+    if (!isProduction) {
+      allowedOrigins.push('http://localhost:5000', 'http://127.0.0.1:5000');
+    }
+    
+    const requestOrigin = origin || (referer ? new URL(referer).origin : null);
+    
+    if (requestOrigin && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
+      logger.warn(`[CSRF] Blocked request from: ${requestOrigin}`);
+      return res.status(403).json({ error: 'Invalid request origin' });
+    }
+  }
+  
+  if (req.session && (req.session as any).user) {
+    const csrfToken = req.get('X-CSRF-Token');
+    let sessionToken = (req.session as any).csrfToken;
+    
+    if (!sessionToken) {
+      sessionToken = generateCsrfToken();
+      (req.session as any).csrfToken = sessionToken;
+    }
+    
+    if (!csrfToken || csrfToken !== sessionToken) {
+      logger.warn(`[CSRF] Token mismatch for user ${(req.session as any).user?.id}`);
+      return res.status(403).json({ error: 'Invalid CSRF token', code: 'CSRF_TOKEN_REQUIRED' });
+    }
+  }
+  
+  next();
+};
+
 // Input validation middleware
 export const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
@@ -280,6 +344,22 @@ app.use((req, res, next) => {
   
   // Then add local email/mobile authentication routes
   setupLocalAuth(app);
+  
+  // CSRF token endpoint (must be after session middleware)
+  app.get('/api/csrf-token', (req: Request, res: Response) => {
+    if (!req.session) {
+      return res.status(401).json({ error: 'No session' });
+    }
+    
+    if (!(req.session as any).csrfToken) {
+      (req.session as any).csrfToken = generateCsrfToken();
+    }
+    
+    res.json({ csrfToken: (req.session as any).csrfToken });
+  });
+  
+  // Apply CSRF protection after session/auth middleware
+  app.use('/api', createCsrfProtection());
   
   // Register Zoho integration routes
   const zohoRoutes = await import('./zoho/routes');
