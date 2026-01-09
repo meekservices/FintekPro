@@ -162,13 +162,14 @@ export default function LeadProspecting() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="companyName">Company Name</Label>
+                <Label htmlFor="companyName">Company Name <span className="text-red-500">*</span></Label>
                 <Input
                   id="companyName"
                   name="companyName"
-                  placeholder="Starts with..."
+                  placeholder="Enter company name prefix (e.g., Tata, Reliance)"
                   data-testid="input-company-name"
                 />
+                <p className="text-xs text-muted-foreground">Required: Enter at least 3 characters</p>
               </div>
 
               <div className="space-y-2">

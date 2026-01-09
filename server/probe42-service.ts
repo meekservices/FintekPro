@@ -237,6 +237,14 @@ export class Probe42Service {
    */
   async searchCompanies(filters: CompanySearchFilters): Promise<{ companies: CompanyBasicInfo[]; error?: string; available: boolean }> {
     try {
+      if (!filters.nameStartsWith && !filters.cin) {
+        return {
+          companies: [],
+          available: true,
+          error: 'Please enter a company name to search. Probe42 v2 requires a name prefix for searching.'
+        };
+      }
+
       const searchBody: any = {
         limit: Math.min((filters.limit || 50) * 2, 100)
       };
@@ -248,7 +256,9 @@ export class Probe42Service {
         searchBody.identifier = filters.cin;
       }
 
+      console.log('🔍 Probe42 v2 search request:', JSON.stringify(searchBody));
       const response = await this.client.post('/search-entities', searchBody);
+      console.log('📦 Probe42 v2 search response status:', response.status);
       
       const entities = response.data?.entities || response.data?.data || response.data || [];
       
