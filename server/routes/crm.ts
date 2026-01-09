@@ -284,11 +284,17 @@ export function registerCrmRoutes(app: Express) {
   // Get CRM dashboard stats
   app.get("/api/crm/analytics/dashboard", async (req, res) => {
     try {
-      const agentId = req.query.agentId as string;
+      const agentIdParam = req.query.agentId;
+      const agentId = agentIdParam && agentIdParam !== 'undefined' ? String(agentIdParam) : null;
       
       // Pipeline value by stage
-      const opportunities = await db.select().from(crmOpportunities)
-        .where(agentId ? eq(crmOpportunities.agentId, agentId) : sql`1=1`);
+      let opportunities;
+      if (agentId) {
+        opportunities = await db.select().from(crmOpportunities)
+          .where(eq(crmOpportunities.agentId, agentId));
+      } else {
+        opportunities = await db.select().from(crmOpportunities);
+      }
       
       const pipelineByStage = {
         lead: { count: 0, value: 0 },
@@ -308,8 +314,13 @@ export function registerCrmRoutes(app: Express) {
       });
       
       // Task stats
-      const tasks = await db.select().from(crmTasks)
-        .where(agentId ? eq(crmTasks.agentId, agentId) : sql`1=1`);
+      let tasks;
+      if (agentId) {
+        tasks = await db.select().from(crmTasks)
+          .where(eq(crmTasks.agentId, agentId));
+      } else {
+        tasks = await db.select().from(crmTasks);
+      }
       
       const taskStats = {
         pending: tasks.filter(t => t.status === 'pending').length,
@@ -321,11 +332,17 @@ export function registerCrmRoutes(app: Express) {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const interactions = await db.select().from(crmInteractions)
-        .where(and(
-          agentId ? eq(crmInteractions.agentId, agentId) : sql`1=1`,
-          gte(crmInteractions.createdAt, thirtyDaysAgo)
-        ));
+      let interactions;
+      if (agentId) {
+        interactions = await db.select().from(crmInteractions)
+          .where(and(
+            eq(crmInteractions.agentId, agentId),
+            gte(crmInteractions.createdAt, thirtyDaysAgo)
+          ));
+      } else {
+        interactions = await db.select().from(crmInteractions)
+          .where(gte(crmInteractions.createdAt, thirtyDaysAgo));
+      }
       
       const interactionsByType = {
         call: interactions.filter(i => i.type === 'call').length,
@@ -341,8 +358,8 @@ export function registerCrmRoutes(app: Express) {
         totalPipelineValue: opportunities.filter(o => o.status === 'open').reduce((s, o) => s + Number(o.expectedAmount || 0), 0),
         wonValue: opportunities.filter(o => o.status === 'won').reduce((s, o) => s + Number(o.actualAmount || o.expectedAmount || 0), 0),
       });
-    } catch (error) {
-      console.error("Error fetching CRM analytics:", error);
+    } catch (error: any) {
+      console.error("Error fetching CRM analytics:", error?.message || error);
       res.status(500).json({ error: "Failed to fetch analytics" });
     }
   });
