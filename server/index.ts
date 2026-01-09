@@ -20,6 +20,24 @@ import "./services/sms-service"; // Initialize SMS service
 
 const app = express();
 
+// Environment validation for production readiness
+const requiredEnvVars = ['DATABASE_URL', 'SESSION_SECRET'];
+const optionalButRecommended = ['OPENAI_API_KEY', 'TWILIO_ACCOUNT_SID', 'CASHFREE_APP_ID'];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`❌ FATAL: Required environment variable ${envVar} is not set`);
+    process.exit(1);
+  }
+}
+
+if (process.env.NODE_ENV === 'production') {
+  const missingOptional = optionalButRecommended.filter(v => !process.env[v]);
+  if (missingOptional.length > 0) {
+    console.warn(`⚠️ Recommended env vars not set: ${missingOptional.join(', ')}`);
+  }
+}
+
 // Trust proxy configuration for Replit environment
 app.set('trust proxy', 1);
 
@@ -57,48 +75,56 @@ app.use(compression({
   threshold: 1024,
 }));
 
-// CORS configuration
+// CORS configuration - environment-aware
+const isProduction = process.env.NODE_ENV === 'production';
+const corsAllowedOrigins = [
+  "https://fintekpro.com",
+  "https://www.fintekpro.com",
+  "https://admin.fintekpro.com",
+  "https://agent.fintekpro.com",
+  "https://partner.fintekpro.com",
+];
+if (!isProduction) {
+  corsAllowedOrigins.push(
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "http://admin.localhost:5000",
+    "http://agent.localhost:5000",
+    "http://partner.localhost:5000"
+  );
+}
+
 app.use(cors({
   origin: (origin, callback) => {
-    const allowedOrigins = [
-      // Production domains - all subdomains
-      "https://fintekpro.com",
-      "https://www.fintekpro.com",
-      "https://admin.fintekpro.com",
-      "https://agent.fintekpro.com",
-      "https://partner.fintekpro.com",
-      // Development domains
-      "http://localhost:5000",
-      "http://127.0.0.1:5000",
-      "http://admin.localhost:5000",
-      "http://agent.localhost:5000",
-      "http://partner.localhost:5000",
-    ];
-    
-    // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
     if (!origin) {
       return callback(null, true);
     }
     
-    // Allow Replit domains (*.replit.dev, *.repl.co, *.replit.app, *.picard.replit.dev)
-    if (allowedOrigins.includes(origin) ||
-        origin.endsWith('.replit.dev') ||
-        origin.endsWith('.repl.co') ||
-        origin.endsWith('.replit.app') ||
-        origin.includes('.picard.replit.dev') ||
-        origin.includes('.worf.replit.dev')) {
+    if (corsAllowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     
-    // In production, log blocked origins for debugging but don't throw
-    if (process.env.NODE_ENV === 'production') {
-      console.warn(`[CORS] Blocked request from origin: ${origin}`);
+    // Allow Replit domains only in development or for the deployed app domain
+    const replitDomains = process.env.REPLIT_DOMAINS?.split(',').map(d => d.trim()) || [];
+    const isReplitOrigin = replitDomains.some(domain => origin.includes(domain)) ||
+      (!isProduction && (
+        origin.endsWith('.replit.dev') ||
+        origin.endsWith('.repl.co') ||
+        origin.endsWith('.replit.app')
+      ));
+    
+    if (isReplitOrigin) {
+      return callback(null, true);
+    }
+    
+    if (isProduction) {
+      logger.warn(`[CORS] Blocked request from origin: ${origin}`);
     }
     callback(null, false);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "Cache-Control"]
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "Cache-Control", "X-CSRF-Token"]
 }));
 
 // Rate limiting with proper proxy configuration
