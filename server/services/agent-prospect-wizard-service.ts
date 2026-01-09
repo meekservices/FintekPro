@@ -1526,7 +1526,8 @@ class AgentProspectWizardService {
     riskProfile: ProspectRiskProfile,
     freshInvestmentAmount: number,
     customAllocations?: { equity: number; debt: number; hybrid: number; gold: number; silver?: number; index?: number },
-    selectedCategories?: string[]
+    selectedCategories?: string[],
+    globalAdvisorySelections?: Record<string, string[]>
   ): Promise<CombinedProposal> {
     const analysis = this.analyzePortfolio(holdings, riskProfile);
     const rebalancing = this.generateRebalancingRecommendations(
@@ -1601,13 +1602,18 @@ class AgentProspectWizardService {
       projectedValue: String(Math.round(projectedValue)),
       projectedReturns: String(avgReturn),
       riskProfile: riskProfile.riskTolerance,
-      investmentGoals: { goal: riskProfile.primaryGoal, horizon: riskProfile.investmentHorizon },
+      investmentGoals: { 
+        goalType: riskProfile.primaryGoal, 
+        timeHorizon: riskProfile.investmentHorizon,
+        riskTolerance: riskProfile.riskTolerance
+      },
+      globalAdvisorySelections: globalAdvisorySelections || undefined,
       targetAllocation,
       agentName,
       agentEmail,
       agentMobile,
       referralCode,
-      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile),
+      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile, globalAdvisorySelections),
       status: 'draft',
       validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       viewCount: 0
@@ -1631,7 +1637,7 @@ class AgentProspectWizardService {
       netInvestmentRequired,
       projectedValue: Math.round(projectedValue),
       projectedReturn: `${avgReturn}% p.a.`,
-      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile),
+      executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile, globalAdvisorySelections),
       portfolioComparison
     };
   }
@@ -1640,16 +1646,29 @@ class AgentProspectWizardService {
     analysis: PortfolioAnalysis,
     rebalancing: RebalanceRecommendation[],
     freshInvestments: FreshInvestmentSuggestion[],
-    riskProfile: ProspectRiskProfile
+    riskProfile: ProspectRiskProfile,
+    globalAdvisorySelections?: Record<string, string[]>
   ): string {
     const sellCount = rebalancing.filter(r => r.action === 'SELL').length;
     const buyCount = rebalancing.filter(r => r.action === 'BUY').length;
     
-    return `Based on your ${riskProfile.riskTolerance} risk profile and ${riskProfile.investmentHorizon.replace('_', ' ')} investment horizon, ` +
+    let summary = `Based on your ${riskProfile.riskTolerance} risk profile and ${riskProfile.investmentHorizon.replace('_', ' ')} investment horizon, ` +
       `we have analyzed your portfolio worth ₹${(analysis.totalValue / 100000).toFixed(1)}L. ` +
       `Your current diversification score is ${analysis.diversificationScore}/100 with a risk score of ${analysis.riskScore}/100. ` +
       `We recommend ${sellCount > 0 ? `rebalancing ${sellCount} positions` : 'no immediate rebalancing'} ` +
       `and ${freshInvestments.length} fresh investment opportunities aligned with your ${riskProfile.primaryGoal} goal.`;
+    
+    if (globalAdvisorySelections && Object.keys(globalAdvisorySelections).length > 0) {
+      const marketLabels: Record<string, string> = {
+        us: 'US Markets', europe: 'European Markets', china_hk: 'China/Hong Kong',
+        japan: 'Japan', other_asia: 'Other Asian Markets'
+      };
+      const markets = Object.keys(globalAdvisorySelections).map(m => marketLabels[m] || m).join(', ');
+      const instrumentCount = Object.values(globalAdvisorySelections).flat().length;
+      summary += ` Additionally, we recommend global diversification across ${markets} with ${instrumentCount} instrument categories via LRS ($250K annual limit).`;
+    }
+    
+    return summary;
   }
 
   async shareProposal(proposalId: string, channel: 'email' | 'whatsapp' | 'sms', agentId: string) {

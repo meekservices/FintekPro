@@ -44,6 +44,8 @@ const customAllocationsSchema = z.object({
   index: z.number().min(0).max(100).optional()
 });
 
+const globalAdvisorySelectionsSchema = z.record(z.string(), z.array(z.string())).optional();
+
 const generateProposalSchema = z.object({
   prospectId: z.string(),
   prospectData: z.object({
@@ -56,7 +58,8 @@ const generateProposalSchema = z.object({
   riskProfile: riskProfileSchema,
   freshInvestmentAmount: z.number().min(0),
   customAllocations: customAllocationsSchema.optional(),
-  selectedCategories: z.array(z.string()).optional()
+  selectedCategories: z.array(z.string()).optional(),
+  globalAdvisorySelections: globalAdvisorySelectionsSchema
 });
 
 router.post("/prospects", async (req: Request, res: Response) => {
@@ -323,7 +326,8 @@ router.post("/generate-proposal", async (req: Request, res: Response) => {
       data.riskProfile,
       data.freshInvestmentAmount,
       data.customAllocations,
-      data.selectedCategories
+      data.selectedCategories,
+      data.globalAdvisorySelections
     );
     
     res.json({ success: true, proposal });

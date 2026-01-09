@@ -18641,6 +18641,9 @@ export const prospectProposals = pgTable("prospect_proposals", {
   projectedValue: decimal("projected_value", { precision: 15, scale: 2 }),
   targetAllocation: jsonb("target_allocation").$type<Record<string, number>>(),
   
+  // Global Advisory selections (market -> instruments mapping for LRS investments)
+  globalAdvisorySelections: jsonb("global_advisory_selections").$type<Record<string, string[]>>(),
+  
   // Linked onboarding invitation
   invitationId: varchar("invitation_id").references(() => onboardingInvitations.id),
   referralCode: varchar("referral_code"),

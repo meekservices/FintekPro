@@ -514,6 +514,63 @@ router.get("/advisory/instrument/:symbol", requireClientOrHigher, async (req: Re
   }
 });
 
+router.post("/advisory/filtered", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const { globalAdvisorySelections, riskLevel, maxResultsPerCategory } = req.body;
+    
+    if (!globalAdvisorySelections || typeof globalAdvisorySelections !== 'object') {
+      return res.status(400).json({ 
+        success: false, 
+        error: "globalAdvisorySelections object is required with format { market: [instrumentTypes] }" 
+      });
+    }
+
+    const result = await aiGlobalAdvisoryService.getFilteredGlobalRecommendations(
+      globalAdvisorySelections,
+      riskLevel || 'moderate',
+      maxResultsPerCategory || 5
+    );
+
+    res.json({
+      success: true,
+      data: result.recommendations,
+      byMarket: result.byMarket,
+      byInstrument: result.byInstrument,
+      summary: result.summary,
+      meta: {
+        generatedAt: new Date(),
+        lrsAnnualLimit: 250000,
+      }
+    });
+  } catch (error: any) {
+    console.error("[GlobalAdvisory] Filtered recommendations error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/advisory/options", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const markets = aiGlobalAdvisoryService.getAvailableMarkets();
+    const instruments = aiGlobalAdvisoryService.getAvailableInstruments();
+
+    res.json({
+      success: true,
+      markets,
+      instruments,
+      compliance: {
+        lrsAnnualLimitUsd: 250000,
+        enhancedKycRequired: true,
+        fatcaRequired: true,
+        tcsRate: 20,
+        tcsThresholdInr: 700000,
+      }
+    });
+  } catch (error: any) {
+    console.error("[GlobalAdvisory] Options error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.post("/rebalancing/preview", requireClientOrHigher, async (req: Request, res: Response) => {
   try {
     const userId = (req.user as any)?.id;

@@ -24,7 +24,7 @@ import {
   TrendingUp, TrendingDown, Sparkles, Share2, Mail, MessageSquare, 
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
   IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
-  Upload, Link, FileText, AlertCircle, Settings2
+  Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -136,8 +136,28 @@ const PRODUCT_CATEGORY_OPTIONS = [
   { id: 'unlisted_stocks', label: 'Unlisted Stocks', description: 'Pre-IPO & private company shares (Enhanced KYC required)', defaultSelected: false, requiresEnhancedKYC: true },
   { id: 'pms', label: 'PMS', description: 'Portfolio Management Services (Min ₹50L)', defaultSelected: false, minInvestment: 5000000 },
   { id: 'aif', label: 'AIF', description: 'Alternative Investment Funds (Min ₹1Cr)', defaultSelected: false, minInvestment: 10000000 },
-  { id: 'global_advisory', label: 'Global Advisory', description: 'US, EU & Asian stocks, ETFs, bonds via LRS ($250K annual limit)', defaultSelected: false, requiresEnhancedKYC: true },
 ];
+
+const GLOBAL_MARKET_OPTIONS = [
+  { id: 'us', label: 'US Markets', description: 'NYSE, NASDAQ listed securities', flag: '🇺🇸' },
+  { id: 'europe', label: 'European Markets', description: 'UK, Germany, France exchanges', flag: '🇪🇺' },
+  { id: 'china_hk', label: 'China/Hong Kong', description: 'HKSE, Shanghai, Shenzhen', flag: '🇨🇳' },
+  { id: 'japan', label: 'Japan', description: 'Tokyo Stock Exchange', flag: '🇯🇵' },
+  { id: 'other_asia', label: 'Other Asia', description: 'Singapore, Korea, Taiwan', flag: '🌏' },
+];
+
+const GLOBAL_INSTRUMENT_OPTIONS = [
+  { id: 'stocks', label: 'Stocks', description: 'Direct equity shares' },
+  { id: 'etfs', label: 'ETFs', description: 'Exchange traded funds' },
+  { id: 'bonds', label: 'Bonds', description: 'Government & corporate bonds' },
+  { id: 'mutual_funds', label: 'Mutual Funds', description: 'International mutual funds' },
+];
+
+interface GlobalAdvisorySelection {
+  [marketId: string]: string[];
+}
+
+const LRS_ANNUAL_LIMIT_USD = 250000;
 
 const DEFAULT_ALLOCATIONS = {
   conservative: { equity: 18, debt: 32, hybrid: 15, gold: 8, silver: 0, index: 5, international: 2, reit: 5, invit: 5, bonds: 5, mld: 0, listed_stocks: 5, unlisted_stocks: 0, pms: 0, aif: 0, global_advisory: 0 },
@@ -212,6 +232,54 @@ export default function AgentProspectWizard() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     PRODUCT_CATEGORY_OPTIONS.filter(c => c.defaultSelected).map(c => c.id)
   );
+  
+  const [globalAdvisorySelections, setGlobalAdvisorySelections] = useState<GlobalAdvisorySelection>({});
+  const [showGlobalAdvisory, setShowGlobalAdvisory] = useState(false);
+  
+  const hasGlobalAdvisorySelections = Object.values(globalAdvisorySelections).some(instruments => instruments.length > 0);
+  const totalGlobalAllocation = customAllocations.global_advisory;
+  
+  const toggleGlobalMarketInstrument = (marketId: string, instrumentId: string) => {
+    setGlobalAdvisorySelections(prev => {
+      const currentInstruments = prev[marketId] || [];
+      const hasInstrument = currentInstruments.includes(instrumentId);
+      
+      if (hasInstrument) {
+        const newInstruments = currentInstruments.filter(i => i !== instrumentId);
+        if (newInstruments.length === 0) {
+          const { [marketId]: _, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, [marketId]: newInstruments };
+      } else {
+        return { ...prev, [marketId]: [...currentInstruments, instrumentId] };
+      }
+    });
+  };
+  
+  const toggleAllInstrumentsForMarket = (marketId: string) => {
+    setGlobalAdvisorySelections(prev => {
+      const currentInstruments = prev[marketId] || [];
+      if (currentInstruments.length === GLOBAL_INSTRUMENT_OPTIONS.length) {
+        const { [marketId]: _, ...rest } = prev;
+        return rest;
+      } else {
+        return { ...prev, [marketId]: GLOBAL_INSTRUMENT_OPTIONS.map(i => i.id) };
+      }
+    });
+  };
+  
+  const selectAllGlobalMarkets = () => {
+    const allSelected: GlobalAdvisorySelection = {};
+    GLOBAL_MARKET_OPTIONS.forEach(market => {
+      allSelected[market.id] = GLOBAL_INSTRUMENT_OPTIONS.map(i => i.id);
+    });
+    setGlobalAdvisorySelections(allSelected);
+  };
+  
+  const clearAllGlobalMarkets = () => {
+    setGlobalAdvisorySelections({});
+  };
   
   // Calculate total portfolio value for eligibility checks
   const totalPortfolioValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0) + freshInvestmentAmount;
@@ -759,7 +827,8 @@ export default function AgentProspectWizard() {
           riskProfile,
           freshInvestmentAmount,
           customAllocations,
-          selectedCategories
+          selectedCategories,
+          globalAdvisorySelections: hasGlobalAdvisorySelections ? globalAdvisorySelections : undefined
         })
       });
     },
@@ -1736,7 +1805,141 @@ export default function AgentProspectWizard() {
                 ))}
               </div>
 
-              {selectedCategories.length === 0 && (
+              <Separator className="my-6" />
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      Global Advisory (LRS)
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      International investments via Liberalised Remittance Scheme ($250K annual limit)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {hasGlobalAdvisorySelections && (
+                      <Badge variant="secondary" className="text-xs">
+                        {Object.keys(globalAdvisorySelections).length} market(s) selected
+                      </Badge>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowGlobalAdvisory(!showGlobalAdvisory)}
+                      data-testid="toggle-global-advisory"
+                    >
+                      {showGlobalAdvisory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {showGlobalAdvisory && (
+                  <div className="space-y-4 p-4 border rounded-lg bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        <span>Enhanced KYC required for global investments</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={selectAllGlobalMarkets} data-testid="select-all-global">
+                          Select All
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={clearAllGlobalMarkets} data-testid="clear-all-global">
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3">
+                      {GLOBAL_MARKET_OPTIONS.map(market => {
+                        const selectedInstruments = globalAdvisorySelections[market.id] || [];
+                        const isExpanded = selectedInstruments.length > 0;
+                        
+                        return (
+                          <div 
+                            key={market.id} 
+                            className={`border rounded-lg transition-all ${
+                              isExpanded ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                            }`}
+                          >
+                            <div 
+                              className="p-3 flex items-center justify-between cursor-pointer"
+                              onClick={() => toggleAllInstrumentsForMarket(market.id)}
+                              data-testid={`market-${market.id}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl">{market.flag}</span>
+                                <div>
+                                  <p className="font-medium text-sm">{market.label}</p>
+                                  <p className="text-xs text-muted-foreground">{market.description}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {selectedInstruments.length > 0 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {selectedInstruments.length} instrument(s)
+                                  </Badge>
+                                )}
+                                <Checkbox 
+                                  checked={selectedInstruments.length === GLOBAL_INSTRUMENT_OPTIONS.length}
+                                  className="pointer-events-none"
+                                />
+                              </div>
+                            </div>
+                            
+                            {isExpanded && (
+                              <div className="px-3 pb-3 pt-0">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 ml-11">
+                                  {GLOBAL_INSTRUMENT_OPTIONS.map(instrument => (
+                                    <div
+                                      key={instrument.id}
+                                      className={`p-2 border rounded text-center cursor-pointer transition-colors text-sm ${
+                                        selectedInstruments.includes(instrument.id)
+                                          ? 'border-primary bg-primary/10 text-primary'
+                                          : 'hover:bg-muted/50'
+                                      }`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleGlobalMarketInstrument(market.id, instrument.id);
+                                      }}
+                                      data-testid={`instrument-${market.id}-${instrument.id}`}
+                                    >
+                                      <Checkbox 
+                                        checked={selectedInstruments.includes(instrument.id)}
+                                        className="mr-1 pointer-events-none"
+                                      />
+                                      {instrument.label}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {hasGlobalAdvisorySelections && (
+                      <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                          <div className="text-sm text-blue-800 dark:text-blue-200">
+                            <p className="font-medium">LRS Compliance Notice</p>
+                            <p className="text-xs mt-1">
+                              Annual limit: $250,000 per financial year. Investments via authorized AD banks.
+                              DTAA tax benefits apply based on country. FATCA/CRS reporting required.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {selectedCategories.length === 0 && !hasGlobalAdvisorySelections && (
                 <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
                   <AlertTriangle className="h-4 w-4 inline mr-2" />
                   Please select at least one product category for recommendations
@@ -1750,7 +1953,7 @@ export default function AgentProspectWizard() {
             </Button>
             <Button 
               onClick={() => getRebalancingMutation.mutate()}
-              disabled={getRebalancingMutation.isPending || selectedCategories.length === 0}
+              disabled={getRebalancingMutation.isPending || (selectedCategories.length === 0 && !hasGlobalAdvisorySelections)}
               data-testid="get-rebalancing-btn"
             >
               {getRebalancingMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

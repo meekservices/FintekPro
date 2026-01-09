@@ -129,22 +129,51 @@ export interface PortfolioRebalancingResult {
   expiresAt: Date;
 }
 
-const POPULAR_US_STOCKS = [
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK-B', 'UNH', 'JNJ',
-  'V', 'XOM', 'WMT', 'JPM', 'MA', 'PG', 'CVX', 'HD', 'ABBV', 'MRK'
-];
+const MARKET_SYMBOL_CATALOGUE: Record<string, Record<string, string[]>> = {
+  us: {
+    stocks: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK-B', 'UNH', 'JNJ', 'V', 'XOM', 'WMT', 'JPM', 'MA', 'PG', 'CVX', 'HD', 'ABBV', 'MRK'],
+    etfs: ['SPY', 'QQQ', 'IVV', 'VTI', 'VOO', 'ARKK', 'SCHD', 'VIG', 'VYM', 'XLF', 'XLK', 'XLE', 'XLV', 'VNQ'],
+    bonds: ['BND', 'AGG', 'TLT', 'IEF', 'SHY', 'LQD', 'HYG', 'TIP', 'MUB', 'GOVT'],
+    mutual_funds: ['FXAIX', 'VFIAX', 'VTSAX', 'SWTSX', 'FSKAX']
+  },
+  europe: {
+    stocks: ['ASML', 'MC.PA', 'NESN.SW', 'SAP.DE', 'SHEL', 'LVMH.PA', 'OR.PA', 'TTE.PA', 'SAN.PA', 'AIR.PA'],
+    etfs: ['VGK', 'EZU', 'HEDJ', 'FEZ', 'IEV', 'BBEU', 'IEUR', 'HEWG'],
+    bonds: ['BNDX', 'BWX', 'IGOV', 'EMB', 'VWOB'],
+    mutual_funds: ['VEURX', 'FIEUX', 'MEUNX']
+  },
+  china_hk: {
+    stocks: ['BABA', 'JD', 'BIDU', 'PDD', 'NIO', '9988.HK', '0700.HK', '3690.HK', '1810.HK', '2318.HK'],
+    etfs: ['MCHI', 'FXI', 'KWEB', 'GXC', 'ASHR', 'CNYA', 'KBA'],
+    bonds: ['CBON', 'FLCH', 'CGMU'],
+    mutual_funds: ['FHKCX', 'MCHFX']
+  },
+  japan: {
+    stocks: ['7203.T', '6758.T', '9984.T', '6861.T', '8306.T', '9432.T', '4502.T', '6501.T', '7267.T', '8035.T'],
+    etfs: ['EWJ', 'DXJ', 'HEWJ', 'JPXN', 'SCJ', 'BBJP', 'FLJP'],
+    bonds: ['BNDX', 'BWX', 'IGOV'],
+    mutual_funds: ['FJPNX', 'MJFOX']
+  },
+  other_asia: {
+    stocks: ['005930.KS', '000660.KS', 'GRAB', 'SE', 'DBS.SI', 'TSM', '2330.TW', '2317.TW'],
+    etfs: ['VWO', 'IEMG', 'EEM', 'AAXJ', 'GMF', 'FXI', 'EWT', 'EWY', 'EWS'],
+    bonds: ['EMB', 'VWOB', 'PCY', 'EMLC'],
+    mutual_funds: ['VEIEX', 'ODMAX', 'WAEMX']
+  }
+};
 
-const POPULAR_ETFS = [
-  'SPY', 'QQQ', 'IVV', 'VTI', 'VOO', 'VEA', 'VWO', 'BND', 'AGG', 'GLD',
-  'VNQ', 'XLF', 'XLK', 'XLE', 'XLV', 'ARKK', 'SCHD', 'VIG', 'VYM', 'IEMG'
-];
-
-const POPULAR_BOND_ETFS = [
-  'BND', 'AGG', 'TLT', 'IEF', 'SHY', 'LQD', 'HYG', 'TIP', 'MUB', 'BNDX',
-  'EMB', 'VCIT', 'VCSH', 'GOVT', 'BWX'
-];
+const POPULAR_US_STOCKS = MARKET_SYMBOL_CATALOGUE.us.stocks;
+const POPULAR_ETFS = MARKET_SYMBOL_CATALOGUE.us.etfs;
+const POPULAR_BOND_ETFS = MARKET_SYMBOL_CATALOGUE.us.bonds;
 
 const LRS_ANNUAL_LIMIT_USD = 250000;
+
+export interface GlobalAdvisoryFilters {
+  markets?: string[];
+  instrumentTypes?: string[];
+  riskLevel?: 'conservative' | 'moderate' | 'aggressive';
+  maxResults?: number;
+}
 
 class AIGlobalAdvisoryService {
   private genAI: GoogleGenAI | null = null;
@@ -336,6 +365,165 @@ class AIGlobalAdvisoryService {
 
     this.recommendationCache.set(cacheKey, { data: recommendations, timestamp: new Date() });
     return recommendations;
+  }
+
+  async getFilteredGlobalRecommendations(
+    globalAdvisorySelections: Record<string, string[]>,
+    riskLevel: 'conservative' | 'moderate' | 'aggressive' = 'moderate',
+    maxResultsPerCategory: number = 5
+  ): Promise<{
+    recommendations: GlobalRecommendation[];
+    byMarket: Record<string, GlobalRecommendation[]>;
+    byInstrument: Record<string, GlobalRecommendation[]>;
+    summary: {
+      totalRecommendations: number;
+      marketsIncluded: string[];
+      instrumentTypesIncluded: string[];
+      estimatedLrsUtilization: number;
+      lrsStatus: {
+        estimatedUtilizationUsd: number;
+        remainingLimitUsd: number;
+        isWithinLimit: boolean;
+        warningMessage?: string;
+      };
+    };
+  }> {
+    const cacheKey = `filtered_${JSON.stringify(globalAdvisorySelections)}_${riskLevel}`;
+    const cached = this.recommendationCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp.getTime() < this.CACHE_TTL_MS) {
+      const recommendations = cached.data;
+      return this.organizeRecommendations(recommendations, globalAdvisorySelections);
+    }
+
+    const allRecommendations: GlobalRecommendation[] = [];
+    const symbolsToFetch: { symbol: string; market: string; instrumentType: string }[] = [];
+
+    for (const [market, instrumentTypes] of Object.entries(globalAdvisorySelections)) {
+      if (!MARKET_SYMBOL_CATALOGUE[market]) continue;
+
+      for (const instrumentType of instrumentTypes) {
+        const symbols = MARKET_SYMBOL_CATALOGUE[market]?.[instrumentType] || [];
+        const limitedSymbols = symbols.slice(0, maxResultsPerCategory);
+        
+        for (const symbol of limitedSymbols) {
+          symbolsToFetch.push({ symbol, market, instrumentType });
+        }
+      }
+    }
+
+    const batchSize = 5;
+    for (let i = 0; i < symbolsToFetch.length; i += batchSize) {
+      const batch = symbolsToFetch.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async ({ symbol, market, instrumentType }) => {
+        const data = await this.fetchGlobalInstrumentData(symbol);
+        if (!data) return null;
+        
+        data.market = market.toUpperCase();
+        const recommendation = await this.generateRecommendation(data, riskLevel);
+        return recommendation;
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      allRecommendations.push(...batchResults.filter((r): r is GlobalRecommendation => r !== null));
+      
+      if (i + batchSize < symbolsToFetch.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    this.recommendationCache.set(cacheKey, { data: allRecommendations, timestamp: new Date() });
+    return this.organizeRecommendations(allRecommendations, globalAdvisorySelections);
+  }
+
+  private organizeRecommendations(
+    recommendations: GlobalRecommendation[],
+    globalAdvisorySelections: Record<string, string[]>
+  ): {
+    recommendations: GlobalRecommendation[];
+    byMarket: Record<string, GlobalRecommendation[]>;
+    byInstrument: Record<string, GlobalRecommendation[]>;
+    summary: {
+      totalRecommendations: number;
+      marketsIncluded: string[];
+      instrumentTypesIncluded: string[];
+      estimatedLrsUtilization: number;
+      lrsStatus: {
+        estimatedUtilizationUsd: number;
+        remainingLimitUsd: number;
+        isWithinLimit: boolean;
+        warningMessage?: string;
+      };
+    };
+  } {
+    const byMarket: Record<string, GlobalRecommendation[]> = {};
+    const byInstrument: Record<string, GlobalRecommendation[]> = {};
+
+    for (const rec of recommendations) {
+      const marketKey = rec.market.toLowerCase();
+      if (!byMarket[marketKey]) byMarket[marketKey] = [];
+      byMarket[marketKey].push(rec);
+
+      const instrumentKey = rec.assetClass;
+      if (!byInstrument[instrumentKey]) byInstrument[instrumentKey] = [];
+      byInstrument[instrumentKey].push(rec);
+    }
+
+    const marketsIncluded = Object.keys(globalAdvisorySelections);
+    const instrumentTypesIncluded = [...new Set(Object.values(globalAdvisorySelections).flat())];
+
+    const estimatedLrsUtilization = recommendations
+      .filter(r => r.recommendation === 'strong_buy' || r.recommendation === 'buy')
+      .reduce((sum, r) => {
+        const estimatedInvestmentUsd = r.currency === 'USD' 
+          ? r.currentPrice * 10 
+          : r.currentPrice * 10 / (r.currency === 'EUR' ? 0.92 : r.currency === 'GBP' ? 0.79 : r.currency === 'JPY' ? 150 : 1);
+        return sum + estimatedInvestmentUsd;
+      }, 0);
+
+    const LRS_ANNUAL_LIMIT = 250000;
+    const lrsStatus = {
+      estimatedUtilizationUsd: estimatedLrsUtilization,
+      remainingLimitUsd: Math.max(0, LRS_ANNUAL_LIMIT - estimatedLrsUtilization),
+      isWithinLimit: estimatedLrsUtilization <= LRS_ANNUAL_LIMIT,
+      warningMessage: estimatedLrsUtilization > LRS_ANNUAL_LIMIT * 0.8 
+        ? estimatedLrsUtilization > LRS_ANNUAL_LIMIT
+          ? `Estimated investment ($${Math.round(estimatedLrsUtilization).toLocaleString()}) exceeds annual LRS limit of $250,000. Consider phased investment.`
+          : `Estimated investment is nearing LRS limit ($${Math.round(estimatedLrsUtilization).toLocaleString()} of $250,000 utilized).`
+        : undefined,
+    };
+
+    return {
+      recommendations,
+      byMarket,
+      byInstrument,
+      summary: {
+        totalRecommendations: recommendations.length,
+        marketsIncluded,
+        instrumentTypesIncluded,
+        estimatedLrsUtilization,
+        lrsStatus,
+      },
+    };
+  }
+
+  getAvailableMarkets(): { id: string; label: string; description: string; flag: string }[] {
+    return [
+      { id: 'us', label: 'US Markets', description: 'NYSE, NASDAQ listed securities', flag: '🇺🇸' },
+      { id: 'europe', label: 'European Markets', description: 'UK, Germany, France exchanges', flag: '🇪🇺' },
+      { id: 'china_hk', label: 'China/Hong Kong', description: 'HKSE, Shanghai, Shenzhen', flag: '🇨🇳' },
+      { id: 'japan', label: 'Japan', description: 'Tokyo Stock Exchange', flag: '🇯🇵' },
+      { id: 'other_asia', label: 'Other Asia', description: 'Singapore, Korea, Taiwan', flag: '🌏' },
+    ];
+  }
+
+  getAvailableInstruments(): { id: string; label: string; description: string }[] {
+    return [
+      { id: 'stocks', label: 'Stocks', description: 'Direct equity shares' },
+      { id: 'etfs', label: 'ETFs', description: 'Exchange traded funds' },
+      { id: 'bonds', label: 'Bonds', description: 'Government & corporate bonds' },
+      { id: 'mutual_funds', label: 'Mutual Funds', description: 'International mutual funds' },
+    ];
   }
 
   private async generateRecommendation(
