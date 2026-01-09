@@ -234,9 +234,11 @@ export default function AgentProspectWizard() {
   );
   
   const [globalAdvisorySelections, setGlobalAdvisorySelections] = useState<GlobalAdvisorySelection>({});
+  const [globalAdvisoryBudget, setGlobalAdvisoryBudget] = useState<number>(0);
   const [showGlobalAdvisory, setShowGlobalAdvisory] = useState(false);
   
   const hasGlobalAdvisorySelections = Object.values(globalAdvisorySelections).some(instruments => instruments.length > 0);
+  const effectiveGlobalBudget = globalAdvisoryBudget > 0 ? globalAdvisoryBudget : (freshInvestmentAmount * (customAllocations.global_advisory / 100));
   const totalGlobalAllocation = customAllocations.global_advisory;
   
   const toggleGlobalMarketInstrument = (marketId: string, instrumentId: string) => {
@@ -828,7 +830,8 @@ export default function AgentProspectWizard() {
           freshInvestmentAmount,
           customAllocations,
           selectedCategories,
-          globalAdvisorySelections: hasGlobalAdvisorySelections ? globalAdvisorySelections : undefined
+          globalAdvisorySelections: hasGlobalAdvisorySelections ? globalAdvisorySelections : undefined,
+          globalAdvisoryBudget: hasGlobalAdvisorySelections ? effectiveGlobalBudget : undefined
         })
       });
     },
@@ -1922,15 +1925,41 @@ export default function AgentProspectWizard() {
                     </div>
 
                     {hasGlobalAdvisorySelections && (
-                      <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <Info className="h-4 w-4 text-blue-600 mt-0.5" />
-                          <div className="text-sm text-blue-800 dark:text-blue-200">
-                            <p className="font-medium">LRS Compliance Notice</p>
-                            <p className="text-xs mt-1">
-                              Annual limit: $250,000 per financial year. Investments via authorized AD banks.
-                              DTAA tax benefits apply based on country. FATCA/CRS reporting required.
-                            </p>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                          <Label className="text-sm font-medium text-green-800 dark:text-green-200 mb-2 block">
+                            Global Investment Budget (₹)
+                          </Label>
+                          <div className="flex items-center gap-3">
+                            <Input
+                              type="number"
+                              placeholder={`Auto: ₹${Math.round(freshInvestmentAmount * (customAllocations.global_advisory / 100)).toLocaleString()}`}
+                              value={globalAdvisoryBudget || ''}
+                              onChange={(e) => setGlobalAdvisoryBudget(Number(e.target.value) || 0)}
+                              className="max-w-[200px] bg-white dark:bg-gray-800"
+                              data-testid="global-advisory-budget"
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {globalAdvisoryBudget > 0 
+                                ? `Manual: ₹${globalAdvisoryBudget.toLocaleString()}`
+                                : `Auto-calculated from ${customAllocations.global_advisory}% of fresh investment`
+                              }
+                            </span>
+                          </div>
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                            Budget used for LRS limit compliance calculation (~${Math.round(effectiveGlobalBudget / 84).toLocaleString()} USD)
+                          </p>
+                        </div>
+                        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                            <div className="text-sm text-blue-800 dark:text-blue-200">
+                              <p className="font-medium">LRS Compliance Notice</p>
+                              <p className="text-xs mt-1">
+                                Annual limit: $250,000 per financial year. Investments via authorized AD banks.
+                                DTAA tax benefits apply based on country. FATCA/CRS reporting required.
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>

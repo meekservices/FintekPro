@@ -504,13 +504,18 @@ class AIGlobalAdvisoryService {
 
     const usdToInrRate = await currencyExchangeService.getExchangeRate('USD', 'INR');
     const buyRecommendations = recommendations.filter(r => r.recommendation === 'strong_buy' || r.recommendation === 'buy');
-    const totalBuyRecommendations = buyRecommendations.length || 1;
-    const perRecommendationBudgetInr = globalBudgetInr / totalBuyRecommendations;
+    
+    const totalSuitabilityScore = buyRecommendations.reduce((sum, r) => sum + (r.suitabilityScore || 70), 0) || 1;
     
     let estimatedLrsUtilization = 0;
     for (const r of buyRecommendations) {
-      const estimatedInvestmentUsd = perRecommendationBudgetInr / usdToInrRate;
+      const suitabilityWeight = (r.suitabilityScore || 70) / totalSuitabilityScore;
+      const weightedBudgetInr = globalBudgetInr * suitabilityWeight;
+      const estimatedInvestmentUsd = weightedBudgetInr / usdToInrRate;
       estimatedLrsUtilization += estimatedInvestmentUsd;
+      
+      (r as any).suggestedAllocationInr = weightedBudgetInr;
+      (r as any).suggestedAllocationPct = suitabilityWeight * 100;
     }
 
     const LRS_ANNUAL_LIMIT = 250000;
