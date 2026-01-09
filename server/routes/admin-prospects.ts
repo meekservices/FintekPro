@@ -270,14 +270,14 @@ router.get('/agents', requireAdmin, async (req: any, res: Response) => {
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
-        role: users.role
+        roles: users.roles
       })
       .from(users)
       .where(
         or(
-          eq(users.role, 'partner'),
-          eq(users.role, 'agent'),
-          eq(users.role, 'sub_agent')
+          sql`'partner' = ANY(${users.roles})`,
+          sql`'agent' = ANY(${users.roles})`,
+          sql`'sub_agent' = ANY(${users.roles})`
         )
       )
       .orderBy(users.firstName);
