@@ -16,7 +16,7 @@ import { mcaService } from './mca-service';
 import { nsdlISINService } from './nsdl-isin-service';
 import { ExternalServiceError } from '../utils/errors';
 
-export type DataSource = 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'manual' | 'mca';
+export type DataSource = 'nse' | 'bse' | 'nse_bse' | 'probe42' | 'finnhub' | 'yahoo' | 'manual' | 'mca';
 
 export interface MetricValue {
   value: number | string | null;
@@ -86,8 +86,8 @@ export interface EnrichmentConfig {
 }
 
 const DEFAULT_CONFIG: EnrichmentConfig = {
-  // Indian market priority: Probe42 (primary) → MCA → NSE/BSE → Finnhub → Yahoo
-  sourcePriority: ['probe42', 'mca', 'nse_bse', 'finnhub', 'yahoo'],
+  // Indian market priority: Probe42 (primary) → MCA → NSE → BSE → Finnhub → Yahoo
+  sourcePriority: ['probe42', 'mca', 'nse', 'bse', 'nse_bse', 'finnhub', 'yahoo'],
   minConfidenceThreshold: 0.6,
   allowMixedSources: true,
   aiAllowed: true,
@@ -116,7 +116,9 @@ class DataEnrichmentService {
     const confidenceMap: Record<DataSource, number> = {
       probe42: 0.98,   // Primary source for Indian unlisted companies
       mca: 0.95,       // Ministry of Corporate Affairs - official government source
-      nse_bse: 0.90,   // Exchange filings (only for listed/partially listed)
+      nse: 0.92,       // NSE exchange filings (primary for listed stocks)
+      bse: 0.90,       // BSE exchange filings (good for SME and unlisted tracking)
+      nse_bse: 0.90,   // Combined exchange filings (legacy)
       finnhub: 0.75,   // Limited Indian coverage
       yahoo: 0.65,     // Some Indian stocks via .NS/.BO suffix
       manual: 0.50,    // Manual overrides
@@ -333,6 +335,326 @@ class DataEnrichmentService {
   }
 
   /**
+   * Fetch financial data from BSE India API
+   * Includes mainboard, SME, and StartUp segments for comprehensive coverage
+   */
+  async fetchFromBSE(
+    companyId: string,
+    scripcode?: string,
+    symbol?: string
+  ): Promise<{
+    metrics: Record<string, MetricValue>;
+    confidence: number;
+  }> {
+    const metrics: Record<string, MetricValue> = {};
+    const now = new Date();
+    const baseUrl = 'https://api.bseindia.com/BseIndiaAPI/api';
+    
+    if (!scripcode && !symbol) {
+      console.log(`[DataEnrichment] No scripcode or symbol for BSE fetch, skipping`);
+      return { metrics: {}, confidence: 0 };
+    }
+
+    try {
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.bseindia.com/',
+        'Origin': 'https://www.bseindia.com',
+      };
+
+      let stockData: any = null;
+      const confidenceScore = this.getSourceConfidence('bse');
+
+      // Try fetching stock info by scripcode or symbol
+      if (scripcode) {
+        try {
+          const response = await fetch(`${baseUrl}/StockReachGraph/w?scripcode=${scripcode}&flag=0&fromdate=&todate=&seression=`, { headers });
+          if (response.ok) {
+            stockData = await response.json();
+          }
+        } catch (e) {
+          console.warn(`[DataEnrichment] BSE scripcode lookup failed:`, e);
+        }
+      }
+
+      // If no scripcode, try searching by symbol
+      if (!stockData && symbol) {
+        try {
+          const normalizedSymbol = symbol.toUpperCase().trim();
+          const searchResponse = await fetch(`${baseUrl}/Suggest/w?flag=1&query=${encodeURIComponent(normalizedSymbol)}`, { headers });
+          if (searchResponse.ok) {
+            const searchResults = await searchResponse.json();
+            if (Array.isArray(searchResults) && searchResults.length > 0) {
+              // Match priority: 1) exact trdSym match, 2) scrip_cd match, 3) scrip_nm contains symbol
+              // BSE Suggest API returns: scrip_cd (scripcode), trdSym (trading symbol), scrip_nm (company name)
+              let match = searchResults.find((r: any) => {
+                const tradingSymbol = (r.trdSym || '').toUpperCase().trim();
+                return tradingSymbol === normalizedSymbol;
+              });
+              
+              // Fallback: try matching by scrip_cd or partial name
+              if (!match) {
+                match = searchResults.find((r: any) => {
+                  const scripCd = (r.scrip_cd || r.scripcode || '').toString();
+                  const scripName = (r.scrip_nm || '').toUpperCase().trim();
+                  return scripCd === normalizedSymbol || 
+                         scripName.startsWith(normalizedSymbol) ||
+                         scripName.includes(normalizedSymbol);
+                });
+              }
+              
+              // Last resort: take first result if symbol query is exact
+              if (!match && searchResults.length === 1) {
+                match = searchResults[0];
+              }
+              
+              if (match) {
+                const foundScripcode = match.scrip_cd || match.scripcode;
+                console.log(`[DataEnrichment] BSE symbol ${symbol} resolved to scripcode ${foundScripcode} (${match.scrip_nm})`);
+                const response = await fetch(`${baseUrl}/StockReachGraph/w?scripcode=${foundScripcode}&flag=0&fromdate=&todate=&seression=`, { headers });
+                if (response.ok) {
+                  stockData = await response.json();
+                  // Store scripcode for subsequent fetches
+                  if (stockData) {
+                    stockData._resolvedScripcode = foundScripcode;
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`[DataEnrichment] BSE symbol lookup failed:`, e);
+        }
+      }
+
+      if (!stockData) {
+        console.log(`[DataEnrichment] No BSE data found for ${scripcode || symbol}`);
+        return { metrics: {}, confidence: 0 };
+      }
+
+      // Extract available metrics from BSE data
+      if (stockData.CurrVal) {
+        metrics['currentPrice'] = {
+          value: parseFloat(stockData.CurrVal) || 0,
+          source: 'bse',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (stockData.Chng) {
+        metrics['priceChange'] = {
+          value: parseFloat(stockData.Chng) || 0,
+          source: 'bse',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (stockData.ChngPer) {
+        metrics['priceChangePercent'] = {
+          value: parseFloat(stockData.ChngPer) || 0,
+          source: 'bse',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (stockData.MktCap) {
+        metrics['marketCap'] = {
+          value: parseFloat(stockData.MktCap?.replace(/,/g, '')) || 0,
+          source: 'bse',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (stockData.PE) {
+        metrics['peRatio'] = {
+          value: parseFloat(stockData.PE) || 0,
+          source: 'bse',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (stockData.PB) {
+        metrics['pbRatio'] = {
+          value: parseFloat(stockData.PB) || 0,
+          source: 'bse',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (stockData.EPS) {
+        metrics['eps'] = {
+          value: parseFloat(stockData.EPS) || 0,
+          source: 'bse',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      if (stockData.Div) {
+        metrics['dividend'] = {
+          value: parseFloat(stockData.Div) || 0,
+          source: 'bse',
+          retrievedAt: now,
+          confidenceScore,
+        };
+      }
+
+      // Try to get detailed financials from BSE financial results
+      // Use the resolved scripcode from Suggest API if symbol-based lookup was used
+      const resolvedScripcode = scripcode || stockData._resolvedScripcode || stockData.scripcode;
+      if (resolvedScripcode) {
+        try {
+          const financialsUrl = `${baseUrl}/FinancialResults/w?scripcode=${resolvedScripcode}`;
+          const financialsResponse = await fetch(financialsUrl, { headers });
+          if (financialsResponse.ok) {
+            const financialsData = await financialsResponse.json();
+            if (financialsData?.Table && Array.isArray(financialsData.Table) && financialsData.Table.length > 0) {
+              const latestFinancials = financialsData.Table[0];
+              
+              if (latestFinancials.Revenue) {
+                metrics['revenue'] = {
+                  value: parseFloat(latestFinancials.Revenue?.replace(/,/g, '')) || 0,
+                  source: 'bse',
+                  retrievedAt: now,
+                  confidenceScore,
+                };
+              }
+              
+              if (latestFinancials.PAT) {
+                metrics['pat'] = {
+                  value: parseFloat(latestFinancials.PAT?.replace(/,/g, '')) || 0,
+                  source: 'bse',
+                  retrievedAt: now,
+                  confidenceScore,
+                };
+              }
+              
+              if (latestFinancials.NetProfit) {
+                metrics['netProfit'] = {
+                  value: parseFloat(latestFinancials.NetProfit?.replace(/,/g, '')) || 0,
+                  source: 'bse',
+                  retrievedAt: now,
+                  confidenceScore,
+                };
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`[DataEnrichment] BSE financials fetch failed:`, e);
+        }
+      }
+
+      const metricsCount = Object.keys(metrics).length;
+      console.log(`[DataEnrichment] Fetched ${metricsCount} metrics from BSE for ${scripcode || symbol}`);
+      
+      return { 
+        metrics, 
+        confidence: metricsCount > 0 ? confidenceScore : 0 
+      };
+    } catch (error: any) {
+      console.error(`[DataEnrichment] BSE fetch error: ${error.message}`);
+      return { metrics: {}, confidence: 0 };
+    }
+  }
+
+  /**
+   * Fetch SME/StartUp segment data from BSE
+   * Useful for tracking unlisted companies that are listed on BSE SME platform
+   */
+  async fetchFromBSESME(
+    companyId: string,
+    symbol?: string
+  ): Promise<{
+    metrics: Record<string, MetricValue>;
+    confidence: number;
+  }> {
+    const metrics: Record<string, MetricValue> = {};
+    const now = new Date();
+    const baseUrl = 'https://api.bseindia.com/BseIndiaAPI/api';
+    
+    if (!symbol) {
+      return { metrics: {}, confidence: 0 };
+    }
+
+    try {
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.bseindia.com/',
+        'Origin': 'https://www.bseindia.com',
+      };
+
+      // Fetch SME market data
+      const smeResponse = await fetch(`${baseUrl}/SMEGetTopGainersLosers/w?GLession=G&IndxID=S`, { headers });
+      
+      if (!smeResponse.ok) {
+        console.log(`[DataEnrichment] BSE SME API not accessible`);
+        return { metrics: {}, confidence: 0 };
+      }
+
+      const smeData = await smeResponse.json();
+      const confidenceScore = this.getSourceConfidence('bse') * 0.95; // Slightly lower for SME
+
+      if (smeData?.Table && Array.isArray(smeData.Table)) {
+        const normalizedSymbol = symbol.toUpperCase().trim();
+        const stock = smeData.Table.find((s: any) => {
+          const scripName = (s.scrip_nm || '').toUpperCase().trim();
+          const scripCd = (s.scripcode || s.scrip_cd || '').toString();
+          return scripName.startsWith(normalizedSymbol) || 
+                 scripName.includes(normalizedSymbol) ||
+                 scripCd === normalizedSymbol;
+        });
+        
+        if (stock) {
+          if (stock.LTP) {
+            metrics['currentPrice'] = {
+              value: parseFloat(stock.LTP) || 0,
+              source: 'bse',
+              retrievedAt: now,
+              confidenceScore,
+            };
+          }
+          
+          if (stock.Chg) {
+            metrics['priceChange'] = {
+              value: parseFloat(stock.Chg) || 0,
+              source: 'bse',
+              retrievedAt: now,
+              confidenceScore,
+            };
+          }
+          
+          if (stock.ChgPer) {
+            metrics['priceChangePercent'] = {
+              value: parseFloat(stock.ChgPer) || 0,
+              source: 'bse',
+              retrievedAt: now,
+              confidenceScore,
+            };
+          }
+          
+          console.log(`[DataEnrichment] Found BSE SME data for ${symbol}`);
+        }
+      }
+
+      return { 
+        metrics, 
+        confidence: Object.keys(metrics).length > 0 ? confidenceScore : 0 
+      };
+    } catch (error: any) {
+      console.error(`[DataEnrichment] BSE SME fetch error: ${error.message}`);
+      return { metrics: {}, confidence: 0 };
+    }
+  }
+
+  /**
    * Fetch financial data from Yahoo Finance for Indian stocks
    * Uses .NS (NSE) or .BO (BSE) suffix for Indian market symbols
    */
@@ -534,6 +856,7 @@ class DataEnrichmentService {
       externalSymbols?: {
         finnhub?: string;
         yahoo?: string;
+        bse?: string;
       };
       forceRefresh?: boolean;
       overrideSource?: DataSource;
@@ -865,7 +1188,64 @@ class DataEnrichmentService {
       });
     }
 
-    // 4. FINNHUB - Fourth Source (0.75 confidence)
+    // 4. BSE - Separate BSE API (0.90 confidence)
+    // Good for SME/StartUp segment and companies not on NSE
+    if (company.symbol || options.externalSymbols?.bse) {
+      try {
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'bse',
+          reason: 'Fetching data from BSE India API (including SME segment)',
+        });
+
+        const bseSymbol = options.externalSymbols?.bse || company.symbol;
+        const bseResult = await this.fetchFromBSE(companyId, undefined, bseSymbol);
+        
+        if (Object.keys(bseResult.metrics).length > 0) {
+          enriched.sources.push('bse');
+          
+          for (const [key, value] of Object.entries(bseResult.metrics)) {
+            const existing = collectedMetrics.get(key) || [];
+            existing.push(value);
+            collectedMetrics.set(key, existing);
+          }
+
+          auditTrail.push({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            action: 'fetch',
+            source: 'bse',
+            confidence: bseResult.confidence,
+            reason: `Fetched ${Object.keys(bseResult.metrics).length} metrics from BSE`,
+          });
+        }
+
+        // Also try BSE SME segment for unlisted/SME companies
+        const bseSmeResult = await this.fetchFromBSESME(companyId, bseSymbol);
+        if (Object.keys(bseSmeResult.metrics).length > 0 && !enriched.sources.includes('bse')) {
+          enriched.sources.push('bse');
+        }
+        
+        for (const [key, value] of Object.entries(bseSmeResult.metrics)) {
+          const existing = collectedMetrics.get(key) || [];
+          existing.push(value);
+          collectedMetrics.set(key, existing);
+        }
+      } catch (error: any) {
+        console.error(`[DataEnrichment] BSE fetch failed: ${error.message}`);
+        auditTrail.push({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          action: 'fetch',
+          source: 'bse',
+          reason: `Fetch failed: ${error.message}`,
+        });
+      }
+    }
+
+    // 5. FINNHUB - Fifth Source (0.75 confidence)
     // Limited Indian coverage but good for listed stocks with international presence
     if (options.externalSymbols?.finnhub && finnhubService.isReady()) {
       try {
@@ -926,7 +1306,7 @@ class DataEnrichmentService {
       }
     }
 
-    // 5. YAHOO FINANCE - Last Resort (0.65 confidence)
+    // 6. YAHOO FINANCE - Last Resort (0.65 confidence)
     // Uses .NS (NSE) or .BO (BSE) suffix for Indian stocks
     if (company.symbol || options.externalSymbols?.yahoo) {
       try {

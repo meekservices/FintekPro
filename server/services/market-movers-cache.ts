@@ -43,6 +43,7 @@ interface CacheMetrics {
     yahoo: ProviderMetrics;
     finnhub: ProviderMetrics;
     nse: ProviderMetrics;
+    bse: ProviderMetrics;
   };
   lastSuccessfulProvider: string | null;
 }
@@ -272,6 +273,139 @@ class NseIndiaProvider {
   }
 }
 
+class BseIndiaProvider {
+  private readonly baseUrl = 'https://api.bseindia.com/BseIndiaAPI/api';
+  private isAvailable: boolean = true;
+
+  constructor() {
+    console.log('✅ [BseIndiaProvider] Initialized (BSE India API fallback)');
+  }
+
+  isEnabled(): boolean {
+    return this.isAvailable;
+  }
+
+  async fetchMarketMovers(): Promise<Stock[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/MktRGainerLoser/w?GLession=G&scripcode=`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Referer': 'https://www.bseindia.com/',
+          'Origin': 'https://www.bseindia.com',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('BSE rate limit exceeded');
+        }
+        throw new Error(`BSE API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const stockQuotes: Stock[] = [];
+
+      if (data?.Table && Array.isArray(data.Table)) {
+        for (const item of data.Table.slice(0, 15)) {
+          const price = parseFloat(item.LTP) || parseFloat(item.ltp) || 0;
+          const change = parseFloat(item.Change) || parseFloat(item.change) || 0;
+          const changePercent = parseFloat(item.Chg) || parseFloat(item.chg) || parseFloat(item.PerChg) || 0;
+          const previousClose = parseFloat(item.PrevClose) || (price - change) || 0;
+          
+          if (price > 0) {
+            stockQuotes.push({
+              symbol: item.scripcode || item.Scripcode || item.SCRIP_CD || '',
+              name: item.scrip_nm || item.ScripName || item.SCRIP_NAME || item.scripcode || '',
+              price,
+              change,
+              changePercent,
+              previousClose,
+            });
+          }
+        }
+      }
+
+      if (stockQuotes.length === 0) {
+        const sensexResponse = await fetch(`${this.baseUrl}/GetSensex30Stocks/w`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+            'Referer': 'https://www.bseindia.com/',
+            'Origin': 'https://www.bseindia.com',
+          },
+        });
+
+        if (sensexResponse.ok) {
+          const sensexData = await sensexResponse.json();
+          if (sensexData?.Table && Array.isArray(sensexData.Table)) {
+            for (const item of sensexData.Table.slice(0, 15)) {
+              const price = parseFloat(item.CurrPrice) || parseFloat(item.LTP) || 0;
+              const change = parseFloat(item.Chg) || parseFloat(item.Change) || 0;
+              const changePercent = parseFloat(item.ChgPer) || parseFloat(item.PerChg) || 0;
+              
+              if (price > 0) {
+                stockQuotes.push({
+                  symbol: item.Scripcode || item.scripcode || '',
+                  name: item.ScripName || item.scrip_nm || '',
+                  price,
+                  change,
+                  changePercent,
+                  previousClose: price - change,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      if (stockQuotes.length === 0) {
+        throw new Error('No stock data from BSE API');
+      }
+
+      console.log(`✅ [BseIndiaProvider] Fetched ${stockQuotes.length} stocks`);
+      return stockQuotes;
+    } catch (error) {
+      console.warn('⚠️ [BseIndiaProvider] Fetch error:', error);
+      throw error;
+    }
+  }
+
+  async getQuote(scripcode: string): Promise<{ price: number; change: number; changePercent: number; previousClose: number } | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/StockReachGraph/w?scripcode=${scripcode}&flag=0&fromdate=&todate=&seression=`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json',
+          'Referer': 'https://www.bseindia.com/',
+          'Origin': 'https://www.bseindia.com',
+        },
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      
+      if (data?.CurrVal) {
+        return {
+          price: parseFloat(data.CurrVal) || 0,
+          change: parseFloat(data.Chng) || 0,
+          changePercent: parseFloat(data.ChngPer) || 0,
+          previousClose: parseFloat(data.PrvClose) || 0,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.warn(`⚠️ [BseIndiaProvider] Quote fetch error for ${scripcode}:`, error);
+      return null;
+    }
+  }
+}
+
 class MarketMoversCache {
   private cache: CacheEntry | null = null;
   private metrics: CacheMetrics = {
@@ -309,6 +443,14 @@ class MarketMoversCache {
         lastLatency: 0,
         rateLimitErrors: 0,
       },
+      bse: {
+        successCount: 0,
+        failureCount: 0,
+        lastSuccess: 0,
+        lastFailure: 0,
+        lastLatency: 0,
+        rateLimitErrors: 0,
+      },
     },
     lastSuccessfulProvider: null,
   };
@@ -319,11 +461,13 @@ class MarketMoversCache {
   private currentBackoff = INITIAL_BACKOFF_MS;
   private finnhubProvider: FinnhubProvider;
   private nseProvider: NseIndiaProvider;
+  private bseProvider: BseIndiaProvider;
   private yahooRateLimited = false;
 
   constructor() {
     this.finnhubProvider = new FinnhubProvider();
     this.nseProvider = new NseIndiaProvider();
+    this.bseProvider = new BseIndiaProvider();
   }
 
   async initialize(): Promise<void> {
@@ -497,6 +641,21 @@ class MarketMoversCache {
     return stockQuotes;
   }
 
+  private async fetchFromBse(): Promise<Stock[]> {
+    if (!this.bseProvider.isEnabled()) {
+      throw new Error('BSE provider not available');
+    }
+
+    const startTime = Date.now();
+    const stockQuotes = await this.bseProvider.fetchMarketMovers();
+    
+    this.metrics.providers.bse.lastLatency = Date.now() - startTime;
+    this.metrics.providers.bse.successCount++;
+    this.metrics.providers.bse.lastSuccess = Date.now();
+    
+    return stockQuotes;
+  }
+
   private async refreshCache(): Promise<void> {
     if (this.refreshLock) {
       console.log('⏳ [MarketMoversCache] Refresh already in progress, skipping');
@@ -526,7 +685,21 @@ class MarketMoversCache {
         }
       }
 
-      // Priority 2: Yahoo Finance (secondary - may be rate limited)
+      // Priority 2: BSE India (secondary for Indian stocks - good coverage including SME)
+      if (stockQuotes.length === 0 && this.bseProvider.isEnabled()) {
+        try {
+          console.log('🔄 [MarketMoversCache] Trying BSE India fallback...');
+          stockQuotes = await this.fetchFromBse();
+          successProvider = 'bse';
+          console.log(`✅ [MarketMoversCache] BSE India succeeded with ${stockQuotes.length} stocks`);
+        } catch (bseError) {
+          console.warn('⚠️ [MarketMoversCache] BSE India failed:', bseError);
+          this.metrics.providers.bse.failureCount++;
+          this.metrics.providers.bse.lastFailure = Date.now();
+        }
+      }
+
+      // Priority 3: Yahoo Finance (tertiary - may be rate limited)
       if (stockQuotes.length === 0 && !this.yahooRateLimited && !this.isRateLimited()) {
         try {
           console.log('🔄 [MarketMoversCache] Trying Yahoo Finance fallback...');
@@ -548,7 +721,7 @@ class MarketMoversCache {
         console.log('⏸️ [MarketMoversCache] Skipping Yahoo Finance (rate limited)');
       }
 
-      // Priority 3: Finnhub (tertiary - limited Indian stock coverage on free tier)
+      // Priority 4: Finnhub (quaternary - limited Indian stock coverage on free tier)
       if (stockQuotes.length === 0 && this.finnhubProvider.isEnabled()) {
         try {
           console.log('🔄 [MarketMoversCache] Trying Finnhub fallback...');
