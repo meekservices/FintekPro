@@ -25136,3 +25136,316 @@ export const agentClientMappingRequests = pgTable("agent_client_mapping_requests
 export const insertAgentClientMappingRequestSchema = createInsertSchema(agentClientMappingRequests).omit({ id: true, createdAt: true, updatedAt: true });
 export type AgentClientMappingRequest = typeof agentClientMappingRequests.$inferSelect;
 export type InsertAgentClientMappingRequest = z.infer<typeof insertAgentClientMappingRequestSchema>;
+
+// ============================================
+// Global Investment Advisory & Rebalancing Tables
+// ============================================
+
+// Global Instruments Master - Stocks, ETFs, Bonds, Mutual Funds
+export const globalInstruments = pgTable("global_instruments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  assetClass: varchar("asset_class", { length: 30 }).notNull(), // stock, etf, bond, mutual_fund
+  exchange: varchar("exchange", { length: 20 }).notNull(), // NYSE, NASDAQ, LSE, TSE, XETRA, etc.
+  market: varchar("market", { length: 10 }).notNull(), // US, UK, EU, JP, HK, SG, IN
+  currency: varchar("currency", { length: 3 }).notNull(), // USD, EUR, GBP, JPY, etc.
+  isin: varchar("isin", { length: 12 }),
+  cusip: varchar("cusip", { length: 9 }),
+  sedol: varchar("sedol", { length: 7 }),
+  sector: varchar("sector", { length: 100 }),
+  industry: varchar("industry", { length: 100 }),
+  marketCap: numeric("market_cap"),
+  marketCapCategory: varchar("market_cap_category", { length: 20 }), // mega, large, mid, small, micro
+  dividendYield: numeric("dividend_yield"),
+  expenseRatio: numeric("expense_ratio"), // For ETFs/MFs
+  aum: numeric("aum"), // Assets Under Management for ETFs/MFs
+  maturityDate: date("maturity_date"), // For bonds
+  couponRate: numeric("coupon_rate"), // For bonds
+  creditRating: varchar("credit_rating", { length: 10 }), // AAA, AA+, etc.
+  yieldToMaturity: numeric("yield_to_maturity"), // For bonds
+  domicile: varchar("domicile", { length: 50 }), // Country of domicile
+  isActive: boolean("is_active").default(true),
+  lrsEligible: boolean("lrs_eligible").default(true), // LRS eligibility for Indian investors
+  fatcaCompliant: boolean("fatca_compliant").default(true),
+  lastPrice: numeric("last_price"),
+  lastPriceInr: numeric("last_price_inr"),
+  priceChangePercent: numeric("price_change_percent"),
+  week52High: numeric("week_52_high"),
+  week52Low: numeric("week_52_low"),
+  avgVolume: numeric("avg_volume"),
+  beta: numeric("beta"),
+  peRatio: numeric("pe_ratio"),
+  pbRatio: numeric("pb_ratio"),
+  epsGrowth: numeric("eps_growth"),
+  returns1M: numeric("returns_1m"),
+  returns3M: numeric("returns_3m"),
+  returns1Y: numeric("returns_1y"),
+  returns3Y: numeric("returns_3y"),
+  returns5Y: numeric("returns_5y"),
+  dataSource: varchar("data_source", { length: 50 }), // yahoo_finance, iex_cloud, finnhub
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_gi_symbol").on(table.symbol),
+  index("idx_gi_asset_class").on(table.assetClass),
+  index("idx_gi_market").on(table.market),
+  index("idx_gi_exchange").on(table.exchange),
+  index("idx_gi_sector").on(table.sector),
+  index("idx_gi_isin").on(table.isin),
+]);
+
+export const insertGlobalInstrumentSchema = createInsertSchema(globalInstruments).omit({ id: true, createdAt: true, lastUpdated: true });
+export type GlobalInstrument = typeof globalInstruments.$inferSelect;
+export type InsertGlobalInstrument = z.infer<typeof insertGlobalInstrumentSchema>;
+
+// Global Portfolio Positions - User holdings in global instruments
+export const globalPortfolioPositions = pgTable("global_portfolio_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  instrumentId: varchar("instrument_id").references(() => globalInstruments.id),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  assetClass: varchar("asset_class", { length: 30 }).notNull(),
+  quantity: numeric("quantity").notNull(),
+  avgCostBasis: numeric("avg_cost_basis").notNull(), // In native currency
+  avgCostBasisInr: numeric("avg_cost_basis_inr").notNull(),
+  currentValue: numeric("current_value"),
+  currentValueInr: numeric("current_value_inr"),
+  unrealizedGain: numeric("unrealized_gain"),
+  unrealizedGainInr: numeric("unrealized_gain_inr"),
+  unrealizedGainPercent: numeric("unrealized_gain_percent"),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  market: varchar("market", { length: 10 }).notNull(),
+  purchaseDate: date("purchase_date"),
+  targetAllocation: numeric("target_allocation"), // Target % in portfolio
+  actualAllocation: numeric("actual_allocation"), // Current % in portfolio
+  driftPercent: numeric("drift_percent"), // Difference from target
+  lrsRemittanceId: varchar("lrs_remittance_id"), // Link to LRS transaction
+  brokerAccount: varchar("broker_account", { length: 100 }),
+  brokerName: varchar("broker_name", { length: 100 }), // Interactive Brokers, Vested, etc.
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  lastRebalancedAt: timestamp("last_rebalanced_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_gpp_user").on(table.userId),
+  index("idx_gpp_instrument").on(table.instrumentId),
+  index("idx_gpp_asset_class").on(table.assetClass),
+  index("idx_gpp_market").on(table.market),
+]);
+
+export const insertGlobalPortfolioPositionSchema = createInsertSchema(globalPortfolioPositions).omit({ id: true, createdAt: true, updatedAt: true });
+export type GlobalPortfolioPosition = typeof globalPortfolioPositions.$inferSelect;
+export type InsertGlobalPortfolioPosition = z.infer<typeof insertGlobalPortfolioPositionSchema>;
+
+// Rebalancing Snapshots - Point-in-time portfolio analysis
+export const rebalancingSnapshots = pgTable("rebalancing_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  snapshotType: varchar("snapshot_type", { length: 30 }).notNull(), // manual, scheduled, drift_triggered
+  portfolioScope: varchar("portfolio_scope", { length: 30 }).notNull(), // global_only, india_only, unified
+  totalValueInr: numeric("total_value_inr").notNull(),
+  totalValueUsd: numeric("total_value_usd"),
+  assetAllocation: jsonb("asset_allocation"), // { stocks: 60, bonds: 30, etfs: 10 }
+  geographicAllocation: jsonb("geographic_allocation"), // { US: 40, EU: 20, IN: 40 }
+  sectorAllocation: jsonb("sector_allocation"), // { tech: 30, finance: 20, ... }
+  targetAllocation: jsonb("target_allocation"), // User's target allocation
+  driftAnalysis: jsonb("drift_analysis"), // { maxDrift: 5.2, driftByAsset: {...} }
+  riskMetrics: jsonb("risk_metrics"), // { portfolioBeta: 1.1, volatility: 12.5, sharpe: 1.2 }
+  recommendationSummary: jsonb("recommendation_summary"), // { buyCount: 3, sellCount: 2, holdCount: 5 }
+  totalBuyValueInr: numeric("total_buy_value_inr"),
+  totalSellValueInr: numeric("total_sell_value_inr"),
+  netFlowInr: numeric("net_flow_inr"),
+  lrsUtilizedYtd: numeric("lrs_utilized_ytd"), // LRS amount used this FY
+  lrsRemainingYtd: numeric("lrs_remaining_ytd"), // Remaining LRS limit
+  rebalanceReason: text("rebalance_reason"),
+  aiInsights: text("ai_insights"),
+  status: varchar("status", { length: 20 }).default("pending"), // pending, executed, partial, expired
+  executedAt: timestamp("executed_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_global_rebal_user").on(table.userId),
+  index("idx_global_rebal_status").on(table.status),
+  index("idx_global_rebal_created").on(table.createdAt),
+]);
+
+export const insertRebalancingSnapshotSchema = createInsertSchema(rebalancingSnapshots).omit({ id: true, createdAt: true });
+export type RebalancingSnapshot = typeof rebalancingSnapshots.$inferSelect;
+export type InsertRebalancingSnapshot = z.infer<typeof insertRebalancingSnapshotSchema>;
+
+// Rebalancing Actions - Individual buy/hold/sell recommendations
+export const rebalancingActions = pgTable("rebalancing_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  snapshotId: varchar("snapshot_id").references(() => rebalancingSnapshots.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  instrumentId: varchar("instrument_id").references(() => globalInstruments.id),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  instrumentName: varchar("instrument_name", { length: 255 }),
+  assetClass: varchar("asset_class", { length: 30 }).notNull(),
+  market: varchar("market", { length: 10 }).notNull(),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  action: varchar("action", { length: 10 }).notNull(), // buy, sell, hold
+  priority: varchar("priority", { length: 10 }).default("normal"), // high, normal, low
+  currentQuantity: numeric("current_quantity"),
+  recommendedQuantity: numeric("recommended_quantity"),
+  quantityChange: numeric("quantity_change"),
+  currentPrice: numeric("current_price"),
+  currentPriceInr: numeric("current_price_inr"),
+  targetPrice: numeric("target_price"),
+  stopLoss: numeric("stop_loss"),
+  currentAllocation: numeric("current_allocation"),
+  targetAllocation: numeric("target_allocation"),
+  driftPercent: numeric("drift_percent"),
+  tradeValueNative: numeric("trade_value_native"),
+  tradeValueInr: numeric("trade_value_inr"),
+  expectedReturn: numeric("expected_return"),
+  riskScore: numeric("risk_score"),
+  confidenceScore: numeric("confidence_score"),
+  rationale: text("rationale"),
+  keyFactors: jsonb("key_factors"), // ["Strong earnings", "Undervalued"]
+  riskFactors: jsonb("risk_factors"), // ["Currency risk", "Political risk"]
+  taxImplications: jsonb("tax_implications"), // { stcg: 15, ltcg: 10, dtaaRate: 15 }
+  lrsImpact: numeric("lrs_impact"), // LRS utilization if executed
+  complianceFlags: jsonb("compliance_flags"), // { lrsCheck: 'pass', fatcaCheck: 'pass' }
+  status: varchar("status", { length: 20 }).default("pending"), // pending, executed, cancelled, expired
+  executedAt: timestamp("executed_at"),
+  executedPrice: numeric("executed_price"),
+  executedQuantity: numeric("executed_quantity"),
+  executionNotes: text("execution_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ra_snapshot").on(table.snapshotId),
+  index("idx_ra_user").on(table.userId),
+  index("idx_ra_action").on(table.action),
+  index("idx_ra_status").on(table.status),
+  index("idx_ra_symbol").on(table.symbol),
+]);
+
+export const insertRebalancingActionSchema = createInsertSchema(rebalancingActions).omit({ id: true, createdAt: true, updatedAt: true });
+export type RebalancingAction = typeof rebalancingActions.$inferSelect;
+export type InsertRebalancingAction = z.infer<typeof insertRebalancingActionSchema>;
+
+// LRS Compliance Tracking - Track $250k annual limit for Indian investors
+export const lrsComplianceTracking = pgTable("lrs_compliance_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  financialYear: varchar("financial_year", { length: 7 }).notNull(), // 2024-25
+  totalRemittedUsd: numeric("total_remitted_usd").default("0"),
+  totalRemittedInr: numeric("total_remitted_inr").default("0"),
+  remainingLimitUsd: numeric("remaining_limit_usd").default("250000"),
+  lrsLimitUsd: numeric("lrs_limit_usd").default("250000"),
+  lastTransactionDate: date("last_transaction_date"),
+  transactionCount: integer("transaction_count").default(0),
+  purposes: jsonb("purposes"), // ["investment", "education", "travel"]
+  bankAccounts: jsonb("bank_accounts"), // Authorized dealer banks used
+  fatcaStatus: varchar("fatca_status", { length: 20 }).default("pending"), // pending, compliant, non_compliant
+  fatcaDeclarationDate: date("fatca_declaration_date"),
+  crsStatus: varchar("crs_status", { length: 20 }).default("pending"),
+  form15caFiled: boolean("form_15ca_filed").default(false),
+  form15cbObtained: boolean("form_15cb_obtained").default(false),
+  taxResidencyCertificate: boolean("tax_residency_certificate").default(false),
+  w8benFiled: boolean("w8ben_filed").default(false),
+  w8benExpiryDate: date("w8ben_expiry_date"),
+  notes: text("notes"),
+  isBlocked: boolean("is_blocked").default(false),
+  blockReason: text("block_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_lrs_user").on(table.userId),
+  index("idx_lrs_fy").on(table.financialYear),
+  index("idx_lrs_user_fy").on(table.userId, table.financialYear),
+]);
+
+export const insertLrsComplianceTrackingSchema = createInsertSchema(lrsComplianceTracking).omit({ id: true, createdAt: true, updatedAt: true });
+export type LrsComplianceTracking = typeof lrsComplianceTracking.$inferSelect;
+export type InsertLrsComplianceTracking = z.infer<typeof insertLrsComplianceTrackingSchema>;
+
+// LRS Transactions - Individual remittance records
+export const lrsTransactions = pgTable("lrs_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  trackingId: varchar("tracking_id").references(() => lrsComplianceTracking.id).notNull(),
+  transactionDate: date("transaction_date").notNull(),
+  amountUsd: numeric("amount_usd").notNull(),
+  amountInr: numeric("amount_inr").notNull(),
+  exchangeRate: numeric("exchange_rate").notNull(),
+  purpose: varchar("purpose", { length: 50 }).notNull(), // investment, education, travel, medical, maintenance
+  purposeCode: varchar("purpose_code", { length: 10 }), // RBI purpose code
+  beneficiaryName: varchar("beneficiary_name", { length: 255 }),
+  beneficiaryCountry: varchar("beneficiary_country", { length: 50 }),
+  beneficiaryBank: varchar("beneficiary_bank", { length: 255 }),
+  adBankName: varchar("ad_bank_name", { length: 255 }), // Authorized Dealer bank
+  adBankBranch: varchar("ad_bank_branch", { length: 255 }),
+  swiftReference: varchar("swift_reference", { length: 50 }),
+  form15caNumber: varchar("form_15ca_number", { length: 50 }),
+  form15cbNumber: varchar("form_15cb_number", { length: 50 }),
+  tcsRate: numeric("tcs_rate"), // Tax collected at source
+  tcsAmount: numeric("tcs_amount"),
+  status: varchar("status", { length: 20 }).default("completed"), // pending, completed, failed, reversed
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_lrs_tx_user").on(table.userId),
+  index("idx_lrs_tx_tracking").on(table.trackingId),
+  index("idx_lrs_tx_date").on(table.transactionDate),
+]);
+
+export const insertLrsTransactionSchema = createInsertSchema(lrsTransactions).omit({ id: true, createdAt: true });
+export type LrsTransaction = typeof lrsTransactions.$inferSelect;
+export type InsertLrsTransaction = z.infer<typeof insertLrsTransactionSchema>;
+
+// Global Advisory Recommendations - AI-generated recommendations
+export const globalAdvisoryRecommendations = pgTable("global_advisory_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  instrumentId: varchar("instrument_id").references(() => globalInstruments.id),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  instrumentName: varchar("instrument_name", { length: 255 }),
+  assetClass: varchar("asset_class", { length: 30 }).notNull(), // stock, etf, bond, mutual_fund
+  market: varchar("market", { length: 10 }).notNull(),
+  exchange: varchar("exchange", { length: 20 }),
+  currency: varchar("currency", { length: 3 }).notNull(),
+  recommendation: varchar("recommendation", { length: 20 }).notNull(), // strong_buy, buy, hold, sell, strong_sell
+  fintekproRating: numeric("fintekpro_rating"), // 1-5 stars
+  confidenceScore: numeric("confidence_score"),
+  riskScore: numeric("risk_score"),
+  currentPrice: numeric("current_price"),
+  currentPriceInr: numeric("current_price_inr"),
+  targetPrice: numeric("target_price"),
+  targetPriceInr: numeric("target_price_inr"),
+  stopLoss: numeric("stop_loss"),
+  expectedReturn: numeric("expected_return"),
+  timeHorizon: varchar("time_horizon", { length: 30 }), // short_term, medium_term, long_term
+  timeHorizonDays: integer("time_horizon_days"),
+  fundamentals: jsonb("fundamentals"), // PE, PB, ROE, etc.
+  technicals: jsonb("technicals"), // RSI, MACD, moving averages
+  sectorAnalysis: text("sector_analysis"),
+  rationale: text("rationale"),
+  keyFactors: jsonb("key_factors"),
+  riskFactors: jsonb("risk_factors"),
+  taxImplications: jsonb("tax_implications"), // DTAA benefits, STCG/LTCG for NRI
+  lrsConsiderations: text("lrs_considerations"),
+  suitabilityScore: numeric("suitability_score"), // Based on user's risk profile
+  alternativeOptions: jsonb("alternative_options"), // Similar instruments
+  isPersonalized: boolean("is_personalized").default(false),
+  generatedBy: varchar("generated_by", { length: 50 }).default("ai"), // ai, analyst, system
+  expiresAt: timestamp("expires_at"),
+  viewCount: integer("view_count").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_gar_user").on(table.userId),
+  index("idx_gar_symbol").on(table.symbol),
+  index("idx_gar_asset_class").on(table.assetClass),
+  index("idx_gar_market").on(table.market),
+  index("idx_gar_recommendation").on(table.recommendation),
+  index("idx_gar_created").on(table.createdAt),
+]);
+
+export const insertGlobalAdvisoryRecommendationSchema = createInsertSchema(globalAdvisoryRecommendations).omit({ id: true, createdAt: true, updatedAt: true });
+export type GlobalAdvisoryRecommendation = typeof globalAdvisoryRecommendations.$inferSelect;
+export type InsertGlobalAdvisoryRecommendation = z.infer<typeof insertGlobalAdvisoryRecommendationSchema>;

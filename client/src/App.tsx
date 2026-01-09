@@ -187,6 +187,7 @@ import NRIServices from "@/pages/nri-services";
 import ITRTaxServices from "@/pages/itr-tax-services";
 import DomesticTrading from "@/pages/domestic-trading";
 import GlobalTrading from "@/pages/global-trading";
+import GlobalAdvisoryPage from "@/pages/global-advisory";
 import USTrading from "@/pages/us-trading";
 import IntelligentTaxHub from "@/pages/intelligent-tax-hub";
 import TaxReminderSubscription from "@/pages/tax-reminder-subscription";
@@ -445,6 +446,7 @@ function UserProtectedRoutes() {
         <Route path="/tax-compliance/form15" component={TaxComplianceForm15Page} />
         <Route path="/domestic-trading" component={DomesticTrading} />
         <Route path="/global-trading" component={GlobalTrading} />
+        <Route path="/global-advisory" component={GlobalAdvisoryPage} />
         <Route path="/us-trading" component={USTrading} />
         <Route path="/cart" component={Cart} />
         <Route path="/unified-cart" component={UnifiedCart} />

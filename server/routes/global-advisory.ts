@@ -410,3 +410,278 @@ router.get("/sebi-export/:userId", requireAdmin, async (req: Request, res: Respo
 });
 
 export default router;
+
+// ============================================================================
+// AI-POWERED GLOBAL INVESTMENT ADVISORY & REBALANCING
+// ============================================================================
+
+import { aiGlobalAdvisoryService } from "../services/ai-global-advisory-service";
+
+router.get("/advisory/stocks", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const { markets, sectors, marketCap, riskLevel, maxResults } = req.query;
+    
+    const recommendations = await aiGlobalAdvisoryService.getGlobalStockRecommendations({
+      markets: markets ? String(markets).split(',') : undefined,
+      sectors: sectors ? String(sectors).split(',') : undefined,
+      marketCap: marketCap ? String(marketCap).split(',') : undefined,
+      riskLevel: riskLevel as 'conservative' | 'moderate' | 'aggressive' || 'moderate',
+      maxResults: maxResults ? parseInt(String(maxResults)) : 10,
+    });
+
+    res.json({
+      success: true,
+      data: recommendations,
+      meta: {
+        count: recommendations.length,
+        assetClass: 'stock',
+        generatedAt: new Date(),
+      }
+    });
+  } catch (error: any) {
+    console.error("[GlobalAdvisory] Stocks error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/advisory/etfs", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const { categories, riskLevel, maxResults } = req.query;
+    
+    const recommendations = await aiGlobalAdvisoryService.getGlobalETFRecommendations({
+      categories: categories ? String(categories).split(',') : undefined,
+      riskLevel: riskLevel as 'conservative' | 'moderate' | 'aggressive' || 'moderate',
+      maxResults: maxResults ? parseInt(String(maxResults)) : 10,
+    });
+
+    res.json({
+      success: true,
+      data: recommendations,
+      meta: {
+        count: recommendations.length,
+        assetClass: 'etf',
+        generatedAt: new Date(),
+      }
+    });
+  } catch (error: any) {
+    console.error("[GlobalAdvisory] ETFs error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/advisory/bonds", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const { bondTypes, duration, riskLevel, maxResults } = req.query;
+    
+    const recommendations = await aiGlobalAdvisoryService.getGlobalBondRecommendations({
+      bondTypes: bondTypes ? String(bondTypes).split(',') : undefined,
+      duration: duration as 'short' | 'medium' | 'long' || 'medium',
+      riskLevel: riskLevel as 'conservative' | 'moderate' | 'aggressive' || 'conservative',
+      maxResults: maxResults ? parseInt(String(maxResults)) : 10,
+    });
+
+    res.json({
+      success: true,
+      data: recommendations,
+      meta: {
+        count: recommendations.length,
+        assetClass: 'bond',
+        generatedAt: new Date(),
+      }
+    });
+  } catch (error: any) {
+    console.error("[GlobalAdvisory] Bonds error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/advisory/instrument/:symbol", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const data = await aiGlobalAdvisoryService.fetchGlobalInstrumentData(symbol.toUpperCase());
+    
+    if (!data) {
+      return res.status(404).json({ success: false, error: "Instrument not found" });
+    }
+
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (error: any) {
+    console.error("[GlobalAdvisory] Instrument error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post("/rebalancing/preview", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    const { positions, targetAllocations, lrsUtilizedYtdUsd } = req.body;
+    
+    if (!positions || !Array.isArray(positions)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "positions array is required" 
+      });
+    }
+
+    const result = await aiGlobalAdvisoryService.generatePortfolioRebalancing(
+      userId || 'anonymous',
+      positions,
+      targetAllocations || { stocks: 60, etfs: 20, bonds: 15, cash: 5 },
+      lrsUtilizedYtdUsd || 0
+    );
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error("[GlobalAdvisory] Rebalancing preview error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/lrs/status", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "User not authenticated" });
+    }
+    const currentFY = getCurrentFinancialYear();
+    
+    const lrsStatus = {
+      userId,
+      financialYear: currentFY,
+      lrsLimitUsd: 250000,
+      totalRemittedUsd: 0,
+      remainingLimitUsd: 250000,
+      transactionCount: 0,
+      fatcaStatus: 'pending',
+      w8benStatus: 'not_filed',
+      taxImplications: {
+        tcsRate: 20,
+        tcsThreshold: 700000,
+        note: 'TCS of 20% applicable on remittances exceeding ₹7 lakhs per FY'
+      },
+      lastUpdated: new Date(),
+    };
+
+    res.json({
+      success: true,
+      data: lrsStatus,
+    });
+  } catch (error: any) {
+    console.error("[GlobalAdvisory] LRS status error:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/advisory/markets", requireClientOrHigher, async (_req: Request, res: Response) => {
+  try {
+    const markets = [
+      { code: 'US', name: 'United States', exchanges: ['NYSE', 'NASDAQ'], currency: 'USD', isEnabled: true, dtaaRate: 15 },
+      { code: 'UK', name: 'United Kingdom', exchanges: ['LSE'], currency: 'GBP', isEnabled: true, dtaaRate: 15 },
+      { code: 'EU', name: 'European Union', exchanges: ['XETRA', 'EURONEXT'], currency: 'EUR', isEnabled: true, dtaaRate: 15 },
+      { code: 'JP', name: 'Japan', exchanges: ['TSE'], currency: 'JPY', isEnabled: true, dtaaRate: 10 },
+      { code: 'HK', name: 'Hong Kong', exchanges: ['HKEX'], currency: 'HKD', isEnabled: true, dtaaRate: 0 },
+      { code: 'SG', name: 'Singapore', exchanges: ['SGX'], currency: 'SGD', isEnabled: true, dtaaRate: 15 },
+    ];
+
+    res.json({
+      success: true,
+      data: markets,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get("/advisory/tax-implications/:market", requireClientOrHigher, async (req: Request, res: Response) => {
+  try {
+    const { market } = req.params;
+    
+    const taxInfo: Record<string, any> = {
+      'US': {
+        market: 'US',
+        dividendWithholding: 25,
+        dtaaRate: 15,
+        ltcgRate: 20,
+        stcgRate: 30,
+        holdingPeriodMonths: 24,
+        forms: ['W-8BEN'],
+        notes: 'File Form 67 with ITR to claim foreign tax credit in India. W-8BEN reduces US withholding from 30% to 15%.'
+      },
+      'UK': {
+        market: 'UK',
+        dividendWithholding: 0,
+        dtaaRate: 15,
+        ltcgRate: 20,
+        stcgRate: 30,
+        holdingPeriodMonths: 24,
+        forms: [],
+        notes: 'UK has no withholding tax on dividends for non-residents. Capital gains taxed only in India.'
+      },
+      'SG': {
+        market: 'SG',
+        dividendWithholding: 0,
+        dtaaRate: 15,
+        ltcgRate: 20,
+        stcgRate: 30,
+        holdingPeriodMonths: 24,
+        forms: [],
+        notes: 'Singapore has no dividend tax. Favorable for dividend-focused portfolios.'
+      },
+      'HK': {
+        market: 'HK',
+        dividendWithholding: 0,
+        dtaaRate: 0,
+        ltcgRate: 20,
+        stcgRate: 30,
+        holdingPeriodMonths: 24,
+        forms: [],
+        notes: 'Hong Kong has no capital gains tax and no dividend withholding.'
+      },
+      'JP': {
+        market: 'JP',
+        dividendWithholding: 15,
+        dtaaRate: 10,
+        ltcgRate: 20,
+        stcgRate: 30,
+        holdingPeriodMonths: 24,
+        forms: [],
+        notes: 'Japan-India DTAA allows reduced 10% withholding on dividends.'
+      },
+    };
+
+    const info = taxInfo[market.toUpperCase()] || {
+      market: market.toUpperCase(),
+      dividendWithholding: 25,
+      dtaaRate: 25,
+      ltcgRate: 20,
+      stcgRate: 30,
+      holdingPeriodMonths: 24,
+      notes: 'Check specific DTAA treaty for applicable rates'
+    };
+
+    res.json({
+      success: true,
+      data: info,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+function getCurrentFinancialYear(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  
+  if (month >= 4) {
+    return `${year}-${(year + 1).toString().slice(-2)}`;
+  } else {
+    return `${year - 1}-${year.toString().slice(-2)}`;
+  }
+}
