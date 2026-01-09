@@ -529,7 +529,7 @@ export function registerMarketingRoutes(app: any) {
    */
   app.post('/api/admin/marketing/leads/import', requireAdmin, async (req: any, res: Response) => {
     try {
-      const { cin } = req.body;
+      const { cin, companyName: requestCompanyName } = req.body;
       
       // Check if lead already exists
       const [existing] = await db
@@ -544,16 +544,19 @@ export function registerMarketingRoutes(app: any) {
       const probe42 = getProbe42Service();
       const company = await probe42.getCompanyDetails(cin);
 
-      if (!company) {
-        return apiResponse.notFound(res, 'Company not found in Probe42');
+      // Use company name from search results as fallback if enrichment fails
+      const finalCompanyName = company?.companyName || requestCompanyName;
+      
+      if (!finalCompanyName) {
+        return apiResponse.badRequest(res, 'Company name is required. Please try again.');
       }
 
       // Calculate lead score
-      const leadScore = probe42.calculateLeadScore(company);
+      const leadScore = company ? probe42.calculateLeadScore(company) : 10;
       const leadQuality = probe42.getLeadQuality(leadScore);
 
       // Calculate investable surplus
-      const investableSurplus = company.financials && company.financials.length > 0
+      const investableSurplus = company?.financials && company.financials.length > 0
         ? probe42.calculateInvestableSurplus(company.financials[0])
         : 0;
 
@@ -561,28 +564,28 @@ export function registerMarketingRoutes(app: any) {
       const [lead] = await db
         .insert(prospectLeads)
         .values({
-          cin: company.cin || null,
-          companyName: company.companyName,
-          registrationNumber: company.registrationNumber || null,
-          primaryEmail: company.email || null,
-          primaryMobile: company.phone || null,
-          website: company.website || null,
-          address: company.registeredAddress || null,
-          city: company.city || null,
-          state: company.state || null,
-          pincode: company.pincode || null,
-          paidUpCapital: company.paidUpCapital?.toString() || null,
-          authorizedCapital: company.authorizedCapital?.toString() || null,
-          annualRevenue: company.financials?.[0]?.revenue?.toString() || null,
-          netProfit: company.financials?.[0]?.netProfit?.toString() || null,
-          ebitda: company.financials?.[0]?.ebitda?.toString() || null,
-          totalAssets: company.financials?.[0]?.totalAssets?.toString() || null,
-          debtToEquityRatio: company.financials?.[0]?.debtToEquityRatio?.toString() || null,
-          currentRatio: company.financials?.[0]?.currentRatio?.toString() || null,
-          roe: company.financials?.[0]?.roe?.toString() || null,
-          probe42Score: company.probe42Score?.score || null,
-          directors: company.directors as any,
-          authorizedSignatories: company.authorizedSignatories as any,
+          cin: company?.cin || cin,
+          companyName: finalCompanyName,
+          registrationNumber: company?.registrationNumber || cin,
+          primaryEmail: company?.email || null,
+          primaryMobile: company?.phone || null,
+          website: company?.website || null,
+          address: company?.registeredAddress || null,
+          city: company?.city || null,
+          state: company?.state || null,
+          pincode: company?.pincode || null,
+          paidUpCapital: company?.paidUpCapital?.toString() || null,
+          authorizedCapital: company?.authorizedCapital?.toString() || null,
+          annualRevenue: company?.financials?.[0]?.revenue?.toString() || null,
+          netProfit: company?.financials?.[0]?.netProfit?.toString() || null,
+          ebitda: company?.financials?.[0]?.ebitda?.toString() || null,
+          totalAssets: company?.financials?.[0]?.totalAssets?.toString() || null,
+          debtToEquityRatio: company?.financials?.[0]?.debtToEquityRatio?.toString() || null,
+          currentRatio: company?.financials?.[0]?.currentRatio?.toString() || null,
+          roe: company?.financials?.[0]?.roe?.toString() || null,
+          probe42Score: company?.probe42Score?.score || null,
+          directors: company?.directors as any,
+          authorizedSignatories: company?.authorizedSignatories as any,
           leadScore,
           leadQuality,
           investableSurplus: investableSurplus.toString(),

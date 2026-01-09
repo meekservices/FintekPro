@@ -89,10 +89,10 @@ export default function LeadProspecting() {
   });
 
   const importLeadMutation = useMutation({
-    mutationFn: async (cin: string) => {
+    mutationFn: async ({ cin, companyName }: { cin: string; companyName: string }) => {
       return apiRequest('/api/admin/marketing/leads/import', {
         method: 'POST',
-        body: JSON.stringify({ cin })
+        body: JSON.stringify({ cin, companyName })
       });
     },
     onSuccess: () => {
@@ -282,7 +282,7 @@ export default function LeadProspecting() {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => importLeadMutation.mutate(company.cin)}
+                      onClick={() => importLeadMutation.mutate({ cin: company.cin, companyName: company.companyName })}
                       disabled={importLeadMutation.isPending}
                       data-testid={`button-import-${company.cin}`}
                     >

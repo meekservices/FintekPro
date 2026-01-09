@@ -319,9 +319,16 @@ export class Probe42Service {
         );
       }
 
-      companies = companies.slice(0, filters.limit || 50);
+      // Dedupe by CIN (some companies appear multiple times with different names)
+      const uniqueCompanies = new Map<string, CompanyBasicInfo>();
+      for (const company of companies) {
+        if (company.cin && !uniqueCompanies.has(company.cin)) {
+          uniqueCompanies.set(company.cin, company);
+        }
+      }
+      companies = Array.from(uniqueCompanies.values()).slice(0, filters.limit || 50);
 
-      console.log(`✅ Probe42 v2 search found ${companies.length} companies (after filtering)`);
+      console.log(`✅ Probe42 v2 search found ${companies.length} companies (after filtering & deduplication)`);
       return { companies, available: true };
     } catch (error: any) {
       const status = error?.response?.status;
@@ -390,9 +397,9 @@ export class Probe42Service {
       
       const baseDetails: CompanyDetails = {
         cin: data.cin || data.identifier || cin,
-        companyName: data.legalName || data.companyName || data.name,
-        registrationNumber: data.registrationNumber || data.cin,
-        incorporationDate: data.dateOfIncorporation || data.incorporationDate,
+        companyName: data.legal_name || data.legalName || data.companyName || data.name,
+        registrationNumber: data.registrationNumber || data.identifier || data.cin,
+        incorporationDate: data.dateOfIncorporation || data.date_of_incorporation || data.incorporationDate,
         companyClass: data.companyClass || data.class,
         companyCategory: data.companyCategory || data.category,
         companySubCategory: data.companySubCategory,
