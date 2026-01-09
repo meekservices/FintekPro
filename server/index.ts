@@ -381,6 +381,11 @@ app.use((req, res, next) => {
   const { registerMarketingRoutes } = await import('./marketing-routes');
   registerMarketingRoutes(app);
   
+  // Register Admin Prospect Dashboard routes (B2B leads, individual prospects, Zoho CRM import)
+  const { registerAdminProspectRoutes } = await import('./routes/admin-prospects');
+  registerAdminProspectRoutes(app);
+  console.log('✅ Admin Prospect Dashboard routes registered');
+  
   // Register Twilio Webhook routes (Two-way SMS & WhatsApp communication)
   const { createTwilioWebhookRouter } = await import('./services/twilio-webhook-service');
   app.use('/api/twilio', createTwilioWebhookRouter());

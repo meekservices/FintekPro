@@ -296,6 +296,40 @@ export class ZohoCRMService {
   }
 
   /**
+   * Get all leads from Zoho CRM for import
+   */
+  async getLeads(limit: number = 100): Promise<ZohoCRMLead[]> {
+    try {
+      const response = await this.apiClient.get('/Leads', {
+        per_page: Math.min(limit, 200),
+        sort_by: 'Created_Time',
+        sort_order: 'desc'
+      });
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching leads from Zoho CRM:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all contacts from Zoho CRM for import
+   */
+  async getContacts(limit: number = 100): Promise<ZohoCRMContact[]> {
+    try {
+      const response = await this.apiClient.get('/Contacts', {
+        per_page: Math.min(limit, 200),
+        sort_by: 'Created_Time',
+        sort_order: 'desc'
+      });
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching contacts from Zoho CRM:', error);
+      return [];
+    }
+  }
+
+  /**
    * Create lead in Zoho CRM
    */
   async createLead(leadData: ZohoCRMLead): Promise<string> {

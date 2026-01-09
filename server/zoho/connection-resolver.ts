@@ -243,3 +243,26 @@ export class ZohoConnectionResolver {
     }
   }
 }
+
+/**
+ * Helper function to get the default Zoho connection ID for admin operations
+ */
+export async function getZohoConnectionId(): Promise<string | null> {
+  try {
+    const [connection] = await db
+      .select({ id: zohoConnections.id })
+      .from(zohoConnections)
+      .where(
+        or(
+          eq(zohoConnections.isMaster, true),
+          eq(zohoConnections.isDefault, true)
+        )
+      )
+      .limit(1);
+
+    return connection?.id || null;
+  } catch (error) {
+    console.warn('getZohoConnectionId: Error fetching connection:', error);
+    return null;
+  }
+}

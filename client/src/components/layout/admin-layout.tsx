@@ -164,6 +164,7 @@ const navCategories: NavCategory[] = [
     icon: Megaphone,
     items: [
       { title: "Marketing Dashboard", href: "/admin/marketing-dashboard", icon: TrendingUp, description: "Campaign overview" },
+      { title: "Prospect Dashboard", href: "/admin/prospect-dashboard", icon: Users, description: "All prospects & leads" },
       { title: "Email Campaigns", href: "/admin/email-campaigns", icon: Mail, description: "Zoho Campaigns" },
       { title: "WhatsApp Campaigns", href: "/admin/whatsapp-campaigns", icon: MessageSquare, description: "AiSensy broadcasts" },
       { title: "Lead Prospecting", href: "/admin/lead-prospecting", icon: Building2, description: "B2B company search" },
