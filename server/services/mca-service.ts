@@ -16,9 +16,9 @@ import type { InsertCompanyFinancials } from '@shared/schema';
 // Environment configuration - uses existing Sandbox credentials
 const SANDBOX_API_KEY = process.env.SANDBOX_API_KEY || '';
 const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET || '';
-const SANDBOX_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.sandbox.co.in' 
-  : 'https://test-api.sandbox.co.in';
+// Sandbox.co.in uses same base URL for both test and production
+// Test endpoints use /test/ prefix on paths, not a different domain
+const SANDBOX_BASE_URL = 'https://api.sandbox.co.in';
 
 export interface MCACompanyMasterData {
   cin: string;
