@@ -20,15 +20,9 @@ import { eq, and, desc, sql, ilike, or, count, isNull, isNotNull } from 'drizzle
 import { ZohoCRMService } from '../zoho/services/crm';
 import { getZohoConnectionId } from '../zoho/connection-resolver';
 import { apiResponse } from '../utils/responses';
+import { requireAdmin } from '../middleware/roleMiddleware';
 
 const router = Router();
-
-const requireAdmin = (req: any, res: Response, next: any) => {
-  if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-  next();
-};
 
 /**
  * Get consolidated metrics for admin dashboard
