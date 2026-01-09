@@ -1,14 +1,15 @@
 /**
- * Probe42 API Service
+ * Probe42 API Service (v2)
  * 
  * Corporate data intelligence platform for India providing:
  * - Company verification and financial data
  * - Director information and authorized signatories
  * - Credit assessment and risk scoring
  * - Lead prospecting with financial filters
+ * - KYC, GST, EPFO, Credit Ratings, Legal History
  * 
- * API Documentation: https://apiportal.probe42.in/
- * Python Client: https://github.com/loanzen/probe-py
+ * API Documentation: https://apiportal.probe42.in/v2/
+ * Base URL: https://api.probe42.in/probe_data_api/
  */
 
 import axios, { AxiosInstance } from 'axios';
@@ -18,6 +19,9 @@ interface Probe42Config {
   apiVersion?: string;
   baseUrl?: string;
 }
+
+const PROBE42_V2_BASE_URL = 'https://api.probe42.in/probe_data_api';
+const PROBE42_API_VERSION = '1.0';
 
 interface CompanySearchFilters {
   nameStartsWith?: string;
@@ -141,41 +145,100 @@ interface LeadScoringCriteria {
 export class Probe42Service {
   private client: AxiosInstance;
   private apiKey: string;
-  private apiVersion: string;
 
   constructor(config: Probe42Config) {
     this.apiKey = config.apiKey;
-    this.apiVersion = config.apiVersion || 'v1';
     
     this.client = axios.create({
-      baseURL: config.baseUrl || 'https://apiportal.probe42.in',
+      baseURL: config.baseUrl || PROBE42_V2_BASE_URL,
       timeout: 30000,
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'x-api-key': this.apiKey,
+        'x-api-version': PROBE42_API_VERSION,
         'Content-Type': 'application/json'
       }
     });
   }
 
   /**
-   * Search companies with financial filters
+   * Search companies with name prefix (v2 API)
+   * POST /search-entities with JSON body
+   * 
+   * Note: v2 API only supports nameStartsWith filter.
+   * City/state/pincode filters are applied as post-filtering on results.
+   * Financial filters (minRevenue, minProfit, probe42Score) are NOT applied
+   * as they would require fetching details for each company (API-intensive).
    */
   async searchCompanies(filters: CompanySearchFilters): Promise<{ companies: CompanyBasicInfo[]; error?: string; available: boolean }> {
     try {
-      const response = await this.client.get(`/${this.apiVersion}/companies`, {
-        params: {
-          filters: JSON.stringify(filters),
-          page: filters.page || 1,
-          limit: filters.limit || 50
-        }
-      });
+      const searchBody: any = {
+        limit: Math.min((filters.limit || 50) * 2, 100)
+      };
 
-      return { companies: response.data.companies || [], available: true };
+      if (filters.nameStartsWith) {
+        searchBody.nameStartsWith = filters.nameStartsWith;
+      }
+      if (filters.cin) {
+        searchBody.identifier = filters.cin;
+      }
+
+      const response = await this.client.post('/search-entities', searchBody);
+      
+      const entities = response.data?.entities || response.data?.data || response.data || [];
+      
+      let companies: CompanyBasicInfo[] = Array.isArray(entities) 
+        ? entities.map((entity: any) => ({
+            cin: entity.cin || entity.identifier || entity.id,
+            companyName: entity.legalName || entity.companyName || entity.name,
+            registrationNumber: entity.registrationNumber || entity.cin,
+            incorporationDate: entity.incorporationDate || entity.dateOfIncorporation,
+            companyClass: entity.companyClass || entity.class,
+            companyCategory: entity.companyCategory || entity.category,
+            companySubCategory: entity.companySubCategory,
+            authorizedCapital: entity.authorizedCapital,
+            paidUpCapital: entity.paidUpCapital,
+            registeredAddress: entity.registeredAddress || entity.address,
+            city: entity.city || this.extractCityFromAddress(entity.registeredAddress),
+            state: entity.state || this.extractStateFromAddress(entity.registeredAddress),
+            pincode: entity.pincode,
+            email: entity.email,
+            phone: entity.phone,
+            website: entity.website
+          }))
+        : [];
+
+      if (filters.city) {
+        const cityLower = filters.city.toLowerCase();
+        companies = companies.filter(c => 
+          c.city?.toLowerCase().includes(cityLower) ||
+          c.registeredAddress?.toLowerCase().includes(cityLower)
+        );
+      }
+
+      if (filters.state) {
+        const stateLower = filters.state.toLowerCase();
+        companies = companies.filter(c => 
+          c.state?.toLowerCase().includes(stateLower) ||
+          c.registeredAddress?.toLowerCase().includes(stateLower)
+        );
+      }
+
+      if (filters.pincode) {
+        companies = companies.filter(c => 
+          c.pincode?.includes(filters.pincode!) ||
+          c.registeredAddress?.includes(filters.pincode!)
+        );
+      }
+
+      companies = companies.slice(0, filters.limit || 50);
+
+      console.log(`✅ Probe42 v2 search found ${companies.length} companies (after filtering)`);
+      return { companies, available: true };
     } catch (error: any) {
       const status = error?.response?.status;
-      const message = error?.response?.data?.message || error?.message || 'Unknown error';
+      const message = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Unknown error';
       
-      console.error('❌ Probe42 search error:', { status, message });
+      console.error('❌ Probe42 v2 search error:', { status, message, url: '/search-entities' });
       
       if (status === 404) {
         return { 
@@ -193,7 +256,7 @@ export class Probe42Service {
         return { 
           companies: [], 
           available: false, 
-          error: 'Probe42 API rate limit exceeded. Please try again later.' 
+          error: 'Probe42 API rate limit or credits exceeded. Please try again later or purchase more credits.' 
         };
       }
       
@@ -205,92 +268,296 @@ export class Probe42Service {
     }
   }
 
+  private extractCityFromAddress(address?: string): string | undefined {
+    if (!address) return undefined;
+    const cities = ['Mumbai', 'Delhi', 'Bangalore', 'Bengaluru', 'Chennai', 'Kolkata', 'Hyderabad', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Kanpur', 'Nagpur', 'Indore', 'Thane', 'Bhopal', 'Visakhapatnam', 'Patna', 'Vadodara', 'Ghaziabad', 'Ludhiana', 'Agra', 'Nashik', 'Faridabad', 'Meerut', 'Rajkot', 'Varanasi', 'Srinagar', 'Aurangabad', 'Dhanbad', 'Amritsar', 'Navi Mumbai', 'Allahabad', 'Ranchi', 'Howrah', 'Coimbatore', 'Jabalpur', 'Gwalior', 'Vijayawada', 'Jodhpur', 'Madurai', 'Raipur', 'Kota', 'Guwahati', 'Chandigarh', 'Solapur', 'Hubli', 'Mysore', 'Tiruchirappalli', 'Bareilly', 'Aligarh', 'Tiruppur', 'Moradabad', 'Jalandhar', 'Bhubaneswar', 'Salem', 'Warangal', 'Guntur', 'Bhiwandi', 'Saharanpur', 'Gorakhpur', 'Bikaner', 'Amravati', 'Noida', 'Jamshedpur', 'Bhilai', 'Cuttack', 'Firozabad', 'Kochi', 'Nellore', 'Bhavnagar', 'Dehradun', 'Durgapur', 'Asansol', 'Rourkela', 'Nanded', 'Kolhapur', 'Ajmer', 'Akola', 'Gulbarga', 'Jamnagar', 'Ujjain', 'Loni', 'Siliguri', 'Jhansi', 'Ulhasnagar', 'Jammu', 'Sangli', 'Erode', 'Mangalore', 'Belgaum', 'Ambattur', 'Tirunelveli', 'Malegaon', 'Gaya', 'Udaipur', 'Maheshtala', 'Davanagere', 'Kozhikode', 'Kurnool', 'Rajpur', 'Rajahmundry', 'Bokaro', 'Bellary', 'Patiala', 'Gopalpur', 'Agartala', 'Bhagalpur', 'Muzaffarnagar', 'Bhatpara', 'Panihati', 'Latur', 'Dhule', 'Tirupati', 'Rohtak', 'Korba', 'Bhilwara', 'Berhampur', 'Muzaffarpur', 'Ahmednagar', 'Mathura', 'Kollam', 'Avadi', 'Kadapa', 'Anantapur', 'Kamarhati', 'Bilaspur', 'Sambalpur', 'Shahjahanpur', 'Satara', 'Bijapur', 'Rampur', 'Shimoga', 'Chandrapur', 'Junagadh', 'Thrissur', 'Alwar', 'Bardhaman', 'Kulti', 'Kakinada', 'Nizamabad', 'Parbhani', 'Tumkur', 'Khammam', 'Ozhukarai', 'Bihar', 'Panipat', 'Darbhanga', 'Bally', 'Aizawl', 'Dewas', 'Ichalkaranji', 'Karnal', 'Bathinda', 'Jalna', 'Eluru', 'Kirari', 'Brahmapur', 'Barasat', 'Purnia', 'Satna', 'Mau', 'Sonipat', 'Farrukhabad', 'Sagar', 'Rourkela', 'Durg', 'Imphal', 'Ratlam', 'Hapur', 'Arrah', 'Anantapur', 'Karimnagar', 'Ramagundam', 'Etawah', 'Mirzapur', 'Chapra', 'Fatehpur', 'Dindigul', 'Katihar', 'Bharatpur', 'Nadiad', 'Gurgaon', 'Gurugram'];
+    for (const city of cities) {
+      if (address.toLowerCase().includes(city.toLowerCase())) {
+        return city;
+      }
+    }
+    return undefined;
+  }
+
+  private extractStateFromAddress(address?: string): string | undefined {
+    if (!address) return undefined;
+    const states = ['Maharashtra', 'Karnataka', 'Tamil Nadu', 'Uttar Pradesh', 'Gujarat', 'West Bengal', 'Telangana', 'Andhra Pradesh', 'Rajasthan', 'Kerala', 'Madhya Pradesh', 'Bihar', 'Punjab', 'Haryana', 'Jharkhand', 'Odisha', 'Chhattisgarh', 'Assam', 'Uttarakhand', 'Goa', 'Himachal Pradesh', 'Tripura', 'Meghalaya', 'Manipur', 'Nagaland', 'Arunachal Pradesh', 'Mizoram', 'Sikkim', 'Delhi', 'Chandigarh', 'Jammu and Kashmir', 'Ladakh', 'Puducherry', 'Andaman and Nicobar Islands', 'Lakshadweep', 'Dadra and Nagar Haveli', 'Daman and Diu'];
+    for (const state of states) {
+      if (address.toLowerCase().includes(state.toLowerCase())) {
+        return state;
+      }
+    }
+    return undefined;
+  }
+
   /**
-   * Get detailed company information by CIN
+   * Get basic company information by CIN (v2 API)
+   * GET /entities/{identifier}/base-details
    */
   async getCompanyDetails(cin: string): Promise<CompanyDetails | null> {
     try {
-      const response = await this.client.get(`/${this.apiVersion}/companies/${cin}`);
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Probe42 company details error for CIN ${cin}:`, error);
+      const response = await this.client.get(`/entities/${cin}/base-details`);
+      const data = response.data?.data || response.data;
+      
+      const baseDetails: CompanyDetails = {
+        cin: data.cin || data.identifier || cin,
+        companyName: data.legalName || data.companyName || data.name,
+        registrationNumber: data.registrationNumber || data.cin,
+        incorporationDate: data.dateOfIncorporation || data.incorporationDate,
+        companyClass: data.companyClass || data.class,
+        companyCategory: data.companyCategory || data.category,
+        companySubCategory: data.companySubCategory,
+        authorizedCapital: data.authorizedCapital,
+        paidUpCapital: data.paidUpCapital,
+        registeredAddress: data.registeredAddress || data.address,
+        city: data.city,
+        state: data.state,
+        pincode: data.pincode,
+        email: data.email,
+        phone: data.phone,
+        website: data.website
+      };
+
+      const [kycData, creditRatings, legalHistory, charges] = await Promise.allSettled([
+        this.getCompanyKYC(cin),
+        this.getCompanyCreditRatings(cin),
+        this.getCompanyLegalHistory(cin),
+        this.getCompanyCharges(cin)
+      ]);
+
+      if (kycData.status === 'fulfilled' && kycData.value) {
+        baseDetails.financials = kycData.value.financials;
+        baseDetails.directors = kycData.value.directors;
+        baseDetails.authorizedSignatories = kycData.value.authorizedSignatories;
+      }
+
+      if (creditRatings.status === 'fulfilled' && creditRatings.value) {
+        baseDetails.probe42Score = {
+          score: creditRatings.value.score || 3,
+          rating: creditRatings.value.rating || 'Fair',
+          factors: {
+            profitability: creditRatings.value.profitability,
+            liquidity: creditRatings.value.liquidity,
+            solvency: creditRatings.value.solvency,
+            efficiency: creditRatings.value.efficiency,
+            growth: creditRatings.value.growth
+          }
+        };
+      }
+
+      if (legalHistory.status === 'fulfilled' && legalHistory.value) {
+        baseDetails.legalCases = legalHistory.value.cases || legalHistory.value;
+      }
+
+      if (charges.status === 'fulfilled' && charges.value) {
+        baseDetails.charges = charges.value.charges || charges.value;
+      }
+
+      return baseDetails;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 company details error for CIN ${cin}:`, error?.response?.status, error?.message);
       return null;
     }
   }
 
   /**
-   * Get company financials
+   * Get basic company info only (without enrichment)
+   * For fast lookups when full details aren't needed
+   */
+  async getCompanyBasicInfo(cin: string): Promise<CompanyBasicInfo | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/base-details`);
+      const data = response.data?.data || response.data;
+      
+      return {
+        cin: data.cin || data.identifier || cin,
+        companyName: data.legalName || data.companyName || data.name,
+        registrationNumber: data.registrationNumber || data.cin,
+        incorporationDate: data.dateOfIncorporation || data.incorporationDate,
+        companyClass: data.companyClass || data.class,
+        companyCategory: data.companyCategory || data.category,
+        companySubCategory: data.companySubCategory,
+        authorizedCapital: data.authorizedCapital,
+        paidUpCapital: data.paidUpCapital,
+        registeredAddress: data.registeredAddress || data.address,
+        city: data.city,
+        state: data.state,
+        pincode: data.pincode,
+        email: data.email,
+        phone: data.phone,
+        website: data.website
+      };
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 basic info error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get full company KYC data (v2 API)
+   * GET /entities/{identifier}/kyc
+   */
+  async getCompanyKYC(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/kyc`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 KYC error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get company GST details (v2 API)
+   * GET /entities/{identifier}/gst-details
+   */
+  async getCompanyGST(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/gst-details`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 GST error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get company credit ratings (v2 API)
+   * GET /entities/{identifier}/credit-ratings
+   */
+  async getCompanyCreditRatings(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/credit-ratings`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 credit ratings error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get company legal history (v2 API)
+   * GET /entities/{identifier}/legal-history
+   */
+  async getCompanyLegalHistory(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/legal-history`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 legal history error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get company open charges (v2 API)
+   * GET /entities/{identifier}/open-charges
+   */
+  async getCompanyCharges(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/open-charges`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 charges error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get director network (v2 API)
+   * GET /entities/{identifier}/director-network
+   */
+  async getDirectorNetwork(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/director-network`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 director network error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get company financials (uses KYC endpoint for financial data)
    */
   async getCompanyFinancials(cin: string): Promise<FinancialData[]> {
     try {
-      const response = await this.client.get(`/${this.apiVersion}/companies/${cin}/financials`);
-      return response.data.financials || [];
+      const kycData = await this.getCompanyKYC(cin);
+      return kycData?.financials || [];
     } catch (error) {
-      console.error(`❌ Probe42 financials error for CIN ${cin}:`, error);
+      console.error(`❌ Probe42 v2 financials error for CIN ${cin}:`, error);
       return [];
     }
   }
 
   /**
-   * Get company directors
+   * Get company directors (uses KYC endpoint for director data)
    */
   async getCompanyDirectors(cin: string): Promise<DirectorInfo[]> {
     try {
-      const response = await this.client.get(`/${this.apiVersion}/companies/${cin}/directors`);
-      return response.data.directors || [];
+      const kycData = await this.getCompanyKYC(cin);
+      return kycData?.directors || [];
     } catch (error) {
-      console.error(`❌ Probe42 directors error for CIN ${cin}:`, error);
+      console.error(`❌ Probe42 v2 directors error for CIN ${cin}:`, error);
       return [];
     }
   }
 
   /**
-   * Get Probe42 Score (financial health rating)
+   * Get Probe42 Score (uses credit ratings endpoint)
    */
   async getProbe42Score(cin: string): Promise<Probe42Score | null> {
     try {
-      const response = await this.client.get(`/${this.apiVersion}/companies/${cin}/score`);
-      return response.data;
+      const ratings = await this.getCompanyCreditRatings(cin);
+      if (!ratings) return null;
+      
+      return {
+        score: ratings.score || 3,
+        rating: ratings.rating || 'Fair',
+        factors: {
+          profitability: ratings.profitability,
+          liquidity: ratings.liquidity,
+          solvency: ratings.solvency,
+          efficiency: ratings.efficiency,
+          growth: ratings.growth
+        }
+      };
     } catch (error) {
-      console.error(`❌ Probe42 score error for CIN ${cin}:`, error);
+      console.error(`❌ Probe42 v2 score error for CIN ${cin}:`, error);
       return null;
     }
   }
 
   /**
-   * Search director by PAN or name
+   * Search director by PAN or name (uses director network)
    */
-  async searchDirector(criteria: { pan?: string; name?: string }): Promise<DirectorInfo[]> {
+  async searchDirector(criteria: { pan?: string; name?: string; din?: string }): Promise<DirectorInfo[]> {
     try {
-      const response = await this.client.get(`/${this.apiVersion}/directors`, {
-        params: {
-          filters: JSON.stringify(criteria)
-        }
-      });
-      return response.data.directors || [];
+      if (criteria.din) {
+        const response = await this.client.get(`/entities/${criteria.din}/director-network`);
+        return response.data?.directors || [];
+      }
+      console.warn('Probe42 v2 director search requires DIN. PAN/name search not directly supported.');
+      return [];
     } catch (error) {
-      console.error('❌ Probe42 director search error:', error);
+      console.error('❌ Probe42 v2 director search error:', error);
       return [];
     }
   }
 
   /**
    * Find high-value leads based on financial criteria
+   * Note: Probe42 v2 Search API only supports name-based search.
+   * Financial filters (revenue, profit, score) must be applied via 
+   * post-processing after fetching company details.
    */
   async findHighValueLeads(criteria: LeadScoringCriteria): Promise<{ companies: CompanyBasicInfo[]; error?: string; available: boolean }> {
     const filters: CompanySearchFilters = {
-      minRevenue: criteria.minRevenue || 10000000, // ₹1 Cr minimum
-      minProfit: criteria.minProfit || 1000000, // ₹10 Lakh minimum
-      probe42Score: criteria.minScore || 3, // Minimum score of 3
       limit: 100
     };
 
-    // Map risk level to Probe42 filters
-    if (criteria.maxRiskLevel === 'low') {
-      filters.probe42Score = 5;
-    } else if (criteria.maxRiskLevel === 'medium') {
-      filters.probe42Score = 4;
-    }
+    console.log('ℹ️ Probe42 v2: Financial filters (revenue, profit, score) require post-processing');
+    console.log('   Use getCompanyDetails() to fetch financial data for filtering');
 
     return await this.searchCompanies(filters);
   }
@@ -448,7 +715,9 @@ export function getProbe42Service(): Probe42Service {
     }
 
     probe42Service = new Probe42Service({ apiKey });
-    console.log('✅ Probe42 service initialized');
+    console.log(`✅ Probe42 service initialized (v2 API)`);
+    console.log(`   Base URL: ${PROBE42_V2_BASE_URL}`);
+    console.log(`   API Version: ${PROBE42_API_VERSION}`);
   }
 
   return probe42Service;
