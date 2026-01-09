@@ -267,15 +267,19 @@ export class Probe42Service {
       console.log('🔍 Probe42 v2 search request:', JSON.stringify(searchBody));
       const response = await this.client.post('/search-entities', searchBody);
       console.log('📦 Probe42 v2 search response status:', response.status);
-      console.log('📦 Probe42 v2 raw response:', JSON.stringify(response.data, null, 2));
       
-      const entities = response.data?.entities || response.data?.data || response.data?.results || response.data?.companies || response.data || [];
+      // v2 API returns: { data: { companies: [...], llps: [...] } }
+      const responseData = response.data?.data || response.data;
+      const companiesList = responseData?.companies || responseData?.entities || [];
+      const llpsList = responseData?.llps || [];
       
-      let companies: CompanyBasicInfo[] = Array.isArray(entities) 
-        ? entities.map((entity: any) => ({
-            cin: entity.cin || entity.identifier || entity.id,
-            companyName: entity.legalName || entity.companyName || entity.name,
-            registrationNumber: entity.registrationNumber || entity.cin,
+      console.log(`📦 Probe42 v2 found ${companiesList.length} companies, ${llpsList.length} LLPs`);
+      
+      let companies: CompanyBasicInfo[] = Array.isArray(companiesList) 
+        ? companiesList.map((entity: any) => ({
+            cin: entity.identifier || entity.cin || entity.id,
+            companyName: entity.legal_name || entity.legalName || entity.companyName || entity.name,
+            registrationNumber: entity.identifier || entity.registrationNumber || entity.cin,
             incorporationDate: entity.incorporationDate || entity.dateOfIncorporation,
             companyClass: entity.companyClass || entity.class,
             companyCategory: entity.companyCategory || entity.category,
