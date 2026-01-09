@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1334,9 +1334,8 @@ function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
     address: ""
   });
 
-  // Update form when lead changes
-  useState(() => {
-    if (lead) {
+  useEffect(() => {
+    if (lead && open) {
       setFormData({
         companyName: lead.companyName || "",
         primaryEmail: lead.primaryEmail || "",
@@ -1347,28 +1346,11 @@ function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isPending }: {
         leadQuality: lead.leadQuality || "",
         status: lead.status || "",
         notes: "",
-        website: "",
-        address: ""
+        website: (lead as any).website || "",
+        address: (lead as any).address || ""
       });
     }
-  });
-
-  // Reset form when dialog opens with new lead
-  if (lead && formData.companyName !== lead.companyName) {
-    setFormData({
-      companyName: lead.companyName || "",
-      primaryEmail: lead.primaryEmail || "",
-      primaryMobile: lead.primaryMobile || "",
-      city: lead.city || "",
-      state: lead.state || "",
-      industrySegment: lead.industrySegment || "",
-      leadQuality: lead.leadQuality || "",
-      status: lead.status || "",
-      notes: "",
-      website: "",
-      address: ""
-    });
-  }
+  }, [lead, open]);
 
   const handleSubmit = () => {
     const updates: any = {};
