@@ -166,6 +166,99 @@ const DEFAULT_ALLOCATIONS = {
   very_aggressive: { equity: 28, debt: 4, hybrid: 4, gold: 4, silver: 2, index: 8, international: 5, reit: 4, invit: 4, bonds: 4, mld: 3, listed_stocks: 15, unlisted_stocks: 10, pms: 0, aif: 0, global_advisory: 5 }
 };
 
+const CATEGORY_TO_ALLOCATION_MAP: Record<string, keyof typeof DEFAULT_ALLOCATIONS.moderate> = {
+  equity: 'equity',
+  debt: 'debt',
+  hybrid: 'hybrid',
+  gold_fof: 'gold',
+  silver_fof: 'silver',
+  index_fund: 'index',
+  international: 'international',
+  reit: 'reit',
+  invit: 'invit',
+  bonds: 'bonds',
+  mld: 'mld',
+  listed_stocks: 'listed_stocks',
+  unlisted_stocks: 'unlisted_stocks',
+  pms: 'pms',
+  aif: 'aif',
+  global_advisory: 'global_advisory'
+};
+
+const ALLOCATION_TO_CATEGORY_MAP: Record<string, string> = {
+  equity: 'equity',
+  debt: 'debt',
+  hybrid: 'hybrid',
+  gold: 'gold_fof',
+  silver: 'silver_fof',
+  index: 'index_fund',
+  international: 'international',
+  reit: 'reit',
+  invit: 'invit',
+  bonds: 'bonds',
+  mld: 'mld',
+  listed_stocks: 'listed_stocks',
+  unlisted_stocks: 'unlisted_stocks',
+  pms: 'pms',
+  aif: 'aif',
+  global_advisory: 'global_advisory'
+};
+
+const deriveDefaultCategories = (riskTolerance: keyof typeof DEFAULT_ALLOCATIONS): string[] => {
+  const allocations = DEFAULT_ALLOCATIONS[riskTolerance];
+  return Object.entries(allocations)
+    .filter(([_, value]) => value > 0)
+    .map(([key]) => ALLOCATION_TO_CATEGORY_MAP[key])
+    .filter(Boolean);
+};
+
+const computeAllocationsForSelectedCategories = (
+  selectedCategories: string[],
+  riskTolerance: keyof typeof DEFAULT_ALLOCATIONS
+): typeof DEFAULT_ALLOCATIONS.moderate => {
+  const baseAllocations = DEFAULT_ALLOCATIONS[riskTolerance];
+  const result = { ...baseAllocations };
+  
+  Object.keys(result).forEach(key => {
+    result[key as keyof typeof result] = 0;
+  });
+  
+  if (selectedCategories.length === 0) {
+    return result;
+  }
+  
+  const selectedAllocationKeys = selectedCategories
+    .map(cat => CATEGORY_TO_ALLOCATION_MAP[cat])
+    .filter(Boolean);
+  
+  const totalOriginalWeight = selectedAllocationKeys.reduce((sum, key) => {
+    return sum + (baseAllocations[key] || 0);
+  }, 0);
+  
+  if (totalOriginalWeight === 0) {
+    const equalShare = Math.floor(100 / selectedAllocationKeys.length);
+    const remainder = 100 - (equalShare * selectedAllocationKeys.length);
+    selectedAllocationKeys.forEach((key, idx) => {
+      result[key] = equalShare + (idx === 0 ? remainder : 0);
+    });
+    return result;
+  }
+  
+  let allocated = 0;
+  selectedAllocationKeys.forEach((key, idx) => {
+    const originalWeight = baseAllocations[key] || 0;
+    const proportionalShare = Math.round((originalWeight / totalOriginalWeight) * 100);
+    if (idx === selectedAllocationKeys.length - 1) {
+      result[key] = 100 - allocated;
+    } else {
+      result[key] = proportionalShare;
+      allocated += proportionalShare;
+    }
+  });
+  
+  return result;
+};
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -286,42 +379,34 @@ export default function AgentProspectWizard() {
   // Calculate total portfolio value for eligibility checks
   const totalPortfolioValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0) + freshInvestmentAmount;
   
-  // Auto-sync selectedCategories when customAllocations change
-  useEffect(() => {
-    const allocationToCategoryMap: Record<string, string> = {
-      equity: 'equity',
-      debt: 'debt', 
-      hybrid: 'hybrid',
-      gold: 'gold_fof',
-      silver: 'silver_fof',
-      index: 'index_fund',
-      international: 'international',
-      reit: 'reit',
-      invit: 'invit',
-      bonds: 'bonds',
-      mld: 'mld',
-      listed_stocks: 'listed_stocks',
-      unlisted_stocks: 'unlisted_stocks',
-      pms: 'pms',
-      aif: 'aif',
-      global_advisory: 'global_advisory'
-    };
+  // Handle category toggle with allocation redistribution
+  const handleCategoryToggle = (categoryId: string, checked: boolean) => {
+    const newCategories = checked
+      ? [...selectedCategories, categoryId]
+      : selectedCategories.filter(c => c !== categoryId);
     
-    setSelectedCategories(prev => {
-      const newCategories = new Set(prev);
-      
-      Object.entries(allocationToCategoryMap).forEach(([allocationKey, categoryId]) => {
-        const allocationValue = customAllocations[allocationKey as keyof typeof customAllocations];
-        if (allocationValue > 0) {
-          newCategories.add(categoryId);
-        } else {
-          newCategories.delete(categoryId);
-        }
-      });
-      
-      return Array.from(newCategories);
-    });
-  }, [customAllocations]);
+    setSelectedCategories(newCategories);
+    
+    // Redistribute allocations proportionally among selected categories
+    const newAllocations = computeAllocationsForSelectedCategories(
+      newCategories,
+      riskProfile.riskTolerance
+    );
+    setCustomAllocations(newAllocations);
+  };
+  
+  // Reset both categories and allocations to AI defaults for risk profile
+  const handleUseDefaultAllocations = () => {
+    const defaultCategories = deriveDefaultCategories(riskProfile.riskTolerance);
+    const defaultAllocations = DEFAULT_ALLOCATIONS[riskProfile.riskTolerance];
+    
+    setSelectedCategories(defaultCategories);
+    setCustomAllocations(defaultAllocations);
+    
+    // Also reset global advisory selections when using defaults
+    setGlobalAdvisorySelections({});
+    setGlobalAdvisoryBudget(0);
+  };
   
   // Auto-reset PMS/AIF allocations when eligibility changes
   useEffect(() => {
@@ -1594,7 +1679,7 @@ export default function AgentProspectWizard() {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setCustomAllocations(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance])}
+                onClick={handleUseDefaultAllocations}
                 data-testid="use-default-allocations-btn"
               >
                 <RefreshCw className="h-4 w-4 mr-2" /> Use Default Allocations
@@ -1778,25 +1863,13 @@ export default function AgentProspectWizard() {
                         ? 'border-primary bg-primary/5' 
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => {
-                      setSelectedCategories(prev => 
-                        prev.includes(category.id)
-                          ? prev.filter(c => c !== category.id)
-                          : [...prev, category.id]
-                      );
-                    }}
+                    onClick={() => handleCategoryToggle(category.id, !selectedCategories.includes(category.id))}
                     data-testid={`category-${category.id}`}
                   >
                     <div className="flex items-start gap-3">
                       <Checkbox 
                         checked={selectedCategories.includes(category.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedCategories(prev => 
-                            checked 
-                              ? [...prev, category.id]
-                              : prev.filter(c => c !== category.id)
-                          );
-                        }}
+                        onCheckedChange={(checked) => handleCategoryToggle(category.id, !!checked)}
                         className="mt-0.5"
                       />
                       <div>
