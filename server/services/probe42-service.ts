@@ -517,6 +517,26 @@ class Probe42Service {
           }
         }
         
+        // Use NIC-based classification as fallback if sector/industry not provided by API
+        if ((!mappedData.sector || !mappedData.industry) && mappedData.cin) {
+          try {
+            const { classifyIndustryFromCIN } = await import('../utils/nic-industry-classifier');
+            const nicClassification = classifyIndustryFromCIN(mappedData.cin);
+            if (nicClassification) {
+              if (!mappedData.sector) {
+                mappedData.sector = nicClassification.sector;
+                console.log(`[Probe42] Using NIC-derived sector for ${mappedData.cin}: ${nicClassification.sector}`);
+              }
+              if (!mappedData.industry) {
+                mappedData.industry = nicClassification.industry;
+                console.log(`[Probe42] Using NIC-derived industry for ${mappedData.cin}: ${nicClassification.industry}`);
+              }
+            }
+          } catch (nicError) {
+            // NIC classification is optional, continue without it
+          }
+        }
+        
         return mappedData;
       } catch (error: any) {
         if (error.response?.status === 404) {

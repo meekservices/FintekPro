@@ -5283,6 +5283,54 @@ router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response)
       }
     }
     
+    // Final fallback: Use NIC-based classification from CIN if still missing sector/industry
+    const finalNeedsSector = enrichedFields.every(f => f.field !== 'sector') && needsSectorEnrich;
+    const finalNeedsIndustry = enrichedFields.every(f => f.field !== 'industry') && needsIndustryEnrich;
+    
+    if ((finalNeedsSector || finalNeedsIndustry) && currentCIN) {
+      try {
+        const { classifyIndustryFromCIN } = await import('../utils/nic-industry-classifier');
+        const nicClassification = classifyIndustryFromCIN(currentCIN);
+        
+        if (nicClassification) {
+          console.log(`[Auto-Enrich] Using NIC-based classification for CIN ${currentCIN}: ${nicClassification.sector}/${nicClassification.industry}`);
+          const updateData: any = { lastSyncedAt: new Date() };
+          
+          if (nicClassification.sector && finalNeedsSector) {
+            updateData.sector = nicClassification.sector;
+            enrichedFields.push({
+              field: 'sector',
+              oldValue: companyData.sector || 'Unknown',
+              newValue: nicClassification.sector,
+              source: 'NIC Classification (Derived from CIN)'
+            });
+          }
+          
+          if (nicClassification.industry && finalNeedsIndustry) {
+            updateData.industry = nicClassification.industry;
+            enrichedFields.push({
+              field: 'industry',
+              oldValue: companyData.industry || 'Unknown',
+              newValue: nicClassification.industry,
+              source: 'NIC Classification (Derived from CIN)'
+            });
+          }
+          
+          if (Object.keys(updateData).length > 1) {
+            await storage.updateUnlistedCompany(companyId, updateData);
+            if (enrichmentSource === 'none' || enrichmentSource === '') {
+              enrichmentSource = 'NIC Classification';
+            } else {
+              enrichmentSource = enrichmentSource + ' + NIC Classification';
+            }
+            console.log(`[Auto-Enrich] Updated ${enrichedFields.filter(f => f.source.includes('NIC')).length} fields from NIC classification for ${companyData.name}`);
+          }
+        }
+      } catch (nicError: any) {
+        console.error('[Auto-Enrich] NIC classification error:', nicError.message);
+      }
+    }
+    
     // Fetch the updated company data
     const updatedCompany = await storage.getUnlistedCompanyById(companyId);
     
