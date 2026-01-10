@@ -26129,10 +26129,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===================================================================
 
   // Get all store categories with their subcategories
-  app.get('/api/admin/store/categories', requireAdmin, async (req, res) => {
+  app.get('/api/admin/store/categories', requireAdmin, async (req: any, res) => {
+    console.log('[Store Categories] Request received from user:', req.user?.id, req.user?.email);
     try {
       const categories = await storage.getAllStoreCategories();
       const subcategories = await storage.getAllStoreSubcategories();
+      console.log('[Store Categories] Fetched', categories.length, 'categories and', subcategories.length, 'subcategories');
       
       // Group subcategories by category
       const categoriesWithSubs = categories.map(cat => ({

@@ -578,12 +578,15 @@ export default function StoreManagement() {
   } | null>(null);
 
   // Fetch categories with subcategories
-  const { data: categoriesData, isLoading: isLoadingCategories, refetch: refetchCategories } = useQuery<{ categories: Category[] }>({
+  const { data: categoriesData, isLoading: isLoadingCategories, isError: isCategoriesError, error: categoriesError, refetch: refetchCategories } = useQuery<{ categories: Category[] }>({
     queryKey: ['/api/admin/store/categories'],
   });
 
+  // Debug: Log categories data
+  console.log('[StoreManagement] Categories data:', categoriesData, 'isLoading:', isLoadingCategories, 'isError:', isCategoriesError, 'error:', categoriesError);
+
   // Fetch all products
-  const { data: productsData, isLoading: isLoadingProducts } = useQuery<{ products: Product[] }>({
+  const { data: productsData, isLoading: isLoadingProducts, isError: isProductsError } = useQuery<{ products: Product[] }>({
     queryKey: ['/api/admin/store/products'],
   });
 
@@ -856,6 +859,20 @@ export default function StoreManagement() {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
                   <span className="ml-2 text-muted-foreground">Loading hierarchy...</span>
+                </div>
+              ) : isCategoriesError ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-400" />
+                  <p className="text-red-400 font-medium">Failed to load categories</p>
+                  <p className="text-sm mt-2">{(categoriesError as any)?.message || 'An error occurred while fetching categories'}</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => refetchCategories()} 
+                    className="mt-4"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
                 </div>
               ) : filteredCategories.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
