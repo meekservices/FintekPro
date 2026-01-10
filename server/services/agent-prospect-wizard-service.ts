@@ -1374,10 +1374,21 @@ class AgentProspectWizardService {
     for (const category of categories) {
       const allocationKey = categoryToAllocation[category] || category;
       const allocation = (allocations as any)[allocationKey] || 0;
-      if (allocation > 0) {
-        filteredAllocations.push({ category, allocation });
-        totalAllocation += allocation;
-      }
+      // Include category even if allocation is 0 - we'll distribute equally if all are 0
+      filteredAllocations.push({ category, allocation });
+      totalAllocation += allocation;
+    }
+    
+    // If all selected categories have 0% allocation, distribute equally among them
+    if (totalAllocation === 0 && filteredAllocations.length > 0) {
+      const equalAllocation = Math.floor(100 / filteredAllocations.length);
+      filteredAllocations = filteredAllocations.map((a, idx) => ({
+        ...a,
+        allocation: idx === 0 ? equalAllocation + (100 % filteredAllocations.length) : equalAllocation
+      }));
+      totalAllocation = 100;
+      console.log('[Agent Wizard] No allocations set for selected categories, distributing equally:', 
+        filteredAllocations.map(a => `${a.category}: ${a.allocation}%`).join(', '));
     }
     
     // Normalize allocations to sum to 100% if needed
@@ -1388,6 +1399,9 @@ class AgentProspectWizardService {
         allocation: Math.round(a.allocation * scaleFactor)
       }));
     }
+    
+    // Remove categories with 0 allocation after normalization
+    filteredAllocations = filteredAllocations.filter(a => a.allocation > 0);
     
     // Generate suggestions for each category based on allocations
     let matchScoreCounter = 95;
@@ -1443,43 +1457,80 @@ class AgentProspectWizardService {
       });
     }
     
-    // Fallback to legacy recommendations if no suggestions generated
-    if (suggestions.length === 0) {
-      const realFunds = REAL_FUND_RECOMMENDATIONS[riskProfile.riskTolerance] || REAL_FUND_RECOMMENDATIONS.moderate;
-      const allocationPerFund = Math.floor(100 / realFunds.length);
-      const remainder = 100 - (allocationPerFund * realFunds.length);
-
-      realFunds.forEach((fund, index) => {
-        const allocation = index === 0 ? allocationPerFund + remainder : allocationPerFund;
-        const amount = Math.round((allocation / 100) * investmentAmount);
+    // Fallback: if no suggestions generated but we have selected categories, 
+    // try to find ANY funds from those categories regardless of risk profile match
+    if (suggestions.length === 0 && categories.length > 0) {
+      console.log('[Agent Wizard] No primary suggestions, trying fallback for categories:', categories);
+      
+      let matchScoreFallback = 90;
+      const equalAllocationFallback = Math.floor(100 / categories.length);
+      
+      for (let i = 0; i < categories.length; i++) {
+        const category = categories[i];
+        const allocation = i === 0 ? equalAllocationFallback + (100 % categories.length) : equalAllocationFallback;
+        const categoryAmount = Math.round((allocation / 100) * investmentAmount);
         
-        suggestions.push({
-          productType: 'mutual_fund',
-          productName: fund.name,
-          suggestedAmount: amount,
-          expectedReturn: `${fund.returns3Y}%`,
-          riskLevel: fund.risk.toLowerCase(),
-          matchScore: 95 - (index * 3),
-          rationale: `Recommended ${fund.category} fund from ${fund.amc} with strong ${fund.returns3Y}% 3-year returns. Suitable for ${riskProfile.investmentHorizon.replace('_', ' ')} horizon.`,
-          highlights: [
-            `AMC: ${fund.amc}`,
-            `Category: ${fund.category}`,
-            `1Y Returns: ${fund.returns1Y}%`,
-            `3Y Returns: ${fund.returns3Y}%`,
-            `5Y Returns: ${fund.returns5Y}%`,
-            `Risk: ${fund.risk}`
-          ],
-          amc: fund.amc,
-          category: fund.category,
-          returns1Y: fund.returns1Y,
-          returns3Y: fund.returns3Y,
-          returns5Y: fund.returns5Y,
-          riskRating: fund.risk,
-          allocationPercentage: allocation,
-          recommendedAmount: amount,
-          selectionReason: `Selected based on ${riskProfile.riskTolerance} risk profile and ${fund.returns3Y}% historical 3-year CAGR performance.`
-        } as any);
-      });
+        // Try to get funds from this category for any risk level
+        const categoryData = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category];
+        if (!categoryData) continue;
+        
+        // Try current risk profile first, then fallback to any available
+        const riskLevels = [riskProfile.riskTolerance, 'moderate', 'conservative', 'aggressive', 'very_aggressive'];
+        let fundsToUse: any[] = [];
+        
+        for (const risk of riskLevels) {
+          if (categoryData[risk] && categoryData[risk].length > 0) {
+            fundsToUse = categoryData[risk].slice(0, 2);
+            break;
+          }
+        }
+        
+        if (fundsToUse.length === 0) continue;
+        
+        const amountPerFund = Math.round(categoryAmount / fundsToUse.length);
+        
+        fundsToUse.forEach((fund: any, idx: number) => {
+          const fundAmount = idx === fundsToUse.length - 1 
+            ? categoryAmount - (amountPerFund * idx) 
+            : amountPerFund;
+          
+          if (fundAmount <= 0) return;
+          
+          suggestions.push({
+            productType: fund.productType || 'mutual_fund',
+            productName: fund.name,
+            suggestedAmount: fundAmount,
+            expectedReturn: `${fund.returns3Y}%`,
+            riskLevel: fund.risk.toLowerCase(),
+            matchScore: matchScoreFallback--,
+            rationale: `Recommended ${fund.category} from ${fund.amc}. Selected from your enabled product categories.`,
+            highlights: [
+              `AMC: ${fund.amc}`,
+              `Category: ${fund.category}`,
+              `1Y Returns: ${fund.returns1Y}%`,
+              `3Y Returns: ${fund.returns3Y}%`,
+              `5Y Returns: ${fund.returns5Y}%`,
+              `Risk: ${fund.risk}`
+            ],
+            amc: fund.amc,
+            category: fund.category,
+            returns1Y: fund.returns1Y,
+            returns3Y: fund.returns3Y,
+            returns5Y: fund.returns5Y,
+            riskRating: fund.risk,
+            allocationPercentage: Math.round((fundAmount / investmentAmount) * 100),
+            recommendedAmount: fundAmount,
+            selectionReason: `Selected from your enabled ${category} category based on ${riskProfile.riskTolerance} risk profile.`
+          } as any);
+        });
+      }
+      
+      console.log('[Agent Wizard] Fallback generated', suggestions.length, 'suggestions');
+    }
+    
+    // Final message if still no suggestions (shouldn't happen with proper categories)
+    if (suggestions.length === 0) {
+      console.log('[Agent Wizard] Warning: No suggestions generated for categories:', categories);
     }
 
     return suggestions;
