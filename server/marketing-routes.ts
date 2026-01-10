@@ -506,6 +506,91 @@ export function registerMarketingRoutes(app: any) {
   });
 
   /**
+   * Search directors by name via Probe42 v2 Director Network API
+   * Returns directors with their associated companies including financial data
+   */
+  app.post('/api/admin/marketing/leads/director-search', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { directorName, page, limit } = req.body;
+
+      if (!directorName || directorName.trim().length < 3) {
+        return apiResponse.badRequest(res, 'Director name must be at least 3 characters');
+      }
+
+      const probe42 = getProbe42Service();
+      const result = await probe42.searchDirectorsByName(directorName.trim(), { page, limit });
+
+      if (!result.available) {
+        return res.json({
+          directors: [],
+          count: 0,
+          available: false,
+          error: result.error
+        });
+      }
+
+      // Enrich each unique company with detailed financial data
+      const uniqueCINs = new Set<string>();
+      result.directors.forEach(d => d.companies.forEach(c => {
+        if (c.cin) uniqueCINs.add(c.cin);
+      }));
+
+      const enrichedCompanyMap = new Map<string, any>();
+      
+      // Batch enrich companies (limit to first 20 to avoid API overload)
+      const cinsToEnrich = Array.from(uniqueCINs).slice(0, 20);
+      
+      await Promise.all(cinsToEnrich.map(async (cin) => {
+        const enriched = await probe42.enrichDirectorCompanyData(cin);
+        if (enriched) {
+          enrichedCompanyMap.set(cin, enriched);
+        }
+      }));
+
+      // Merge enriched data back into director results
+      const enrichedDirectors = result.directors.map(director => ({
+        ...director,
+        companies: director.companies.map(company => {
+          const enriched = enrichedCompanyMap.get(company.cin);
+          if (enriched) {
+            return {
+              ...company,
+              legalName: enriched.companyName || company.legalName,
+              paidUpCapital: enriched.paidUpCapital || company.paidUpCapital,
+              sumOfCharges: enriched.sumOfCharges || company.sumOfCharges,
+              companyStatus: enriched.companyStatus || company.companyStatus,
+              activeCompliance: enriched.activeCompliance,
+              listingStatus: enriched.listingStatus,
+              entityType: enriched.entityType,
+              city: enriched.city,
+              state: enriched.state,
+              email: enriched.email,
+              website: enriched.website
+            };
+          }
+          return company;
+        })
+      }));
+
+      res.json({
+        directors: enrichedDirectors,
+        count: enrichedDirectors.length,
+        totalCompanies: uniqueCINs.size,
+        enrichedCompanies: enrichedCompanyMap.size,
+        available: true
+      });
+    } catch (error) {
+      console.error('Error searching directors:', error);
+      return res.json({
+        directors: [],
+        count: 0,
+        available: false,
+        error: 'Failed to search directors. Please try again.'
+      });
+    }
+  });
+
+  /**
    * Get company details from Probe42
    */
   app.get('/api/admin/marketing/leads/company/:cin', requireAdmin, async (req: any, res: Response) => {
