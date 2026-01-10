@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield, CreditCard, Scale, UserCheck, FileWarning, Landmark } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield, CreditCard, Scale, UserCheck, FileWarning, Landmark, Eye, Building, FileText, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -88,6 +91,8 @@ export default function LeadProspecting() {
   const [searchCIN, setSearchCIN] = useState('');
   const [searchResults, setSearchResults] = useState<CompanySearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   const { data: leads, isLoading } = useQuery<ProspectLead[]>({
     queryKey: ['/api/admin/marketing/leads']
@@ -335,28 +340,33 @@ export default function LeadProspecting() {
                         </div>
                         <p className="text-sm text-muted-foreground font-mono mt-1">CIN: {company.cin}</p>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => importLeadMutation.mutate({ cin: company.cin, companyName: company.companyName })}
-                        disabled={importLeadMutation.isPending}
-                        data-testid={`button-import-${company.cin}`}
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Import Lead
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedCompany(company);
+                            setShowDetailsDialog(true);
+                          }}
+                          data-testid={`button-details-${company.cin}`}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Details
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => importLeadMutation.mutate({ cin: company.cin, companyName: company.companyName })}
+                          disabled={importLeadMutation.isPending}
+                          data-testid={`button-import-${company.cin}`}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Import
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Details Grid */}
                     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 text-sm">
-                      {/* Capital Info */}
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <IndianRupee className="h-4 w-4 text-green-600" />
-                        <span>
-                          <strong>Paid-up:</strong> ₹{(company.paidUpCapital || 0).toLocaleString('en-IN')}
-                          {company.authorizedCapital ? ` | Auth: ₹${company.authorizedCapital.toLocaleString('en-IN')}` : ''}
-                        </span>
-                      </div>
-
                       {/* Incorporation Date */}
                       {company.incorporationDate && (
                         <div className="flex items-center gap-2 text-muted-foreground">
@@ -746,6 +756,197 @@ export default function LeadProspecting() {
           )}
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              Company Details
+            </DialogTitle>
+            <DialogDescription>
+              Review all available information before importing
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedCompany && (
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="space-y-6">
+                {/* Company Identity */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">{selectedCompany.companyName}</h3>
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">CIN:</span>
+                      <span className="font-mono text-muted-foreground">{selectedCompany.cin}</span>
+                    </div>
+                    {selectedCompany.status && (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Status:</span>
+                        <Badge variant={selectedCompany.status === 'Active' ? 'default' : 'secondary'}>
+                          {selectedCompany.status}
+                        </Badge>
+                      </div>
+                    )}
+                    {selectedCompany.companyType && (
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Type:</span>
+                        <span className="text-muted-foreground">{selectedCompany.companyType}</span>
+                      </div>
+                    )}
+                    {selectedCompany.companyClass && (
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Class:</span>
+                        <span className="text-muted-foreground">{selectedCompany.companyClass}</span>
+                      </div>
+                    )}
+                    {selectedCompany.companyCategory && (
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Category:</span>
+                        <span className="text-muted-foreground">{selectedCompany.companyCategory}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Financial Information */}
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <IndianRupee className="h-4 w-4" />
+                    Financial Information
+                  </h4>
+                  <div className="grid gap-2 text-sm">
+                    {selectedCompany.authorizedCapital && selectedCompany.authorizedCapital > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Authorized Capital:</span>
+                        <span className="text-muted-foreground">₹{selectedCompany.authorizedCapital.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    {selectedCompany.paidUpCapital && selectedCompany.paidUpCapital > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Paid-up Capital:</span>
+                        <span className="text-muted-foreground">₹{selectedCompany.paidUpCapital.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    {(!selectedCompany.authorizedCapital || selectedCompany.authorizedCapital === 0) && 
+                     (!selectedCompany.paidUpCapital || selectedCompany.paidUpCapital === 0) && (
+                      <p className="text-muted-foreground italic">Financial data will be fetched upon import</p>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Registration Details */}
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Registration Details
+                  </h4>
+                  <div className="grid gap-2 text-sm">
+                    {selectedCompany.incorporationDate && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Incorporation Date:</span>
+                        <span className="text-muted-foreground">
+                          {new Date(selectedCompany.incorporationDate).toLocaleDateString('en-IN', { 
+                            year: 'numeric', month: 'long', day: 'numeric' 
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Contact & Location */}
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Contact & Location
+                  </h4>
+                  <div className="grid gap-2 text-sm">
+                    {(selectedCompany.city || selectedCompany.state) && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Location:</span>
+                        <span className="text-muted-foreground">
+                          {[selectedCompany.city, selectedCompany.state, selectedCompany.pincode].filter(Boolean).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                    {selectedCompany.registeredAddress && (
+                      <div className="flex items-start gap-2">
+                        <Building className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <div>
+                          <span className="font-medium">Registered Address:</span>
+                          <p className="text-muted-foreground mt-1">{selectedCompany.registeredAddress}</p>
+                        </div>
+                      </div>
+                    )}
+                    {selectedCompany.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Email:</span>
+                        <a href={`mailto:${selectedCompany.email}`} className="text-primary hover:underline">
+                          {selectedCompany.email}
+                        </a>
+                      </div>
+                    )}
+                    {selectedCompany.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Phone:</span>
+                        <span className="text-muted-foreground">{selectedCompany.phone}</span>
+                      </div>
+                    )}
+                    {selectedCompany.website && (
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">Website:</span>
+                        <a 
+                          href={selectedCompany.website.startsWith('http') ? selectedCompany.website : `https://${selectedCompany.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {selectedCompany.website.replace(/^https?:\/\//, '')}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedCompany) {
+                  importLeadMutation.mutate({ cin: selectedCompany.cin, companyName: selectedCompany.companyName });
+                  setShowDetailsDialog(false);
+                }
+              }}
+              disabled={importLeadMutation.isPending}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Import Lead
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
