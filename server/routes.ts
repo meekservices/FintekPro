@@ -16,6 +16,7 @@ import { registerPreIPORoutes } from './routes/pre-ipo';
 import { registerCartRoutes } from './routes/cart';
 import { registerDLMRoutes } from './routes/dlm-routes';
 import knowledgeHubRoutes from './routes/knowledge-hub-routes';
+import mcaIntelligenceRoutes from './routes/mca-intelligence-routes';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 
@@ -565,6 +566,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Knowledge Hub Routes
   app.use("/api/knowledge-hub", knowledgeHubRoutes);
   console.log("✅ Knowledge Hub routes registered");
+
+  // MCA Intelligence Routes (Query Console, Filing Tracker, Analytics)
+  app.use("/api/mca", mcaIntelligenceRoutes);
+  console.log("✅ MCA Intelligence routes registered");
 
   app.post("/api/admin/seed-products", requireAdmin, async (req, res) => {
     try {
