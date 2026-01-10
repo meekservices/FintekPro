@@ -7,6 +7,7 @@ import { getProbe42AnalyticsService } from './services/probe42-analytics-service
 import { ckycSlaEscalationService } from './services/ckyc-sla-escalation-service';
 import { auditIntegrityChecker } from './services/audit-integrity-checker';
 import { errorDigestService } from './services/error-digest-service';
+import { companyDataRefreshScheduler } from './services/company-data-refresh-scheduler';
 import { db } from './db';
 import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -597,6 +598,15 @@ export function initializeCronJobs(): void {
     console.log(`[CRON] Audit Integrity Checker initialized (every ${auditCheckIntervalMinutes} minutes)`);
   } catch (error: any) {
     console.error('[CRON] Failed to initialize Audit Integrity Checker:', error.message);
+  }
+
+  // Initialize Company Data Auto-Refresh Scheduler - Runs every 6 hours
+  // Automatically refreshes stale company data using Probe42 batch APIs
+  try {
+    companyDataRefreshScheduler.start();
+    console.log('[CRON] Company Data Refresh Scheduler started (every 6 hours)');
+  } catch (error: any) {
+    console.error('[CRON] Failed to start Company Data Refresh Scheduler:', error.message);
   }
   
   console.log('✓ Cron jobs initialized successfully');
