@@ -8,7 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield, CreditCard, Scale, UserCheck, FileWarning, Landmark, Eye, Building, FileText, User } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield, CreditCard, Scale, UserCheck, FileWarning, Landmark, Eye, Building, FileText, User, Network } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -86,6 +88,32 @@ interface CompanySearchResult {
   status?: string;
 }
 
+interface DirectorCompany {
+  cin: string;
+  legalName: string;
+  companyStatus: string;
+  paidUpCapital: number;
+  sumOfCharges: number;
+  incorporationDate: string;
+  designation: string;
+  dateOfAppointment: string;
+  dateOfAppointmentForCurrentDesignation?: string;
+  dateOfCessation?: string;
+  activeCompliance?: string;
+  listingStatus?: string;
+  entityType?: string;
+  city?: string;
+  state?: string;
+  email?: string;
+  website?: string;
+}
+
+interface DirectorSearchResult {
+  din: string;
+  name: string;
+  companies: DirectorCompany[];
+}
+
 export default function LeadProspecting() {
   const { toast } = useToast();
   const [searchCIN, setSearchCIN] = useState('');
@@ -93,6 +121,10 @@ export default function LeadProspecting() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState('company-search');
+  const [directorName, setDirectorName] = useState('');
+  const [directorResults, setDirectorResults] = useState<DirectorSearchResult[]>([]);
+  const [directorApiError, setDirectorApiError] = useState<string | null>(null);
 
   const { data: leads, isLoading } = useQuery<ProspectLead[]>({
     queryKey: ['/api/admin/marketing/leads']
@@ -150,6 +182,7 @@ export default function LeadProspecting() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/marketing/leads'] });
       toast({ title: 'Lead imported successfully' });
       setSearchResults([]);
+      setDirectorResults([]);
     },
     onError: (error: any) => {
       toast({
@@ -159,6 +192,54 @@ export default function LeadProspecting() {
       });
     }
   });
+
+  const searchDirectorsMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest('/api/admin/marketing/leads/director-search', {
+        method: 'POST',
+        body: JSON.stringify({ directorName: name })
+      });
+    },
+    onSuccess: (data: any) => {
+      setDirectorResults(data.directors || []);
+      if (data.available === false) {
+        setDirectorApiError(data.error || 'Director search unavailable');
+        toast({ 
+          title: 'Director Search Unavailable',
+          description: data.error || 'External director search is currently unavailable.',
+          variant: 'destructive'
+        });
+      } else {
+        setDirectorApiError(null);
+        const totalCompanies = data.directors?.reduce((sum: number, d: DirectorSearchResult) => sum + d.companies.length, 0) || 0;
+        toast({ 
+          title: `Found ${data.count || 0} directors`,
+          description: `Associated with ${totalCompanies} companies`
+        });
+      }
+    },
+    onError: () => {
+      setDirectorApiError('Failed to connect to director search service');
+      toast({ 
+        title: 'Director search failed',
+        description: 'Unable to connect to director search. Try again later.',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const handleDirectorSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (directorName.trim().length < 3) {
+      toast({
+        title: 'Invalid search',
+        description: 'Director name must be at least 3 characters',
+        variant: 'destructive'
+      });
+      return;
+    }
+    searchDirectorsMutation.mutate(directorName.trim());
+  };
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -191,15 +272,29 @@ export default function LeadProspecting() {
         </p>
       </div>
 
-      {/* Search Section */}
+      {/* Search Section with Tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Search Companies</CardTitle>
+          <CardTitle>Search Prospects</CardTitle>
           <CardDescription>
-            Find high-value B2B prospects using financial filters
+            Find high-value B2B prospects by company name or director network
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="company-search" className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Company Search
+              </TabsTrigger>
+              <TabsTrigger value="director-lookup" className="flex items-center gap-2">
+                <Network className="h-4 w-4" />
+                Director Lookup
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Company Search Tab */}
+            <TabsContent value="company-search">
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -440,6 +535,221 @@ export default function LeadProspecting() {
               </div>
             </div>
           )}
+            </TabsContent>
+
+            {/* Director Lookup Tab */}
+            <TabsContent value="director-lookup">
+              <form onSubmit={handleDirectorSearch} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="directorName">Director Name <span className="text-red-500">*</span></Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="directorName"
+                      value={directorName}
+                      onChange={(e) => setDirectorName(e.target.value)}
+                      placeholder="Enter director name (e.g., Ratan Tata, Mukesh Ambani)"
+                      className="flex-1"
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={searchDirectorsMutation.isPending}
+                    >
+                      <Search className="mr-2 h-4 w-4" />
+                      {searchDirectorsMutation.isPending ? 'Searching...' : 'Search'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Search for directors to discover their company associations with financial data
+                  </p>
+                </div>
+              </form>
+
+              {/* Director API Error Alert */}
+              {directorApiError && (
+                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-amber-800 dark:text-amber-200">Director Search Unavailable</h4>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{directorApiError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Director Search Results */}
+              {directorResults.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <h3 className="font-semibold">
+                    Found {directorResults.length} Directors 
+                    <span className="text-muted-foreground font-normal ml-2">
+                      ({directorResults.reduce((sum, d) => sum + d.companies.length, 0)} associated companies)
+                    </span>
+                  </h3>
+                  
+                  <Accordion type="multiple" className="w-full space-y-2">
+                    {directorResults.map((director, idx) => (
+                      <AccordionItem key={director.din || idx} value={director.din || `director-${idx}`} className="border rounded-lg px-4">
+                        <AccordionTrigger className="hover:no-underline py-4">
+                          <div className="flex items-center gap-3 text-left">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold">{director.name}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {director.din && <span className="font-mono">DIN: {director.din} • </span>}
+                                {director.companies.length} {director.companies.length === 1 ? 'company' : 'companies'}
+                              </p>
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3 pb-4">
+                            {director.companies.map((company, compIdx) => (
+                              <div 
+                                key={company.cin || compIdx}
+                                className="p-4 border rounded-lg bg-muted/30 hover:border-primary/50 transition-colors"
+                              >
+                                <div className="flex items-start justify-between gap-4 mb-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h5 className="font-semibold">{company.legalName}</h5>
+                                      <Badge variant={company.companyStatus === 'Active' ? 'default' : 'secondary'} className="text-xs">
+                                        {company.companyStatus}
+                                      </Badge>
+                                      {company.listingStatus && company.listingStatus !== 'Unlisted' && (
+                                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                          {company.listingStatus}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground font-mono mt-1">CIN: {company.cin}</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setSelectedCompany({
+                                          cin: company.cin,
+                                          companyName: company.legalName,
+                                          city: company.city,
+                                          state: company.state,
+                                          paidUpCapital: company.paidUpCapital,
+                                          email: company.email,
+                                          website: company.website,
+                                          incorporationDate: company.incorporationDate,
+                                          status: company.companyStatus
+                                        });
+                                        setShowDetailsDialog(true);
+                                      }}
+                                    >
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      Details
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => importLeadMutation.mutate({ cin: company.cin, companyName: company.legalName })}
+                                      disabled={importLeadMutation.isPending}
+                                    >
+                                      <Download className="mr-2 h-4 w-4" />
+                                      Import
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Company Details Grid */}
+                                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3 text-sm">
+                                  {/* Director Role */}
+                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Briefcase className="h-4 w-4 text-purple-600" />
+                                    <span><strong>Role:</strong> {company.designation || 'Director'}</span>
+                                  </div>
+
+                                  {/* Appointment Date */}
+                                  {company.dateOfAppointment && (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                      <Calendar className="h-4 w-4 text-blue-600" />
+                                      <span>
+                                        <strong>Appointed:</strong> {new Date(company.dateOfAppointment).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Cessation Date */}
+                                  {company.dateOfCessation && (
+                                    <div className="flex items-center gap-2 text-red-600">
+                                      <AlertTriangle className="h-4 w-4" />
+                                      <span>
+                                        <strong>Ceased:</strong> {new Date(company.dateOfCessation).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Paid-up Capital */}
+                                  {company.paidUpCapital > 0 && (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                      <IndianRupee className="h-4 w-4 text-green-600" />
+                                      <span>
+                                        <strong>Paid-up:</strong> ₹{company.paidUpCapital.toLocaleString('en-IN')}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Sum of Charges */}
+                                  {company.sumOfCharges > 0 && (
+                                    <div className="flex items-center gap-2 text-amber-600">
+                                      <CreditCard className="h-4 w-4" />
+                                      <span>
+                                        <strong>Charges:</strong> ₹{company.sumOfCharges.toLocaleString('en-IN')}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Compliance */}
+                                  {company.activeCompliance && (
+                                    <div className="flex items-center gap-2">
+                                      {company.activeCompliance === 'Yes' ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                      ) : (
+                                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                                      )}
+                                      <span className={company.activeCompliance === 'Yes' ? 'text-green-600' : 'text-red-600'}>
+                                        <strong>Compliance:</strong> {company.activeCompliance}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Location */}
+                                  {(company.city || company.state) && (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                      <MapPin className="h-4 w-4 text-red-500" />
+                                      <span>{[company.city, company.state].filter(Boolean).join(', ')}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Incorporation Date */}
+                                  {company.incorporationDate && (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                      <Building2 className="h-4 w-4 text-gray-600" />
+                                      <span>
+                                        <strong>Since:</strong> {new Date(company.incorporationDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short' })}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
