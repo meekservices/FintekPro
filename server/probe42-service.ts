@@ -411,6 +411,36 @@ export class Probe42Service {
       // Log the full response to understand v2 structure
       console.log(`📋 Probe42 v2 base-details raw response for ${cin}:`, JSON.stringify(data, null, 2));
       
+      // Handle v2 API nested registered_address object
+      const regAddr = data.registered_address || data.registeredAddress || data.address;
+      const isNestedAddress = regAddr && typeof regAddr === 'object' && !Array.isArray(regAddr);
+      
+      // Extract address fields from nested object or parse from string
+      let addressString: string | undefined;
+      let city: string | undefined;
+      let state: string | undefined;
+      let pincode: string | undefined;
+      
+      if (isNestedAddress) {
+        // v2 API returns: { address_line, city, pincode, state }
+        addressString = regAddr.address_line || regAddr.addressLine || regAddr.full_address;
+        city = regAddr.city;
+        state = regAddr.state;
+        pincode = regAddr.pincode || regAddr.pin_code;
+        
+        // Build full address string for display
+        const addrParts = [addressString, city, state, pincode].filter(Boolean);
+        addressString = addrParts.join(', ');
+        
+        console.log(`📍 Parsed nested address: city=${city}, state=${state}, pincode=${pincode}`);
+      } else if (typeof regAddr === 'string') {
+        // Legacy: address is a plain string, extract fields
+        addressString = regAddr;
+        city = this.extractCityFromAddress(regAddr);
+        state = this.extractStateFromAddress(regAddr);
+        pincode = this.extractPincodeFromAddress(regAddr);
+      }
+      
       // v2 API field mapping (snake_case to camelCase)
       const baseDetails: CompanyDetails = {
         cin: data.cin || data.identifier || cin,
@@ -422,10 +452,10 @@ export class Probe42Service {
         companySubCategory: data.company_sub_category || data.companySubCategory,
         authorizedCapital: data.authorized_capital || data.authorizedCapital,
         paidUpCapital: data.paid_up_capital || data.paidUpCapital,
-        registeredAddress: data.registered_address || data.registeredAddress || data.address || data.registered_office_address,
-        city: data.city || this.extractCityFromAddress(data.registered_address || data.registeredAddress || data.address),
-        state: data.state || this.extractStateFromAddress(data.registered_address || data.registeredAddress || data.address),
-        pincode: data.pincode || data.pin_code || this.extractPincodeFromAddress(data.registered_address || data.registeredAddress || data.address),
+        registeredAddress: addressString,
+        city: data.city || city,
+        state: data.state || state,
+        pincode: data.pincode || data.pin_code || pincode,
         email: data.email || data.email_id || data.contact_email,
         phone: data.phone || data.phone_number || data.contact_phone || data.mobile,
         website: data.website || data.web_url
@@ -482,23 +512,46 @@ export class Probe42Service {
       const response = await this.client.get(`/entities/${cin}/base-details`);
       const data = response.data?.data || response.data;
       
+      // Handle v2 API nested registered_address object
+      const regAddr = data.registered_address || data.registeredAddress || data.address;
+      const isNestedAddress = regAddr && typeof regAddr === 'object' && !Array.isArray(regAddr);
+      
+      let addressString: string | undefined;
+      let city: string | undefined;
+      let state: string | undefined;
+      let pincode: string | undefined;
+      
+      if (isNestedAddress) {
+        addressString = regAddr.address_line || regAddr.addressLine || regAddr.full_address;
+        city = regAddr.city;
+        state = regAddr.state;
+        pincode = regAddr.pincode || regAddr.pin_code;
+        const addrParts = [addressString, city, state, pincode].filter(Boolean);
+        addressString = addrParts.join(', ');
+      } else if (typeof regAddr === 'string') {
+        addressString = regAddr;
+        city = this.extractCityFromAddress(regAddr);
+        state = this.extractStateFromAddress(regAddr);
+        pincode = this.extractPincodeFromAddress(regAddr);
+      }
+      
       return {
         cin: data.cin || data.identifier || cin,
-        companyName: data.legalName || data.companyName || data.name,
-        registrationNumber: data.registrationNumber || data.cin,
-        incorporationDate: data.dateOfIncorporation || data.incorporationDate,
-        companyClass: data.companyClass || data.class,
-        companyCategory: data.companyCategory || data.category,
-        companySubCategory: data.companySubCategory,
-        authorizedCapital: data.authorizedCapital,
-        paidUpCapital: data.paidUpCapital,
-        registeredAddress: data.registeredAddress || data.address,
-        city: data.city,
-        state: data.state,
-        pincode: data.pincode,
-        email: data.email,
-        phone: data.phone,
-        website: data.website
+        companyName: data.legal_name || data.legalName || data.companyName || data.name,
+        registrationNumber: data.registration_number || data.registrationNumber || data.cin,
+        incorporationDate: data.date_of_incorporation || data.dateOfIncorporation || data.incorporationDate,
+        companyClass: data.company_class || data.companyClass || data.class,
+        companyCategory: data.company_category || data.companyCategory || data.category,
+        companySubCategory: data.company_sub_category || data.companySubCategory,
+        authorizedCapital: data.authorized_capital || data.authorizedCapital,
+        paidUpCapital: data.paid_up_capital || data.paidUpCapital,
+        registeredAddress: addressString,
+        city: data.city || city,
+        state: data.state || state,
+        pincode: data.pincode || data.pin_code || pincode,
+        email: data.email || data.email_id,
+        phone: data.phone || data.phone_number,
+        website: data.website || data.web_url
       };
     } catch (error: any) {
       console.error(`❌ Probe42 v2 basic info error for CIN ${cin}:`, error?.response?.status, error?.message);
