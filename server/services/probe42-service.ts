@@ -1432,22 +1432,83 @@ export async function enrichUnlistedCompanyWithMCAData(
       financialsStored++;
     }
     
-    // Update unlisted company with enriched data
+    // Update unlisted company with enriched data including capital structure
+    const companyUpdateData: any = {
+      lastSyncedAt: new Date(),
+      directors: directors.map((d: any) => ({
+        name: d.name,
+        din: d.din,
+        designation: d.designation
+      })),
+      identityConfidence: '0.95',
+      identityStatus: 'active',
+      updatedAt: new Date(),
+    };
+    
+    // Add capital data if available from Probe42
+    if (details.data?.paid_up_capital) {
+      companyUpdateData.paidUpCapital = details.data.paid_up_capital.toString();
+    }
+    if (details.data?.authorized_capital) {
+      companyUpdateData.authorizedCapital = details.data.authorized_capital.toString();
+    }
+    if (details.data?.face_value) {
+      companyUpdateData.faceValue = details.data.face_value.toString();
+    }
+    
     await db.update(unlistedCompanies)
-      .set({
-        lastSyncedAt: new Date(),
-        directors: directors.map((d: any) => ({
-          name: d.name,
-          din: d.din,
-          designation: d.designation
-        })),
-        identityConfidence: '0.95',
-        identityStatus: 'active',
-        updatedAt: new Date(),
-      })
+      .set(companyUpdateData)
       .where(eq(unlistedCompanies.id, companyId));
     
-    console.log(`✅ Enriched ${companyId} with ${financialsStored} financial records`);
+    // Calculate and store basic ratios from financials
+    const { companyRatios } = await import('@shared/schema');
+    
+    if (financialData.length > 0) {
+      const latestFinancial = financialData[0];
+      const netProfit = parseFloat(latestFinancial.net_profit || latestFinancial.pat || '0');
+      const networth = parseFloat(latestFinancial.networth || '0');
+      const totalDebt = parseFloat(latestFinancial.total_debt || '0');
+      const totalAssets = parseFloat(latestFinancial.total_assets || '0');
+      const revenue = parseFloat(latestFinancial.revenue || '0');
+      const financialYear = latestFinancial.financial_year || 'FY2024';
+      
+      // Calculate basic ratios
+      const roe = networth > 0 ? (netProfit / networth) * 100 : null;
+      const debtEquity = networth > 0 ? totalDebt / networth : null;
+      const roa = totalAssets > 0 ? (netProfit / totalAssets) * 100 : null;
+      const netProfitMargin = revenue > 0 ? (netProfit / revenue) * 100 : null;
+      
+      // Check if ratios exist for this company/year
+      const [existingRatios] = await db.select()
+        .from(companyRatios)
+        .where(and(
+          eq(companyRatios.companyId, companyId),
+          eq(companyRatios.financialYear, financialYear)
+        ))
+        .limit(1);
+      
+      const ratiosData = {
+        companyId,
+        financialYear,
+        roe: roe?.toFixed(2) || null,
+        roa: roa?.toFixed(2) || null,
+        debtEquity: debtEquity?.toFixed(2) || null,
+        netProfitMargin: netProfitMargin?.toFixed(2) || null,
+        dataSource: 'probe42',
+      };
+      
+      if (existingRatios) {
+        await db.update(companyRatios)
+          .set({ ...ratiosData, updatedAt: new Date() })
+          .where(eq(companyRatios.id, existingRatios.id));
+      } else {
+        await db.insert(companyRatios).values(ratiosData);
+      }
+      
+      console.log(`📊 Stored ratios: ROE=${roe?.toFixed(2)}%, D/E=${debtEquity?.toFixed(2)}`);
+    }
+    
+    console.log(`✅ Enriched ${companyId} with ${financialsStored} financial records, capital & ratios`);
     
     return {
       success: true,

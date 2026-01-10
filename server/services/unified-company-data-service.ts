@@ -430,8 +430,8 @@ class UnifiedCompanyDataService {
     // Build capital data
     const capitalData = this.buildCapitalData(company, mcaData);
 
-    // Build directors data
-    const directorsData = this.buildDirectorsData(mcaData, probe42Details);
+    // Build directors data (also check company.directors from enrichment)
+    const directorsData = this.buildDirectorsData(company, mcaData, probe42Details);
 
     // Build charges data
     const chargesData = this.buildChargesData(mcaData);
@@ -574,10 +574,11 @@ class UnifiedCompanyDataService {
   }
 
   private buildDirectorsData(
+    company: UnlistedCompany | undefined,
     mcaData: MCACompanyMasterData | null,
     probe42Details: Probe42CompanyDetails | null
   ): UnifiedCompanyData['directors'] {
-    // Priority: MCA (official) → Probe42
+    // Priority: MCA (official) → Probe42 → FintekPro (enriched)
     if (mcaData?.directors && mcaData.directors.length > 0) {
       return {
         list: mcaData.directors.map(d => ({
@@ -598,6 +599,18 @@ class UnifiedCompanyDataService {
           designation: d.designation || '',
         })),
         source: 'probe42',
+      };
+    }
+
+    // Fallback to company.directors (from MCA enrichment)
+    if (company?.directors && Array.isArray(company.directors) && company.directors.length > 0) {
+      return {
+        list: (company.directors as any[]).map(d => ({
+          name: d.name || '',
+          din: d.din || '',
+          designation: d.designation || '',
+        })),
+        source: 'fintekpro',
       };
     }
 
