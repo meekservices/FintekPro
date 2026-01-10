@@ -275,6 +275,12 @@ export class Probe42Service {
       
       console.log(`📦 Probe42 v2 found ${companiesList.length} companies, ${llpsList.length} LLPs`);
       
+      // Log first entity to see the actual field structure
+      if (companiesList.length > 0) {
+        console.log('📋 Probe42 v2 sample entity keys:', Object.keys(companiesList[0]));
+        console.log('📋 Probe42 v2 sample entity:', JSON.stringify(companiesList[0]).substring(0, 500));
+      }
+      
       let companies: CompanyBasicInfo[] = Array.isArray(companiesList) 
         ? companiesList.map((entity: any) => ({
             cin: entity.identifier || entity.cin || entity.id,
