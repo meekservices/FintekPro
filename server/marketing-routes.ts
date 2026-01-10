@@ -621,8 +621,18 @@ export function registerMarketingRoutes(app: any) {
           } as any,
           enrichedAt: new Date(),
           incorporationDate: company?.incorporationDate || null,
-          companyType: company?.companyType || null,
+          companyType: company?.companyType || enrichedData.entityType || null,
           companyClass: company?.companyClass || null,
+          // Probe42 v2 KYC Extended Fields
+          sumOfCharges: enrichedData.sumOfCharges?.toString() || null,
+          activeCompliance: enrichedData.activeCompliance || null,
+          listingStatus: enrichedData.listingStatus || null,
+          entityType: enrichedData.entityType || null,
+          companyStatus: enrichedData.companyStatus || null,
+          rocCode: enrichedData.rocCode || null,
+          numberOfMembers: enrichedData.numberOfMembers || null,
+          lastAgmDate: enrichedData.lastAgmDate || null,
+          lastBalanceSheetDate: enrichedData.lastBalanceSheetDate || null,
         })
         .returning();
 

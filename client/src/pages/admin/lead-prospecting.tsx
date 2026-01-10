@@ -555,17 +555,47 @@ export default function LeadProspecting() {
                       </h4>
                       <div className="text-sm space-y-1">
                         <p><strong>Revenue:</strong> {lead.annualRevenue ? `₹${(parseFloat(lead.annualRevenue) / 10000000).toFixed(2)}Cr` : 'N/A'}</p>
-                        <p><strong>Paid-up:</strong> {lead.paidUpCapital ? `₹${(parseFloat(lead.paidUpCapital) / 100000).toFixed(0)}L` : 'N/A'}</p>
+                        <p><strong>Paid-up:</strong> {lead.paidUpCapital ? `₹${(parseFloat(lead.paidUpCapital) / 10000000).toFixed(2)}Cr` : 'N/A'}</p>
                         <p><strong>Net Profit:</strong> {lead.netProfit ? `₹${(parseFloat(lead.netProfit) / 10000000).toFixed(2)}Cr` : 'N/A'}</p>
+                        {lead.sumOfCharges && (
+                          <p><strong>Total Debt:</strong> <span className="text-orange-600">₹{(parseFloat(lead.sumOfCharges) / 10000000).toFixed(2)}Cr</span></p>
+                        )}
                       </div>
                     </div>
 
-                    {/* Compliance */}
+                    {/* Entity & Compliance */}
                     <div className="space-y-2">
                       <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                        <Shield className="h-3 w-3" /> Compliance
+                        <Shield className="h-3 w-3" /> Entity & Compliance
                       </h4>
                       <div className="text-sm space-y-1">
+                        {lead.listingStatus && (
+                          <p className="flex items-center gap-1">
+                            <strong>Status:</strong>
+                            <Badge 
+                              variant={lead.listingStatus === 'Listed' ? 'default' : 'secondary'} 
+                              className="text-xs ml-1"
+                            >
+                              {lead.listingStatus}
+                            </Badge>
+                          </p>
+                        )}
+                        {lead.activeCompliance && (
+                          <p className="flex items-center gap-1">
+                            <strong>Compliance:</strong>
+                            <Badge 
+                              variant={lead.activeCompliance?.toLowerCase().includes('compliant') && !lead.activeCompliance?.toLowerCase().includes('non') ? 'default' : 'destructive'} 
+                              className="text-xs ml-1"
+                            >
+                              {lead.activeCompliance}
+                            </Badge>
+                          </p>
+                        )}
+                        {lead.entityType && (
+                          <p className="text-xs text-muted-foreground truncate" title={lead.entityType}>
+                            {lead.entityType.length > 30 ? lead.entityType.substring(0, 30) + '...' : lead.entityType}
+                          </p>
+                        )}
                         <p className="flex items-center gap-1">
                           <strong>GST:</strong> 
                           {lead.gstStatus ? (
@@ -577,8 +607,6 @@ export default function LeadProspecting() {
                             </Badge>
                           ) : <span className="text-muted-foreground text-xs ml-1">Unknown</span>}
                         </p>
-                        {lead.gstNumber && <p className="text-xs font-mono">{lead.gstNumber}</p>}
-                        <p><strong>Probe42:</strong> {lead.probe42Score || 'N/A'}/5</p>
                       </div>
                     </div>
 
