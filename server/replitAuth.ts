@@ -34,6 +34,7 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  
   // Determine if we're on a custom domain or Replit domain
   const replitDomains = process.env.REPLIT_DOMAINS || '';
   const domainList = replitDomains.split(',').map(d => d.trim());
@@ -45,15 +46,17 @@ export function getSession() {
   const isOnlyReplitDomain = domainList.every(d => d.includes('replit.app') || d.includes('replit.dev'));
   
   // Set domain for custom domains to share cookie across subdomains (admin.fintekpro.com, fintekpro.com)
+  // Also check for hardcoded custom domain since REPLIT_DOMAINS may not include it
+  const customDomainFromEnv = process.env.CUSTOM_DOMAIN || 'fintekpro.com';
   let cookieDomain: string | undefined = undefined;
-  if (isProduction && hasCustomDomain && !isOnlyReplitDomain) {
+  if (hasCustomDomain && !isOnlyReplitDomain) {
     cookieDomain = ".fintekpro.com";
   }
   
-  console.log(`[Session] Domains: ${replitDomains}, Custom: ${hasCustomDomain}, Cookie domain: ${cookieDomain || 'not set'}`);
-
+  console.log(`[Session] Domains: ${replitDomains}, Custom: ${hasCustomDomain}, Cookie domain: ${cookieDomain || 'dynamic per-request'}`);
   
-  return session({
+  // Use a custom session middleware that sets cookie domain based on request Host header
+  const sessionMiddleware = session({
     name: 'fintekpro.sid',
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -66,10 +69,38 @@ export function getSession() {
       sameSite: isProduction ? "none" : "lax",
       maxAge: sessionTtl,
       path: '/',
-      // Share cookie across subdomains only for custom domains, not Replit domains
       domain: cookieDomain,
     },
   });
+  
+  // Return a wrapper that dynamically sets cookie domain based on request Host header
+  return (req: any, res: any, next: any) => {
+    const host = req.get('host') || req.headers.host || '';
+    
+    // If accessing via fintekpro.com domain, set cookie domain to share across subdomains
+    if (host.includes('fintekpro.com')) {
+      // Override cookie domain for this request
+      const originalSetHeader = res.setHeader;
+      res.setHeader = function(name: string, value: any) {
+        if (name.toLowerCase() === 'set-cookie' && value) {
+          // Ensure cookie domain is set to .fintekpro.com for subdomain sharing
+          if (Array.isArray(value)) {
+            value = value.map((cookie: string) => {
+              if (cookie.includes('fintekpro.sid') && !cookie.includes('Domain=')) {
+                return cookie.replace(/;?\s*$/, '; Domain=.fintekpro.com');
+              }
+              return cookie;
+            });
+          } else if (typeof value === 'string' && value.includes('fintekpro.sid') && !value.includes('Domain=')) {
+            value = value.replace(/;?\s*$/, '; Domain=.fintekpro.com');
+          }
+        }
+        return originalSetHeader.call(this, name, value);
+      };
+    }
+    
+    sessionMiddleware(req, res, next);
+  };
 }
 
 function updateUserSession(
