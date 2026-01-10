@@ -1149,6 +1149,68 @@ export default function LeadProspecting() {
           {selectedCompany && (
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-6">
+                {/* Quick Summary Card */}
+                <div className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-lg border">
+                  <h3 className="font-semibold text-lg mb-3">{selectedCompany.companyName}</h3>
+                  
+                  {/* Key Metrics Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                    {/* Enrichment Score */}
+                    <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                      <div className={`text-xl font-bold ${
+                        (selectedCompany.enrichmentScore || 0) >= 70 ? 'text-green-600' :
+                        (selectedCompany.enrichmentScore || 0) >= 40 ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        {selectedCompany.enrichmentScore || 0}%
+                      </div>
+                      <div className="text-xs text-muted-foreground">Data Score</div>
+                    </div>
+                    
+                    {/* Total Debt/Charges */}
+                    {selectedCompany.totalChargesAmount && selectedCompany.totalChargesAmount > 0 ? (
+                      <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                        <div className="text-xl font-bold text-amber-600">
+                          ₹{(selectedCompany.totalChargesAmount / 10000000).toFixed(0)} Cr
+                        </div>
+                        <div className="text-xs text-muted-foreground">Total Debt</div>
+                      </div>
+                    ) : (
+                      <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                        <div className="text-xl font-bold text-green-600">₹0</div>
+                        <div className="text-xs text-muted-foreground">Total Debt</div>
+                      </div>
+                    )}
+                    
+                    {/* Open Charges */}
+                    <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                      <div className={`text-xl font-bold ${(selectedCompany.openChargesCount || 0) > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                        {selectedCompany.openChargesCount || 0}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Open Charges</div>
+                    </div>
+                    
+                    {/* Legal Cases */}
+                    <div className="text-center p-2 bg-white dark:bg-slate-950 rounded border">
+                      <div className={`text-xl font-bold ${(selectedCompany.suitFiledCasesCount || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {selectedCompany.suitFiledCasesCount || 0}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Legal Cases</div>
+                    </div>
+                  </div>
+
+                  {/* Risk Indicator */}
+                  {((selectedCompany.totalChargesAmount && selectedCompany.totalChargesAmount > 1000000000) || 
+                    (selectedCompany.suitFiledCasesCount && selectedCompany.suitFiledCasesCount > 0)) && (
+                    <div className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded text-sm">
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                      <span className="text-red-700 dark:text-red-300 font-medium">
+                        High Risk: {selectedCompany.totalChargesAmount && selectedCompany.totalChargesAmount > 1000000000 ? 'Large debt exposure' : ''} 
+                        {selectedCompany.suitFiledCasesCount && selectedCompany.suitFiledCasesCount > 0 ? ` • ${selectedCompany.suitFiledCasesCount} legal case(s)` : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Limited Data Warning */}
                 {selectedCompany.isEnriched === false && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
@@ -1161,39 +1223,37 @@ export default function LeadProspecting() {
                 
                 {/* Company Identity */}
                 <div>
-                  <h3 className="font-semibold text-lg mb-3">{selectedCompany.companyName}</h3>
-                  <div className="grid gap-2 text-sm">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Company Identity
+                  </h4>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">CIN:</span>
-                      <span className="font-mono text-muted-foreground">{selectedCompany.cin}</span>
+                      <span className="font-mono text-muted-foreground text-xs">{selectedCompany.cin}</span>
                     </div>
                     {selectedCompany.status && (
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Status:</span>
-                        <Badge variant={selectedCompany.status === 'Active' ? 'default' : 'secondary'}>
+                        <Badge variant={selectedCompany.status === 'Active' ? 'default' : 'destructive'} className="text-xs">
                           {selectedCompany.status}
                         </Badge>
                       </div>
                     )}
                     {selectedCompany.companyType && (
                       <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Type:</span>
                         <span className="text-muted-foreground">{selectedCompany.companyType}</span>
                       </div>
                     )}
                     {selectedCompany.companyClass && (
                       <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Class:</span>
                         <span className="text-muted-foreground">{selectedCompany.companyClass}</span>
                       </div>
                     )}
                     {selectedCompany.companyCategory && (
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex items-center gap-2 col-span-2">
                         <span className="font-medium">Category:</span>
                         <span className="text-muted-foreground">{selectedCompany.companyCategory}</span>
                       </div>
