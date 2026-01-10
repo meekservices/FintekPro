@@ -91,6 +91,16 @@ interface CompanySearchResult {
   listingStatus?: string;
   entityType?: string;
   isEnriched?: boolean;
+  openChargesCount?: number;
+  totalChargesAmount?: number;
+  suitFiledCasesCount?: number;
+  creditRating?: string;
+  creditRatingAgency?: string;
+  gstStatus?: string;
+  gstNumber?: string;
+  enrichmentScore?: number;
+  enrichmentSources?: string[];
+  apiAccessIssues?: string[];
 }
 
 interface DirectorCompany {
@@ -1212,18 +1222,56 @@ export default function LeadProspecting() {
                         <span className="text-muted-foreground">₹{selectedCompany.paidUpCapital.toLocaleString('en-IN')}</span>
                       </div>
                     )}
-                    {selectedCompany.sumOfCharges !== undefined && selectedCompany.sumOfCharges > 0 && (
+                    {selectedCompany.totalChargesAmount && selectedCompany.totalChargesAmount > 0 && (
                       <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-amber-600" />
                         <span className="font-medium">Total Charges/Debt:</span>
-                        <span className="text-amber-600 font-medium">₹{selectedCompany.sumOfCharges.toLocaleString('en-IN')}</span>
+                        <span className="text-amber-600 font-semibold">₹{selectedCompany.totalChargesAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    {selectedCompany.openChargesCount !== undefined && selectedCompany.openChargesCount > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Open Charges:</span>
+                        <Badge variant="outline" className="text-amber-600 border-amber-300">{selectedCompany.openChargesCount} active</Badge>
+                      </div>
+                    )}
+                    {selectedCompany.creditRating && (
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <span className="font-medium">Credit Rating:</span>
+                        <Badge variant="default">{selectedCompany.creditRating}</Badge>
+                        {selectedCompany.creditRatingAgency && (
+                          <span className="text-muted-foreground text-xs">({selectedCompany.creditRatingAgency})</span>
+                        )}
                       </div>
                     )}
                     {(!selectedCompany.authorizedCapital || selectedCompany.authorizedCapital === 0) && 
-                     (!selectedCompany.paidUpCapital || selectedCompany.paidUpCapital === 0) && (
+                     (!selectedCompany.paidUpCapital || selectedCompany.paidUpCapital === 0) &&
+                     (!selectedCompany.totalChargesAmount || selectedCompany.totalChargesAmount === 0) && (
                       <p className="text-muted-foreground italic">Financial data will be fetched upon import</p>
                     )}
                   </div>
                 </div>
+
+                {/* Risk & Legal Section */}
+                {(selectedCompany.suitFiledCasesCount !== undefined && selectedCompany.suitFiledCasesCount > 0) && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Scale className="h-4 w-4" />
+                        Risk & Legal
+                      </h4>
+                      <div className="grid gap-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <FileWarning className="h-4 w-4 text-red-500" />
+                          <span className="font-medium">Suit Filed Cases:</span>
+                          <Badge variant="destructive">{selectedCompany.suitFiledCasesCount} cases</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Compliance Section - Only show if any compliance data is available */}
                 {(selectedCompany.listingStatus || selectedCompany.activeCompliance || selectedCompany.entityType) && (
@@ -1346,6 +1394,63 @@ export default function LeadProspecting() {
                     )}
                   </div>
                 </div>
+
+                {/* Data Quality & Enrichment */}
+                {(selectedCompany.enrichmentScore !== undefined || 
+                  (selectedCompany.apiAccessIssues && selectedCompany.apiAccessIssues.length > 0)) && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Data Quality
+                      </h4>
+                      <div className="space-y-3">
+                        {selectedCompany.enrichmentScore !== undefined && (
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-sm">Enrichment Score:</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full ${
+                                    selectedCompany.enrichmentScore >= 70 ? 'bg-green-500' :
+                                    selectedCompany.enrichmentScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${selectedCompany.enrichmentScore}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium">{selectedCompany.enrichmentScore}%</span>
+                            </div>
+                          </div>
+                        )}
+                        {selectedCompany.enrichmentSources && selectedCompany.enrichmentSources.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {selectedCompany.enrichmentSources.map((source, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {source.replace(/-/g, ' ')}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {selectedCompany.apiAccessIssues && selectedCompany.apiAccessIssues.length > 0 && (
+                          <div className="p-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded text-xs">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <span className="font-medium text-amber-700 dark:text-amber-300">Some data unavailable:</span>
+                                <ul className="mt-1 text-amber-600 dark:text-amber-400 space-y-0.5">
+                                  {selectedCompany.apiAccessIssues.slice(0, 3).map((issue, idx) => (
+                                    <li key={idx}>{issue.replace(/&amp;/g, '&')}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </ScrollArea>
           )}
