@@ -410,6 +410,8 @@ export class Probe42Service {
       
       // Log the full response to understand v2 structure
       console.log(`📋 Probe42 v2 base-details raw response for ${cin}:`, JSON.stringify(data, null, 2));
+      console.log(`💰 Capital fields in response: authorized_capital=${data.authorized_capital}, paid_up_capital=${data.paid_up_capital}, authorizedCapital=${data.authorizedCapital}, paidUpCapital=${data.paidUpCapital}`);
+      console.log(`📦 All response keys:`, Object.keys(data || {}));
       
       // Handle v2 API nested registered_address object
       const regAddr = data.registered_address || data.registeredAddress || data.address;
