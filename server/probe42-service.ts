@@ -576,11 +576,27 @@ export class Probe42Service {
   /**
    * Get full company KYC data (v2 API)
    * GET /entities/{identifier}/kyc
+   * Returns: paid_up_capital, sum_of_charges, active_compliance, listing_status, type_of_entity, directors, financials
    */
   async getCompanyKYC(cin: string): Promise<any | null> {
     try {
       const response = await this.client.get(`/entities/${cin}/kyc`);
-      return response.data?.data || response.data;
+      const kycData = response.data?.data || response.data;
+      
+      // Log KYC response structure for debugging
+      if (kycData && typeof kycData === 'object') {
+        const availableFields = Object.keys(kycData);
+        console.log(`📋 Probe42 KYC fields for ${cin}:`, availableFields.join(', '));
+        
+        // Log key values for prospecting
+        if (kycData.paid_up_capital) console.log(`   💰 Paid-up Capital: ₹${kycData.paid_up_capital}`);
+        if (kycData.sum_of_charges) console.log(`   📊 Sum of Charges: ₹${kycData.sum_of_charges}`);
+        if (kycData.active_compliance) console.log(`   ✅ Compliance: ${kycData.active_compliance}`);
+        if (kycData.listing_status) console.log(`   📈 Listing Status: ${kycData.listing_status}`);
+        if (kycData.type_of_entity) console.log(`   🏢 Entity Type: ${kycData.type_of_entity}`);
+      }
+      
+      return kycData;
     } catch (error: any) {
       console.error(`❌ Probe42 v2 KYC error for CIN ${cin}:`, error?.response?.status, error?.message);
       return null;
@@ -963,15 +979,46 @@ export class Probe42Service {
     }));
     if (directors.length > 0) enrichmentScore += 15;
 
-    // Extract financials from baseDetails if available
-    const paidUpCapital = enrichment.baseDetails?.paidUpCapital || enrichment.baseDetails?.paid_up_capital;
-    const authorizedCapital = enrichment.baseDetails?.authorizedCapital || enrichment.baseDetails?.authorized_capital;
+    // Extract financials from KYC first, then fallback to baseDetails
+    const paidUpCapital = enrichment.kyc?.paid_up_capital || 
+                          enrichment.kyc?.paidUpCapital ||
+                          enrichment.baseDetails?.paidUpCapital || 
+                          enrichment.baseDetails?.paid_up_capital;
+    const authorizedCapital = enrichment.kyc?.authorized_capital ||
+                              enrichment.kyc?.authorizedCapital ||
+                              enrichment.baseDetails?.authorizedCapital || 
+                              enrichment.baseDetails?.authorized_capital;
+    
+    // New KYC fields for comprehensive lead prospecting
+    const sumOfCharges = enrichment.kyc?.sum_of_charges || enrichment.kyc?.sumOfCharges;
+    const activeCompliance = enrichment.kyc?.active_compliance || enrichment.kyc?.activeCompliance;
+    const listingStatus = enrichment.kyc?.listing_status || enrichment.kyc?.listingStatus;
+    const entityType = enrichment.kyc?.type_of_entity || enrichment.kyc?.typeOfEntity || enrichment.kyc?.entity_type;
+    
+    // Additional KYC fields
+    const companyStatus = enrichment.kyc?.company_status || enrichment.kyc?.status;
+    const rocCode = enrichment.kyc?.roc_code || enrichment.kyc?.rocCode;
+    const numberOfMembers = enrichment.kyc?.number_of_members || enrichment.kyc?.numberOfMembers;
+    const lastAgmDate = enrichment.kyc?.last_agm_date || enrichment.kyc?.lastAgmDate;
+    const lastBalanceSheetDate = enrichment.kyc?.last_balance_sheet_date || enrichment.kyc?.lastBalanceSheetDate;
+
+    // Risk assessment from KYC data
+    if (activeCompliance && activeCompliance.toLowerCase().includes('non-compliant')) {
+      riskIndicators.push('Non-compliant with regulations');
+    }
+    if (listingStatus === 'Unlisted' && sumOfCharges && parseFloat(sumOfCharges) > 1000000000) {
+      riskIndicators.push('High debt for unlisted company');
+    }
 
     // Base details scoring
     if (enrichment.baseDetails) enrichmentScore += 20;
     if (enrichment.baseDetails?.email) enrichmentScore += 5;
     if (enrichment.baseDetails?.phone) enrichmentScore += 5;
     if (paidUpCapital) enrichmentScore += 10;
+    if (sumOfCharges) enrichmentScore += 5;
+    if (activeCompliance) enrichmentScore += 5;
+    if (listingStatus) enrichmentScore += 5;
+    if (entityType) enrichmentScore += 5;
 
     return {
       employeeCount,
@@ -991,7 +1038,17 @@ export class Probe42Service {
       dataNotAvailable,
       enrichmentScore: Math.min(100, enrichmentScore),
       paidUpCapital,
-      authorizedCapital
+      authorizedCapital,
+      // New KYC fields
+      sumOfCharges,
+      activeCompliance,
+      listingStatus,
+      entityType,
+      companyStatus,
+      rocCode,
+      numberOfMembers,
+      lastAgmDate,
+      lastBalanceSheetDate
     };
   }
 

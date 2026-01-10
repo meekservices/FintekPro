@@ -11972,6 +11972,17 @@ export const prospectLeads = pgTable("prospect_leads", {
   companyType: varchar("company_type"), // Private/Public/LLP/OPC etc.
   companyClass: varchar("company_class"), // Company class from MCA
   
+  // Probe42 v2 KYC Extended Fields
+  sumOfCharges: numeric("sum_of_charges", { precision: 18, scale: 2 }), // Total charges/debt from KYC
+  activeCompliance: varchar("active_compliance"), // ACTIVE compliant / Non-compliant
+  listingStatus: varchar("listing_status"), // Listed / Unlisted
+  entityType: varchar("entity_type"), // Public Limited Indian Non-Government Company etc.
+  companyStatus: varchar("company_status"), // Active / Strike Off / Under Liquidation
+  rocCode: varchar("roc_code"), // Registrar of Companies code
+  numberOfMembers: integer("number_of_members"), // Number of company members
+  lastAgmDate: varchar("last_agm_date"), // Last Annual General Meeting date
+  lastBalanceSheetDate: varchar("last_balance_sheet_date"), // Last filed balance sheet date
+  
   // Conversion
   convertedToUserId: varchar("converted_to_user_id").references(() => users.id),
   convertedAt: timestamp("converted_at"),
