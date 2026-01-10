@@ -1,5 +1,5 @@
-const VERSION = '5';
-const BUILD_TIMESTAMP = '1767425134148';
+const VERSION = '6';
+const BUILD_TIMESTAMP = '1736525400000';
 const CACHE_PREFIX = 'fintekpro';
 const STATIC_CACHE_NAME = `${CACHE_PREFIX}-static-v${VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_PREFIX}-dynamic-v${VERSION}`;
@@ -28,6 +28,9 @@ const NEVER_CACHE_ROUTES = [
   '/api/consent',
   '/api/submit',
   '/api/transactions',
+  '/api/mca',
+  '/api/wallet',
+  '/api/admin',
 ];
 
 const NEVER_CACHE_EXTENSIONS = [
@@ -115,18 +118,17 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // CRITICAL: Never intercept API routes - let them pass through to the server
+  // This prevents the service worker from returning cached HTML for API calls
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
   if (request.method !== 'GET') {
     return;
   }
 
   if (shouldNeverCache(url.pathname) || shouldNeverCache(url.href)) {
-    return;
-  }
-
-  if (url.pathname.startsWith('/api/')) {
-    if (shouldCacheApi(url.pathname)) {
-      event.respondWith(networkFirstWithCache(request, DYNAMIC_CACHE_NAME, 60000));
-    }
     return;
   }
 

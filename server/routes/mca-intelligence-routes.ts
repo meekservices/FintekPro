@@ -40,7 +40,11 @@ function getMcaRole(req: Request): McaRole {
 function requireMcaAccess(action: 'read' | 'query' | 'ingest' | 'full') {
   return (req: Request, res: Response, next: Function) => {
     const role = getMcaRole(req);
+    const user = (req as any).user;
+    console.log(`[MCA Access] Checking ${action} access - Role: ${role}, User: ${user?.email}, UserRole: ${user?.role}, UserRoles: ${JSON.stringify(user?.roles)}`);
+    
     if (!mcaIntelligenceService.hasAccess(role, action)) {
+      res.setHeader('Content-Type', 'application/json');
       return res.status(403).json({
         success: false,
         error: `Access denied. Role '${role}' cannot perform '${action}' action.`,
@@ -273,6 +277,14 @@ router.get('/wallet', requireMcaAccess('read'), async (req: Request, res: Respon
  * Recharge MCA wallet (Admin only)
  */
 router.post('/wallet/recharge', requireMcaAccess('full'), async (req: Request, res: Response) => {
+  console.log('[MCA Routes] Recharge request received:', { 
+    body: req.body, 
+    user: (req as any).user?.email,
+    role: getMcaRole(req)
+  });
+  
+  res.setHeader('Content-Type', 'application/json');
+  
   try {
     const { amount } = req.body;
     if (!amount || amount <= 0) {
