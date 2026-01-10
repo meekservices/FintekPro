@@ -11,6 +11,7 @@ import {
 import { eq, and, desc, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
+import { aiResponseCacheService } from "./ai-response-cache-service";
 
 // Real mutual fund recommendations based on risk profile - Using Regular plans for agent advisory
 // Organized by asset class for flexible category-based filtering

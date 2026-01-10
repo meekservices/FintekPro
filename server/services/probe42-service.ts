@@ -23,6 +23,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { ExternalServiceError, ValidationError } from '../utils/errors';
+import { requestDedupeService } from './request-deduplication-service';
 import type { 
   InsertCompanyFinancials, 
   InsertCompanyRatios,
@@ -457,6 +458,7 @@ class Probe42Service {
   /**
    * Get detailed company information
    * Uses v2 API: GET /entities/{identifier}/base-details
+   * Includes request deduplication to prevent duplicate in-flight requests
    */
   async getCompanyDetails(probe42CompanyId: string): Promise<Probe42CompanyDetails | null> {
     if (!probe42CompanyId) {
@@ -467,75 +469,179 @@ class Probe42Service {
       return this.getMockCompanyDetails(probe42CompanyId);
     }
 
-    try {
-      console.log(`[Probe42] Fetching v2 base-details for: ${probe42CompanyId}`);
-      const response = await this.client.get(`/entities/${probe42CompanyId}/base-details`);
-      const data = response.data?.data || response.data;
-      if (!data) return null;
-      
-      // Map Probe42 v2 response to our internal format
-      // v2 uses snake_case fields: legal_name, identifier, date_of_incorporation, registered_address, authorized_capital, paid_up_capital
-      // registered_address is a nested object: { address_line, city, state, pincode }
-      const mappedData = {
-        company_id: data.identifier || probe42CompanyId,
-        name: data.legal_name || data.name || '',
-        cin: data.identifier || probe42CompanyId,
-        pan: data.pan || data.pan_of_entity,
-        sector: data.industry_segment?.industry || data.sector,
-        industry: data.industry_segment?.segments?.[0] || data.industry,
-        roc_state: data.registered_address?.state || data.roc_state,
-        incorporation_date: data.date_of_incorporation || data.incorporation_date,
-        paid_up_capital: data.paid_up_capital,
-        authorized_capital: data.authorized_capital,
-        status: data.status || 'Unknown',
-        website: data.website,
-        description: data.description,
-        directors: data.directors?.map((d: any) => ({
-          name: d.name || d.legal_name,
-          din: d.din || d.identifier,
-          designation: d.designation
-        }))
-      };
-      
-      // If API returned no directors/capital, supplement with mock data in development
-      if (process.env.NODE_ENV === 'development') {
-        const mockData = this.getMockCompanyDetails(probe42CompanyId);
-        if (!mappedData.directors || mappedData.directors.length === 0) {
-          console.log('[Probe42] API returned no directors, using mock data');
-          mappedData.directors = mockData.directors;
-        }
-        if (!mappedData.paid_up_capital) {
-          mappedData.paid_up_capital = mockData.paid_up_capital;
-        }
-        if (!mappedData.authorized_capital) {
-          mappedData.authorized_capital = mockData.authorized_capital;
-        }
-      }
-      
-      return mappedData;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        return null;
-      }
-      // Handle authentication errors gracefully - fall back to mock data in development
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+    const dedupeKey = requestDedupeService.createKey('probe42', 'base-details', probe42CompanyId);
+    
+    return requestDedupeService.dedupe(dedupeKey, async () => {
+      try {
+        console.log(`[Probe42] Fetching v2 base-details for: ${probe42CompanyId}`);
+        const response = await this.client.get(`/entities/${probe42CompanyId}/base-details`);
+        const data = response.data?.data || response.data;
+        if (!data) return null;
+        
+        // Map Probe42 v2 response to our internal format
+        // v2 uses snake_case fields: legal_name, identifier, date_of_incorporation, registered_address, authorized_capital, paid_up_capital
+        // registered_address is a nested object: { address_line, city, state, pincode }
+        const mappedData = {
+          company_id: data.identifier || probe42CompanyId,
+          name: data.legal_name || data.name || '',
+          cin: data.identifier || probe42CompanyId,
+          pan: data.pan || data.pan_of_entity,
+          sector: data.industry_segment?.industry || data.sector,
+          industry: data.industry_segment?.segments?.[0] || data.industry,
+          roc_state: data.registered_address?.state || data.roc_state,
+          incorporation_date: data.date_of_incorporation || data.incorporation_date,
+          paid_up_capital: data.paid_up_capital,
+          authorized_capital: data.authorized_capital,
+          status: data.status || 'Unknown',
+          website: data.website,
+          description: data.description,
+          directors: data.directors?.map((d: any) => ({
+            name: d.name || d.legal_name,
+            din: d.din || d.identifier,
+            designation: d.designation
+          }))
+        };
+        
+        // If API returned no directors/capital, supplement with mock data in development
         if (process.env.NODE_ENV === 'development') {
-          return this.getMockCompanyDetails(probe42CompanyId);
+          const mockData = this.getMockCompanyDetails(probe42CompanyId);
+          if (!mappedData.directors || mappedData.directors.length === 0) {
+            console.log('[Probe42] API returned no directors, using mock data');
+            mappedData.directors = mockData.directors;
+          }
+          if (!mappedData.paid_up_capital) {
+            mappedData.paid_up_capital = mockData.paid_up_capital;
+          }
+          if (!mappedData.authorized_capital) {
+            mappedData.authorized_capital = mockData.authorized_capital;
+          }
         }
+        
+        return mappedData;
+      } catch (error: any) {
+        if (error.response?.status === 404) {
+          return null;
+        }
+        // Handle authentication errors gracefully - fall back to mock data in development
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+          if (process.env.NODE_ENV === 'development') {
+            return this.getMockCompanyDetails(probe42CompanyId);
+          }
+        }
+        throw new ExternalServiceError(
+          'Probe42',
+          `Failed to fetch company details: ${error.message}`,
+          error,
+          true
+        );
       }
-      throw new ExternalServiceError(
-        'Probe42',
-        `Failed to fetch company details: ${error.message}`,
-        error,
-        true
-      );
+    });
+  }
+
+  /**
+   * Batch fetch company details for multiple CINs
+   * Uses request deduplication to prevent duplicate calls
+   * Returns a map of CIN -> CompanyDetails
+   */
+  async batchGetCompanyDetails(
+    cins: string[],
+    options: { concurrencyLimit?: number } = {}
+  ): Promise<Map<string, Probe42CompanyDetails | null>> {
+    const { concurrencyLimit = 5 } = options;
+    const results = new Map<string, Probe42CompanyDetails | null>();
+    
+    if (cins.length === 0) {
+      return results;
     }
+    
+    console.log(`[Probe42] Batch fetching details for ${cins.length} companies (concurrency: ${concurrencyLimit})`);
+    
+    // Process in batches to respect rate limits
+    const batches: string[][] = [];
+    for (let i = 0; i < cins.length; i += concurrencyLimit) {
+      batches.push(cins.slice(i, i + concurrencyLimit));
+    }
+    
+    let processed = 0;
+    for (const batch of batches) {
+      const batchPromises = batch.map(async (cin) => {
+        try {
+          const details = await this.getCompanyDetails(cin);
+          results.set(cin, details);
+        } catch (error: any) {
+          console.error(`[Probe42] Batch fetch failed for ${cin}: ${error.message}`);
+          results.set(cin, null);
+        }
+      });
+      
+      await Promise.all(batchPromises);
+      processed += batch.length;
+      
+      if (processed < cins.length) {
+        // Small delay between batches to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+    
+    const successful = [...results.values()].filter(v => v !== null).length;
+    console.log(`[Probe42] Batch complete: ${successful}/${cins.length} successful`);
+    
+    return results;
+  }
+
+  /**
+   * Batch fetch company financials for multiple CINs
+   * Returns a map of CIN -> FinancialData[]
+   */
+  async batchGetCompanyFinancials(
+    cins: string[],
+    years: number = 3,
+    options: { concurrencyLimit?: number } = {}
+  ): Promise<Map<string, Probe42FinancialData[]>> {
+    const { concurrencyLimit = 3 } = options;
+    const results = new Map<string, Probe42FinancialData[]>();
+    
+    if (cins.length === 0) {
+      return results;
+    }
+    
+    console.log(`[Probe42] Batch fetching financials for ${cins.length} companies`);
+    
+    // Process in batches to respect rate limits
+    const batches: string[][] = [];
+    for (let i = 0; i < cins.length; i += concurrencyLimit) {
+      batches.push(cins.slice(i, i + concurrencyLimit));
+    }
+    
+    for (const batch of batches) {
+      const batchPromises = batch.map(async (cin) => {
+        try {
+          const financials = await this.getCompanyFinancials(cin, years);
+          results.set(cin, financials);
+        } catch (error: any) {
+          console.error(`[Probe42] Batch financials failed for ${cin}: ${error.message}`);
+          results.set(cin, []);
+        }
+      });
+      
+      await Promise.all(batchPromises);
+      
+      if (batches.indexOf(batch) < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    }
+    
+    const withData = [...results.values()].filter(v => v.length > 0).length;
+    console.log(`[Probe42] Batch financials complete: ${withData}/${cins.length} with data`);
+    
+    return results;
   }
 
   /**
    * Get company financial statements for multiple years
    * Uses v2 API: GET /entities/{identifier}/kyc
+   * Includes request deduplication to prevent duplicate in-flight requests
    */
   async getCompanyFinancials(
     probe42CompanyId: string,
@@ -549,65 +655,70 @@ class Probe42Service {
       return this.getMockFinancials(probe42CompanyId, years);
     }
 
-    try {
-      console.log(`[Probe42] Fetching v2 kyc (financials) for: ${probe42CompanyId}`);
-      const response = await this.client.get(`/entities/${probe42CompanyId}/kyc`);
-      
-      // v2 response wrapped in { data: { ... } }
-      const data = response.data?.data || response.data;
-      if (!data) return [];
-      
-      // v2 financials are in the data object; map to our format
-      const financials = data.financials || data.financial_data || [];
-      
-      if (Array.isArray(financials)) {
-        return financials.slice(0, years).map((fin: any) => ({
-          company_id: probe42CompanyId,
-          financial_year: fin.financial_year || fin.year,
-          period_start: fin.period_start || fin.start_date,
-          period_end: fin.period_end || fin.end_date,
-          revenue: fin.revenue || fin.total_revenue,
-          ebitda: fin.ebitda,
-          ebit: fin.ebit,
-          pbt: fin.pbt || fin.profit_before_tax,
-          pat: fin.pat || fin.profit_after_tax,
-          net_profit: fin.net_profit || fin.pat,
-          total_assets: fin.total_assets,
-          total_liabilities: fin.total_liabilities,
-          networth: fin.networth || fin.net_worth,
-          share_capital: fin.share_capital,
-          reserves: fin.reserves,
-          total_debt: fin.total_debt,
-          long_term_debt: fin.long_term_debt,
-          short_term_debt: fin.short_term_debt,
-          operating_cash_flow: fin.operating_cash_flow,
-          investing_cash_flow: fin.investing_cash_flow,
-          financing_cash_flow: fin.financing_cash_flow,
-          free_cash_flow: fin.free_cash_flow,
-        }));
-      }
-      
-      return [];
-    } catch (error: any) {
-      // Handle authentication errors gracefully - fall back to mock data in development
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
-        if (process.env.NODE_ENV === 'development') {
-          return this.getMockFinancials(probe42CompanyId, years);
+    const dedupeKey = requestDedupeService.createKey('probe42', 'kyc', probe42CompanyId, years.toString());
+    
+    return requestDedupeService.dedupe(dedupeKey, async () => {
+      try {
+        console.log(`[Probe42] Fetching v2 kyc (financials) for: ${probe42CompanyId}`);
+        const response = await this.client.get(`/entities/${probe42CompanyId}/kyc`);
+        
+        // v2 response wrapped in { data: { ... } }
+        const data = response.data?.data || response.data;
+        if (!data) return [];
+        
+        // v2 financials are in the data object; map to our format
+        const financials = data.financials || data.financial_data || [];
+        
+        if (Array.isArray(financials)) {
+          return financials.slice(0, years).map((fin: any) => ({
+            company_id: probe42CompanyId,
+            financial_year: fin.financial_year || fin.year,
+            period_start: fin.period_start || fin.start_date,
+            period_end: fin.period_end || fin.end_date,
+            revenue: fin.revenue || fin.total_revenue,
+            ebitda: fin.ebitda,
+            ebit: fin.ebit,
+            pbt: fin.pbt || fin.profit_before_tax,
+            pat: fin.pat || fin.profit_after_tax,
+            net_profit: fin.net_profit || fin.pat,
+            total_assets: fin.total_assets,
+            total_liabilities: fin.total_liabilities,
+            networth: fin.networth || fin.net_worth,
+            share_capital: fin.share_capital,
+            reserves: fin.reserves,
+            total_debt: fin.total_debt,
+            long_term_debt: fin.long_term_debt,
+            short_term_debt: fin.short_term_debt,
+            operating_cash_flow: fin.operating_cash_flow,
+            investing_cash_flow: fin.investing_cash_flow,
+            financing_cash_flow: fin.financing_cash_flow,
+            free_cash_flow: fin.free_cash_flow,
+          }));
         }
+        
+        return [];
+      } catch (error: any) {
+        // Handle authentication errors gracefully - fall back to mock data in development
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+          if (process.env.NODE_ENV === 'development') {
+            return this.getMockFinancials(probe42CompanyId, years);
+          }
+        }
+        throw new ExternalServiceError(
+          'Probe42',
+          `Failed to fetch company financials: ${error.message}`,
+          error,
+          true
+        );
       }
-      throw new ExternalServiceError(
-        'Probe42',
-        `Failed to fetch company financials: ${error.message}`,
-        error,
-        true
-      );
-    }
+    });
   }
 
   /**
    * Get company financial ratios
    * Uses v2 API: GET /entities/{identifier}/credit-ratings
+   * Includes request deduplication to prevent duplicate in-flight requests
    */
   async getCompanyRatios(
     probe42CompanyId: string,
@@ -621,64 +732,68 @@ class Probe42Service {
       return this.getMockRatios(probe42CompanyId, years);
     }
 
-    try {
-      console.log(`[Probe42] Fetching v2 credit-ratings for: ${probe42CompanyId}`);
-      const response = await this.client.get(`/entities/${probe42CompanyId}/credit-ratings`);
-      
-      // v2 response wrapped in { data: { ... } }
-      const data = response.data?.data || response.data;
-      if (!data) return [];
-      
-      // v2 ratios are in the data object; map to our format
-      const ratios = data.ratios || data.financial_ratios || [];
-      
-      if (Array.isArray(ratios) && ratios.length > 0) {
-        return ratios.slice(0, years).map((ratio: any) => ({
-          company_id: probe42CompanyId,
-          financial_year: ratio.financial_year || ratio.year,
-          pe_ratio: ratio.pe_ratio,
-          pb_ratio: ratio.pb_ratio,
-          ev_ebitda: ratio.ev_ebitda,
-          price_to_sales: ratio.price_to_sales,
-          roe: ratio.roe || ratio.return_on_equity,
-          roce: ratio.roce || ratio.return_on_capital,
-          roa: ratio.roa || ratio.return_on_assets,
-          margin_ebitda: ratio.margin_ebitda || ratio.ebitda_margin,
-          margin_pat: ratio.margin_pat || ratio.net_profit_margin,
-          margin_operating: ratio.margin_operating || ratio.operating_margin,
-          debt_equity: ratio.debt_equity || ratio.debt_to_equity,
-          debt_to_assets: ratio.debt_to_assets,
-          interest_coverage: ratio.interest_coverage,
-          current_ratio: ratio.current_ratio,
-          quick_ratio: ratio.quick_ratio,
-          asset_turnover: ratio.asset_turnover,
-          inventory_turnover: ratio.inventory_turnover,
-          revenue_growth: ratio.revenue_growth,
-          profit_growth: ratio.profit_growth,
-        }));
-      }
-      
-      // If API returned empty ratios, fall back to mock data in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Probe42] API returned no ratios, using mock data');
-        return this.getMockRatios(probe42CompanyId, years);
-      }
-      return [];
-    } catch (error: any) {
-      // Handle authentication errors gracefully - fall back to mock data in development
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+    const dedupeKey = requestDedupeService.createKey('probe42', 'credit-ratings', probe42CompanyId, years.toString());
+    
+    return requestDedupeService.dedupe(dedupeKey, async () => {
+      try {
+        console.log(`[Probe42] Fetching v2 credit-ratings for: ${probe42CompanyId}`);
+        const response = await this.client.get(`/entities/${probe42CompanyId}/credit-ratings`);
+        
+        // v2 response wrapped in { data: { ... } }
+        const data = response.data?.data || response.data;
+        if (!data) return [];
+        
+        // v2 ratios are in the data object; map to our format
+        const ratios = data.ratios || data.financial_ratios || [];
+        
+        if (Array.isArray(ratios) && ratios.length > 0) {
+          return ratios.slice(0, years).map((ratio: any) => ({
+            company_id: probe42CompanyId,
+            financial_year: ratio.financial_year || ratio.year,
+            pe_ratio: ratio.pe_ratio,
+            pb_ratio: ratio.pb_ratio,
+            ev_ebitda: ratio.ev_ebitda,
+            price_to_sales: ratio.price_to_sales,
+            roe: ratio.roe || ratio.return_on_equity,
+            roce: ratio.roce || ratio.return_on_capital,
+            roa: ratio.roa || ratio.return_on_assets,
+            margin_ebitda: ratio.margin_ebitda || ratio.ebitda_margin,
+            margin_pat: ratio.margin_pat || ratio.net_profit_margin,
+            margin_operating: ratio.margin_operating || ratio.operating_margin,
+            debt_equity: ratio.debt_equity || ratio.debt_to_equity,
+            debt_to_assets: ratio.debt_to_assets,
+            interest_coverage: ratio.interest_coverage,
+            current_ratio: ratio.current_ratio,
+            quick_ratio: ratio.quick_ratio,
+            asset_turnover: ratio.asset_turnover,
+            inventory_turnover: ratio.inventory_turnover,
+            revenue_growth: ratio.revenue_growth,
+            profit_growth: ratio.profit_growth,
+          }));
+        }
+        
+        // If API returned empty ratios, fall back to mock data in development
         if (process.env.NODE_ENV === 'development') {
+          console.log('[Probe42] API returned no ratios, using mock data');
           return this.getMockRatios(probe42CompanyId, years);
         }
+        return [];
+      } catch (error: any) {
+        // Handle authentication errors gracefully - fall back to mock data in development
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.warn('⚠️ Probe42 API authentication failed (token may be expired). Using mock data.');
+          if (process.env.NODE_ENV === 'development') {
+            return this.getMockRatios(probe42CompanyId, years);
+          }
+        }
+        throw new ExternalServiceError(
+          'Probe42',
+          `Failed to fetch company ratios: ${error.message}`,
+          error,
+          true
+        );
       }
-      throw new ExternalServiceError(
-        'Probe42',
-        `Failed to fetch company ratios: ${error.message}`,
-        error,
-        true
-      );
-    }
+    });
   }
 
   /**

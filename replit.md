@@ -22,6 +22,13 @@ The Unlisted Marketplace is SEBI/RBI-compliant, sourcing data from an internal d
 
 A Multi-Source Financial Data Enrichment System reduces API costs by integrating Probe42 (primary), Finnhub (secondary), and Yahoo Finance (tertiary) with priority-based source selection and rate limit handling. Key components include an Identity Confidence Engine for data quality, Finnhub integration with exponential backoff, metric-level source merging with full provenance tracking, a "Why This Number?" API for auditability, SEBI-compliant immutable audit logging, and AI guardrails to prevent low-quality data usage.
 
+### API Cost Optimization System
+A three-layer API cost optimization system minimizes external API calls:
+- **Request Deduplication Service**: Prevents duplicate in-flight API calls by coalescing concurrent requests for the same resource. Tracks metrics on API calls saved and deduplication efficiency.
+- **AI Response Cache Service**: Caches Gemini AI recommendations with content-based hashing and configurable TTLs per recommendation type (MF: 2hr, stocks: 30min, bonds: 4hr, portfolio analysis: 1hr). LRU eviction and estimated cost savings tracking.
+- **Batch Company Enrichment**: Probe42 batch methods for multi-company fetches with concurrency limits (5 for details, 3 for financials) and 200-300ms delays between batches to respect rate limits.
+- **Cache Admin Dashboard**: Unified monitoring endpoints at `/api/admin/cache/*` for deduplication metrics, AI cache stats, and overall cost savings summary.
+
 The Corporate Treasury Management module is SEBI-compliant with a configurable Maker-Checker workflow, a four-bucket allocation system for debt-only instruments, and optimized proposals based on mandate constraints. Compliance controls include self-approval prevention and immutable audit trails.
 
 A PAN-driven intelligent onboarding system auto-detects entity types and routes users to appropriate entity-specific flows, including product eligibility matrices and admin approval for non-individual entities.

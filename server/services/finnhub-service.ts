@@ -15,6 +15,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { ExternalServiceError, ValidationError } from '../utils/errors';
+import { requestDedupeService } from './request-deduplication-service';
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || '';
 const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1';
@@ -248,36 +249,40 @@ class FinnhubService {
       };
     }
 
-    try {
-      const response = await this.retryWithBackoff(() =>
-        this.client.get('/stock/profile2', { params: { symbol } })
-      );
+    const dedupeKey = requestDedupeService.createKey('finnhub', 'profile', symbol);
+    
+    return requestDedupeService.dedupe(dedupeKey, async () => {
+      try {
+        const response = await this.retryWithBackoff(() =>
+          this.client.get('/stock/profile2', { params: { symbol } })
+        );
 
-      if (!response.data || Object.keys(response.data).length === 0) {
+        if (!response.data || Object.keys(response.data).length === 0) {
+          return {
+            success: false,
+            source: 'finnhub',
+            retrievedAt: new Date(),
+            error: 'Company not found',
+          };
+        }
+
+        return {
+          success: true,
+          data: response.data,
+          source: 'finnhub',
+          retrievedAt: new Date(),
+          rateLimitRemaining: this.getRateLimitRemaining(),
+        };
+      } catch (error: any) {
+        console.error(`[Finnhub] Profile error for ${symbol}: ${error.message}`);
         return {
           success: false,
           source: 'finnhub',
           retrievedAt: new Date(),
-          error: 'Company not found',
+          error: error.message,
         };
       }
-
-      return {
-        success: true,
-        data: response.data,
-        source: 'finnhub',
-        retrievedAt: new Date(),
-        rateLimitRemaining: this.getRateLimitRemaining(),
-      };
-    } catch (error: any) {
-      console.error(`[Finnhub] Profile error for ${symbol}: ${error.message}`);
-      return {
-        success: false,
-        source: 'finnhub',
-        retrievedAt: new Date(),
-        error: error.message,
-      };
-    }
+    }, 5 * 60 * 1000); // Keep result cached for 5 minutes after first call
   }
 
   async getBasicFinancials(symbol: string): Promise<FinnhubFetchResult<FinnhubBasicFinancials>> {
@@ -290,27 +295,31 @@ class FinnhubService {
       };
     }
 
-    try {
-      const response = await this.retryWithBackoff(() =>
-        this.client.get('/stock/metric', { params: { symbol, metric: 'all' } })
-      );
+    const dedupeKey = requestDedupeService.createKey('finnhub', 'financials', symbol);
+    
+    return requestDedupeService.dedupe(dedupeKey, async () => {
+      try {
+        const response = await this.retryWithBackoff(() =>
+          this.client.get('/stock/metric', { params: { symbol, metric: 'all' } })
+        );
 
-      return {
-        success: true,
-        data: response.data,
-        source: 'finnhub',
-        retrievedAt: new Date(),
-        rateLimitRemaining: this.getRateLimitRemaining(),
-      };
-    } catch (error: any) {
-      console.error(`[Finnhub] Financials error for ${symbol}: ${error.message}`);
-      return {
-        success: false,
-        source: 'finnhub',
-        retrievedAt: new Date(),
-        error: error.message,
-      };
-    }
+        return {
+          success: true,
+          data: response.data,
+          source: 'finnhub',
+          retrievedAt: new Date(),
+          rateLimitRemaining: this.getRateLimitRemaining(),
+        };
+      } catch (error: any) {
+        console.error(`[Finnhub] Financials error for ${symbol}: ${error.message}`);
+        return {
+          success: false,
+          source: 'finnhub',
+          retrievedAt: new Date(),
+          error: error.message,
+        };
+      }
+    }, 5 * 60 * 1000); // Keep result cached for 5 minutes after first call
   }
 
   async getFinancialStatements(
