@@ -1340,7 +1340,8 @@ export function registerMarketingRoutes(app: any) {
       let query = db.select({
         userId: users.id,
         mobile: users.mobile,
-        name: users.fullName,
+        firstName: users.firstName,
+        lastName: users.lastName,
         kycTier: users.kycTier,
         marketingConsent: users.marketingConsent
       }).from(users);
