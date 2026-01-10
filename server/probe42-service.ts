@@ -688,6 +688,181 @@ export class Probe42Service {
   }
 
   /**
+   * Search directors by name and get their company associations (v2 API)
+   * POST /search-directors with JSON body
+   * 
+   * Returns list of directors with their associated companies including:
+   * - CIN, company name, status, paid_up_capital, sum_of_charges
+   * - Director's designation, appointment/cessation dates
+   */
+  async searchDirectorsByName(directorName: string, options?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    directors: Array<{
+      din: string;
+      name: string;
+      companies: Array<{
+        cin: string;
+        legalName: string;
+        companyStatus: string;
+        paidUpCapital: number;
+        sumOfCharges: number;
+        incorporationDate: string;
+        designation: string;
+        dateOfAppointment: string;
+        dateOfAppointmentForCurrentDesignation?: string;
+        dateOfCessation?: string;
+      }>;
+    }>;
+    error?: string;
+    available: boolean;
+  }> {
+    try {
+      if (!directorName || directorName.length < 3) {
+        return {
+          directors: [],
+          available: true,
+          error: 'Director name must be at least 3 characters long.'
+        };
+      }
+
+      const searchBody = {
+        nameStartsWith: directorName,
+        page: options?.page || 1,
+        limit: options?.limit || 50
+      };
+
+      console.log('🔍 Probe42 v2 director search request:', JSON.stringify(searchBody));
+      const response = await this.client.post('/search-directors', searchBody);
+      console.log('📦 Probe42 v2 director search response status:', response.status);
+      
+      const responseData = response.data?.data || response.data;
+      const directorsList = responseData?.directors || responseData?.entities || [];
+      
+      console.log(`📦 Probe42 v2 found ${directorsList.length} directors`);
+      
+      if (directorsList.length > 0) {
+        console.log('📋 Probe42 v2 sample director keys:', Object.keys(directorsList[0]));
+      }
+
+      const directors = Array.isArray(directorsList) 
+        ? directorsList.map((director: any) => {
+            const companies = (director.companies || director.associated_companies || []).map((comp: any) => ({
+              cin: comp.cin || comp.identifier,
+              legalName: comp.legal_name || comp.legalName || comp.company_name || comp.companyName,
+              companyStatus: comp.company_status || comp.companyStatus || comp.status || 'Unknown',
+              paidUpCapital: comp.paid_up_capital || comp.paidUpCapital || 0,
+              sumOfCharges: comp.sum_of_charges || comp.sumOfCharges || 0,
+              incorporationDate: comp.incorporation_date || comp.incorporationDate || comp.date_of_incorporation || '',
+              designation: comp.designation || director.designation || '',
+              dateOfAppointment: comp.date_of_appointment || comp.dateOfAppointment || '',
+              dateOfAppointmentForCurrentDesignation: comp.date_of_appointment_for_current_designation || '',
+              dateOfCessation: comp.date_of_cessation || comp.dateOfCessation || undefined
+            }));
+
+            return {
+              din: director.din || director.identifier || '',
+              name: director.name || director.director_name || director.legal_name || '',
+              companies
+            };
+          })
+        : [];
+
+      console.log(`✅ Probe42 v2 director search found ${directors.length} directors`);
+      return { directors, available: true };
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Unknown error';
+      
+      console.error('❌ Probe42 v2 director search error:', { status, message });
+      
+      if (status === 404) {
+        return { 
+          directors: [], 
+          available: false, 
+          error: 'Director search endpoint not available. Your API subscription may not include this feature.' 
+        };
+      } else if (status === 401 || status === 403) {
+        return { 
+          directors: [], 
+          available: false, 
+          error: 'Probe42 API authentication failed.' 
+        };
+      } else if (status === 429) {
+        return { 
+          directors: [], 
+          available: false, 
+          error: 'API rate limit exceeded. Please try again later.' 
+        };
+      }
+      
+      return { 
+        directors: [], 
+        available: false, 
+        error: `Director search error: ${message}` 
+      };
+    }
+  }
+
+  /**
+   * Get comprehensive company details for director search results
+   * Enriches company data with financial and compliance information
+   */
+  async enrichDirectorCompanyData(cin: string): Promise<{
+    cin: string;
+    companyName: string;
+    paidUpCapital: number;
+    sumOfCharges: number;
+    companyStatus: string;
+    activeCompliance: string;
+    listingStatus: string;
+    entityType: string;
+    incorporationDate: string;
+    registeredAddress?: string;
+    city?: string;
+    state?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+  } | null> {
+    try {
+      const [baseDetails, kyc] = await Promise.all([
+        this.getCompanyDetails(cin),
+        this.getCompanyKYC(cin)
+      ]);
+
+      if (!baseDetails && !kyc) {
+        return null;
+      }
+
+      const kycData = kyc || {};
+      const base = baseDetails || {};
+
+      return {
+        cin,
+        companyName: base.companyName || kycData.legal_name || kycData.legalName || '',
+        paidUpCapital: kycData.paid_up_capital || kycData.paidUpCapital || base.paidUpCapital || 0,
+        sumOfCharges: kycData.sum_of_charges || kycData.sumOfCharges || 0,
+        companyStatus: kycData.company_status || kycData.companyStatus || base.status || 'Unknown',
+        activeCompliance: kycData.active_compliance || kycData.activeCompliance || 'Unknown',
+        listingStatus: kycData.listing_status || kycData.listingStatus || 'Unlisted',
+        entityType: kycData.type_of_entity || kycData.entityType || base.companyType || '',
+        incorporationDate: base.incorporationDate || kycData.incorporation_date || '',
+        registeredAddress: base.registeredAddress,
+        city: base.city,
+        state: base.state,
+        email: base.email,
+        phone: base.phone,
+        website: base.website
+      };
+    } catch (error: any) {
+      console.error(`❌ Error enriching company ${cin}:`, error?.message);
+      return null;
+    }
+  }
+
+  /**
    * Get company EPFO details (v2 API) - Employee count indicator
    * GET /entities/{identifier}/epfo
    */
