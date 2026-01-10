@@ -20,11 +20,19 @@ function getMcaRole(req: Request): McaRole {
   const user = (req as any).user;
   if (!user) return 'advisor'; // Default to lowest access
   
-  // Map user role to MCA role
+  // Map user role to MCA role - check both single role and roles array
   const role = user.role?.toLowerCase();
-  if (role === 'admin' || role === 'superadmin') return 'admin';
-  if (role === 'compliance') return 'compliance';
-  if (role === 'ops' || role === 'operations') return 'ops';
+  const roles = user.roles || [];
+  const rolesLower = roles.map((r: string) => r?.toLowerCase());
+  
+  // Check if user is admin
+  if (role === 'admin' || role === 'superadmin' || 
+      rolesLower.includes('admin') || rolesLower.includes('superadmin')) {
+    return 'admin';
+  }
+  if (role === 'compliance' || rolesLower.includes('compliance')) return 'compliance';
+  if (role === 'ops' || role === 'operations' || 
+      rolesLower.includes('ops') || rolesLower.includes('operations')) return 'ops';
   return 'advisor';
 }
 
