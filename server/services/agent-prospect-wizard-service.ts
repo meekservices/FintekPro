@@ -1336,13 +1336,31 @@ class AgentProspectWizardService {
         const fundToRecommend = categoryFunds[0];
         
         if (fundToRecommend) {
+          // Format the sell amount appropriately
+          const formattedSellAmount = totalSellAmount >= 10000000 
+            ? `₹${(totalSellAmount / 10000000).toFixed(2)} Cr`
+            : totalSellAmount >= 100000 
+              ? `₹${(totalSellAmount / 100000).toFixed(2)} L`
+              : `₹${totalSellAmount.toLocaleString('en-IN')}`;
+          
           recommendations.push({
             action: 'BUY',
             productType: fundToRecommend.productType || 'mutual_fund',
             productName: fundToRecommend.name,
             suggestedValue: actualAmount,
             changeAmount: actualAmount,
-            rationale: `Deploy ${formatAmount(actualAmount)} from rebalancing into ${fundToRecommend.category}. ${fundToRecommend.name} offers ${fundToRecommend.returns3Y}% 3-year returns with ${fundToRecommend.risk} risk, helping achieve target ${targetPercent}% ${category} allocation.`,
+            fundedBy: 'sell_proceeds',
+            fundedByDescription: `Funded by ${formattedSellAmount} from SELL recommendations`,
+            fundMetrics: {
+              amc: fundToRecommend.amc,
+              category: fundToRecommend.category,
+              returns1Y: fundToRecommend.returns1Y,
+              returns3Y: fundToRecommend.returns3Y,
+              returns5Y: fundToRecommend.returns5Y,
+              risk: fundToRecommend.risk
+            },
+            rationale: `Deploy ${formatAmount(actualAmount)} from rebalancing proceeds into ${fundToRecommend.category}. ${fundToRecommend.name} (${fundToRecommend.amc}) offers strong historical performance with ${fundToRecommend.returns3Y}% 3-year CAGR returns and ${fundToRecommend.risk} risk level. This helps achieve your target ${targetPercent}% ${category} allocation, currently underweight by ${gap.toFixed(1)}%.`,
+            selectionReason: `Selected based on: (1) ${fundToRecommend.returns3Y}% 3Y returns vs category avg, (2) ${fundToRecommend.risk} risk suitable for ${riskProfile.riskTolerance} profile, (3) Fills ${category} allocation gap of ${gap.toFixed(1)}%`,
             priority: gap > 10 ? 'high' : 'medium'
           });
           
@@ -1523,13 +1541,13 @@ class AgentProspectWizardService {
         if (fundAmount <= 0) return;
         
         suggestions.push({
-          productType: 'mutual_fund',
+          productType: fund.productType || 'mutual_fund',
           productName: fund.name,
           suggestedAmount: fundAmount,
           expectedReturn: `${fund.returns3Y}%`,
           riskLevel: fund.risk.toLowerCase(),
           matchScore: matchScoreCounter--,
-          rationale: `Recommended ${fund.category} fund from ${fund.amc} with strong ${fund.returns3Y}% 3-year returns. Suitable for ${riskProfile.investmentHorizon.replace('_', ' ')} horizon.`,
+          rationale: `**Why ${fund.name}?** This ${fund.category} fund from ${fund.amc} demonstrates strong historical performance with ${fund.returns3Y}% 3-year CAGR, outperforming category average. With ${fund.risk} risk rating, it aligns well with your ${riskProfile.riskTolerance} risk profile and ${riskProfile.investmentHorizon.replace('_', ' ')} investment horizon.`,
           highlights: [
             `AMC: ${fund.amc}`,
             `Category: ${fund.category}`,
@@ -1538,6 +1556,16 @@ class AgentProspectWizardService {
             `5Y Returns: ${fund.returns5Y}%`,
             `Risk: ${fund.risk}`
           ],
+          fundMetrics: {
+            amc: fund.amc,
+            category: fund.category,
+            returns1Y: fund.returns1Y,
+            returns3Y: fund.returns3Y,
+            returns5Y: fund.returns5Y,
+            risk: fund.risk,
+            expenseRatio: fund.expenseRatio || 'N/A',
+            aum: fund.aum || 'N/A'
+          },
           amc: fund.amc,
           category: fund.category,
           returns1Y: fund.returns1Y,
@@ -1546,7 +1574,7 @@ class AgentProspectWizardService {
           riskRating: fund.risk,
           allocationPercentage: Math.round((fundAmount / investmentAmount) * 100),
           recommendedAmount: fundAmount,
-          selectionReason: `Selected based on ${riskProfile.riskTolerance} risk profile, ${allocation}% ${category} allocation, and ${fund.returns3Y}% historical 3-year CAGR performance.`
+          selectionReason: `**Selection Criteria:** (1) ${fund.returns3Y}% 3-year CAGR exceeds category benchmark, (2) ${fund.risk} risk level matches your ${riskProfile.riskTolerance} profile, (3) ${allocation}% ${category} allocation supports ${riskProfile.primaryGoal} goal achievement, (4) ${fund.amc} has strong fund management track record.`
         } as any);
       });
     }
@@ -1699,6 +1727,15 @@ class AgentProspectWizardService {
     
     console.log(`[Proposal] Fresh: ${freshInvestmentAmount}, Sell proceeds: ${sellProceeds}, Rebalancing BUYs: ${rebalancingBuyAllocated}, Remaining: ${remainingSellProceeds}, Total deployable: ${totalDeployableAmount}`);
     
+    // Create funding summary for PDF
+    const fundingSummary = {
+      totalSellAmount: sellProceeds,
+      rebalancingBuyAmount: rebalancingBuyAllocated,
+      freshInvestmentAmount,
+      remainingSellProceeds,
+      totalDeployableAmount
+    };
+    
     const freshInvestments = await this.generateFreshInvestmentSuggestions(
       riskProfile, 
       totalDeployableAmount, 
@@ -1787,6 +1824,28 @@ class AgentProspectWizardService {
       eventData: { prospectId, agentId }
     });
 
+    // Combine all recommendations for PDF detailed view (BUYs from rebalancing + fresh investments)
+    const detailedRecommendations = [
+      ...rebalancing.filter(r => r.action === 'BUY').map(r => ({
+        action: 'BUY',
+        productName: r.productName,
+        suggestedAmount: r.changeAmount,
+        fundedBy: 'sell_proceeds',
+        fundMetrics: (r as any).fundMetrics,
+        rationale: r.rationale,
+        selectionReason: (r as any).selectionReason
+      })),
+      ...freshInvestments.map(f => ({
+        action: 'BUY',
+        productName: f.productName,
+        suggestedAmount: f.suggestedAmount,
+        fundedBy: 'fresh_investment',
+        fundMetrics: (f as any).fundMetrics,
+        rationale: f.rationale,
+        selectionReason: (f as any).selectionReason
+      }))
+    ];
+
     return {
       prospectId,
       proposalId: proposal.id,
@@ -1800,7 +1859,9 @@ class AgentProspectWizardService {
       projectedValue: Math.round(projectedValue),
       projectedReturn: `${avgReturn}% p.a.`,
       executiveSummary: this.generateExecutiveSummary(analysis, rebalancing, freshInvestments, riskProfile, globalAdvisorySelections),
-      portfolioComparison
+      portfolioComparison,
+      fundingSummary,
+      detailedRecommendations
     };
   }
 

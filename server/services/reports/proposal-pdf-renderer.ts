@@ -120,6 +120,12 @@ export class ProposalPDFRenderer {
       this.renderRiskAssessment(config);
     }
 
+    // Render funding summary if sell proceeds data is available
+    if ((config as any).fundingSummary) {
+      this.addNewPage();
+      this.renderFundingSummary((config as any).fundingSummary);
+    }
+
     if (config.sections.investmentRecommendations) {
       this.addNewPage();
       this.renderInvestmentRecommendations(config);
@@ -348,26 +354,96 @@ Our recommended asset allocation is designed to balance growth potential with ri
     this.pdf.text('Based on your risk profile and investment goals, we recommend:', this.margin, this.currentY);
     this.currentY += 10;
 
-    const recommendations = this.getRecommendations(config);
+    // Check if detailed recommendations are provided in config
+    const detailedRecs = (config as any).detailedRecommendations || [];
+    
+    if (detailedRecs.length > 0) {
+      // Render detailed recommendations with fund names, amounts, and metrics
+      const recRows = detailedRecs.map((r: any) => {
+        const amount = r.suggestedAmount || r.changeAmount || r.recommendedAmount || 0;
+        const amountStr = amount >= 100000 ? `₹${(amount / 100000).toFixed(2)}L` : `₹${amount.toLocaleString('en-IN')}`;
+        const returns = r.fundMetrics?.returns3Y || r.returns3Y || r.expectedReturn || 'N/A';
+        const risk = r.fundMetrics?.risk || r.riskLevel || r.riskRating || 'Moderate';
+        return [
+          r.action || 'BUY',
+          r.productName || r.schemeName || 'N/A',
+          amountStr,
+          typeof returns === 'string' ? returns : `${returns}%`,
+          risk
+        ];
+      });
+      
+      autoTable(this.pdf, {
+        startY: this.currentY,
+        head: [['Action', 'Fund/Product Name', 'Amount', '3Y Returns', 'Risk']],
+        body: recRows,
+        theme: 'striped',
+        headStyles: { fillColor: COLORS.primary },
+        margin: { left: this.margin, right: this.margin },
+        columnStyles: {
+          0: { cellWidth: 18 },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 25 }
+        }
+      });
+      
+      this.currentY = (this.pdf as any).lastAutoTable.finalY + 10;
+      
+      // Add rationales section if available
+      const rationalesExist = detailedRecs.some((r: any) => r.rationale || r.selectionReason);
+      if (rationalesExist) {
+        this.pdf.setFont('helvetica', 'bold');
+        this.pdf.setFontSize(11);
+        this.pdf.text('Why These Recommendations:', this.margin, this.currentY);
+        this.currentY += 8;
+        
+        detailedRecs.slice(0, 5).forEach((rec: any, idx: number) => {
+          if (this.currentY > this.pageHeight - 40) {
+            this.addNewPage();
+          }
+          
+          const reason = rec.selectionReason || rec.rationale || '';
+          const cleanReason = reason.replace(/\*\*/g, ''); // Remove markdown bold
+          
+          if (cleanReason) {
+            this.pdf.setFont('helvetica', 'bold');
+            this.pdf.setFontSize(9);
+            this.pdf.text(`${idx + 1}. ${rec.productName || 'Recommendation'}:`, this.margin, this.currentY);
+            this.currentY += 5;
+            
+            this.pdf.setFont('helvetica', 'normal');
+            this.pdf.setFontSize(8);
+            const lines = this.pdf.splitTextToSize(cleanReason, this.pageWidth - 2 * this.margin - 5);
+            this.pdf.text(lines, this.margin + 5, this.currentY);
+            this.currentY += lines.length * 4 + 5;
+          }
+        });
+      }
+    } else {
+      // Fallback to generic recommendations
+      const recommendations = this.getRecommendations(config);
 
-    autoTable(this.pdf, {
-      startY: this.currentY,
-      head: [['Category', 'Recommended Instruments', 'Allocation', 'Risk Level']],
-      body: recommendations.map(r => [r.category, r.instruments, r.allocation, r.risk]),
-      theme: 'striped',
-      headStyles: { fillColor: COLORS.primary },
-      margin: { left: this.margin, right: this.margin },
-    });
+      autoTable(this.pdf, {
+        startY: this.currentY,
+        head: [['Category', 'Recommended Instruments', 'Allocation', 'Risk Level']],
+        body: recommendations.map(r => [r.category, r.instruments, r.allocation, r.risk]),
+        theme: 'striped',
+        headStyles: { fillColor: COLORS.primary },
+        margin: { left: this.margin, right: this.margin },
+      });
 
-    this.currentY = (this.pdf as any).lastAutoTable.finalY + 15;
+      this.currentY = (this.pdf as any).lastAutoTable.finalY + 15;
 
-    this.pdf.setFont('helvetica', 'italic');
-    this.pdf.setFontSize(9);
-    this.pdf.text(
-      'Note: Specific fund recommendations will be provided after account opening and KYC completion.',
-      this.margin,
-      this.currentY
-    );
+      this.pdf.setFont('helvetica', 'italic');
+      this.pdf.setFontSize(9);
+      this.pdf.text(
+        'Note: Specific fund recommendations will be provided after account opening and KYC completion.',
+        this.margin,
+        this.currentY
+      );
+    }
   }
 
   private renderProjectedReturns(config: ProposalConfig): void {
@@ -492,6 +568,71 @@ Our recommended asset allocation is designed to balance growth potential with ri
       this.pdf.text(lines, this.margin, this.currentY);
       this.currentY += lines.length * 4 + 10;
     });
+  }
+
+  private renderFundingSummary(fundingSummary: {
+    totalSellAmount: number;
+    rebalancingBuyAmount: number;
+    freshInvestmentAmount: number;
+    remainingSellProceeds: number;
+    totalDeployableAmount: number;
+  }): void {
+    this.renderSectionHeader('Investment Funding Summary');
+
+    this.pdf.setFontSize(11);
+    this.pdf.setFont('helvetica', 'normal');
+    this.pdf.text('Here is how your investments will be funded:', this.margin, this.currentY);
+    this.currentY += 10;
+
+    const formatAmount = (amt: number) => {
+      if (amt >= 10000000) return `₹${(amt / 10000000).toFixed(2)} Cr`;
+      if (amt >= 100000) return `₹${(amt / 100000).toFixed(2)} L`;
+      return `₹${amt.toLocaleString('en-IN')}`;
+    };
+
+    const fundingData = [];
+    
+    if (fundingSummary.totalSellAmount > 0) {
+      fundingData.push(['Proceeds from SELL Recommendations', formatAmount(fundingSummary.totalSellAmount), 'Funds freed from underperforming/overweight holdings']);
+    }
+    
+    if (fundingSummary.rebalancingBuyAmount > 0) {
+      fundingData.push(['Allocated to Rebalancing BUYs', `- ${formatAmount(fundingSummary.rebalancingBuyAmount)}`, 'Deployed to underweight asset categories']);
+    }
+    
+    if (fundingSummary.remainingSellProceeds > 0) {
+      fundingData.push(['Remaining Sell Proceeds', formatAmount(fundingSummary.remainingSellProceeds), 'Available for fresh investments']);
+    }
+    
+    if (fundingSummary.freshInvestmentAmount > 0) {
+      fundingData.push(['Fresh Investment Amount', formatAmount(fundingSummary.freshInvestmentAmount), 'New capital to deploy']);
+    }
+    
+    fundingData.push(['Total Deployable Amount', formatAmount(fundingSummary.totalDeployableAmount), 'Total for fresh investment recommendations']);
+
+    autoTable(this.pdf, {
+      startY: this.currentY,
+      head: [['Source/Use', 'Amount', 'Description']],
+      body: fundingData,
+      theme: 'striped',
+      headStyles: { fillColor: COLORS.primary },
+      margin: { left: this.margin, right: this.margin },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 35, halign: 'right' },
+        2: { cellWidth: 70 }
+      }
+    });
+
+    this.currentY = (this.pdf as any).lastAutoTable.finalY + 15;
+
+    // Add explanation
+    this.pdf.setFont('helvetica', 'italic');
+    this.pdf.setFontSize(9);
+    const explanation = `The above shows how your investment funds are sourced. Sell proceeds from rebalancing are first used to optimize your portfolio allocation, and any remaining amount along with fresh investment is deployed into recommended funds.`;
+    const lines = this.pdf.splitTextToSize(explanation, this.pageWidth - 2 * this.margin);
+    this.pdf.text(lines, this.margin, this.currentY);
+    this.currentY += lines.length * 4 + 10;
   }
 
   private renderSectionHeader(title: string): void {

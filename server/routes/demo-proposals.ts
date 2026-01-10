@@ -52,10 +52,39 @@ const proposalConfigSchema = z.object({
   }),
 });
 
+const fundingSummarySchema = z.object({
+  totalSellAmount: z.number(),
+  rebalancingBuyAmount: z.number(),
+  freshInvestmentAmount: z.number(),
+  remainingSellProceeds: z.number(),
+  totalDeployableAmount: z.number(),
+}).optional();
+
+const detailedRecommendationSchema = z.object({
+  action: z.string(),
+  productName: z.string(),
+  suggestedAmount: z.number(),
+  fundedBy: z.string().optional(),
+  fundMetrics: z.object({
+    amc: z.string().optional(),
+    category: z.string().optional(),
+    returns1Y: z.union([z.number(), z.string()]).optional(),
+    returns3Y: z.union([z.number(), z.string()]).optional(),
+    returns5Y: z.union([z.number(), z.string()]).optional(),
+    risk: z.string().optional(),
+    expenseRatio: z.union([z.number(), z.string()]).optional(),
+    aum: z.union([z.number(), z.string()]).optional(),
+  }).optional(),
+  rationale: z.string().optional(),
+  selectionReason: z.string().optional(),
+}).optional();
+
 const generatePdfRequestSchema = z.object({
   config: proposalConfigSchema,
   clientId: z.union([z.number(), z.string()]).optional(),
   proposalName: z.string().optional(),
+  fundingSummary: fundingSummarySchema,
+  detailedRecommendations: z.array(detailedRecommendationSchema).optional(),
 });
 
 const router = Router();
@@ -449,7 +478,7 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
       });
     }
 
-    const { config, clientId, proposalName } = validationResult.data;
+    const { config, clientId, proposalName, fundingSummary, detailedRecommendations } = validationResult.data;
 
     // Get client data
     let clientData = { fullName: 'Valued Client', email: '' };
@@ -474,8 +503,15 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
       }
     }
 
+    // Merge additional data into config for PDF generation
+    const pdfConfig = {
+      ...config,
+      fundingSummary,
+      detailedRecommendations
+    };
+
     // Generate PDF
-    const pdfBuffer = await generateProposalPDF(config, clientData);
+    const pdfBuffer = await generateProposalPDF(pdfConfig, clientData);
     
     // Convert to base64 data URL
     const base64 = pdfBuffer.toString('base64');
