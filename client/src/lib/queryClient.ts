@@ -31,7 +31,12 @@ const EXCLUDED_401_ENDPOINTS = [
   "/api/cart",
   "/api/unified-cart",
   "/api/user/preferences",
-  "/api/kyc/notification-status"
+  "/api/kyc/notification-status",
+  "/api/admin/store/categories",
+  "/api/admin/store/products",
+  "/api/admin/store/audit-logs",
+  "/api/admin/pending-orders",
+  "/api/admin/kyc/dashboard"
 ];
 
 let wasEverAuthenticated = false;
@@ -39,7 +44,8 @@ let lastAuthenticatedAt: number | null = null;
 
 // Grace period after login before session expired dialog can trigger (in milliseconds)
 // This prevents false positives when the browser is still processing the Set-Cookie header
-const AUTH_GRACE_PERIOD_MS = 5000;
+// Increased to 10 seconds to handle slower cookie processing
+const AUTH_GRACE_PERIOD_MS = 10000;
 
 export function markUserAuthenticated() {
   wasEverAuthenticated = true;

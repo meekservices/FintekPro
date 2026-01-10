@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, markUserAuthenticated } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
@@ -347,6 +347,8 @@ export default function AuthPage() {
     onSuccess: (response) => {
       const data = response.data || response;
       setLoginStep("complete");
+      // Mark user as authenticated BEFORE setting query data to prevent session expired popup race condition
+      markUserAuthenticated();
       queryClient.setQueryData(["/api/user"], data);
       setOtpDialogOpen(false);
       otpForm.reset();
@@ -471,6 +473,9 @@ export default function AuthPage() {
       setShowUserIdDialog(true);
       registerForm.reset();
       setRegistrationToken(""); // Clear secure token
+      
+      // Mark user as authenticated BEFORE setting query data to prevent session expired popup race condition
+      markUserAuthenticated();
       
       // Auto-login the user and verify session
       queryClient.setQueryData(["/api/user"], data);
