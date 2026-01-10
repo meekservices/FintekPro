@@ -2004,10 +2004,54 @@ function PriceHistoryTab({ priceHistory }: { priceHistory: UnlistedPriceHistory[
 }
 
 function SyncStatusTab({ company }: { company: UnlistedCompany }) {
+  const { toast } = useToast();
+  
+  const enrichMCAMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(`/api/unlisted/admin/companies/${company.id}/enrich-mca`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return response as { data: { financialsStored: number; message: string } };
+    },
+    onSuccess: (response) => {
+      toast({
+        title: 'MCA Enrichment Complete',
+        description: response.data?.message || `Fetched financial data from MCA/Probe42`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', company.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', company.id, 'financials'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Enrichment Failed',
+        description: error.message || 'Failed to enrich company with MCA data',
+        variant: 'destructive'
+      });
+    }
+  });
+  
   return (
     <Card className="bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-foreground">Probe42 Sync Status</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-foreground">Probe42 Sync Status</CardTitle>
+          {company.cin && (
+            <Button 
+              onClick={() => enrichMCAMutation.mutate()}
+              disabled={enrichMCAMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-enrich-mca"
+            >
+              {enrichMCAMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Enrich MCA Data
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2034,8 +2078,20 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
             <Label className="text-muted-foreground">Data Source</Label>
             <p className="text-foreground">Probe42</p>
           </div>
+          <div>
+            <Label className="text-muted-foreground">CIN (for MCA lookup)</Label>
+            <p className="text-white font-mono">{company.cin || 'Not available'}</p>
+          </div>
         </div>
 
+        {!company.cin && (
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+            <p className="text-yellow-500 text-sm">
+              MCA enrichment requires a CIN. Link this company to Probe42 to obtain the CIN first.
+            </p>
+          </div>
+        )}
+        
         {!company.probe42CompanyId && (
           <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
             <p className="text-yellow-500 text-sm">
