@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield, CreditCard, Scale, UserCheck, FileWarning, Landmark, Eye, Building, FileText, User, Network } from 'lucide-react';
+import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield, CreditCard, Scale, UserCheck, FileWarning, Landmark, Eye, Building, FileText, User, Network, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -204,6 +204,33 @@ export default function LeadProspecting() {
       });
     }
   });
+
+  const enrichPreviewMutation = useMutation({
+    mutationFn: async ({ cin, companyName }: { cin: string; companyName: string }) => {
+      return apiRequest('/api/admin/marketing/leads/enrich-preview', {
+        method: 'POST',
+        body: JSON.stringify({ cin, companyName })
+      });
+    },
+    onSuccess: (data: any) => {
+      setSelectedCompany(data as CompanySearchResult);
+      setShowDetailsDialog(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to fetch company details',
+        description: error.message || 'Unable to enrich company data. Try importing directly.',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const handleViewDetails = (company: CompanySearchResult | DirectorCompany) => {
+    enrichPreviewMutation.mutate({ 
+      cin: company.cin, 
+      companyName: 'legalName' in company ? company.legalName : company.companyName 
+    });
+  };
 
   const searchDirectorsMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -460,14 +487,16 @@ export default function LeadProspecting() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            setSelectedCompany(company);
-                            setShowDetailsDialog(true);
-                          }}
+                          onClick={() => handleViewDetails(company)}
+                          disabled={enrichPreviewMutation.isPending}
                           data-testid={`button-details-${company.cin}`}
                         >
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Details
+                          {enrichPreviewMutation.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Eye className="mr-2 h-4 w-4" />
+                          )}
+                          {enrichPreviewMutation.isPending ? 'Loading...' : 'View Details'}
                         </Button>
                         <Button
                           size="sm"
@@ -665,34 +694,15 @@ export default function LeadProspecting() {
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => {
-                                        setSelectedCompany({
-                                          cin: company.cin,
-                                          companyName: company.legalName,
-                                          city: company.city,
-                                          state: company.state,
-                                          pincode: company.pincode,
-                                          registeredAddress: company.registeredAddress,
-                                          authorizedCapital: company.authorizedCapital,
-                                          paidUpCapital: company.paidUpCapital,
-                                          email: company.email,
-                                          phone: company.phone,
-                                          website: company.website,
-                                          incorporationDate: company.incorporationDate,
-                                          companyClass: company.companyClass,
-                                          companyCategory: company.companyCategory,
-                                          status: company.companyStatus,
-                                          sumOfCharges: company.sumOfCharges,
-                                          activeCompliance: company.activeCompliance,
-                                          listingStatus: company.listingStatus,
-                                          entityType: company.entityType,
-                                          isEnriched: company.isEnriched
-                                        });
-                                        setShowDetailsDialog(true);
-                                      }}
+                                      onClick={() => handleViewDetails(company)}
+                                      disabled={enrichPreviewMutation.isPending}
                                     >
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      Details
+                                      {enrichPreviewMutation.isPending ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Eye className="mr-2 h-4 w-4" />
+                                      )}
+                                      {enrichPreviewMutation.isPending ? 'Loading...' : 'Details'}
                                     </Button>
                                     <Button
                                       size="sm"

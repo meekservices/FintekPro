@@ -639,6 +639,79 @@ export function registerMarketingRoutes(app: any) {
   });
 
   /**
+   * Enrich company data for preview (before import)
+   * Fetches full enrichment data from Probe42 v2 API without saving
+   */
+  app.post('/api/admin/marketing/leads/enrich-preview', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { cin, companyName: requestCompanyName } = req.body;
+      
+      if (!cin) {
+        return apiResponse.badRequest(res, 'CIN is required');
+      }
+
+      console.log(`🔍 Enriching company for preview: ${cin}`);
+      const probe42 = getProbe42Service();
+      
+      // Use full enrichment to get all available data from Probe42 v2 API
+      const enrichment = await probe42.getFullEnrichment(cin);
+      const company = enrichment.baseDetails;
+      const enrichedData = probe42.extractEnrichmentData(enrichment);
+
+      // Build response with all available fields
+      const response = {
+        cin: company?.cin || cin,
+        companyName: company?.companyName || requestCompanyName || 'Unknown',
+        registrationNumber: company?.registrationNumber || cin,
+        status: company?.status || enrichedData.companyStatus || 'Unknown',
+        companyType: company?.companyType || enrichedData.entityType || null,
+        companyClass: company?.companyClass || null,
+        companyCategory: company?.companyCategory || null,
+        incorporationDate: company?.incorporationDate || null,
+        registeredAddress: company?.registeredAddress || null,
+        city: company?.city || null,
+        state: company?.state || null,
+        pincode: company?.pincode || null,
+        email: company?.email || null,
+        phone: company?.phone || null,
+        website: company?.website || null,
+        paidUpCapital: enrichedData.paidUpCapital || company?.paidUpCapital || null,
+        authorizedCapital: enrichedData.authorizedCapital || company?.authorizedCapital || null,
+        sumOfCharges: enrichedData.sumOfCharges || null,
+        activeCompliance: enrichedData.activeCompliance || null,
+        listingStatus: enrichedData.listingStatus || null,
+        entityType: enrichedData.entityType || null,
+        companyStatus: enrichedData.companyStatus || null,
+        rocCode: enrichedData.rocCode || null,
+        numberOfMembers: enrichedData.numberOfMembers || null,
+        lastAgmDate: enrichedData.lastAgmDate || null,
+        lastBalanceSheetDate: enrichedData.lastBalanceSheetDate || null,
+        employeeCount: enrichedData.employeeCount || null,
+        gstStatus: enrichedData.gstStatus || null,
+        gstNumber: enrichedData.gstNumber || null,
+        creditRating: enrichedData.creditRating || null,
+        creditRatingAgency: enrichedData.creditRatingAgency || null,
+        creditRatingOutlook: enrichedData.creditRatingOutlook || null,
+        openChargesCount: enrichedData.openChargesCount || null,
+        totalChargesAmount: enrichedData.totalChargesAmount || null,
+        suitFiledCasesCount: enrichedData.suitFiledCases || null,
+        activeLegalCases: enrichedData.activeLegalCases || null,
+        directors: enrichedData.directors || company?.directors || null,
+        enrichmentScore: enrichedData.enrichmentScore || 0,
+        enrichmentSources: enrichment.enrichmentSources || [],
+        apiAccessIssues: enrichedData.apiAccessIssues || [],
+        isEnriched: true
+      };
+
+      console.log(`✅ Enrichment preview complete for ${cin}: score ${response.enrichmentScore}%`);
+      res.json(response);
+    } catch (error) {
+      console.error('Error enriching company for preview:', error);
+      return apiResponse.serverError(res, 'Failed to enrich company data');
+    }
+  });
+
+  /**
    * Import prospect lead from Probe42 with full v2 API enrichment
    */
   app.post('/api/admin/marketing/leads/import', requireAdmin, async (req: any, res: Response) => {
