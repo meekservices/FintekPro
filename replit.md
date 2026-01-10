@@ -30,7 +30,8 @@ A comprehensive API cost optimization system minimizes external API calls throug
 - **Unified Stock Price Service**: Consolidates all stock price fetching (NSE, BSE) with in-memory caching (15s TTL), batch fetching for watchlists, and automatic source fallback.
 - **Company Data Auto-Refresh Scheduler**: Background job that automatically refreshes stale company data using batch Probe42 APIs. Configurable staleness thresholds (90 days for financials, 30 days for details).
 - **Onboarding Cache Service**: Caches KYC verification results (PAN, KRA, Bank) during onboarding to reduce repeated API calls. Session-aware with TTLs (PAN: 24hr, KRA: 4hr, Bank: 24hr).
-- **Cache Admin Dashboard**: Unified monitoring endpoints at `/api/admin/cache/*` for deduplication metrics, AI cache stats, stock price cache, company refresh status, onboarding cache, and overall cost savings summary.
+- **Proactive Cache Warming Service**: Background service (30-min interval) that tracks access patterns and pre-fetches popular stock data before cache expiry. Warms top 20 stocks (RELIANCE, TCS, INFY, etc.) plus dynamically tracked popular stocks. Endpoints at `/api/admin/cache/warming` for metrics and manual triggers.
+- **Cache Admin Dashboard**: Unified monitoring endpoints at `/api/admin/cache/*` for deduplication metrics, AI cache stats, stock price cache, company refresh status, onboarding cache, warming metrics, and overall cost savings summary.
 
 The Corporate Treasury Management module is SEBI-compliant with a configurable Maker-Checker workflow, a four-bucket allocation system for debt-only instruments, and optimized proposals based on mandate constraints. Compliance controls include self-approval prevention and immutable audit trails.
 

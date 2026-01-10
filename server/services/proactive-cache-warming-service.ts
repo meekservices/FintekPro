@@ -32,8 +32,6 @@ interface WarmingConfig {
 interface WarmingMetrics {
   totalWarmingRuns: number;
   stocksWarmed: number;
-  fundsWarmed: number;
-  companiesWarmed: number;
   lastRunAt: number | null;
   errors: number;
 }
@@ -48,13 +46,7 @@ const DEFAULT_CONFIG: WarmingConfig = {
     'BAJFINANCE', 'LICI', 'ASIANPAINT', 'MARUTI', 'AXISBANK',
     'TITAN', 'SUNPHARMA', 'ULTRACEMCO', 'WIPRO', 'HCLTECH'
   ],
-  popularFunds: [
-    'HDFC Balanced Advantage Fund',
-    'SBI Equity Hybrid Fund',
-    'ICICI Prudential Bluechip Fund',
-    'Axis Bluechip Fund',
-    'Mirae Asset Large Cap Fund'
-  ],
+  popularFunds: [], // Reserved for future fund warming
 };
 
 class ProactiveCacheWarmingService {
@@ -64,8 +56,6 @@ class ProactiveCacheWarmingService {
   private metrics: WarmingMetrics = {
     totalWarmingRuns: 0,
     stocksWarmed: 0,
-    fundsWarmed: 0,
-    companiesWarmed: 0,
     lastRunAt: null,
     errors: 0,
   };
@@ -132,14 +122,12 @@ class ProactiveCacheWarmingService {
     return items;
   }
 
-  async runWarmingCycle(): Promise<{ stocks: number; funds: number; companies: number }> {
+  async runWarmingCycle(): Promise<{ stocks: number }> {
     console.log('[CacheWarming] Starting warming cycle...');
     this.metrics.totalWarmingRuns++;
     this.metrics.lastRunAt = Date.now();
 
     let stocksWarmed = 0;
-    let fundsWarmed = 0;
-    let companiesWarmed = 0;
 
     try {
       const popularStocks = [...this.config.popularStocks, ...this.getPopularItems('stock', 10)];
@@ -151,19 +139,14 @@ class ProactiveCacheWarmingService {
         stocksWarmed = uniqueStocks.length;
         this.metrics.stocksWarmed += stocksWarmed;
       }
-
-      const popularCompanies = this.getPopularItems('company', 10);
-      companiesWarmed = popularCompanies.length;
-      this.metrics.companiesWarmed += companiesWarmed;
-
     } catch (error: any) {
       console.error('[CacheWarming] Error during warming:', error.message);
       this.metrics.errors++;
     }
 
-    console.log(`[CacheWarming] Cycle complete: ${stocksWarmed} stocks, ${fundsWarmed} funds, ${companiesWarmed} companies`);
+    console.log(`[CacheWarming] Cycle complete: ${stocksWarmed} stocks warmed`);
 
-    return { stocks: stocksWarmed, funds: fundsWarmed, companies: companiesWarmed };
+    return { stocks: stocksWarmed };
   }
 
   getMetrics(): WarmingMetrics & { accessPatternCount: number; config: WarmingConfig } {

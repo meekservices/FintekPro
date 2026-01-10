@@ -393,7 +393,7 @@ router.post('/warming/trigger', async (req, res) => {
     
     res.json({
       success: true,
-      message: `Warming complete: ${result.stocks} stocks, ${result.funds} funds, ${result.companies} companies`,
+      message: `Warming complete: ${result.stocks} stocks warmed`,
       ...result
     });
   } catch (error: any) {
