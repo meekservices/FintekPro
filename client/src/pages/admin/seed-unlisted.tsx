@@ -1837,19 +1837,17 @@ export default function SeedUnlistedPage() {
                       key={company.id} 
                       className="border-border hover:bg-muted/50"
                     >
-                      <TableCell className="font-medium text-muted-foreground">
+                      <TableCell className="font-medium text-white">
                         <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                          <Building2 className="w-4 h-4 text-blue-400" />
                           {company.name}
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-gray-300">
                         {company.sector || 'N/A'}
                       </TableCell>
-                      <TableCell>
-                        <Badge className={getStageBadgeColor(company.listingStage)}>
-                          {getStageLabel(company.listingStage)}
-                        </Badge>
+                      <TableCell className="text-gray-300">
+                        {company.listingStage || 'Unlisted'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
