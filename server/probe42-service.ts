@@ -1630,6 +1630,134 @@ export function normalizeCompanyResult(company: CompanyBasicInfo | CompanyDetail
   };
 }
 
+/**
+ * Enrich an unlisted company with MCA financial data
+ * Fetches financials, charges, credit ratings and stores in companyFinancials table
+ */
+export async function enrichUnlistedCompanyWithMCAData(
+  companyId: string,
+  cin: string
+): Promise<{
+  success: boolean;
+  enrichedData?: {
+    financials: any[];
+    charges: any;
+    creditRatings: any;
+    legalCases: any;
+    directors: any[];
+  };
+  financialsStored?: number;
+  message: string;
+}> {
+  try {
+    const probe42 = getProbe42Service();
+    
+    console.log(`🔄 Enriching unlisted company ${companyId} (CIN: ${cin}) with MCA data...`);
+    
+    // Fetch comprehensive data from Probe42
+    const enrichment = await probe42.getFullEnrichment(cin);
+    
+    if (!enrichment.baseDetails && !enrichment.kyc) {
+      return {
+        success: false,
+        message: 'Failed to fetch company data from MCA/Probe42'
+      };
+    }
+    
+    // Extract enrichment data
+    const extractedData = probe42.extractEnrichmentData(enrichment);
+    
+    // Get financials from KYC endpoint
+    const financials = enrichment.kyc?.financials || [];
+    const directors = enrichment.kyc?.directors || extractedData?.directors || [];
+    
+    // Store financials in database
+    const { db } = await import('./db');
+    const { companyFinancials, unlistedCompanies } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+    
+    let financialsStored = 0;
+    
+    for (const financial of financials) {
+      const financialYear = financial.year || financial.financial_year || 'Unknown';
+      
+      // Check if record exists
+      const [existing] = await db.select()
+        .from(companyFinancials)
+        .where(eq(companyFinancials.companyId, companyId))
+        .limit(1);
+      
+      const financialData = {
+        companyId,
+        financialYear,
+        revenue: financial.revenue?.toString() || financial.total_income?.toString() || null,
+        ebitda: financial.ebitda?.toString() || null,
+        pat: financial.netProfit?.toString() || financial.profit_after_tax?.toString() || null,
+        netProfit: financial.netProfit?.toString() || financial.profit_after_tax?.toString() || null,
+        pbt: financial.profit_before_tax?.toString() || null,
+        totalAssets: financial.totalAssets?.toString() || financial.total_assets?.toString() || null,
+        totalLiabilities: financial.totalLiabilities?.toString() || financial.total_liabilities?.toString() || null,
+        networth: financial.shareholderFunds?.toString() || financial.net_worth?.toString() || null,
+        totalDebt: (
+          (parseFloat(financial.long_term_borrowings || '0') + 
+           parseFloat(financial.short_term_borrowings || '0')) || null
+        )?.toString(),
+        longTermDebt: financial.long_term_borrowings?.toString() || null,
+        shortTermDebt: financial.short_term_borrowings?.toString() || null,
+        shareCapital: financial.share_capital?.toString() || null,
+        reserves: financial.reserves?.toString() || null,
+        dataSource: 'probe42',
+        verified: true,
+        confidenceScore: '0.95',
+        aiAllowed: true,
+        executionAllowed: true,
+      };
+      
+      if (existing) {
+        await db.update(companyFinancials)
+          .set({ ...financialData, updatedAt: new Date() })
+          .where(eq(companyFinancials.id, existing.id));
+      } else {
+        await db.insert(companyFinancials).values(financialData);
+      }
+      financialsStored++;
+    }
+    
+    // Update unlisted company with enriched data
+    await db.update(unlistedCompanies)
+      .set({
+        lastSyncedAt: new Date(),
+        directors: directors,
+        probe42RawResponse: enrichment,
+        identityConfidence: '0.95',
+        identityStatus: 'active',
+        updatedAt: new Date(),
+      })
+      .where(eq(unlistedCompanies.id, companyId));
+    
+    console.log(`✅ Enriched ${companyId} with ${financialsStored} financial records`);
+    
+    return {
+      success: true,
+      enrichedData: {
+        financials,
+        charges: enrichment.openCharges,
+        creditRatings: enrichment.creditRatings,
+        legalCases: enrichment.suitFiledCases,
+        directors,
+      },
+      financialsStored,
+      message: `Successfully enriched with ${financialsStored} financial records`
+    };
+  } catch (error: any) {
+    console.error(`❌ Failed to enrich unlisted company ${companyId}:`, error);
+    return {
+      success: false,
+      message: error.message || 'Failed to enrich company data'
+    };
+  }
+}
+
 // Singleton instance
 let probe42Service: Probe42Service | null = null;
 

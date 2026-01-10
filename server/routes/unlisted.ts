@@ -14,7 +14,7 @@ import { db } from '../db';
 import { apiResponse } from '../utils/responses';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
-import { probe42Service } from '../services/probe42-service';
+import { probe42Service, enrichUnlistedCompanyWithMCAData } from '../services/probe42-service';
 import { PriceSuggestionService } from '../services/price-suggestion';
 import { priceAggregationService } from '../services/price-aggregation';
 import { moneyControlReconciliation } from '../services/moneycontrol-reconciliation';
@@ -4396,6 +4396,115 @@ router.post('/admin/companies/:id/enrich', requireAdmin, async (req: Request, re
   } catch (error: any) {
     console.error('Error enriching company:', error);
     return apiResponse.serverError(res, error.message || 'Failed to enrich company data');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/companies/:id/enrich-mca
+ * Trigger MCA/Probe42 enrichment for an unlisted company (Admin only)
+ * Fetches comprehensive data including financials, charges, legal cases, directors
+ * and stores it in the companyFinancials table
+ */
+router.post('/admin/companies/:id/enrich-mca', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Get company details
+    const company = await storage.getUnlistedCompanyById(id);
+    if (!company) {
+      return apiResponse.notFound(res, 'Company not found');
+    }
+    
+    if (!company.cin) {
+      return apiResponse.badRequest(res, 'Company CIN is required for MCA enrichment. Please set CIN first.');
+    }
+    
+    console.log(`📊 Starting MCA enrichment for ${company.name} (CIN: ${company.cin})`);
+    
+    // Trigger MCA enrichment
+    const result = await enrichUnlistedCompanyWithMCAData(id, company.cin);
+    
+    if (!result.success) {
+      return apiResponse.serverError(res, result.message);
+    }
+    
+    return apiResponse.success(res, {
+      companyId: id,
+      companyName: company.name,
+      cin: company.cin,
+      financialsStored: result.financialsStored,
+      enrichedData: result.enrichedData,
+      message: result.message,
+    });
+  } catch (error: any) {
+    console.error('Error in MCA enrichment:', error);
+    return apiResponse.serverError(res, error.message || 'Failed to enrich company with MCA data');
+  }
+});
+
+/**
+ * POST /api/unlisted/admin/companies/bulk-enrich-mca
+ * Bulk MCA enrichment for all unlisted companies with CIN (Admin only)
+ */
+router.post('/admin/companies/bulk-enrich-mca', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { limit = 50 } = req.body;
+    
+    // Get all companies with CIN that haven't been synced recently
+    const companies = await storage.getUnlistedCompanies({ status: 'active' });
+    const companiesWithCIN = companies.filter(c => c.cin);
+    
+    // Sort by last synced (oldest first) and limit
+    const toEnrich = companiesWithCIN
+      .sort((a, b) => {
+        if (!a.lastSyncedAt) return -1;
+        if (!b.lastSyncedAt) return 1;
+        return new Date(a.lastSyncedAt).getTime() - new Date(b.lastSyncedAt).getTime();
+      })
+      .slice(0, limit);
+    
+    console.log(`📊 Bulk MCA enrichment: Processing ${toEnrich.length} companies`);
+    
+    const results = {
+      total: toEnrich.length,
+      success: 0,
+      failed: 0,
+      companies: [] as { id: string; name: string; status: string; financialsStored?: number }[]
+    };
+    
+    for (const company of toEnrich) {
+      try {
+        const result = await enrichUnlistedCompanyWithMCAData(company.id, company.cin!);
+        if (result.success) {
+          results.success++;
+          results.companies.push({
+            id: company.id,
+            name: company.name,
+            status: 'success',
+            financialsStored: result.financialsStored
+          });
+        } else {
+          results.failed++;
+          results.companies.push({
+            id: company.id,
+            name: company.name,
+            status: 'failed'
+          });
+        }
+      } catch (err) {
+        results.failed++;
+        results.companies.push({
+          id: company.id,
+          name: company.name,
+          status: 'error'
+        });
+      }
+    }
+    
+    return apiResponse.success(res, results);
+  } catch (error: any) {
+    console.error('Error in bulk MCA enrichment:', error);
+    return apiResponse.serverError(res, error.message || 'Failed bulk MCA enrichment');
   }
 });
 
