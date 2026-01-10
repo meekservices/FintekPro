@@ -52,6 +52,16 @@ interface ProspectLead {
   incorporationDate?: string;
   companyType?: string;
   companyClass?: string;
+  // Probe42 v2 KYC Extended Fields
+  sumOfCharges?: string;
+  activeCompliance?: string;
+  listingStatus?: string;
+  entityType?: string;
+  companyStatus?: string;
+  rocCode?: string;
+  numberOfMembers?: number;
+  lastAgmDate?: string;
+  lastBalanceSheetDate?: string;
 }
 
 interface CompanySearchResult {
