@@ -65,9 +65,18 @@ interface RebalanceRecommendation {
   currentValue?: number;
   suggestedValue?: number;
   changeAmount: number;
+  switchAmount?: number; // For SWITCH actions - the actual value being switched
   rationale: string;
   priority: 'high' | 'medium' | 'low';
   taxImplications?: string;
+  targetFund?: {
+    name: string;
+    amc: string;
+    category: string;
+    returns1Y: string;
+    returns3Y: string;
+    risk: string;
+  };
 }
 
 interface FreshInvestmentSuggestion {
@@ -544,31 +553,66 @@ export default function AgentProspectWizard() {
         pdf.text('Rebalancing Recommendations', margin, yPos);
         yPos += 10;
         
-        proposal.rebalancing.forEach((rec) => {
-          if (yPos > 260) {
+        proposal.rebalancing.forEach((rec: any) => {
+          // Calculate dynamic height based on content
+          const hasTargetFund = rec.action === 'SWITCH' && rec.targetFund;
+          const hasRationale = rec.rationale && rec.rationale.length > 0;
+          const boxHeight = hasTargetFund ? 45 : hasRationale ? 35 : 25;
+          
+          if (yPos > 250) {
             pdf.addPage();
             yPos = 20;
           }
           
           pdf.setFillColor(250, 250, 250);
-          pdf.rect(margin, yPos, pageWidth - (margin * 2), 20, 'F');
+          pdf.rect(margin, yPos, pageWidth - (margin * 2), boxHeight, 'F');
           
           const actionColor = rec.action === 'SELL' ? [220, 38, 38] : rec.action === 'BUY' ? [34, 197, 94] : [245, 158, 11];
           pdf.setFillColor(actionColor[0], actionColor[1], actionColor[2]);
-          pdf.rect(margin, yPos, 3, 20, 'F');
+          pdf.rect(margin, yPos, 3, boxHeight, 'F');
           
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'bold');
           pdf.setTextColor(0, 0, 0);
           pdf.text(`${rec.action}: ${rec.productName}`, margin + 8, yPos + 8);
           
+          // Show current value on the right
           pdf.setFontSize(9);
           pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(100, 100, 100);
-          const changeText = rec.changeAmount < 0 ? `-${formatCurrency(Math.abs(rec.changeAmount))}` : `+${formatCurrency(rec.changeAmount)}`;
-          pdf.text(changeText, margin + 8, yPos + 16);
+          if (rec.currentValue) {
+            pdf.text(`Current: ${formatCurrency(rec.currentValue)}`, pageWidth - margin - 40, yPos + 8);
+          }
           
-          yPos += 25;
+          // Show amount change (use switchAmount for SWITCH actions)
+          pdf.setTextColor(actionColor[0], actionColor[1], actionColor[2]);
+          if (rec.action === 'SWITCH' && rec.switchAmount) {
+            pdf.text(`Switch: ${formatCurrency(rec.switchAmount)}`, margin + 8, yPos + 16);
+          } else {
+            const changeText = rec.changeAmount < 0 ? `-${formatCurrency(Math.abs(rec.changeAmount))}` : `+${formatCurrency(Math.abs(rec.changeAmount))}`;
+            pdf.text(changeText, margin + 8, yPos + 16);
+          }
+          
+          // For SWITCH, show target fund
+          if (hasTargetFund) {
+            pdf.setTextColor(34, 197, 94);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(`→ ${rec.targetFund.name}`, margin + 8, yPos + 24);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(8);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`${rec.targetFund.returns3Y}% 3Y returns | ${rec.targetFund.risk} risk`, margin + 8, yPos + 32);
+          }
+          
+          // Show rationale
+          if (hasRationale && !hasTargetFund) {
+            pdf.setFontSize(8);
+            pdf.setTextColor(100, 100, 100);
+            const rationaleLines = pdf.splitTextToSize(rec.rationale, pageWidth - (margin * 2) - 16);
+            pdf.text(rationaleLines.slice(0, 2), margin + 8, yPos + 24);
+          }
+          
+          yPos += boxHeight + 5;
         });
       }
       
@@ -585,28 +629,45 @@ export default function AgentProspectWizard() {
         pdf.text('Fresh Investment Suggestions', margin, yPos);
         yPos += 10;
         
-        proposal.freshInvestments.forEach((inv) => {
-          if (yPos > 260) {
+        proposal.freshInvestments.forEach((inv: any) => {
+          const hasRationale = inv.rationale && inv.rationale.length > 0;
+          const boxHeight = hasRationale ? 40 : 28;
+          
+          if (yPos > 250) {
             pdf.addPage();
             yPos = 20;
           }
           
           pdf.setFillColor(250, 250, 250);
-          pdf.rect(margin, yPos, pageWidth - (margin * 2), 25, 'F');
+          pdf.rect(margin, yPos, pageWidth - (margin * 2), boxHeight, 'F');
           pdf.setFillColor(79, 70, 229);
-          pdf.rect(margin, yPos, 3, 25, 'F');
+          pdf.rect(margin, yPos, 3, boxHeight, 'F');
           
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'bold');
           pdf.setTextColor(0, 0, 0);
           pdf.text(inv.productName, margin + 8, yPos + 8);
           
+          // Show amount on right
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(34, 197, 94);
+          pdf.text(formatCurrency(inv.suggestedAmount), pageWidth - margin - 30, yPos + 8);
+          
           pdf.setFontSize(9);
           pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(100, 100, 100);
-          pdf.text(`${formatCurrency(inv.suggestedAmount)} | ${inv.expectedReturn} | Match: ${inv.matchScore}%`, margin + 8, yPos + 18);
+          const riskColor = inv.riskLevel?.includes('high') ? [220, 38, 38] : inv.riskLevel?.includes('low') ? [34, 197, 94] : [100, 100, 100];
+          pdf.text(`Expected: ${inv.expectedReturn} | Risk: ${inv.riskLevel || 'Moderate'} | Match: ${inv.matchScore}%`, margin + 8, yPos + 18);
           
-          yPos += 30;
+          // Show rationale
+          if (hasRationale) {
+            pdf.setFontSize(8);
+            pdf.setTextColor(120, 120, 120);
+            const rationaleLines = pdf.splitTextToSize(inv.rationale, pageWidth - (margin * 2) - 16);
+            pdf.text(rationaleLines.slice(0, 2), margin + 8, yPos + 28);
+          }
+          
+          yPos += boxHeight + 5;
         });
       }
       

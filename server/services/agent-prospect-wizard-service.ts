@@ -13,6 +13,18 @@ import { nanoid } from "nanoid";
 import { aiInvestmentOrchestrator } from "./ai-investment-orchestrator";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 
+// Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
+const formatAmount = (amount: number): string => {
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2)} Cr`;
+  } else if (amount >= 100000) {
+    return `₹${(amount / 100000).toFixed(2)} L`;
+  } else if (amount >= 1000) {
+    return `₹${(amount / 1000).toFixed(1)}K`;
+  }
+  return `₹${amount.toFixed(0)}`;
+};
+
 // Real mutual fund recommendations based on risk profile - Using Regular plans for agent advisory
 // Organized by asset class for flexible category-based filtering
 const FUND_RECOMMENDATIONS_BY_CATEGORY = {
@@ -1245,15 +1257,96 @@ class AgentProspectWizardService {
         // Check if not already in recommendations
         const existing = recommendations.find(r => r.productName === underperformer.productName);
         if (!existing && underperformer.currentValue > 5000) {
+          // Find a better performing fund in the same category
+          const category = categorizeHolding(underperformer);
+          const targetFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile.riskTolerance] || 
+                             (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+          const targetFund = targetFunds[0];
+          
           recommendations.push({
             action: 'SWITCH',
             productType: underperformer.productType,
             productName: underperformer.productName,
             currentValue: underperformer.currentValue,
-            changeAmount: 0, // Switch doesn't change total value
-            rationale: `Consider switching to a better-performing fund in the same category. This fund has underperformed relative to peers.`,
+            suggestedValue: underperformer.currentValue, // Switch maintains the value
+            changeAmount: 0, // Net zero - switch is value-neutral
+            switchAmount: underperformer.currentValue, // Track actual switch value for display
+            targetFund: targetFund ? {
+              name: targetFund.name,
+              amc: targetFund.amc,
+              category: targetFund.category,
+              returns1Y: targetFund.returns1Y,
+              returns3Y: targetFund.returns3Y,
+              risk: targetFund.risk
+            } : undefined,
+            rationale: targetFund 
+              ? `Switch to ${targetFund.name} (${targetFund.amc}) with ${targetFund.returns3Y}% 3-year returns. Current fund has underperformed peers by 2-5% annually.`
+              : `Consider switching to a better-performing fund in the same category. This fund has underperformed relative to peers.`,
             priority: 'medium'
           });
+        }
+      });
+    }
+    
+    // Add BUY recommendations for underweight categories using freed capital from sells
+    const totalSellAmount = recommendations
+      .filter(r => r.action === 'SELL')
+      .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
+    
+    // Add BUY recommendations for underweight categories using freed capital from sells
+    // Only if we have meaningful sell proceeds (>2000)
+    if (totalSellAmount > 2000) {
+      // Find underweight categories
+      const underweightCategories: { category: string; gap: number; targetPercent: number }[] = [];
+      
+      categories.forEach(category => {
+        const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
+        const currentValue = currentByCategory[category]?.value || 0;
+        const currentPercent = (currentValue / totalValue) * 100;
+        const gap = targetPercent - currentPercent;
+        
+        // Only add if underweight by more than 2%
+        if (gap > 2 && targetPercent > 0) {
+          underweightCategories.push({ category, gap, targetPercent });
+        }
+      });
+      
+      // Sort by gap (largest first) and allocate sell proceeds
+      underweightCategories.sort((a, b) => b.gap - a.gap);
+      
+      let remainingToAllocate = totalSellAmount;
+      const numCategoriesToFund = Math.min(underweightCategories.length, 3);
+      
+      // Ensure at least one category gets funded if we have underweight categories
+      underweightCategories.slice(0, numCategoriesToFund).forEach(({ category, gap, targetPercent }, index) => {
+        if (remainingToAllocate <= 1000) return; // Lower threshold to ensure deployment
+        
+        // Allocate proportionally to gap
+        const totalGap = underweightCategories.slice(0, numCategoriesToFund).reduce((sum, c) => sum + c.gap, 0);
+        const proportion = totalGap > 0 ? gap / totalGap : 1 / numCategoriesToFund;
+        const buyAmount = Math.round(totalSellAmount * proportion);
+        const actualAmount = Math.min(buyAmount, remainingToAllocate);
+        
+        // Lower minimum threshold to ₹2000 to ensure funds get allocated
+        if (actualAmount < 2000) return;
+        
+        // Get recommended fund for this category
+        const categoryFunds = (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.[riskProfile.riskTolerance] ||
+                             (FUND_RECOMMENDATIONS_BY_CATEGORY as any)[category]?.moderate || [];
+        const fundToRecommend = categoryFunds[0];
+        
+        if (fundToRecommend) {
+          recommendations.push({
+            action: 'BUY',
+            productType: fundToRecommend.productType || 'mutual_fund',
+            productName: fundToRecommend.name,
+            suggestedValue: actualAmount,
+            changeAmount: actualAmount,
+            rationale: `Deploy ${formatAmount(actualAmount)} from rebalancing into ${fundToRecommend.category}. ${fundToRecommend.name} offers ${fundToRecommend.returns3Y}% 3-year returns with ${fundToRecommend.risk} risk, helping achieve target ${targetPercent}% ${category} allocation.`,
+            priority: gap > 10 ? 'high' : 'medium'
+          });
+          
+          remainingToAllocate -= actualAmount;
         }
       });
     }
@@ -1589,9 +1682,26 @@ class AgentProspectWizardService {
       customAllocations,
       freshInvestmentAmount
     );
+    
+    // Calculate sell proceeds and how much was already allocated to rebalancing BUY recommendations
+    const sellProceeds = rebalancing
+      .filter(r => r.action === 'SELL')
+      .reduce((sum, r) => sum + Math.abs(r.changeAmount), 0);
+    
+    const rebalancingBuyAllocated = rebalancing
+      .filter(r => r.action === 'BUY')
+      .reduce((sum, r) => sum + r.changeAmount, 0);
+    
+    // Only include UNALLOCATED sell proceeds in fresh investment budget
+    // Rebalancing BUY recommendations already consumed part of the sell proceeds
+    const remainingSellProceeds = Math.max(0, sellProceeds - rebalancingBuyAllocated);
+    const totalDeployableAmount = freshInvestmentAmount + remainingSellProceeds;
+    
+    console.log(`[Proposal] Fresh: ${freshInvestmentAmount}, Sell proceeds: ${sellProceeds}, Rebalancing BUYs: ${rebalancingBuyAllocated}, Remaining: ${remainingSellProceeds}, Total deployable: ${totalDeployableAmount}`);
+    
     const freshInvestments = await this.generateFreshInvestmentSuggestions(
       riskProfile, 
-      freshInvestmentAmount, 
+      totalDeployableAmount, 
       holdings,
       customAllocations,
       selectedCategories
