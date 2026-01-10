@@ -8,6 +8,7 @@ import { ckycSlaEscalationService } from './services/ckyc-sla-escalation-service
 import { auditIntegrityChecker } from './services/audit-integrity-checker';
 import { errorDigestService } from './services/error-digest-service';
 import { companyDataRefreshScheduler } from './services/company-data-refresh-scheduler';
+import { proactiveCacheWarmingService } from './services/proactive-cache-warming-service';
 import { db } from './db';
 import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -607,6 +608,14 @@ export function initializeCronJobs(): void {
     console.log('[CRON] Company Data Refresh Scheduler started (checks daily, refreshes every 90 days)');
   } catch (error: any) {
     console.error('[CRON] Failed to start Company Data Refresh Scheduler:', error.message);
+  }
+
+  // Initialize Proactive Cache Warming Service - Warms popular data every 30 minutes
+  try {
+    proactiveCacheWarmingService.start();
+    console.log('[CRON] Proactive Cache Warming Service started');
+  } catch (error: any) {
+    console.error('[CRON] Failed to start Proactive Cache Warming Service:', error.message);
   }
   
   console.log('✓ Cron jobs initialized successfully');

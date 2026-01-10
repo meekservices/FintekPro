@@ -12,6 +12,8 @@ import { aiResponseCacheService } from '../services/ai-response-cache-service';
 import { unifiedStockPriceService } from '../services/unified-stock-price-service';
 import { companyDataRefreshScheduler } from '../services/company-data-refresh-scheduler';
 import { onboardingCacheService } from '../services/onboarding-cache-service';
+import { probe42Service } from '../services/probe42-service';
+import { proactiveCacheWarmingService } from '../services/proactive-cache-warming-service';
 
 const router = Router();
 
@@ -356,6 +358,103 @@ router.get('/onboarding', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Error fetching onboarding cache metrics:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/cache/warming
+ * Get proactive cache warming metrics
+ */
+router.get('/warming', async (req, res) => {
+  try {
+    const metrics = proactiveCacheWarmingService.getMetrics();
+    
+    res.json({
+      success: true,
+      data: {
+        ...metrics,
+        description: 'Proactively warms popular data caches before expiry',
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching warming metrics:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/cache/warming/trigger
+ * Trigger manual cache warming cycle
+ */
+router.post('/warming/trigger', async (req, res) => {
+  try {
+    const result = await proactiveCacheWarmingService.runWarmingCycle();
+    
+    res.json({
+      success: true,
+      message: `Warming complete: ${result.stocks} stocks, ${result.funds} funds, ${result.companies} companies`,
+      ...result
+    });
+  } catch (error: any) {
+    console.error('Error triggering cache warming:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/cache/batch-enrich
+ * Batch enrich company data for multiple CINs in a single request
+ * Reduces API calls by combining lookups
+ */
+router.post('/batch-enrich', async (req, res) => {
+  try {
+    const { cins, includeFinancials = false, years = 3 } = req.body;
+    
+    if (!Array.isArray(cins) || cins.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'cins must be a non-empty array of CIN strings' 
+      });
+    }
+    
+    if (cins.length > 50) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Maximum 50 CINs allowed per batch request' 
+      });
+    }
+    
+    console.log(`[BatchEnrich] Processing ${cins.length} companies${includeFinancials ? ' with financials' : ''}`);
+    
+    const detailsMap = await probe42Service.batchGetCompanyDetails(cins);
+    
+    let financialsMap: Map<string, any[]> | null = null;
+    if (includeFinancials) {
+      financialsMap = await probe42Service.batchGetCompanyFinancials(cins, years);
+    }
+    
+    const results = cins.map(cin => ({
+      cin,
+      details: detailsMap.get(cin) || null,
+      financials: financialsMap?.get(cin) || null,
+      success: detailsMap.get(cin) !== null,
+    }));
+    
+    const successful = results.filter(r => r.success).length;
+    
+    res.json({
+      success: true,
+      data: {
+        total: cins.length,
+        successful,
+        failed: cins.length - successful,
+        results,
+      },
+      message: `Batch enriched ${successful}/${cins.length} companies`
+    });
+  } catch (error: any) {
+    console.error('Error in batch enrichment:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
