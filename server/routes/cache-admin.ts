@@ -9,6 +9,9 @@ import { dataCacheService } from '../services/unified-data-cache-service';
 import { cacheCleanupScheduler } from '../services/cache-cleanup-scheduler';
 import { requestDedupeService } from '../services/request-deduplication-service';
 import { aiResponseCacheService } from '../services/ai-response-cache-service';
+import { unifiedStockPriceService } from '../services/unified-stock-price-service';
+import { companyDataRefreshScheduler } from '../services/company-data-refresh-scheduler';
+import { onboardingCacheService } from '../services/onboarding-cache-service';
 
 const router = Router();
 
@@ -206,10 +209,13 @@ router.post('/ai-responses/clear', async (req, res) => {
  */
 router.get('/summary', async (req, res) => {
   try {
-    const [cacheStats, dedupeMetrics, aiMetrics] = await Promise.all([
+    const [cacheStats, dedupeMetrics, aiMetrics, stockMetrics, onboardingMetrics, companyRefreshMetrics] = await Promise.all([
       dataCacheService.getCacheStats(),
       Promise.resolve(requestDedupeService.getMetrics()),
       Promise.resolve(aiResponseCacheService.getMetrics()),
+      Promise.resolve(unifiedStockPriceService.getMetrics()),
+      Promise.resolve(onboardingCacheService.getMetrics()),
+      Promise.resolve(companyDataRefreshScheduler.getMetrics()),
     ]);
     
     res.json({
@@ -227,15 +233,129 @@ router.get('/summary', async (req, res) => {
           type: 'AI Response Cache',
           ...aiMetrics,
         },
+        stockPriceCache: {
+          type: 'Unified Stock Price Cache',
+          ...stockMetrics,
+        },
+        onboardingCache: {
+          type: 'Onboarding Verification Cache',
+          ...onboardingMetrics,
+        },
+        companyDataRefresh: {
+          type: 'Company Data Auto-Refresh',
+          ...companyRefreshMetrics,
+        },
         totalSavings: {
           description: 'Estimated total cost savings from all caching layers',
-          apiCallsSaved: dedupeMetrics.apiCallsSaved + aiMetrics.estimatedApiCallsSaved,
+          apiCallsSaved: dedupeMetrics.apiCallsSaved + aiMetrics.estimatedApiCallsSaved + onboardingMetrics.estimatedApiCallsSaved,
           estimatedMonthlySavingsUSD: (cacheStats.apiUsage.estimatedSavings || 0) + aiMetrics.estimatedCostSavingsUSD,
+          estimatedMonthlySavingsINR: onboardingMetrics.estimatedSavingsINR,
         }
       }
     });
   } catch (error: any) {
     console.error('Error fetching cache summary:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/cache/stock-prices
+ * Get stock price cache metrics
+ */
+router.get('/stock-prices', async (req, res) => {
+  try {
+    const metrics = unifiedStockPriceService.getMetrics();
+    
+    res.json({
+      success: true,
+      data: {
+        ...metrics,
+        description: 'Unified stock price caching from NSE/BSE with automatic fallback',
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching stock price cache metrics:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/cache/stock-prices/warm
+ * Warm the stock price cache with popular stocks
+ */
+router.post('/stock-prices/warm', async (req, res) => {
+  try {
+    const { symbols } = req.body;
+    await unifiedStockPriceService.warmCache(symbols);
+    
+    res.json({
+      success: true,
+      message: 'Stock price cache warming initiated'
+    });
+  } catch (error: any) {
+    console.error('Error warming stock price cache:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/cache/company-refresh
+ * Get company data refresh scheduler metrics
+ */
+router.get('/company-refresh', async (req, res) => {
+  try {
+    const metrics = companyDataRefreshScheduler.getMetrics();
+    
+    res.json({
+      success: true,
+      data: {
+        ...metrics,
+        description: 'Automatic company data refresh using Probe42 batch APIs',
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching company refresh metrics:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/cache/company-refresh/trigger
+ * Trigger manual company data refresh cycle
+ */
+router.post('/company-refresh/trigger', async (req, res) => {
+  try {
+    const result = await companyDataRefreshScheduler.runRefreshCycle();
+    
+    res.json({
+      success: true,
+      message: `Refresh cycle complete: ${result.refreshed} companies refreshed, ${result.errors} errors`,
+      ...result
+    });
+  } catch (error: any) {
+    console.error('Error triggering company refresh:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/cache/onboarding
+ * Get onboarding cache metrics
+ */
+router.get('/onboarding', async (req, res) => {
+  try {
+    const metrics = onboardingCacheService.getMetrics();
+    
+    res.json({
+      success: true,
+      data: {
+        ...metrics,
+        description: 'Caches verification results during KYC onboarding to reduce API calls',
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching onboarding cache metrics:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
