@@ -25484,3 +25484,148 @@ export const globalAdvisoryRecommendations = pgTable("global_advisory_recommenda
 export const insertGlobalAdvisoryRecommendationSchema = createInsertSchema(globalAdvisoryRecommendations).omit({ id: true, createdAt: true, updatedAt: true });
 export type GlobalAdvisoryRecommendation = typeof globalAdvisoryRecommendations.$inferSelect;
 export type InsertGlobalAdvisoryRecommendation = z.infer<typeof insertGlobalAdvisoryRecommendationSchema>;
+
+// ============================================
+// MCA INTELLIGENCE SERVICE TABLES
+// ============================================
+
+// MCA Company Master - Core company data from MCA
+export const mcaCompanyMaster = pgTable("mca_company_master", {
+  cin: varchar("cin", { length: 21 }).primaryKey(),
+  companyName: varchar("company_name", { length: 500 }).notNull(),
+  companyStatus: varchar("company_status", { length: 50 }), // Active, Strike Off, etc.
+  incorporationDate: date("incorporation_date"),
+  registeredState: varchar("registered_state", { length: 100 }),
+  registeredCity: varchar("registered_city", { length: 100 }),
+  registeredAddress: text("registered_address"),
+  companyCategory: varchar("company_category", { length: 100 }),
+  companySubCategory: varchar("company_sub_category", { length: 100 }),
+  companyClass: varchar("company_class", { length: 50 }),
+  authorizedCapital: numeric("authorized_capital"),
+  paidUpCapital: numeric("paid_up_capital"),
+  lastFilingYear: varchar("last_filing_year", { length: 10 }),
+  lastAnnualReturn: date("last_annual_return"),
+  lastBalanceSheet: date("last_balance_sheet"),
+  email: varchar("email", { length: 255 }),
+  industry: varchar("industry", { length: 255 }),
+  sourceAttribution: varchar("source_attribution", { length: 100 }).default("MCA V3 Public Filings"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_company_name").on(table.companyName),
+  index("idx_mca_company_status").on(table.companyStatus),
+  index("idx_mca_registered_state").on(table.registeredState),
+  index("idx_mca_last_filing_year").on(table.lastFilingYear),
+]);
+
+export const insertMcaCompanyMasterSchema = createInsertSchema(mcaCompanyMaster).omit({ createdAt: true, updatedAt: true });
+export type McaCompanyMaster = typeof mcaCompanyMaster.$inferSelect;
+export type InsertMcaCompanyMaster = z.infer<typeof insertMcaCompanyMasterSchema>;
+
+// MCA Financial Snapshot - Derived financial metrics from AOC-4/XBRL filings
+export const mcaFinancialSnapshot = pgTable("mca_financial_snapshot", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cin: varchar("cin", { length: 21 }).references(() => mcaCompanyMaster.cin).notNull(),
+  financialYear: varchar("financial_year", { length: 10 }).notNull(), // e.g., "2023-24"
+  revenue: numeric("revenue"), // Revenue from operations
+  profitBeforeTax: numeric("profit_before_tax"),
+  profitAfterTax: numeric("profit_after_tax"),
+  netWorth: numeric("net_worth"),
+  totalAssets: numeric("total_assets"),
+  totalLiabilities: numeric("total_liabilities"),
+  shareCapital: numeric("share_capital"),
+  reserves: numeric("reserves"),
+  longTermBorrowing: numeric("long_term_borrowing"),
+  shortTermBorrowing: numeric("short_term_borrowing"),
+  source: varchar("source", { length: 50 }).default("MCA_AOC4_XBRL").notNull(),
+  derivedAt: timestamp("derived_at").defaultNow().notNull(),
+  derivedBy: varchar("derived_by", { length: 100 }), // User who triggered ingestion
+  isVerified: boolean("is_verified").default(false),
+  verifiedBy: varchar("verified_by", { length: 100 }),
+  verifiedAt: timestamp("verified_at"),
+  notes: text("notes"),
+}, (table) => [
+  index("idx_mca_fs_cin").on(table.cin),
+  index("idx_mca_fs_fy").on(table.financialYear),
+  index("idx_mca_fs_pat").on(table.profitAfterTax),
+  index("idx_mca_fs_revenue").on(table.revenue),
+]);
+
+export const insertMcaFinancialSnapshotSchema = createInsertSchema(mcaFinancialSnapshot).omit({ id: true, derivedAt: true });
+export type McaFinancialSnapshot = typeof mcaFinancialSnapshot.$inferSelect;
+export type InsertMcaFinancialSnapshot = z.infer<typeof insertMcaFinancialSnapshotSchema>;
+
+// MCA Filing Tracker - Track all MCA filing downloads and wallet usage
+export const mcaFilingTracker = pgTable("mca_filing_tracker", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cin: varchar("cin", { length: 21 }).notNull(),
+  companyName: varchar("company_name", { length: 500 }),
+  filingType: varchar("filing_type", { length: 50 }).notNull(), // AOC-4, XBRL, MGT-7, etc.
+  filingYear: varchar("filing_year", { length: 10 }).notNull(),
+  downloadedBy: varchar("downloaded_by", { length: 100 }).notNull(),
+  downloadedByRole: varchar("downloaded_by_role", { length: 50 }), // Admin, Compliance, Ops
+  downloadDate: timestamp("download_date").defaultNow().notNull(),
+  walletCost: numeric("wallet_cost").default("0"),
+  status: varchar("status", { length: 20 }).default("SUCCESS").notNull(), // SUCCESS, FAILED, PENDING
+  failureReason: text("failure_reason"),
+  documentUrl: varchar("document_url", { length: 500 }),
+  fileSize: integer("file_size"),
+  processingStatus: varchar("processing_status", { length: 30 }).default("PENDING"), // PENDING, PROCESSED, FAILED
+  processedAt: timestamp("processed_at"),
+}, (table) => [
+  index("idx_mca_ft_cin").on(table.cin),
+  index("idx_mca_ft_filing_year").on(table.filingYear),
+  index("idx_mca_ft_downloaded_by").on(table.downloadedBy),
+  index("idx_mca_ft_status").on(table.status),
+  index("idx_mca_ft_download_date").on(table.downloadDate),
+]);
+
+export const insertMcaFilingTrackerSchema = createInsertSchema(mcaFilingTracker).omit({ id: true, downloadDate: true });
+export type McaFilingTracker = typeof mcaFilingTracker.$inferSelect;
+export type InsertMcaFilingTracker = z.infer<typeof insertMcaFilingTrackerSchema>;
+
+// MCA Query Log - Audit trail for all MCA-related queries and actions
+export const mcaQueryLog = pgTable("mca_query_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  userName: varchar("user_name", { length: 255 }),
+  userRole: varchar("user_role", { length: 50 }), // Admin, Compliance, Advisor, Ops
+  queryType: varchar("query_type", { length: 100 }).notNull(), // company_lookup, profitable_filter, filing_check, etc.
+  cin: varchar("cin", { length: 21 }),
+  companyName: varchar("company_name", { length: 500 }),
+  queryParameters: jsonb("query_parameters"), // Store all query params for audit
+  actionTaken: varchar("action_taken", { length: 255 }), // Description of action
+  responseSummary: text("response_summary"), // Brief summary of response
+  resultCount: integer("result_count"), // Number of results returned
+  success: boolean("success").default(true),
+  errorMessage: text("error_message"),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_ql_user").on(table.userId),
+  index("idx_mca_ql_query_type").on(table.queryType),
+  index("idx_mca_ql_cin").on(table.cin),
+  index("idx_mca_ql_created").on(table.createdAt),
+]);
+
+export const insertMcaQueryLogSchema = createInsertSchema(mcaQueryLog).omit({ id: true, createdAt: true });
+export type McaQueryLog = typeof mcaQueryLog.$inferSelect;
+export type InsertMcaQueryLog = z.infer<typeof insertMcaQueryLogSchema>;
+
+// MCA Wallet Status - Track MCA wallet balance and usage
+export const mcaWalletStatus = pgTable("mca_wallet_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  currentBalance: numeric("current_balance").default("0").notNull(),
+  lastRechargeAmount: numeric("last_recharge_amount"),
+  lastRechargeDate: timestamp("last_recharge_date"),
+  totalSpentThisMonth: numeric("total_spent_this_month").default("0"),
+  totalSpentAllTime: numeric("total_spent_all_time").default("0"),
+  monthlyBudget: numeric("monthly_budget"),
+  alertThreshold: numeric("alert_threshold").default("1000"),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+});
+
+export const insertMcaWalletStatusSchema = createInsertSchema(mcaWalletStatus).omit({ id: true, lastUpdated: true });
+export type McaWalletStatus = typeof mcaWalletStatus.$inferSelect;
+export type InsertMcaWalletStatus = z.infer<typeof insertMcaWalletStatusSchema>;
