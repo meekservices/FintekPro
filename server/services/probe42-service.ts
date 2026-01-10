@@ -1361,20 +1361,23 @@ export async function enrichUnlistedCompanyWithMCAData(
     console.log(`🔄 Enriching unlisted company ${companyId} (CIN: ${cin}) with MCA data...`);
     
     // Fetch comprehensive data from Probe42
-    const [details, financials] = await Promise.all([
+    // Note: getCompanyDetails returns Probe42CompanyDetails | null directly
+    // Note: getCompanyFinancials returns Probe42FinancialData[] directly
+    const [details, financialData] = await Promise.all([
       probe42Service.getCompanyDetails(cin),
-      probe42Service.getFinancials(cin)
+      probe42Service.getCompanyFinancials(cin)
     ]);
     
-    if (!details.success) {
+    if (!details) {
       return {
         success: false,
         message: 'Failed to fetch company details from Probe42'
       };
     }
     
-    const directors = details.data?.directors || [];
-    const financialData = financials.data || [];
+    // details is directly the Probe42CompanyDetails object
+    const directors = details.directors || [];
+    console.log(`📋 Got ${directors.length} directors from Probe42`);
     
     // Store financials in database
     const { db } = await import('../db');
@@ -1446,14 +1449,16 @@ export async function enrichUnlistedCompanyWithMCAData(
     };
     
     // Add capital data if available from Probe42
-    if (details.data?.paid_up_capital) {
-      companyUpdateData.paidUpCapital = details.data.paid_up_capital.toString();
+    if (details.paid_up_capital) {
+      companyUpdateData.paidUpCapital = details.paid_up_capital.toString();
+      console.log(`💰 Setting paid up capital: ${details.paid_up_capital}`);
     }
-    if (details.data?.authorized_capital) {
-      companyUpdateData.authorizedCapital = details.data.authorized_capital.toString();
+    if (details.authorized_capital) {
+      companyUpdateData.authorizedCapital = details.authorized_capital.toString();
+      console.log(`💰 Setting authorized capital: ${details.authorized_capital}`);
     }
-    if (details.data?.face_value) {
-      companyUpdateData.faceValue = details.data.face_value.toString();
+    if (details.face_value) {
+      companyUpdateData.faceValue = details.face_value.toString();
     }
     
     await db.update(unlistedCompanies)
