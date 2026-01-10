@@ -1,6 +1,17 @@
 /**
- * Probe42 Integration Service
+ * Probe42 Integration Service (v2 API)
  * Handles all interactions with Probe42 API for company financial data
+ * 
+ * V2 API Endpoints:
+ * - POST /search-entities - Company search by name/CIN
+ * - GET /entities/{identifier}/base-details - Company details
+ * - GET /entities/{identifier}/kyc - Financial statements
+ * - GET /entities/{identifier}/credit-ratings - Financial ratios
+ * 
+ * V2 Response Structure:
+ * - Responses wrapped in { data: { ... } }
+ * - Uses snake_case fields: legal_name, identifier, date_of_incorporation, etc.
+ * - registered_address is nested: { address_line, city, state, pincode }
  * 
  * Probe42 provides:
  * - Company search by name/CIN
@@ -204,6 +215,7 @@ class Probe42Service {
 
   /**
    * Health check - verify API connectivity and authentication
+   * Uses v2 API endpoint: GET /entities/{identifier}/base-details
    */
   async healthCheck(): Promise<{
     status: 'healthy' | 'unhealthy' | 'unconfigured';
@@ -224,8 +236,8 @@ class Probe42Service {
 
     const startTime = Date.now();
     try {
-      // Use a known CIN to test connectivity - Probe Information Services Pvt Ltd
-      const response = await this.client.get('/entities/U73100KA2005PTC036337/kyc-details');
+      // Use a known CIN to test connectivity - v2 API endpoint
+      const response = await this.client.get('/entities/U73100KA2005PTC036337/base-details');
       
       const responseTime = Date.now() - startTime;
       this.lastHealthCheck = {
@@ -235,7 +247,7 @@ class Probe42Service {
       
       return {
         status: 'healthy',
-        message: 'Probe42 API is accessible and authenticated',
+        message: 'Probe42 API v2 is accessible and authenticated',
         responseTime,
       };
     } catch (error: any) {
@@ -260,6 +272,7 @@ class Probe42Service {
 
   /**
    * Search for companies by name or CIN
+   * Uses v2 API: POST /search-entities with body { nameStartsWith: query, limit: 100 }
    */
   async searchCompanyByNameOrCIN(query: string): Promise<Probe42CompanySearchResult[]> {
     if (!query || query.trim().length < 3) {
@@ -272,13 +285,30 @@ class Probe42Service {
     }
 
     try {
-      console.log(`[Probe42] Searching real API for: "${query}"`);
-      const response = await this.client.get('/companies/search', {
-        params: { q: query }
+      console.log(`[Probe42] Searching v2 API for: "${query}"`);
+      const response = await this.client.post('/search-entities', {
+        nameStartsWith: query,
+        limit: 100
       });
 
-      const results = response.data.companies || [];
-      console.log(`[Probe42] Found ${results.length} companies for query: "${query}"`);
+      // v2 API returns: { data: { companies: [...], llps: [...] } }
+      const responseData = response.data?.data || response.data;
+      const companiesList = responseData?.companies || [];
+      const llpsList = responseData?.llps || [];
+      
+      console.log(`[Probe42] v2 found ${companiesList.length} companies, ${llpsList.length} LLPs for query: "${query}"`);
+      
+      // Map v2 response fields to our internal format
+      const results: Probe42CompanySearchResult[] = companiesList.map((entity: any) => ({
+        company_id: entity.identifier || entity.cin,
+        name: entity.legal_name || entity.name,
+        cin: entity.identifier || entity.cin,
+        pan: entity.pan,
+        roc_state: entity.registered_address?.state || entity.roc_state,
+        status: entity.status || 'Active',
+        incorporation_date: entity.date_of_incorporation || entity.incorporation_date,
+      }));
+      
       if (results.length > 0) {
         console.log(`[Probe42] First result: ${results[0].name} (CIN: ${results[0].cin})`);
       }
@@ -309,6 +339,7 @@ class Probe42Service {
   /**
    * Search for companies by name or CIN with detailed error information
    * Returns structured result with success/failure details for UI display
+   * Uses v2 API: POST /search-entities with body { nameStartsWith: query, limit: 100 }
    */
   async searchCompanyByNameOrCINWithDetails(query: string): Promise<Probe42SearchResult> {
     if (!query || query.trim().length < 3) {
@@ -333,13 +364,29 @@ class Probe42Service {
     }
 
     try {
-      console.log(`[Probe42] Searching real API for: "${query}"`);
-      const response = await this.client.get('/companies/search', {
-        params: { q: query }
+      console.log(`[Probe42] Searching v2 API for: "${query}"`);
+      const response = await this.client.post('/search-entities', {
+        nameStartsWith: query,
+        limit: 100
       });
 
-      const results = response.data.companies || [];
-      console.log(`[Probe42] Found ${results.length} companies for query: "${query}"`);
+      // v2 API returns: { data: { companies: [...], llps: [...] } }
+      const responseData = response.data?.data || response.data;
+      const companiesList = responseData?.companies || [];
+      const llpsList = responseData?.llps || [];
+      
+      console.log(`[Probe42] v2 found ${companiesList.length} companies, ${llpsList.length} LLPs for query: "${query}"`);
+      
+      // Map v2 response fields to our internal format
+      const results: Probe42CompanySearchResult[] = companiesList.map((entity: any) => ({
+        company_id: entity.identifier || entity.cin,
+        name: entity.legal_name || entity.name,
+        cin: entity.identifier || entity.cin,
+        pan: entity.pan,
+        roc_state: entity.registered_address?.state || entity.roc_state,
+        status: entity.status || 'Active',
+        incorporation_date: entity.date_of_incorporation || entity.incorporation_date,
+      }));
       
       return {
         success: true,
@@ -409,7 +456,7 @@ class Probe42Service {
 
   /**
    * Get detailed company information
-   * Uses Probe42 /entities/{CIN}/kyc-details endpoint
+   * Uses v2 API: GET /entities/{identifier}/base-details
    */
   async getCompanyDetails(probe42CompanyId: string): Promise<Probe42CompanyDetails | null> {
     if (!probe42CompanyId) {
@@ -421,26 +468,31 @@ class Probe42Service {
     }
 
     try {
-      const response = await this.client.get(`/entities/${probe42CompanyId}/kyc-details`);
-      const data = response.data?.data;
+      console.log(`[Probe42] Fetching v2 base-details for: ${probe42CompanyId}`);
+      const response = await this.client.get(`/entities/${probe42CompanyId}/base-details`);
+      const data = response.data?.data || response.data;
       if (!data) return null;
       
-      // Map Probe42 v1.0 response to our internal format
+      // Map Probe42 v2 response to our internal format
+      // v2 uses snake_case fields: legal_name, identifier, date_of_incorporation, registered_address, authorized_capital, paid_up_capital
+      // registered_address is a nested object: { address_line, city, state, pincode }
       return {
-        company_id: probe42CompanyId,
-        name: data.vitals?.legal_name || '',
-        cin: probe42CompanyId,
-        pan: data.vitals?.pan_of_entity,
-        sector: data.industry_segment?.industry,
-        industry: data.industry_segment?.segments?.[0],
-        incorporation_date: data.vitals?.date_of_incorporation,
-        paid_up_capital: data.vitals?.paid_up_capital,
-        status: data.vitals?.status || 'Unknown',
-        website: data.vitals?.website,
-        description: undefined,
+        company_id: data.identifier || probe42CompanyId,
+        name: data.legal_name || data.name || '',
+        cin: data.identifier || probe42CompanyId,
+        pan: data.pan || data.pan_of_entity,
+        sector: data.industry_segment?.industry || data.sector,
+        industry: data.industry_segment?.segments?.[0] || data.industry,
+        roc_state: data.registered_address?.state || data.roc_state,
+        incorporation_date: data.date_of_incorporation || data.incorporation_date,
+        paid_up_capital: data.paid_up_capital,
+        authorized_capital: data.authorized_capital,
+        status: data.status || 'Unknown',
+        website: data.website,
+        description: data.description,
         directors: data.directors?.map((d: any) => ({
-          name: d.name,
-          din: d.din,
+          name: d.name || d.legal_name,
+          din: d.din || d.identifier,
           designation: d.designation
         }))
       };
@@ -466,6 +518,7 @@ class Probe42Service {
 
   /**
    * Get company financial statements for multiple years
+   * Uses v2 API: GET /entities/{identifier}/kyc
    */
   async getCompanyFinancials(
     probe42CompanyId: string,
@@ -480,11 +533,44 @@ class Probe42Service {
     }
 
     try {
-      const response = await this.client.get(`/companies/${probe42CompanyId}/financials`, {
-        params: { years }
-      });
-
-      return response.data.financials || [];
+      console.log(`[Probe42] Fetching v2 kyc (financials) for: ${probe42CompanyId}`);
+      const response = await this.client.get(`/entities/${probe42CompanyId}/kyc`);
+      
+      // v2 response wrapped in { data: { ... } }
+      const data = response.data?.data || response.data;
+      if (!data) return [];
+      
+      // v2 financials are in the data object; map to our format
+      const financials = data.financials || data.financial_data || [];
+      
+      if (Array.isArray(financials)) {
+        return financials.slice(0, years).map((fin: any) => ({
+          company_id: probe42CompanyId,
+          financial_year: fin.financial_year || fin.year,
+          period_start: fin.period_start || fin.start_date,
+          period_end: fin.period_end || fin.end_date,
+          revenue: fin.revenue || fin.total_revenue,
+          ebitda: fin.ebitda,
+          ebit: fin.ebit,
+          pbt: fin.pbt || fin.profit_before_tax,
+          pat: fin.pat || fin.profit_after_tax,
+          net_profit: fin.net_profit || fin.pat,
+          total_assets: fin.total_assets,
+          total_liabilities: fin.total_liabilities,
+          networth: fin.networth || fin.net_worth,
+          share_capital: fin.share_capital,
+          reserves: fin.reserves,
+          total_debt: fin.total_debt,
+          long_term_debt: fin.long_term_debt,
+          short_term_debt: fin.short_term_debt,
+          operating_cash_flow: fin.operating_cash_flow,
+          investing_cash_flow: fin.investing_cash_flow,
+          financing_cash_flow: fin.financing_cash_flow,
+          free_cash_flow: fin.free_cash_flow,
+        }));
+      }
+      
+      return [];
     } catch (error: any) {
       // Handle authentication errors gracefully - fall back to mock data in development
       if (error.response?.status === 401 || error.response?.status === 403) {
@@ -504,6 +590,7 @@ class Probe42Service {
 
   /**
    * Get company financial ratios
+   * Uses v2 API: GET /entities/{identifier}/credit-ratings
    */
   async getCompanyRatios(
     probe42CompanyId: string,
@@ -518,11 +605,43 @@ class Probe42Service {
     }
 
     try {
-      const response = await this.client.get(`/companies/${probe42CompanyId}/ratios`, {
-        params: { years }
-      });
-
-      return response.data.ratios || [];
+      console.log(`[Probe42] Fetching v2 credit-ratings for: ${probe42CompanyId}`);
+      const response = await this.client.get(`/entities/${probe42CompanyId}/credit-ratings`);
+      
+      // v2 response wrapped in { data: { ... } }
+      const data = response.data?.data || response.data;
+      if (!data) return [];
+      
+      // v2 ratios are in the data object; map to our format
+      const ratios = data.ratios || data.financial_ratios || [];
+      
+      if (Array.isArray(ratios)) {
+        return ratios.slice(0, years).map((ratio: any) => ({
+          company_id: probe42CompanyId,
+          financial_year: ratio.financial_year || ratio.year,
+          pe_ratio: ratio.pe_ratio,
+          pb_ratio: ratio.pb_ratio,
+          ev_ebitda: ratio.ev_ebitda,
+          price_to_sales: ratio.price_to_sales,
+          roe: ratio.roe || ratio.return_on_equity,
+          roce: ratio.roce || ratio.return_on_capital,
+          roa: ratio.roa || ratio.return_on_assets,
+          margin_ebitda: ratio.margin_ebitda || ratio.ebitda_margin,
+          margin_pat: ratio.margin_pat || ratio.net_profit_margin,
+          margin_operating: ratio.margin_operating || ratio.operating_margin,
+          debt_equity: ratio.debt_equity || ratio.debt_to_equity,
+          debt_to_assets: ratio.debt_to_assets,
+          interest_coverage: ratio.interest_coverage,
+          current_ratio: ratio.current_ratio,
+          quick_ratio: ratio.quick_ratio,
+          asset_turnover: ratio.asset_turnover,
+          inventory_turnover: ratio.inventory_turnover,
+          revenue_growth: ratio.revenue_growth,
+          profit_growth: ratio.profit_growth,
+        }));
+      }
+      
+      return [];
     } catch (error: any) {
       // Handle authentication errors gracefully - fall back to mock data in development
       if (error.response?.status === 401 || error.response?.status === 403) {
