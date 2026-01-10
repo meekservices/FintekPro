@@ -2021,6 +2021,9 @@ function SyncStatusTab({ company }: { company: UnlistedCompany }) {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', company.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', company.id, 'financials'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', company.id, 'ratios'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', company.id, 'price-history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies'] });
     },
     onError: (error: any) => {
       toast({

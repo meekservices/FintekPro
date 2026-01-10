@@ -63,7 +63,16 @@ export class PriceSuggestionService {
       const peRatio = Number(latestRatios.peRatio);
       const pbRatio = Number(latestRatios.pbRatio);
       const roe = Number(latestRatios.roe);
-      rationale.push(`Fundamental valuation: ₹${fundamentalValue.toLocaleString('en-IN')} based on P/E ${peRatio?.toFixed(2)}, P/B ${pbRatio?.toFixed(2)}, ROE ${roe?.toFixed(2)}%`);
+      
+      // Add data source attribution for MCA/Probe42 enriched data
+      const dataSource = (latestFinancials.dataSource || '').toLowerCase().trim();
+      const sourceLabel = dataSource.includes('probe42') ? ' (MCA via Probe42)' : 
+                          dataSource.includes('mca') ? ' (MCA Registry)' : 
+                          dataSource ? ` (${latestFinancials.dataSource})` : '';
+      const confidenceScore = parseFloat(String(latestFinancials.confidenceScore || '0'));
+      const confidenceNote = confidenceScore >= 0.9 ? ' [High Confidence]' : '';
+      
+      rationale.push(`Fundamental valuation: ₹${fundamentalValue.toLocaleString('en-IN')} based on P/E ${peRatio?.toFixed(2)}, P/B ${pbRatio?.toFixed(2)}, ROE ${roe?.toFixed(2)}%${sourceLabel}${confidenceNote}`);
     }
 
     // 2. Deal History Value (Recent transaction prices)
