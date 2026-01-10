@@ -35,11 +35,18 @@ const EXCLUDED_401_ENDPOINTS = [
 ];
 
 let wasEverAuthenticated = false;
+let lastAuthenticatedAt: number | null = null;
+
+// Grace period after login before session expired dialog can trigger (in milliseconds)
+// This prevents false positives when the browser is still processing the Set-Cookie header
+const AUTH_GRACE_PERIOD_MS = 5000;
 
 export function markUserAuthenticated() {
   wasEverAuthenticated = true;
+  lastAuthenticatedAt = Date.now();
   try {
     sessionStorage.setItem('fintekpro_was_authenticated', 'true');
+    sessionStorage.setItem('fintekpro_auth_timestamp', String(lastAuthenticatedAt));
   } catch (e) {}
 }
 
@@ -47,21 +54,52 @@ export function checkWasAuthenticated(): boolean {
   if (wasEverAuthenticated) return true;
   try {
     wasEverAuthenticated = sessionStorage.getItem('fintekpro_was_authenticated') === 'true';
+    const storedTimestamp = sessionStorage.getItem('fintekpro_auth_timestamp');
+    if (storedTimestamp) {
+      lastAuthenticatedAt = parseInt(storedTimestamp, 10);
+    }
   } catch (e) {}
   return wasEverAuthenticated;
 }
 
 export function clearAuthenticationFlag() {
   wasEverAuthenticated = false;
+  lastAuthenticatedAt = null;
   try {
     sessionStorage.removeItem('fintekpro_was_authenticated');
+    sessionStorage.removeItem('fintekpro_auth_timestamp');
   } catch (e) {}
+}
+
+function isWithinAuthGracePeriod(): boolean {
+  if (!lastAuthenticatedAt) {
+    // Try to load from sessionStorage
+    try {
+      const storedTimestamp = sessionStorage.getItem('fintekpro_auth_timestamp');
+      if (storedTimestamp) {
+        lastAuthenticatedAt = parseInt(storedTimestamp, 10);
+      }
+    } catch (e) {}
+  }
+  
+  if (!lastAuthenticatedAt) return false;
+  
+  const timeSinceAuth = Date.now() - lastAuthenticatedAt;
+  return timeSinceAuth < AUTH_GRACE_PERIOD_MS;
 }
 
 function shouldTriggerSessionExpired(url: string): boolean {
   if (!checkWasAuthenticated()) {
     return false;
   }
+  
+  // Don't trigger session expired immediately after login
+  // This prevents false positives when cookie is still being processed
+  if (isWithinAuthGracePeriod()) {
+    console.log('[Session] Within auth grace period, skipping session expired trigger');
+    return false;
+  }
+  
   return !EXCLUDED_401_ENDPOINTS.some(endpoint => url.includes(endpoint));
 }
 
