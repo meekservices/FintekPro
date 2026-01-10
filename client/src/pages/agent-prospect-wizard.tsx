@@ -685,7 +685,16 @@ export default function AgentProspectWizard() {
   }, [urlProspectId, existingProspects]);
 
   useEffect(() => {
-    setCustomAllocations(DEFAULT_ALLOCATIONS[riskProfile.riskTolerance]);
+    // When risk profile changes, reset both allocations AND categories to defaults
+    const defaultAllocations = DEFAULT_ALLOCATIONS[riskProfile.riskTolerance];
+    const defaultCategories = deriveDefaultCategories(riskProfile.riskTolerance);
+    
+    setCustomAllocations(defaultAllocations);
+    setSelectedCategories(defaultCategories);
+    
+    // Also reset global advisory when risk profile changes
+    setGlobalAdvisorySelections({});
+    setGlobalAdvisoryBudget(0);
   }, [riskProfile.riskTolerance]);
 
   const [duplicateInfo, setDuplicateInfo] = useState<{
