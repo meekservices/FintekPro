@@ -168,6 +168,7 @@ const navCategories: NavCategory[] = [
       { title: "Email Campaigns", href: "/admin/email-campaigns", icon: Mail, description: "Zoho Campaigns" },
       { title: "WhatsApp Campaigns", href: "/admin/whatsapp-campaigns", icon: MessageSquare, description: "AiSensy broadcasts" },
       { title: "Lead Prospecting", href: "/admin/lead-prospecting", icon: Building2, description: "B2B company search" },
+      { title: "MCA Intelligence", href: "/admin/mca-intelligence", icon: Landmark, description: "Company data & analytics" },
       { title: "Prospect Analytics", href: "/admin/prospect-analytics", icon: TrendingUp, description: "Lead scoring" },
       { title: "Client Intelligence", href: "/admin/client-intelligence", icon: Target, description: "Client analysis" },
       { title: "Marketing Analytics", href: "/admin/marketing-analytics", icon: PieChart, description: "Performance tracking" },
