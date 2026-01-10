@@ -476,7 +476,7 @@ class Probe42Service {
       // Map Probe42 v2 response to our internal format
       // v2 uses snake_case fields: legal_name, identifier, date_of_incorporation, registered_address, authorized_capital, paid_up_capital
       // registered_address is a nested object: { address_line, city, state, pincode }
-      return {
+      const mappedData = {
         company_id: data.identifier || probe42CompanyId,
         name: data.legal_name || data.name || '',
         cin: data.identifier || probe42CompanyId,
@@ -496,6 +496,23 @@ class Probe42Service {
           designation: d.designation
         }))
       };
+      
+      // If API returned no directors/capital, supplement with mock data in development
+      if (process.env.NODE_ENV === 'development') {
+        const mockData = this.getMockCompanyDetails(probe42CompanyId);
+        if (!mappedData.directors || mappedData.directors.length === 0) {
+          console.log('[Probe42] API returned no directors, using mock data');
+          mappedData.directors = mockData.directors;
+        }
+        if (!mappedData.paid_up_capital) {
+          mappedData.paid_up_capital = mockData.paid_up_capital;
+        }
+        if (!mappedData.authorized_capital) {
+          mappedData.authorized_capital = mockData.authorized_capital;
+        }
+      }
+      
+      return mappedData;
     } catch (error: any) {
       if (error.response?.status === 404) {
         return null;
@@ -615,7 +632,7 @@ class Probe42Service {
       // v2 ratios are in the data object; map to our format
       const ratios = data.ratios || data.financial_ratios || [];
       
-      if (Array.isArray(ratios)) {
+      if (Array.isArray(ratios) && ratios.length > 0) {
         return ratios.slice(0, years).map((ratio: any) => ({
           company_id: probe42CompanyId,
           financial_year: ratio.financial_year || ratio.year,
@@ -641,6 +658,11 @@ class Probe42Service {
         }));
       }
       
+      // If API returned empty ratios, fall back to mock data in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Probe42] API returned no ratios, using mock data');
+        return this.getMockRatios(probe42CompanyId, years);
+      }
       return [];
     } catch (error: any) {
       // Handle authentication errors gracefully - fall back to mock data in development
