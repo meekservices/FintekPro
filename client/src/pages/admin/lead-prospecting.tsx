@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Search, Building2, Star, TrendingUp, Users, Download } from 'lucide-react';
+import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -31,10 +31,18 @@ interface CompanySearchResult {
   companyName: string;
   city?: string;
   state?: string;
+  pincode?: string;
+  registeredAddress?: string;
   authorizedCapital?: number;
   paidUpCapital?: number;
   email?: string;
   phone?: string;
+  website?: string;
+  incorporationDate?: string;
+  companyClass?: string;
+  companyCategory?: string;
+  companyType?: string;
+  status?: string;
 }
 
 export default function LeadProspecting() {
@@ -264,31 +272,121 @@ export default function LeadProspecting() {
           {searchResults.length > 0 && (
             <div className="mt-6 space-y-4">
               <h3 className="font-semibold">Search Results ({searchResults.length})</h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {searchResults.map((company) => (
                   <div 
                     key={company.cin}
-                    className="flex items-center justify-between p-4 border rounded-lg"
+                    className="p-4 border rounded-lg hover:border-primary/50 transition-colors"
                     data-testid={`search-result-${company.cin}`}
                   >
-                    <div>
-                      <p className="font-medium">{company.companyName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        CIN: {company.cin} • {company.city}, {company.state}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Capital: ₹{(company.paidUpCapital || 0).toLocaleString()}
-                      </p>
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-semibold text-lg">{company.companyName}</h4>
+                          {company.status && (
+                            <Badge variant={company.status === 'Active' ? 'default' : 'secondary'} className="text-xs">
+                              {company.status}
+                            </Badge>
+                          )}
+                          {company.companyType && (
+                            <Badge variant="outline" className="text-xs">
+                              {company.companyType}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground font-mono mt-1">CIN: {company.cin}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => importLeadMutation.mutate({ cin: company.cin, companyName: company.companyName })}
+                        disabled={importLeadMutation.isPending}
+                        data-testid={`button-import-${company.cin}`}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Import Lead
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => importLeadMutation.mutate({ cin: company.cin, companyName: company.companyName })}
-                      disabled={importLeadMutation.isPending}
-                      data-testid={`button-import-${company.cin}`}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Import Lead
-                    </Button>
+
+                    {/* Details Grid */}
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 text-sm">
+                      {/* Capital Info */}
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <IndianRupee className="h-4 w-4 text-green-600" />
+                        <span>
+                          <strong>Paid-up:</strong> ₹{(company.paidUpCapital || 0).toLocaleString('en-IN')}
+                          {company.authorizedCapital ? ` | Auth: ₹${company.authorizedCapital.toLocaleString('en-IN')}` : ''}
+                        </span>
+                      </div>
+
+                      {/* Incorporation Date */}
+                      {company.incorporationDate && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="h-4 w-4 text-blue-600" />
+                          <span>
+                            <strong>Since:</strong> {new Date(company.incorporationDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Category/Class */}
+                      {(company.companyCategory || company.companyClass) && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Briefcase className="h-4 w-4 text-purple-600" />
+                          <span className="truncate">
+                            {company.companyCategory || company.companyClass}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Location */}
+                      {(company.city || company.state) && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <MapPin className="h-4 w-4 text-red-500" />
+                          <span>
+                            {[company.city, company.state, company.pincode].filter(Boolean).join(', ')}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Email */}
+                      {company.email && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Mail className="h-4 w-4 text-orange-500" />
+                          <span className="truncate">{company.email}</span>
+                        </div>
+                      )}
+
+                      {/* Phone */}
+                      {company.phone && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Phone className="h-4 w-4 text-teal-600" />
+                          <span>{company.phone}</span>
+                        </div>
+                      )}
+
+                      {/* Website */}
+                      {company.website && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Globe className="h-4 w-4 text-indigo-500" />
+                          <a 
+                            href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline truncate"
+                          >
+                            {company.website.replace(/^https?:\/\//, '')}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Address (if available and different from city/state) */}
+                    {company.registeredAddress && company.registeredAddress.length > 30 && (
+                      <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
+                        <p className="text-xs"><strong>Registered Address:</strong> {company.registeredAddress}</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

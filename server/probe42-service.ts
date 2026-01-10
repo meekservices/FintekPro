@@ -106,6 +106,7 @@ interface CompanyBasicInfo {
   companyClass?: string;
   companyCategory?: string;
   companySubCategory?: string;
+  companyType?: string;
   authorizedCapital?: number;
   paidUpCapital?: number;
   registeredAddress?: string;
@@ -115,6 +116,7 @@ interface CompanyBasicInfo {
   email?: string;
   phone?: string;
   website?: string;
+  status?: string;
 }
 
 interface FinancialData {
@@ -282,24 +284,34 @@ export class Probe42Service {
       }
       
       let companies: CompanyBasicInfo[] = Array.isArray(companiesList) 
-        ? companiesList.map((entity: any) => ({
-            cin: entity.identifier || entity.cin || entity.id,
-            companyName: entity.legal_name || entity.legalName || entity.companyName || entity.name,
-            registrationNumber: entity.identifier || entity.registrationNumber || entity.cin,
-            incorporationDate: entity.incorporationDate || entity.dateOfIncorporation,
-            companyClass: entity.companyClass || entity.class,
-            companyCategory: entity.companyCategory || entity.category,
-            companySubCategory: entity.companySubCategory,
-            authorizedCapital: entity.authorizedCapital,
-            paidUpCapital: entity.paidUpCapital,
-            registeredAddress: entity.registeredAddress || entity.address,
-            city: entity.city || this.extractCityFromAddress(entity.registeredAddress),
-            state: entity.state || this.extractStateFromAddress(entity.registeredAddress),
-            pincode: entity.pincode,
-            email: entity.email,
-            phone: entity.phone,
-            website: entity.website
-          }))
+        ? companiesList.map((entity: any) => {
+            // v2 API returns registered_address as nested object: {address_line, city, state, pincode}
+            const regAddr = entity.registered_address || entity.registeredAddress;
+            const isNestedAddr = regAddr && typeof regAddr === 'object';
+            
+            return {
+              cin: entity.identifier || entity.cin || entity.id,
+              companyName: entity.legal_name || entity.legalName || entity.companyName || entity.name,
+              registrationNumber: entity.identifier || entity.registrationNumber || entity.cin,
+              incorporationDate: entity.date_of_incorporation || entity.incorporationDate || entity.dateOfIncorporation,
+              companyClass: entity.company_class || entity.companyClass || entity.class,
+              companyCategory: entity.company_category || entity.companyCategory || entity.category,
+              companySubCategory: entity.company_sub_category || entity.companySubCategory,
+              authorizedCapital: entity.authorized_capital || entity.authorizedCapital,
+              paidUpCapital: entity.paid_up_capital || entity.paidUpCapital,
+              registeredAddress: isNestedAddr 
+                ? `${regAddr.address_line || ''}, ${regAddr.city || ''}, ${regAddr.state || ''} ${regAddr.pincode || ''}`.trim()
+                : (typeof regAddr === 'string' ? regAddr : undefined),
+              city: isNestedAddr ? regAddr.city : (entity.city || this.extractCityFromAddress(regAddr)),
+              state: isNestedAddr ? regAddr.state : (entity.state || this.extractStateFromAddress(regAddr)),
+              pincode: isNestedAddr ? regAddr.pincode : entity.pincode,
+              email: entity.email || entity.email_id,
+              phone: entity.phone || entity.mobile,
+              website: entity.website,
+              status: entity.status || 'Active',
+              companyType: entity.company_type || entity.companyType,
+            };
+          })
         : [];
 
       if (filters.city) {
