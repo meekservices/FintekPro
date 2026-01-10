@@ -86,6 +86,11 @@ interface CompanySearchResult {
   companyCategory?: string;
   companyType?: string;
   status?: string;
+  sumOfCharges?: number;
+  activeCompliance?: string;
+  listingStatus?: string;
+  entityType?: string;
+  isEnriched?: boolean;
 }
 
 interface DirectorCompany {
@@ -93,6 +98,7 @@ interface DirectorCompany {
   legalName: string;
   companyStatus: string;
   paidUpCapital: number;
+  authorizedCapital?: number;
   sumOfCharges: number;
   incorporationDate: string;
   designation: string;
@@ -104,8 +110,14 @@ interface DirectorCompany {
   entityType?: string;
   city?: string;
   state?: string;
+  pincode?: string;
+  registeredAddress?: string;
   email?: string;
+  phone?: string;
   website?: string;
+  companyClass?: string;
+  companyCategory?: string;
+  isEnriched?: boolean;
 }
 
 interface DirectorSearchResult {
@@ -214,8 +226,15 @@ export default function LeadProspecting() {
         const totalCompanies = data.directors?.reduce((sum: number, d: DirectorSearchResult) => sum + d.companies.length, 0) || 0;
         toast({ 
           title: `Found ${data.count || 0} directors`,
-          description: `Associated with ${totalCompanies} companies`
+          description: `Associated with ${totalCompanies} companies (${data.enrichedCompanies || 0} fully enriched)`
         });
+        if (data.warning) {
+          toast({
+            title: 'Partial Enrichment',
+            description: data.warning,
+            variant: 'default'
+          });
+        }
       }
     },
     onError: () => {
@@ -238,6 +257,8 @@ export default function LeadProspecting() {
       });
       return;
     }
+    setDirectorApiError(null);
+    setDirectorResults([]);
     searchDirectorsMutation.mutate(directorName.trim());
   };
 
@@ -564,8 +585,17 @@ export default function LeadProspecting() {
                 </div>
               </form>
 
+              {/* Loading State */}
+              {searchDirectorsMutation.isPending && (
+                <div className="mt-6 flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+                  <p className="text-muted-foreground">Searching directors and enriching company data...</p>
+                  <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
+                </div>
+              )}
+
               {/* Director API Error Alert */}
-              {directorApiError && (
+              {directorApiError && !searchDirectorsMutation.isPending && (
                 <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
@@ -578,7 +608,7 @@ export default function LeadProspecting() {
               )}
 
               {/* Director Search Results */}
-              {directorResults.length > 0 && (
+              {directorResults.length > 0 && !searchDirectorsMutation.isPending && (
                 <div className="mt-6 space-y-4">
                   <h3 className="font-semibold">
                     Found {directorResults.length} Directors 
@@ -626,7 +656,12 @@ export default function LeadProspecting() {
                                     </div>
                                     <p className="text-sm text-muted-foreground font-mono mt-1">CIN: {company.cin}</p>
                                   </div>
-                                  <div className="flex gap-2">
+                                  <div className="flex gap-2 items-center">
+                                    {!company.isEnriched && (
+                                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                                        Limited Data
+                                      </Badge>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="outline"
@@ -636,11 +671,22 @@ export default function LeadProspecting() {
                                           companyName: company.legalName,
                                           city: company.city,
                                           state: company.state,
+                                          pincode: company.pincode,
+                                          registeredAddress: company.registeredAddress,
+                                          authorizedCapital: company.authorizedCapital,
                                           paidUpCapital: company.paidUpCapital,
                                           email: company.email,
+                                          phone: company.phone,
                                           website: company.website,
                                           incorporationDate: company.incorporationDate,
-                                          status: company.companyStatus
+                                          companyClass: company.companyClass,
+                                          companyCategory: company.companyCategory,
+                                          status: company.companyStatus,
+                                          sumOfCharges: company.sumOfCharges,
+                                          activeCompliance: company.activeCompliance,
+                                          listingStatus: company.listingStatus,
+                                          entityType: company.entityType,
+                                          isEnriched: company.isEnriched
                                         });
                                         setShowDetailsDialog(true);
                                       }}
@@ -1083,6 +1129,16 @@ export default function LeadProspecting() {
           {selectedCompany && (
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-6">
+                {/* Limited Data Warning */}
+                {selectedCompany.isEnriched === false && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>Limited data available. Full financial details will be fetched upon import.</span>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Company Identity */}
                 <div>
                   <h3 className="font-semibold text-lg mb-3">{selectedCompany.companyName}</h3>
@@ -1146,12 +1202,58 @@ export default function LeadProspecting() {
                         <span className="text-muted-foreground">₹{selectedCompany.paidUpCapital.toLocaleString('en-IN')}</span>
                       </div>
                     )}
+                    {selectedCompany.sumOfCharges !== undefined && selectedCompany.sumOfCharges > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Total Charges/Debt:</span>
+                        <span className="text-amber-600 font-medium">₹{selectedCompany.sumOfCharges.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
                     {(!selectedCompany.authorizedCapital || selectedCompany.authorizedCapital === 0) && 
                      (!selectedCompany.paidUpCapital || selectedCompany.paidUpCapital === 0) && (
                       <p className="text-muted-foreground italic">Financial data will be fetched upon import</p>
                     )}
                   </div>
                 </div>
+
+                {/* Compliance Section - Only show if any compliance data is available */}
+                {(selectedCompany.listingStatus || selectedCompany.activeCompliance || selectedCompany.entityType) && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Compliance & Entity
+                      </h4>
+                      <div className="grid gap-2 text-sm">
+                        {selectedCompany.listingStatus && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Listing Status:</span>
+                            <Badge variant={selectedCompany.listingStatus === 'Listed' ? 'default' : 'secondary'}>
+                              {selectedCompany.listingStatus}
+                            </Badge>
+                          </div>
+                        )}
+                        {selectedCompany.activeCompliance && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Active Compliance:</span>
+                            <Badge variant={(() => {
+                              const compliance = selectedCompany.activeCompliance?.toLowerCase() || '';
+                              return compliance.includes('yes') || compliance.includes('compliant') ? 'default' : 'destructive';
+                            })()}>
+                              {selectedCompany.activeCompliance}
+                            </Badge>
+                          </div>
+                        )}
+                        {selectedCompany.entityType && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Entity Type:</span>
+                            <span className="text-muted-foreground">{selectedCompany.entityType}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <Separator />
 

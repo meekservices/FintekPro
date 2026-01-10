@@ -812,19 +812,23 @@ export class Probe42Service {
   async enrichDirectorCompanyData(cin: string): Promise<{
     cin: string;
     companyName: string;
-    paidUpCapital: number;
-    sumOfCharges: number;
+    paidUpCapital?: number;
+    authorizedCapital?: number;
+    sumOfCharges?: number;
     companyStatus: string;
-    activeCompliance: string;
-    listingStatus: string;
-    entityType: string;
-    incorporationDate: string;
+    activeCompliance?: string;
+    listingStatus?: string;
+    entityType?: string;
+    incorporationDate?: string;
     registeredAddress?: string;
     city?: string;
     state?: string;
+    pincode?: string;
     email?: string;
     phone?: string;
     website?: string;
+    companyClass?: string;
+    companyCategory?: string;
   } | null> {
     try {
       const [baseDetails, kyc] = await Promise.all([
@@ -833,28 +837,42 @@ export class Probe42Service {
       ]);
 
       if (!baseDetails && !kyc) {
+        console.log(`⚠️ No data available for CIN ${cin}`);
         return null;
       }
 
       const kycData = kyc || {};
       const base = baseDetails || {};
 
+      const paidUp = kycData.paid_up_capital || kycData.paidUpCapital || base.paidUpCapital;
+      const authCap = base.authorizedCapital || kycData.authorized_capital;
+      const charges = kycData.sum_of_charges || kycData.sumOfCharges;
+
+      let registeredAddress = base.registeredAddress;
+      if (!registeredAddress && (base.city || base.state || base.pincode)) {
+        registeredAddress = [base.city, base.state, base.pincode].filter(Boolean).join(', ');
+      }
+
       return {
         cin,
         companyName: base.companyName || kycData.legal_name || kycData.legalName || '',
-        paidUpCapital: kycData.paid_up_capital || kycData.paidUpCapital || base.paidUpCapital || 0,
-        sumOfCharges: kycData.sum_of_charges || kycData.sumOfCharges || 0,
+        paidUpCapital: paidUp && paidUp > 0 ? paidUp : undefined,
+        authorizedCapital: authCap && authCap > 0 ? authCap : undefined,
+        sumOfCharges: charges && charges > 0 ? charges : undefined,
         companyStatus: kycData.company_status || kycData.companyStatus || base.status || 'Unknown',
-        activeCompliance: kycData.active_compliance || kycData.activeCompliance || 'Unknown',
-        listingStatus: kycData.listing_status || kycData.listingStatus || 'Unlisted',
-        entityType: kycData.type_of_entity || kycData.entityType || base.companyType || '',
-        incorporationDate: base.incorporationDate || kycData.incorporation_date || '',
-        registeredAddress: base.registeredAddress,
+        activeCompliance: kycData.active_compliance || kycData.activeCompliance || undefined,
+        listingStatus: kycData.listing_status || kycData.listingStatus || undefined,
+        entityType: kycData.type_of_entity || kycData.entityType || base.companyType || undefined,
+        incorporationDate: base.incorporationDate || kycData.incorporation_date || undefined,
+        registeredAddress,
         city: base.city,
         state: base.state,
+        pincode: base.pincode,
         email: base.email,
         phone: base.phone,
-        website: base.website
+        website: base.website,
+        companyClass: base.companyClass,
+        companyCategory: base.companyCategory
       };
     } catch (error: any) {
       console.error(`❌ Error enriching company ${cin}:`, error?.message);

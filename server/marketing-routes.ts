@@ -536,16 +536,25 @@ export function registerMarketingRoutes(app: any) {
       }));
 
       const enrichedCompanyMap = new Map<string, any>();
+      const allCINs = Array.from(uniqueCINs);
       
-      // Batch enrich companies (limit to first 20 to avoid API overload)
-      const cinsToEnrich = Array.from(uniqueCINs).slice(0, 20);
-      
-      await Promise.all(cinsToEnrich.map(async (cin) => {
-        const enriched = await probe42.enrichDirectorCompanyData(cin);
-        if (enriched) {
-          enrichedCompanyMap.set(cin, enriched);
-        }
-      }));
+      // Process all companies in batches of 5 with concurrency control
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < allCINs.length; i += BATCH_SIZE) {
+        const batch = allCINs.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (cin) => {
+          const enriched = await probe42.enrichDirectorCompanyData(cin);
+          if (enriched) {
+            enrichedCompanyMap.set(cin, enriched);
+          }
+        }));
+      }
+
+      // Log enrichment stats
+      const enrichmentRate = allCINs.length > 0 
+        ? ((enrichedCompanyMap.size / allCINs.length) * 100).toFixed(1) 
+        : '0';
+      console.log(`📊 Director search enrichment: ${enrichedCompanyMap.size}/${allCINs.length} (${enrichmentRate}%) companies enriched`);
 
       // Merge enriched data back into director results
       const enrichedDirectors = result.directors.map(director => ({
@@ -556,28 +565,48 @@ export function registerMarketingRoutes(app: any) {
             return {
               ...company,
               legalName: enriched.companyName || company.legalName,
-              paidUpCapital: enriched.paidUpCapital || company.paidUpCapital,
-              sumOfCharges: enriched.sumOfCharges || company.sumOfCharges,
+              paidUpCapital: enriched.paidUpCapital ?? company.paidUpCapital,
+              authorizedCapital: enriched.authorizedCapital,
+              sumOfCharges: enriched.sumOfCharges ?? company.sumOfCharges,
               companyStatus: enriched.companyStatus || company.companyStatus,
               activeCompliance: enriched.activeCompliance,
               listingStatus: enriched.listingStatus,
               entityType: enriched.entityType,
-              city: enriched.city,
-              state: enriched.state,
+              city: enriched.city || company.city,
+              state: enriched.state || company.state,
+              pincode: enriched.pincode,
+              registeredAddress: enriched.registeredAddress,
               email: enriched.email,
-              website: enriched.website
+              phone: enriched.phone,
+              website: enriched.website || company.website,
+              companyClass: enriched.companyClass,
+              companyCategory: enriched.companyCategory,
+              isEnriched: true
             };
           }
-          return company;
+          return { 
+            ...company, 
+            isEnriched: false,
+            activeCompliance: undefined,
+            listingStatus: undefined,
+            entityType: undefined
+          };
         })
       }));
+
+      // Calculate warning if enrichment was partial
+      const unenrichedCount = allCINs.length - enrichedCompanyMap.size;
 
       res.json({
         directors: enrichedDirectors,
         count: enrichedDirectors.length,
-        totalCompanies: uniqueCINs.size,
+        totalCompanies: allCINs.length,
         enrichedCompanies: enrichedCompanyMap.size,
-        available: true
+        unenrichedCompanies: unenrichedCount,
+        available: true,
+        warning: unenrichedCount > 0 
+          ? `${unenrichedCount} companies could not be fully enriched. Limited financial data may be available.` 
+          : undefined
       });
     } catch (error) {
       console.error('Error searching directors:', error);
