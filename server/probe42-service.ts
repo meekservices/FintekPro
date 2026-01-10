@@ -658,6 +658,268 @@ export class Probe42Service {
   }
 
   /**
+   * Get director network by DIN (v2 API)
+   * GET /director/{din}/director-network
+   */
+  async getDirectorNetworkByDIN(din: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/director/${din}/director-network`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 director network by DIN error for ${din}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get company EPFO details (v2 API) - Employee count indicator
+   * GET /entities/{identifier}/epfo
+   */
+  async getCompanyEPFO(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/epfo`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 EPFO error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get company suit filed cases (v2 API) - Active legal cases
+   * GET /entities/{identifier}/suit-filed-cases
+   */
+  async getCompanySuitFiledCases(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/suit-filed-cases`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 suit filed cases error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get company data status (v2 API) - Data freshness timestamps
+   * GET /entities/{identifier}/data-status
+   */
+  async getCompanyDataStatus(cin: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/entities/${cin}/data-status`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      console.error(`❌ Probe42 v2 data status error for CIN ${cin}:`, error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get full company enrichment - fetches all available data in parallel
+   * This is the comprehensive data fetch for lead import
+   */
+  async getFullEnrichment(cin: string): Promise<{
+    baseDetails: CompanyDetails | null;
+    kyc: any | null;
+    gst: any | null;
+    creditRatings: any | null;
+    legalHistory: any | null;
+    suitFiledCases: any | null;
+    openCharges: any | null;
+    epfo: any | null;
+    directorNetwork: any | null;
+    dataStatus: any | null;
+    enrichedAt: string;
+    enrichmentSources: string[];
+  }> {
+    console.log(`🔍 Starting full enrichment for CIN: ${cin}`);
+    const startTime = Date.now();
+    
+    // Fetch all data sources in parallel
+    const [
+      baseDetails,
+      kyc,
+      gst,
+      creditRatings,
+      legalHistory,
+      suitFiledCases,
+      openCharges,
+      epfo,
+      directorNetwork,
+      dataStatus
+    ] = await Promise.all([
+      this.getCompanyDetails(cin),
+      this.getCompanyKYC(cin),
+      this.getCompanyGST(cin),
+      this.getCompanyCreditRatings(cin),
+      this.getCompanyLegalHistory(cin),
+      this.getCompanySuitFiledCases(cin),
+      this.getCompanyCharges(cin),
+      this.getCompanyEPFO(cin),
+      this.getDirectorNetwork(cin),
+      this.getCompanyDataStatus(cin)
+    ]);
+
+    // Track which sources returned data
+    const enrichmentSources: string[] = [];
+    if (baseDetails) enrichmentSources.push('base-details');
+    if (kyc) enrichmentSources.push('kyc');
+    if (gst) enrichmentSources.push('gst-details');
+    if (creditRatings) enrichmentSources.push('credit-ratings');
+    if (legalHistory) enrichmentSources.push('legal-history');
+    if (suitFiledCases) enrichmentSources.push('suit-filed-cases');
+    if (openCharges) enrichmentSources.push('open-charges');
+    if (epfo) enrichmentSources.push('epfo');
+    if (directorNetwork) enrichmentSources.push('director-network');
+    if (dataStatus) enrichmentSources.push('data-status');
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ Full enrichment completed for ${cin} in ${duration}ms (${enrichmentSources.length}/10 sources)`);
+
+    return {
+      baseDetails,
+      kyc,
+      gst,
+      creditRatings,
+      legalHistory,
+      suitFiledCases,
+      openCharges,
+      epfo,
+      directorNetwork,
+      dataStatus,
+      enrichedAt: new Date().toISOString(),
+      enrichmentSources
+    };
+  }
+
+  /**
+   * Extract structured enrichment data for storage
+   * Normalizes data from all sources into a consistent format
+   */
+  extractEnrichmentData(enrichment: Awaited<ReturnType<typeof this.getFullEnrichment>>): {
+    employeeCount?: number;
+    gstStatus?: string;
+    gstNumber?: string;
+    creditRating?: string;
+    creditRatingAgency?: string;
+    creditRatingOutlook?: string;
+    activeLegalCases?: number;
+    suitFiledCases?: number;
+    openChargesCount?: number;
+    totalChargesAmount?: number;
+    chargeHolders?: string[];
+    directors?: Array<{
+      din: string;
+      name: string;
+      designation?: string;
+      email?: string;
+      phone?: string;
+      otherCompaniesCount?: number;
+    }>;
+    riskIndicators: string[];
+    enrichmentScore: number;
+  } {
+    const riskIndicators: string[] = [];
+    let enrichmentScore = 0;
+
+    // EPFO - Employee count
+    const employeeCount = enrichment.epfo?.employee_count || 
+                          enrichment.epfo?.employeeCount ||
+                          enrichment.epfo?.total_employees;
+    if (employeeCount) enrichmentScore += 10;
+
+    // GST Status
+    const gstStatus = enrichment.gst?.status || enrichment.gst?.gst_status;
+    const gstNumber = enrichment.gst?.gstin || enrichment.gst?.gst_number;
+    if (gstNumber) enrichmentScore += 10;
+    if (gstStatus === 'Cancelled' || gstStatus === 'Suspended') {
+      riskIndicators.push(`GST ${gstStatus}`);
+    }
+
+    // Credit Ratings
+    const creditRating = enrichment.creditRatings?.rating || 
+                         enrichment.creditRatings?.credit_rating ||
+                         (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.rating);
+    const creditRatingAgency = enrichment.creditRatings?.agency ||
+                               enrichment.creditRatings?.rating_agency ||
+                               (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.agency);
+    const creditRatingOutlook = enrichment.creditRatings?.outlook ||
+                                (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.outlook);
+    if (creditRating) enrichmentScore += 15;
+    if (creditRatingOutlook === 'Negative') {
+      riskIndicators.push('Credit outlook negative');
+    }
+
+    // Legal History
+    const legalCases = Array.isArray(enrichment.legalHistory) 
+      ? enrichment.legalHistory 
+      : enrichment.legalHistory?.cases || [];
+    const activeLegalCases = legalCases.filter((c: any) => 
+      c.status === 'Active' || c.status === 'Pending'
+    ).length;
+    if (activeLegalCases > 0) {
+      riskIndicators.push(`${activeLegalCases} active legal cases`);
+    }
+
+    // Suit Filed Cases
+    const suitCases = Array.isArray(enrichment.suitFiledCases)
+      ? enrichment.suitFiledCases
+      : enrichment.suitFiledCases?.cases || [];
+    const suitFiledCases = suitCases.length;
+    if (suitFiledCases > 3) {
+      riskIndicators.push(`${suitFiledCases} suit filed cases`);
+    }
+
+    // Open Charges
+    const charges = Array.isArray(enrichment.openCharges)
+      ? enrichment.openCharges
+      : enrichment.openCharges?.charges || [];
+    const openChargesCount = charges.length;
+    const totalChargesAmount = charges.reduce((sum: number, c: any) => 
+      sum + (c.charge_amount || c.chargeAmount || c.amount || 0), 0
+    );
+    const chargeHolders = [...new Set(charges.map((c: any) => 
+      c.charge_holder || c.chargeHolder || c.holder
+    ).filter(Boolean))] as string[];
+    if (openChargesCount > 0) enrichmentScore += 10;
+
+    // Directors from KYC
+    const directorsList = enrichment.kyc?.directors || 
+                          enrichment.directorNetwork?.directors || [];
+    const directors = directorsList.map((d: any) => ({
+      din: d.din || d.DIN,
+      name: d.name || d.director_name || d.directorName,
+      designation: d.designation,
+      email: d.email || d.email_id,
+      phone: d.phone || d.mobile,
+      otherCompaniesCount: d.other_companies?.length || d.otherCompanies?.length || 0
+    }));
+    if (directors.length > 0) enrichmentScore += 15;
+
+    // Base details scoring
+    if (enrichment.baseDetails) enrichmentScore += 20;
+    if (enrichment.baseDetails?.email) enrichmentScore += 5;
+    if (enrichment.baseDetails?.phone) enrichmentScore += 5;
+    if (enrichment.baseDetails?.paidUpCapital) enrichmentScore += 10;
+
+    return {
+      employeeCount,
+      gstStatus,
+      gstNumber,
+      creditRating,
+      creditRatingAgency,
+      creditRatingOutlook,
+      activeLegalCases,
+      suitFiledCases,
+      openChargesCount,
+      totalChargesAmount,
+      chargeHolders,
+      directors,
+      riskIndicators,
+      enrichmentScore: Math.min(100, enrichmentScore)
+    };
+  }
+
+  /**
    * Get company financials (uses KYC endpoint for financial data)
    */
   async getCompanyFinancials(cin: string): Promise<FinancialData[]> {

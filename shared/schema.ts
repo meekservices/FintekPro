@@ -11951,6 +11951,27 @@ export const prospectLeads = pgTable("prospect_leads", {
   nextFollowUpAt: timestamp("next_follow_up_at"),
   notes: text("notes"),
   
+  // Probe42 v2 Enrichment Data
+  employeeCount: integer("employee_count"), // From EPFO endpoint
+  gstStatus: varchar("gst_status"), // Active/Cancelled/Suspended
+  gstNumber: varchar("gst_number"), // GSTIN
+  creditRating: varchar("credit_rating"), // e.g., AAA, AA+, BBB-
+  creditRatingAgency: varchar("credit_rating_agency"), // CRISIL, ICRA, CARE, etc.
+  creditRatingOutlook: varchar("credit_rating_outlook"), // Positive/Stable/Negative
+  openChargesCount: integer("open_charges_count"), // Number of open charges/loans
+  totalChargesAmount: numeric("total_charges_amount", { precision: 15, scale: 2 }), // Total loan amount
+  chargeHolders: jsonb("charge_holders"), // Array of bank/institution names
+  suitFiledCasesCount: integer("suit_filed_cases_count"), // Legal cases count
+  activeLegalCases: integer("active_legal_cases"), // Active legal cases
+  riskIndicators: jsonb("risk_indicators"), // Array of risk flags
+  enrichmentScore: integer("enrichment_score"), // 0-100 data completeness
+  enrichmentSources: jsonb("enrichment_sources"), // Array of API endpoints that returned data
+  enrichmentData: jsonb("enrichment_data"), // Full raw enrichment data
+  enrichedAt: timestamp("enriched_at"), // When enrichment was performed
+  incorporationDate: varchar("incorporation_date"), // Date of incorporation
+  companyType: varchar("company_type"), // Private/Public/LLP/OPC etc.
+  companyClass: varchar("company_class"), // Company class from MCA
+  
   // Conversion
   convertedToUserId: varchar("converted_to_user_id").references(() => users.id),
   convertedAt: timestamp("converted_at"),

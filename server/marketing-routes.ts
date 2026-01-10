@@ -525,7 +525,7 @@ export function registerMarketingRoutes(app: any) {
   });
 
   /**
-   * Import prospect lead from Probe42
+   * Import prospect lead from Probe42 with full v2 API enrichment
    */
   app.post('/api/admin/marketing/leads/import', requireAdmin, async (req: any, res: Response) => {
     try {
@@ -542,7 +542,14 @@ export function registerMarketingRoutes(app: any) {
       }
 
       const probe42 = getProbe42Service();
-      const company = await probe42.getCompanyDetails(cin);
+      
+      // Use full enrichment to get all available data from Probe42 v2 API
+      console.log(`📊 Starting full enrichment for lead import: ${cin}`);
+      const enrichment = await probe42.getFullEnrichment(cin);
+      const company = enrichment.baseDetails;
+      
+      // Extract structured enrichment data
+      const enrichedData = probe42.extractEnrichmentData(enrichment);
 
       // Use company name from search results as fallback if enrichment fails
       const finalCompanyName = company?.companyName || requestCompanyName;
@@ -551,8 +558,9 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.badRequest(res, 'Company name is required. Please try again.');
       }
 
-      // Calculate lead score
-      const leadScore = company ? probe42.calculateLeadScore(company) : 10;
+      // Calculate lead score with enrichment bonus
+      let leadScore = company ? probe42.calculateLeadScore(company) : 10;
+      leadScore = Math.min(100, leadScore + Math.floor(enrichedData.enrichmentScore / 5));
       const leadQuality = probe42.getLeadQuality(leadScore);
 
       // Calculate investable surplus
@@ -560,7 +568,7 @@ export function registerMarketingRoutes(app: any) {
         ? probe42.calculateInvestableSurplus(company.financials[0])
         : 0;
 
-      // Import lead
+      // Import lead with full enrichment data
       const [lead] = await db
         .insert(prospectLeads)
         .values({
@@ -584,16 +592,37 @@ export function registerMarketingRoutes(app: any) {
           currentRatio: company?.financials?.[0]?.currentRatio?.toString() || null,
           roe: company?.financials?.[0]?.roe?.toString() || null,
           probe42Score: company?.probe42Score?.score || null,
-          directors: company?.directors as any,
+          directors: enrichedData.directors?.length ? enrichedData.directors as any : (company?.directors as any),
           authorizedSignatories: company?.authorizedSignatories as any,
           leadScore,
           leadQuality,
           investableSurplus: investableSurplus.toString(),
           source: 'probe42',
-          assignedTo: req.body.assignedTo || null
+          assignedTo: req.body.assignedTo || null,
+          // Probe42 v2 enrichment fields
+          employeeCount: enrichedData.employeeCount || null,
+          gstStatus: enrichedData.gstStatus || null,
+          gstNumber: enrichedData.gstNumber || null,
+          creditRating: enrichedData.creditRating || null,
+          creditRatingAgency: enrichedData.creditRatingAgency || null,
+          creditRatingOutlook: enrichedData.creditRatingOutlook || null,
+          openChargesCount: enrichedData.openChargesCount || null,
+          totalChargesAmount: enrichedData.totalChargesAmount?.toString() || null,
+          chargeHolders: enrichedData.chargeHolders as any || null,
+          suitFiledCasesCount: enrichedData.suitFiledCases || null,
+          activeLegalCases: enrichedData.activeLegalCases || null,
+          riskIndicators: enrichedData.riskIndicators as any || null,
+          enrichmentScore: enrichedData.enrichmentScore || null,
+          enrichmentSources: enrichment.enrichmentSources as any || null,
+          enrichmentData: enrichment as any,
+          enrichedAt: new Date(),
+          incorporationDate: company?.incorporationDate || null,
+          companyType: company?.companyType || null,
+          companyClass: company?.companyClass || null,
         })
         .returning();
 
+      console.log(`✅ Lead imported with ${enrichment.enrichmentSources.length}/10 data sources: ${cin}`);
       res.status(201).json(lead);
     } catch (error) {
       console.error('Error importing lead:', error);

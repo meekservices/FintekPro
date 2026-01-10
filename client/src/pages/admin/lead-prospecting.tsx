@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2 } from 'lucide-react';
+import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield, CreditCard, Scale, UserCheck, FileWarning, Landmark } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -16,6 +16,8 @@ interface ProspectLead {
   companyName: string;
   city?: string;
   state?: string;
+  paidUpCapital?: string;
+  authorizedCapital?: string;
   annualRevenue?: string;
   netProfit?: string;
   probe42Score?: number;
@@ -23,7 +25,33 @@ interface ProspectLead {
   leadQuality: string;
   status: string;
   investableSurplus?: string;
-  directors?: any;
+  directors?: Array<{
+    din?: string;
+    name?: string;
+    designation?: string;
+    email?: string;
+    phone?: string;
+    otherCompaniesCount?: number;
+  }>;
+  // Probe42 v2 enrichment fields
+  employeeCount?: number;
+  gstStatus?: string;
+  gstNumber?: string;
+  creditRating?: string;
+  creditRatingAgency?: string;
+  creditRatingOutlook?: string;
+  openChargesCount?: number;
+  totalChargesAmount?: string;
+  chargeHolders?: string[];
+  suitFiledCasesCount?: number;
+  activeLegalCases?: number;
+  riskIndicators?: string[];
+  enrichmentScore?: number;
+  enrichmentSources?: string[];
+  enrichedAt?: string;
+  incorporationDate?: string;
+  companyType?: string;
+  companyClass?: string;
 }
 
 interface CompanySearchResult {
@@ -461,63 +489,208 @@ export default function LeadProspecting() {
               {leads.map((lead) => (
                 <div
                   key={lead.id}
-                  className="border rounded-lg p-4 hover:bg-accent transition-colors"
+                  className="border rounded-lg p-4 hover:border-primary/50 transition-colors"
                   data-testid={`lead-${lead.id}`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={`p-2 rounded-full ${
-                          lead.leadQuality === 'hot' ? 'bg-orange-100' :
-                          lead.leadQuality === 'warm' ? 'bg-yellow-100' :
-                          'bg-blue-100'
-                        }`}>
-                          {lead.leadQuality === 'hot' ? (
-                            <Star className="h-5 w-5 text-orange-500" />
-                          ) : lead.leadQuality === 'warm' ? (
-                            <TrendingUp className="h-5 w-5 text-yellow-500" />
-                          ) : (
-                            <Users className="h-5 w-5 text-blue-500" />
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold" data-testid={`text-lead-name-${lead.id}`}>
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${
+                        lead.leadQuality === 'hot' ? 'bg-orange-100' :
+                        lead.leadQuality === 'warm' ? 'bg-yellow-100' :
+                        'bg-blue-100'
+                      }`}>
+                        {lead.leadQuality === 'hot' ? (
+                          <Star className="h-5 w-5 text-orange-500" />
+                        ) : lead.leadQuality === 'warm' ? (
+                          <TrendingUp className="h-5 w-5 text-yellow-500" />
+                        ) : (
+                          <Users className="h-5 w-5 text-blue-500" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-lg" data-testid={`text-lead-name-${lead.id}`}>
                             {lead.companyName}
                           </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {lead.city}, {lead.state}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Lead Score</p>
-                          <p className="font-semibold">{lead.leadScore}/100</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Probe42 Score</p>
-                          <p className="font-semibold">{lead.probe42Score || 'N/A'}/5</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Annual Revenue</p>
-                          <p className="font-semibold">
-                            {lead.annualRevenue ? `₹${(parseFloat(lead.annualRevenue) / 10000000).toFixed(2)}Cr` : 'N/A'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Status</p>
-                          <Badge variant={
-                            lead.status === 'converted' ? 'default' :
-                            lead.status === 'qualified' ? 'secondary' :
-                            'outline'
-                          }>
+                          {lead.companyType && (
+                            <Badge variant="outline" className="text-xs">{lead.companyType}</Badge>
+                          )}
+                          <Badge variant={lead.status === 'converted' ? 'default' : lead.status === 'qualified' ? 'secondary' : 'outline'}>
                             {lead.status}
                           </Badge>
                         </div>
+                        <p className="text-sm text-muted-foreground font-mono">
+                          CIN: {lead.cin} {lead.city && lead.state && `• ${lead.city}, ${lead.state}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold">{lead.leadScore}<span className="text-sm font-normal text-muted-foreground">/100</span></div>
+                      <p className="text-xs text-muted-foreground">Lead Score</p>
+                    </div>
+                  </div>
+
+                  {/* Risk Indicators */}
+                  {lead.riskIndicators && lead.riskIndicators.length > 0 && (
+                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+                      <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span className="font-medium text-sm">Risk Indicators</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {lead.riskIndicators.map((risk, i) => (
+                          <Badge key={i} variant="destructive" className="text-xs">{risk}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Main Metrics Grid */}
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+                    {/* Financial */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <IndianRupee className="h-3 w-3" /> Financial
+                      </h4>
+                      <div className="text-sm space-y-1">
+                        <p><strong>Revenue:</strong> {lead.annualRevenue ? `₹${(parseFloat(lead.annualRevenue) / 10000000).toFixed(2)}Cr` : 'N/A'}</p>
+                        <p><strong>Paid-up:</strong> {lead.paidUpCapital ? `₹${(parseFloat(lead.paidUpCapital) / 100000).toFixed(0)}L` : 'N/A'}</p>
+                        <p><strong>Net Profit:</strong> {lead.netProfit ? `₹${(parseFloat(lead.netProfit) / 10000000).toFixed(2)}Cr` : 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    {/* Compliance */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <Shield className="h-3 w-3" /> Compliance
+                      </h4>
+                      <div className="text-sm space-y-1">
+                        <p className="flex items-center gap-1">
+                          <strong>GST:</strong> 
+                          {lead.gstStatus ? (
+                            <Badge variant={lead.gstStatus === 'Active' ? 'default' : 'destructive'} className="text-xs ml-1">
+                              {lead.gstStatus}
+                            </Badge>
+                          ) : 'N/A'}
+                        </p>
+                        {lead.gstNumber && <p className="text-xs font-mono">{lead.gstNumber}</p>}
+                        <p><strong>Probe42:</strong> {lead.probe42Score || 'N/A'}/5</p>
+                      </div>
+                    </div>
+
+                    {/* Credit & Charges */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <CreditCard className="h-3 w-3" /> Credit
+                      </h4>
+                      <div className="text-sm space-y-1">
+                        {lead.creditRating ? (
+                          <>
+                            <p className="flex items-center gap-1">
+                              <strong>Rating:</strong> 
+                              <Badge variant="secondary" className="text-xs ml-1">{lead.creditRating}</Badge>
+                              {lead.creditRatingOutlook && (
+                                <span className={`text-xs ${lead.creditRatingOutlook === 'Positive' ? 'text-green-600' : lead.creditRatingOutlook === 'Negative' ? 'text-red-600' : ''}`}>
+                                  ({lead.creditRatingOutlook})
+                                </span>
+                              )}
+                            </p>
+                            {lead.creditRatingAgency && <p className="text-xs text-muted-foreground">{lead.creditRatingAgency}</p>}
+                          </>
+                        ) : <p>Rating: N/A</p>}
+                        <p><strong>Charges:</strong> {lead.openChargesCount || 0} open</p>
+                        {lead.totalChargesAmount && parseFloat(lead.totalChargesAmount) > 0 && (
+                          <p className="text-xs">₹{(parseFloat(lead.totalChargesAmount) / 10000000).toFixed(2)}Cr</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Legal & Size */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <Scale className="h-3 w-3" /> Legal & Size
+                      </h4>
+                      <div className="text-sm space-y-1">
+                        <p className="flex items-center gap-1">
+                          <strong>Legal Cases:</strong>
+                          {(lead.activeLegalCases || 0) > 0 ? (
+                            <Badge variant="destructive" className="text-xs ml-1">{lead.activeLegalCases} active</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs ml-1">None</Badge>
+                          )}
+                        </p>
+                        {lead.suitFiledCasesCount !== undefined && lead.suitFiledCasesCount > 0 && (
+                          <p className="text-xs text-muted-foreground">{lead.suitFiledCasesCount} suits filed</p>
+                        )}
+                        <p><strong>Employees:</strong> {lead.employeeCount ? lead.employeeCount.toLocaleString() : 'N/A'}</p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Director Network Section */}
+                  {lead.directors && lead.directors.length > 0 && (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                      <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-2">
+                        <Users className="h-3 w-3" /> Board of Directors ({lead.directors.length})
+                      </h4>
+                      <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                        {lead.directors.slice(0, 6).map((director, idx) => (
+                          <div key={idx} className="text-xs p-2 bg-white dark:bg-gray-800 rounded border">
+                            <p className="font-medium truncate">{director.name || 'Unknown'}</p>
+                            {director.designation && (
+                              <p className="text-muted-foreground">{director.designation}</p>
+                            )}
+                            {director.din && (
+                              <p className="text-muted-foreground font-mono">DIN: {director.din}</p>
+                            )}
+                            {(director.email || director.phone) && (
+                              <div className="mt-1 flex items-center gap-2">
+                                {director.email && (
+                                  <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                    <Mail className="h-3 w-3" /> {director.email}
+                                  </span>
+                                )}
+                                {director.phone && (
+                                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                    <Phone className="h-3 w-3" /> {director.phone}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {director.otherCompaniesCount && director.otherCompaniesCount > 0 && (
+                              <p className="mt-1 text-orange-600 dark:text-orange-400">
+                                +{director.otherCompaniesCount} other companies
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {lead.directors.length > 6 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          +{lead.directors.length - 6} more directors
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Enrichment Footer */}
+                  {lead.enrichmentScore && (
+                    <div className="pt-3 border-t flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-4">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          Data Quality: {lead.enrichmentScore}%
+                        </span>
+                        {lead.enrichmentSources && (
+                          <span>{lead.enrichmentSources.length}/10 sources</span>
+                        )}
+                      </div>
+                      {lead.enrichedAt && (
+                        <span>Enriched: {new Date(lead.enrichedAt).toLocaleDateString('en-IN')}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
