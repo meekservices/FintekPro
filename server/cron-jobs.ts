@@ -600,11 +600,11 @@ export function initializeCronJobs(): void {
     console.error('[CRON] Failed to initialize Audit Integrity Checker:', error.message);
   }
 
-  // Initialize Company Data Auto-Refresh Scheduler - Runs every 6 hours
-  // Automatically refreshes stale company data using Probe42 batch APIs
+  // Initialize Company Data Auto-Refresh Scheduler - Checks daily, refreshes every 90 days
+  // Automatically refreshes stale company data using Probe42 batch APIs (MCA data updates annually)
   try {
     companyDataRefreshScheduler.start();
-    console.log('[CRON] Company Data Refresh Scheduler started (every 6 hours)');
+    console.log('[CRON] Company Data Refresh Scheduler started (checks daily, refreshes every 90 days)');
   } catch (error: any) {
     console.error('[CRON] Failed to start Company Data Refresh Scheduler:', error.message);
   }

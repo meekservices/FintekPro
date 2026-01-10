@@ -15,7 +15,8 @@ interface RefreshConfig {
   financialsMaxAgeDays: number;
   detailsMaxAgeDays: number;
   batchSize: number;
-  intervalMs: number;
+  refreshIntervalDays: number;
+  checkIntervalMs: number;
   enabled: boolean;
 }
 
@@ -32,7 +33,8 @@ const DEFAULT_CONFIG: RefreshConfig = {
   financialsMaxAgeDays: 90,    // Refresh financials older than 90 days
   detailsMaxAgeDays: 30,       // Refresh details older than 30 days
   batchSize: 10,               // Process 10 companies per batch
-  intervalMs: 6 * 60 * 60 * 1000, // Run every 6 hours
+  refreshIntervalDays: 90,     // Actually refresh every 90 days
+  checkIntervalMs: 24 * 60 * 60 * 1000, // Check daily (24 hours) - within 32-bit limit
   enabled: true,
 };
 
@@ -55,6 +57,7 @@ class CompanyDataRefreshScheduler {
 
   /**
    * Start the automatic refresh scheduler
+   * Uses a daily check to avoid JavaScript's 32-bit setTimeout limit (~24.8 days max)
    */
   start(): void {
     if (this.intervalId) {
@@ -67,15 +70,31 @@ class CompanyDataRefreshScheduler {
       return;
     }
 
-    console.log(`✅ Company Data Refresh Scheduler started (interval: ${this.config.intervalMs / 1000 / 60} minutes)`);
+    console.log(`✅ Company Data Refresh Scheduler started (refresh every ${this.config.refreshIntervalDays} days, checking daily)`);
     
     this.intervalId = setInterval(() => {
-      this.runRefreshCycle().catch(err => {
-        console.error('[CompanyRefresh] Scheduled run failed:', err.message);
+      this.checkAndRefreshIfDue().catch(err => {
+        console.error('[CompanyRefresh] Scheduled check failed:', err.message);
       });
-    }, this.config.intervalMs);
+    }, this.config.checkIntervalMs);
 
-    setTimeout(() => this.runRefreshCycle(), 60 * 1000);
+    setTimeout(() => this.checkAndRefreshIfDue(), 60 * 1000);
+  }
+
+  /**
+   * Check if 90 days have passed since last refresh, run if due
+   */
+  private async checkAndRefreshIfDue(): Promise<void> {
+    const refreshIntervalMs = this.config.refreshIntervalDays * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    
+    if (this.metrics.lastRunAt && (now - this.metrics.lastRunAt) < refreshIntervalMs) {
+      const daysRemaining = Math.ceil((refreshIntervalMs - (now - this.metrics.lastRunAt)) / (24 * 60 * 60 * 1000));
+      console.log(`[CompanyRefresh] Next refresh in ${daysRemaining} days, skipping`);
+      return;
+    }
+
+    await this.runRefreshCycle();
   }
 
   /**
