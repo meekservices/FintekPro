@@ -794,6 +794,7 @@ export class Probe42Service {
   /**
    * Extract structured enrichment data for storage
    * Normalizes data from all sources into a consistent format
+   * Handles both structured responses and text messages from Probe42 v2 API
    */
   extractEnrichmentData(enrichment: Awaited<ReturnType<typeof this.getFullEnrichment>>): {
     employeeCount?: number;
@@ -817,74 +818,141 @@ export class Probe42Service {
     }>;
     riskIndicators: string[];
     enrichmentScore: number;
+    apiAccessIssues: string[];
+    dataNotAvailable: string[];
   } {
     const riskIndicators: string[] = [];
+    const apiAccessIssues: string[] = [];
+    const dataNotAvailable: string[] = [];
     let enrichmentScore = 0;
 
+    // Helper to check if response is a "not available" message
+    const isNotAvailableMessage = (data: any): boolean => {
+      if (typeof data === 'string') {
+        const noDataPhrases = [
+          'does not have', 'do not have', 'not available', 'no records',
+          'as per our records', 'not appear to have', 'neither pending nor disposed'
+        ];
+        return noDataPhrases.some(phrase => data.toLowerCase().includes(phrase.toLowerCase()));
+      }
+      return false;
+    };
+
     // EPFO - Employee count
-    const employeeCount = enrichment.epfo?.employee_count || 
-                          enrichment.epfo?.employeeCount ||
-                          enrichment.epfo?.total_employees;
-    if (employeeCount) enrichmentScore += 10;
-
-    // GST Status
-    const gstStatus = enrichment.gst?.status || enrichment.gst?.gst_status;
-    const gstNumber = enrichment.gst?.gstin || enrichment.gst?.gst_number;
-    if (gstNumber) enrichmentScore += 10;
-    if (gstStatus === 'Cancelled' || gstStatus === 'Suspended') {
-      riskIndicators.push(`GST ${gstStatus}`);
+    let employeeCount: number | undefined;
+    if (enrichment.epfo === null) {
+      apiAccessIssues.push('EPFO (Employee data) - API access denied');
+    } else if (isNotAvailableMessage(enrichment.epfo)) {
+      dataNotAvailable.push('Employee count');
+    } else if (enrichment.epfo && typeof enrichment.epfo === 'object') {
+      employeeCount = enrichment.epfo?.employee_count || 
+                      enrichment.epfo?.employeeCount ||
+                      enrichment.epfo?.total_employees;
+      if (employeeCount) enrichmentScore += 10;
     }
 
-    // Credit Ratings
-    const creditRating = enrichment.creditRatings?.rating || 
-                         enrichment.creditRatings?.credit_rating ||
-                         (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.rating);
-    const creditRatingAgency = enrichment.creditRatings?.agency ||
-                               enrichment.creditRatings?.rating_agency ||
-                               (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.agency);
-    const creditRatingOutlook = enrichment.creditRatings?.outlook ||
-                                (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.outlook);
-    if (creditRating) enrichmentScore += 15;
-    if (creditRatingOutlook === 'Negative') {
-      riskIndicators.push('Credit outlook negative');
+    // GST Status - handle string responses
+    let gstStatus: string | undefined;
+    let gstNumber: string | undefined;
+    if (isNotAvailableMessage(enrichment.gst)) {
+      gstStatus = 'Not Registered';
+      dataNotAvailable.push('GST');
+      enrichmentScore += 5; // We know status even if negative
+    } else if (enrichment.gst && typeof enrichment.gst === 'object') {
+      gstStatus = enrichment.gst?.status || enrichment.gst?.gst_status;
+      gstNumber = enrichment.gst?.gstin || enrichment.gst?.gst_number;
+      if (gstNumber) enrichmentScore += 10;
+      if (gstStatus === 'Cancelled' || gstStatus === 'Suspended') {
+        riskIndicators.push(`GST ${gstStatus}`);
+      }
     }
 
-    // Legal History
-    const legalCases = Array.isArray(enrichment.legalHistory) 
-      ? enrichment.legalHistory 
-      : enrichment.legalHistory?.cases || [];
-    const activeLegalCases = legalCases.filter((c: any) => 
-      c.status === 'Active' || c.status === 'Pending'
-    ).length;
-    if (activeLegalCases > 0) {
-      riskIndicators.push(`${activeLegalCases} active legal cases`);
+    // Credit Ratings - handle string responses
+    let creditRating: string | undefined;
+    let creditRatingAgency: string | undefined;
+    let creditRatingOutlook: string | undefined;
+    if (isNotAvailableMessage(enrichment.creditRatings)) {
+      creditRating = 'Not Rated';
+      dataNotAvailable.push('Credit Rating');
+      enrichmentScore += 5; // We know there's no rating
+    } else if (enrichment.creditRatings && typeof enrichment.creditRatings === 'object') {
+      creditRating = enrichment.creditRatings?.rating || 
+                     enrichment.creditRatings?.credit_rating ||
+                     (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.rating);
+      creditRatingAgency = enrichment.creditRatings?.agency ||
+                           enrichment.creditRatings?.rating_agency ||
+                           (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.agency);
+      creditRatingOutlook = enrichment.creditRatings?.outlook ||
+                            (Array.isArray(enrichment.creditRatings) && enrichment.creditRatings[0]?.outlook);
+      if (creditRating) enrichmentScore += 15;
+      if (creditRatingOutlook === 'Negative') {
+        riskIndicators.push('Credit outlook negative');
+      }
     }
 
-    // Suit Filed Cases
-    const suitCases = Array.isArray(enrichment.suitFiledCases)
-      ? enrichment.suitFiledCases
-      : enrichment.suitFiledCases?.cases || [];
-    const suitFiledCases = suitCases.length;
-    if (suitFiledCases > 3) {
-      riskIndicators.push(`${suitFiledCases} suit filed cases`);
+    // KYC/Director data - check for access issues
+    if (enrichment.kyc === null) {
+      apiAccessIssues.push('KYC (Financials & Directors) - API access denied');
+    }
+    if (enrichment.directorNetwork === null) {
+      apiAccessIssues.push('Director Network - API access denied');
+    }
+
+    // Legal History - handle string responses
+    let activeLegalCases = 0;
+    if (isNotAvailableMessage(enrichment.legalHistory)) {
+      dataNotAvailable.push('Legal History');
+      enrichmentScore += 5; // Clean record
+    } else {
+      const legalCases = Array.isArray(enrichment.legalHistory) 
+        ? enrichment.legalHistory 
+        : enrichment.legalHistory?.cases || [];
+      activeLegalCases = legalCases.filter((c: any) => 
+        c.status === 'Active' || c.status === 'Pending'
+      ).length;
+      if (activeLegalCases > 0) {
+        riskIndicators.push(`${activeLegalCases} active legal cases`);
+      }
+    }
+
+    // Suit Filed Cases - handle string responses
+    let suitFiledCases = 0;
+    if (isNotAvailableMessage(enrichment.suitFiledCases)) {
+      dataNotAvailable.push('Suit Filed Cases');
+      enrichmentScore += 5; // Clean record
+    } else {
+      const suitCases = Array.isArray(enrichment.suitFiledCases)
+        ? enrichment.suitFiledCases
+        : enrichment.suitFiledCases?.cases || [];
+      suitFiledCases = suitCases.length;
+      if (suitFiledCases > 3) {
+        riskIndicators.push(`${suitFiledCases} suit filed cases`);
+      }
     }
 
     // Open Charges
-    const charges = Array.isArray(enrichment.openCharges)
-      ? enrichment.openCharges
-      : enrichment.openCharges?.charges || [];
-    const openChargesCount = charges.length;
-    const totalChargesAmount = charges.reduce((sum: number, c: any) => 
-      sum + (c.charge_amount || c.chargeAmount || c.amount || 0), 0
-    );
-    const chargeHolders = [...new Set(charges.map((c: any) => 
-      c.charge_holder || c.chargeHolder || c.holder
-    ).filter(Boolean))] as string[];
-    if (openChargesCount > 0) enrichmentScore += 10;
+    let openChargesCount = 0;
+    let totalChargesAmount = 0;
+    let chargeHolders: string[] = [];
+    if (Array.isArray(enrichment.openCharges) && enrichment.openCharges.length > 0) {
+      const charges = enrichment.openCharges;
+      openChargesCount = charges.length;
+      totalChargesAmount = charges.reduce((sum: number, c: any) => 
+        sum + (c.charge_amount || c.chargeAmount || c.amount || 0), 0
+      );
+      chargeHolders = [...new Set(charges.map((c: any) => 
+        c.charge_holder || c.chargeHolder || c.holder
+      ).filter(Boolean))] as string[];
+      if (openChargesCount > 0) enrichmentScore += 10;
+    } else if (enrichment.openCharges && typeof enrichment.openCharges === 'object' && !Array.isArray(enrichment.openCharges)) {
+      const charges = enrichment.openCharges?.charges || [];
+      openChargesCount = charges.length;
+    }
 
-    // Directors from KYC
+    // Directors from KYC or base details
     const directorsList = enrichment.kyc?.directors || 
-                          enrichment.directorNetwork?.directors || [];
+                          enrichment.directorNetwork?.directors ||
+                          enrichment.baseDetails?.directors || [];
     const directors = directorsList.map((d: any) => ({
       din: d.din || d.DIN,
       name: d.name || d.director_name || d.directorName,
@@ -895,11 +963,15 @@ export class Probe42Service {
     }));
     if (directors.length > 0) enrichmentScore += 15;
 
+    // Extract financials from baseDetails if available
+    const paidUpCapital = enrichment.baseDetails?.paidUpCapital || enrichment.baseDetails?.paid_up_capital;
+    const authorizedCapital = enrichment.baseDetails?.authorizedCapital || enrichment.baseDetails?.authorized_capital;
+
     // Base details scoring
     if (enrichment.baseDetails) enrichmentScore += 20;
     if (enrichment.baseDetails?.email) enrichmentScore += 5;
     if (enrichment.baseDetails?.phone) enrichmentScore += 5;
-    if (enrichment.baseDetails?.paidUpCapital) enrichmentScore += 10;
+    if (paidUpCapital) enrichmentScore += 10;
 
     return {
       employeeCount,
@@ -915,7 +987,11 @@ export class Probe42Service {
       chargeHolders,
       directors,
       riskIndicators,
-      enrichmentScore: Math.min(100, enrichmentScore)
+      apiAccessIssues,
+      dataNotAvailable,
+      enrichmentScore: Math.min(100, enrichmentScore),
+      paidUpCapital,
+      authorizedCapital
     };
   }
 

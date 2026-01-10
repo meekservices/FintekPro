@@ -582,8 +582,8 @@ export function registerMarketingRoutes(app: any) {
           city: company?.city || null,
           state: company?.state || null,
           pincode: company?.pincode || null,
-          paidUpCapital: company?.paidUpCapital?.toString() || null,
-          authorizedCapital: company?.authorizedCapital?.toString() || null,
+          paidUpCapital: company?.paidUpCapital?.toString() || enrichedData.paidUpCapital?.toString() || null,
+          authorizedCapital: company?.authorizedCapital?.toString() || enrichedData.authorizedCapital?.toString() || null,
           annualRevenue: company?.financials?.[0]?.revenue?.toString() || null,
           netProfit: company?.financials?.[0]?.netProfit?.toString() || null,
           ebitda: company?.financials?.[0]?.ebitda?.toString() || null,
@@ -614,7 +614,11 @@ export function registerMarketingRoutes(app: any) {
           riskIndicators: enrichedData.riskIndicators as any || null,
           enrichmentScore: enrichedData.enrichmentScore || null,
           enrichmentSources: enrichment.enrichmentSources as any || null,
-          enrichmentData: enrichment as any,
+          enrichmentData: {
+            ...enrichment,
+            apiAccessIssues: enrichedData.apiAccessIssues,
+            dataNotAvailable: enrichedData.dataNotAvailable
+          } as any,
           enrichedAt: new Date(),
           incorporationDate: company?.incorporationDate || null,
           companyType: company?.companyType || null,

@@ -569,10 +569,13 @@ export default function LeadProspecting() {
                         <p className="flex items-center gap-1">
                           <strong>GST:</strong> 
                           {lead.gstStatus ? (
-                            <Badge variant={lead.gstStatus === 'Active' ? 'default' : 'destructive'} className="text-xs ml-1">
+                            <Badge 
+                              variant={lead.gstStatus === 'Active' ? 'default' : lead.gstStatus === 'Not Registered' ? 'secondary' : 'destructive'} 
+                              className="text-xs ml-1"
+                            >
                               {lead.gstStatus}
                             </Badge>
-                          ) : 'N/A'}
+                          ) : <span className="text-muted-foreground text-xs ml-1">Unknown</span>}
                         </p>
                         {lead.gstNumber && <p className="text-xs font-mono">{lead.gstNumber}</p>}
                         <p><strong>Probe42:</strong> {lead.probe42Score || 'N/A'}/5</p>
@@ -585,21 +588,29 @@ export default function LeadProspecting() {
                         <CreditCard className="h-3 w-3" /> Credit
                       </h4>
                       <div className="text-sm space-y-1">
-                        {lead.creditRating ? (
-                          <>
-                            <p className="flex items-center gap-1">
-                              <strong>Rating:</strong> 
-                              <Badge variant="secondary" className="text-xs ml-1">{lead.creditRating}</Badge>
+                        <p className="flex items-center gap-1">
+                          <strong>Rating:</strong> 
+                          {lead.creditRating ? (
+                            <>
+                              <Badge 
+                                variant={lead.creditRating === 'Not Rated' ? 'secondary' : 'default'} 
+                                className="text-xs ml-1"
+                              >
+                                {lead.creditRating}
+                              </Badge>
                               {lead.creditRatingOutlook && (
                                 <span className={`text-xs ${lead.creditRatingOutlook === 'Positive' ? 'text-green-600' : lead.creditRatingOutlook === 'Negative' ? 'text-red-600' : ''}`}>
                                   ({lead.creditRatingOutlook})
                                 </span>
                               )}
-                            </p>
-                            {lead.creditRatingAgency && <p className="text-xs text-muted-foreground">{lead.creditRatingAgency}</p>}
-                          </>
-                        ) : <p>Rating: N/A</p>}
-                        <p><strong>Charges:</strong> {lead.openChargesCount || 0} open</p>
+                            </>
+                          ) : <span className="text-muted-foreground text-xs ml-1">Unknown</span>}
+                        </p>
+                        {lead.creditRatingAgency && <p className="text-xs text-muted-foreground">{lead.creditRatingAgency}</p>}
+                        <p><strong>Charges:</strong> {(lead.openChargesCount || 0) === 0 ? 
+                          <Badge variant="secondary" className="text-xs ml-1">None</Badge> : 
+                          <Badge variant="destructive" className="text-xs ml-1">{lead.openChargesCount} open</Badge>}
+                        </p>
                         {lead.totalChargesAmount && parseFloat(lead.totalChargesAmount) > 0 && (
                           <p className="text-xs">₹{(parseFloat(lead.totalChargesAmount) / 10000000).toFixed(2)}Cr</p>
                         )}
