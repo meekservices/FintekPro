@@ -120,8 +120,9 @@ const agentNavCategories: NavCategory[] = [
     title: "Documents",
     icon: FileText,
     items: [
-      { title: "Proposal Builder", href: "/agent/proposal-builder", icon: Plus, description: "Create proposals" },
-      { title: "Proposals", href: "/agent/proposals", icon: FileText, description: "View proposals" },
+      { title: "Proposal Wizard", href: "/agent/proposal-builder", icon: Plus, description: "Multi-product proposals" },
+      { title: "Demo Proposals", href: "/agent/demo-proposals", icon: FileText, description: "Investment demos" },
+      { title: "Proposals", href: "/agent/proposals", icon: FileCheck, description: "View proposals" },
       { title: "E-Sign", href: "/agent/esign", icon: FileSignature, description: "Electronic signatures" },
       { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
       { title: "Demo Progress", href: "/agent/demo-progress", icon: Clock, description: "Track demos" },
