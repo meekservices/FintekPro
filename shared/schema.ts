@@ -25629,3 +25629,31 @@ export const mcaWalletStatus = pgTable("mca_wallet_status", {
 export const insertMcaWalletStatusSchema = createInsertSchema(mcaWalletStatus).omit({ id: true, lastUpdated: true });
 export type McaWalletStatus = typeof mcaWalletStatus.$inferSelect;
 export type InsertMcaWalletStatus = z.infer<typeof insertMcaWalletStatusSchema>;
+
+// MCA Wallet Payments - Track Cashfree payment orders for wallet recharge
+export const mcaWalletPayments = pgTable("mca_wallet_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id", { length: 100 }).notNull().unique(),
+  paymentSessionId: varchar("payment_session_id", { length: 255 }),
+  amount: numeric("amount").notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, success, failed
+  initiatedBy: varchar("initiated_by", { length: 255 }).notNull(), // user email
+  initiatedByUserId: varchar("initiated_by_user_id", { length: 255 }),
+  paymentUrl: text("payment_url"),
+  returnUrl: text("return_url"),
+  transactionId: varchar("transaction_id", { length: 255 }),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  failureReason: text("failure_reason"),
+  creditedAt: timestamp("credited_at"),
+  zohoExpenseId: varchar("zoho_expense_id", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_mca_wp_order").on(table.orderId),
+  index("idx_mca_wp_status").on(table.status),
+  index("idx_mca_wp_user").on(table.initiatedBy),
+]);
+
+export const insertMcaWalletPaymentSchema = createInsertSchema(mcaWalletPayments).omit({ id: true, createdAt: true, updatedAt: true });
+export type McaWalletPayment = typeof mcaWalletPayments.$inferSelect;
+export type InsertMcaWalletPayment = z.infer<typeof insertMcaWalletPaymentSchema>;
