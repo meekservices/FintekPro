@@ -5,6 +5,7 @@ import { phonePeService } from '../../phonepe-service';
 import { complianceMonitor } from '../../compliance-monitor';
 import { clientMoneySegregationService } from '../../services/client-money-segregation-service';
 import { dailyReconciliationService } from '../../services/daily-reconciliation-service';
+import { registerFemaComplianceRoutes } from '../fema-compliance';
 
 export function registerPaymentRoutes(app: Express): void {
   // ==================== CASHFREE PAYMENT GATEWAY ROUTES ====================
@@ -698,4 +699,6 @@ export function registerPaymentRoutes(app: Express): void {
   console.log("✅ Payment gateway routes registered (Cashfree, PhonePe)");
   console.log("✅ Client Money Segregation compliance routes registered");
   console.log("✅ Daily Reconciliation routes registered");
+
+  registerFemaComplianceRoutes(app);
 }

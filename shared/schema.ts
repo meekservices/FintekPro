@@ -25823,3 +25823,125 @@ export const mfBatchValidationLogs = pgTable("mf_batch_validation_logs", {
 export const insertMfBatchValidationLogSchema = createInsertSchema(mfBatchValidationLogs).omit({ id: true, createdAt: true });
 export type MfBatchValidationLog = typeof mfBatchValidationLogs.$inferSelect;
 export type InsertMfBatchValidationLog = z.infer<typeof insertMfBatchValidationLogSchema>;
+
+// ==================== ADDITIONAL FEMA COMPLIANCE TABLES ====================
+
+export const a2Forms = pgTable("a2_forms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formNumber: varchar("form_number", { length: 50 }).unique().notNull(),
+  transactionId: varchar("transaction_id").references(() => lrsTransactions.id),
+  
+  applicantName: varchar("applicant_name", { length: 200 }).notNull(),
+  applicantPan: varchar("applicant_pan", { length: 10 }).notNull(),
+  applicantAddress: text("applicant_address"),
+  applicantEmail: varchar("applicant_email", { length: 255 }),
+  applicantPhone: varchar("applicant_phone", { length: 15 }),
+  
+  purposeCode: varchar("purpose_code", { length: 10 }).notNull(),
+  purposeDescription: text("purpose_description"),
+  amountInr: numeric("amount_inr").notNull(),
+  amountFcy: numeric("amount_fcy").notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  exchangeRate: numeric("exchange_rate").notNull(),
+  
+  beneficiaryName: varchar("beneficiary_name", { length: 200 }).notNull(),
+  beneficiaryAddress: text("beneficiary_address"),
+  beneficiaryCountry: varchar("beneficiary_country", { length: 3 }).notNull(),
+  beneficiaryBankName: varchar("beneficiary_bank_name", { length: 200 }),
+  beneficiaryBankAddress: text("beneficiary_bank_address"),
+  beneficiaryAccountNumber: varchar("beneficiary_account_number", { length: 50 }),
+  swiftCode: varchar("swift_code", { length: 11 }),
+  iban: varchar("iban", { length: 34 }),
+  
+  adBankName: varchar("ad_bank_name", { length: 200 }),
+  adBranchName: varchar("ad_branch_name", { length: 200 }),
+  adCode: varchar("ad_code", { length: 20 }),
+  adBranchAddress: text("ad_branch_address"),
+  
+  declarations: jsonb("declarations").default({}),
+  
+  status: varchar("status", { length: 30 }).default("draft").notNull(),
+  acknowledgementNumber: varchar("acknowledgement_number", { length: 50 }),
+  documentHash: varchar("document_hash", { length: 64 }),
+  
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  submittedAt: timestamp("submitted_at"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  
+  retainUntil: timestamp("retain_until"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_a2_pan").on(table.applicantPan),
+  index("idx_a2_status").on(table.status),
+  index("idx_a2_transaction").on(table.transactionId),
+]);
+
+export const insertA2FormSchema = createInsertSchema(a2Forms).omit({ id: true, createdAt: true });
+export type A2Form = typeof a2Forms.$inferSelect;
+export type InsertA2Form = z.infer<typeof insertA2FormSchema>;
+
+export const adCertificates = pgTable("ad_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  certificateNumber: varchar("certificate_number", { length: 50 }).unique().notNull(),
+  transactionId: varchar("transaction_id").references(() => lrsTransactions.id),
+  
+  adBankName: varchar("ad_bank_name", { length: 200 }).notNull(),
+  adBankBranch: varchar("ad_bank_branch", { length: 200 }),
+  adCode: varchar("ad_code", { length: 20 }).notNull(),
+  
+  applicantName: varchar("applicant_name", { length: 200 }).notNull(),
+  applicantPan: varchar("applicant_pan", { length: 10 }).notNull(),
+  
+  purposeCode: varchar("purpose_code", { length: 10 }).notNull(),
+  remittanceAmountUsd: numeric("remittance_amount_usd").notNull(),
+  remittanceAmountInr: numeric("remittance_amount_inr").notNull(),
+  exchangeRate: numeric("exchange_rate").notNull(),
+  
+  beneficiaryDetails: text("beneficiary_details"),
+  lrsUtilization: numeric("lrs_utilization"),
+  tcsDeducted: numeric("tcs_deducted").default("0"),
+  
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  status: varchar("status", { length: 20 }).default("active").notNull(),
+  
+  documentHash: varchar("document_hash", { length: 64 }),
+  
+  retainUntil: timestamp("retain_until"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_adc_pan").on(table.applicantPan),
+  index("idx_adc_status").on(table.status, table.validUntil),
+  index("idx_adc_transaction").on(table.transactionId),
+]);
+
+export const insertAdCertificateSchema = createInsertSchema(adCertificates).omit({ id: true, createdAt: true });
+export type AdCertificate = typeof adCertificates.$inferSelect;
+export type InsertAdCertificate = z.infer<typeof insertAdCertificateSchema>;
+
+export const lrsLimitAlerts = pgTable("lrs_limit_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  financialYear: varchar("financial_year", { length: 10 }).notNull(),
+  
+  alertType: varchar("alert_type", { length: 30 }).notNull(),
+  message: text("message").notNull(),
+  
+  utilizationPercentage: numeric("utilization_percentage"),
+  totalRemittedUsd: numeric("total_remitted_usd"),
+  remainingLimitUsd: numeric("remaining_limit_usd"),
+  
+  acknowledged: boolean("acknowledged").default(false),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by"),
+  
+  triggeredAt: timestamp("triggered_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_lrs_alerts_user").on(table.userId, table.financialYear),
+  index("idx_lrs_alerts_type").on(table.alertType, table.acknowledged),
+]);
+
+export const insertLrsLimitAlertSchema = createInsertSchema(lrsLimitAlerts).omit({ id: true, createdAt: true });
+export type LrsLimitAlert = typeof lrsLimitAlerts.$inferSelect;
+export type InsertLrsLimitAlert = z.infer<typeof insertLrsLimitAlertSchema>;
