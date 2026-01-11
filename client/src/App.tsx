@@ -1565,6 +1565,20 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/agent/kyc">
+        {() => (
+          <AgentLayout>
+            <OnboardingPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/orders">
+        {() => (
+          <AgentLayout>
+            <MutualFunds />
+          </AgentLayout>
+        )}
+      </Route>
       <Route>
         {() => (
           <AgentLayout>
