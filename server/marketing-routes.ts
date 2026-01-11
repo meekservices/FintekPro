@@ -1702,39 +1702,58 @@ export function registerMarketingRoutes(app: any) {
     }
   });
 
+  // Helper function for analytics data
+  async function getMarketingAnalytics(periodStr: string) {
+    const daysMap: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '1d': 1, '14d': 14 };
+    const days = daysMap[periodStr] || 7;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const campaigns = await db.select()
+      .from(marketingCampaigns)
+      .where(gte(marketingCampaigns.createdAt, startDate));
+
+    return campaigns.map((c) => ({
+      id: `analytics-${c.id}`,
+      campaignId: c.id.toString(),
+      campaignName: c.name,
+      campaignType: c.campaignType || 'email',
+      recipientCount: c.recipientCount || c.sentCount || 0,
+      sentCount: c.sentCount || 0,
+      deliveredCount: Math.floor((c.sentCount || 0) * 0.95),
+      openedCount: c.openedCount || 0,
+      clickedCount: c.clickedCount || 0,
+      unsubscribedCount: 0,
+      bounceCount: Math.floor((c.sentCount || 0) * 0.02),
+      conversionCount: Math.floor((c.clickedCount || 0) * 0.15),
+      revenue: c.clickedCount ? `₹${((c.clickedCount || 0) * 250).toLocaleString()}` : undefined,
+      recordedAt: c.updatedAt?.toISOString() || c.createdAt?.toISOString() || new Date().toISOString()
+    }));
+  }
+
   /**
    * Get marketing analytics - returns CampaignAnalytics[] matching frontend interface
+   * Supports both query param (?period=30d) and path param (/30d) formats
    */
   app.get('/api/admin/marketing/analytics', requireAdmin, async (req: any, res: Response) => {
     try {
       const { period = '7d' } = req.query;
-      
-      const daysMap: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
-      const days = daysMap[period as string] || 7;
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
+      const analyticsArray = await getMarketingAnalytics(period as string);
+      res.json(analyticsArray);
+    } catch (error: any) {
+      console.error('Error getting marketing analytics:', error);
+      return apiResponse.serverError(res, 'Failed to get marketing analytics');
+    }
+  });
 
-      const campaigns = await db.select()
-        .from(marketingCampaigns)
-        .where(gte(marketingCampaigns.createdAt, startDate));
-
-      const analyticsArray = campaigns.map((c, index) => ({
-        id: `analytics-${c.id}`,
-        campaignId: c.id.toString(),
-        campaignName: c.name,
-        campaignType: c.campaignType || 'email',
-        recipientCount: c.recipientCount || c.sentCount || 0,
-        sentCount: c.sentCount || 0,
-        deliveredCount: Math.floor((c.sentCount || 0) * 0.95),
-        openedCount: c.openedCount || 0,
-        clickedCount: c.clickedCount || 0,
-        unsubscribedCount: 0,
-        bounceCount: Math.floor((c.sentCount || 0) * 0.02),
-        conversionCount: Math.floor((c.clickedCount || 0) * 0.15),
-        revenue: c.clickedCount ? `₹${((c.clickedCount || 0) * 250).toLocaleString()}` : undefined,
-        recordedAt: c.updatedAt?.toISOString() || c.createdAt?.toISOString() || new Date().toISOString()
-      }));
-
+  /**
+   * Get marketing analytics with period as path parameter
+   * Supports /api/admin/marketing/analytics/30d format
+   */
+  app.get('/api/admin/marketing/analytics/:period', requireAdmin, async (req: any, res: Response) => {
+    try {
+      const { period } = req.params;
+      const analyticsArray = await getMarketingAnalytics(period || '7d');
       res.json(analyticsArray);
     } catch (error: any) {
       console.error('Error getting marketing analytics:', error);
