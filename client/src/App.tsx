@@ -1579,6 +1579,20 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      <Route path="/settings">
+        {() => (
+          <AgentLayout>
+            <SettingsPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/settings">
+        {() => (
+          <AgentLayout>
+            <SettingsPage />
+          </AgentLayout>
+        )}
+      </Route>
       <Route>
         {() => (
           <AgentLayout>
