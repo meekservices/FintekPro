@@ -105,7 +105,7 @@ export default function AdminAIInsights() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: platformInsightsData, isLoading: insightsLoading } = useQuery<PlatformInsight[]>({
-    queryKey: ['/api/admin/ai-insights/platform', { timeRange }]
+    queryKey: [`/api/admin/ai-insights/platform?timeRange=${timeRange}`]
   });
 
   const { data: agentRecommendationsData, isLoading: recommendationsLoading } = useQuery<AgentRecommendation[]>({
@@ -113,7 +113,7 @@ export default function AdminAIInsights() {
   });
 
   const { data: trendChartData, isLoading: trendsLoading } = useQuery<TrendChartData[]>({
-    queryKey: ['/api/admin/ai-insights/trends', { timeRange }]
+    queryKey: [`/api/admin/ai-insights/trends?timeRange=${timeRange}`]
   });
 
   const isLoading = insightsLoading || recommendationsLoading || trendsLoading;
