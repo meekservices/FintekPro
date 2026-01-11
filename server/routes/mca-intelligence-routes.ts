@@ -119,9 +119,14 @@ router.post('/query', requireMcaAccess('query'), async (req: Request, res: Respo
     res.json(result);
   } catch (error: any) {
     console.error('[MCA Routes] Query error:', error);
+    const isDbError = error.message?.includes('connection') || error.message?.includes('database') || error.code === 'ECONNREFUSED';
+    const isApiError = error.message?.includes('API') || error.message?.includes('fetch') || error.message?.includes('timeout');
+    
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error.message || 'Internal server error',
+      errorType: isDbError ? 'database' : isApiError ? 'external_api' : 'internal',
+      timestamp: new Date().toISOString(),
     });
   }
 });

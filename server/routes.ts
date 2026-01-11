@@ -209,6 +209,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Diagnostics endpoint to help debug production issues (admin only)
+  app.get("/api/internal/diagnostics", async (req, res) => {
+    const diagnostics: Record<string, any> = {
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      checks: {}
+    };
+    
+    // Check database connectivity
+    try {
+      const result = await db.execute(sql`SELECT 1 as test`);
+      diagnostics.checks.database = { status: 'ok', message: 'Database connection successful' };
+    } catch (error: any) {
+      diagnostics.checks.database = { 
+        status: 'error', 
+        message: error.message,
+        code: error.code 
+      };
+    }
+    
+    // Check required environment variables
+    const requiredEnvVars = ['DATABASE_URL', 'SESSION_SECRET'];
+    const optionalApiVars = ['SANDBOX_API_KEY', 'PROBE42_API_KEY', 'CASHFREE_APP_ID'];
+    
+    diagnostics.checks.environment = {
+      required: requiredEnvVars.reduce((acc, key) => {
+        acc[key] = !!process.env[key] ? 'set' : 'missing';
+        return acc;
+      }, {} as Record<string, string>),
+      optional: optionalApiVars.reduce((acc, key) => {
+        acc[key] = !!process.env[key] ? 'set' : 'not_set';
+        return acc;
+      }, {} as Record<string, string>)
+    };
+    
+    // Check MCA service availability
+    try {
+      const { mcaIntelligenceService } = await import('./services/mca-intelligence-service');
+      diagnostics.checks.mcaService = { 
+        status: 'initialized',
+        sandboxConfigured: !!process.env.SANDBOX_API_KEY
+      };
+    } catch (error: any) {
+      diagnostics.checks.mcaService = { status: 'error', message: error.message };
+    }
+    
+    const hasErrors = Object.values(diagnostics.checks).some((check: any) => check.status === 'error');
+    res.status(hasErrors ? 503 : 200).json(diagnostics);
+  });
+  
   // Initialize market movers cache at startup (non-blocking)
   marketMoversCache.initialize().catch(err => console.error("Failed to initialize market movers cache:", err));
   // Initialize platform stats cache at startup (non-blocking)
