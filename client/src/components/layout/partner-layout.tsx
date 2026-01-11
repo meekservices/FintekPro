@@ -14,7 +14,18 @@ import {
   HelpCircle,
   BarChart3,
   UserCheck,
-  Wallet
+  Wallet,
+  UserPlus,
+  TrendingUp,
+  ClipboardList,
+  FileText,
+  PieChart,
+  Target,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  IndianRupee,
+  Briefcase
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -25,54 +36,145 @@ interface PartnerLayoutProps {
   children: React.ReactNode;
 }
 
-const partnerNavItems = [
+interface NavItem {
+  title: string;
+  href?: string;
+  icon: any;
+  description: string;
+  children?: { title: string; href: string; description?: string }[];
+}
+
+interface NavSection {
+  section: string;
+  items: NavItem[];
+}
+
+const partnerNavSections: NavSection[] = [
   {
-    title: "Dashboard",
-    href: "/",
-    icon: Home,
-    description: "Overview and key metrics"
+    section: "Overview",
+    items: [
+      {
+        title: "Dashboard",
+        href: "/",
+        icon: Home,
+        description: "Key metrics & overview"
+      }
+    ]
   },
   {
-    title: "Products",
-    href: "/products",
-    icon: Package,
-    description: "Manage your product catalog"
+    section: "Clients & Leads",
+    items: [
+      {
+        title: "Client Onboarding",
+        icon: UserPlus,
+        description: "Invite & onboard clients",
+        children: [
+          { title: "Invite Client", href: "/partner-portal?tab=invitations", description: "Send onboarding invite" },
+          { title: "Track Invitations", href: "/partner-portal?tab=invitations", description: "Monitor onboarding progress" }
+        ]
+      },
+      {
+        title: "Proposals",
+        href: "/agent/proposals",
+        icon: ClipboardList,
+        description: "Client investment proposals"
+      }
+    ]
   },
   {
-    title: "Agents",
-    href: "/agents",
-    icon: Users,
-    description: "Manage your agents"
+    section: "Agent Management",
+    items: [
+      {
+        title: "My Agents",
+        href: "/partner/agents",
+        icon: Users,
+        description: "Agent network & performance"
+      },
+      {
+        title: "Agent Performance",
+        href: "/partner/agents",
+        icon: BarChart3,
+        description: "P&L and metrics"
+      },
+      {
+        title: "Agent Payouts",
+        href: "/agent/payouts",
+        icon: Wallet,
+        description: "Commission payouts"
+      }
+    ]
   },
   {
-    title: "Agent Dashboard",
-    href: "/partner/agents",
-    icon: BarChart3,
-    description: "Agent P&L and performance"
+    section: "Products & Services",
+    items: [
+      {
+        title: "Product Catalog",
+        href: "/partner-portal?tab=products",
+        icon: Package,
+        description: "Manage your offerings"
+      },
+      {
+        title: "Investment Products",
+        icon: Briefcase,
+        description: "Available products",
+        children: [
+          { title: "Mutual Funds", href: "/mutual-funds", description: "MF schemes" },
+          { title: "Bonds & NCDs", href: "/bonds", description: "Fixed income" },
+          { title: "Unlisted Shares", href: "/unlisted", description: "Pre-IPO securities" }
+        ]
+      }
+    ]
   },
   {
-    title: "CA Management",
-    href: "/partner/ca-management",
-    icon: UserCheck,
-    description: "Onboard CAs and assign cases"
+    section: "Analytics & Revenue",
+    items: [
+      {
+        title: "Revenue Dashboard",
+        href: "/partner-portal?tab=dashboard",
+        icon: IndianRupee,
+        description: "Earnings & commissions"
+      },
+      {
+        title: "Performance Analytics",
+        href: "/partner-portal?tab=analytics",
+        icon: TrendingUp,
+        description: "Growth metrics"
+      }
+    ]
   },
   {
-    title: "Payouts",
-    href: "/agent/payouts",
-    icon: Wallet,
-    description: "View and request payouts"
+    section: "CA Services",
+    items: [
+      {
+        title: "CA Management",
+        href: "/partner/ca-management",
+        icon: UserCheck,
+        description: "Onboard CAs & assign cases"
+      },
+      {
+        title: "CA Support Tickets",
+        href: "/ca-support",
+        icon: HelpCircle,
+        description: "Client assistance requests"
+      }
+    ]
   },
   {
-    title: "CA Support",
-    href: "/ca-support",
-    icon: HelpCircle,
-    description: "CA assistance requests"
-  },
-  {
-    title: "Settings",
-    href: "/partner-portal",
-    icon: Settings,
-    description: "Account preferences"
+    section: "Support & Settings",
+    items: [
+      {
+        title: "Support Tickets",
+        href: "/partner-portal?tab=support",
+        icon: HelpCircle,
+        description: "Your support requests"
+      },
+      {
+        title: "Settings",
+        href: "/partner-portal?tab=settings",
+        icon: Settings,
+        description: "Account preferences"
+      }
+    ]
   }
 ];
 
@@ -80,6 +182,15 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  const toggleExpanded = (title: string) => {
+    setExpandedItems(prev => 
+      prev.includes(title) 
+        ? prev.filter(t => t !== title) 
+        : [...prev, title]
+    );
+  };
 
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
@@ -175,41 +286,89 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
           )}
         >
           {sidebarOpen && (
-            <nav className="p-4 space-y-1">
-              {partnerNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location === item.href;
+            <nav className="p-4 space-y-4">
+              {partnerNavSections.map((section) => (
+                <div key={section.section}>
+                  <h3 className="px-3 mb-2 text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+                    {section.section}
+                  </h3>
+                  <div className="space-y-1">
+                    {section.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = item.href && location === item.href;
+                      const hasChildren = item.children && item.children.length > 0;
+                      const isExpanded = expandedItems.includes(item.title);
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-start gap-3 px-4 py-3 rounded-lg transition-colors group",
-                      isActive
-                        ? "bg-violet-600 text-white"
-                        : "text-indigo-300 hover:bg-indigo-800 hover:text-white"
-                    )}
-                    data-testid={`link-partner-${item.href.split('/').pop() || 'home'}`}
-                  >
-                    <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "text-sm font-medium",
-                        isActive ? "text-white" : "text-indigo-200 group-hover:text-white"
-                      )}>
-                        {item.title}
-                      </p>
-                      <p className={cn(
-                        "text-xs mt-0.5",
-                        isActive ? "text-violet-100" : "text-indigo-400 group-hover:text-indigo-300"
-                      )}>
-                        {item.description}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
+                      if (hasChildren) {
+                        return (
+                          <div key={item.title}>
+                            <button
+                              onClick={() => toggleExpanded(item.title)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group text-left",
+                                "text-indigo-300 hover:bg-indigo-800 hover:text-white"
+                              )}
+                            >
+                              <Icon className="h-4 w-4 flex-shrink-0" />
+                              <span className="flex-1 text-sm font-medium text-indigo-200 group-hover:text-white">
+                                {item.title}
+                              </span>
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-indigo-400" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-indigo-400" />
+                              )}
+                            </button>
+                            {isExpanded && (
+                              <div className="ml-7 mt-1 space-y-1">
+                                {item.children!.map((child) => {
+                                  const childActive = location === child.href || location.startsWith(child.href.split('?')[0]);
+                                  return (
+                                    <Link
+                                      key={child.href}
+                                      href={child.href}
+                                      className={cn(
+                                        "block px-3 py-2 rounded-md text-sm transition-colors",
+                                        childActive
+                                          ? "bg-violet-600 text-white"
+                                          : "text-indigo-400 hover:bg-indigo-800 hover:text-white"
+                                      )}
+                                    >
+                                      {child.title}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href!}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
+                            isActive
+                              ? "bg-violet-600 text-white"
+                              : "text-indigo-300 hover:bg-indigo-800 hover:text-white"
+                          )}
+                          data-testid={`link-partner-${item.href!.split('/').pop() || 'home'}`}
+                        >
+                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          <span className={cn(
+                            "text-sm font-medium",
+                            isActive ? "text-white" : "text-indigo-200 group-hover:text-white"
+                          )}>
+                            {item.title}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </nav>
           )}
         </aside>
