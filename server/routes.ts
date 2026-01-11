@@ -574,8 +574,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(prospectProposalsRoutes);
   app.use(instrumentsRoutes);
   app.use("/api/store", storeAifPmsRoutes);
-  app.use("/api/admin/itr-pricing", itrPricingRoutes);
-  app.use("/api/admin/platform-fees", platformFeesRoutes);
+  app.use("/api/admin/itr-pricing", requireAdmin, itrPricingRoutes);
+  app.use("/api/admin/platform-fees", requireAdmin, platformFeesRoutes);
   console.log("✅ ITR Pricing routes registered");
   app.use("/api/store", storeMldRoutes);
   app.use("/api/ai-investment", aiInvestmentRoutes);
@@ -16444,7 +16444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ ADMIN REPORTS EXPORT ROUTES ============
 
   // Export all capital gains reports (Admin only)
-  app.get("/api/admin/capital-gains-reports/export", async (req, res) => {
+  app.get("/api/admin/capital-gains-reports/export", requireAdmin, async (req, res) => {
     try {
       const { format = 'csv', financialYear, source, fromDate, toDate } = req.query;
 
@@ -16559,7 +16559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export all transaction reports (Admin only)
-  app.get("/api/admin/transaction-reports/export", async (req, res) => {
+  app.get("/api/admin/transaction-reports/export", requireAdmin, async (req, res) => {
     try {
       const { format = 'csv', financialYear, source, assetType, fromDate, toDate } = req.query;
 
@@ -16693,7 +16693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get admin report statistics
-  app.get("/api/admin/reports/stats", async (req, res) => {
+  app.get("/api/admin/reports/stats", requireAdmin, async (req, res) => {
     try {
       const stats = {
         capitalGainsReports: {
@@ -17598,13 +17598,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ AGENT TRANSACTION REPORTS ROUTES ============
   
   // Agent requests client transaction report
-  app.post("/api/agent/transaction-reports/request", async (req, res) => {
+  app.post("/api/agent/transaction-reports/request", requireAgent, async (req, res) => {
     try {
       const { clientId, reportType, reportPeriod, startDate, endDate, apiProvider } = req.body;
-      
-      if (!req.user || req.user.role !== 'agent') {
-        return res.status(403).json({ error: "Agent access required" });
-      }
       
       if (!clientId || !reportType || !apiProvider) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -17642,12 +17638,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Agent gets list of transaction reports for their clients
-  app.get("/api/agent/transaction-reports", async (req, res) => {
+  app.get("/api/agent/transaction-reports", requireAgent, async (req, res) => {
     try {
-      if (!req.user || req.user.role !== 'agent') {
-        return res.status(403).json({ error: "Agent access required" });
-      }
-      
       const { clientId, status, reportType } = req.query;
       
       // Get all reports where the agent is the requester
@@ -17669,14 +17661,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Agent downloads client transaction report
-  app.get("/api/agent/transaction-reports/:id/download", async (req, res) => {
+  app.get("/api/agent/transaction-reports/:id/download", requireAgent, async (req, res) => {
     try {
       const { id } = req.params;
       const { format = 'pdf' } = req.query;
-      
-      if (!req.user || req.user.role !== 'agent') {
-        return res.status(403).json({ error: "Agent access required" });
-      }
       
       const report = await storage.getTransactionReport(id);
       if (!report) {
@@ -17725,14 +17713,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Agent shares transaction report with client
-  app.post("/api/agent/transaction-reports/:id/share", async (req, res) => {
+  app.post("/api/agent/transaction-reports/:id/share", requireAgent, async (req, res) => {
     try {
       const { id } = req.params;
       const { shareWithType = 'client', message, expiresInDays = 30 } = req.body;
-      
-      if (!req.user || req.user.role !== 'agent') {
-        return res.status(403).json({ error: "Agent access required" });
-      }
       
       const report = await storage.getTransactionReport(id);
       if (!report) {
@@ -17773,13 +17757,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ AGENT CAPITAL GAINS REPORTS ROUTES ============
   
   // Agent requests client capital gains report
-  app.post("/api/agent/capital-gains-reports/request", async (req, res) => {
+  app.post("/api/agent/capital-gains-reports/request", requireAgent, async (req, res) => {
     try {
       const { clientId, financialYear, assessmentYear, reportType, dataSource } = req.body;
-      
-      if (!req.user || req.user.role !== 'agent') {
-        return res.status(403).json({ error: "Agent access required" });
-      }
       
       if (!clientId || !financialYear || !dataSource) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -17817,12 +17797,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Agent gets list of capital gains reports for their clients
-  app.get("/api/agent/capital-gains-reports", async (req, res) => {
+  app.get("/api/agent/capital-gains-reports", requireAgent, async (req, res) => {
     try {
-      if (!req.user || req.user.role !== 'agent') {
-        return res.status(403).json({ error: "Agent access required" });
-      }
-      
       const { clientId, financialYear, status } = req.query;
       
       // Get all reports where the agent is the requester
@@ -17844,14 +17820,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Agent downloads client capital gains report
-  app.get("/api/agent/capital-gains-reports/:id/download", async (req, res) => {
+  app.get("/api/agent/capital-gains-reports/:id/download", requireAgent, async (req, res) => {
     try {
       const { id } = req.params;
       const { format = 'pdf' } = req.query;
-      
-      if (!req.user || req.user.role !== 'agent') {
-        return res.status(403).json({ error: "Agent access required" });
-      }
       
       const report = await storage.getCapitalGainsReport(id);
       if (!report) {
@@ -17900,7 +17872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Agent shares capital gains report with client
-  app.post("/api/agent/capital-gains-reports/:id/share", async (req, res) => {
+  app.post("/api/agent/capital-gains-reports/:id/share", requireAgent, async (req, res) => {
     try {
       const { id } = req.params;
       const { shareWithType = 'client', message, expiresInDays = 30 } = req.body;
@@ -17946,12 +17918,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get agent's report sharing history
-  app.get("/api/agent/reports/shared", async (req, res) => {
+  app.get("/api/agent/reports/shared", requireAgent, async (req, res) => {
     try {
-      if (!req.user || req.user.role !== 'agent') {
-        return res.status(403).json({ error: "Agent access required" });
-      }
-      
       const { reportType, status } = req.query;
       
       const sharedReports = await storage.getAgentSharedReports(req.user.id, {
@@ -17972,7 +17940,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Agent Portal API endpoints
   // Agent tasks stats for notification center
-  app.get("/api/agent/tasks/stats", async (req, res) => {
+  app.get("/api/agent/tasks/stats", requireAgent, async (req, res) => {
     try {
       res.json({ pendingTasks: 3, overdueCount: 1 });
     } catch (error) {
@@ -17982,7 +17950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Agent leads stats for notification center
-  app.get("/api/agent/leads/stats", async (req, res) => {
+  app.get("/api/agent/leads/stats", requireAgent, async (req, res) => {
     try {
       res.json({ newLeadsCount: 2 });
     } catch (error) {
@@ -17992,7 +17960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Agent proposals stats for notification center
-  app.get("/api/agent/proposals/stats", async (req, res) => {
+  app.get("/api/agent/proposals/stats", requireAgent, async (req, res) => {
     try {
       res.json({ pendingResponses: 1 });
     } catch (error) {
@@ -18004,7 +17972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const pushSubscriptions = new Map<string, any>();
 
   // Save push notification subscription
-  app.post("/api/agent/notifications/subscribe", async (req, res) => {
+  app.post("/api/agent/notifications/subscribe", requireAgent, async (req, res) => {
     try {
       const userId = req.user?.id || 'anonymous';
       const { subscription } = req.body;
@@ -18028,7 +17996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark notification as read
-  app.post("/api/agent/notifications/:id/read", async (req, res) => {
+  app.post("/api/agent/notifications/:id/read", requireAgent, async (req, res) => {
     try {
       const { id } = req.params;
       console.log(`📖 Notification ${id} marked as read`);
@@ -18040,7 +18008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark all notifications as read
-  app.post("/api/agent/notifications/mark-all-read", async (req, res) => {
+  app.post("/api/agent/notifications/mark-all-read", requireAgent, async (req, res) => {
     try {
       console.log("📖 All notifications marked as read");
       res.json({ success: true });
