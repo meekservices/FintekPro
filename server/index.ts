@@ -155,8 +155,14 @@ const authLimiter = rateLimit({
 
 app.use(["/api/login", "/api/register"], authLimiter);
 
-// Raw body capture for webhook signature verification
+// Raw body capture for webhook signature verification (Cashfree and PhonePe)
 app.use('/api/payments/cashfree/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/payments/phonepe/callback', express.json({
+  limit: "10mb",
+  verify: (req: any, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 // Raw body capture for Zoho webhook signature verification
 app.use('/api/zoho/webhooks', express.json({

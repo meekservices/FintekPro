@@ -137,7 +137,56 @@ export function registerPaymentRoutes(app: Express): void {
 
   app.post('/api/payments/cashfree/webhook', async (req, res) => {
     try {
-      const { order_id, order_status, cf_order_id, payment_method } = req.body;
+      const signature = req.headers['x-webhook-signature'] as string;
+      const timestamp = req.headers['x-webhook-timestamp'] as string;
+      
+      const rawBody = Buffer.isBuffer(req.body) 
+        ? req.body.toString('utf8') 
+        : typeof req.body === 'string' 
+          ? req.body 
+          : JSON.stringify(req.body);
+
+      if (!signature || !timestamp) {
+        console.error('⚠️ Cashfree webhook missing signature headers');
+        complianceMonitor.logEvent({
+          eventType: 'security',
+          action: 'cashfree_webhook_signature_missing',
+          outcome: 'failure',
+          riskLevel: 'critical',
+          metadata: { headers: Object.keys(req.headers) }
+        });
+        return res.status(401).json({ message: 'Missing webhook signature' });
+      }
+
+      const isValidSignature = cashfreeService.verifyWebhookSignature(signature, rawBody, timestamp);
+      if (!isValidSignature) {
+        console.error('⚠️ Cashfree webhook signature verification FAILED - potential spoofing attempt');
+        complianceMonitor.logEvent({
+          eventType: 'security',
+          action: 'cashfree_webhook_signature_invalid',
+          outcome: 'failure',
+          riskLevel: 'critical',
+          metadata: { timestamp, signaturePresent: !!signature }
+        });
+        return res.status(401).json({ message: 'Invalid webhook signature' });
+      }
+
+      console.log('✅ Cashfree webhook signature verified successfully');
+
+      let body: any;
+      try {
+        body = JSON.parse(rawBody);
+      } catch (parseError) {
+        console.error('⚠️ Cashfree webhook body parse error:', parseError);
+        complianceMonitor.logEvent({
+          eventType: 'security',
+          action: 'cashfree_webhook_malformed_body',
+          outcome: 'failure',
+          riskLevel: 'medium'
+        });
+        return res.status(400).json({ message: 'Malformed webhook body' });
+      }
+      const { order_id, order_status, cf_order_id, payment_method } = body;
 
       if (!order_id) {
         return res.status(400).json({ message: 'Missing order_id' });
@@ -158,13 +207,78 @@ export function registerPaymentRoutes(app: Express): void {
         action: 'cashfree_webhook',
         resource: order_id,
         outcome: 'success',
-        riskLevel: 'low'
+        riskLevel: 'low',
+        metadata: { signatureVerified: true }
       });
 
       res.json({ success: true });
     } catch (error) {
       console.error('Error processing Cashfree webhook:', error);
       res.status(500).json({ message: 'Webhook processing failed' });
+    }
+  });
+
+  app.post('/api/payments/phonepe/callback', async (req, res) => {
+    try {
+      const { response: base64Response, checksum } = req.body;
+      
+      if (!base64Response || !checksum) {
+        console.error('⚠️ PhonePe callback missing response or checksum');
+        complianceMonitor.logEvent({
+          eventType: 'security',
+          action: 'phonepe_callback_data_missing',
+          outcome: 'failure',
+          riskLevel: 'critical'
+        });
+        return res.status(400).json({ message: 'Missing callback data' });
+      }
+
+      const isValidSignature = phonePeService.verifyCallback(base64Response, checksum);
+      if (!isValidSignature) {
+        console.error('⚠️ PhonePe callback signature verification FAILED - potential spoofing attempt');
+        complianceMonitor.logEvent({
+          eventType: 'security',
+          action: 'phonepe_callback_signature_invalid',
+          outcome: 'failure',
+          riskLevel: 'critical'
+        });
+        return res.status(401).json({ message: 'Invalid callback signature' });
+      }
+
+      console.log('✅ PhonePe callback signature verified successfully');
+
+      const decodedResponse = JSON.parse(Buffer.from(base64Response, 'base64').toString('utf8'));
+      const { merchantTransactionId, transactionId, state, responseCode, paymentInstrument } = decodedResponse.data || {};
+
+      if (!merchantTransactionId) {
+        return res.status(400).json({ message: 'Missing merchantTransactionId' });
+      }
+
+      const transaction = await storage.getPhonePeTransactionByMerchantId(merchantTransactionId);
+      if (transaction) {
+        await storage.updatePhonePeTransaction(transaction.id, {
+          transactionId: transactionId,
+          state: state,
+          responseCode: responseCode,
+          status: state === 'COMPLETED' ? 'success' : state === 'FAILED' ? 'failed' : 'pending',
+          paymentMethod: paymentInstrument?.type,
+          completedAt: state === 'COMPLETED' ? new Date() : undefined
+        });
+      }
+
+      complianceMonitor.logEvent({
+        eventType: 'payment',
+        action: 'phonepe_callback',
+        resource: merchantTransactionId,
+        outcome: 'success',
+        riskLevel: 'low',
+        metadata: { signatureVerified: true, state }
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error processing PhonePe callback:', error);
+      res.status(500).json({ message: 'Callback processing failed' });
     }
   });
 
