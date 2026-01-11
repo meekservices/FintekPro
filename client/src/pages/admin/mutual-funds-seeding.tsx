@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -78,6 +79,7 @@ export default function MutualFundsSeeding() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [isImporting, setIsImporting] = useState(false);
   const [importPolling, setImportPolling] = useState(false);
+  const [selectedAmcIds, setSelectedAmcIds] = useState<Set<string>>(new Set());
 
   // Fetch AMCs
   const { data: amcsData, isLoading: isLoadingAmcs } = useQuery<{ amcs: Amc[] }>({
@@ -145,6 +147,51 @@ export default function MutualFundsSeeding() {
       toast({ title: "Error", description: error.message || "Failed to toggle AMC", variant: "destructive" });
     },
   });
+
+  // Batch toggle AMCs mutation
+  const batchToggleAmcsMutation = useMutation({
+    mutationFn: async ({ amcIds, regularPlansEnabled }: { amcIds: string[]; regularPlansEnabled: boolean }) => {
+      const res = await apiRequest('/api/admin/amcs/batch-toggle', {
+        method: 'PUT',
+        body: JSON.stringify({ amcIds, regularPlansEnabled, adminId: 'admin' }),
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/amcs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/regular-schemes'] });
+      setSelectedAmcIds(new Set());
+      toast({ 
+        title: "Batch Update Complete",
+        description: data.message || `Updated ${data.updatedCount || 0} AMCs successfully`
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to batch toggle AMCs", variant: "destructive" });
+    },
+  });
+
+  // Selection helpers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedAmcIds(new Set(filteredAmcs.map(amc => amc.id)));
+    } else {
+      setSelectedAmcIds(new Set());
+    }
+  };
+
+  const handleSelectAmc = (amcId: string, checked: boolean) => {
+    const newSelection = new Set(selectedAmcIds);
+    if (checked) {
+      newSelection.add(amcId);
+    } else {
+      newSelection.delete(amcId);
+    }
+    setSelectedAmcIds(newSelection);
+  };
+
+  const isAllSelected = filteredAmcs.length > 0 && filteredAmcs.every(amc => selectedAmcIds.has(amc.id));
+  const isPartiallySelected = filteredAmcs.some(amc => selectedAmcIds.has(amc.id)) && !isAllSelected;
 
   // Publish/Unpublish scheme mutation
   const toggleSchemeMutation = useMutation({
@@ -422,8 +469,8 @@ export default function MutualFundsSeeding() {
                 <CardDescription>Enable or disable all Regular mutual fund schemes per AMC</CardDescription>
               </CardHeader>
               <CardContent>
-                {/* AMC Search */}
-                <div className="mb-4">
+                {/* AMC Search and Bulk Actions */}
+                <div className="mb-4 space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
@@ -434,6 +481,57 @@ export default function MutualFundsSeeding() {
                       data-testid="input-search-amcs"
                     />
                   </div>
+                  
+                  {/* Bulk Action Buttons */}
+                  {selectedAmcIds.size > 0 && (
+                    <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+                      <span className="text-sm font-medium">
+                        {selectedAmcIds.size} AMC{selectedAmcIds.size > 1 ? 's' : ''} selected
+                      </span>
+                      <div className="flex-1" />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedAmcIds(new Set())}
+                        disabled={batchToggleAmcsMutation.isPending}
+                      >
+                        Clear Selection
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => batchToggleAmcsMutation.mutate({ 
+                          amcIds: Array.from(selectedAmcIds), 
+                          regularPlansEnabled: true 
+                        })}
+                        disabled={batchToggleAmcsMutation.isPending}
+                      >
+                        {batchToggleAmcsMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                        )}
+                        Enable Selected
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => batchToggleAmcsMutation.mutate({ 
+                          amcIds: Array.from(selectedAmcIds), 
+                          regularPlansEnabled: false 
+                        })}
+                        disabled={batchToggleAmcsMutation.isPending}
+                      >
+                        {batchToggleAmcsMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <XCircle className="h-4 w-4 mr-1" />
+                        )}
+                        Disable Selected
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {isLoadingAmcs ? (
@@ -451,7 +549,15 @@ export default function MutualFundsSeeding() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[300px]">AMC Name</TableHead>
+                          <TableHead className="w-[50px]">
+                            <Checkbox
+                              checked={isAllSelected}
+                              onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                              aria-label="Select all AMCs"
+                              className={isPartiallySelected ? "data-[state=checked]:bg-primary/50" : ""}
+                            />
+                          </TableHead>
+                          <TableHead className="w-[280px]">AMC Name</TableHead>
                           <TableHead className="text-center">Total Schemes</TableHead>
                           <TableHead className="text-center">Published</TableHead>
                           <TableHead className="text-center">Status</TableHead>
@@ -460,7 +566,18 @@ export default function MutualFundsSeeding() {
                       </TableHeader>
                       <TableBody>
                         {filteredAmcs.map((amc) => (
-                          <TableRow key={amc.id} data-testid={`row-amc-${amc.id}`}>
+                          <TableRow 
+                            key={amc.id} 
+                            data-testid={`row-amc-${amc.id}`}
+                            className={selectedAmcIds.has(amc.id) ? "bg-muted/50" : ""}
+                          >
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedAmcIds.has(amc.id)}
+                                onCheckedChange={(checked) => handleSelectAmc(amc.id, checked === true)}
+                                aria-label={`Select ${amc.name}`}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium">
                               <div className="flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-muted-foreground" />
