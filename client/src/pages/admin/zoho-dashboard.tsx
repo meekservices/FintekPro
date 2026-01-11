@@ -57,11 +57,11 @@ export default function ZohoDashboardPage() {
   });
 
   const { data: stats } = useQuery<StatsResponse>({
-    queryKey: ['/api/zoho/admin/stats', { days: 7 }]
+    queryKey: ['/api/zoho/admin/stats?days=7']
   });
 
   const { data: recentLogs } = useQuery<SyncLogsResponse>({
-    queryKey: ['/api/zoho/admin/sync-logs', { limit: 5 }]
+    queryKey: ['/api/zoho/admin/sync-logs?limit=5']
   });
 
   const activeConnections = connections?.filter(c => c.isActive) || [];

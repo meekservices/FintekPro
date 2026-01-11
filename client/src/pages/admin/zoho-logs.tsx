@@ -51,7 +51,7 @@ export default function ZohoLogsPage() {
   if (selectedStatus !== 'all') params.append('status', selectedStatus);
 
   const { data, isLoading } = useQuery<SyncLogsResponse>({
-    queryKey: ['/api/zoho/admin/sync-logs', { ...Object.fromEntries(params) }],
+    queryKey: [`/api/zoho/admin/sync-logs?${params.toString()}`],
   });
 
   const handleExport = () => {
