@@ -69,7 +69,8 @@ import {
   Package,
   CheckCircle,
   UserCheck,
-  Bug
+  Bug,
+  Wallet
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -97,37 +98,34 @@ interface NavCategory {
 
 const navCategories: NavCategory[] = [
   {
-    id: "core",
-    title: "Core Operations",
+    id: "dashboard",
+    title: "Dashboard",
     icon: LayoutDashboard,
     items: [
-      { title: "Dashboard", href: "/admin/dashboard", icon: Home, description: "Overview and metrics" },
-      { title: "Stakeholders", href: "/admin/stakeholders", icon: Users, description: "Clients, partners, agents & suppliers" },
-      { title: "KYC & Compliance", href: "/admin/kyc-compliance", icon: FileCheck, description: "Review KYC submissions" },
-      { title: "Financial Operations", href: "/admin/financial-operations", icon: DollarSign, description: "Orders, payments & refunds" },
-      { title: "Duplicate Accounts", href: "/admin/duplicates", icon: AlertCircle, description: "Detect & resolve duplicates" },
-      { title: "Users & Access", href: "/admin/users", icon: Users, description: "User management" },
-      { title: "Appointments Queue", href: "/admin/appointments", icon: UserCheck, description: "Role approvals" },
+      { title: "Overview", href: "/admin/dashboard", icon: Home, description: "Metrics synced from Zoho" },
+      { title: "Activity Centre", href: "/admin/activity-centre", icon: Activity, description: "AI-powered activity insights" },
+      { title: "AI Insights", href: "/admin/ai-insights", icon: Lightbulb, description: "AI-powered trends" },
     ]
   },
   {
-    id: "agents",
-    title: "Agent Management",
+    id: "crm",
+    title: "CRM & Leads",
     icon: Users,
     items: [
-      { title: "Agent Performance", href: "/admin/agent-performance", icon: BarChart3, description: "Performance metrics" },
-      { title: "Demo Proposals", href: "/admin/demo-proposals", icon: Target, description: "Track proposals & conversions" },
+      { title: "Lead Pipeline", href: "/admin/zoho-dashboard", icon: Workflow, description: "From Zoho CRM" },
+      { title: "Stakeholders", href: "/admin/stakeholders", icon: Users, description: "Clients, partners & agents" },
+      { title: "Prospect Dashboard", href: "/admin/prospect-dashboard", icon: Target, description: "All prospects & leads" },
+      { title: "Agent Performance", href: "/admin/agent-performance", icon: BarChart3, description: "Agent metrics & tracking" },
       { title: "Task Oversight", href: "/admin/task-oversight", icon: ClipboardList, description: "Monitor agents' tasks" },
-      { title: "CA Partners", href: "/admin/ca-management", icon: Award, description: "CA partner management" },
-      { title: "Commission Master", href: "/admin/commission-master", icon: TrendingUp, description: "Commission configuration" },
-      { title: "Payout Management", href: "/admin/payouts", icon: DollarSign, description: "Approve agent payouts" },
     ]
   },
   {
-    id: "marketplaces",
-    title: "Marketplaces",
-    icon: Store,
+    id: "operations",
+    title: "Operations",
+    icon: Briefcase,
     items: [
+      { title: "KYC Management", href: "/admin/kyc-compliance", icon: FileCheck, description: "Review KYC submissions" },
+      { title: "Transaction Queue", href: "/admin/financial-operations", icon: ClipboardList, description: "Pending transactions" },
       { title: "Store Management", href: "/admin/store-management", icon: Store, description: "Categories & products" },
       {
         title: "Unlisted Marketplace",
@@ -137,10 +135,8 @@ const navCategories: NavCategory[] = [
         children: [
           { title: "Dashboard", href: "/admin/unlisted/dashboard", icon: Home, description: "Overview & metrics" },
           { title: "Companies", href: "/admin/unlisted/companies", icon: Building2, description: "Manage listings" },
-          { title: "Orders", href: "/admin/unlisted/orders", icon: ClipboardList, description: "Buy/Sell orders" },
+          { title: "Orders", href: "/admin/unlisted/orders", icon: ShoppingCart, description: "Buy/Sell orders" },
           { title: "Negotiations", href: "/admin/unlisted/negotiations", icon: Handshake, description: "Price negotiations" },
-          { title: "Compliance Alerts", href: "/admin/unlisted/compliance-alerts", icon: AlertTriangle, description: "Blocked trades" },
-          { title: "Audit Log", href: "/admin/unlisted/audit-log", icon: History, description: "Event history" }
         ]
       },
       {
@@ -153,59 +149,71 @@ const navCategories: NavCategory[] = [
           { title: "Sell Listings", href: "/admin/bonds/sell-listings", icon: Store, description: "Bond sell listings" },
           { title: "Buy Requests", href: "/admin/bonds/buy-requests", icon: ShoppingCart, description: "Bond buy requests" },
           { title: "Deals", href: "/admin/bonds/deals", icon: Handshake, description: "Matched deals" },
-          { title: "Audit Log", href: "/admin/bonds/audit-log", icon: History, description: "Audit trail" }
         ]
       },
+      { title: "Duplicate Detection", href: "/admin/duplicates", icon: AlertCircle, description: "Detect & resolve duplicates" },
+    ]
+  },
+  {
+    id: "intelligence",
+    title: "Intelligence",
+    icon: Lightbulb,
+    items: [
+      { title: "MCA Intelligence", href: "/admin/mca-intelligence", icon: Landmark, description: "Query Console, Radar & Wallet" },
+      { title: "Lead Prospecting", href: "/admin/lead-prospecting", icon: Building2, description: "B2B company search" },
+      { title: "Prospect Analytics", href: "/admin/prospect-analytics", icon: TrendingUp, description: "Lead scoring & insights" },
+      { title: "Client Intelligence", href: "/admin/client-intelligence", icon: Target, description: "Client analysis" },
+      { title: "AI Tracking", href: "/admin/ai-recommendation-tracking", icon: BarChart3, description: "AI recommendation success" },
     ]
   },
   {
     id: "marketing",
-    title: "Marketing & Leads",
+    title: "Marketing",
     icon: Megaphone,
     items: [
-      { title: "Marketing Dashboard", href: "/admin/marketing-dashboard", icon: TrendingUp, description: "Campaign overview" },
-      { title: "Prospect Dashboard", href: "/admin/prospect-dashboard", icon: Users, description: "All prospects & leads" },
-      { title: "Email Campaigns", href: "/admin/email-campaigns", icon: Mail, description: "Zoho Campaigns" },
-      { title: "WhatsApp Campaigns", href: "/admin/whatsapp-campaigns", icon: MessageSquare, description: "AiSensy broadcasts" },
-      { title: "Lead Prospecting", href: "/admin/lead-prospecting", icon: Building2, description: "B2B company search" },
-      { title: "MCA Intelligence", href: "/admin/mca-intelligence", icon: Landmark, description: "Company data & analytics" },
-      { title: "Prospect Analytics", href: "/admin/prospect-analytics", icon: TrendingUp, description: "Lead scoring" },
-      { title: "Client Intelligence", href: "/admin/client-intelligence", icon: Target, description: "Client analysis" },
-      { title: "Marketing Analytics", href: "/admin/marketing-analytics", icon: PieChart, description: "Performance tracking" },
+      { title: "Overview", href: "/admin/marketing-dashboard", icon: TrendingUp, description: "Campaigns dashboard" },
+      { title: "Email Campaigns", href: "/admin/email-campaigns", icon: Mail, description: "Email marketing" },
+      { title: "WhatsApp/SMS", href: "/admin/whatsapp-campaigns", icon: MessageSquare, description: "WhatsApp & SMS campaigns" },
+      { title: "Analytics", href: "/admin/marketing-analytics", icon: PieChart, description: "Performance tracking" },
     ]
   },
   {
-    id: "integrations",
-    title: "Integrations",
-    icon: Workflow,
+    id: "finance",
+    title: "Finance",
+    icon: DollarSign,
     items: [
-      { title: "Zoho Integration", href: "/admin/zoho-dashboard", icon: Workflow, description: "CRM & WorkDrive" },
-      { title: "Zoho Books", href: "/admin/zoho-books", icon: BookOpen, description: "Accounting & Finance" },
-      { title: "API Configuration", href: "/admin/api-config", icon: Key, description: "API keys & services" },
-      { title: "Aadhaar Providers", href: "/admin/aadhaar-config", icon: Shield, description: "Aadhaar verification config" },
-      { title: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API usage and cost tracking" },
-      { title: "AI Tracking", href: "/admin/ai-recommendation-tracking", icon: Target, description: "AI recommendation success rates" },
-      { title: "Global Fee Model", href: "/admin/global-fee-model", icon: TrendingUp, description: "Advisory vs Platform-Only fees" },
+      { title: "Commission Master", href: "/admin/commission-master", icon: TrendingUp, description: "Commission configuration" },
+      { title: "Revenue Analytics", href: "/admin/revenue-analytics", icon: BarChart3, description: "Revenue & performance" },
+      { title: "Partner Payouts", href: "/admin/payouts", icon: Wallet, description: "Agent & partner payouts" },
+      { title: "Zoho Books", href: "/admin/zoho-books", icon: BookOpen, description: "Accounting sync" },
+      { title: "Global Fee Model", href: "/admin/global-fee-model", icon: DollarSign, description: "Advisory fee settings" },
     ]
   },
   {
-    id: "system",
-    title: "System & Settings",
+    id: "compliance",
+    title: "Compliance",
+    icon: Shield,
+    items: [
+      { title: "Regulatory Dashboard", href: "/admin/compliance-dashboard", icon: Shield, description: "SEBI/RBI compliance" },
+      { title: "Unlisted Compliance", href: "/admin/unlisted/compliance-alerts", icon: AlertTriangle, description: "Blocked trades" },
+      { title: "Bond Audit Log", href: "/admin/bonds/audit-log", icon: History, description: "Bond audit trail" },
+      { title: "Unlisted Audit Log", href: "/admin/unlisted/audit-log", icon: History, description: "Unlisted audit trail" },
+      { title: "CA Partners", href: "/admin/ca-management", icon: Award, description: "CA partner management" },
+    ]
+  },
+  {
+    id: "settings",
+    title: "Settings",
     icon: Cog,
     items: [
-      { title: "Activity Centre", href: "/admin/activity-centre", icon: Activity, description: "AI-powered activity insights" },
-      { title: "AI Insights", href: "/admin/ai-insights", icon: Lightbulb, description: "AI-powered trends" },
-      { title: "Production Readiness", href: "/admin/production-readiness", icon: ShieldCheck, description: "Service status" },
+      { title: "Users & Access", href: "/admin/users", icon: Users, description: "User management" },
+      { title: "Role Permissions", href: "/admin/appointments", icon: UserCheck, description: "Role approvals" },
+      { title: "Integration Config", href: "/admin/api-config", icon: Key, description: "Zoho, Cashfree & APIs" },
+      { title: "Aadhaar Providers", href: "/admin/aadhaar-config", icon: Shield, description: "KYC provider config" },
       { title: "System Health", href: "/admin/system-health", icon: Activity, description: "Performance monitoring" },
-      { title: "Revenue Analytics", href: "/admin/revenue-analytics", icon: TrendingUp, description: "Revenue & commissions" },
-      { title: "User Activity", href: "/admin/user-activity", icon: Users, description: "User journey tracking" },
-      { title: "Bulk Operations", href: "/admin/bulk-operations", icon: Database, description: "Batch processing" },
-      { title: "Notifications", href: "/admin/notification-management", icon: Bell, description: "Alert configuration" },
+      { title: "API Usage", href: "/admin/api-usage", icon: Activity, description: "API cost tracking" },
       { title: "Feature Flags", href: "/admin/feature-flags", icon: Lightbulb, description: "A/B testing controls" },
-      { title: "Reports & Analytics", href: "/admin/reports", icon: BarChart3, description: "Custom reports & analytics" },
-      { title: "SEBI/RBI Compliance", href: "/admin/compliance-dashboard", icon: Shield, description: "Regulatory tracking" },
       { title: "Database", href: "/admin/database", icon: Database, description: "Database management" },
-      { title: "Replit Suggestions", href: "/admin/replit-suggestions", icon: Package, description: "Improvement initiatives" },
     ]
   },
 ];
@@ -228,7 +236,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['core']));
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['dashboard']));
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
