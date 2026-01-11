@@ -291,6 +291,8 @@ export default function AgentProspectWizard() {
   const searchString = useSearch();
   const urlParams = new URLSearchParams(searchString);
   const urlProspectId = urlParams.get('prospectId');
+  const zohoLeadId = urlParams.get('leadId');
+  const zohoSource = urlParams.get('source');
   
   const [currentStep, setCurrentStep] = useState(1);
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -298,11 +300,11 @@ export default function AgentProspectWizard() {
   const [prospectSearch, setProspectSearch] = useState('');
   
   const [prospectData, setProspectData] = useState({
-    name: "",
-    email: "",
-    mobile: "",
+    name: urlParams.get('name') || "",
+    email: urlParams.get('email') || "",
+    mobile: urlParams.get('phone') || "",
     pan: "",
-    notes: ""
+    notes: urlParams.get('company') ? `Company: ${urlParams.get('company')}` : ""
   });
 
   const [riskProfile, setRiskProfile] = useState<RiskProfile>({
@@ -973,6 +975,25 @@ export default function AgentProspectWizard() {
     }
   });
 
+  const syncProposalToZohoMutation = useMutation({
+    mutationFn: async (proposalData: { proposalId: string; proposalType: string; products: string[]; amount: number }) => {
+      if (!zohoLeadId || zohoSource !== 'zoho') return { skipped: true, synced: false };
+      try {
+        const result = await apiRequest(`/api/agent/zoho/leads/${zohoLeadId}/proposal`, {
+          method: "POST",
+          body: JSON.stringify(proposalData)
+        });
+        return result;
+      } catch (error: any) {
+        return { 
+          success: false, 
+          synced: false, 
+          message: error?.message || "Failed to sync to Zoho CRM" 
+        };
+      }
+    }
+  });
+
   const generateProposalMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("/api/agent-wizard/generate-proposal", {
@@ -990,11 +1011,33 @@ export default function AgentProspectWizard() {
         })
       });
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.success) {
         setProposal(data.proposal);
         toast({ title: "Proposal Generated", description: "Investment proposal ready to share!" });
         setCurrentStep(8);
+        
+        if (zohoLeadId && zohoSource === 'zoho') {
+          const products = selectedCategories.filter(c => customAllocations[c as keyof typeof customAllocations] > 0);
+          const syncResult = await syncProposalToZohoMutation.mutateAsync({
+            proposalId: data.proposal.proposalId,
+            proposalType: 'Multi-Product Investment',
+            products,
+            amount: freshInvestmentAmount
+          });
+          
+          if (syncResult?.skipped) {
+            // No sync attempted - silent
+          } else if (syncResult?.success && syncResult?.synced) {
+            toast({ title: "Synced to Zoho", description: "Proposal logged to Zoho CRM lead" });
+          } else {
+            toast({ 
+              title: "Zoho Sync Failed", 
+              description: syncResult?.message || "Could not sync proposal to Zoho CRM",
+              variant: "destructive"
+            });
+          }
+        }
       }
     }
   });

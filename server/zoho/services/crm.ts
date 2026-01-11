@@ -313,6 +313,54 @@ export class ZohoCRMService {
   }
 
   /**
+   * Get single lead from Zoho CRM by ID
+   */
+  async getLead(leadId: string): Promise<ZohoCRMLead | null> {
+    try {
+      const response = await this.apiClient.get(`/Leads/${leadId}`);
+      return response.data?.data?.[0] || null;
+    } catch (error) {
+      console.error('Error fetching lead from Zoho CRM:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Add note to a Zoho CRM record (Lead, Contact, Account, etc.)
+   */
+  async addNote(module: string, recordId: string, noteData: { title: string; content: string }): Promise<string | null> {
+    try {
+      const response = await this.apiClient.post('/Notes', {
+        data: [{
+          Note_Title: noteData.title,
+          Note_Content: noteData.content,
+          Parent_Id: recordId,
+          '$se_module': module
+        }]
+      });
+      return response.data?.data?.[0]?.details?.id || null;
+    } catch (error) {
+      console.error('Error adding note to Zoho CRM:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update lead status in Zoho CRM
+   */
+  async updateLeadStatus(leadId: string, status: string): Promise<boolean> {
+    try {
+      await this.apiClient.put(`/Leads/${leadId}`, {
+        data: [{ Lead_Status: status }]
+      });
+      return true;
+    } catch (error) {
+      console.error('Error updating lead status in Zoho CRM:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get all contacts from Zoho CRM for import
    */
   async getContacts(limit: number = 100): Promise<ZohoCRMContact[]> {

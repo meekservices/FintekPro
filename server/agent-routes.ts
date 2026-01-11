@@ -1532,6 +1532,207 @@ router.delete("/api/agent/clients/onboard/draft/:id", requireAuth, async (req, r
   }
 });
 
+// ============================================================================
+// AGENT ZOHO CRM ROUTES - Lead management for agents
+// ============================================================================
+
+// Get leads from Zoho CRM for agent
+router.get("/api/agent/zoho/leads", requireAuth, async (req, res) => {
+  try {
+    const zohoCRM = await getZohoCRMService();
+    
+    if (!zohoCRM) {
+      return res.status(503).json({
+        success: false,
+        connected: false,
+        leads: [],
+        total: 0,
+        message: "Zoho CRM not connected - please configure integration in admin settings"
+      });
+    }
+
+    const result = await zohoCRM.getLeads(200);
+    
+    res.json({
+      success: true,
+      connected: true,
+      leads: result || [],
+      total: Array.isArray(result) ? result.length : 0
+    });
+  } catch (error: any) {
+    console.error("[Agent Zoho] Get leads error:", error.message);
+    res.status(500).json({
+      success: false,
+      connected: false,
+      leads: [],
+      total: 0,
+      error: error.message
+    });
+  }
+});
+
+// Sync leads from Zoho CRM (refresh)
+router.post("/api/agent/zoho/sync", requireAuth, async (req, res) => {
+  try {
+    const zohoCRM = await getZohoCRMService();
+    
+    if (!zohoCRM) {
+      return res.status(400).json({
+        success: false,
+        message: "Zoho CRM not connected"
+      });
+    }
+
+    const result = await zohoCRM.getLeads(200);
+    
+    res.json({
+      success: true,
+      synced: Array.isArray(result) ? result.length : 0,
+      message: "Leads synced successfully"
+    });
+  } catch (error: any) {
+    console.error("[Agent Zoho] Sync error:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get single lead details from Zoho CRM
+router.get("/api/agent/zoho/leads/:leadId", requireAuth, async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    const zohoCRM = await getZohoCRMService();
+    
+    if (!zohoCRM) {
+      return res.status(400).json({
+        error: "Zoho CRM not connected"
+      });
+    }
+
+    const lead = await zohoCRM.getLead(leadId);
+    
+    if (!lead) {
+      return res.status(404).json({
+        error: "Lead not found"
+      });
+    }
+
+    res.json(lead);
+  } catch (error: any) {
+    console.error("[Agent Zoho] Get lead error:", error.message);
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
+// Log proposal activity back to Zoho CRM as a note
+router.post("/api/agent/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    const { proposalId, proposalType, products, amount } = req.body;
+    
+    if (!proposalId || typeof proposalId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        synced: false,
+        message: "proposalId is required and must be a string"
+      });
+    }
+    
+    if (!leadId || typeof leadId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        synced: false,
+        message: "leadId is required"
+      });
+    }
+    
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({
+        success: false,
+        synced: false,
+        message: "products is required and must be a non-empty array"
+      });
+    }
+    
+    if (amount === undefined || typeof amount !== 'number' || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        synced: false,
+        message: "amount is required and must be a positive number"
+      });
+    }
+    const zohoCRM = await getZohoCRMService();
+    
+    if (!zohoCRM) {
+      console.log(`[Agent Zoho] Zoho not connected - proposal ${proposalId} not synced`);
+      return res.status(503).json({
+        success: false,
+        synced: false,
+        message: "Zoho CRM not connected - please configure integration",
+        leadId,
+        proposalId
+      });
+    }
+
+    const noteTitle = `Proposal Created: ${proposalType || 'Investment'}`;
+    const noteContent = [
+      `Proposal ID: ${proposalId}`,
+      `Type: ${proposalType || 'Multi-Product'}`,
+      `Products: ${products?.join(", ") || "N/A"}`,
+      amount ? `Proposed Amount: ₹${Number(amount).toLocaleString('en-IN')}` : '',
+      `Created: ${new Date().toLocaleString('en-IN')}`
+    ].filter(Boolean).join('\n');
+
+    const noteId = await zohoCRM.addNote('Leads', leadId, {
+      title: noteTitle,
+      content: noteContent
+    });
+
+    if (!noteId) {
+      console.warn(`[Agent Zoho] Failed to create note for lead ${leadId}`);
+      return res.status(502).json({
+        success: false,
+        synced: false,
+        message: "Failed to create proposal note in Zoho CRM",
+        leadId,
+        proposalId
+      });
+    }
+
+    const statusUpdated = await zohoCRM.updateLeadStatus(leadId, 'Proposal Sent');
+    
+    if (!statusUpdated) {
+      console.warn(`[Agent Zoho] Note created but status update failed for lead ${leadId}`);
+    }
+
+    console.log(`[Agent Zoho] Proposal ${proposalId} synced to Zoho lead ${leadId} (note: ${noteId})`);
+
+    res.json({
+      success: true,
+      synced: true,
+      noteId,
+      statusUpdated,
+      message: statusUpdated 
+        ? "Proposal synced to Zoho CRM" 
+        : "Proposal note created, status update pending",
+      leadId,
+      proposalId
+    });
+  } catch (error: any) {
+    console.error("[Agent Zoho] Log proposal error:", error.message);
+    res.status(500).json({
+      success: false,
+      synced: false,
+      message: "Failed to sync proposal to Zoho CRM",
+      error: error.message
+    });
+  }
+});
+
 // Export product eligibility utilities for use in other modules
 export { isSecuritiesAgent, isLoanAgent, isInsuranceAgent, canDistributeProduct, getRequiredCredentials };
 

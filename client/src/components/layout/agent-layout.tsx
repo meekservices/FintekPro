@@ -76,75 +76,48 @@ const agentNavCategories: NavCategory[] = [
     ]
   },
   {
-    title: "CRM & Sales",
+    title: "Zoho CRM",
     icon: Target,
     items: [
-      { title: "Lead Pipeline", href: "/agent/leads", icon: Target, description: "Track prospects" },
-      { title: "Sales Pipeline", href: "/agent/crm/pipeline", icon: TrendingUp, description: "Deal stages" },
-      { title: "CRM Analytics", href: "/agent/crm/analytics", icon: BarChart3, description: "CRM insights" },
+      { title: "Leads", href: "/agent/zoho-crm", icon: Target, description: "All leads from Zoho" },
       { title: "Tasks", href: "/agent/tasks", icon: CheckSquare, description: "Tasks and reminders" },
-      { title: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Appointments & scheduling" },
-      { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Bell, description: "SMS, Email, WhatsApp" },
+      { title: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Appointments" },
     ]
   },
   {
-    title: "Client Management",
+    title: "Clients",
     icon: Users,
     items: [
       { title: "My Clients", href: "/agent/clients", icon: Users, description: "Client portfolio" },
       { title: "Onboard Client", href: "/agent/onboard-client", icon: UserPlus, description: "New client KYC" },
-      { title: "Client Acquisition", href: "/agent/client-acquisition", icon: UserCheck, description: "Acquire new clients" },
     ]
   },
   {
-    title: "Finance & Revenue",
-    icon: Wallet,
-    items: [
-      { title: "Revenue Cockpit", href: "/agent/revenue", icon: Wallet, description: "AUM and commissions" },
-      { title: "Commission Calculator", href: "/agent/commission-calculator", icon: Calculator, description: "Calculate earnings" },
-      { title: "My Payouts", href: "/agent/payouts", icon: DollarSign, description: "Earnings & payouts" },
-    ]
-  },
-  {
-    title: "AI Advisory",
-    icon: Brain,
-    items: [
-      { title: "Recommendation Control", href: "/agent/recommendation-control", icon: Brain, description: "Client recommendations" },
-      { title: "Investment Advisory", href: "/agent/investment-advisory", icon: Lightbulb, description: "AI recommendations" },
-      { title: "Bond AI", href: "/agent/bond-recommendations", icon: Landmark, description: "Bond portfolio" },
-      { title: "Stock AI", href: "/agent/stock-ai", icon: TrendingUp, description: "Stock recommendations" },
-      { title: "F&O Analytics", href: "/agent/derivatives", icon: Activity, description: "Futures & Options" },
-    ]
-  },
-  {
-    title: "Documents",
+    title: "Proposals",
     icon: FileText,
     items: [
-      { title: "Proposal Wizard", href: "/agent/proposal-builder", icon: Plus, description: "Multi-product proposals" },
-      { title: "Demo Proposals", href: "/agent/demo-proposals", icon: FileText, description: "Investment demos" },
-      { title: "Proposals", href: "/agent/proposals", icon: FileCheck, description: "View proposals" },
+      { title: "Create Proposal", href: "/agent/proposal-builder", icon: Plus, description: "Multi-product proposals" },
+      { title: "My Proposals", href: "/agent/proposals", icon: FileCheck, description: "View proposals" },
       { title: "E-Sign", href: "/agent/esign", icon: FileSignature, description: "Electronic signatures" },
-      { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
-      { title: "Demo Progress", href: "/agent/demo-progress", icon: Clock, description: "Track demos" },
     ]
   },
   {
-    title: "Knowledge & Training",
+    title: "Operations",
+    icon: Wallet,
+    items: [
+      { title: "Revenue", href: "/agent/revenue", icon: Wallet, description: "AUM and commissions" },
+      { title: "My Payouts", href: "/agent/payouts", icon: DollarSign, description: "Earnings & payouts" },
+      { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
+      { title: "AI Advisory", href: "/agent/investment-advisory", icon: Brain, description: "AI recommendations" },
+    ]
+  },
+  {
+    title: "Knowledge",
     icon: BookOpen,
     items: [
       { title: "Knowledge Hub", href: "/agent/knowledge-hub", icon: BookOpen, description: "Market briefs & insights" },
-      { title: "Market Brief", href: "/agent/knowledge-hub/market-brief", icon: AlertCircle, description: "Daily market intelligence" },
-      { title: "Product Cards", href: "/agent/knowledge-hub/products", icon: FileCheck, description: "Product knowledge" },
-      { title: "Client Explanations", href: "/agent/knowledge-hub/explanations", icon: Lightbulb, description: "Explanation templates" },
-      { title: "Training & Certification", href: "/agent/training", icon: GraduationCap, description: "Complete training" },
-      { title: "My Certifications", href: "/agent/knowledge-hub/certifications", icon: Shield, description: "Certification tracking" },
-    ]
-  },
-  {
-    title: "Settings",
-    icon: Settings,
-    items: [
-      { title: "Profile & Settings", href: "/settings", icon: Settings, description: "Your preferences" },
+      { title: "Training", href: "/agent/training", icon: GraduationCap, description: "Training & certification" },
+      { title: "Settings", href: "/settings", icon: Settings, description: "Your preferences" },
     ]
   }
 ];
@@ -155,7 +128,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   const { user, isLoading } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Dashboard", "CRM & Sales"]));
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["Dashboard", "Zoho CRM"]));
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -510,21 +483,21 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Quick Actions">
-            <CommandItem onSelect={() => { navigate('/agent/clients'); setSearchOpen(false); }}>
-              <Users className="mr-2 h-4 w-4" />
-              <span>View All Clients</span>
+            <CommandItem onSelect={() => { navigate('/agent/zoho-crm'); setSearchOpen(false); }}>
+              <Target className="mr-2 h-4 w-4" />
+              <span>Zoho CRM Leads</span>
             </CommandItem>
             <CommandItem onSelect={() => { navigate('/agent/proposal-builder'); setSearchOpen(false); }}>
               <Plus className="mr-2 h-4 w-4" />
-              <span>Create New Proposal</span>
+              <span>Create Proposal</span>
+            </CommandItem>
+            <CommandItem onSelect={() => { navigate('/agent/clients'); setSearchOpen(false); }}>
+              <Users className="mr-2 h-4 w-4" />
+              <span>My Clients</span>
             </CommandItem>
             <CommandItem onSelect={() => { navigate('/agent/tasks'); setSearchOpen(false); }}>
               <CheckSquare className="mr-2 h-4 w-4" />
-              <span>View Tasks</span>
-            </CommandItem>
-            <CommandItem onSelect={() => { navigate('/agent/leads'); setSearchOpen(false); }}>
-              <Target className="mr-2 h-4 w-4" />
-              <span>Lead Pipeline</span>
+              <span>Tasks</span>
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Navigation">

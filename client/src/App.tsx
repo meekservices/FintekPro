@@ -151,6 +151,7 @@ import AgentDemoProgress from "@/pages/agent-demo-progress";
 import AgentPortfolioReportBuilder from "@/pages/agent-portfolio-report-builder";
 import AgentSampleReport from "@/pages/agent-sample-report";
 import AgentDemoProposalBuilder from "@/pages/agent-demo-proposal-builder";
+import AgentZohoCRM from "@/pages/agent-zoho-crm";
 import AgentLeaderboard from "@/pages/agent-leaderboard";
 import AgentCommissionCalculator from "@/pages/agent-commission-calculator";
 import AgentBulkCommunication from "@/pages/agent-bulk-communication";
@@ -1301,17 +1302,10 @@ function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
-      <Route path="/agent/demo-proposals">
+      <Route path="/agent/zoho-crm">
         {() => (
           <AgentLayout>
-            <AgentDemoProposalBuilder />
-          </AgentLayout>
-        )}
-      </Route>
-      <Route path="/agent/prospect-proposals">
-        {() => (
-          <AgentLayout>
-            <AgentDemoProposalBuilder />
+            <AgentZohoCRM />
           </AgentLayout>
         )}
       </Route>
