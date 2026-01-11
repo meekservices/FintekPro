@@ -1174,7 +1174,7 @@ export default function AgentDashboard() {
                                 </div>
                               </div>
                               <div className="text-right">
-                                <div className="font-bold">₹{quarter.totalTDS.toLocaleString()}</div>
+                                <div className="font-bold">₹{(quarter.totalTDS ?? 0).toLocaleString()}</div>
                                 <Badge className={`text-xs ${
                                   quarter.status === "filed" ? "bg-green-100 text-green-700" :
                                   quarter.status === "overdue" ? "bg-red-100 text-red-700" :
@@ -1303,7 +1303,7 @@ export default function AgentDashboard() {
                     <div className="flex items-center space-x-2">
                       <IndianRupee className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-2xl font-bold">₹{totalProposalValue.toLocaleString()}</p>
+                        <p className="text-2xl font-bold">₹{(totalProposalValue ?? 0).toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground">Total Value</p>
                       </div>
                     </div>
@@ -1363,7 +1363,7 @@ export default function AgentDashboard() {
                               </span>
                               <span className="flex items-center gap-1">
                                 <IndianRupee size={14} />
-                                ₹{proposal.totalAmount.toLocaleString()}
+                                ₹{(proposal.totalAmount ?? 0).toLocaleString()}
                               </span>
                               <span className="flex items-center gap-1">
                                 <PieChart size={14} />
@@ -2695,7 +2695,7 @@ function ViewProposalDialog({ proposal, open, onOpenChange }: ViewProposalDialog
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Total Investment Amount</Label>
-                  <p className="text-lg font-semibold">₹{proposal.totalAmount.toLocaleString()}</p>
+                  <p className="text-lg font-semibold">₹{(proposal.totalAmount ?? 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Created Date</Label>
@@ -2741,7 +2741,7 @@ function ViewProposalDialog({ proposal, open, onOpenChange }: ViewProposalDialog
                       )}
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground">Recommended Amount</Label>
-                        <p className="text-sm font-semibold">₹{item.recommendedAmount.toLocaleString()}</p>
+                        <p className="text-sm font-semibold">₹{(item.recommendedAmount ?? 0).toLocaleString()}</p>
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground">Risk Level</Label>
