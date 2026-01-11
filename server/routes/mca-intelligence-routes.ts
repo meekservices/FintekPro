@@ -15,6 +15,12 @@ import { z } from 'zod';
 
 const router = Router();
 
+// Debug middleware to log ALL requests to MCA routes
+router.use((req: Request, res: Response, next: Function) => {
+  console.log(`[MCA Router] ${req.method} ${req.path} - Full URL: ${req.originalUrl}`);
+  next();
+});
+
 // MCA Role middleware
 function getMcaRole(req: Request): McaRole {
   const user = (req as any).user;
