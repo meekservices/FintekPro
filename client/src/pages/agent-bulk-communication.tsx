@@ -176,15 +176,15 @@ export default function AgentBulkCommunication() {
   }, [clients, recipientFilter]);
 
   const campaignStats = useMemo(() => {
-    if (!campaigns || campaigns.length === 0) {
+    if (!campaigns || !Array.isArray(campaigns) || campaigns.length === 0) {
       return { total: 0, sent: 0, delivered: 0, read: 0, failed: 0, deliveryRate: 0, readRate: 0 };
     }
     
     const total = campaigns.length;
-    const sent = campaigns.reduce((sum, c) => sum + c.sentCount, 0);
-    const delivered = campaigns.reduce((sum, c) => sum + c.deliveredCount, 0);
-    const read = campaigns.reduce((sum, c) => sum + c.readCount, 0);
-    const failed = campaigns.reduce((sum, c) => sum + c.failedCount, 0);
+    const sent = campaigns.reduce((sum, c) => sum + (c.sentCount || 0), 0);
+    const delivered = campaigns.reduce((sum, c) => sum + (c.deliveredCount || 0), 0);
+    const read = campaigns.reduce((sum, c) => sum + (c.readCount || 0), 0);
+    const failed = campaigns.reduce((sum, c) => sum + (c.failedCount || 0), 0);
     
     return {
       total,
@@ -198,11 +198,13 @@ export default function AgentBulkCommunication() {
   }, [campaigns]);
 
   const channelBreakdown = useMemo(() => {
-    if (!campaigns) return [];
+    if (!campaigns || !Array.isArray(campaigns)) return [];
     
     const breakdown = { sms: 0, email: 0, whatsapp: 0 };
     campaigns.forEach(c => {
-      breakdown[c.channel]++;
+      if (c.channel && breakdown.hasOwnProperty(c.channel)) {
+        breakdown[c.channel]++;
+      }
     });
     
     return [
@@ -213,13 +215,13 @@ export default function AgentBulkCommunication() {
   }, [campaigns]);
 
   const performanceData = useMemo(() => {
-    if (!campaigns) return [];
+    if (!campaigns || !Array.isArray(campaigns)) return [];
     
     return campaigns.slice(0, 5).map(c => ({
-      name: c.name.substring(0, 15) + (c.name.length > 15 ? '...' : ''),
-      sent: c.sentCount,
-      delivered: c.deliveredCount,
-      read: c.readCount
+      name: (c.name || 'Campaign').substring(0, 15) + ((c.name || '').length > 15 ? '...' : ''),
+      sent: c.sentCount || 0,
+      delivered: c.deliveredCount || 0,
+      read: c.readCount || 0
     }));
   }, [campaigns]);
 

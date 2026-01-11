@@ -18445,42 +18445,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           id: "camp-001",
           name: "Q4 Investment Drive",
-          type: "email",
-          status: "completed",
+          channel: "email" as const,
+          status: "sent" as const,
+          recipientCount: 150,
           sentCount: 150,
           deliveredCount: 145,
-          openRate: 42,
-          clickRate: 18,
+          readCount: 61,
+          failedCount: 5,
           createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          completedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
+          sentAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
         },
         {
           id: "camp-002",
           name: "New Fund Launch Alert",
-          type: "sms",
-          status: "completed",
+          channel: "sms" as const,
+          status: "sent" as const,
+          recipientCount: 200,
           sentCount: 200,
           deliveredCount: 195,
-          openRate: null,
-          clickRate: null,
+          readCount: 0,
+          failedCount: 5,
           createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-          completedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+          sentAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
         },
         {
           id: "camp-003",
           name: "Portfolio Review Reminder",
-          type: "whatsapp",
-          status: "completed",
+          channel: "whatsapp" as const,
+          status: "sent" as const,
+          recipientCount: 80,
           sentCount: 80,
           deliveredCount: 78,
-          openRate: 85,
-          clickRate: 35,
+          readCount: 66,
+          failedCount: 2,
           createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          completedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+          sentAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
         }
       ];
 
-      res.json({ campaigns: mockCampaigns });
+      res.json(mockCampaigns);
     } catch (error) {
       console.error("Error fetching campaigns:", error);
       res.status(500).json({ error: "Failed to fetch campaigns" });
