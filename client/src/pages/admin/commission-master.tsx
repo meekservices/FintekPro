@@ -147,6 +147,15 @@ export default function CommissionMaster() {
     enabled: !!selectedPlan && showAuditDialog,
   });
 
+  const invalidateCommissionPlans = () => {
+    queryClient.invalidateQueries({ 
+      predicate: (query) => {
+        const key = query.queryKey[0];
+        return typeof key === 'string' && key.includes('/api/admin/commission-plans');
+      }
+    });
+  };
+
   const createPlanMutation = useMutation({
     mutationFn: async (data: typeof newPlan) => {
       return apiRequest('/api/admin/commission-plan', {
@@ -156,7 +165,7 @@ export default function CommissionMaster() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/commission-plans'] });
+      invalidateCommissionPlans();
       setShowCreateDialog(false);
       toast({ title: 'Success', description: 'Commission plan created successfully' });
       resetNewPlan();
@@ -171,7 +180,7 @@ export default function CommissionMaster() {
       return apiRequest(`/api/admin/commission-plan/${planId}/activate`, { method: 'POST' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/commission-plans'] });
+      invalidateCommissionPlans();
       toast({ title: 'Success', description: 'Plan activated successfully' });
     },
     onError: (error: any) => {
@@ -184,7 +193,7 @@ export default function CommissionMaster() {
       return apiRequest(`/api/admin/commission-plan/${planId}/freeze`, { method: 'POST' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/commission-plans'] });
+      invalidateCommissionPlans();
       toast({ title: 'Success', description: 'Plan frozen successfully' });
     },
     onError: (error: any) => {
@@ -197,7 +206,7 @@ export default function CommissionMaster() {
       return apiRequest(`/api/admin/commission-plan/${planId}/clone`, { method: 'POST' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/commission-plans'] });
+      invalidateCommissionPlans();
       toast({ title: 'Success', description: 'Plan cloned successfully' });
     },
     onError: (error: any) => {

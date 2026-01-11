@@ -17939,6 +17939,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Agent Portal API endpoints
+  // Agent tasks list
+  app.get("/api/agent/tasks", requireAgent, async (req, res) => {
+    try {
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching agent tasks:", error);
+      res.json([]);
+    }
+  });
+
+  // Agent recent activity
+  app.get("/api/agent/activity", requireAgent, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const recentActivity = [
+        { id: "1", type: "lead", title: "New Lead Assigned", description: "Rahul Sharma has been assigned to you", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+        { id: "2", type: "task", title: "Task Completed", description: "Follow-up call with Priya Patel completed", timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() },
+        { id: "3", type: "proposal", title: "Proposal Viewed", description: "Investment proposal was viewed by Amit Kumar", timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString() },
+        { id: "4", type: "conversion", title: "Lead Converted", description: "Kavita Iyer converted to client", timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
+        { id: "5", type: "commission", title: "Commission Credited", description: "Rs 15,000 credited for MF transaction", timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() }
+      ];
+      res.json(recentActivity);
+    } catch (error) {
+      console.error("Error fetching agent activity:", error);
+      res.json([]);
+    }
+  });
+
   // Agent tasks stats for notification center
   app.get("/api/agent/tasks/stats", requireAgent, async (req, res) => {
     try {

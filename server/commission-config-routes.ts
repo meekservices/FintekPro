@@ -120,19 +120,20 @@ const COMMISSION_ROLE_PERMISSIONS: Record<CommissionRole, CommissionPermissions>
 };
 
 function getUserCommissionRole(req: Request): CommissionRole {
-  const session = (req as any).session;
-  if (!session?.userId) return 'client';
+  const user = (req as any).user;
+  if (!user?.id) return 'client';
   
-  const userRole = session.userRole?.toLowerCase();
+  const userRoles: string[] = user.roles || (user.role ? [user.role] : []);
+  const normalizedRoles = userRoles.map((r: string) => r?.toLowerCase());
   
-  if (userRole === 'superadmin') return 'superadmin';
-  if (userRole === 'master_agent') return 'master_agent';
-  if (userRole === 'admin') return 'admin';
-  if (userRole === 'finance_head') return 'finance_head';
-  if (userRole === 'compliance_officer') return 'compliance_officer';
-  if (userRole === 'partner') return 'partner';
-  if (userRole === 'agent') return 'agent';
-  if (userRole === 'ca') return 'ca';
+  if (normalizedRoles.includes('superadmin')) return 'superadmin';
+  if (normalizedRoles.includes('master_agent')) return 'master_agent';
+  if (normalizedRoles.includes('admin')) return 'admin';
+  if (normalizedRoles.includes('finance_head')) return 'finance_head';
+  if (normalizedRoles.includes('compliance_officer')) return 'compliance_officer';
+  if (normalizedRoles.includes('partner')) return 'partner';
+  if (normalizedRoles.includes('agent')) return 'agent';
+  if (normalizedRoles.includes('ca')) return 'ca';
   
   return 'client';
 }
