@@ -490,13 +490,13 @@ export default function AgentPayoutDashboard() {
                       </div>
                       <div>
                         <p className="font-medium">{formatCurrency(payout.amount)}</p>
-                        <p className="text-sm text-muted-foreground">Requested: {format(new Date(payout.requestDate), 'dd MMM yyyy')}</p>
+                        <p className="text-sm text-muted-foreground">Requested: {payout.requestDate && !isNaN(new Date(payout.requestDate).getTime()) ? format(new Date(payout.requestDate), 'dd MMM yyyy') : 'N/A'}</p>
                         <p className="text-xs text-muted-foreground">{payout.bankDetails}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <Badge className={getStatusBadge(payout.status)}>{payout.status}</Badge>
-                      {payout.processedDate && (
+                      {payout.processedDate && !isNaN(new Date(payout.processedDate).getTime()) && (
                         <p className="text-sm text-muted-foreground mt-1">
                           Processed: {format(new Date(payout.processedDate), 'dd MMM')}
                         </p>
