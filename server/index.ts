@@ -17,7 +17,48 @@ import { subdomainDetection } from "./subdomain-middleware";
 import { initializeCronJobs } from "./cron-jobs";
 import { requestContextMiddleware } from "./middleware/request-context";
 import { randomBytes } from "crypto";
+import fs from "fs";
+import path from "path";
 import "./services/sms-service"; // Initialize SMS service
+
+// Ensure static build is available for production deployments
+// Vite builds to dist/public, but serveStatic expects server/public
+function ensureStaticBuild(): void {
+  const isDeployment = process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
+  if (!isDeployment) return;
+
+  const sourcePath = path.resolve(import.meta.dirname, '..', 'dist', 'public');
+  const targetPath = path.resolve(import.meta.dirname, 'public');
+
+  // Check if source build exists
+  if (!fs.existsSync(sourcePath)) {
+    console.warn(`⚠️ Production build not found at ${sourcePath}. Frontend may not load.`);
+    return;
+  }
+
+  // If target already exists and is a symlink or directory, skip
+  if (fs.existsSync(targetPath)) {
+    console.log('✅ Static build directory already exists at server/public');
+    return;
+  }
+
+  try {
+    // Create symlink for efficiency (avoids copying large files)
+    fs.symlinkSync(sourcePath, targetPath, 'junction');
+    console.log('✅ Created symlink from dist/public to server/public for production');
+  } catch (symlinkError) {
+    // Fallback to copying if symlink fails (some platforms don't support it)
+    try {
+      fs.cpSync(sourcePath, targetPath, { recursive: true });
+      console.log('✅ Copied dist/public to server/public for production');
+    } catch (copyError) {
+      console.error('❌ Failed to prepare static build:', copyError);
+    }
+  }
+}
+
+// Run before server starts
+ensureStaticBuild();
 
 const app = express();
 
@@ -504,7 +545,9 @@ app.use((req, res, next) => {
 
   // Setup Vite BEFORE error handlers so it can serve the frontend
   // and its catch-all middleware doesn't conflict with API error handling
-  if (app.get("env") === "development") {
+  // Check both app.get("env") and REPLIT_DEPLOYMENT for production detection
+  const isDevelopmentMode = app.get("env") === "development" && process.env.REPLIT_DEPLOYMENT !== '1';
+  if (isDevelopmentMode) {
     await setupVite(app, server);
   } else {
     serveStatic(app);
