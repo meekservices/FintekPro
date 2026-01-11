@@ -148,19 +148,21 @@ export function EnhancedNavigation() {
   const isPremium = (user as any)?.kycLevel === 'enhanced' || (user as any)?.kycLevel === 'accredited';
   const isKycComplete = (user as any)?.kycStatus === 'verified' || (user as any)?.kycStatus === 'approved';
 
-  // Store sub-items with visibility rules for premium products
+  // Store sub-items organized by category
   const storeSubItems: NavigationSubItem[] = [
     // Premium products - only visible to premium users
     ...(isPremium ? [
       { name: "AIF", href: "/aif", description: "Alternative Investment Funds (₹1Cr min)", badge: "PREMIUM" },
       { name: "PMS", href: "/pms", description: "Portfolio Management Services (₹50L min)", badge: "ELITE" },
     ] : []),
-    // Regular products - visible to all
+    // Equity products
     { name: "Mutual Funds", href: "/mutual-funds", description: "Domestic & international funds" },
-    { name: "Bonds & NCDs", href: "/bonds", description: "Fixed income securities" },
-    { name: "MLDs", href: "/mlds", description: "Market Linked Debentures" },
     { name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings" },
     { name: "Unlisted Shares", href: "/unlisted", description: "Pre-IPO securities" },
+    // Fixed income
+    { name: "Bonds & NCDs", href: "/bonds", description: "Fixed income securities" },
+    { name: "MLDs", href: "/mlds", description: "Market Linked Debentures" },
+    // Insurance
     { name: "Insurance Hub", href: "/insurance", description: "Life, health, general insurance" }
   ];
 
@@ -364,12 +366,6 @@ export function EnhancedNavigation() {
           ]
         },
         {
-          name: "Calculators",
-          href: "/calculators",
-          icon: Calculator,
-          description: "SIP, EMI, Tax calculators"
-        },
-        {
           name: "Alerts & Reports",
           icon: Bell,
           description: "Notifications & automation",
@@ -385,6 +381,42 @@ export function EnhancedNavigation() {
           subItems: [
             { name: "Dashboard Layout", href: "/dashboard-customize", description: "Arrange widgets" },
             { name: "Theme Settings", href: "/theme-settings", description: "Appearance & accessibility" }
+          ]
+        }
+      ]
+    },
+
+    // ============ PILLAR 6: TOOLS ============
+    {
+      title: "Tools",
+      items: [
+        {
+          name: "Calculators",
+          icon: Calculator,
+          description: "Financial calculators",
+          subItems: [
+            { name: "SIP Calculator", href: "/calculators?type=sip", description: "Plan your SIP investments" },
+            { name: "EMI Calculator", href: "/calculators?type=emi", description: "Loan EMI planning" },
+            { name: "Retirement Planner", href: "/calculators?type=retirement", description: "Plan your retirement corpus" },
+            { name: "Tax Calculator", href: "/calculators?type=tax", description: "Estimate tax liability" },
+            { name: "All Calculators", href: "/calculators", description: "View all tools" }
+          ]
+        }
+      ]
+    },
+
+    // ============ PILLAR 7: HELP & SUPPORT ============
+    {
+      title: "Help",
+      items: [
+        {
+          name: "Support",
+          icon: HelpCircle,
+          description: "Get help",
+          subItems: [
+            { name: "FAQs", href: "/help/faqs", description: "Frequently asked questions" },
+            { name: "Contact Support", href: "/help/contact", description: "Reach our support team" },
+            { name: "Book CA Consultation", href: "/tax/ca-desk", description: "Expert tax assistance" }
           ]
         }
       ]
