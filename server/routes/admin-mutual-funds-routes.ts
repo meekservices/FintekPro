@@ -739,6 +739,63 @@ router.put("/amcs/:id/toggle", async (req: Request, res: Response) => {
   }
 });
 
+// Batch toggle AMCs (bulk enable/disable multiple AMCs)
+router.put("/amcs/batch-toggle", async (req: Request, res: Response) => {
+  try {
+    const { amcIds, regularPlansEnabled, adminId } = req.body;
+    
+    if (!amcIds || !Array.isArray(amcIds) || amcIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'amcIds array is required' });
+    }
+    
+    const publishedAt = regularPlansEnabled ? new Date() : null;
+    let updatedCount = 0;
+    const updatedAmcNames: string[] = [];
+    
+    // Process each AMC
+    for (const amcId of amcIds) {
+      const [amc] = await db.select().from(mutualFundAmcs).where(eq(mutualFundAmcs.id, amcId));
+      if (!amc) continue;
+      
+      // Update all Regular schemes from this AMC
+      await db.update(mutualFunds)
+        .set({
+          isPublished: regularPlansEnabled,
+          publishedAt: publishedAt,
+          publishedBy: regularPlansEnabled ? adminId : null,
+        })
+        .where(and(
+          eq(mutualFunds.fundHouse, amc.name),
+          eq(mutualFunds.planType, 'regular')
+        ));
+      
+      // Update AMC toggle status
+      await db.update(mutualFundAmcs)
+        .set({
+          regularPlansEnabled,
+          lastToggledAt: new Date(),
+          lastToggledBy: adminId,
+          updatedAt: new Date(),
+        })
+        .where(eq(mutualFundAmcs.id, amcId));
+      
+      updatedCount++;
+      updatedAmcNames.push(amc.name);
+    }
+    
+    console.log(`[Admin MF] Batch ${regularPlansEnabled ? 'ENABLED' : 'DISABLED'} ${updatedCount} AMCs by ${adminId}: ${updatedAmcNames.join(', ')}`);
+    
+    res.json({ 
+      success: true, 
+      updatedCount,
+      message: `${regularPlansEnabled ? 'Enabled' : 'Disabled'} ${updatedCount} AMC(s) successfully`
+    });
+  } catch (error: any) {
+    console.error("[Admin MF] Error batch toggling AMCs:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Get schemes for a specific AMC (Regular plans only)
 router.get("/amcs/:id/schemes", async (req: Request, res: Response) => {
   try {
