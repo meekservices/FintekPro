@@ -11787,7 +11787,7 @@ export const insertAutoPopulationStatusSchema = createInsertSchema(autoPopulatio
 export type AutoPopulationStatus = typeof autoPopulationStatus.$inferSelect;
 export type InsertAutoPopulationStatus = z.infer<typeof insertAutoPopulationStatusSchema>;
 
-// Marketing Campaigns - Email and WhatsApp campaigns using Zoho and AiSensy
+// Marketing Campaigns - Email and WhatsApp campaigns using Zoho and Twilio
 export const marketingCampaigns = pgTable("marketing_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
@@ -11798,7 +11798,7 @@ export const marketingCampaigns = pgTable("marketing_campaigns", {
   
   // Channel specific IDs
   zohoCampaignId: varchar("zoho_campaign_id"), // Zoho Campaigns API campaign ID
-  aisensyBroadcastId: varchar("aisensy_broadcast_id"), // AiSensy broadcast ID
+  aisensyBroadcastId: varchar("aisensy_broadcast_id"), // Legacy: was AiSensy, now using Twilio for WhatsApp
   
   // Status
   status: varchar("status").notNull().default("draft"), // draft/scheduled/sending/sent/failed/cancelled

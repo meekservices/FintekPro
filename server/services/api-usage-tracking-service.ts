@@ -48,11 +48,10 @@ const DEFAULT_PROVIDERS: ProviderPricing[] = [
   { providerName: 'truthscreen', displayName: 'Truthscreen/AuthBridge', description: 'Aadhaar verification, CKYC, eSign', costPerCall: 3 },
   { providerName: 'cashfree', displayName: 'Cashfree', description: 'Payments, Payouts, Verification', costPerCall: 2 },
   { providerName: 'phonepe', displayName: 'PhonePe', description: 'Payment gateway', costPerCall: 0 },
-  { providerName: 'twilio', displayName: 'Twilio', description: 'SMS OTP', costPerCall: 0.5 },
+  { providerName: 'twilio', displayName: 'Twilio', description: 'SMS & WhatsApp messaging', costPerCall: 0.5 },
   { providerName: 'probe42', displayName: 'Probe42', description: 'Company analytics', costPerCall: 5 },
   { providerName: 'gemini', displayName: 'Google Gemini', description: 'AI features', costPerCall: 0.01 },
   { providerName: 'zoho', displayName: 'Zoho', description: 'Email campaigns, Books', costPerCall: 0 },
-  { providerName: 'aisensy', displayName: 'AiSensy', description: 'WhatsApp messaging', costPerCall: 0.5 },
 ];
 
 class ApiUsageTrackingService {

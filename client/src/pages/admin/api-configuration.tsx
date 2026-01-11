@@ -187,11 +187,10 @@ export default function APIConfiguration() {
       sandbox: ['PAN Verification', 'ITR Filing', 'Bank Statement Analysis', 'GST Verification', 'EPFO Verification'],
       phonepe: ['UPI Payments', 'QR Payments', 'Subscriptions', 'Refunds'],
       gemini: ['AI Chat Assistant', 'Expense Categorization', 'Financial Insights', 'Document Analysis'],
-      twilio: ['SMS OTP', 'Bulk SMS', 'Two-Factor Authentication', 'Notification Delivery'],
+      twilio: ['SMS OTP', 'Bulk SMS', 'WhatsApp Business API', 'Two-Factor Authentication', 'Notification Delivery'],
       email: ['Email OTP', 'Transaction Alerts', 'Marketing Emails', 'Report Delivery'],
       probe42: ['Company Search', 'Financial Data', 'Director Information', 'Compliance Check'],
       zoho: ['Email Campaigns', 'Lead Nurturing', 'Automation Workflows', 'Analytics'],
-      aisensy: ['WhatsApp Business API', 'Template Messages', 'Broadcast Campaigns', 'Chatbot Integration'],
       alphavantage: ['Stock Prices', 'Historical Data', 'Technical Indicators', 'Forex Rates'],
       openai: ['GPT-4 Chat', 'Text Generation', 'Code Assistance', 'Analysis']
     };
@@ -204,11 +203,10 @@ export default function APIConfiguration() {
       sandbox: ['Verify user PAN details', 'Fetch ITR data for loan eligibility', 'Verify bank account ownership'],
       phonepe: ['Accept UPI payments', 'Generate dynamic QR codes', 'Process recurring payments'],
       gemini: ['Power AI chat assistant', 'Auto-categorize expenses', 'Generate financial insights'],
-      twilio: ['Send OTP for authentication', 'Deliver transaction notifications', 'Enable 2FA for security'],
+      twilio: ['Send OTP for authentication', 'Send WhatsApp notifications', 'Customer support via WhatsApp', 'Deliver transaction notifications', 'Enable 2FA for security'],
       email: ['Send verification emails', 'Deliver statements and reports', 'Password reset flows'],
       probe42: ['Verify company existence', 'Fetch financial statements', 'Director due diligence'],
       zoho: ['Run email marketing campaigns', 'Nurture leads automatically', 'Track campaign performance'],
-      aisensy: ['Send WhatsApp notifications', 'Customer support via WhatsApp', 'Broadcast promotions'],
       alphavantage: ['Display real-time stock prices', 'Show historical charts', 'Calculate technical indicators'],
       openai: ['Advanced AI conversations', 'Code generation help', 'Document summarization']
     };
