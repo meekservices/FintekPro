@@ -543,6 +543,14 @@ app.use((req, res, next) => {
   registerRoleRoutes(app);
   const server = await registerRoutes(app);
 
+  // Register API 404 handler BEFORE static file serving
+  // This ensures unmatched API routes get proper JSON 404 responses
+  // and don't fall through to the SPA catch-all
+  const { apiResponse } = await import('./utils/responses');
+  app.use('/api/*', (req, res) => {
+    apiResponse.notFound(res, `Route ${req.method} ${req.path} not found`);
+  });
+
   // Setup Vite BEFORE error handlers so it can serve the frontend
   // and its catch-all middleware doesn't conflict with API error handling
   // Check both app.get("env") and REPLIT_DEPLOYMENT for production detection

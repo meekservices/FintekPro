@@ -89,6 +89,7 @@ export function errorHandler(
 /**
  * Not found handler middleware
  * Handles 404 errors for undefined routes
+ * Note: Non-API routes should be handled by SPA fallback before reaching this
  */
 export function notFoundHandler(
   req: Request,
