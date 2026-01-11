@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,7 +70,46 @@ interface QueryLogEntry {
 
 export default function McaIntelligence() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Handle payment callback query params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    const amount = params.get('amount');
+    const message = params.get('message');
+    
+    if (payment) {
+      if (payment === 'success') {
+        toast({ 
+          title: 'Payment Successful', 
+          description: amount ? `Wallet credited with ₹${amount}` : 'Wallet has been recharged',
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/mca/wallet'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/mca/dashboard'] });
+      } else if (payment === 'failed') {
+        toast({ 
+          title: 'Payment Failed', 
+          description: message || 'Payment was not completed',
+          variant: 'destructive',
+        });
+      } else if (payment === 'pending') {
+        toast({ 
+          title: 'Payment Pending', 
+          description: 'Your payment is being processed. It will be credited shortly.',
+        });
+      } else if (payment === 'error') {
+        toast({ 
+          title: 'Payment Error', 
+          description: message || 'An error occurred during payment',
+          variant: 'destructive',
+        });
+      }
+      // Clear query params
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [toast]);
   
   // Query Console State
   const [queryType, setQueryType] = useState('company_lookup');
@@ -180,20 +220,30 @@ export default function McaIntelligence() {
     },
   });
 
-  // Wallet Recharge Mutation
+  // Wallet Recharge Mutation - initiates Cashfree payment
   const rechargeMutation = useMutation({
     mutationFn: async (amount: number) => {
-      return await apiRequest('/api/mca/wallet/recharge', {
+      return await apiRequest('/api/mca/wallet/recharge/initiate', {
         method: 'POST',
         body: JSON.stringify({ amount }),
       });
     },
     onSuccess: (data) => {
-      if (data.success) {
-        toast({ title: 'Wallet recharged', description: data.message });
+      if (data.success && data.data?.paymentUrl) {
+        toast({ 
+          title: 'Redirecting to payment...', 
+          description: `Amount: ₹${data.data.amount}`,
+        });
         setShowRechargeDialog(false);
         setRechargeAmount('');
-        queryClient.invalidateQueries({ queryKey: ['/api/mca/wallet'] });
+        // Redirect to Cashfree payment page
+        window.location.href = data.data.paymentUrl;
+      } else {
+        toast({ 
+          title: 'Payment initiation failed', 
+          description: data.error || 'Could not create payment order',
+          variant: 'destructive',
+        });
       }
     },
     onError: (error: any) => {

@@ -928,6 +928,33 @@ class McaIntelligenceService {
   }
 
   /**
+   * Atomically mark payment as success (only if currently pending)
+   * Returns true if the transition occurred, false if already processed
+   * This prevents race conditions in concurrent callback/status requests
+   */
+  async markPaymentSuccessIfPending(orderId: string, update: {
+    transactionId?: string;
+    paymentMethod?: string;
+  }): Promise<boolean> {
+    const result = await db.update(mcaWalletPayments)
+      .set({
+        status: 'success',
+        transactionId: update.transactionId,
+        paymentMethod: update.paymentMethod,
+        creditedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(mcaWalletPayments.orderId, orderId),
+        eq(mcaWalletPayments.status, 'pending')
+      ))
+      .returning();
+    
+    // Returns true only if we successfully transitioned from pending to success
+    return result.length > 0;
+  }
+
+  /**
    * Get recent wallet payments
    */
   async getRecentWalletPayments(limit: number = 10): Promise<McaWalletPayment[]> {

@@ -373,6 +373,7 @@ router.post('/wallet/recharge/initiate', requireMcaAccess('full'), async (req: R
 /**
  * GET /api/mca/wallet/recharge/callback
  * Cashfree payment callback - verify and credit wallet
+ * Uses idempotent credit to prevent race conditions
  */
 router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
   const { order_id } = req.query;
@@ -390,8 +391,9 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
       return res.redirect('/admin/mca-intelligence?payment=error&message=Payment not found');
     }
 
-    // Already processed?
+    // Already processed? (idempotency check)
     if (payment.status === 'success') {
+      console.log('[MCA Routes] Payment already credited, skipping:', order_id);
       return res.redirect('/admin/mca-intelligence?payment=success&message=Already credited');
     }
 
@@ -400,45 +402,49 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
     console.log('[MCA Routes] Cashfree order status:', orderStatus);
 
     if (orderStatus.orderStatus === 'PAID') {
-      // Credit wallet
-      const amount = parseFloat(payment.amount);
-      await mcaIntelligenceService.updateWalletBalance(amount, 'recharge');
-
-      // Update payment record
-      await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
-        status: 'success',
+      // Atomically try to mark payment as success (only succeeds if status was 'pending')
+      // This prevents race conditions - only one concurrent request can win
+      const wasUpdated = await mcaIntelligenceService.markPaymentSuccessIfPending(order_id, {
         transactionId: orderStatus.transactionId,
         paymentMethod: orderStatus.paymentMethod,
-        creditedAt: new Date(),
       });
 
-      // Create Zoho expense bill for MCA API credits (operational expense)
-      try {
-        const zohoService = await getZohoBooksService();
-        if (zohoService) {
-          const expense = await zohoService.createExpense({
-            account_name: 'MCA API Credits',
-            amount: amount,
-            date: new Date().toISOString().split('T')[0],
-            description: `MCA wallet recharge - Order: ${order_id}`,
-            reference_number: order_id,
-          });
-          
-          if (expense?.expense_id) {
-            await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
-              status: 'success',
-              zohoExpenseId: expense.expense_id,
-            });
-            console.log('[MCA Routes] Zoho expense created:', expense.expense_id);
-          }
-        }
-      } catch (zohoError: any) {
-        console.error('[MCA Routes] Zoho expense creation failed:', zohoError.message);
-        // Don't fail the payment - just log the error
-      }
+      if (wasUpdated) {
+        // We successfully transitioned from pending to success, now credit wallet
+        const amount = parseFloat(payment.amount);
+        await mcaIntelligenceService.updateWalletBalance(amount, 'recharge');
+        console.log('[MCA Routes] Wallet credited:', { order_id, amount });
 
-      console.log('[MCA Routes] Wallet credited:', { order_id, amount });
-      return res.redirect('/admin/mca-intelligence?payment=success&amount=' + amount);
+        // Create Zoho expense bill for MCA API credits (operational expense)
+        try {
+          const zohoService = await getZohoBooksService();
+          if (zohoService) {
+            const expense = await zohoService.createExpense({
+              account_name: 'MCA API Credits',
+              amount: amount,
+              date: new Date().toISOString().split('T')[0],
+              description: `MCA wallet recharge - Order: ${order_id}`,
+              reference_number: order_id,
+            });
+            
+            if (expense?.expense_id) {
+              await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
+                status: 'success',
+                zohoExpenseId: expense.expense_id,
+              });
+              console.log('[MCA Routes] Zoho expense created:', expense.expense_id);
+            }
+          }
+        } catch (zohoError: any) {
+          console.error('[MCA Routes] Zoho expense creation failed:', zohoError.message);
+        }
+
+        return res.redirect('/admin/mca-intelligence?payment=success&amount=' + amount);
+      } else {
+        // Another request already processed this payment
+        console.log('[MCA Routes] Payment already credited by concurrent request:', order_id);
+        return res.redirect('/admin/mca-intelligence?payment=success&message=Already credited');
+      }
     } else if (orderStatus.orderStatus === 'FAILED' || orderStatus.orderStatus === 'CANCELLED') {
       await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
         status: 'failed',
@@ -446,7 +452,6 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
       });
       return res.redirect('/admin/mca-intelligence?payment=failed&message=' + orderStatus.orderStatus);
     } else {
-      // Still pending
       return res.redirect('/admin/mca-intelligence?payment=pending&order_id=' + order_id);
     }
   } catch (error: any) {
@@ -457,7 +462,8 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
 
 /**
  * GET /api/mca/wallet/payments/:orderId
- * Check payment status
+ * Check payment status (read-only, does not credit wallet)
+ * Credit only happens via callback endpoint to prevent race conditions
  */
 router.get('/wallet/payments/:orderId', requireMcaAccess('read'), async (req: Request, res: Response) => {
   try {
@@ -471,24 +477,29 @@ router.get('/wallet/payments/:orderId', requireMcaAccess('read'), async (req: Re
       });
     }
 
-    // If still pending, check with Cashfree
+    // If still pending, check with Cashfree (but don't credit here)
     if (payment.status === 'pending') {
       try {
         const orderStatus = await cashfreeService.getOrderStatus(orderId);
-        if (orderStatus.orderStatus === 'PAID' && payment.status !== 'success') {
-          // Process the payment
-          const amount = parseFloat(payment.amount);
-          await mcaIntelligenceService.updateWalletBalance(amount, 'recharge');
-          await mcaIntelligenceService.updateWalletPaymentStatus(orderId, {
-            status: 'success',
-            transactionId: orderStatus.transactionId,
-            paymentMethod: orderStatus.paymentMethod,
-            creditedAt: new Date(),
-          });
-          
+        if (orderStatus.orderStatus === 'PAID') {
+          // Return the updated status info, but crediting happens via callback
           return res.json({
             success: true,
-            data: { ...payment, status: 'success' },
+            data: { 
+              ...payment, 
+              cashfreeStatus: 'PAID',
+              message: 'Payment successful - wallet will be credited shortly'
+            },
+          });
+        } else if (orderStatus.orderStatus === 'FAILED' || orderStatus.orderStatus === 'CANCELLED') {
+          // Safe to update failed status
+          await mcaIntelligenceService.updateWalletPaymentStatus(orderId, {
+            status: 'failed',
+            failureReason: orderStatus.orderStatus,
+          });
+          return res.json({
+            success: true,
+            data: { ...payment, status: 'failed', failureReason: orderStatus.orderStatus },
           });
         }
       } catch (e) {
